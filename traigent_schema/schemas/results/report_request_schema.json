@@ -1,0 +1,277 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Report Request Schema",
+  "description": "Schema for report generation requests in the Traigent platform",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this report request",
+      "x-identifier": true
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for the report"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the report"
+    },
+    "report_type": {
+      "type": "string",
+      "enum": [
+        "experiment_summary",
+        "configuration_comparison",
+        "evaluation_results",
+        "optimization_analysis",
+        "parameter_sensitivity",
+        "custom"
+      ],
+      "description": "Type of report to generate"
+    },
+    "data_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["experiment"],
+                "description": "Data source type"
+              },
+              "experiment_id": {
+                "type": "string",
+                "description": "ID of the experiment",
+                "x-reference": true
+              }
+            },
+            "required": ["type", "experiment_id"],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["experiment_run"],
+                "description": "Data source type"
+              },
+              "experiment_id": {
+                "type": "string",
+                "description": "ID of the experiment",
+                "x-reference": true
+              },
+              "run_id": {
+                "type": "string",
+                "description": "ID of the experiment run",
+                "x-reference": true
+              }
+            },
+            "required": ["type", "experiment_id", "run_id"],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["comparison"],
+                "description": "Data source type"
+              },
+              "comparison_id": {
+                "type": "string",
+                "description": "ID of the comparison",
+                "x-reference": true
+              }
+            },
+            "required": ["type", "comparison_id"],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["evaluation"],
+                "description": "Data source type"
+              },
+              "evaluation_id": {
+                "type": "string",
+                "description": "ID of the evaluation",
+                "x-reference": true
+              }
+            },
+            "required": ["type", "evaluation_id"],
+            "additionalProperties": false
+          },
+          {
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["visualization"],
+                "description": "Data source type"
+              },
+              "visualization_id": {
+                "type": "string",
+                "description": "ID of the visualization",
+                "x-reference": true
+              }
+            },
+            "required": ["type", "visualization_id"],
+            "additionalProperties": false
+          }
+        ],
+        "description": "Source of data for a section of the report"
+      },
+      "description": "Sources of data for the report"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title of the section"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detailed_analysis",
+              "visualizations",
+              "metrics_table",
+              "parameter_analysis",
+              "recommendations",
+              "custom"
+            ],
+            "description": "Type of content for this section"
+          },
+          "data_source_index": {
+            "type": "integer",
+            "description": "Index into the data_sources array for this section's data"
+          },
+          "include_visualizations": {
+            "type": "boolean",
+            "description": "Whether to include visualizations in this section",
+            "default": true
+          },
+          "include_tables": {
+            "type": "boolean",
+            "description": "Whether to include data tables in this section",
+            "default": true
+          },
+          "include_insights": {
+            "type": "boolean",
+            "description": "Whether to include automated insights in this section",
+            "default": true
+          },
+          "options": {
+            "type": "object",
+            "description": "Additional options specific to this section type",
+            "additionalProperties": true
+          }
+        },
+        "required": ["title", "content_type"],
+        "additionalProperties": false
+      },
+      "description": "Sections to include in the report"
+    },
+    "format_options": {
+      "type": "object",
+      "properties": {
+        "primary_format": {
+          "type": "string",
+          "enum": ["pdf", "html", "json"],
+          "default": "pdf",
+          "description": "Primary output format for the report"
+        },
+        "additional_formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["pdf", "html", "json"]
+          },
+          "description": "Additional output formats to generate"
+        },
+        "include_cover_page": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include a cover page"
+        },
+        "include_table_of_contents": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include a table of contents"
+        },
+        "include_executive_summary": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include an executive summary"
+        },
+        "include_appendices": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to include appendices with additional details"
+        },
+        "template_id": {
+          "type": "string",
+          "description": "ID of a template to use for formatting"
+        },
+        "branding": {
+          "type": "object",
+          "properties": {
+            "logo_url": {
+              "type": "string",
+              "description": "URL to a logo image"
+            },
+            "primary_color": {
+              "type": "string",
+              "description": "Primary color for branding elements (hex code)"
+            },
+            "secondary_color": {
+              "type": "string",
+              "description": "Secondary color for branding elements (hex code)"
+            },
+            "organization_name": {
+              "type": "string",
+              "description": "Organization name to include in the report"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Branding options for the report"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Formatting options for the report"
+    },
+    "callback_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to call when the report is complete"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "normal", "high"],
+      "default": "normal",
+      "description": "Priority of the report generation task"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this request was created"
+    },
+    "expiration": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this report should expire and be deleted"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Additional metadata for the report request"
+    }
+  },
+  "required": ["id", "report_type", "data_sources", "created_at"],
+  "additionalProperties": false
+} 

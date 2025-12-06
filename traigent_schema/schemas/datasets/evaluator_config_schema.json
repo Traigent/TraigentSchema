@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Evaluator Configuration Schema",
+  "description": "Defines the configuration for evaluating model outputs and measuring performance",
+  "version": "1.0.0",
+  "definitions": {
+    "AgentType": {
+      "$ref": "./agent_types_schema.json#/definitions/AgentType"
+    },
+    "ContextType": {
+      "type": "string",
+      "enum": [
+        "text",
+        "code",
+        "conversation",
+        "structured",
+        "mixed",
+        "markdown"
+      ],
+      "description": "Types of context for evaluation:\n- text: Plain text context\n- code: Programming code context\n- conversation: Conversational context\n- structured: Structured data context\n- mixed: Multiple context types"
+    },
+    "ContextSource": {
+      "type": "string",
+      "enum": [
+        "custom",
+        "dataset",
+        "api",
+        "file",
+        "generated"
+      ],
+      "description": "Sources of evaluation context:\n- custom: User-provided context\n- dataset: From a dataset\n- api: From an external API\n- file: From a file\n- generated: Automatically generated"
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this evaluator configuration",
+      "x-identifier": true
+    },
+    "evaluation_set_id": {
+      "type": "string",
+      "description": "Reference to the evaluation set this evaluator is associated with",
+      "x-reference": true
+    },
+    "model_parameters_id": {
+      "type": "string",
+      "description": "Reference to the model parameters configuration",
+      "x-reference": true
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Detailed instructions guiding the evaluation process"
+    },
+    "context_type": {
+      "$ref": "#/definitions/ContextType",
+      "description": "Type of context used in evaluation"
+    },
+    "context_source": {
+      "$ref": "#/definitions/ContextSource",
+      "description": "Source of the evaluation context"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when this configuration was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the last modification to this configuration"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the evaluator configuration",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for categorizing and filtering configurations"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the evaluator configuration",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "id",
+    "evaluation_set_id",
+    "model_parameters_id",
+    "instructions",
+    "context_type",
+    "context_source"
+  ],
+  "additionalProperties": false
+}

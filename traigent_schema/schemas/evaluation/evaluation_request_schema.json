@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Evaluation Request Schema",
+  "description": "Schema for creating new evaluation requests in the Traigent platform",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the evaluation request"
+    },
+    "configuration_id": {
+      "type": "string",
+      "description": "Reference to the ID of the configuration to evaluate",
+      "x-reference": true
+    },
+    "experiment_run_id": {
+      "type": "string",
+      "description": "Reference to the ID of the experiment run the configuration belongs to",
+      "x-reference": true
+    },
+    "experiment_id": {
+      "type": "string",
+      "description": "Reference to the ID of the experiment",
+      "x-reference": true
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Reference to a metric ID (from measure_schema.json)",
+        "x-reference": true
+      },
+      "description": "List of metric IDs to apply in this evaluation (optional, will use metrics from experiment configuration if not provided)"
+    }
+  },
+  "required": ["id", "configuration_id", "experiment_run_id", "experiment_id"],
+  "additionalProperties": false
+} 

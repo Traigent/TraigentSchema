@@ -1,0 +1,233 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Dataset Storage Schema",
+  "description": "Defines the structure for storing encrypted datasets in SaaS execution mode with multi-tenant isolation",
+  "version": "1.0.0",
+  "definitions": {
+    "StorageLocation": {
+      "type": "object",
+      "description": "Storage location information for the dataset",
+      "properties": {
+        "storage_type": {
+          "type": "string",
+          "enum": ["s3", "azure_blob", "gcs", "local"],
+          "description": "Type of storage backend"
+        },
+        "bucket": {
+          "type": "string",
+          "description": "Storage bucket or container name"
+        },
+        "key": {
+          "type": "string",
+          "description": "Object key or path within the bucket"
+        },
+        "region": {
+          "type": "string",
+          "description": "Storage region for cloud providers"
+        },
+        "endpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "Custom endpoint for S3-compatible storage"
+        }
+      },
+      "required": ["storage_type", "bucket", "key"],
+      "additionalProperties": false
+    },
+    "EncryptionInfo": {
+      "type": "object",
+      "description": "Encryption details for the stored dataset",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["AES-256-GCM", "AES-256-CBC"],
+          "default": "AES-256-GCM",
+          "description": "Encryption algorithm used"
+        },
+        "key_id": {
+          "type": "string",
+          "description": "Reference to the encryption key in key management system"
+        },
+        "iv": {
+          "type": "string",
+          "description": "Base64-encoded initialization vector"
+        },
+        "auth_tag": {
+          "type": "string",
+          "description": "Base64-encoded authentication tag (for GCM mode)"
+        },
+        "encrypted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of encryption"
+        }
+      },
+      "required": ["algorithm", "key_id", "iv", "encrypted_at"],
+      "additionalProperties": false
+    },
+    "DatasetMetadata": {
+      "type": "object",
+      "description": "Metadata about the stored dataset",
+      "properties": {
+        "original_filename": {
+          "type": "string",
+          "description": "Original filename before upload"
+        },
+        "content_type": {
+          "type": "string",
+          "description": "MIME type of the dataset"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size of the encrypted dataset in bytes"
+        },
+        "original_size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size of the original dataset before encryption"
+        },
+        "checksum": {
+          "type": "string",
+          "description": "SHA256 checksum of the encrypted data"
+        },
+        "original_checksum": {
+          "type": "string",
+          "description": "SHA256 checksum of the original data"
+        },
+        "compression": {
+          "type": "string",
+          "enum": ["none", "gzip", "zstd"],
+          "default": "none",
+          "description": "Compression applied before encryption"
+        }
+      },
+      "required": ["content_type", "size_bytes", "checksum"],
+      "additionalProperties": false
+    },
+    "AccessControl": {
+      "type": "object",
+      "description": "Access control settings for the dataset",
+      "properties": {
+        "owner_id": {
+          "type": "string",
+          "description": "User ID of the dataset owner"
+        },
+        "shared_with": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of user IDs with access to this dataset"
+        },
+        "access_expiry": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when access expires"
+        },
+        "read_count": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Number of times dataset has been accessed"
+        },
+        "last_accessed": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of last access"
+        }
+      },
+      "required": ["owner_id"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this stored dataset",
+      "x-identifier": true
+    },
+    "dataset_id": {
+      "type": "string",
+      "description": "Reference to the logical dataset (evaluation set)",
+      "x-reference": "../datasets/evaluation_set_schema.json#/properties/id"
+    },
+    "customer_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Customer identifier for multi-tenant isolation"
+    },
+    "experiment_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Reference to the experiment using this dataset",
+      "x-reference": "../evaluation/experiment_schema.json#/properties/id"
+    },
+    "storage_location": {
+      "$ref": "#/definitions/StorageLocation",
+      "description": "Where the encrypted dataset is stored"
+    },
+    "encryption_info": {
+      "$ref": "#/definitions/EncryptionInfo",
+      "description": "Encryption details for data security"
+    },
+    "metadata": {
+      "$ref": "#/definitions/DatasetMetadata",
+      "description": "Metadata about the stored dataset"
+    },
+    "access_control": {
+      "$ref": "#/definitions/AccessControl",
+      "description": "Access control settings"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["uploading", "available", "processing", "deleting", "deleted", "failed"],
+      "description": "Current status of the stored dataset"
+    },
+    "error_message": {
+      "type": ["string", "null"],
+      "description": "Error message if storage failed"
+    },
+    "retention_policy": {
+      "type": "object",
+      "properties": {
+        "delete_after": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp for automatic deletion"
+        },
+        "delete_on_experiment_completion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to delete after experiment completes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of creation"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last update"
+    }
+  },
+  "required": [
+    "id",
+    "dataset_id",
+    "customer_id",
+    "experiment_id",
+    "storage_location",
+    "encryption_info",
+    "metadata",
+    "access_control",
+    "status",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

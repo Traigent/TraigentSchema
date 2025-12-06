@@ -1,0 +1,158 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent API",
+    "version": "1.0.0",
+    "description": "API for optimizing and evaluating AI agents"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check endpoint",
+        "description": "Check the health of the API service",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthCheckResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Service is unhealthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "summary": "API documentation",
+        "description": "Get interactive API documentation (Swagger UI)",
+        "operationId": "getApiDocs",
+        "responses": {
+          "200": {
+            "description": "API documentation served successfully"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "HealthCheckResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "./status_schema.json#/definitions/HealthStatus",
+            "description": "Overall health status of the service"
+          },
+          "version": {
+            "type": "string",
+            "description": "Service version"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time when the health check was performed"
+          },
+          "components": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                    "status": {
+                  "$ref": "./status_schema.json#/definitions/HealthStatus",
+                  "description": "Health status of this component"
+                },
+                "details": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "Additional component-specific health details"
+                }
+              },
+              "required": ["status"]
+            },
+            "description": "Health status of individual components (database, cache, etc.)"
+          },
+          "uptime": {
+            "type": "number",
+            "description": "Service uptime in seconds"
+          }
+        },
+        "required": ["status", "version", "timestamp"],
+        "additionalProperties": false
+      },
+      "ServiceStatus": {
+        "$ref": "../status_schema.json#/definitions/RequestProcessingStatus"
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "Additional API Documentation",
+    "url": "https://traigent-docs.example.com"
+  },
+  "x-endpoint-modules": [
+    {
+      "name": "Agents",
+      "description": "Endpoints for managing, deploying, testing, and controlling AI agents",
+      "paths_file": "./agents/agents_endpoints.json"
+    },
+    {
+      "name": "Evaluation Sets",
+      "description": "Endpoints for managing evaluation sets, including generation and evaluation configurations",
+      "paths_file": "./datasets/evaluation_sets_endpoints.json"
+    },
+    {
+      "name": "Measures",
+      "description": "Endpoints for managing measures and evaluators for experiment evaluation",
+      "paths_file": "./measures/measures_endpoints.json"
+    },
+    {
+      "name": "Evaluation",
+      "description": "Endpoints for evaluating and comparing experiment configurations",
+      "paths_file": "./evaluation/evaluation_endpoints.json"
+    },
+    {
+      "name": "Execution",
+      "description": "Endpoints for executing and managing experiment runs",
+      "paths_file": "./execution/execution_endpoints.json"
+    },
+    {
+      "name": "Results",
+      "description": "Endpoints for retrieving and analyzing experiment results",
+      "paths_file": "./results/results_endpoints.json"
+    }
+  ]
+}

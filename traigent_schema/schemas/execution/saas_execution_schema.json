@@ -1,0 +1,318 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "SaaS Execution Schema",
+  "description": "Defines the execution configuration for SaaS mode where backend runs the entire experiment with uploaded datasets",
+  "version": "1.0.0",
+  "definitions": {
+    "ExecutionEnvironment": {
+      "type": "object",
+      "description": "Execution environment configuration",
+      "properties": {
+        "isolation_type": {
+          "type": "string",
+          "enum": ["docker", "process", "vm"],
+          "default": "docker",
+          "description": "Type of execution isolation:\n- docker: Container-based isolation\n- process: Process-level isolation\n- vm: Virtual machine isolation"
+        },
+        "container_image": {
+          "type": "string",
+          "description": "Docker image to use (when isolation_type is docker)"
+        },
+        "python_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
+          "description": "Python version requirement"
+        },
+        "environment_variables": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables to set"
+        },
+        "working_directory": {
+          "type": "string",
+          "description": "Working directory for execution"
+        }
+      },
+      "required": ["isolation_type"],
+      "additionalProperties": false
+    },
+    "ResourceLimits": {
+      "type": "object",
+      "description": "Resource limits for execution",
+      "properties": {
+        "max_runtime_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400,
+          "default": 3600,
+          "description": "Maximum runtime in seconds (default: 1 hour, max: 24 hours)"
+        },
+        "max_memory_mb": {
+          "type": "integer",
+          "minimum": 128,
+          "maximum": 65536,
+          "default": 4096,
+          "description": "Maximum memory in megabytes (default: 4GB, max: 64GB)"
+        },
+        "max_cpu_cores": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 32,
+          "default": 2,
+          "description": "Maximum CPU cores (can be fractional)"
+        },
+        "max_disk_gb": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 10,
+          "description": "Maximum disk space in gigabytes"
+        },
+        "network_access": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to allow network access"
+        },
+        "gpu_access": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "gpu_type": {
+              "type": "string",
+              "description": "Type of GPU required"
+            },
+            "gpu_count": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExecutionPolicy": {
+      "type": "object",
+      "description": "Policies governing the execution",
+      "properties": {
+        "retry_on_failure": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to retry on transient failures"
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 3,
+          "description": "Maximum number of retry attempts"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "normal", "high", "critical"],
+          "default": "normal",
+          "description": "Execution priority in the queue"
+        },
+        "allow_partial_results": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to save partial results on failure"
+        },
+        "cleanup_on_completion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to clean up resources after completion"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SecuritySettings": {
+      "type": "object",
+      "description": "Security settings for execution",
+      "properties": {
+        "enable_monitoring": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable execution monitoring and logging"
+        },
+        "allowed_commands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Whitelist of allowed system commands"
+        },
+        "blocked_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Python modules to block from import"
+        },
+        "secure_mode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable additional security restrictions"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this execution configuration",
+      "x-identifier": true
+    },
+    "experiment_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Reference to the experiment being executed",
+      "x-reference": "../evaluation/experiment_schema.json#/properties/id"
+    },
+    "dataset_storage_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Reference to the stored dataset",
+      "x-reference": "./dataset_storage_schema.json#/properties/id"
+    },
+    "customer_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Customer identifier for multi-tenant isolation"
+    },
+    "execution_environment": {
+      "$ref": "#/definitions/ExecutionEnvironment",
+      "description": "Environment configuration for execution"
+    },
+    "resource_limits": {
+      "$ref": "#/definitions/ResourceLimits",
+      "description": "Resource constraints for the execution"
+    },
+    "execution_policy": {
+      "$ref": "#/definitions/ExecutionPolicy",
+      "description": "Policies governing execution behavior"
+    },
+    "security_settings": {
+      "$ref": "#/definitions/SecuritySettings",
+      "description": "Security configuration for safe execution"
+    },
+    "agent_configuration": {
+      "type": "object",
+      "description": "Agent-specific configuration overrides",
+      "x-reference": "../agents/agent_schema.json",
+      "additionalProperties": true
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "queued", "running", "completed", "failed", "cancelled"],
+      "description": "Current execution status"
+    },
+    "queue_position": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Position in execution queue (if queued)"
+    },
+    "started_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when execution started"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when execution completed"
+    },
+    "execution_logs": {
+      "type": "object",
+      "properties": {
+        "stdout_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to access stdout logs"
+        },
+        "stderr_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to access stderr logs"
+        },
+        "system_logs_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to access system logs"
+        }
+      },
+      "additionalProperties": false
+    },
+    "results_location": {
+      "type": "object",
+      "properties": {
+        "storage_type": {
+          "type": "string",
+          "enum": ["s3", "azure_blob", "gcs", "local"]
+        },
+        "bucket": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the execution",
+      "properties": {
+        "triggered_by": {
+          "type": "string",
+          "description": "User or system that triggered execution"
+        },
+        "execution_host": {
+          "type": "string",
+          "description": "Host where execution is running"
+        },
+        "estimated_cost": {
+          "type": "number",
+          "description": "Estimated cost in credits or currency"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of creation"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last update"
+    }
+  },
+  "required": [
+    "id",
+    "experiment_id",
+    "dataset_storage_id",
+    "customer_id",
+    "execution_environment",
+    "resource_limits",
+    "status",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent Response Schema",
+  "description": "Schema for agent responses following OpenAI API format",
+  "version": "1.0.0",
+  "definitions": {
+    "NonStreamResponse": {
+      "type": "object",
+      "description": "A non-streaming response object following the format of the response object from the OpenAI API",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the completion"
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type (e.g., 'text_completion')"
+        },
+        "created": {
+          "type": "integer",
+          "description": "Unix timestamp of when the completion was created"
+        },
+        "model": {
+          "type": "string",
+          "description": "The model used for completion"
+        },
+        "system_fingerprint": {
+          "type": "string",
+          "description": "Fingerprint of the system configuration"
+        },
+        "choices": {
+          "type": "array",
+          "description": "Array of completion choices",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "The completion text"
+              },
+              "index": {
+                "type": "integer",
+                "description": "Index of the choice in the array"
+              },
+              "logprobs": {
+                "type": ["object", "null"],
+                "description": "Log probabilities of tokens"
+              },
+              "finish_reason": {
+                "type": ["string", "null"],
+                "description": "Reason why the completion finished"
+              }
+            }
+          }
+        },
+        "usage": {
+          "type": "object",
+          "description": "Usage statistics for the completion",
+          "properties": {
+            "prompt_tokens": {
+              "type": "integer",
+              "description": "Number of tokens in the prompt"
+            },
+            "completion_tokens": {
+              "type": "integer",
+              "description": "Number of tokens in the completion"
+            },
+            "total_tokens": {
+              "type": "integer",
+              "description": "Total number of tokens used"
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional metadata about the completion",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "StreamResponse": {
+      "type": "object",
+      "description": "A streaming response object following the format of the response object from the OpenAI API",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the completion"
+        },
+        "object": {
+          "type": "string",
+          "description": "The object type (e.g., 'text_completion')"
+        },
+        "created": {
+          "type": "integer",
+          "description": "Unix timestamp of when the completion was created"
+        },
+        "choices": {
+          "type": "array",
+          "description": "Array of completion choices",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "The completion text"
+              },
+              "index": {
+                "type": "integer",
+                "description": "Index of the choice in the array"
+              },
+              "logprobs": {
+                "type": ["object", "null"],
+                "description": "Log probabilities of tokens"
+              },
+              "finish_reason": {
+                "type": ["string", "null"],
+                "description": "Reason why the completion finished"
+              }
+            }
+          }
+        },
+        "model": {
+          "type": "string",
+          "description": "The model used for completion"
+        },
+        "system_fingerprint": {
+          "type": "string",
+          "description": "Fingerprint of the system configuration"
+        }
+      },
+      "additionalProperties": true
+    },
+    "AgentExecutionStatus": {
+      "type": "string",
+      "enum": ["success", "failed", "cancelled", "timeout"],
+      "description": "Status of the agent execution"
+    }
+  },
+  "type": "object",
+  "description": "Agent execution response containing input, output, and execution metadata",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the execution response"
+    },
+    "input": {
+      "type": "object",
+      "description": "Input provided to the agent",
+      "additionalProperties": true
+    },
+    "expected_output": {
+      "type": ["string", "null"],
+      "description": "Expected output for evaluation purposes"
+    },
+    "status": {
+      "$ref": "#/definitions/AgentExecutionStatus",
+      "description": "Status of the agent execution"
+    },
+    "result": {
+      "oneOf": [
+        { "$ref": "#/definitions/NonStreamResponse" },
+        { "$ref": "#/definitions/StreamResponse" }
+      ],
+      "description": "Result of the agent execution"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the execution was created"
+    },
+    "error": {
+      "type": ["string", "null"],
+      "description": "Error message if execution failed"
+    },
+    "message": {
+      "type": ["string", "null"],
+      "description": "Additional message about the execution"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the execution",
+      "additionalProperties": true
+    }
+  },
+  "required": ["id", "input", "status", "result", "created_at"],
+  "additionalProperties": false
+} 

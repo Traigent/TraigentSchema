@@ -1,0 +1,278 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Score Schema",
+  "description": "Schema for scoring and evaluation metrics in the Traigent platform",
+  "version": "1.0.0",
+  "definitions": {
+    "Score": {
+      "oneOf": [
+        {"type": "number"},
+        {"type": "integer"},
+        {"type": "string"},
+        {"type": "boolean"}
+      ],
+      "description": "A score value, which can be numeric, string, or boolean"
+    },
+    "IScore": {
+      "type": "object",
+      "properties": {
+        "result_id": {
+          "type": "string",
+          "description": "Reference to the ID of the result being scored (from agent_response_schema.json)",
+          "x-reference": true
+        },
+        "calculator_id": {
+          "type": "string",
+          "description": "Reference to the ID of the calculator that produced this score (from IScoreCalculator)",
+          "x-reference": true
+        },
+        "score": {
+          "$ref": "#/definitions/Score",
+          "description": "The calculated score value"
+        },
+        "score_type": {
+          "type": "string",
+          "description": "Reference to the type of score (corresponds to measure_type in measure_schema.json)",
+          "x-reference": true
+        }
+      },
+      "required": ["result_id", "calculator_id", "score", "score_type"],
+      "additionalProperties": true,
+      "description": "Interface for holding scoring results"
+    },
+    "ScoreCollection": {
+      "type": "object",
+      "properties": {
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/definitions/IScore"
+            },
+            "description": "Map of calculator_id to IScore objects"
+          },
+          "description": "Map of result_id to scores by calculator"
+        },
+        "unscored_results": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Set of result IDs that have not been scored yet"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Collection of scores across multiple results and calculators"
+    },
+    "IScoreCalculator": {
+      "type": "object",
+      "properties": {
+        "score_type": {
+          "type": "string",
+          "description": "Type of score this calculator produces (corresponds to measure_type in measure_schema.json)",
+          "x-reference": true
+        },
+        "calculator_id": {
+          "type": "string",
+          "description": "Unique identifier for this calculator"
+        }
+      },
+      "required": ["score_type", "calculator_id"],
+      "additionalProperties": false,
+      "description": "Interface for calculating scores for agent responses"
+    },
+    "WeightedComponent": {
+      "type": "object",
+      "properties": {
+        "score_reference": {
+          "oneOf": [
+            { 
+              "type": "string",
+              "description": "ID of the score to be weighted (for existing scores)",
+              "x-reference": true
+            },
+            {
+              "$ref": "#/definitions/IScore",
+              "description": "Direct score object (for inline scores)"
+            }
+          ]
+        },
+        "weight": {
+          "type": "number",
+          "description": "Weight factor to apply to this score (default: 1.0)",
+          "default": 1.0
+        }
+      },
+      "required": ["score_reference"],
+      "additionalProperties": false,
+      "description": "A score component with optional weighting"
+    },
+    "AggregationType": {
+      "type": "string",
+      "enum": [
+        "within_measure", 
+        "across_measures", 
+        "across_time", 
+        "hierarchical"
+      ],
+      "description": "Type of aggregation:\n- within_measure: Aggregating scores of the same measure across multiple samples\n- across_measures: Aggregating scores of different measures into a combined score\n- across_time: Aggregating scores of the same measure across different time periods\n- hierarchical: Aggregating scores in a hierarchical structure (e.g., sub-categories into categories)"
+    },
+    "AggregationOperation": {
+      "type": "string",
+      "enum": [
+        "mean", 
+        "weighted_mean", 
+        "median", 
+        "mode", 
+        "sum", 
+        "min", 
+        "max", 
+        "count",
+        "standard_deviation", 
+        "variance", 
+        "percentile", 
+        "geometric_mean",
+        "harmonic_mean", 
+        "root_mean_square", 
+        "f_score",
+        "custom"
+      ],
+      "description": "Statistical operation used for aggregation:\n- mean: Arithmetic mean (average)\n- weighted_mean: Weighted arithmetic mean\n- median: Middle value\n- mode: Most frequent value\n- sum: Sum of values\n- min: Minimum value\n- max: Maximum value\n- count: Count of values\n- standard_deviation: Standard deviation\n- variance: Statistical variance\n- percentile: Percentile value (requires additional parameters)\n- geometric_mean: Geometric mean\n- harmonic_mean: Harmonic mean\n- root_mean_square: Root mean square (quadratic mean)\n- f_score: F-score (weighted harmonic mean of precision and recall)\n- custom: Custom aggregation method (requires additional parameters)"
+    },
+    "AggregatedScore": {
+      "type": "object",
+      "properties": {
+        "aggregation_type": {
+          "$ref": "#/definitions/AggregationType",
+          "description": "Type of aggregation being performed"
+        },
+        "aggregation_operation": {
+          "$ref": "#/definitions/AggregationOperation",
+          "description": "Statistical operation used for aggregation"
+        },
+        "aggregated_score": {
+          "$ref": "#/definitions/Score",
+          "description": "The aggregated score value"
+        },
+        "component_scores": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/definitions/IScore" },
+              { "$ref": "#/definitions/WeightedComponent" }
+            ]
+          },
+          "description": "The individual scores that were aggregated"
+        },
+        "operation_parameters": {
+          "type": "object",
+          "description": "Additional parameters for the aggregation operation (e.g., percentile value, beta for F-score)",
+          "additionalProperties": true
+        },
+        "calculator_id": {
+          "type": "string",
+          "description": "ID of the aggregated calculator"
+        },
+        "score_type": {
+          "type": "string",
+          "description": "Type of the aggregated score (corresponds to measure_type in measure_schema.json)",
+          "x-reference": true
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional metadata about the aggregation",
+          "additionalProperties": true
+        }
+      },
+      "required": ["aggregation_type", "aggregation_operation", "aggregated_score", "calculator_id", "score_type"],
+      "additionalProperties": false,
+      "description": "Represents an aggregated score computed from multiple individual scores"
+    },
+    "AggregatedStatistics": {
+      "type": "object",
+      "properties": {
+        "score_type": {
+          "type": "string",
+          "description": "Type of score these statistics describe (corresponds to measure_type in measure_schema.json)",
+          "x-reference": true
+        },
+        "sample_size": {
+          "type": "integer",
+          "description": "Number of samples included in the statistics"
+        },
+        "statistics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Statistical measurements (keys are statistic names like 'mean', 'median', values are computed statistics)"
+        },
+        "distribution": {
+          "type": "object",
+          "description": "Distribution information about the scores",
+          "properties": {
+            "histogram": {
+              "type": "object",
+              "properties": {
+                "bins": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "description": "Bin edges for the histogram"
+                },
+                "counts": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  },
+                  "description": "Count of scores in each bin"
+                }
+              }
+            },
+            "outliers": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "description": "Values identified as statistical outliers"
+            }
+          }
+        },
+        "confidence_interval": {
+          "type": "object",
+          "properties": {
+            "lower": {
+              "type": "number",
+              "description": "Lower bound of the confidence interval"
+            },
+            "upper": {
+              "type": "number",
+              "description": "Upper bound of the confidence interval"
+            },
+            "confidence_level": {
+              "type": "number",
+              "description": "Confidence level (e.g., 0.95 for 95% confidence)",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": ["lower", "upper", "confidence_level"],
+          "description": "Statistical confidence interval"
+        }
+      },
+      "required": ["score_type", "statistics"],
+      "additionalProperties": true,
+      "description": "Comprehensive statistical analysis of a collection of scores"
+    }
+  },
+  "type": "object",
+  "oneOf": [
+    {"$ref": "#/definitions/IScore"},
+    {"$ref": "#/definitions/ScoreCollection"},
+    {"$ref": "#/definitions/AggregatedScore"},
+    {"$ref": "#/definitions/AggregatedStatistics"}
+  ],
+  "description": "Score data structure for the Traigent platform"
+} 

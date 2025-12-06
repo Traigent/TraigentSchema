@@ -1,0 +1,273 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Visualization Schema",
+  "description": "Schema for visualizations in the Traigent platform",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this visualization",
+      "x-identifier": true
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for the visualization"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the visualization"
+    },
+    "visualization_type": {
+      "type": "string",
+      "enum": [
+        "line_chart",
+        "bar_chart",
+        "scatter_plot",
+        "heatmap",
+        "box_plot",
+        "violin_plot",
+        "radar_chart",
+        "parallel_coordinates",
+        "histogram",
+        "pie_chart",
+        "bubble_chart",
+        "waterfall_chart",
+        "table",
+        "custom"
+      ],
+      "description": "Type of visualization"
+    },
+    "request_id": {
+      "type": "string",
+      "description": "ID of the request that generated this visualization",
+      "x-reference": true
+    },
+    "data_source": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["experiment_run"],
+              "description": "Data source type"
+            },
+            "experiment_id": {
+              "type": "string",
+              "description": "ID of the experiment",
+              "x-reference": true
+            },
+            "run_id": {
+              "type": "string",
+              "description": "ID of the experiment run",
+              "x-reference": true
+            }
+          },
+          "required": ["type", "experiment_id", "run_id"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["comparison"],
+              "description": "Data source type"
+            },
+            "comparison_id": {
+              "type": "string",
+              "description": "ID of the comparison",
+              "x-reference": true
+            }
+          },
+          "required": ["type", "comparison_id"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["evaluation"],
+              "description": "Data source type"
+            },
+            "evaluation_id": {
+              "type": "string",
+              "description": "ID of the evaluation",
+              "x-reference": true
+            }
+          },
+          "required": ["type", "evaluation_id"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["custom"],
+              "description": "Data source type"
+            },
+            "data_reference": {
+              "type": "string",
+              "description": "Reference to the custom data used"
+            }
+          },
+          "required": ["type", "data_reference"],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Source of data for the visualization"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": ["png", "svg", "pdf", "html", "json"],
+            "description": "Format of the visualization asset"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to access the visualization"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Size of the asset in bytes"
+          },
+          "width": {
+            "type": "integer",
+            "description": "Width of the visualization in pixels (for image formats)"
+          },
+          "height": {
+            "type": "integer",
+            "description": "Height of the visualization in pixels (for image formats)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when this asset was created"
+          }
+        },
+        "required": ["format", "url", "created_at"],
+        "additionalProperties": false
+      },
+      "description": "List of visualization assets in different formats"
+    },
+    "configuration": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the visualization"
+        },
+        "x_axis_label": {
+          "type": "string",
+          "description": "Label for the x-axis"
+        },
+        "y_axis_label": {
+          "type": "string",
+          "description": "Label for the y-axis"
+        },
+        "color_scheme": {
+          "type": "string",
+          "description": "Color scheme used"
+        },
+        "legend": {
+          "type": "boolean",
+          "description": "Whether a legend is included"
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of metrics included in the visualization"
+        },
+        "configurations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of configuration IDs included"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "Field filtered on"
+              },
+              "operator": {
+                "type": "string",
+                "description": "Filter operator used"
+              },
+              "value": {
+                "description": "Value filtered against"
+              }
+            }
+          },
+          "description": "Filters applied to the data"
+        },
+        "aggregation": {
+          "type": "string",
+          "description": "Aggregation method applied"
+        }
+      },
+      "additionalProperties": true,
+      "description": "Configuration used to generate the visualization"
+    },
+    "insights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["trend", "outlier", "correlation", "comparison", "threshold", "custom"],
+            "description": "Type of insight"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the insight"
+          },
+          "importance": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Importance level of the insight"
+          },
+          "data_points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Data points related to this insight"
+          }
+        },
+        "required": ["type", "description"],
+        "additionalProperties": false
+      },
+      "description": "Automatically detected insights from the visualization"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this visualization was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this visualization was last updated"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Additional metadata for the visualization"
+    }
+  },
+  "required": ["id", "visualization_type", "data_source", "assets", "created_at"],
+  "additionalProperties": false
+} 

@@ -1,0 +1,1427 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent API - Agent Operations",
+    "version": "1.0.0",
+    "description": "Endpoints for managing, deploying, testing, and controlling AI agents"
+  },
+  "paths": {
+    "/agents": {
+      "get": {
+        "summary": "List all agents",
+        "description": "Retrieve a list of all available agents with optional filtering",
+        "operationId": "listAgents",
+        "parameters": [
+          {
+            "name": "deployment_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "deployed",
+                "undeployed",
+                "pending_deployment",
+                "deployment_failed"
+              ],
+              "description": "Possible deployment statuses for an agent"
+            },
+            "description": "Filter agents by deployment status"
+          },
+          {
+            "name": "runtime_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "running",
+                "stopped",
+                "paused",
+                "error"
+              ],
+              "description": "Possible runtime statuses for an agent"
+            },
+            "description": "Filter agents by runtime status"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter agents by type"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            },
+            "description": "Maximum number of agents to return"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Number of agents to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of agents retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "./agent_schema.json"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid request parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "The requested resource was not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new agent",
+        "description": "Create a new agent definition",
+        "operationId": "createAgent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+              "$ref": "./agent_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Agent created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "./agent_schema.json"
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Agent already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Operation completed successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "The requested resource was not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/{agent_id}": {
+      "parameters": [
+        {
+          "name": "agent_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Unique identifier for the agent"
+        }
+      ],
+      "get": {
+        "summary": "Get agent details",
+        "description": "Retrieve detailed information about a specific agent",
+        "operationId": "getAgent",
+        "responses": {
+          "200": {
+            "description": "Agent details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "./agent_schema.json"
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid request parameters"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update agent",
+        "description": "Update an existing agent's configuration",
+        "operationId": "updateAgent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+              "$ref": "./agent_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "./agent_schema.json"
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete agent",
+        "description": "Delete an agent and its associated resources",
+        "operationId": "deleteAgent",
+        "responses": {
+          "204": {
+            "description": "Agent deleted successfully"
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Operation completed successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid request parameters"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/{agent_id}/deploy": {
+      "parameters": [
+        {
+          "name": "agent_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Unique identifier for the agent"
+        }
+      ],
+      "post": {
+        "summary": "Deploy agent",
+        "description": "Deploy an agent for execution",
+        "operationId": "deployAgent",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Human-readable name for this deployment"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "development",
+                      "staging",
+                      "production",
+                      "testing"
+                    ],
+                    "description": "Deployment environments for an agent"
+                  },
+                  "resource_allocation": {
+                    "type": "object",
+                    "description": "Resources allocated to this deployment",
+                    "properties": {
+                      "cpu": {
+                        "type": "string",
+                        "description": "CPU allocation (e.g., '0.5', '1')"
+                      },
+                      "memory": {
+                        "type": "string",
+                        "description": "Memory allocation (e.g., '512M', '1G')"
+                      },
+                      "gpu": {
+                        "type": "string",
+                        "description": "GPU allocation if applicable"
+                      },
+                      "concurrency": {
+                        "type": "integer",
+                        "description": "Maximum number of concurrent requests"
+                      }
+                    }
+                  },
+                  "scaling_config": {
+                    "type": "object",
+                    "description": "Configuration for auto-scaling the deployment",
+                    "properties": {
+                      "min_instances": {
+                        "type": "integer",
+                        "description": "Minimum number of instances"
+                      },
+                      "max_instances": {
+                        "type": "integer",
+                        "description": "Maximum number of instances"
+                      },
+                      "target_concurrency": {
+                        "type": "integer",
+                        "description": "Target concurrency for scaling decisions"
+                      }
+                    }
+                  },
+                  "rate_limits": {
+                    "type": "object",
+                    "description": "Rate limiting configuration",
+                    "properties": {
+                      "requests_per_minute": {
+                        "type": "integer",
+                        "description": "Maximum requests per minute"
+                      },
+                      "burst_limit": {
+                        "type": "integer",
+                        "description": "Maximum burst of requests allowed"
+                      }
+                    }
+                  },
+                  "deployment_config": {
+                    "type": "object",
+                    "description": "Additional deployment settings"
+                  },
+                  "monitoring": {
+                    "type": "object",
+                    "description": "Monitoring configuration for this deployment",
+                    "properties": {
+                      "logging_level": {
+                        "type": "string",
+                        "enum": [
+                          "error",
+                          "warn",
+                          "info",
+                          "debug",
+                          "trace"
+                        ],
+                        "description": "Logging levels for monitoring"
+                      },
+                      "metrics_enabled": {
+                        "type": "boolean",
+                        "description": "Whether metrics collection is enabled"
+                      },
+                      "alerting_enabled": {
+                        "type": "boolean",
+                        "description": "Whether alerting is enabled"
+                      }
+                    }
+                  },
+                  "health_check": {
+                    "type": "object",
+                    "description": "Health check configuration",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean",
+                        "description": "Whether health checking is enabled"
+                      },
+                      "path": {
+                        "type": "string",
+                        "description": "Path for health check requests"
+                      },
+                      "interval_seconds": {
+                        "type": "integer",
+                        "description": "Interval between health checks in seconds"
+                      },
+                      "timeout_seconds": {
+                        "type": "integer",
+                        "description": "Timeout for health check in seconds"
+                      },
+                      "healthy_threshold": {
+                        "type": "integer",
+                        "description": "Number of consecutive successful checks to be considered healthy"
+                      },
+                      "unhealthy_threshold": {
+                        "type": "integer",
+                        "description": "Number of consecutive failed checks to be considered unhealthy"
+                      }
+                    }
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Tags associated with this deployment"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent deployed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "./agent_deployment_schema.json"
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/{agent_id}/shutdown": {
+      "parameters": [
+        {
+          "name": "agent_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Unique identifier for the agent"
+        }
+      ],
+      "post": {
+        "summary": "Shutdown agent",
+        "description": "Shutdown a deployed agent",
+        "operationId": "shutdownAgent",
+        "responses": {
+          "200": {
+            "description": "Agent shutdown successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": "string"
+                        },
+                        "deployment_status": {
+                          "type": "string",
+                          "enum": [
+                            "deployed",
+                            "undeployed",
+                            "pending_deployment",
+                            "deployment_failed"
+                          ],
+                          "description": "Possible deployment statuses for an agent"
+                        },
+                        "runtime_status": {
+                          "type": "string",
+                          "enum": [
+                            "running",
+                            "stopped",
+                            "paused",
+                            "error"
+                          ],
+                          "description": "Possible runtime statuses for an agent"
+                        },
+                        "timestamps": {
+                          "type": "object",
+                          "properties": {
+                            "stopped_at": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Agent cannot be shutdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/{agent_id}/test": {
+      "parameters": [
+        {
+          "name": "agent_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Unique identifier for the agent"
+        }
+      ],
+      "post": {
+        "summary": "Test agent",
+        "description": "Test an agent with a specific prompt",
+        "operationId": "testAgent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "Prompt to test the agent with"
+                  },
+                  "input": {
+                    "type": "string",
+                    "description": "Additional input data"
+                  },
+                  "model_parameters": {
+                    "$ref": "./model_parameters_schema.json",
+                    "description": "Model parameters for this test"
+                  }
+                },
+                "required": [
+                  "prompt"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent test completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "agent_id": {
+                          "type": "string"
+                        },
+                        "prompt": {
+                          "type": "string"
+                        },
+                        "response": {
+                          "$ref": "./agent_response_schema.json"
+                        },
+                        "execution_time": {
+                          "type": "number",
+                          "format": "float",
+                          "description": "Execution time in seconds"
+                        }
+                      }
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/{agent_id}/execute": {
+      "parameters": [
+        {
+          "name": "agent_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Unique identifier for the agent"
+        }
+      ],
+      "post": {
+        "summary": "Execute agent",
+        "description": "Execute an agent with a specific input",
+        "operationId": "executeAgent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "Prompt to execute the agent with"
+                  },
+                  "input": {
+                    "type": "object",
+                    "description": "Input data for execution"
+                  },
+                  "model_parameters": {
+                    "$ref": "./model_parameters_schema.json",
+                    "description": "Model parameters for this execution"
+                  }
+                },
+                "required": [
+                  "prompt"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent execution completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "agent_id": {
+                          "type": "string"
+                        },
+                        "execution_id": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "completed"
+                          ]
+                        },
+                        "response": {
+                          "$ref": "./agent_response_schema.json"
+                        },
+                        "execution_time": {
+                          "type": "number",
+                          "format": "float",
+                          "description": "Execution time in seconds"
+                        }
+                      }
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Agent execution started (asynchronous)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "agent_id": {
+                          "type": "string"
+                        },
+                        "execution_id": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "in_progress"
+                          ]
+                        },
+                        "status_url": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      }
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments": {
+      "get": {
+        "summary": "List all agent deployments",
+        "description": "Retrieve a list of all agent deployments with optional filtering",
+        "operationId": "listDeployments",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter deployments by agent ID"
+          },
+          {
+            "name": "deployment_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "deployed",
+                "undeployed",
+                "pending_deployment",
+                "deployment_failed"
+              ],
+              "description": "Possible deployment statuses for an agent"
+            },
+            "description": "Filter deployments by deployment status"
+          },
+          {
+            "name": "runtime_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "running",
+                "stopped",
+                "paused",
+                "error"
+              ],
+              "description": "Possible runtime statuses for an agent"
+            },
+            "description": "Filter deployments by runtime status"
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "development",
+                "staging",
+                "production",
+                "testing"
+              ],
+              "description": "Deployment environments for an agent"
+            },
+            "description": "Filter deployments by environment"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            },
+            "description": "Maximum number of deployments to return"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Number of deployments to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of deployments retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "./agent_deployment_schema.json"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid request parameters"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "The requested resource was not found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}": {
+      "parameters": [
+        {
+          "name": "deployment_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Unique identifier for the deployment"
+        }
+      ],
+      "get": {
+        "summary": "Get deployment details",
+        "description": "Retrieve detailed information about a specific agent deployment",
+        "operationId": "getDeployment",
+        "responses": {
+          "200": {
+            "description": "Deployment details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "./agent_deployment_schema.json"
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid request parameters"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update deployment",
+        "description": "Update an existing agent deployment configuration",
+        "operationId": "updateDeployment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+              "$ref": "./agent_deployment_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deployment updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "./agent_deployment_schema.json"
+                    },
+                    "error": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete deployment",
+        "description": "Delete an agent deployment",
+        "operationId": "deleteDeployment",
+        "responses": {
+          "204": {
+            "description": "Deployment deleted successfully"
+          },
+          "404": {
+            "description": "Deployment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Operation completed successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid request parameters"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

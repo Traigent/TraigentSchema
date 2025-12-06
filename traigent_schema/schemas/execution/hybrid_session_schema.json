@@ -1,0 +1,183 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Hybrid Session Schema",
+  "description": "Defines the session structure for hybrid execution mode where client executes locally and submits metrics to backend",
+  "version": "1.0.0",
+  "definitions": {
+    "SessionStatus": {
+      "type": "string",
+      "enum": ["active", "expired", "completed", "failed", "cancelled"],
+      "description": "Current status of the hybrid session:\n- active: Session is active and accepting metrics\n- expired: Session has exceeded its time limit\n- completed: Session has been successfully finalized\n- failed: Session encountered an error\n- cancelled: Session was cancelled by user"
+    },
+    "TokenInfo": {
+      "type": "object",
+      "description": "JWT token information for secure metric submission",
+      "properties": {
+        "token_hash": {
+          "type": "string",
+          "description": "SHA256 hash of the JWT token for security"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of token issuance"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of token expiration"
+        },
+        "token_id": {
+          "type": "string",
+          "description": "Unique identifier for this token"
+        }
+      },
+      "required": ["token_hash", "issued_at", "expires_at", "token_id"],
+      "additionalProperties": false
+    },
+    "SessionMetrics": {
+      "type": "object",
+      "description": "Metrics about the session itself",
+      "properties": {
+        "metrics_submitted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of metrics submitted in this session"
+        },
+        "configurations_evaluated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of configurations evaluated"
+        },
+        "last_metric_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of last metric submission"
+        },
+        "error_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of errors encountered"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this hybrid session",
+      "x-identifier": true
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Session identifier used by client for API calls",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "experiment_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Reference to the experiment this session belongs to",
+      "x-reference": "../evaluation/experiment_schema.json#/properties/id"
+    },
+    "experiment_run_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "Reference to the experiment run once created",
+      "x-reference": "../evaluation/experiment_run_schema.json#/properties/id"
+    },
+    "customer_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Customer identifier for multi-tenant isolation"
+    },
+    "status": {
+      "$ref": "#/definitions/SessionStatus",
+      "description": "Current status of the hybrid session"
+    },
+    "token_info": {
+      "$ref": "#/definitions/TokenInfo",
+      "description": "JWT token information for this session"
+    },
+    "optimizer_endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "Direct endpoint URL for optimizer access"
+    },
+    "session_metrics": {
+      "$ref": "#/definitions/SessionMetrics",
+      "description": "Metrics about the session performance"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the session",
+      "properties": {
+        "client_version": {
+          "type": "string",
+          "description": "Version of the client SDK"
+        },
+        "problem_statement": {
+          "type": "string",
+          "description": "Description of the optimization problem"
+        },
+        "search_space": {
+          "type": "object",
+          "description": "Configuration search space definition",
+          "additionalProperties": true
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for categorizing sessions"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about this session"
+        }
+      },
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of session creation"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last update"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of session expiration"
+    },
+    "started_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when execution started"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when session completed"
+    }
+  },
+  "required": [
+    "id",
+    "session_id",
+    "experiment_id",
+    "customer_id",
+    "status",
+    "token_info",
+    "optimizer_endpoint",
+    "created_at",
+    "expires_at"
+  ],
+  "additionalProperties": false
+}

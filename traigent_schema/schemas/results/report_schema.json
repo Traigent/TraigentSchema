@@ -1,0 +1,277 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Report Schema",
+  "description": "Schema for generated reports in the Traigent platform",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this report",
+      "x-identifier": true
+    },
+    "request_id": {
+      "type": "string",
+      "description": "ID of the request that generated this report",
+      "x-reference": true
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for the report"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the report"
+    },
+    "report_type": {
+      "type": "string",
+      "enum": [
+        "experiment_summary",
+        "configuration_comparison",
+        "evaluation_results",
+        "optimization_analysis",
+        "parameter_sensitivity",
+        "custom"
+      ],
+      "description": "Type of report that was generated"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "generating", "completed", "failed"],
+      "description": "Current status of the report"
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if the report generation failed"
+    },
+    "progress": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Progress percentage for report generation"
+    },
+    "formats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": ["pdf", "html", "json"],
+            "description": "Format of the report file"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to download the report in this format"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Size of the report file in bytes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when this format was generated"
+          }
+        },
+        "required": ["format", "url", "created_at"],
+        "additionalProperties": false
+      },
+      "description": "Available formats of the report"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title of the section"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Type of content in this section"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Brief summary of this section's content"
+          },
+          "visualizations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "ID of the visualization",
+                  "x-reference": true
+                },
+                "type": {
+                  "type": "string",
+                  "description": "Type of visualization"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Title of the visualization"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Description of the visualization"
+                },
+                "url": {
+                  "type": "string",
+                  "description": "URL to access the visualization"
+                }
+              },
+              "required": ["id", "type", "url"],
+              "additionalProperties": false
+            },
+            "description": "Visualizations included in this section"
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "ID of the table"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Title of the table"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Description of the table"
+                },
+                "data": {
+                  "type": "object",
+                  "description": "Table data structure",
+                  "additionalProperties": true
+                }
+              },
+              "required": ["id", "title", "data"],
+              "additionalProperties": false
+            },
+            "description": "Data tables included in this section"
+          },
+          "insights": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "Type of insight"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Description of the insight"
+                },
+                "importance": {
+                  "type": "string",
+                  "enum": ["low", "medium", "high"],
+                  "description": "Importance level of the insight"
+                }
+              },
+              "required": ["type", "description"],
+              "additionalProperties": false
+            },
+            "description": "Insights identified in this section"
+          },
+          "content_html": {
+            "type": "string",
+            "description": "HTML content of the section (when applicable)"
+          },
+          "content_text": {
+            "type": "string",
+            "description": "Plain text content of the section (when applicable)"
+          }
+        },
+        "required": ["title", "content_type"],
+        "additionalProperties": false
+      },
+      "description": "Sections of the report"
+    },
+    "data_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Type of data source"
+          },
+          "id": {
+            "type": "string",
+            "description": "ID of the data source"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name of the data source"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the data source"
+          }
+        },
+        "required": ["type", "id"],
+        "additionalProperties": false
+      },
+      "description": "Data sources used in this report"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "generated_by": {
+          "type": "string",
+          "description": "Identifier of the service that generated the report"
+        },
+        "generation_time_ms": {
+          "type": "integer",
+          "description": "Time taken to generate the report in milliseconds"
+        },
+        "page_count": {
+          "type": "integer",
+          "description": "Number of pages in the report (for PDF format)"
+        },
+        "word_count": {
+          "type": "integer",
+          "description": "Total word count of the report"
+        },
+        "visualization_count": {
+          "type": "integer",
+          "description": "Number of visualizations in the report"
+        },
+        "table_count": {
+          "type": "integer",
+          "description": "Number of data tables in the report"
+        },
+        "insight_count": {
+          "type": "integer",
+          "description": "Number of insights in the report"
+        }
+      },
+      "additionalProperties": true,
+      "description": "Metadata about the report"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this report was created"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this report was completed"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this report will expire"
+    }
+  },
+  "required": ["id", "request_id", "report_type", "status", "created_at"],
+  "additionalProperties": false
+} 

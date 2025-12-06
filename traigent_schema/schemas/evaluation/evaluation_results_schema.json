@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Evaluation Results Schema",
+  "description": "Schema for evaluation results in the Traigent platform",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the evaluation results",
+      "x-identifier": true
+    },
+    "evaluation_id": {
+      "type": "string",
+      "description": "Reference to the evaluation that produced these results",
+      "x-reference": true
+    },
+    "experiment_id": {
+      "type": "string",
+      "description": "ID of the experiment being evaluated",
+      "x-reference": true
+    },
+    "configuration_id": {
+      "type": "string",
+      "description": "ID of the configuration being evaluated",
+      "x-reference": true
+    },
+    "run_id": {
+      "type": "string",
+      "description": "ID of the experiment run",
+      "x-reference": true
+    },
+    "scores": {
+      "$ref": "./score_schema.json#/definitions/ScoreCollection",
+      "description": "Collection of scores across all metrics"
+    },
+    "aggregate_metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "High-level aggregate metrics by metric name"
+    },
+    "detailed_metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "./score_schema.json#/definitions/AggregatedStatistics"
+      },
+      "description": "Detailed statistics for each metric"
+    },
+    "comparative_analysis": {
+      "type": "object",
+      "properties": {
+        "baseline_id": {
+          "type": "string",
+          "description": "ID of the baseline configuration for comparison",
+          "x-reference": true
+        },
+        "improvement_percentages": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Percentage improvement over baseline by metric"
+        },
+        "significance_tests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "p_value": {
+                "type": "number",
+                "description": "P-value from statistical significance test"
+              },
+              "test_type": {
+                "type": "string",
+                "description": "Type of statistical test performed"
+              },
+              "is_significant": {
+                "type": "boolean",
+                "description": "Whether the difference is statistically significant"
+              }
+            }
+          },
+          "description": "Statistical significance test results by metric"
+        }
+      },
+      "description": "Comparative analysis against a baseline configuration"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the artifact"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of artifact (e.g., 'plot', 'data', 'report')"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to access the artifact"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the artifact"
+          }
+        },
+        "required": ["name", "type", "url"],
+        "additionalProperties": false
+      },
+      "description": "Generated artifacts from the evaluation"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when these results were created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when these results were last updated"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the evaluation results",
+      "additionalProperties": true
+    }
+  },
+  "required": ["id", "evaluation_id", "scores", "created_at"],
+  "additionalProperties": false
+} 

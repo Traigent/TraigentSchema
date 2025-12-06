@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "traigent-schema"
+version = "1.0.0"
+description = "Traigent Schema Library - Data contracts and validation for the Traigent AI optimization platform"
+readme = "README.md"
+license = "Proprietary"
+requires-python = ">=3.8"
+authors = [
+    { name = "Traigent Team", email = "dev@traigent.ai" }
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["traigent", "schema", "validation", "json-schema", "api"]
+
+dependencies = [
+    "jsonschema>=4.17.0",
+    "referencing>=0.30.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Traigent/TraigentSchema"
+Documentation = "https://github.com/Traigent/TraigentSchema#readme"
+Repository = "https://github.com/Traigent/TraigentSchema.git"
+
+[tool.hatch.build.targets.wheel]
+packages = ["traigent_schema"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "traigent_schema/**/*.py",
+    "traigent_schema/**/*.json",
+    "traigent_schema/**/*.yaml",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

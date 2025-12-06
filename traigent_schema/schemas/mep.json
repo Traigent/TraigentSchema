@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Status Schemas",
+    "description": "Various status type definitions for Traigent platform",
+    "version": "1.0.0",
+    "definitions": {
+        "ExperimentRunStatus": {
+            "$ref": "./status_schema.json#/definitions/ExperimentRunStatus"
+        },
+        "ConfigurationRunStatus": {
+            "$ref": "./status_schema.json#/definitions/ConfigurationRunStatus"
+        },
+        "RequestProcessingStatus": {
+            "$ref": "./status_schema.json#/definitions/RequestProcessingStatus"
+        },
+        "AgentStatus": {
+            "$ref": "./status_schema.json#/definitions/AgentStatus"
+        },
+        "AgentExecutionStatus": {
+            "$ref": "./status_schema.json#/definitions/AgentExecutionStatus"
+        },
+        "EvaluationStatus": {
+            "$ref": "./status_schema.json#/definitions/EvaluationStatus"
+        }
+    }
+}

@@ -1,0 +1,218 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Comparison Schema",
+  "description": "Schema for experiment comparison operations in the Traigent platform",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this comparison",
+      "x-identifier": true
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for the comparison"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of what this comparison analyzes"
+    },
+    "experiment_id": {
+      "type": "string",
+      "description": "ID of the experiment these configurations belong to",
+      "x-reference": true
+    },
+    "configurations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "configuration_id": {
+            "type": "string",
+            "description": "ID of the configuration being compared",
+            "x-reference": true
+          },
+          "run_id": {
+            "type": "string",
+            "description": "ID of the run this configuration is from",
+            "x-reference": true
+          },
+          "label": {
+            "type": "string",
+            "description": "Display label for this configuration in the comparison"
+          },
+          "is_baseline": {
+            "type": "boolean",
+            "description": "Whether this configuration serves as the baseline for comparison",
+            "default": false
+          }
+        },
+        "required": ["configuration_id", "run_id"],
+        "additionalProperties": false
+      },
+      "description": "List of configurations being compared",
+      "minItems": 2
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of metric IDs to include in the comparison"
+    },
+    "comparison_methods": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "absolute_difference",
+          "percentage_difference",
+          "statistical_significance",
+          "rank_ordering",
+          "threshold_analysis",
+          "custom"
+        ]
+      },
+      "description": "Methods used for comparison"
+    },
+    "results": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "best_configuration_id": {
+                "type": "string",
+                "description": "ID of the configuration that performed best on this metric"
+              },
+              "ranking": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Configuration IDs ordered by performance on this metric"
+              },
+              "improvement_over_baseline": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "description": "Improvement percentage for each configuration over baseline"
+              }
+            }
+          },
+          "description": "Summary of comparison results by metric"
+        },
+        "statistical_tests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "test_type": {
+                  "type": "string",
+                  "description": "Type of statistical test performed"
+                },
+                "p_value": {
+                  "type": "number",
+                  "description": "P-value from the statistical test"
+                },
+                "is_significant": {
+                  "type": "boolean",
+                  "description": "Whether the difference is statistically significant"
+                },
+                "confidence_interval": {
+                  "type": "object",
+                  "properties": {
+                    "lower": {
+                      "type": "number",
+                      "description": "Lower bound of confidence interval"
+                    },
+                    "upper": {
+                      "type": "number",
+                      "description": "Upper bound of confidence interval"
+                    },
+                    "confidence_level": {
+                      "type": "number",
+                      "description": "Confidence level (e.g., 0.95 for 95%)"
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Statistical test results comparing each configuration pair by metric"
+          }
+        },
+        "detailed_metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "./score_schema.json#/definitions/AggregatedStatistics"
+            },
+            "description": "Detailed metrics by configuration ID"
+          },
+          "description": "Detailed metrics by metric name"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the artifact"
+              },
+              "type": {
+                "type": "string",
+                "description": "Type of artifact (e.g., 'plot', 'table', 'report')"
+              },
+              "url": {
+                "type": "string",
+                "description": "URL to access the artifact"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of the artifact"
+              }
+            },
+            "required": ["name", "type", "url"],
+            "additionalProperties": false
+          },
+          "description": "Artifacts generated during the comparison"
+        }
+      },
+      "description": "Results of the comparison operation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed"],
+      "description": "Current status of the comparison operation"
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if the comparison failed"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this comparison was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this comparison was last updated"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Additional metadata for the comparison"
+    }
+  },
+  "required": ["id", "configurations", "metrics", "status", "created_at"],
+  "additionalProperties": false
+} 

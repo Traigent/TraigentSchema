@@ -1,0 +1,221 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Agent Deployment Schema",
+  "description": "Defines the deployment configuration and runtime state of an AI agent in the system",
+  "version": "1.0.0",
+  "definitions": {
+    "DeploymentStatus": {
+      "type": "string",
+      "enum": ["deployed", "undeployed", "pending_deployment", "deployment_failed"],
+      "description": "Possible deployment statuses for an agent"
+    },
+    "RuntimeStatus": {
+      "type": "string",
+      "enum": ["running", "stopped", "paused", "error"],
+      "description": "Possible runtime statuses for an agent"
+    },
+    "Environment": {
+      "type": "string",
+      "enum": ["development", "staging", "production", "testing"],
+      "description": "Deployment environments for an agent"
+    },
+    "LoggingLevel": {
+      "type": "string",
+      "enum": ["error", "warn", "info", "debug", "trace"],
+      "description": "Logging levels for monitoring"
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this specific agent deployment",
+      "x-identifier": true
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Reference to the agent definition this deployment is based on"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for this deployment instance"
+    },
+    "deployment_status": {
+      "$ref": "#/definitions/DeploymentStatus"
+    },
+    "runtime_status": {
+      "$ref": "#/definitions/RuntimeStatus"
+    },
+    "environment": {
+      "$ref": "#/definitions/Environment"
+    },
+    "endpoint_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "The URL where this deployed agent can be accessed"
+    },
+    "version": {
+      "type": "string",
+      "description": "Version identifier for this deployment"
+    },
+    "resource_allocation": {
+      "type": "object",
+      "description": "Resources allocated to this deployment",
+      "properties": {
+        "cpu": {
+          "type": "string",
+          "description": "CPU allocation (e.g., '0.5', '1')"
+        },
+        "memory": {
+          "type": "string",
+          "description": "Memory allocation (e.g., '512M', '1G')"
+        },
+        "gpu": {
+          "type": "string",
+          "description": "GPU allocation if applicable"
+        },
+        "concurrency": {
+          "type": "integer",
+          "description": "Maximum number of concurrent requests"
+        }
+      }
+    },
+    "scaling_config": {
+      "type": "object",
+      "description": "Configuration for auto-scaling the deployment",
+      "properties": {
+        "min_instances": {
+          "type": "integer",
+          "description": "Minimum number of instances"
+        },
+        "max_instances": {
+          "type": "integer",
+          "description": "Maximum number of instances"
+        },
+        "target_concurrency": {
+          "type": "integer",
+          "description": "Target concurrency for scaling decisions"
+        }
+      }
+    },
+    "rate_limits": {
+      "type": "object",
+      "description": "Rate limiting configuration",
+      "properties": {
+        "requests_per_minute": {
+          "type": "integer",
+          "description": "Maximum requests per minute"
+        },
+        "burst_limit": {
+          "type": "integer",
+          "description": "Maximum burst of requests allowed"
+        }
+      }
+    },
+    "deployment_config": {
+      "type": "object",
+      "description": "Additional deployment-specific configuration",
+      "additionalProperties": true
+    },
+    "monitoring": {
+      "type": "object",
+      "description": "Monitoring configuration for this deployment",
+      "properties": {
+        "logging_level": {
+          "$ref": "#/definitions/LoggingLevel"
+        },
+        "metrics_enabled": {
+          "type": "boolean",
+          "description": "Whether metrics collection is enabled"
+        },
+        "alerting_enabled": {
+          "type": "boolean",
+          "description": "Whether alerting is enabled"
+        }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "description": "Important timestamps for this deployment",
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this deployment was created"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this deployment was last updated"
+        },
+        "deployed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this agent was last deployed"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this agent was last started"
+        },
+        "stopped_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this agent was last stopped"
+        }
+      }
+    },
+    "creator": {
+      "type": "string",
+      "description": "Identifier of the user who created this deployment"
+    },
+    "last_modified_by": {
+      "type": "string",
+      "description": "Identifier of the user who last modified this deployment"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata for this deployment",
+      "additionalProperties": true
+    },
+    "health_check": {
+      "type": "object",
+      "description": "Health check configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether health checking is enabled"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path for health check requests"
+        },
+        "interval_seconds": {
+          "type": "integer",
+          "description": "Interval between health checks in seconds"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "description": "Timeout for health check in seconds"
+        },
+        "healthy_threshold": {
+          "type": "integer",
+          "description": "Number of consecutive successful checks to be considered healthy"
+        },
+        "unhealthy_threshold": {
+          "type": "integer",
+          "description": "Number of consecutive failed checks to be considered unhealthy"
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags associated with this deployment"
+    }
+  },
+  "required": ["id", "agent_id", "deployment_status", "runtime_status", "environment", "timestamps", "creator"],
+  "additionalProperties": false
+} 

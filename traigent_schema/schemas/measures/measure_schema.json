@@ -1,0 +1,214 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Measure Schema",
+  "description": "Defines a quantitative or qualitative measure for evaluating the performance, behavior, or characteristics of an AI agent",
+  "version": "1.0.0",
+  "definitions": {
+    "AgentType": {
+      "$ref": "./agent_types_schema.json#/definitions/AgentType"
+    },
+    "MeasureType": {
+      "type": "string",
+      "enum": [
+        "sanity_check",
+        "accuracy",
+        "quality",
+        "latency",
+        "safety",
+        "efficiency",
+        "reliability"
+      ],
+      "description": "Types of measurements that can be performed:\n- sanity_check: Basic validation of agent behavior\n- accuracy: Correctness of responses\n- quality: Overall response quality metrics\n- latency: Time-based performance metrics\n- safety: Safety and risk assessment metrics\n- efficiency: Resource utilization metrics\n- reliability: Consistency and stability metrics"
+    },
+    "EvaluationMethod": {
+      "type": "string",
+      "enum": [
+        "deterministic",
+        "llm_based",
+        "statistical",
+        "hybrid"
+      ],
+      "description": "Methods used for evaluation:\n- deterministic: Fixed rules and criteria\n- llm_based: Using LLMs for evaluation\n- statistical: Statistical analysis methods\n- hybrid: Combination of multiple methods"
+    },
+    "TargetAspect": {
+      "type": "string",
+      "enum": [
+        "prompt",
+        "response",
+        "retrieval",
+        "tools",
+        "reasoning",
+        "overall"
+      ],
+      "description": "Aspects of the system being measured:\n- prompt: Input prompt construction\n- response: Output response quality\n- retrieval: Information retrieval accuracy\n- tools: Tool usage effectiveness\n- reasoning: Reasoning process quality\n- overall: End-to-end performance"
+    },
+    "MetricType": {
+      "type": "string",
+      "enum": [
+        "single_turn",
+        "multi_turn"
+      ],
+      "description": "Context type required for the metric:\n- single_turn: Metric requires only a single query-response pair\n- multi_turn: Metric requires conversation history or multiple interactions"
+    },
+    "MetricOutputType": {
+      "type": "string",
+      "enum": [
+        "binary",
+        "discrete",
+        "continuous",
+        "ranking"
+      ],
+      "description": "Mathematical output type of the metric:\n- binary: Output is true/false or 0/1\n- discrete: Output is from a finite set of values\n- continuous: Output is a real number in a continuous range\n- ranking: Output represents relative position in an ordered list"
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the measure instance",
+      "x-identifier": true
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the measure implementation",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable display name for the measure"
+    },
+    "description": {
+      "type": "string",
+      "description": "Comprehensive explanation of what the measure evaluates and how it works"
+    },
+    "category": {
+      "type": "string",
+      "description": "High-level categorization of the measure (e.g., 'Safety', 'Response Quality', 'Performance')"
+    },
+    "measure_type": {
+      "$ref": "#/definitions/MeasureType",
+      "description": "Specific type of measurement being performed"
+    },
+    "evaluation_method": {
+      "$ref": "#/definitions/EvaluationMethod",
+      "description": "Method used to compute or derive the measure"
+    },
+    "target_aspect": {
+      "$ref": "#/definitions/TargetAspect",
+      "description": "Specific aspect of the system being evaluated"
+    },
+    "metric_type": {
+      "$ref": "#/definitions/MetricType",
+      "description": "Whether the metric requires single-turn or multi-turn context"
+    },
+    "output_type": {
+      "$ref": "#/definitions/MetricOutputType",
+      "description": "Mathematical characterization of the output produced by this measure"
+    },
+    "agent_types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/AgentType"
+      },
+      "description": "Types of agents this measure can evaluate",
+      "minItems": 1
+    },
+    "domain_min": {
+      "type": ["number", "null"],
+      "description": "Minimum possible value in the measure's range (null if unbounded)"
+    },
+    "domain_max": {
+      "type": ["number", "null"],
+      "description": "Maximum possible value in the measure's range (null if unbounded)"
+    },
+    "inverse": {
+      "type": "boolean",
+      "description": "Whether lower values indicate better performance (true) or worse performance (false)"
+    },
+    "is_custom": {
+      "type": "boolean",
+      "description": "Whether this is a custom user-defined measure (true) or a standard library measure (false)"
+    },
+    "criteria": {
+      "type": "array",
+      "description": "Specific criteria or rules used to evaluate performance",
+      "items": {
+        "type": "string",
+        "description": "Individual criterion or rule"
+      },
+      "minItems": 1
+    },
+    "python_packages": {
+      "type": "array",
+      "description": "Python packages that implement or support this measure",
+      "items": {
+        "type": "object",
+        "description": "Package reference with name and documentation",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the Python package as it appears in PyPI"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to the package's documentation or repository",
+            "format": "uri"
+          }
+        },
+        "required": ["name", "url"],
+        "additionalProperties": false
+      }
+    },
+    "measure_parameters": {
+      "type": "array",
+      "description": "Configuration parameters specific to this measure",
+      "items": {
+        "type": "object",
+        "description": "Individual parameter definition",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the parameter"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["string", "number", "boolean", "object", "array"],
+            "description": "Data type of the parameter"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the parameter's purpose and usage"
+          },
+          "default": {
+            "description": "Default value for the parameter if not specified"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether this parameter must be provided",
+            "default": false
+          }
+        },
+        "required": ["name", "type", "description"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "label",
+    "description",
+    "category",
+    "measure_type",
+    "evaluation_method",
+    "target_aspect",
+    "metric_type",
+    "output_type",
+    "agent_types",
+    "domain_min",
+    "domain_max",
+    "inverse",
+    "is_custom"
+  ],
+  "additionalProperties": false
+}

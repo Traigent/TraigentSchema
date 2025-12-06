@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Evaluation Schema",
+  "description": "Schema for evaluation requests and results in the Traigent platform",
+  "version": "1.0.0",
+  "definitions": {
+    "EvaluationStatus": {
+      "$ref": "./status_schema.json#/definitions/EvaluationStatus",
+      "description": "Status of an evaluation request"
+    },
+    "EvaluationRequest": {
+      "type": "object",
+      "properties": {
+        "evaluation_id": {
+          "type": "string",
+          "description": "Unique identifier for the evaluation request"
+        },
+        "configuration_id": {
+          "type": "string",
+          "description": "ID of the configuration being evaluated"
+        },
+        "experiment_run_id": {
+          "type": "string",
+          "description": "ID of the experiment run the configuration belongs to"
+        },
+        "experiment_id": {
+          "type": "string",
+          "description": "ID of the experiment"
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of metric IDs to apply in this evaluation"
+        },
+        "status": {
+          "$ref": "#/definitions/EvaluationStatus",
+          "description": "Current status of the evaluation"
+        },
+        "started_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Timestamp when the evaluation started"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Timestamp when the evaluation completed"
+        },
+        "worker_id": {
+          "type": ["string", "null"],
+          "description": "ID of the worker processing this evaluation"
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error message if the evaluation failed"
+        }
+      },
+      "required": ["evaluation_id", "configuration_id", "experiment_run_id", "experiment_id", "metrics", "status"],
+      "additionalProperties": false,
+      "description": "Request to evaluate a configuration run"
+    },
+    "EvaluationResult": {
+      "type": "object",
+      "properties": {
+        "evaluation_id": {
+          "type": "string",
+          "description": "ID of the evaluation"
+        },
+        "configuration_id": {
+          "type": "string",
+          "description": "ID of the evaluated configuration"
+        },
+        "experiment_run_id": {
+          "type": "string",
+          "description": "ID of the experiment run"
+        },
+        "experiment_id": {
+          "type": "string",
+          "description": "ID of the experiment"
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Metric IDs used in the evaluation"
+        },
+        "status": {
+          "$ref": "#/definitions/EvaluationStatus",
+          "description": "Status of the evaluation"
+        },
+        "started_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When the evaluation started"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When the evaluation completed"
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "description": "Summary statistics by metric type and statistic name"
+        },
+        "scores": {
+          "$ref": "./score_schema.json#/definitions/ScoreCollection",
+          "description": "Collection of scores for this evaluation"
+        },
+        "responses": {
+          "type": "array",
+          "items": {
+            "$ref": "./agent_response_schema.json",
+            "description": "Agent execution responses that were evaluated"
+          }
+        }
+      },
+      "required": ["evaluation_id", "configuration_id", "experiment_run_id", "experiment_id", "metrics", "status"],
+      "additionalProperties": false,
+      "description": "Results of an evaluation"
+    }
+  },
+  "type": "object",
+  "oneOf": [
+    {"$ref": "#/definitions/EvaluationRequest"},
+    {"$ref": "#/definitions/EvaluationResult"}
+  ],
+  "description": "Evaluation data structures for the Traigent platform"
+} 

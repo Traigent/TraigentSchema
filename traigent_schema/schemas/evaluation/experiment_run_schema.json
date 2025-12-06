@@ -1,0 +1,517 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Experiment Run Schema",
+  "description": "Defines the execution instance and results of an experiment run",
+  "version": "1.0.0",
+  "definitions": {
+    "ExperimentRunStatus": {
+      "$ref": "./status_schema.json#/definitions/ExperimentRunStatus",
+      "description": "Current execution status of the configuration run"
+    },
+    "ParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "List of specific values to test for this parameter",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible values for this parameter"
+        }
+      ]
+    },
+    "NumericParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "List of specific numeric values to test for this parameter",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible values for this parameter"
+        }
+      ]
+    },
+    "TemperatureParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "description": "List of temperature values (0.0-2.0) to test",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible temperature values"
+        }
+      ]
+    },
+    "FrequencyPenaltyParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number",   
+            "minimum": -2,
+            "maximum": 2
+          },
+          "description": "List of frequency penalty values (-2.0-2.0) to test",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible frequency penalty values"
+        }
+      ]
+    },
+    "PresencePenaltyParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -2,
+            "maximum": 2
+          },
+          "description": "List of presence penalty values (-2.0-2.0) to test",
+          "minItems": 1 
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible presence penalty values"
+        }
+      ]
+    },  
+    "TopPParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "description": "List of top_p values (0.0-1.0) to test",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible top_p values"
+        }
+      ]
+    },
+    "PenaltyParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -2,
+            "maximum": 2
+          },
+          "description": "List of penalty values (-2.0-2.0) to test",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible penalty values"
+        }
+      ]
+    },
+    "PositiveNumberParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
+          "description": "List of positive numeric values to test",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible values"
+        }
+      ]
+    },
+    "PositiveIntegerParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "List of positive integer values to test",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible values"
+        }
+      ]
+    },
+    "StringParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of specific string values to test for this parameter",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible values for this parameter"
+        }
+      ]
+    },
+    "StopSequencesParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "List of stop sequences arrays to test",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible stop sequence combinations"
+        }
+      ]
+    },
+    "MetadataParameterValue": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "List of metadata objects to test",
+          "minItems": 1
+        },
+        {
+          "type": "string",
+          "enum": ["*"],
+          "description": "Wildcard to match all possible metadata configurations"
+        }
+      ]
+    },
+    "InfrastructureParameters": {
+      "type": "object",
+      "description": "Compute infrastructure parameters for experiment execution",
+      "properties": {
+        "compute": {
+          "$ref": "#/definitions/StringParameterValue",
+          "description": "Type of compute resource (e.g., 'cpu', 'gpu')"
+        },
+        "memory": {
+          "$ref": "#/definitions/PositiveIntegerParameterValue",
+          "description": "Memory allocation in MB"
+        },
+        "timeout": {
+          "$ref": "#/definitions/PositiveIntegerParameterValue",
+          "description": "Maximum execution time in seconds"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ModelParameters": {
+      "type": "object",
+      "description": "Model-specific parameters for the experiment",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/StringParameterValue"
+        },
+        "model_id": {
+          "$ref": "#/definitions/StringParameterValue"
+        },
+        "batch_size": {
+          "$ref": "#/definitions/PositiveIntegerParameterValue" 
+        },
+        "learning_rate": {
+          "$ref": "#/definitions/PositiveNumberParameterValue"
+        },
+        "temperature": {
+          "$ref": "#/definitions/TemperatureParameterValue"
+        },
+        "max_tokens": {
+          "$ref": "#/definitions/PositiveIntegerParameterValue"
+        },
+        "top_p": {
+          "$ref": "#/definitions/TopPParameterValue"
+        },
+        "frequency_penalty": {
+          "$ref": "#/definitions/FrequencyPenaltyParameterValue"
+        },
+        "presence_penalty": {
+          "$ref": "#/definitions/PresencePenaltyParameterValue"
+        },
+        "top_k": {
+          "$ref": "#/definitions/PositiveIntegerParameterValue"
+        },
+        "repetition_penalty": {
+          "$ref": "#/definitions/PositiveNumberParameterValue"
+        },
+        "stop_sequences": {
+          "$ref": "#/definitions/StopSequencesParameterValue"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ExperimentModelParameters": {
+      "type": "object",
+      "description": "Structured configuration for experiment run",
+      "properties": {
+        "configurations": {
+          "type": "object",
+          "description": "Configuration settings for the experiment",
+          "properties": {
+            "infrastructure": {
+              "$ref": "#/definitions/InfrastructureParameters"
+            },
+            "parameters": {
+              "$ref": "#/definitions/ModelParameters"
+            }
+          },
+          "additionalProperties": false
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional metadata about the experiment run",
+          "properties": {
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Tags for categorizing and filtering runs"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version of the run configuration",
+              "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExperimentResults": {
+      "type": "object",
+      "description": "Results and metrics from the experiment run",
+      "properties": {
+        "metrics": {
+          "type": "object",
+          "description": "Quantitative performance metrics",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the artifact"
+              },
+              "type": {
+                "type": "string",
+                "description": "Type of artifact (e.g., 'plot', 'model', 'data')"
+              },
+              "path": {
+                "type": "string",
+                "description": "Path to the artifact file"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601 timestamp of when this artifact was created"
+              }
+            },
+            "required": ["name", "type", "path"],
+            "additionalProperties": false
+          },
+          "description": "Generated artifacts from the experiment"
+        },
+        "logs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "timestamp": {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601 timestamp of the log entry"
+              },
+              "level": {
+                "type": "string",
+                "enum": ["INFO", "WARNING", "ERROR", "DEBUG"],
+                "description": "Severity level of the log entry"
+              },
+              "message": {
+                "type": "string",
+                "description": "Log message content"
+              }
+            },
+            "required": ["timestamp", "level", "message"],
+            "additionalProperties": false
+          },
+          "description": "Execution logs from the experiment run"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this experiment run instance",
+      "x-identifier": true
+    },
+    "experiment_id": {
+      "type": "string",
+      "description": "Reference to the parent experiment configuration",
+      "x-reference": true
+    },
+    "experiment_data": {
+      "$ref": "#/definitions/ExperimentModelParameters",
+      "description": "Model parameters configuration where each parameter can be a list of values to test or '*' to match all possible values"
+    },
+    "generator_config_id": {
+          "type": "string",
+          "description": "Reference to the generator configuration",
+          "x-reference": true
+        },
+    "generator_config": {
+      "$ref": "./generator_config_schema.json#",
+      "description": "Generator configuration"
+    },
+    "evaluator_config_id": {
+      "type": "string", 
+      "description": "Reference to the evaluator configuration",
+      "x-reference": true
+    },
+    "evaluator_config": {
+      "$ref": "./evaluator_config_schema.json#",
+      "description": "Evaluator configuration"
+    },
+    "status": {
+      "$ref": "#/definitions/ExperimentRunStatus",
+      "description": "Current execution status of the run"
+    },
+    "error_message": {
+      "type": ["string", "null"],
+      "description": "Detailed error message if the run failed"
+    },
+    "results": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ExperimentResults"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Results and metrics from the experiment execution"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when this run was created"
+    },
+    "started_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the run execution started"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the run execution completed"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the last modification to this run"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the experiment run",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for categorizing and filtering runs"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the run configuration",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "environment": {
+          "type": "object",
+          "description": "Information about the execution environment",
+          "properties": {
+            "os": {
+              "type": "string",
+              "description": "Operating system information"
+            },
+            "python_version": {
+              "type": "string",
+              "description": "Python version used for execution"
+            },
+            "dependencies": {
+              "type": "object",
+              "description": "Versions of key dependencies",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "id",
+    "experiment_id",
+    "experiment_data"
+  ],
+  "additionalProperties": false
+}

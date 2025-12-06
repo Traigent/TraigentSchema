@@ -1,0 +1,224 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Model Schema",
+  "description": "Defines the characteristics, capabilities, and requirements of a language model",
+  "version": "1.0.0",
+  "definitions": {
+    "ModelVendor": {
+      "type": "string",
+      "enum": [
+        "openai",
+        "anthropic",
+        "meta",
+        "google",
+        "cohere",
+        "unknown"
+      ],
+      "description": "Available model vendors:\n- openai: OpenAI models (e.g., GPT-4)\n- anthropic: Anthropic models (e.g., Claude)\n- meta: Meta AI models (e.g., Llama)\n- google: Google models (e.g., PaLM)\n- cohere: Cohere models\n- unknown: Other or unspecified vendors"
+    },
+    "ModelType": {
+      "type": "string",
+      "enum": [
+        "text",
+        "chat",
+        "image",
+        "multi_modal",
+        "embedding",
+        "audio"
+      ],
+      "description": "Types of model functionality:\n- text: Text completion models\n- chat: Conversational models\n- image: Image generation/analysis models\n- multi_modal: Models handling multiple modalities\n- embedding: Text embedding models\n- audio: Audio processing models"
+    },
+    "LicenseType": {
+      "type": "string",
+      "enum": [
+        "apache_2_0",
+        "mit",
+        "proprietary",
+        "cc_by_sa",
+        "other"
+      ],
+      "description": "Types of model licenses:\n- apache_2_0: Apache License 2.0\n- mit: MIT License\n- proprietary: Commercial/proprietary license\n- cc_by_sa: Creative Commons Attribution-ShareAlike\n- other: Other license types"
+    },
+    "HostingType": {
+      "type": "string",
+      "enum": [
+        "cloud",
+        "on_premise",
+        "hybrid"
+      ],
+      "description": "Model deployment options:\n- cloud: Cloud-hosted deployment\n- on_premise: Local deployment\n- hybrid: Mixed deployment model"
+    },
+    "PricingType": {
+      "type": "string",
+      "enum": [
+        "pay_per_call",
+        "subscription",
+        "free",
+        "usage_based"
+      ],
+      "description": "Pricing models:\n- pay_per_call: Per-request pricing\n- subscription: Fixed subscription fee\n- free: No cost\n- usage_based: Based on resource usage"
+    },
+    "Capability": {
+      "type": "string",
+      "enum": [
+        "text_generation",
+        "chat",
+        "code_generation",
+        "translation",
+        "summarization",
+        "classification",
+        "embedding",
+        "image_generation",
+        "speech_to_text",
+        "text_to_speech"
+      ],
+      "description": "Model capabilities and supported tasks"
+    },
+    "QuantizationType": {
+      "type": "string",
+      "enum": [
+        "fp16",
+        "int8",
+        "int4",
+        "none"
+      ],
+      "description": "Model quantization formats:\n- fp16: 16-bit floating point\n- int8: 8-bit integer\n- int4: 4-bit integer\n- none: No quantization"
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the model instance",
+      "x-identifier": true
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for identifying the model"
+    },
+    "description": {
+      "type": "string",
+      "description": "Comprehensive description of the model's capabilities, use cases, and limitations"
+    },
+    "vendor": {
+      "$ref": "#/definitions/ModelVendor",
+      "description": "Provider or creator of the model"
+    },
+    "version": {
+      "type": "string",
+      "description": "Version identifier of the model",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "model_type": {
+      "$ref": "#/definitions/ModelType",
+      "description": "Primary type or category of the model"
+    },
+    "is_third_party": {
+      "type": "boolean",
+      "description": "Whether the model is provided by a third-party vendor (true) or is self-hosted (false)",
+      "default": true
+    },
+    "context_length": {
+      "type": "integer",
+      "description": "Maximum number of tokens the model can process in a single context window",
+      "minimum": 0
+    },
+    "supported_languages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+      },
+      "description": "ISO language codes for languages supported by the model",
+      "examples": [["en", "es", "fr-FR", "zh-CN"]]
+    },
+    "license_type": {
+      "$ref": "#/definitions/LicenseType",
+      "description": "Type of license under which the model is distributed"
+    },
+    "hosting_type": {
+      "$ref": "#/definitions/HostingType",
+      "description": "Deployment and hosting configuration for the model"
+    },
+    "pricing_type": {
+      "$ref": "#/definitions/PricingType",
+      "description": "Pricing and billing model for using the model"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Capability"
+      },
+      "description": "List of tasks and operations the model can perform",
+      "minItems": 1
+    },
+    "min_gpu_memory": {
+      "type": "number",
+      "description": "Minimum GPU memory required for model operation in gigabytes",
+      "minimum": 0
+    },
+    "recommended_gpu_memory": {
+      "type": "number",
+      "description": "Recommended GPU memory for optimal performance in gigabytes",
+      "minimum": 0
+    },
+    "quantization": {
+      "$ref": "#/definitions/QuantizationType",
+      "description": "Quantization format used for model weights"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the model was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the last modification to the model"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the model",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for categorizing and filtering models"
+        },
+        "performance_metrics": {
+          "type": "object",
+          "description": "Model performance evaluation sets and metrics",
+          "additionalProperties": true
+        },
+        "training_data": {
+          "type": "object",
+          "description": "Information about the model's training data",
+          "properties": {
+            "dataset_name": {
+              "type": "string",
+              "description": "Name of the training dataset"
+            },
+            "data_points": {
+              "type": "integer",
+              "description": "Number of training examples",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "description",
+    "vendor",
+    "version",
+    "model_type",
+    "capabilities"
+  ],
+  "additionalProperties": false
+}

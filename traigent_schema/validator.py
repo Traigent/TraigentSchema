@@ -31,7 +31,7 @@ class SchemaValidator:
     def __init__(self):
         """Initialize the validator with all available schemas."""
         self._schemas: Dict[str, Dict[str, Any]] = {}
-        self._endpoint_schemas: Dict[str, Dict[str, str]] = {}
+        self._endpoint_schemas: Dict[str, str] = {}
         self._registry: Optional[Registry] = None
         self._load_schemas()
         self._load_endpoint_mappings()

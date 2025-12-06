@@ -64,7 +64,7 @@ target-version = "py38"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 

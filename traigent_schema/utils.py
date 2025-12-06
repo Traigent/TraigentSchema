@@ -91,4 +91,5 @@ def load_schema(schema_name: str) -> Dict[str, Any]:
     """
     schema_path = get_schema_path(schema_name)
     with open(schema_path, encoding='utf-8') as f:
-        return json.load(f)
+        result: Dict[str, Any] = json.load(f)
+        return result

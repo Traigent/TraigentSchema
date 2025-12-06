@@ -7,7 +7,7 @@ name = "traigent-schema"
 version = "1.0.0"
 description = "Traigent Schema Library - Data contracts and validation for the Traigent AI optimization platform"
 readme = "README.md"
-license = "Proprietary"
+license = {file = "LICENSE"}
 requires-python = ">=3.8"
 authors = [
     { name = "Traigent Team", email = "dev@traigent.ai" }

@@ -5,7 +5,7 @@ Provides validation of API requests and JSON data against Traigent schemas.
 """
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from jsonschema import Draft7Validator, ValidationError
 from referencing import Registry, Resource
@@ -30,8 +30,8 @@ class SchemaValidator:
 
     def __init__(self):
         """Initialize the validator with all available schemas."""
-        self._schemas: Dict[str, Dict[str, Any]] = {}
-        self._endpoint_schemas: Dict[str, str] = {}
+        self._schemas: dict[str, dict[str, Any]] = {}
+        self._endpoint_schemas: dict[str, str] = {}
         self._registry: Optional[Registry] = None
         self._load_schemas()
         self._load_endpoint_mappings()
@@ -57,10 +57,10 @@ class SchemaValidator:
 
     def _build_registry(self) -> None:
         """Build a jsonschema Registry for reference resolution."""
-        resources = []
+        resources: list[tuple[str, Resource[dict[str, Any]]]] = []
         for _name, schema in self._schemas.items():
             if "$id" in schema:
-                resource = Resource.from_contents(schema)
+                resource: Resource[dict[str, Any]] = Resource.from_contents(schema)
                 resources.append((schema["$id"], resource))
 
         self._registry = Registry().with_resources(resources)
@@ -76,7 +76,7 @@ class SchemaValidator:
         except (OSError, json.JSONDecodeError):
             pass
 
-    def _parse_openapi(self, openapi: Dict[str, Any]) -> None:
+    def _parse_openapi(self, openapi: dict[str, Any]) -> None:
         """Parse OpenAPI spec to extract endpoint-schema mappings."""
         paths = openapi.get("paths", {})
         for path, methods in paths.items():
@@ -99,8 +99,8 @@ class SchemaValidator:
         self,
         endpoint: str,
         method: str,
-        data: Dict[str, Any]
-    ) -> List[str]:
+        data: dict[str, Any]
+    ) -> list[str]:
         """
         Validate a request against the schema for the given endpoint.
 
@@ -122,9 +122,9 @@ class SchemaValidator:
 
     def validate_json(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         schema_name: str
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Validate JSON data against a named schema.
 
@@ -156,6 +156,6 @@ class SchemaValidator:
         return f"{path}: {error.message}"
 
     @property
-    def available_schemas(self) -> List[str]:
+    def available_schemas(self) -> list[str]:
         """Get list of available schema names."""
         return list(self._schemas.keys())

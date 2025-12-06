@@ -6,7 +6,7 @@ Provides functions for locating, loading, and managing JSON schema files.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
 def get_schemas_dir() -> Path:
@@ -58,7 +58,7 @@ def get_schema_path(schema_name: str) -> Path:
     raise FileNotFoundError(f"Schema not found: {schema_name}")
 
 
-def get_all_schema_files() -> List[Path]:
+def get_all_schema_files() -> list[Path]:
     """
     Get all schema files in the package.
 
@@ -79,7 +79,7 @@ def get_openapi_path() -> Path:
     return get_schemas_dir() / "mep_endpoints.json"
 
 
-def load_schema(schema_name: str) -> Dict[str, Any]:
+def load_schema(schema_name: str) -> dict[str, Any]:
     """
     Load a schema by name.
 
@@ -91,5 +91,5 @@ def load_schema(schema_name: str) -> Dict[str, Any]:
     """
     schema_path = get_schema_path(schema_name)
     with open(schema_path, encoding='utf-8') as f:
-        result: Dict[str, Any] = json.load(f)
+        result: dict[str, Any] = json.load(f)
         return result

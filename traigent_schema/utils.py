@@ -6,7 +6,7 @@ Provides functions for locating, loading, and managing JSON schema files.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def get_schemas_dir() -> Path:
@@ -90,5 +90,5 @@ def load_schema(schema_name: str) -> Dict[str, Any]:
         Parsed JSON schema as a dictionary.
     """
     schema_path = get_schema_path(schema_name)
-    with open(schema_path, 'r', encoding='utf-8') as f:
+    with open(schema_path, encoding='utf-8') as f:
         return json.load(f)

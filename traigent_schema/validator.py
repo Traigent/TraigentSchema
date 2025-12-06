@@ -5,14 +5,12 @@ Provides validation of API requests and JSON data against Traigent schemas.
 """
 
 import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-import jsonschema
 from jsonschema import Draft7Validator, ValidationError
 from referencing import Registry, Resource
 
-from traigent_schema.utils import get_schemas_dir, get_openapi_path, load_schema
+from traigent_schema.utils import get_openapi_path, get_schemas_dir
 
 
 class SchemaValidator:
@@ -47,11 +45,11 @@ class SchemaValidator:
                 continue  # Skip endpoint definition files
 
             try:
-                with open(schema_file, 'r', encoding='utf-8') as f:
+                with open(schema_file, encoding='utf-8') as f:
                     schema = json.load(f)
                     schema_name = schema_file.stem
                     self._schemas[schema_name] = schema
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, json.JSONDecodeError):
                 # Log warning but continue loading other schemas
                 pass
 
@@ -60,7 +58,7 @@ class SchemaValidator:
     def _build_registry(self) -> None:
         """Build a jsonschema Registry for reference resolution."""
         resources = []
-        for name, schema in self._schemas.items():
+        for _name, schema in self._schemas.items():
             if "$id" in schema:
                 resource = Resource.from_contents(schema)
                 resources.append((schema["$id"], resource))
@@ -72,10 +70,10 @@ class SchemaValidator:
         try:
             openapi_path = get_openapi_path()
             if openapi_path.exists():
-                with open(openapi_path, 'r', encoding='utf-8') as f:
+                with open(openapi_path, encoding='utf-8') as f:
                     openapi = json.load(f)
                     self._parse_openapi(openapi)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass
 
     def _parse_openapi(self, openapi: Dict[str, Any]) -> None:

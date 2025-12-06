@@ -7,7 +7,7 @@ Provides validation of API requests and JSON data against Traigent schemas.
 import json
 from typing import Any, Optional
 
-from jsonschema import Draft7Validator, ValidationError
+from jsonschema import Draft7Validator, FormatChecker, ValidationError
 from referencing import Registry, Resource
 
 from traigent_schema.utils import get_openapi_path, get_schemas_dir
@@ -144,7 +144,11 @@ class SchemaValidator:
             return [f"Schema not found: {schema_name}"]
 
         try:
-            validator = Draft7Validator(schema, registry=self._registry)
+            validator = Draft7Validator(
+                schema,
+                registry=self._registry,
+                format_checker=FormatChecker()
+            )
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
         except Exception as e:

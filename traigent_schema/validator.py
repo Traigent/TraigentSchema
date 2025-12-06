@@ -5,10 +5,12 @@ Provides validation of API requests and JSON data against Traigent schemas.
 """
 
 import json
+import re
 from typing import Any, Optional
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
 from referencing import Registry, Resource
+from referencing.jsonschema import DRAFT7
 
 from traigent_schema.utils import get_openapi_path, get_schemas_dir
 
@@ -31,7 +33,8 @@ class SchemaValidator:
     def __init__(self):
         """Initialize the validator with all available schemas."""
         self._schemas: dict[str, dict[str, Any]] = {}
-        self._endpoint_schemas: dict[str, str] = {}
+        self._endpoint_schemas: dict[tuple[str, str], str] = {}
+        self._endpoint_patterns: list[tuple[str, re.Pattern[str], str]] = []
         self._registry: Optional[Registry] = None
         self._load_schemas()
         self._load_endpoint_mappings()
@@ -45,9 +48,14 @@ class SchemaValidator:
                 continue  # Skip endpoint definition files
 
             try:
-                with open(schema_file, encoding='utf-8') as f:
+                with open(schema_file, encoding="utf-8") as f:
                     schema = json.load(f)
                     schema_name = schema_file.stem
+
+                    # Ensure schemas have a stable base URI so relative $refs resolve
+                    if "$id" not in schema:
+                        schema["$id"] = schema_file.resolve().as_uri()
+
                     self._schemas[schema_name] = schema
             except (OSError, json.JSONDecodeError):
                 # Log warning but continue loading other schemas
@@ -58,23 +66,37 @@ class SchemaValidator:
     def _build_registry(self) -> None:
         """Build a jsonschema Registry for reference resolution."""
         resources: list[tuple[str, Resource[dict[str, Any]]]] = []
-        for _name, schema in self._schemas.items():
-            if "$id" in schema:
-                resource: Resource[dict[str, Any]] = Resource.from_contents(schema)
-                resources.append((schema["$id"], resource))
+        for name, schema in self._schemas.items():
+            resource_uri = schema.get("$id")
+            if not resource_uri:
+                continue
+
+            resource: Resource[dict[str, Any]] = Resource.from_contents(
+                schema,
+                default_specification=DRAFT7,
+            )
+            resources.append((resource_uri, resource))
+
+            # Register with common alternate identifiers for convenience
+            resources.append((name, resource))
+            resources.append((f"{name}.json", resource))
 
         self._registry = Registry().with_resources(resources)
 
     def _load_endpoint_mappings(self) -> None:
-        """Load endpoint-to-schema mappings from OpenAPI spec."""
-        try:
-            openapi_path = get_openapi_path()
-            if openapi_path.exists():
-                with open(openapi_path, encoding='utf-8') as f:
+        """Load endpoint-to-schema mappings from all endpoint specs."""
+        schemas_dir = get_schemas_dir()
+        endpoint_files = list(schemas_dir.rglob("*_endpoints.json"))
+
+        for endpoint_file in endpoint_files:
+            try:
+                with open(endpoint_file, encoding="utf-8") as f:
                     openapi = json.load(f)
                     self._parse_openapi(openapi)
-        except (OSError, json.JSONDecodeError):
-            pass
+            except (OSError, json.JSONDecodeError):
+                continue
+
+        self._build_endpoint_patterns()
 
     def _parse_openapi(self, openapi: dict[str, Any]) -> None:
         """Parse OpenAPI spec to extract endpoint-schema mappings."""
@@ -90,16 +112,58 @@ class SchemaValidator:
                 json_content = content.get("application/json", {})
                 schema_ref = json_content.get("schema", {}).get("$ref", "")
 
-                if schema_ref:
-                    schema_name = schema_ref.split("/")[-1]
-                    key = f"{method.upper()}:{path}"
-                    self._endpoint_schemas[key] = schema_name
+                if not schema_ref:
+                    continue
+
+                schema_name = self._extract_schema_name(schema_ref)
+                if not schema_name:
+                    continue
+
+                path_template = self._normalize_path_template(path)
+                key = (method.upper(), path_template)
+                self._endpoint_schemas[key] = schema_name
+
+    def _build_endpoint_patterns(self) -> None:
+        """Precompile regex patterns for parameterized paths."""
+        for (method, path_template), schema_name in self._endpoint_schemas.items():
+            pattern = re.sub(r"\{[^/}]+\}", r"[^/]+", path_template)
+            pattern = f"^{pattern.rstrip('/')}/?$"
+            self._endpoint_patterns.append((method, re.compile(pattern), schema_name))
+
+    def _extract_schema_name(self, schema_ref: str) -> str:
+        """Extract schema name from a $ref, stripping fragments/extensions."""
+        schema_ref = schema_ref.split("#", maxsplit=1)[0]
+        stem = re.sub(r"\.json$", "", schema_ref.split("/")[-1])
+        return stem
+
+    def _normalize_path_template(self, path: str) -> str:
+        """Normalize stored path templates for consistent matching."""
+        normalized = path.split("?", maxsplit=1)[0]
+        if not normalized.startswith("/"):
+            normalized = "/" + normalized
+        return normalized.rstrip("/") or "/"
+
+    def _normalize_request_path(self, path: str) -> str:
+        """Normalize incoming request paths for matching."""
+        normalized = path.split("?", maxsplit=1)[0]
+        if normalized.startswith("/api/v1"):
+            normalized = normalized[len("/api/v1") :]
+        if not normalized.startswith("/"):
+            normalized = "/" + normalized
+        return normalized.rstrip("/") or "/"
+
+    def _match_pattern(self, method: str, path: str) -> Optional[str]:
+        """Find a schema for a method/path by matching path parameters."""
+        for stored_method, pattern, schema_name in self._endpoint_patterns:
+            if stored_method == method and pattern.match(path):
+                return schema_name
+        return None
 
     def validate_request(
         self,
         endpoint: str,
         method: str,
-        data: dict[str, Any]
+        data: dict[str, Any],
     ) -> list[str]:
         """
         Validate a request against the schema for the given endpoint.
@@ -112,8 +176,13 @@ class SchemaValidator:
         Returns:
             List of validation error messages. Empty if valid.
         """
-        key = f"{method.upper()}:{endpoint}"
-        schema_name = self._endpoint_schemas.get(key)
+        verb = method.upper()
+        normalized_path = self._normalize_request_path(endpoint)
+        template_key = (verb, normalized_path)
+
+        schema_name = self._endpoint_schemas.get(template_key)
+        if not schema_name:
+            schema_name = self._match_pattern(verb, normalized_path)
 
         if not schema_name:
             return []  # No schema defined for this endpoint
@@ -123,7 +192,7 @@ class SchemaValidator:
     def validate_json(
         self,
         data: dict[str, Any],
-        schema_name: str
+        schema_name: str,
     ) -> list[str]:
         """
         Validate JSON data against a named schema.
@@ -147,7 +216,7 @@ class SchemaValidator:
             validator = Draft7Validator(
                 schema,
                 registry=self._registry,
-                format_checker=FormatChecker()
+                format_checker=FormatChecker(),
             )
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]

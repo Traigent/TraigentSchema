@@ -42,9 +42,7 @@ class TestValidateJson:
             "agent_type": "qa"
         }
         errors = validator.validate_json(data, "agent_schema")
-        # Note: May have reference resolution errors for cross-file $refs
-        # The validator correctly validates the core structure
-        assert isinstance(errors, list)
+        assert errors == []
 
     def test_invalid_agent_missing_required(self, validator):
         """Should catch missing required fields."""
@@ -73,6 +71,7 @@ class TestValidateJson:
         errors = validator.validate_json(data, "agent")
         # Should either work or gracefully report not found
         assert isinstance(errors, list)
+        assert errors == []
 
 
 class TestValidateRequest:
@@ -94,6 +93,22 @@ class TestValidateRequest:
         data = {"test": "data"}
         errors = validator.validate_request("/api/v1/agents", "POST", data)
         assert isinstance(errors, list)
+
+    def test_known_endpoint_is_validated(self, validator):
+        """Should validate using endpoint mapping and path normalization."""
+        data = {"id": "a1", "name": "Agent", "agent_type": "qa"}
+        errors = validator.validate_request("/api/v1/agents", "POST", data)
+        assert errors == []
+
+    def test_parameterized_path_matches(self, validator):
+        """Should match parameterized endpoints with concrete IDs."""
+        data = {"name": "Prod deployment"}
+        errors = validator.validate_request(
+            "/api/v1/agents/123/deploy",
+            "POST",
+            data,
+        )
+        assert errors == []
 
 
 class TestSchemaValidation:

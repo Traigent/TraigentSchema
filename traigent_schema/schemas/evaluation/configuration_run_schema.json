@@ -43,11 +43,9 @@
         }
       },
       "required": [
-        "generator_config_id",
-        "evaluator_config_id",
-        "model_parameters_id",
         "infrastructure"
       ],
+      "x-traigent-note": "generator_config_id and evaluator_config_id are optional for TraiGent SDK trials which use model_parameters_id instead",
       "additionalProperties": false
     },
     "MeasureResults": {

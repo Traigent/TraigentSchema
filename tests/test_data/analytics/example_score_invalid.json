@@ -1,0 +1,6 @@
+{
+  "experiment_run_id": "exp_run_123",
+  "example_id": "invalid_format",
+  "content_uniqueness": 1.5,
+  "algorithm_version": "invalid"
+}

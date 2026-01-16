@@ -10,6 +10,168 @@ TraigentSchema is the centralized schema library for the Traigent AI optimizatio
 - Python validation utilities
 - Schema loading and discovery functions
 
+## Claude Plans & IP Protection (CRITICAL)
+
+**Implementation plans contain proprietary IP and MUST NOT be committed to version control.**
+
+### Storage Location
+- All Claude Code implementation plans are stored in `~/.claude/plans/` (user home directory)
+- This directory is excluded by `.gitignore` (line 91: `.claude/`)
+- **NEVER** create plan files inside the repository directory structure
+- **NEVER** commit plan files or reference them in committed code
+
+### Plan Security
+- Plans are automatically written to `~/.claude/plans/` by Claude Code
+- Verify the path starts with `/home/` or `~/` (outside repo)
+- If accidentally created in repo, immediately move to `~/.claude/plans/`
+- Plan names are auto-generated (e.g., `async-sprouting-summit.md`)
+
+## Single Source of Truth: TraigentSchema (CRITICAL)
+
+**TraigentSchema is the SINGLE SOURCE OF TRUTH for all data contracts across the Traigent ecosystem (SDK, Frontend, Backend).**
+
+### Responsibilities
+
+**This repository defines:**
+1. ✅ **JSON Schemas** - All API request/response schemas
+2. ✅ **Data Models** - Canonical structure for experiments, runs, configurations
+3. ✅ **Validation Rules** - Constraints on fields (max keys, patterns, types)
+4. ✅ **OpenAPI Spec** - Endpoint-to-schema mappings
+
+**Other projects consume these schemas:**
+- **Traigent SDK** - DTOs (`traigent/cloud/dtos.py`) implement these schemas
+- **TraigentBackend** - Pydantic schemas mirror these definitions
+- **TraigentFrontend** - TypeScript types generated from these schemas
+
+### Schema → DTO → Model Flow
+
+```
+TraigentSchema (JSON Schema)
+    ↓
+Traigent SDK (Python DTOs)
+    ↓
+TraigentBackend (Pydantic + SQLAlchemy)
+    ↓
+TraigentFrontend (TypeScript Types)
+```
+
+### Critical Schema Contracts
+
+**MeasuresDict Constraints** (enforced across all projects):
+- **Max 50 keys** - Prevent unbounded memory usage
+- **Python identifier keys** - Pattern: `^[a-zA-Z_][a-zA-Z0-9_]*$`
+- **Numeric values only** - Types: int, float, None
+
+**Example Schema** (`measures_schema.json`):
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "maxProperties": 50,
+  "patternProperties": {
+    "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+      "type": ["number", "null"]
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Schema Evolution Guidelines
+
+**When modifying schemas:**
+
+1. ✅ **Check backward compatibility** - Can old clients still work?
+2. ✅ **Update version** - Bump schema version in `version.py`
+3. ✅ **Document breaking changes** - Note in CHANGELOG.md
+4. ✅ **Update all projects**:
+   - SDK: Update DTOs in `traigent/cloud/dtos.py`
+   - Backend: Update Pydantic schemas in `src/schemas/`
+   - Frontend: Regenerate TypeScript types
+
+**Breaking Change Checklist:**
+```bash
+# 1. Update TraigentSchema
+# Edit schema JSON files
+
+# 2. Update Traigent SDK
+cd ~/Traigent_enterprise/Traigent
+# Update DTOs to match new schema
+
+# 3. Update TraigentBackend
+cd ~/Traigent_enterprise/TraigentBackend
+# Update Pydantic schemas
+
+# 4. Update TraigentFrontend
+cd ~/Traigent_enterprise/TraigentFrontend
+# Regenerate TypeScript types
+
+# 5. Run integration tests across all projects
+```
+
+### Adding New Schemas
+
+**When creating new schemas for cross-project features:**
+
+1. **Design schema first** - Define in TraigentSchema (this repo)
+2. **Validate structure** - Use `SchemaValidator.validate_json()`
+3. **Add to OpenAPI** - Update `mep_endpoints.json` with endpoints
+4. **Create SDK DTO** - Implement DTO in Traigent SDK matching schema
+5. **Backend models** - Create SQLAlchemy models in TraigentBackend
+6. **Frontend types** - Generate TypeScript types in TraigentFrontend
+7. **Integration tests** - Test end-to-end data flow
+
+**Example: Adding Example Scoring Schema**
+```bash
+# 1. Create schema
+# traigent_schema/schemas/analytics/example_score_schema.json
+{
+  "type": "object",
+  "required": ["example_id", "informativeness", "uniqueness"],
+  "properties": {
+    "example_id": {"type": "string"},
+    "informativeness": {"type": "number"},
+    "uniqueness": {"type": "number"},
+    "composite_score": {"type": "number"}
+  }
+}
+
+# 2. SDK DTO (Traigent/traigent/cloud/dtos.py)
+@dataclass
+class ExampleScoreDTO:
+    example_id: str
+    informativeness: float
+    uniqueness: float
+    composite_score: float | None = None
+
+# 3. Backend model (TraigentBackend/src/models/example_score.py)
+class ExampleScore(Base):
+    example_id = Column(String, nullable=False)
+    informativeness = Column(Float)
+    uniqueness = Column(Float)
+    composite_score = Column(Float)
+
+# 4. Frontend type (TraigentFrontend/src/types/analytics.ts)
+export interface ExampleScoreDTO {
+  example_id: string;
+  informativeness: number;
+  uniqueness: number;
+  composite_score?: number;
+}
+```
+
+### Key Files
+
+**This Repository:**
+- `traigent_schema/schemas/` - All JSON schema definitions
+- `traigent_schema/validator.py` - Validation utilities
+- `traigent_schema/schemas/mep_endpoints.json` - OpenAPI specification
+
+**Related Projects:**
+- **SDK**: `traigent/cloud/dtos.py` - Python DTOs implementing schemas
+- **Backend**: `src/schemas/` - Pydantic schemas, `src/models/` - SQLAlchemy models
+- **Frontend**: `src/types/` - TypeScript types from schemas
+
 ## Project Structure
 
 ```

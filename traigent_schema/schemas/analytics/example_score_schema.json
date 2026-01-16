@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/analytics/example_score.json",
+  "title": "ExampleScore",
+  "description": "Quality scores for individual examples in an experiment run. Combines content-based scores (computed in SDK) with statistical scores (computed in backend).",
+  "type": "object",
+  "required": [
+    "example_id",
+    "experiment_run_id",
+    "algorithm_version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this score record"
+    },
+    "experiment_run_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "ID of the experiment run this example belongs to",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "example_id": {
+      "type": "string",
+      "maxLength": 255,
+      "description": "Stable, deterministic ID for the example (format: ex_{hash}_{index})",
+      "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
+    },
+    "content_uniqueness": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Content-based uniqueness score (1.0 = completely unique, 0.0 = duplicate). Computed in SDK using TF-IDF similarity."
+    },
+    "content_novelty": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Content-based novelty score (1.0 = very novel, 0.0 = average). Computed in SDK by distance from dataset centroid."
+    },
+    "informativeness": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Statistical informativeness score based on variance across different configurations. High = example discriminates well between configs."
+    },
+    "consistency": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Statistical consistency score based on variance within same configuration. High = stable/reliable example."
+    },
+    "difficulty": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Statistical difficulty score based on correlation with config quality. High = difficult example that challenges good configs."
+    },
+    "discriminative_power": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Statistical measure of how well this example differentiates between configurations."
+    },
+    "cost_efficiency": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Information gain per unit of execution cost. High = valuable example relative to cost."
+    },
+    "error_sensitivity": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Sensitivity of metrics to execution variance. High = metrics vary significantly on this example."
+    },
+    "predictive_value": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Correlation between example performance and overall config quality. High = good predictor of general performance."
+    },
+    "ambiguity": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Variance in metrics independent of config quality. High = ambiguous/noisy example."
+    },
+    "composite_score": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Weighted composite of all individual scores. Overall quality indicator."
+    },
+    "sample_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Number of trials this example was evaluated in (more samples = more reliable scores)"
+    },
+    "algorithm_version": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "Version of the scoring algorithm used (e.g., '1.0.0')",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "score_metadata": {
+      "type": ["object", "null"],
+      "description": "Additional metadata about score computation",
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this score was computed"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp when this score was last updated"
+    }
+  },
+  "additionalProperties": false
+}

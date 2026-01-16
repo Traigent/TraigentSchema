@@ -1,0 +1,24 @@
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "experiment_run_id": "exp_run_abc123",
+  "example_id": "ex_a3f4b2cd12_0",
+  "content_uniqueness": 0.85,
+  "content_novelty": 0.72,
+  "informativeness": 0.91,
+  "consistency": 0.78,
+  "difficulty": 0.65,
+  "discriminative_power": 0.88,
+  "cost_efficiency": 0.82,
+  "error_sensitivity": 0.45,
+  "predictive_value": 0.79,
+  "ambiguity": 0.33,
+  "composite_score": 0.75,
+  "sample_count": 10,
+  "algorithm_version": "1.0.0",
+  "score_metadata": {
+    "computation_time_ms": 123.4,
+    "data_sources": ["trial_1", "trial_2", "trial_3"]
+  },
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z"
+}

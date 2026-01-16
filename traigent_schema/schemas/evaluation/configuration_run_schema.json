@@ -3,7 +3,7 @@
   "type": "object",
   "title": "Configuration Run Schema",
   "description": "Defines the execution instance and results of a specific configuration within an experiment run",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "definitions": {
     "ExperimentParameters": {
       "type": "object",
@@ -50,12 +50,12 @@
     },
     "MeasureResults": {
       "type": "object",
-      "description": "Results from measure evaluations",
-      "result": "Invocation result",
+      "description": "Results from measure evaluations. Keys must be valid Python identifiers, values must be numeric or null. Maximum 50 keys per result.",
+      "maxProperties": 50,
       "patternProperties": {
         "^[a-zA-Z_][a-zA-Z0-9_]*$": {
-          "type": ["number", "null", "string"],
-          "description": "Score for a specific measure"
+          "type": ["number", "null"],
+          "description": "Score for a specific measure (numeric values only)"
         }
       },
       "additionalProperties": false
@@ -141,6 +141,17 @@
         }
       },
       "additionalProperties": true
+    },
+    "workflow_metadata": {
+      "oneOf": [
+        {
+          "$ref": "../execution/workflow_metadata_schema.json#/definitions/WorkflowMetadata"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Multi-agent workflow metadata including cost tracking and execution details"
     }
   },
   "required": [

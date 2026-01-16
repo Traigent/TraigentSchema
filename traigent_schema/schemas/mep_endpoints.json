@@ -153,6 +153,11 @@
       "name": "Results",
       "description": "Endpoints for retrieving and analyzing experiment results",
       "paths_file": "./results/results_endpoints.json"
+    },
+    {
+      "name": "Analytics",
+      "description": "Endpoints for example and dataset quality scoring analytics",
+      "paths_file": "./analytics/analytics_endpoints.json"
     }
   ]
 }

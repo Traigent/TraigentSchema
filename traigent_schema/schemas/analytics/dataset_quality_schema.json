@@ -1,0 +1,159 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/analytics/dataset_quality.json",
+  "title": "DatasetQuality",
+  "description": "Dataset-level quality metrics aggregated from example scores. Provides overall assessment and recommendations for dataset improvement.",
+  "type": "object",
+  "required": [
+    "experiment_run_id",
+    "algorithm_version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this quality record"
+    },
+    "experiment_run_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "ID of the experiment run this quality assessment belongs to",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "dataset_quality": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Overall dataset quality score (weighted composite of component scores)"
+    },
+    "coverage_score": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "How well the dataset covers the problem space (based on diversity and spread)"
+    },
+    "diversity_score": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Diversity of examples in the dataset (low redundancy, high uniqueness)"
+    },
+    "efficiency_score": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Cost efficiency of the dataset (information per resource spent)"
+    },
+    "top_informative_ids": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string",
+        "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
+      },
+      "maxItems": 20,
+      "description": "IDs of the top 20 most informative examples (highest informativeness scores)"
+    },
+    "top_difficult_ids": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string",
+        "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
+      },
+      "maxItems": 20,
+      "description": "IDs of the top 20 most difficult examples (highest difficulty scores)"
+    },
+    "low_value_ids": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string",
+        "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
+      },
+      "maxItems": 20,
+      "description": "IDs of up to 20 low-value examples (candidates for removal)"
+    },
+    "redundant_pairs": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
+        },
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "maxItems": 50,
+      "description": "Pairs of example IDs that are highly similar/redundant (max 50 pairs)"
+    },
+    "score_distributions": {
+      "type": ["object", "null"],
+      "description": "Distribution statistics for each score type",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "mean": {"type": "number"},
+          "std": {"type": "number"},
+          "min": {"type": "number"},
+          "max": {"type": "number"},
+          "median": {"type": "number"}
+        }
+      }
+    },
+    "recommendations": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["type", "message"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["info", "warning", "critical"],
+            "description": "Severity level of the recommendation"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Human-readable recommendation message"
+          },
+          "example_ids": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "Example IDs related to this recommendation"
+          },
+          "action": {
+            "type": ["string", "null"],
+            "enum": ["remove", "add_similar", "review", null],
+            "description": "Suggested action to take"
+          }
+        }
+      },
+      "maxItems": 50,
+      "description": "Actionable recommendations for improving dataset quality"
+    },
+    "algorithm_version": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "Version of the quality assessment algorithm",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "quality_metadata": {
+      "type": ["object", "null"],
+      "description": "Additional metadata about quality computation",
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when this quality assessment was computed"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp when this quality assessment was last updated"
+    }
+  },
+  "additionalProperties": false
+}

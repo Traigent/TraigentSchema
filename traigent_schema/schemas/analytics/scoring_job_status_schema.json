@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/analytics/scoring_job_status.json",
+  "title": "ScoringJobStatus",
+  "description": "Status of an asynchronous scoring computation job",
+  "type": "object",
+  "required": ["status", "job_id"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["accepted", "running", "completed", "failed"],
+      "description": "Current status of the scoring job"
+    },
+    "job_id": {
+      "type": "string",
+      "maxLength": 255,
+      "description": "Unique identifier for this job",
+      "pattern": "^score_[a-zA-Z0-9_-]+_[0-9]+$"
+    },
+    "poll_url": {
+      "type": ["string", "null"],
+      "format": "uri-reference",
+      "description": "URL to poll for job status updates"
+    },
+    "result": {
+      "type": ["object", "null"],
+      "description": "Result summary when status is 'completed'",
+      "properties": {
+        "experiment_run_id": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "num_examples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dataset_quality": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "algorithm_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        }
+      },
+      "required": ["experiment_run_id", "num_examples"]
+    },
+    "error": {
+      "type": ["string", "null"],
+      "maxLength": 1000,
+      "description": "Error message when status is 'failed'"
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp when job was created"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp when job completed (success or failure)"
+    }
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "status": {"const": "completed"},
+        "result": {"type": "object"}
+      },
+      "required": ["result"]
+    },
+    {
+      "properties": {
+        "status": {"const": "failed"},
+        "error": {"type": "string"}
+      },
+      "required": ["error"]
+    },
+    {
+      "properties": {
+        "status": {"enum": ["accepted", "running"]}
+      }
+    }
+  ]
+}

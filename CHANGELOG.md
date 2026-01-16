@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **AnalyticsValidator**: New validation utility class for analytics schemas
 - Comprehensive test suite for analytics schemas (50+ test cases)
 
+### Changed
+
+- **Workflow Metadata Schema Enhancements** (`workflow_metadata_schema.json`):
+  - `AgentCostBreakdown`: Added `agent_id` field (required), renamed `model` to `model_used`, added `total_tokens` field (required)
+  - `WorkflowMetadata`: `workflow_name` is now required (was nullable), added `total_tokens`, `total_input_cost`, `total_output_cost` fields (all required)
+
 ## [3.0.0] - 2024-01-15
 
 ### Added

@@ -18,9 +18,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING**: Nested Example Metrics Structure (`configuration_run_schema.json`):
+  - `measures` array now uses `ExampleMetrics` structure instead of flat `MeasureResults`
+  - New structure: `{"example_id": "ex_...", "metrics": {"score": 0.85, ...}}`
+  - This prevents `example_id` from being stripped during numeric-only validation
+  - Added `maxItems: 1000` constraint on measures array
 - **Workflow Metadata Schema Enhancements** (`workflow_metadata_schema.json`):
   - `AgentCostBreakdown`: Added `agent_id` field (required), renamed `model` to `model_used`, added `total_tokens` field (required)
   - `WorkflowMetadata`: `workflow_name` is now required (was nullable), added `total_tokens`, `total_input_cost`, `total_output_cost` fields (all required)
+
+### Added (Validators)
+
+- `validate_example_metrics()` method in `AnalyticsValidator` for nested format validation
+- Test suite for `ExampleMetrics` validation (15 test cases)
+
+### Migration Guide (Nested Measures)
+
+**Before (flat format - v3.0.x)**:
+
+```json
+{
+  "measures": [
+    {"example_id": "ex_abc123_0", "score": 0.85, "cost": 0.05}
+  ]
+}
+```
+
+**After (nested format - v3.1.0)**:
+
+```json
+{
+  "measures": [
+    {
+      "example_id": "ex_abc123_0",
+      "metrics": {"score": 0.85, "cost": 0.05}
+    }
+  ]
+}
+```
 
 ## [3.0.0] - 2024-01-15
 

@@ -59,6 +59,24 @@
         }
       },
       "additionalProperties": false
+    },
+    "ExampleMetrics": {
+      "type": "object",
+      "description": "Metrics for a single example evaluation. Separates identification from metric values.",
+      "required": ["example_id", "metrics"],
+      "properties": {
+        "example_id": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$",
+          "description": "Unique example identifier"
+        },
+        "metrics": {
+          "$ref": "#/definitions/MeasureResults",
+          "description": "Numeric measure scores for this example"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "properties": {
@@ -80,16 +98,17 @@
       "oneOf": [
         {
           "type": "array",
+          "maxItems": 1000,
           "items": {
-            "$ref": "#/definitions/MeasureResults"
+            "$ref": "#/definitions/ExampleMetrics"
           },
-          "description": "Array of measure results"
+          "description": "Array of per-example metric results"
         },
         {
           "type": "null"
         }
       ],
-      "description": "Results from measure evaluations for this configuration"
+      "description": "Results from measure evaluations for this configuration. Each item contains example_id and metrics."
     },
     "status": {
       "$ref": "./status_schema.json#/definitions/ConfigurationRunStatus",

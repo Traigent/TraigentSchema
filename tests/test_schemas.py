@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from traigent_schema.utils import get_schemas_dir, get_all_schema_files
+from traigent_schema import AnalyticsValidator
 
 
 class TestSchemaFileIntegrity:
@@ -115,3 +116,146 @@ class TestRequiredSchemas:
     def test_measure_schema_exists(self, schemas_dir):
         """Should have measure_schema.json."""
         assert (schemas_dir / "measures" / "measure_schema.json").exists()
+
+
+class TestExampleMetricsSchema:
+    """Tests for ExampleMetrics nested structure validation.
+
+    The ExampleMetrics structure separates example identification from
+    metric values to prevent example_id from being stripped during validation.
+
+    Structure: {"example_id": "ex_...", "metrics": {"score": 0.85, ...}}
+    """
+
+    @pytest.fixture
+    def validator(self):
+        """Create an AnalyticsValidator instance."""
+        return AnalyticsValidator()
+
+    def test_valid_nested_format_passes(self, validator):
+        """Valid nested format should pass validation."""
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": {"score": 0.85, "cost": 0.05}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_valid_nested_format_with_null_metric(self, validator):
+        """Valid nested format with null metric values should pass."""
+        data = {
+            "example_id": "ex_abc12345de_42",
+            "metrics": {"score": 0.85, "pending_metric": None}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_valid_nested_format_empty_metrics(self, validator):
+        """Valid nested format with empty metrics dict should pass."""
+        data = {
+            "example_id": "ex_abc12345de_0",
+            "metrics": {}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_missing_example_id_fails(self, validator):
+        """Missing example_id should fail."""
+        data = {"metrics": {"score": 0.85}}
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+        assert any("example_id" in e for e in errors)
+
+    def test_missing_metrics_fails(self, validator):
+        """Missing metrics should fail."""
+        data = {"example_id": "ex_a3f4b2c8d1_0"}
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+        assert any("metrics" in e for e in errors)
+
+    def test_invalid_example_id_format_fails(self, validator):
+        """Invalid example_id format should fail."""
+        data = {
+            "example_id": "invalid_format",
+            "metrics": {"score": 0.85}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+        assert any("example_id" in e.lower() or "format" in e.lower() for e in errors)
+
+    def test_example_id_uppercase_hex_fails(self, validator):
+        """Example ID with uppercase hex should fail."""
+        data = {
+            "example_id": "ex_ABC12345_0",  # Uppercase not allowed
+            "metrics": {"score": 0.85}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+
+    def test_example_id_wrong_prefix_fails(self, validator):
+        """Example ID with wrong prefix should fail."""
+        data = {
+            "example_id": "example_abc12345_0",  # Should be 'ex_'
+            "metrics": {"score": 0.85}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+
+    def test_non_numeric_metric_fails(self, validator):
+        """Non-numeric metric values should fail."""
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": {"score": "not a number"}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+        assert any("score" in e or "numeric" in e for e in errors)
+
+    def test_boolean_metric_fails(self, validator):
+        """Boolean metric values should fail."""
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": {"passed": True}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+        assert any("passed" in e or "numeric" in e for e in errors)
+
+    def test_exceeding_max_metrics_fails(self, validator):
+        """More than 50 metrics should fail."""
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": {f"metric_{i}": float(i) for i in range(51)}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+        assert any("50" in e or "max" in e.lower() for e in errors)
+
+    def test_exactly_50_metrics_passes(self, validator):
+        """Exactly 50 metrics should pass."""
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": {f"metric_{i}": float(i) / 100 for i in range(50)}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_metrics_not_dict_fails(self, validator):
+        """Metrics as non-dict type should fail."""
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": [0.85, 0.05]  # Array instead of dict
+        }
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+        assert any("dict" in e for e in errors)
+
+    def test_example_id_not_string_fails(self, validator):
+        """Example ID as non-string type should fail."""
+        data = {
+            "example_id": 12345,  # Number instead of string
+            "metrics": {"score": 0.85}
+        }
+        errors = validator.validate_example_metrics(data)
+        assert len(errors) > 0
+        assert any("string" in e or "example_id" in e for e in errors)

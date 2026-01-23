@@ -25,9 +25,9 @@ class AnalyticsValidator:
     """
 
     # Pre-compiled regex patterns for validation
-    _EXAMPLE_ID_PATTERN = re.compile(r'^ex_[a-f0-9]{8,12}_[0-9]+$')
-    _JOB_ID_PATTERN = re.compile(r'^score_[a-zA-Z0-9_-]+_[0-9]+$')
-    _ALGORITHM_VERSION_PATTERN = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+$')
+    _EXAMPLE_ID_PATTERN = re.compile(r'^ex_[a-f0-9]{8,12}_\d+$')
+    _JOB_ID_PATTERN = re.compile(r'^score_[a-zA-Z0-9_-]+_\d+$')
+    _ALGORITHM_VERSION_PATTERN = re.compile(r'^\d+\.\d+\.\d+$')
 
     def __init__(self) -> None:
         """Initialize the validator with schema validator."""

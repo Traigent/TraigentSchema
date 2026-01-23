@@ -89,3 +89,6 @@ Thumbs.db
 # Project specific
 *.log
 .claude/
+
+# SonarQube
+.scannerwork/

@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pagination Metadata",
+  "description": "Standard pagination metadata for paginated list responses.",
+  "type": "object",
+  "properties": {
+    "page": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Current page number (1-indexed)."
+    },
+    "per_page": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of items returned per page."
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of available items."
+    },
+    "total_pages": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of available pages."
+    },
+    "has_next": {
+      "type": "boolean",
+      "description": "Whether a next page exists."
+    },
+    "has_prev": {
+      "type": "boolean",
+      "description": "Whether a previous page exists."
+    }
+  },
+  "required": [
+    "page",
+    "per_page",
+    "total",
+    "total_pages",
+    "has_next",
+    "has_prev"
+  ],
+  "additionalProperties": false
+}

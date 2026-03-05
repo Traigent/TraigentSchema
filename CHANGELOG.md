@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-03-05
+
+### Added
+- Shared pagination contract schema:
+  - `pagination_schema.json`: canonical pagination metadata (`page`, `per_page`, `total`, `total_pages`, `has_next`, `has_prev`)
+- New backend-aligned endpoint contracts in `execution_endpoints.json`:
+  - `GET /api/v1/keys/accessible-resources`
+  - `GET /api/v1/experiment-runs/runs/{run_id}/traces`
+  - `GET /api/v1/traces/{trace_id}`
+
+### Changed
+- **BREAKING**: Standardized paginated list response envelope for target endpoint modules:
+  - `agents/agents_endpoints.json`
+  - `measures/measures_endpoints.json`
+  - `execution/execution_endpoints.json`
+  - `evaluation/evaluation_endpoints.json`
+- **BREAKING**: List endpoints in those modules now model:
+  - `success`, `message`, `data.items`, `data.pagination`
+  - instead of legacy `data: []` and `count/total` top-level conventions.
+- **BREAKING**: Query pagination parameters were aligned from legacy `limit/offset` to `page/per_page` in the updated list endpoints.
+
+### Migration Guide (FE/SDK/Backend Consumers)
+- Request update:
+  - Replace `limit`/`offset` with `page`/`per_page`.
+- Response parsing update:
+  - **Before**: read list payload from `data` (array), and pagination-like totals from top-level fields.
+  - **After**: read list payload from `data.items` and pagination metadata from `data.pagination`.
+- Backward compatibility note:
+  - Legacy list contracts are not modeled in this version for the updated endpoints.
+  - Consumers should migrate parsing logic to the standardized paginated envelope.
+
 ## [3.1.0] - 2024-01-17
 
 ### Added

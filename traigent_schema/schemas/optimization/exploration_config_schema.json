@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Exploration Config Schema",
+  "description": "Defines exploration strategy, budget controls, and convergence criteria for optimization runs (TVL 0.9 exploration section).",
+  "version": "0.9.0",
+  "definitions": {
+    "ExplorationBudgets": {
+      "type": "object",
+      "description": "Budget limits for the exploration run",
+      "properties": {
+        "max_trials": {
+          "type": "integer",
+          "description": "Maximum number of trial configurations to evaluate",
+          "minimum": 1
+        },
+        "max_spend_usd": {
+          "type": "number",
+          "description": "Maximum total spend in USD across all trials",
+          "minimum": 0
+        },
+        "max_wallclock_s": {
+          "type": "number",
+          "description": "Maximum wall-clock time in seconds for the optimization run",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConvergenceCriteria": {
+      "type": "object",
+      "description": "Criteria for declaring convergence and stopping early",
+      "required": ["metric", "window", "threshold"],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "description": "Name of the metric to monitor for convergence",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+        },
+        "window": {
+          "type": "integer",
+          "description": "Number of recent trials to evaluate for convergence",
+          "minimum": 1
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Maximum allowed improvement within the window to declare convergence",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "strategy": {
+      "description": "Exploration strategy (string name like 'bayesian' or object with type and parameters)",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": true
+        }
+      ]
+    },
+    "budgets": {
+      "$ref": "#/definitions/ExplorationBudgets",
+      "description": "Budget limits for the exploration"
+    },
+    "convergence": {
+      "$ref": "#/definitions/ConvergenceCriteria",
+      "description": "Convergence stop criteria for early termination"
+    },
+    "parallelism": {
+      "type": "object",
+      "description": "Parallelism settings for trial execution",
+      "properties": {
+        "max_parallel_trials": {
+          "type": "integer",
+          "description": "Maximum number of trials to run concurrently",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

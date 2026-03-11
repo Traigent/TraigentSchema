@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Typed Constraints Schema",
+  "description": "TVL 0.9 typed constraints section for structural and derived constraints on tunable combinations.",
+  "version": "0.9.0",
+  "properties": {
+    "structural": {
+      "type": "array",
+      "description": "Structural constraints on tunable combinations (e.g., mutual exclusion, dependency)",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "derived": {
+      "type": "array",
+      "description": "Derived constraints computed from tunable values (e.g., total cost bounds)",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

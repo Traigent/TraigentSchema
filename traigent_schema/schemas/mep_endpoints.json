@@ -6,6 +6,177 @@
     "description": "API for optimizing and evaluating AI agents"
   },
   "paths": {
+    "/api/v1beta/projects": {
+      "get": {
+        "summary": "List projects",
+        "description": "List the projects available within the active tenant.",
+        "operationId": "listProjects",
+        "responses": {
+          "200": {
+            "description": "Projects retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_list_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create project",
+        "description": "Create a new project within the active tenant.",
+        "operationId": "createProject",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./projects/project_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}": {
+      "get": {
+        "summary": "Get project",
+        "description": "Retrieve a specific project within the active tenant.",
+        "operationId": "getProject",
+        "responses": {
+          "200": {
+            "description": "Project retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update project",
+        "description": "Update a project within the active tenant.",
+        "operationId": "updateProject",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./projects/project_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/core-metrics/overview": {
+      "get": {
+        "summary": "Get project core metrics overview",
+        "description": "Retrieve aggregate optimization metrics for the active project.",
+        "operationId": "getProjectCoreMetricsOverview",
+        "responses": {
+          "200": {
+            "description": "Core metrics overview retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_core_metrics_overview_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/core-metrics/experiments/{experiment_id}/trend": {
+      "get": {
+        "summary": "Get project experiment trend",
+        "description": "Retrieve run and configuration-run trend data for a project-scoped experiment.",
+        "operationId": "getProjectExperimentTrend",
+        "responses": {
+          "200": {
+            "description": "Experiment trend retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_experiment_trend_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/core-exports/fine-tuning.jsonl": {
+      "get": {
+        "summary": "Export project fine-tuning JSONL",
+        "description": "Export project-scoped fine-tuning records as JSONL.",
+        "operationId": "exportProjectFineTuningJsonl",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "experiment_run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSONL export generated successfully"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health check endpoint",

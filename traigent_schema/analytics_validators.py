@@ -5,6 +5,8 @@ example scores, dataset quality, and scoring job status data
 against their respective JSON schemas.
 """
 
+from __future__ import annotations
+
 import re
 from typing import Any
 

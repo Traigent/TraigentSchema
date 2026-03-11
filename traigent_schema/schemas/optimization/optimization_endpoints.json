@@ -1,0 +1,375 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Optimization Endpoints",
+    "version": "1.0.0",
+    "description": "Endpoints for managing tunables and config spaces"
+  },
+  "paths": {
+    "/api/v1/tunables": {
+      "get": {
+        "summary": "List tunables",
+        "description": "Retrieve all tunables for the current project",
+        "operationId": "listTunables",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "description": "Filter by associated agent ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of tunables",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "./tunable_schema.json"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create tunable",
+        "description": "Create a new tunable",
+        "operationId": "createTunable",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./tunable_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tunable created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tunable_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tunables/{tunable_id}": {
+      "get": {
+        "summary": "Get tunable",
+        "description": "Retrieve a specific tunable by ID",
+        "operationId": "getTunable",
+        "parameters": [
+          {
+            "name": "tunable_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tunable details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tunable_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tunable not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update tunable",
+        "description": "Update an existing tunable",
+        "operationId": "updateTunable",
+        "parameters": [
+          {
+            "name": "tunable_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./tunable_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tunable updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tunable_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete tunable",
+        "description": "Delete a tunable",
+        "operationId": "deleteTunable",
+        "parameters": [
+          {
+            "name": "tunable_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Tunable deleted"
+          }
+        }
+      }
+    },
+    "/api/v1/tunables/{tunable_id}/config-space": {
+      "get": {
+        "summary": "Get config space for tunable",
+        "description": "Retrieve the config space associated with a specific tunable",
+        "operationId": "getTunableConfigSpace",
+        "parameters": [
+          {
+            "name": "tunable_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Config space for the tunable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./config_space_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tunable or config space not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Set config space for tunable",
+        "description": "Create or update the config space for a specific tunable",
+        "operationId": "setTunableConfigSpace",
+        "parameters": [
+          {
+            "name": "tunable_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./config_space_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Config space updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./config_space_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config-spaces": {
+      "get": {
+        "summary": "List config spaces",
+        "description": "Retrieve all config spaces",
+        "operationId": "listConfigSpaces",
+        "parameters": [
+          {
+            "name": "tunable_id",
+            "in": "query",
+            "description": "Filter by tunable ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of config spaces",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "./config_space_schema.json"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create config space",
+        "description": "Create a new config space",
+        "operationId": "createConfigSpace",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./config_space_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Config space created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./config_space_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config-spaces/{config_space_id}": {
+      "get": {
+        "summary": "Get config space",
+        "description": "Retrieve a specific config space by ID",
+        "operationId": "getConfigSpace",
+        "parameters": [
+          {
+            "name": "config_space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Config space details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./config_space_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Config space not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update config space",
+        "description": "Update an existing config space",
+        "operationId": "updateConfigSpace",
+        "parameters": [
+          {
+            "name": "config_space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./config_space_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Config space updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./config_space_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete config space",
+        "description": "Delete a config space",
+        "operationId": "deleteConfigSpace",
+        "parameters": [
+          {
+            "name": "config_space_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Config space deleted"
+          }
+        }
+      }
+    }
+  }
+}

@@ -5,6 +5,7 @@ Provides validation of API requests and JSON data against Traigent schemas.
 """
 
 import json
+import re
 from typing import Any, Optional
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
@@ -92,6 +93,8 @@ class SchemaValidator:
 
                 if schema_ref:
                     schema_name = schema_ref.split("/")[-1]
+                    if schema_name.endswith(".json"):
+                        schema_name = schema_name[:-5]
                     key = f"{method.upper()}:{path}"
                     self._endpoint_schemas[key] = schema_name
 
@@ -112,6 +115,7 @@ class SchemaValidator:
         Returns:
             List of validation error messages. Empty if valid.
         """
+        endpoint = self._normalize_endpoint(method, endpoint)
         key = f"{method.upper()}:{endpoint}"
         schema_name = self._endpoint_schemas.get(key)
 
@@ -119,6 +123,22 @@ class SchemaValidator:
             return []  # No schema defined for this endpoint
 
         return self.validate_json(data, schema_name)
+
+    def _normalize_endpoint(self, method: str, endpoint: str) -> str:
+        """Normalize concrete paths to OpenAPI path templates before lookup."""
+        direct_key = f"{method.upper()}:{endpoint}"
+        if direct_key in self._endpoint_schemas:
+            return endpoint
+
+        for candidate_key in self._endpoint_schemas:
+            candidate_method, candidate_path = candidate_key.split(":", 1)
+            if candidate_method != method.upper():
+                continue
+            pattern = "^" + re.sub(r"\{[^/]+\}", r"[^/]+", candidate_path) + "$"
+            if re.match(pattern, endpoint):
+                return candidate_path
+
+        return endpoint
 
     def validate_json(
         self,

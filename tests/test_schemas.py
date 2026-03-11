@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from traigent_schema.utils import get_schemas_dir, get_all_schema_files
-from traigent_schema import AnalyticsValidator
+from traigent_schema import AnalyticsValidator, SchemaValidator
 
 
 class TestSchemaFileIntegrity:
@@ -116,6 +116,10 @@ class TestRequiredSchemas:
     def test_measure_schema_exists(self, schemas_dir):
         """Should have measure_schema.json."""
         assert (schemas_dir / "measures" / "measure_schema.json").exists()
+
+    def test_project_schema_exists(self, schemas_dir):
+        """Should have project_schema.json."""
+        assert (schemas_dir / "projects" / "project_schema.json").exists()
 
 
 class TestExampleMetricsSchema:
@@ -240,22 +244,62 @@ class TestExampleMetricsSchema:
         errors = validator.validate_example_metrics(data)
         assert errors == [], f"Unexpected errors: {errors}"
 
-    def test_metrics_not_dict_fails(self, validator):
+
+class TestProjectContracts:
+    """Tests for project-layer schema contracts and path normalization."""
+
+    @pytest.fixture
+    def validator(self):
+        return SchemaValidator()
+
+    @pytest.fixture
+    def analytics_validator(self):
+        return AnalyticsValidator()
+
+    def test_project_create_request_validates_against_schema(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects",
+            "POST",
+            {
+                "name": "Core Platform",
+                "slug": "core-platform",
+                "description": "Primary project"
+            },
+        )
+        assert errors == []
+
+    def test_project_update_request_uses_templated_path_normalization(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123",
+            "PATCH",
+            {"name": "Updated Name"},
+        )
+        assert errors == []
+
+    def test_project_update_request_reports_validation_errors(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123",
+            "PATCH",
+            {},
+        )
+        assert errors
+
+    def test_metrics_not_dict_fails(self, analytics_validator):
         """Metrics as non-dict type should fail."""
         data = {
             "example_id": "ex_a3f4b2c8d1_0",
             "metrics": [0.85, 0.05]  # Array instead of dict
         }
-        errors = validator.validate_example_metrics(data)
+        errors = analytics_validator.validate_example_metrics(data)
         assert len(errors) > 0
         assert any("dict" in e for e in errors)
 
-    def test_example_id_not_string_fails(self, validator):
+    def test_example_id_not_string_fails(self, analytics_validator):
         """Example ID as non-string type should fail."""
         data = {
             "example_id": 12345,  # Number instead of string
             "metrics": {"score": 0.85}
         }
-        errors = validator.validate_example_metrics(data)
+        errors = analytics_validator.validate_example_metrics(data)
         assert len(errors) > 0
         assert any("string" in e or "example_id" in e for e in errors)

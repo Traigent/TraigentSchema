@@ -121,6 +121,26 @@ class TestRequiredSchemas:
         """Should have project_schema.json."""
         assert (schemas_dir / "projects" / "project_schema.json").exists()
 
+    def test_project_analytics_summary_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_scoped_analytics_summary_schema.json"
+        ).exists()
+
+    def test_project_analytics_trend_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_scoped_analytics_trend_schema.json"
+        ).exists()
+
+    def test_project_measure_distribution_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_scoped_measure_distribution_schema.json"
+        ).exists()
+
+    def test_project_fine_tuning_manifest_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_scoped_fine_tuning_manifest_schema.json"
+        ).exists()
+
 
 class TestExampleMetricsSchema:
     """Tests for ExampleMetrics nested structure validation.
@@ -284,6 +304,22 @@ class TestProjectContracts:
         )
         assert errors
 
+    def test_project_analytics_summary_path_normalizes_and_validates(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123/analytics/summary",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_project_run_volume_trend_path_normalizes_and_validates(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123/analytics/trends/run-volume",
+            "GET",
+            {},
+        )
+        assert errors == []
+
     def test_metrics_not_dict_fails(self, analytics_validator):
         """Metrics as non-dict type should fail."""
         data = {
@@ -303,3 +339,16 @@ class TestProjectContracts:
         errors = analytics_validator.validate_example_metrics(data)
         assert len(errors) > 0
         assert any("string" in e or "example_id" in e for e in errors)
+
+    def test_project_analytics_schemas_define_privacy_classification(self):
+        schemas_dir = get_schemas_dir()
+        schema_names = [
+            "project_scoped_analytics_summary_schema.json",
+            "project_scoped_analytics_trend_schema.json",
+            "project_scoped_measure_distribution_schema.json",
+            "project_scoped_fine_tuning_manifest_schema.json",
+        ]
+        for schema_name in schema_names:
+            with open(schemas_dir / "projects" / schema_name, encoding="utf-8") as handle:
+                payload = json.load(handle)
+            assert payload.get("x-privacy-classification") in {"aggregate_safe", "manifest_safe"}

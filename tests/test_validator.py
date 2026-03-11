@@ -95,6 +95,15 @@ class TestValidateRequest:
         errors = validator.validate_request("/api/v1/agents", "POST", data)
         assert isinstance(errors, list)
 
+    def test_project_path_normalization_for_analytics_route(self, validator):
+        """Concrete project analytics paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/summary",
+            "GET",
+            {},
+        )
+        assert errors == []
+
 
 class TestSchemaValidation:
     """Integration tests for schema validation."""
@@ -125,3 +134,90 @@ class TestSchemaValidation:
         }
         errors = validator.validate_json(data, "measure_schema")
         assert isinstance(errors, list)
+
+    def test_project_scoped_analytics_summary_schema_valid(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-11T10:15:00Z",
+                "privacy_classification": "aggregate_safe",
+            },
+            "range_days": 30,
+            "entity_counts": {
+                "agents": 1,
+                "benchmarks": 1,
+                "measures": 2,
+                "experiments": 1,
+                "experiment_runs": 3,
+                "configuration_runs": 9,
+            },
+            "status_breakdowns": {
+                "experiments": {"running": 1},
+                "experiment_runs": {"completed": 3},
+                "configuration_runs": {"completed": 9},
+            },
+            "usage_summary": {
+                "experiment_runs": 3,
+                "configuration_runs": 9,
+                "total_cost_usd": 1.23,
+                "avg_cost_usd": 0.41,
+                "total_tokens": 12345,
+                "avg_latency_ms": 250.1,
+                "p95_latency_ms": 410.0,
+            },
+            "measure_summaries": [
+                {
+                    "measure_key": "accuracy",
+                    "measure_id": "measure_accuracy",
+                    "label": "Accuracy",
+                    "value_type": "numeric",
+                    "sample_count": 9,
+                    "mean": 0.91,
+                    "min": 0.84,
+                    "max": 0.97,
+                    "privacy_classification": "aggregate_safe",
+                }
+            ],
+        }
+        errors = validator.validate_json(data, "project_scoped_analytics_summary_schema")
+        assert errors == []
+
+    def test_project_scoped_fine_tuning_manifest_rejects_string_measure_values(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-11T10:15:00Z",
+                "privacy_classification": "manifest_safe",
+            },
+            "export_mode": "manifest",
+            "privacy_mode": True,
+            "include_content": False,
+            "record_count": 1,
+            "records": [
+                {
+                    "record_id": "config_1",
+                    "experiment_id": "exp_1",
+                    "experiment_run_id": "run_1",
+                    "configuration_run_id": "config_1",
+                    "input_hash": "hash-input",
+                    "output_hash": "hash-output",
+                    "input_ref": "configuration_run:config_1:input",
+                    "output_ref": "configuration_run:config_1:output",
+                    "input_content": None,
+                    "output_content": None,
+                    "materialization": "local_only",
+                    "measure_summary": {
+                        "accuracy": 0.91,
+                        "model_name": "gpt-4o-mini",
+                    },
+                    "metadata": {
+                        "measure_metadata_model_name": "gpt-4o-mini",
+                    },
+                }
+            ],
+        }
+
+        errors = validator.validate_json(data, "project_scoped_fine_tuning_manifest_schema")
+        assert errors

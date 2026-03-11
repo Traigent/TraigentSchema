@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_analytics_trend_schema.json",
+  "type": "object",
+  "title": "Project Scoped Analytics Trend Schema",
+  "description": "Time-bucketed, privacy-safe trend response for project-scoped analytics.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "project_id": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "privacy_classification": {
+          "type": "string",
+          "description": "Payload-level privacy classification for this response shape. This describes the safety class of the returned payload, not the project's runtime privacy-mode setting.",
+          "enum": ["aggregate_safe"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "metric_id": {
+      "type": "string",
+      "enum": ["run_volume"]
+    },
+    "experiment_id": {
+      "type": ["string", "null"]
+    },
+    "range_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3660
+    },
+    "requested_bucket": {
+      "type": ["string", "null"],
+      "enum": ["hour", "day", "week", "month", null]
+    },
+    "resolved_bucket": {
+      "type": "string",
+      "description": "Resolved time bucket used by the backend. If omitted by the caller, the backend auto-selects hour for ranges up to 3 days, day for ranges up to 90 days, week for ranges up to 548 days, and month beyond that.",
+      "enum": ["hour", "day", "week", "month"]
+    },
+    "series": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "series_key": {
+            "type": "string",
+            "enum": ["experiment_runs", "configuration_runs"]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "enum": ["count"]
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "bucket_start": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "bucket_label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": ["bucket_start", "bucket_label", "value"]
+            }
+          }
+        },
+        "required": ["series_key", "label", "unit", "points"]
+      }
+    }
+  },
+  "required": [
+    "context",
+    "metric_id",
+    "experiment_id",
+    "range_days",
+    "requested_bucket",
+    "resolved_bucket",
+    "series"
+  ]
+}

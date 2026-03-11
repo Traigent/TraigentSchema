@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_measure_distribution_schema.json",
+  "type": "object",
+  "title": "Project Scoped Measure Distribution Schema",
+  "description": "Histogram-style distribution for a numeric measure within a project scope.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "project_id": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "privacy_classification": {
+          "type": "string",
+          "description": "Payload-level privacy classification for this response shape. This describes the safety class of the returned payload, not the project's runtime privacy-mode setting.",
+          "enum": ["aggregate_safe"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "measure_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "measure_id": {
+      "type": ["string", "null"]
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "experiment_id": {
+      "type": ["string", "null"]
+    },
+    "value_type": {
+      "type": "string",
+      "enum": ["numeric"]
+    },
+    "sample_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mean": {
+      "type": ["number", "null"]
+    },
+    "min": {
+      "type": ["number", "null"]
+    },
+    "max": {
+      "type": ["number", "null"]
+    },
+    "bucket_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "histogram": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "lower_bound": { "type": "number" },
+          "upper_bound": { "type": "number" },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["lower_bound", "upper_bound", "count"]
+      }
+    }
+  },
+  "required": [
+    "context",
+    "measure_key",
+    "measure_id",
+    "label",
+    "experiment_id",
+    "value_type",
+    "sample_count",
+    "mean",
+    "min",
+    "max",
+    "bucket_count",
+    "histogram"
+  ]
+}

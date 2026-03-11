@@ -117,6 +117,127 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/analytics/summary": {
+      "get": {
+        "summary": "Get project analytics summary",
+        "description": "Retrieve a privacy-safe aggregate summary for the active project.",
+        "operationId": "getProjectAnalyticsSummary",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics summary retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_analytics_summary_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/trends/run-volume": {
+      "get": {
+        "summary": "Get project run-volume trend",
+        "description": "Retrieve a privacy-safe run-volume trend for the active project.",
+        "operationId": "getProjectRunVolumeTrend",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["hour", "day", "week", "month"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run-volume trend retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_analytics_trend_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/distributions/measures/{measure_key}": {
+      "get": {
+        "summary": "Get project measure distribution",
+        "description": "Retrieve a privacy-safe numeric distribution for a measure key.",
+        "operationId": "getProjectMeasureDistribution",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bins",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Measure distribution retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_measure_distribution_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/core-metrics/experiments/{experiment_id}/trend": {
       "get": {
         "summary": "Get project experiment trend",
@@ -173,6 +294,63 @@
         "responses": {
           "200": {
             "description": "JSONL export generated successfully"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest": {
+      "get": {
+        "summary": "Export project fine-tuning manifest",
+        "description": "Export a privacy-safe fine-tuning manifest for the active project.",
+        "operationId": "exportProjectFineTuningManifest",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "experiment_run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 1000
+            }
+          },
+          {
+            "name": "include_content",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fine-tuning manifest generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_fine_tuning_manifest_schema.json"
+                }
+              }
+            }
           }
         }
       }

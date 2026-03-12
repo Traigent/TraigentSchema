@@ -131,6 +131,18 @@ class TestRequiredSchemas:
             schemas_dir / "projects" / "project_scoped_analytics_trend_schema.json"
         ).exists()
 
+    def test_project_pricing_catalog_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_scoped_pricing_catalog_schema.json"
+        ).exists()
+
+    def test_project_optimization_overview_dashboard_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir
+            / "projects"
+            / "project_scoped_optimization_overview_dashboard_schema.json"
+        ).exists()
+
     def test_project_measure_distribution_schema_exists(self, schemas_dir):
         assert (
             schemas_dir / "projects" / "project_scoped_measure_distribution_schema.json"
@@ -139,6 +151,16 @@ class TestRequiredSchemas:
     def test_project_fine_tuning_manifest_schema_exists(self, schemas_dir):
         assert (
             schemas_dir / "projects" / "project_scoped_fine_tuning_manifest_schema.json"
+        ).exists()
+
+    def test_project_export_job_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_export_job_schema.json"
+        ).exists()
+
+    def test_project_export_job_list_response_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_export_job_list_response_schema.json"
         ).exists()
 
 

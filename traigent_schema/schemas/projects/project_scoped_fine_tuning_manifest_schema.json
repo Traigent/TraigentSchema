@@ -32,6 +32,12 @@
     "include_content": {
       "type": "boolean"
     },
+    "job_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Recorded export-job identifier for this manifest generation. May be null if the export artifact was generated successfully but audit persistence failed."
+    },
     "record_count": {
       "type": "integer",
       "minimum": 0
@@ -93,6 +99,7 @@
     "export_mode",
     "privacy_mode",
     "include_content",
+    "job_id",
     "record_count",
     "records"
   ]

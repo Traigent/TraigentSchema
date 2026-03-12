@@ -33,7 +33,8 @@
     "range_days": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 3660
+      "maximum": 3660,
+      "description": "Requested analysis window in days. Run, configuration, and measure aggregates in this payload are filtered to this window."
     },
     "entity_counts": {
       "type": "object",
@@ -47,12 +48,12 @@
         "experiment_runs": {
           "type": "integer",
           "minimum": 0,
-          "description": "Absolute count of experiment-run records currently in the active project."
+          "description": "Count of experiment-run records within the requested analysis window for the active project."
         },
         "configuration_runs": {
           "type": "integer",
           "minimum": 0,
-          "description": "Absolute count of configuration-run records currently in the active project."
+          "description": "Count of configuration-run records within the requested analysis window for the active project."
         }
       },
       "required": [
@@ -101,12 +102,22 @@
         "experiment_runs": {
           "type": "integer",
           "minimum": 0,
-          "description": "Lifetime total experiment runs included in this usage summary for the active project."
+          "description": "Experiment runs within the requested analysis window for the active project."
         },
         "configuration_runs": {
           "type": "integer",
           "minimum": 0,
-          "description": "Lifetime total configuration runs included in this usage summary for the active project."
+          "description": "Configuration runs within the requested analysis window for the active project."
+        },
+        "priced_configuration_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Configuration runs with an explicit resolved cost value."
+        },
+        "unpriced_configuration_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Configuration runs where cost is still unknown or unavailable."
         },
         "total_cost_usd": {
           "type": "number",
@@ -118,6 +129,39 @@
           "minimum": 0,
           "description": "Average project-attributed cost in USD, rounded to 6 decimal places."
         },
+        "cost_source_breakdown": {
+          "type": "object",
+          "additionalProperties": false,
+          "x-privacy-classification": "aggregate_safe",
+          "properties": {
+            "observed_usage": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs whose cost came from observed workflow/provider usage."
+            },
+            "recorded_metrics": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs whose cost came from stored run metrics or summary fields."
+            },
+            "catalog_fallback": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs whose cost came from a pricing-catalog fallback."
+            },
+            "unknown_unpriced": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs where cost could not be resolved and remains explicitly unpriced."
+            }
+          },
+          "required": [
+            "observed_usage",
+            "recorded_metrics",
+            "catalog_fallback",
+            "unknown_unpriced"
+          ]
+        },
         "total_tokens": { "type": "integer", "minimum": 0 },
         "avg_latency_ms": { "type": "number", "minimum": 0 },
         "p95_latency_ms": { "type": "number", "minimum": 0 }
@@ -125,8 +169,11 @@
       "required": [
         "experiment_runs",
         "configuration_runs",
+        "priced_configuration_runs",
+        "unpriced_configuration_runs",
         "total_cost_usd",
         "avg_cost_usd",
+        "cost_source_breakdown",
         "total_tokens",
         "avg_latency_ms",
         "p95_latency_ms"

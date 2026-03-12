@@ -104,6 +104,42 @@ class TestValidateRequest:
         )
         assert errors == []
 
+    def test_project_path_normalization_for_pricing_catalog_route(self, validator):
+        """Concrete pricing catalog paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/pricing-catalog",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_optimization_dashboard_route(self, validator):
+        """Concrete optimization dashboard paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/dashboards/optimization-overview",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_export_jobs_route(self, validator):
+        """Concrete export job list paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/export-jobs",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_export_job_detail_route(self, validator):
+        """Concrete export job detail paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/export-jobs/export_job_123",
+            "GET",
+            {},
+        )
+        assert errors == []
+
 
 class TestSchemaValidation:
     """Integration tests for schema validation."""
@@ -160,8 +196,16 @@ class TestSchemaValidation:
             "usage_summary": {
                 "experiment_runs": 3,
                 "configuration_runs": 9,
+                "priced_configuration_runs": 8,
+                "unpriced_configuration_runs": 1,
                 "total_cost_usd": 1.23,
                 "avg_cost_usd": 0.41,
+                "cost_source_breakdown": {
+                    "observed_usage": 7,
+                    "recorded_metrics": 1,
+                    "catalog_fallback": 0,
+                    "unknown_unpriced": 1,
+                },
                 "total_tokens": 12345,
                 "avg_latency_ms": 250.1,
                 "p95_latency_ms": 410.0,
@@ -181,6 +225,127 @@ class TestSchemaValidation:
             ],
         }
         errors = validator.validate_json(data, "project_scoped_analytics_summary_schema")
+        assert errors == []
+
+    def test_project_scoped_analytics_summary_rejects_missing_cost_breakdown(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-11T10:15:00Z",
+                "privacy_classification": "aggregate_safe",
+            },
+            "range_days": 30,
+            "entity_counts": {
+                "agents": 1,
+                "benchmarks": 1,
+                "measures": 2,
+                "experiments": 1,
+                "experiment_runs": 3,
+                "configuration_runs": 9,
+            },
+            "status_breakdowns": {
+                "experiments": {"running": 1},
+                "experiment_runs": {"completed": 3},
+                "configuration_runs": {"completed": 9},
+            },
+            "usage_summary": {
+                "experiment_runs": 3,
+                "configuration_runs": 9,
+                "priced_configuration_runs": 8,
+                "unpriced_configuration_runs": 1,
+                "total_cost_usd": 1.23,
+                "avg_cost_usd": 0.41,
+                "total_tokens": 12345,
+                "avg_latency_ms": 250.1,
+                "p95_latency_ms": 410.0,
+            },
+            "measure_summaries": [],
+        }
+        errors = validator.validate_json(data, "project_scoped_analytics_summary_schema")
+        assert errors
+
+    def test_project_scoped_pricing_catalog_schema_valid(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-12T09:00:00Z",
+                "privacy_classification": "aggregate_safe",
+            },
+            "catalog_source": "static_catalog",
+            "catalog_last_updated": "2026-03-12T08:55:00Z",
+            "total_providers": 1,
+            "total_models": 1,
+            "providers": [
+                {
+                    "provider": "openai",
+                    "model_count": 1,
+                    "pricing_resolution_mode": "static_catalog",
+                    "models": [
+                        {
+                            "model": "gpt-4o",
+                            "input_price_per_1k_usd": 0.005,
+                            "output_price_per_1k_usd": 0.015,
+                            "context_window": 128000,
+                            "available_tiers": ["standard", "premium", "enterprise"],
+                            "supports_catalog_fallback": True,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        errors = validator.validate_json(data, "project_scoped_pricing_catalog_schema")
+        assert errors == []
+
+    def test_project_scoped_optimization_overview_dashboard_schema_valid(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-12T12:00:00Z",
+                "privacy_classification": "aggregate_safe",
+            },
+            "range_days": 30,
+            "summary_cards": {
+                "experiments_total": 4,
+                "experiment_runs_in_range": 8,
+                "configuration_runs_in_range": 21,
+                "priced_configuration_runs_in_range": 18,
+                "unpriced_configuration_runs_in_range": 3,
+                "total_cost_usd_in_range": 2.15,
+                "avg_latency_ms_in_range": 145.2,
+                "total_tokens_in_range": 8421,
+            },
+            "cost_source_breakdown": {
+                "observed_usage": 12,
+                "recorded_metrics": 4,
+                "catalog_fallback": 2,
+                "unknown_unpriced": 3,
+            },
+            "recent_experiments": [
+                {
+                    "experiment_id": "exp_1",
+                    "name": "Support Router",
+                    "status": "completed",
+                    "experiment_run_count": 3,
+                    "configuration_run_count": 9,
+                    "priced_configuration_runs": 7,
+                    "unpriced_configuration_runs": 2,
+                    "total_cost_usd": 0.88,
+                    "avg_latency_ms": 123.4,
+                    "avg_primary_score": 0.92,
+                    "total_tokens": 3120,
+                    "last_run_at": "2026-03-12T10:15:00Z",
+                    "privacy_classification": "aggregate_safe",
+                }
+            ],
+        }
+        errors = validator.validate_json(
+            data,
+            "project_scoped_optimization_overview_dashboard_schema",
+        )
         assert errors == []
 
     def test_project_scoped_fine_tuning_manifest_rejects_string_measure_values(self, validator):

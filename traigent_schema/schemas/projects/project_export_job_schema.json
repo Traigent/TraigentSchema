@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_export_job_schema.json",
+  "type": "object",
+  "title": "Project Export Job Schema",
+  "description": "Project-scoped export job metadata for privacy-safe analytics and manifest exports.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "project_id": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "privacy_classification": {
+          "type": "string",
+          "enum": ["aggregate_safe"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "job_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "export_type": {
+          "type": "string",
+          "enum": ["fine_tuning_manifest"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "failed"]
+        },
+        "privacy_classification": {
+          "type": "string",
+          "enum": ["manifest_safe", "raw_content"]
+        },
+        "export_mode": {
+          "type": "string",
+          "enum": ["manifest", "materialized"]
+        },
+        "privacy_mode": { "type": "boolean" },
+        "include_content": { "type": "boolean" },
+        "record_count": { "type": "integer", "minimum": 0 },
+        "artifact_filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "artifact_content_type": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "experiment_id": { "type": ["string", "null"] },
+        "experiment_run_id": { "type": ["string", "null"] },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 5000 },
+        "requested_by": { "type": ["string", "null"] },
+        "requested_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": ["string", "null"], "format": "date-time" },
+        "error_message": { "type": ["string", "null"] }
+      },
+      "required": [
+        "job_id",
+        "export_type",
+        "status",
+        "privacy_classification",
+        "export_mode",
+        "privacy_mode",
+        "include_content",
+        "record_count",
+        "artifact_filename",
+        "artifact_content_type",
+        "experiment_id",
+        "experiment_run_id",
+        "limit",
+        "requested_by",
+        "requested_at",
+        "completed_at",
+        "error_message"
+      ]
+    }
+  },
+  "required": ["context", "job"]
+}

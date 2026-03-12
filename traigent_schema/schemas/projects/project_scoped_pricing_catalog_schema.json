@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_pricing_catalog_schema.json",
+  "type": "object",
+  "title": "Project Scoped Pricing Catalog Schema",
+  "description": "Project-scoped view of the canonical pricing catalog used for analytics fallback attribution.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "project_id": { "type": "string" },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "privacy_classification": {
+          "type": "string",
+          "enum": ["aggregate_safe"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "catalog_source": {
+      "type": "string",
+      "enum": ["static_catalog"]
+    },
+    "catalog_last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "total_providers": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_models": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "providers": {
+      "type": "array",
+      "x-privacy-classification": "aggregate_safe",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pricing_resolution_mode": {
+            "type": "string",
+            "enum": ["static_catalog"]
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "input_price_per_1k_usd": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "output_price_per_1k_usd": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "context_window": {
+                  "type": ["integer", "null"],
+                  "minimum": 1
+                },
+                "available_tiers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["free", "standard", "premium", "enterprise"]
+                  }
+                },
+                "supports_catalog_fallback": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "model",
+                "input_price_per_1k_usd",
+                "output_price_per_1k_usd",
+                "context_window",
+                "available_tiers",
+                "supports_catalog_fallback"
+              ]
+            }
+          }
+        },
+        "required": ["provider", "model_count", "pricing_resolution_mode", "models"]
+      }
+    }
+  },
+  "required": [
+    "context",
+    "catalog_source",
+    "catalog_last_updated",
+    "total_providers",
+    "total_models",
+    "providers"
+  ]
+}

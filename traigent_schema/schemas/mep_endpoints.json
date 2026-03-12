@@ -149,6 +149,129 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/analytics/pricing-catalog": {
+      "get": {
+        "summary": "Get project pricing catalog",
+        "description": "Retrieve the pricing catalog used for analytics fallback attribution in the active project.",
+        "operationId": "getProjectPricingCatalog",
+        "responses": {
+          "200": {
+            "description": "Pricing catalog retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_pricing_catalog_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview": {
+      "get": {
+        "summary": "Get project optimization overview dashboard",
+        "description": "Retrieve a prebuilt privacy-safe optimization overview dashboard for the active project.",
+        "operationId": "getProjectOptimizationOverviewDashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Optimization overview dashboard retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_optimization_overview_dashboard_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/export-jobs": {
+      "get": {
+        "summary": "List project export jobs",
+        "description": "List recent privacy-safe export jobs for the active project.",
+        "operationId": "listProjectExportJobs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Export jobs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_export_job_list_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/export-jobs/{job_id}": {
+      "get": {
+        "summary": "Get project export job",
+        "description": "Retrieve a specific project-scoped export job.",
+        "operationId": "getProjectExportJob",
+        "responses": {
+          "200": {
+            "description": "Export job retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_export_job_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/analytics/trends/run-volume": {
       "get": {
         "summary": "Get project run-volume trend",

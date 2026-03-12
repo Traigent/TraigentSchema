@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_optimization_overview_dashboard_schema.json",
+  "type": "object",
+  "title": "Project Scoped Optimization Overview Dashboard Schema",
+  "description": "Prebuilt privacy-safe optimization overview dashboard for the active project.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "project_id": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "privacy_classification": {
+          "type": "string",
+          "enum": ["aggregate_safe"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "range_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3660
+    },
+    "summary_cards": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "experiments_total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total experiments currently in the active project."
+        },
+        "experiment_runs_in_range": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "configuration_runs_in_range": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "priced_configuration_runs_in_range": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unpriced_configuration_runs_in_range": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_cost_usd_in_range": {
+          "type": "number",
+          "minimum": 0
+        },
+        "avg_latency_ms_in_range": {
+          "type": "number",
+          "minimum": 0
+        },
+        "total_tokens_in_range": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "experiments_total",
+        "experiment_runs_in_range",
+        "configuration_runs_in_range",
+        "priced_configuration_runs_in_range",
+        "unpriced_configuration_runs_in_range",
+        "total_cost_usd_in_range",
+        "avg_latency_ms_in_range",
+        "total_tokens_in_range"
+      ]
+    },
+    "cost_source_breakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "observed_usage": { "type": "integer", "minimum": 0 },
+        "recorded_metrics": { "type": "integer", "minimum": 0 },
+        "catalog_fallback": { "type": "integer", "minimum": 0 },
+        "unknown_unpriced": { "type": "integer", "minimum": 0 }
+      },
+      "required": [
+        "observed_usage",
+        "recorded_metrics",
+        "catalog_fallback",
+        "unknown_unpriced"
+      ]
+    },
+    "recent_experiments": {
+      "type": "array",
+      "x-privacy-classification": "aggregate_safe",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "experiment_id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "minLength": 1 },
+          "experiment_run_count": { "type": "integer", "minimum": 0 },
+          "configuration_run_count": { "type": "integer", "minimum": 0 },
+          "priced_configuration_runs": { "type": "integer", "minimum": 0 },
+          "unpriced_configuration_runs": { "type": "integer", "minimum": 0 },
+          "total_cost_usd": { "type": "number", "minimum": 0 },
+          "avg_latency_ms": { "type": ["number", "null"], "minimum": 0 },
+          "avg_primary_score": { "type": ["number", "null"] },
+          "total_tokens": { "type": "integer", "minimum": 0 },
+          "last_run_at": { "type": ["string", "null"], "format": "date-time" },
+          "privacy_classification": {
+            "type": "string",
+            "enum": ["aggregate_safe"]
+          }
+        },
+        "required": [
+          "experiment_id",
+          "name",
+          "status",
+          "experiment_run_count",
+          "configuration_run_count",
+          "priced_configuration_runs",
+          "unpriced_configuration_runs",
+          "total_cost_usd",
+          "avg_latency_ms",
+          "avg_primary_score",
+          "total_tokens",
+          "last_run_at",
+          "privacy_classification"
+        ]
+      }
+    }
+  },
+  "required": [
+    "context",
+    "range_days",
+    "summary_cards",
+    "cost_source_breakdown",
+    "recent_experiments"
+  ]
+}

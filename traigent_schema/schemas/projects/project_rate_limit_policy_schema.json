@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_rate_limit_policy_schema.json",
+  "type": "object",
+  "title": "Project Rate Limit Policy Schema",
+  "description": "Project-scoped product configuration for rate-limit related governance controls.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_by": {
+      "type": ["string", "null"],
+      "maxLength": 255
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "api_calls_per_minute": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "evaluator_runs_per_hour": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "export_jobs_per_day": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "enabled",
+        "api_calls_per_minute",
+        "evaluator_runs_per_hour",
+        "export_jobs_per_day"
+      ]
+    }
+  },
+  "required": ["tenant_id", "project_id", "updated_at", "updated_by", "policy"]
+}

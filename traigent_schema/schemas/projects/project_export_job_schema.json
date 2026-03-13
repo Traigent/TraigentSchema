@@ -46,6 +46,13 @@
         },
         "privacy_mode": { "type": "boolean" },
         "include_content": { "type": "boolean" },
+        "retention_category": {
+          "type": "string",
+          "enum": [
+            "export_artifact",
+            "materialized_export"
+          ]
+        },
         "record_count": { "type": "integer", "minimum": 0 },
         "artifact_filename": { "type": "string", "minLength": 1, "maxLength": 255 },
         "artifact_content_type": { "type": "string", "minLength": 1, "maxLength": 255 },
@@ -54,6 +61,7 @@
         "limit": { "type": "integer", "minimum": 1, "maximum": 5000 },
         "requested_by": { "type": ["string", "null"] },
         "requested_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
         "completed_at": { "type": ["string", "null"], "format": "date-time" },
         "error_message": { "type": ["string", "null"] }
       },
@@ -65,6 +73,7 @@
         "export_mode",
         "privacy_mode",
         "include_content",
+        "retention_category",
         "record_count",
         "artifact_filename",
         "artifact_content_type",
@@ -73,6 +82,7 @@
         "limit",
         "requested_by",
         "requested_at",
+        "expires_at",
         "completed_at",
         "error_message"
       ]

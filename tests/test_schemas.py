@@ -163,6 +163,26 @@ class TestRequiredSchemas:
             schemas_dir / "projects" / "project_export_job_list_response_schema.json"
         ).exists()
 
+    def test_project_rate_limit_policy_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_rate_limit_policy_schema.json"
+        ).exists()
+
+    def test_project_rate_limit_policy_update_request_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_rate_limit_policy_update_request_schema.json"
+        ).exists()
+
+    def test_project_retention_policy_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_retention_policy_schema.json"
+        ).exists()
+
+    def test_project_retention_policy_update_request_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "projects" / "project_retention_policy_update_request_schema.json"
+        ).exists()
+
 
 class TestExampleMetricsSchema:
     """Tests for ExampleMetrics nested structure validation.

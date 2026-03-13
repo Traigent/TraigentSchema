@@ -140,6 +140,24 @@ class TestValidateRequest:
         )
         assert errors == []
 
+    def test_project_path_normalization_for_rate_limit_policy_route(self, validator):
+        """Concrete project policy paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/policies/rate-limits",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_retention_policy_route(self, validator):
+        """Concrete retention policy paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/policies/retention",
+            "GET",
+            {},
+        )
+        assert errors == []
+
 
 class TestSchemaValidation:
     """Integration tests for schema validation."""

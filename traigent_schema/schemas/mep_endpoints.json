@@ -236,6 +236,107 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/memberships": {
+      "get": {
+        "summary": "List project memberships",
+        "description": "List project-scoped memberships for project RBAC management.",
+        "operationId": "listProjectMemberships",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["admin", "editor", "viewer"] }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["active", "invited", "suspended"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project memberships retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_membership_list_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create project membership",
+        "description": "Create a project-scoped membership for an existing tenant member.",
+        "operationId": "createProjectMembership",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./projects/project_membership_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project membership created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_membership_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/memberships/{membership_id}": {
+      "patch": {
+        "summary": "Update project membership",
+        "description": "Update the role or status of an existing project-scoped membership.",
+        "operationId": "updateProjectMembership",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./projects/project_membership_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project membership updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_membership_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/core-metrics/overview": {
       "get": {
         "summary": "Get project core metrics overview",

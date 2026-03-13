@@ -189,6 +189,30 @@ class TestValidateRequest:
         )
         assert errors == []
 
+    def test_project_path_normalization_for_membership_list_route(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/memberships",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_membership_create_route(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/memberships",
+            "POST",
+            {"user_id": "user_123", "role": "editor", "status": "active"},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_membership_update_route(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/memberships/project_membership_123",
+            "PATCH",
+            {"role": "viewer"},
+        )
+        assert errors == []
+
 
 class TestSchemaValidation:
     """Integration tests for schema validation."""
@@ -274,6 +298,26 @@ class TestSchemaValidation:
             ],
         }
         errors = validator.validate_json(data, "project_scoped_analytics_summary_schema")
+        assert errors == []
+
+    def test_project_membership_schema_valid(self, validator):
+        data = {
+            "id": "project_membership_123",
+            "tenant_id": "tenant_acme",
+            "project_id": "project_alpha",
+            "user_id": "user_123",
+            "role": "editor",
+            "status": "active",
+            "created_by": "admin_1",
+            "updated_by": "admin_1",
+            "created_at": "2026-03-13T10:15:00Z",
+            "updated_at": "2026-03-13T10:15:00Z",
+            "user": {
+                "user_id": "user_123",
+                "email": "user@example.com",
+            },
+        }
+        errors = validator.validate_json(data, "project_membership_schema")
         assert errors == []
 
     def test_project_scoped_analytics_summary_rejects_missing_cost_breakdown(self, validator):

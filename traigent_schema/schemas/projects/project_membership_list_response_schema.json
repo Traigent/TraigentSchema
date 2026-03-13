@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_membership_list_response_schema.json",
+  "type": "object",
+  "title": "Project Membership List Response Schema",
+  "description": "Paginated list of project-scoped memberships.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "./project_membership_schema.json"
+      }
+    },
+    "pagination": {
+      "$ref": "../pagination_schema.json"
+    }
+  },
+  "required": ["items", "pagination"]
+}

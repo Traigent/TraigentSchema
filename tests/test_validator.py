@@ -142,6 +142,17 @@ class TestValidateRequest:
         )
         assert errors == []
 
+    def test_project_path_normalization_for_observability_summary_dashboard_route(
+        self, validator
+    ):
+        """Concrete observability dashboard paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/dashboards/observability-summary",
+            "GET",
+            {},
+        )
+        assert errors == []
+
     def test_project_path_normalization_for_export_jobs_route(self, validator):
         """Concrete export job list paths should normalize to the OpenAPI template."""
         errors = validator.validate_request(
@@ -483,6 +494,59 @@ class TestSchemaValidation:
         errors = validator.validate_json(
             data,
             "project_scoped_project_usage_dashboard_schema",
+        )
+        assert errors == []
+
+    def test_project_scoped_observability_summary_dashboard_schema_valid(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-12T12:30:00Z",
+                "privacy_classification": "aggregate_safe",
+            },
+            "range_days": 30,
+            "resolved_bucket": "day",
+            "summary_cards": {
+                "sessions_in_range": 2,
+                "traces_in_range": 3,
+                "observations_in_range": 9,
+                "bookmarked_traces_in_range": 1,
+                "published_traces_in_range": 1,
+                "commented_traces_in_range": 2,
+                "total_cost_usd_in_range": 0.42,
+                "total_tokens_in_range": 840,
+            },
+            "activity_trend": [
+                {
+                    "bucket_start": "2026-03-12T00:00:00Z",
+                    "bucket_label": "2026-03-12",
+                    "traces": 3,
+                    "observations": 9,
+                    "total_cost_usd": 0.42,
+                    "total_tokens": 840,
+                }
+            ],
+            "top_traces": [
+                {
+                    "trace_id": "trace_1",
+                    "session_id": "session_1",
+                    "name": "support-router",
+                    "status": "completed",
+                    "observation_count": 4,
+                    "total_cost_usd": 0.21,
+                    "total_tokens": 420,
+                    "total_latency_ms": 187,
+                    "is_bookmarked": True,
+                    "is_published": False,
+                    "started_at": "2026-03-12T11:00:00Z",
+                    "privacy_classification": "aggregate_safe",
+                }
+            ],
+        }
+        errors = validator.validate_json(
+            data,
+            "project_scoped_observability_summary_dashboard_schema",
         )
         assert errors == []
 

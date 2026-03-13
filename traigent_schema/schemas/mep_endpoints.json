@@ -389,6 +389,49 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/analytics/dashboards/observability-summary": {
+      "get": {
+        "summary": "Get project observability summary dashboard",
+        "description": "Retrieve a prebuilt privacy-safe observability summary dashboard for the active project.",
+        "operationId": "getProjectObservabilitySummaryDashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Observability summary dashboard retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_observability_summary_dashboard_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/analytics/export-jobs": {
       "get": {
         "summary": "List project export jobs",

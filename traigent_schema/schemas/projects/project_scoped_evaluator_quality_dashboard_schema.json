@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_evaluator_quality_dashboard_schema.json",
+  "type": "object",
+  "title": "Project Scoped Evaluator Quality Dashboard Schema",
+  "description": "Prebuilt privacy-safe evaluator quality dashboard for the active project.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "project_id": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "privacy_classification": {
+          "type": "string",
+          "enum": ["aggregate_safe"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "range_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3660
+    },
+    "resolved_bucket": {
+      "type": "string",
+      "enum": ["hour", "day", "week", "month"],
+      "description": "Automatically resolved time bucket. Defaults are <=3 days -> hour, <=90 days -> day, <=548 days -> week, otherwise month."
+    },
+    "summary_cards": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "evaluator_definitions_total": { "type": "integer", "minimum": 0 },
+        "evaluator_runs_in_range": { "type": "integer", "minimum": 0 },
+        "completed_runs_in_range": { "type": "integer", "minimum": 0 },
+        "failed_runs_in_range": { "type": "integer", "minimum": 0 },
+        "scored_runs_in_range": { "type": "integer", "minimum": 0 },
+        "avg_numeric_score_in_range": { "type": ["number", "null"] },
+        "total_cost_usd_in_range": { "type": "number", "minimum": 0 }
+      },
+      "required": [
+        "evaluator_definitions_total",
+        "evaluator_runs_in_range",
+        "completed_runs_in_range",
+        "failed_runs_in_range",
+        "scored_runs_in_range",
+        "avg_numeric_score_in_range",
+        "total_cost_usd_in_range"
+      ]
+    },
+    "quality_trend": {
+      "type": "array",
+      "x-privacy-classification": "aggregate_safe",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "bucket_start": { "type": "string", "format": "date-time" },
+          "bucket_label": { "type": "string" },
+          "avg_numeric_score": { "type": "number" },
+          "scored_runs": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["bucket_start", "bucket_label", "avg_numeric_score", "scored_runs"]
+      }
+    },
+    "recent_evaluators": {
+      "type": "array",
+      "x-privacy-classification": "aggregate_safe",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "evaluator_id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "target_type": { "type": "string", "minLength": 1 },
+          "measure_id": { "type": "string", "minLength": 1 },
+          "measure_label": { "type": "string", "minLength": 1 },
+          "run_count": { "type": "integer", "minimum": 0 },
+          "completed_runs": { "type": "integer", "minimum": 0 },
+          "failed_runs": { "type": "integer", "minimum": 0 },
+          "scored_runs": { "type": "integer", "minimum": 0 },
+          "avg_numeric_score": { "type": ["number", "null"] },
+          "avg_latency_ms": { "type": ["number", "null"], "minimum": 0 },
+          "total_cost_usd": { "type": "number", "minimum": 0 },
+          "last_run_at": { "type": ["string", "null"], "format": "date-time" },
+          "privacy_classification": {
+            "type": "string",
+            "enum": ["aggregate_safe"]
+          }
+        },
+        "required": [
+          "evaluator_id",
+          "name",
+          "target_type",
+          "measure_id",
+          "measure_label",
+          "run_count",
+          "completed_runs",
+          "failed_runs",
+          "scored_runs",
+          "avg_numeric_score",
+          "avg_latency_ms",
+          "total_cost_usd",
+          "last_run_at",
+          "privacy_classification"
+        ]
+      }
+    }
+  },
+  "required": [
+    "context",
+    "range_days",
+    "resolved_bucket",
+    "summary_cards",
+    "quality_trend",
+    "recent_evaluators"
+  ]
+}

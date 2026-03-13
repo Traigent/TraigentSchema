@@ -303,6 +303,92 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/analytics/dashboards/evaluator-quality": {
+      "get": {
+        "summary": "Get project evaluator quality dashboard",
+        "description": "Retrieve a prebuilt privacy-safe evaluator quality dashboard for the active project.",
+        "operationId": "getProjectEvaluatorQualityDashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evaluator quality dashboard retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_evaluator_quality_dashboard_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/dashboards/project-usage": {
+      "get": {
+        "summary": "Get project usage dashboard",
+        "description": "Retrieve a prebuilt privacy-safe project usage dashboard for cost, latency, token, and volume tracking.",
+        "operationId": "getProjectUsageDashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project usage dashboard retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_project_usage_dashboard_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/analytics/export-jobs": {
       "get": {
         "summary": "List project export jobs",

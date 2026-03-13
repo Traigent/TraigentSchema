@@ -122,6 +122,26 @@ class TestValidateRequest:
         )
         assert errors == []
 
+    def test_project_path_normalization_for_evaluator_quality_dashboard_route(
+        self, validator
+    ):
+        """Concrete evaluator dashboard paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/dashboards/evaluator-quality",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_project_usage_dashboard_route(self, validator):
+        """Concrete project usage dashboard paths should normalize to the OpenAPI template."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/dashboards/project-usage",
+            "GET",
+            {},
+        )
+        assert errors == []
+
     def test_project_path_normalization_for_export_jobs_route(self, validator):
         """Concrete export job list paths should normalize to the OpenAPI template."""
         errors = validator.validate_request(
@@ -363,6 +383,106 @@ class TestSchemaValidation:
         errors = validator.validate_json(
             data,
             "project_scoped_optimization_overview_dashboard_schema",
+        )
+        assert errors == []
+
+    def test_project_scoped_evaluator_quality_dashboard_schema_valid(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-12T12:00:00Z",
+                "privacy_classification": "aggregate_safe",
+            },
+            "range_days": 30,
+            "resolved_bucket": "day",
+            "summary_cards": {
+                "evaluator_definitions_total": 2,
+                "evaluator_runs_in_range": 4,
+                "completed_runs_in_range": 3,
+                "failed_runs_in_range": 1,
+                "scored_runs_in_range": 3,
+                "avg_numeric_score_in_range": 0.92,
+                "total_cost_usd_in_range": 0.37,
+            },
+            "quality_trend": [
+                {
+                    "bucket_start": "2026-03-12T00:00:00Z",
+                    "bucket_label": "2026-03-12",
+                    "avg_numeric_score": 0.92,
+                    "scored_runs": 2,
+                }
+            ],
+            "recent_evaluators": [
+                {
+                    "evaluator_id": "evaluator_accuracy",
+                    "name": "Accuracy Judge",
+                    "target_type": "configuration_run",
+                    "measure_id": "measure_accuracy",
+                    "measure_label": "Accuracy",
+                    "run_count": 3,
+                    "completed_runs": 2,
+                    "failed_runs": 1,
+                    "scored_runs": 2,
+                    "avg_numeric_score": 0.92,
+                    "avg_latency_ms": 180.5,
+                    "total_cost_usd": 0.37,
+                    "last_run_at": "2026-03-12T10:15:00Z",
+                    "privacy_classification": "aggregate_safe",
+                }
+            ],
+        }
+        errors = validator.validate_json(
+            data,
+            "project_scoped_evaluator_quality_dashboard_schema",
+        )
+        assert errors == []
+
+    def test_project_scoped_project_usage_dashboard_schema_valid(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-12T12:00:00Z",
+                "privacy_classification": "aggregate_safe",
+            },
+            "range_days": 30,
+            "resolved_bucket": "day",
+            "summary_cards": {
+                "experiment_runs_in_range": 4,
+                "configuration_runs_in_range": 9,
+                "priced_configuration_runs_in_range": 8,
+                "unpriced_configuration_runs_in_range": 1,
+                "total_cost_usd_in_range": 1.24,
+                "total_tokens_in_range": 2048,
+                "avg_latency_ms_in_range": 120.5,
+                "p95_latency_ms_in_range": 210.0,
+            },
+            "usage_trend": [
+                {
+                    "bucket_start": "2026-03-12T00:00:00Z",
+                    "bucket_label": "2026-03-12",
+                    "cost_usd": 0.31,
+                    "total_tokens": 512,
+                    "avg_latency_ms": 118.4,
+                    "configuration_runs": 2,
+                }
+            ],
+            "top_experiments": [
+                {
+                    "experiment_id": "exp_1",
+                    "name": "Support Experiment",
+                    "configuration_runs": 5,
+                    "total_cost_usd": 0.88,
+                    "total_tokens": 1500,
+                    "avg_latency_ms": 111.2,
+                    "privacy_classification": "aggregate_safe",
+                }
+            ],
+        }
+        errors = validator.validate_json(
+            data,
+            "project_scoped_project_usage_dashboard_schema",
         )
         assert errors == []
 

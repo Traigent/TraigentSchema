@@ -143,6 +143,20 @@ class TestRequiredSchemas:
             / "project_scoped_optimization_overview_dashboard_schema.json"
         ).exists()
 
+    def test_project_evaluator_quality_dashboard_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir
+            / "projects"
+            / "project_scoped_evaluator_quality_dashboard_schema.json"
+        ).exists()
+
+    def test_project_usage_dashboard_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir
+            / "projects"
+            / "project_scoped_project_usage_dashboard_schema.json"
+        ).exists()
+
     def test_project_measure_distribution_schema_exists(self, schemas_dir):
         assert (
             schemas_dir / "projects" / "project_scoped_measure_distribution_schema.json"

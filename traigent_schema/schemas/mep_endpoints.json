@@ -190,6 +190,52 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/policies/export": {
+      "get": {
+        "summary": "Get project export policy",
+        "description": "Retrieve the project-scoped export policy controlling whether materialized exports are allowed.",
+        "operationId": "getProjectExportPolicy",
+        "responses": {
+          "200": {
+            "description": "Project export policy retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_export_policy_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update project export policy",
+        "description": "Update the project-scoped export policy controlling whether materialized exports are allowed.",
+        "operationId": "updateProjectExportPolicy",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./projects/project_export_policy_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project export policy updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_export_policy_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/core-metrics/overview": {
       "get": {
         "summary": "Get project core metrics overview",

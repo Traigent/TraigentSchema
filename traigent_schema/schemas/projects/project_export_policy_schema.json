@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.traigent.ai/projects/project_retention_policy_schema.json",
+  "$id": "https://schemas.traigent.ai/projects/project_export_policy_schema.json",
   "type": "object",
-  "title": "Project Retention Policy Schema",
-  "description": "Project-scoped beta retention policy for export artifacts and materialized exports.",
+  "title": "Project Export Policy Schema",
+  "description": "Project-scoped export policy controlling whether materialized/raw-content exports are allowed.",
   "x-privacy-classification": "aggregate_safe",
   "additionalProperties": false,
   "properties": {
@@ -30,20 +30,12 @@
       "additionalProperties": false,
       "x-privacy-classification": "aggregate_safe",
       "properties": {
-        "export_artifact_retention_days": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 3650
-        },
-        "materialized_export_retention_days": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 3650
+        "allow_materialized_exports": {
+          "type": "boolean"
         }
       },
       "required": [
-        "export_artifact_retention_days",
-        "materialized_export_retention_days"
+        "allow_materialized_exports"
       ]
     }
   },

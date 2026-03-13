@@ -3,7 +3,7 @@
   "$id": "https://schemas.traigent.ai/projects/project_retention_policy_update_request_schema.json",
   "type": "object",
   "title": "Project Retention Policy Update Request Schema",
-  "description": "Patch request for project-scoped beta retention policy settings.",
+  "description": "Patch request for project-scoped beta retention policy settings for export artifacts and materialized exports.",
   "additionalProperties": false,
   "properties": {
     "export_artifact_retention_days": {

@@ -76,16 +76,16 @@ class TestSchemaStructure:
 class TestNoBrandingIssues:
     """Tests to verify proper rebranding."""
 
-    def test_no_optigen_references(self):
-        """Schema files should not contain OptiGen references."""
+    def test_no_traigent_references(self):
+        """Schema files should not contain Traigent references."""
         schema_files = get_all_schema_files()
         for schema_file in schema_files:
             with open(schema_file, 'r', encoding='utf-8') as f:
                 content = f.read()
 
-            assert "OptiGen" not in content, f"Found 'OptiGen' in {schema_file}"
-            assert "optigen" not in content.lower() or "traigent" in content.lower(), \
-                f"Found 'optigen' in {schema_file}"
+            assert "Traigent" not in content, f"Found 'Traigent' in {schema_file}"
+            assert "traigent" not in content.lower() or "traigent" in content.lower(), \
+                f"Found 'traigent' in {schema_file}"
 
 
 class TestRequiredSchemas:

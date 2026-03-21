@@ -35,9 +35,19 @@
       "description": "Unique identifier for this generator configuration",
       "x-identifier": true
     },
+    "eval_dataset_id": {
+      "type": "string",
+      "description": "Canonical reference to the evaluation dataset this generator is associated with",
+      "x-reference": true
+    },
     "evaluation_set_id": {
       "type": "string",
-      "description": "Reference to the evaluation_set this generator is associated with",
+      "description": "Legacy alias for the evaluation dataset identifier",
+      "x-reference": true
+    },
+    "benchmark_id": {
+      "type": "string",
+      "description": "Compatibility alias for the evaluation dataset identifier",
       "x-reference": true
     },
     "model_parameters_id": {
@@ -89,11 +99,21 @@
   },
   "required": [
     "id",
-    "evaluation_set_id",
     "model_parameters_id",
     "instructions",
     "context_type",
     "context_source"
+  ],
+  "anyOf": [
+    {
+      "required": ["eval_dataset_id"]
+    },
+    {
+      "required": ["evaluation_set_id"]
+    },
+    {
+      "required": ["benchmark_id"]
+    }
   ],
   "additionalProperties": false
 }

@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_schema.json",
+  "type": "object",
+  "title": "Project Schema",
+  "description": "Tenant-scoped project container for optimization, observability, and evaluation resources.",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "x-identifier": true
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "slug": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9][a-z0-9-]{0,99}$"
+    },
+    "description": {
+      "type": ["string", "null"],
+      "maxLength": 2000
+    },
+    "is_default": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "archived"]
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "updated_by": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "tenant_id",
+    "name",
+    "slug",
+    "is_default",
+    "status"
+  ]
+}

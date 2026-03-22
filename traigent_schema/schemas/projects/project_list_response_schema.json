@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_list_response_schema.json",
+  "type": "object",
+  "title": "Project List Response Schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "./project_schema.json"
+      }
+    },
+    "pagination": {
+      "$ref": "../pagination_schema.json"
+    }
+  },
+  "required": ["items", "pagination"]
+}

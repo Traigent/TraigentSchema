@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_fine_tuning_manifest_schema.json",
+  "type": "object",
+  "title": "Project Scoped Fine Tuning Manifest Schema",
+  "description": "Privacy-safe export manifest for project-scoped fine-tuning data. Raw content is omitted by default and replaced with hashes and stable references.",
+  "x-privacy-classification": "manifest_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "project_id": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "privacy_classification": {
+          "type": "string",
+          "description": "Payload-level privacy classification for this response. 'manifest_safe' means hashes/refs only; 'raw_content' means materialized content is included by explicit request and policy allows transmission.",
+          "enum": ["manifest_safe", "raw_content"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "export_mode": {
+      "type": "string",
+      "enum": ["manifest", "materialized"]
+    },
+    "privacy_mode": {
+      "type": "boolean"
+    },
+    "include_content": {
+      "type": "boolean"
+    },
+    "job_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Recorded export-job identifier for this manifest generation. May be null if the export artifact was generated successfully but audit persistence failed."
+    },
+    "record_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": { "type": "string" },
+          "experiment_id": { "type": "string" },
+          "experiment_run_id": { "type": "string" },
+          "configuration_run_id": { "type": "string" },
+          "input_hash": { "type": ["string", "null"] },
+          "output_hash": { "type": ["string", "null"] },
+          "input_ref": { "type": ["string", "null"] },
+          "output_ref": { "type": ["string", "null"] },
+          "input_content": { "type": ["string", "null"] },
+          "output_content": { "type": ["string", "null"] },
+          "materialization": {
+            "type": "string",
+            "enum": ["local_only", "transmitted"]
+          },
+          "measure_summary": {
+            "type": "object",
+            "additionalProperties": {
+              "type": ["number", "null"]
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Scalar metadata for local materialization and export context. Non-numeric measure attributes are emitted here with the 'measure_metadata_' prefix.",
+            "additionalProperties": {
+              "type": ["string", "number", "boolean", "null"]
+            }
+          }
+        },
+        "required": [
+          "record_id",
+          "experiment_id",
+          "experiment_run_id",
+          "configuration_run_id",
+          "input_hash",
+          "output_hash",
+          "input_ref",
+          "output_ref",
+          "input_content",
+          "output_content",
+          "materialization",
+          "measure_summary",
+          "metadata"
+        ]
+      }
+    }
+  },
+  "required": [
+    "context",
+    "export_mode",
+    "privacy_mode",
+    "include_content",
+    "job_id",
+    "record_count",
+    "records"
+  ]
+}

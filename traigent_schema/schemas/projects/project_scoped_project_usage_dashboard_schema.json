@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_project_usage_dashboard_schema.json",
+  "type": "object",
+  "title": "Project Scoped Project Usage Dashboard Schema",
+  "description": "Prebuilt privacy-safe project usage dashboard for the active project.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "project_id": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "privacy_classification": {
+          "type": "string",
+          "enum": ["aggregate_safe"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "range_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 365
+    },
+    "resolved_bucket": {
+      "type": "string",
+      "enum": ["hour", "day", "week", "month"],
+      "description": "Automatically resolved time bucket. Defaults are <=3 days -> hour, <=90 days -> day, <=548 days -> week, otherwise month."
+    },
+    "summary_cards": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "experiment_runs_in_range": { "type": "integer", "minimum": 0 },
+        "configuration_runs_in_range": { "type": "integer", "minimum": 0 },
+        "priced_configuration_runs_in_range": { "type": "integer", "minimum": 0 },
+        "unpriced_configuration_runs_in_range": { "type": "integer", "minimum": 0 },
+        "total_cost_usd_in_range": { "type": "number", "minimum": 0 },
+        "total_tokens_in_range": { "type": "integer", "minimum": 0 },
+        "avg_latency_ms_in_range": { "type": "number", "minimum": 0 },
+        "p95_latency_ms_in_range": { "type": "number", "minimum": 0 }
+      },
+      "required": [
+        "experiment_runs_in_range",
+        "configuration_runs_in_range",
+        "priced_configuration_runs_in_range",
+        "unpriced_configuration_runs_in_range",
+        "total_cost_usd_in_range",
+        "total_tokens_in_range",
+        "avg_latency_ms_in_range",
+        "p95_latency_ms_in_range"
+      ]
+    },
+    "usage_trend": {
+      "type": "array",
+      "x-privacy-classification": "aggregate_safe",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "bucket_start": { "type": "string", "format": "date-time" },
+          "bucket_label": { "type": "string" },
+          "cost_usd": { "type": "number", "minimum": 0 },
+          "total_tokens": { "type": "integer", "minimum": 0 },
+          "avg_latency_ms": { "type": ["number", "null"], "minimum": 0 },
+          "configuration_runs": { "type": "integer", "minimum": 0 }
+        },
+        "required": [
+          "bucket_start",
+          "bucket_label",
+          "cost_usd",
+          "total_tokens",
+          "avg_latency_ms",
+          "configuration_runs"
+        ]
+      }
+    },
+    "top_experiments": {
+      "type": "array",
+      "x-privacy-classification": "aggregate_safe",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "experiment_id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "configuration_runs": { "type": "integer", "minimum": 0 },
+          "total_cost_usd": { "type": "number", "minimum": 0 },
+          "total_tokens": { "type": "integer", "minimum": 0 },
+          "avg_latency_ms": { "type": ["number", "null"], "minimum": 0 },
+          "privacy_classification": {
+            "type": "string",
+            "enum": ["aggregate_safe"]
+          }
+        },
+        "required": [
+          "experiment_id",
+          "name",
+          "configuration_runs",
+          "total_cost_usd",
+          "total_tokens",
+          "avg_latency_ms",
+          "privacy_classification"
+        ]
+      }
+    }
+  },
+  "required": [
+    "context",
+    "range_days",
+    "resolved_bucket",
+    "summary_cards",
+    "usage_trend",
+    "top_experiments"
+  ]
+}

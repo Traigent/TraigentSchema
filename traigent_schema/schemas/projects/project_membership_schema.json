@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_membership_schema.json",
+  "type": "object",
+  "title": "Project Membership Schema",
+  "description": "Project-scoped membership record used by the project RBAC surface.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "x-identifier": true
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "user_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50
+    },
+    "role": {
+      "type": "string",
+      "enum": ["admin", "editor", "viewer"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "invited", "suspended"]
+    },
+    "created_by": {
+      "type": ["string", "null"],
+      "maxLength": 255
+    },
+    "updated_by": {
+      "type": ["string", "null"],
+      "maxLength": 255
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "user": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "id",
+    "tenant_id",
+    "project_id",
+    "user_id",
+    "role",
+    "status",
+    "created_at",
+    "updated_at",
+    "user"
+  ]
+}

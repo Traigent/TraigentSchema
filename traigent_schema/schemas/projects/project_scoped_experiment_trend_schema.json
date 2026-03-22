@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_experiment_trend_schema.json",
+  "type": "object",
+  "title": "Project Scoped Experiment Trend Schema",
+  "additionalProperties": false,
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "experiment_id": {
+      "type": "string"
+    },
+    "experiment_name": {
+      "type": "string"
+    },
+    "runs_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "configuration_runs_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "daily_runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["date", "count"]
+      }
+    },
+    "daily_configuration_runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["date", "count"]
+      }
+    },
+    "measure_summary": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mean": {
+            "type": "number"
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          }
+        },
+        "required": ["count", "mean", "min", "max"]
+      }
+    }
+  },
+  "required": [
+    "project_id",
+    "experiment_id",
+    "experiment_name",
+    "runs_total",
+    "configuration_runs_total",
+    "daily_runs",
+    "daily_configuration_runs",
+    "measure_summary"
+  ]
+}

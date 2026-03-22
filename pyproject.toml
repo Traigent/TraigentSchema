@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "traigent-schema"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Traigent Schema Library - Data contracts and validation for the Traigent AI optimization platform"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -44,6 +44,9 @@ dev = [
 Homepage = "https://github.com/Traigent/TraigentSchema"
 Documentation = "https://github.com/Traigent/TraigentSchema#readme"
 Repository = "https://github.com/Traigent/TraigentSchema.git"
+
+[tool.hatch.version]
+path = "traigent_schema/version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["traigent_schema"]

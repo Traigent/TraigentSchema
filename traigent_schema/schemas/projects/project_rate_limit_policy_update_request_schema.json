@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_rate_limit_policy_update_request_schema.json",
+  "type": "object",
+  "title": "Project Rate Limit Policy Update Request Schema",
+  "description": "Patch request for project-scoped rate-limit policy settings.",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": { "type": "boolean" },
+    "api_calls_per_minute": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "evaluator_runs_per_hour": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "export_jobs_per_day": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 1000000
+    }
+  },
+  "minProperties": 1
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_fine_tuning_export_query_schema.json",
+  "type": "object",
+  "title": "Project Scoped Fine Tuning Export Query Schema",
+  "additionalProperties": false,
+  "properties": {
+    "experiment_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiment_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5000,
+      "default": 1000
+    },
+    "include_content": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

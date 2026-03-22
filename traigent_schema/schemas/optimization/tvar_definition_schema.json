@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "TVAR Definition Schema",
+  "description": "Defines a TVAR (Tunable VARiable) following TVL 0.9 specification. A TVAR is a knob, parameter, or design choice whose value Traigent explores during optimization.",
+  "version": "0.9.0",
+  "definitions": {
+    "TVARType": {
+      "type": "string",
+      "enum": ["bool", "int", "float", "str", "enum"],
+      "description": "Variable type:\n- bool: Boolean toggle\n- int: Integer value\n- float: Floating-point value\n- str: Free-form string\n- enum: One of a fixed set of values"
+    },
+    "TVARDomain": {
+      "type": "object",
+      "description": "Domain specification defining the range of valid values for a TVAR",
+      "properties": {
+        "values": {
+          "type": "array",
+          "description": "Allowed values (for enum and str types)",
+          "minItems": 1
+        },
+        "range": {
+          "type": "array",
+          "description": "[min, max] range (for int and float types)",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "resolution": {
+          "type": "number",
+          "description": "Step size for numeric types (defines discretization granularity)",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Variable name (must be valid Python identifier)",
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+    },
+    "type": {
+      "$ref": "#/definitions/TVARType",
+      "description": "Data type of this TVAR"
+    },
+    "domain": {
+      "$ref": "#/definitions/TVARDomain",
+      "description": "Valid value domain for this TVAR"
+    },
+    "default": {
+      "description": "Default value (type depends on TVAR type)"
+    },
+    "scale": {
+      "type": "string",
+      "enum": ["linear", "log"],
+      "description": "Sampling scale for numeric types. Use 'log' for parameters like learning_rate where logarithmic exploration is appropriate.",
+      "default": "linear"
+    },
+    "agent": {
+      "type": "string",
+      "description": "Agent name for multi-agent grouping. Groups TVARs by the agent or component they belong to.",
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+    },
+    "is_tool": {
+      "type": "boolean",
+      "description": "True if this TVAR configures an MCP tool",
+      "default": false
+    },
+    "constraints": {
+      "type": "array",
+      "description": "Conditional constraints on this TVAR (e.g., 'requires model == gpt-4')",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": ["name", "type"],
+  "additionalProperties": false
+}

@@ -115,21 +115,24 @@
             }
           },
           {
-            "name": "limit",
+            "name": "page",
             "in": "query",
-            "description": "Maximum number of evaluations to return",
+            "description": "Page number to retrieve",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 1,
+              "minimum": 1
             }
           },
           {
-            "name": "offset",
+            "name": "per_page",
             "in": "query",
-            "description": "Number of evaluations to skip",
+            "description": "Number of evaluations to return per page",
             "schema": {
               "type": "integer",
-              "default": 0
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -139,10 +142,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "./evaluation_schema.json"
-                  }
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "./evaluation_schema.json"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "../pagination_schema.json"
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "pagination"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -405,16 +439,70 @@
       "get": {
         "summary": "List available metrics",
         "description": "Get a list of metrics that can be used for evaluation",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number to retrieve",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Number of metrics to return per page",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "List of available metrics",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "../measures/measure_schema.json"
-                  }
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "../measures/measure_schema.json"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "../pagination_schema.json"
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "pagination"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -629,21 +717,24 @@
             }
           },
           {
-            "name": "limit",
+            "name": "page",
             "in": "query",
-            "description": "Maximum number of comparisons to return",
+            "description": "Page number to retrieve",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 1,
+              "minimum": 1
             }
           },
           {
-            "name": "offset",
+            "name": "per_page",
             "in": "query",
-            "description": "Number of comparisons to skip",
+            "description": "Number of comparisons to return per page",
             "schema": {
               "type": "integer",
-              "default": 0
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -653,10 +744,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "./comparison_schema.json"
-                  }
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "./comparison_schema.json"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "../pagination_schema.json"
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "pagination"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -955,21 +1077,24 @@
             }
           },
           {
-            "name": "limit",
+            "name": "page",
             "in": "query",
-            "description": "Maximum number of reports to return",
+            "description": "Page number to retrieve",
             "schema": {
               "type": "integer",
-              "default": 20
+              "default": 1,
+              "minimum": 1
             }
           },
           {
-            "name": "offset",
+            "name": "per_page",
             "in": "query",
-            "description": "Number of reports to skip",
+            "description": "Number of reports to return per page",
             "schema": {
               "type": "integer",
-              "default": 0
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
@@ -979,10 +1104,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "../results/report_schema.json"
-                  }
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "../results/report_schema.json"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "../pagination_schema.json"
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "pagination"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }

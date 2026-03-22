@@ -4,11 +4,13 @@ The official schema library for the Traigent AI optimization platform. This pack
 
 ## Installation
 
+For published package consumers:
+
 ```bash
 pip install traigent-schema
 ```
 
-Or install from source:
+For coordinated workspace development or release validation, install from source:
 
 ```bash
 pip install git+https://github.com/Traigent/TraigentSchema.git
@@ -53,7 +55,7 @@ The library includes schemas organized by domain:
 
 ### Datasets (`schemas/datasets/`)
 - `example_set_schema.json` - Example set definitions
-- `evaluation_set_schema.json` - Evaluation set specs
+- `evaluation_set_schema.json` - Evaluation dataset specs
 - `generator_config_schema.json` - Data generator configs
 - `evaluator_config_schema.json` - Evaluator configurations
 
@@ -132,7 +134,9 @@ mypy traigent_schema
 
 ## Version
 
-Current version: **1.0.0**
+Current release line: **3.2.0**
+
+Package metadata is derived from `traigent_schema/version.py` to keep runtime and published versions aligned.
 
 ## License
 

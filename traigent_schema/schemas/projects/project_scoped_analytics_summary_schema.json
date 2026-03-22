@@ -1,0 +1,246 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_scoped_analytics_summary_schema.json",
+  "type": "object",
+  "title": "Project Scoped Analytics Summary Schema",
+  "description": "Privacy-safe aggregate summary for project-scoped optimization analytics.",
+  "x-privacy-classification": "aggregate_safe",
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "tenant_id": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "privacy_classification": {
+          "type": "string",
+          "description": "Payload-level privacy classification for this response shape. This describes the safety class of the returned payload, not the project's runtime privacy-mode setting.",
+          "enum": ["aggregate_safe"]
+        }
+      },
+      "required": ["tenant_id", "project_id", "generated_at", "privacy_classification"]
+    },
+    "range_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3660,
+      "description": "Requested analysis window in days. Run, configuration, and measure aggregates in this payload are filtered to this window."
+    },
+    "entity_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "agents": { "type": "integer", "minimum": 0 },
+        "benchmarks": { "type": "integer", "minimum": 0 },
+        "measures": { "type": "integer", "minimum": 0 },
+        "experiments": { "type": "integer", "minimum": 0 },
+        "experiment_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of experiment-run records within the requested analysis window for the active project."
+        },
+        "configuration_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of configuration-run records within the requested analysis window for the active project."
+        }
+      },
+      "required": [
+        "agents",
+        "benchmarks",
+        "measures",
+        "experiments",
+        "experiment_runs",
+        "configuration_runs"
+      ]
+    },
+    "status_breakdowns": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "experiments": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "experiment_runs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "configuration_runs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "required": ["experiments", "experiment_runs", "configuration_runs"]
+    },
+    "usage_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "experiment_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Experiment runs within the requested analysis window for the active project."
+        },
+        "configuration_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Configuration runs within the requested analysis window for the active project."
+        },
+        "priced_configuration_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Configuration runs with an explicit resolved cost value."
+        },
+        "unpriced_configuration_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Configuration runs where cost is still unknown or unavailable."
+        },
+        "total_cost_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total project-attributed cost in USD, rounded to 6 decimal places."
+        },
+        "avg_cost_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average project-attributed cost in USD, rounded to 6 decimal places."
+        },
+        "cost_source_breakdown": {
+          "type": "object",
+          "additionalProperties": false,
+          "x-privacy-classification": "aggregate_safe",
+          "properties": {
+            "observed_usage": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs whose cost came from observed workflow/provider usage."
+            },
+            "recorded_metrics": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs whose cost came from stored run metrics or summary fields."
+            },
+            "catalog_fallback": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs whose cost came from a pricing-catalog fallback."
+            },
+            "unknown_unpriced": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Runs where cost could not be resolved and remains explicitly unpriced."
+            }
+          },
+          "required": [
+            "observed_usage",
+            "recorded_metrics",
+            "catalog_fallback",
+            "unknown_unpriced"
+          ]
+        },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "avg_latency_ms": { "type": "number", "minimum": 0 },
+        "p95_latency_ms": { "type": "number", "minimum": 0 }
+      },
+      "required": [
+        "experiment_runs",
+        "configuration_runs",
+        "priced_configuration_runs",
+        "unpriced_configuration_runs",
+        "total_cost_usd",
+        "avg_cost_usd",
+        "cost_source_breakdown",
+        "total_tokens",
+        "avg_latency_ms",
+        "p95_latency_ms"
+      ]
+    },
+    "measure_summaries": {
+      "type": "array",
+      "x-privacy-classification": "aggregate_safe",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "measure_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "measure_id": {
+            "type": ["string", "null"]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "value_type": {
+            "type": "string",
+            "enum": ["numeric"]
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mean": {
+            "type": "number"
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "privacy_classification": {
+            "type": "string",
+            "enum": ["aggregate_safe"]
+          }
+        },
+        "required": [
+          "measure_key",
+          "measure_id",
+          "label",
+          "value_type",
+          "sample_count",
+          "mean",
+          "min",
+          "max",
+          "privacy_classification"
+        ]
+      }
+    }
+  },
+  "required": [
+    "context",
+    "range_days",
+    "entity_counts",
+    "status_breakdowns",
+    "usage_summary",
+    "measure_summaries"
+  ]
+}

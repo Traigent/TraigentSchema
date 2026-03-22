@@ -5,6 +5,8 @@ example scores, dataset quality, and scoring job status data
 against their respective JSON schemas.
 """
 
+from __future__ import annotations
+
 import re
 from typing import Any
 
@@ -115,8 +117,12 @@ class AnalyticsValidator:
         else:
             # Validate each metric value is numeric or null
             for key, value in data["metrics"].items():
-                if value is not None and not isinstance(value, (int, float)):
-                    errors.append(f"Metric '{key}' must be numeric or null, got {type(value).__name__}")
+                if value is not None and (
+                    isinstance(value, bool) or not isinstance(value, (int, float))
+                ):
+                    errors.append(
+                        f"Metric '{key}' must be numeric or null, got {type(value).__name__}"
+                    )
 
         return errors
 

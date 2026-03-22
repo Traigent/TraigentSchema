@@ -4,11 +4,13 @@ The official schema library for the Traigent AI optimization platform. This pack
 
 ## Installation
 
+For published package consumers:
+
 ```bash
 pip install traigent-schema
 ```
 
-Or install from source:
+For coordinated workspace development or release validation, install from source:
 
 ```bash
 pip install git+https://github.com/Traigent/TraigentSchema.git

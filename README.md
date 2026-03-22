@@ -55,7 +55,7 @@ The library includes schemas organized by domain:
 
 ### Datasets (`schemas/datasets/`)
 - `example_set_schema.json` - Example set definitions
-- `evaluation_set_schema.json` - Evaluation set specs
+- `evaluation_set_schema.json` - Evaluation dataset specs
 - `generator_config_schema.json` - Data generator configs
 - `evaluator_config_schema.json` - Evaluator configurations
 

@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/service_registration_schema.json",
   "type": "object",
   "title": "Service Registration Schema",
   "description": "Defines the service capabilities discovered during handshake. Maps to the GET /capabilities response in the Hybrid Mode API.",

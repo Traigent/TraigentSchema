@@ -95,6 +95,39 @@ class TestValidateRequest:
         errors = validator.validate_request("/api/v1/agents", "POST", data)
         assert isinstance(errors, list)
 
+    def test_agent_request_uses_endpoint_module_mapping(self, validator):
+        """Agent validation should resolve through the modular endpoint catalog."""
+        errors = validator.validate_request(
+            "/api/v1/agents",
+            "POST",
+            {
+                "name": "Test Agent",
+            },
+        )
+        assert errors
+
+    def test_agent_request_reports_validation_errors(self, validator):
+        """Invalid agent payloads should fail request validation."""
+        errors = validator.validate_request(
+            "/api/v1/agents",
+            "POST",
+            {"name": "Test Agent"},
+        )
+        assert errors
+        assert any("id" in error or "agent_type" in error for error in errors)
+
+    def test_optimization_request_uses_root_catalog_module_reference(self, validator):
+        """Optimization endpoints should be discoverable via the root catalog."""
+        errors = validator.validate_request(
+            "/api/v1/tunables",
+            "POST",
+            {
+                "id": "tunable_123",
+                "name": "Support Router",
+            },
+        )
+        assert errors == []
+
     def test_project_path_normalization_for_analytics_route(self, validator):
         """Concrete project analytics paths should normalize to the OpenAPI template."""
         errors = validator.validate_request(
@@ -243,6 +276,22 @@ class TestSchemaValidation:
         }
         errors = validator.validate_json(data, "measure_schema")
         assert isinstance(errors, list)
+
+    def test_project_list_response_schema_resolves_pagination_ref(self, validator):
+        """Paginated project responses should resolve the shared pagination schema."""
+        data = {
+            "items": [],
+            "pagination": {
+                "page": 1,
+                "per_page": 20,
+                "total": 0,
+                "total_pages": 0,
+                "has_next": False,
+                "has_prev": False,
+            },
+        }
+        errors = validator.validate_json(data, "project_list_response_schema")
+        assert errors == []
 
     def test_project_scoped_analytics_summary_schema_valid(self, validator):
         data = {

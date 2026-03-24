@@ -985,6 +985,11 @@
       "paths_file": "./evaluation/evaluation_endpoints.json"
     },
     {
+      "name": "Optimization",
+      "description": "Endpoints for managing tunables and config spaces",
+      "paths_file": "./optimization/optimization_endpoints.json"
+    },
+    {
       "name": "Execution",
       "description": "Endpoints for executing and managing experiment runs",
       "paths_file": "./execution/execution_endpoints.json"

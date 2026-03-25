@@ -1323,6 +1323,8 @@
                           "additionalProperties": true
                         },
                         "trials": {
+                          "description": "Deprecated legacy flat trials list. Use trials_page.items.",
+                          "deprecated": true,
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -1350,7 +1352,13 @@
                           "additionalProperties": false
                         },
                         "trials_pagination": {
-                          "$ref": "../pagination_schema.json"
+                          "allOf": [
+                            {
+                              "$ref": "../pagination_schema.json"
+                            }
+                          ],
+                          "description": "Deprecated legacy pagination metadata. Use trials_page.pagination.",
+                          "deprecated": true
                         },
                         "attribution": {
                           "type": "array",
@@ -1370,9 +1378,7 @@
                       "required": [
                         "run_id",
                         "graph",
-                        "trials",
                         "trials_page",
-                        "trials_pagination",
                         "attribution",
                         "recommendations"
                       ],

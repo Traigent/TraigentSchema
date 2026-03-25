@@ -219,6 +219,35 @@ class TestRequiredSchemas:
             schemas_dir / "projects" / "project_membership_create_request_schema.json"
         ).exists()
 
+    def test_optimization_endpoint_module_is_listed_in_root_openapi(self, schemas_dir):
+        with open(schemas_dir / "mep_endpoints.json", encoding="utf-8") as handle:
+            openapi = json.load(handle)
+
+        modules = openapi.get("x-endpoint-modules", [])
+        assert any(
+            module.get("paths_file") == "./optimization/optimization_endpoints.json"
+            for module in modules
+            if isinstance(module, dict)
+        )
+
+    def test_traces_response_requires_only_paginated_trials_shape(self, schemas_dir):
+        with open(
+            schemas_dir / "execution" / "execution_endpoints.json",
+            encoding="utf-8",
+        ) as handle:
+            execution_openapi = json.load(handle)
+
+        required = (
+            execution_openapi["paths"]["/api/v1/experiment-runs/runs/{run_id}/traces"][
+                "get"
+            ]["responses"]["200"]["content"]["application/json"]["schema"]["properties"][
+                "data"
+            ]["required"]
+        )
+        assert "trials_page" in required
+        assert "trials" not in required
+        assert "trials_pagination" not in required
+
     def test_project_membership_update_request_schema_exists(self, schemas_dir):
         assert (
             schemas_dir / "projects" / "project_membership_update_request_schema.json"

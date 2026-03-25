@@ -6,6 +6,7 @@ Provides validation of API requests and JSON data against Traigent schemas.
 
 import json
 import re
+from pathlib import Path
 from typing import Any, Optional
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
@@ -70,12 +71,41 @@ class SchemaValidator:
         """Load endpoint-to-schema mappings from OpenAPI spec."""
         try:
             openapi_path = get_openapi_path()
-            if openapi_path.exists():
-                with open(openapi_path, encoding='utf-8') as f:
-                    openapi = json.load(f)
-                    self._parse_openapi(openapi)
+            if not openapi_path.exists():
+                return
+
+            with open(openapi_path, encoding='utf-8') as f:
+                openapi = json.load(f)
+
+            self._parse_openapi(openapi)
+            self._load_endpoint_modules(openapi, openapi_path.parent)
         except (OSError, json.JSONDecodeError):
             pass
+
+    def _load_endpoint_modules(
+        self,
+        openapi: dict[str, Any],
+        base_dir: Path,
+    ) -> None:
+        """Load endpoint mappings from module files referenced by the root spec."""
+        for module in openapi.get("x-endpoint-modules", []):
+            if not isinstance(module, dict):
+                continue
+
+            paths_file = module.get("paths_file")
+            if not isinstance(paths_file, str):
+                continue
+
+            module_path = base_dir / paths_file
+            if not module_path.exists():
+                continue
+
+            try:
+                with open(module_path, encoding="utf-8") as f:
+                    module_openapi = json.load(f)
+                    self._parse_openapi(module_openapi)
+            except (OSError, json.JSONDecodeError):
+                continue
 
     def _parse_openapi(self, openapi: dict[str, Any]) -> None:
         """Parse OpenAPI spec to extract endpoint-schema mappings."""
@@ -95,8 +125,16 @@ class SchemaValidator:
                     schema_name = schema_ref.split("/")[-1]
                     if schema_name.endswith(".json"):
                         schema_name = schema_name[:-5]
-                    key = f"{method.upper()}:{path}"
-                    self._endpoint_schemas[key] = schema_name
+                    for candidate_path in self._endpoint_path_variants(path):
+                        key = f"{method.upper()}:{candidate_path}"
+                        self._endpoint_schemas[key] = schema_name
+
+    def _endpoint_path_variants(self, path: str) -> list[str]:
+        """Return path variants used by the validator for endpoint lookups."""
+        variants = [path]
+        if path.startswith("/") and not path.startswith("/api/"):
+            variants.append(f"/api/v1{path}")
+        return variants
 
     def validate_request(
         self,

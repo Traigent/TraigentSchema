@@ -7,7 +7,8 @@ name = "traigent-schema"
 dynamic = ["version"]
 description = "Traigent Schema Library - Data contracts and validation for the Traigent AI optimization platform"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "AGPL-3.0-only"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
 authors = [
     { name = "Traigent Team", email = "dev@traigent.ai" }
@@ -15,7 +16,7 @@ authors = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -43,7 +44,9 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/Traigent/TraigentSchema"
 Documentation = "https://github.com/Traigent/TraigentSchema#readme"
-Repository = "https://github.com/Traigent/TraigentSchema.git"
+Repository = "https://github.com/Traigent/TraigentSchema"
+"Bug Tracker" = "https://github.com/Traigent/TraigentSchema/issues"
+Changelog = "https://github.com/Traigent/TraigentSchema/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 path = "traigent_schema/version.py"
@@ -53,6 +56,10 @@ packages = ["traigent_schema"]
 
 [tool.hatch.build.targets.sdist]
 include = [
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
     "traigent_schema/**/*.py",
     "traigent_schema/**/*.json",
     "traigent_schema/**/*.yaml",

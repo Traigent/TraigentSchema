@@ -1,6 +1,8 @@
 # Traigent Schema Library
 
-The official schema library for the Traigent AI optimization platform. This package provides JSON Schema definitions and validation utilities used across all Traigent services.
+The official contract package for the Traigent AI optimization platform. This
+repository is the shared source of truth for JSON Schema definitions, endpoint
+mappings, and validation utilities used across the backend, SDK, and frontend.
 
 ## Installation
 
@@ -10,7 +12,8 @@ For published package consumers:
 pip install traigent-schema
 ```
 
-For coordinated workspace development or release validation, install from source:
+For coordinated workspace development or release validation from GitHub
+(requires repository access):
 
 ```bash
 pip install git+https://github.com/Traigent/TraigentSchema.git
@@ -134,10 +137,12 @@ mypy traigent_schema
 
 ## Version
 
-Current release line: **3.2.0**
+Current release line: **3.2.2**
 
 Package metadata is derived from `traigent_schema/version.py` to keep runtime and published versions aligned.
 
 ## License
 
-Proprietary - All Rights Reserved. See LICENSE file for details.
+Open-source releases of this repository are licensed under the GNU Affero
+General Public License v3.0 only. See [LICENSE](LICENSE) and [NOTICE](NOTICE)
+for details.

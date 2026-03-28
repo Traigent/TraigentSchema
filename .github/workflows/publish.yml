@@ -1,0 +1,196 @@
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to publish to"
+        required: true
+        default: "testpypi"
+        type: choice
+        options:
+          - testpypi
+          - pypi
+      confirm_publish:
+        description: "Set to true to allow publishing"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_publish == 'true'
+    environment: ${{ github.event.inputs.environment || 'pypi' }}
+    outputs:
+      package_version: ${{ steps.package_version.outputs.package_version }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          python -m pip install -e ".[dev]"
+
+      - name: Read package version
+        id: package_version
+        run: |
+          VERSION=$(python - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path("traigent_schema/version.py").read_text(encoding="utf-8")
+          match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+          if not match:
+              raise SystemExit("Unable to determine package version")
+          print(match.group(1))
+          PY
+          )
+          echo "package_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify version consistency
+        run: |
+          VERSION_FILE=$(python - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path("traigent_schema/version.py").read_text(encoding="utf-8")
+          match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+          if not match:
+              raise SystemExit("Unable to determine package version")
+          print(match.group(1))
+          PY
+          )
+          VERSION_IMPORT=$(python -c "import traigent_schema; print(traigent_schema.__version__)")
+          echo "version.py: $VERSION_FILE"
+          echo "package import: $VERSION_IMPORT"
+          if [ "$VERSION_FILE" != "$VERSION_IMPORT" ]; then
+            echo "Error: Version mismatch between version.py and package import"
+            exit 1
+          fi
+
+      - name: Run tests before publishing
+        run: |
+          pytest tests/ -v --tb=short
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Check package with twine
+        run: |
+          twine check dist/*
+
+      - name: Test installation from built package
+        run: |
+          python -m venv test_env
+          source test_env/bin/activate
+          pip install --upgrade pip
+          pip install dist/*.whl
+          python - <<'PY'
+          import traigent_schema
+          from traigent_schema import SchemaValidator, load_schema
+
+          print(f"traigent-schema v{traigent_schema.__version__} imported successfully")
+          print(f"Available schemas: {len(SchemaValidator().available_schemas)}")
+          print(load_schema("experiment_schema")["$schema"])
+          PY
+
+      - name: Publish to Test PyPI
+        if: github.event.inputs.environment == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          verbose: true
+
+      - name: Publish to PyPI
+        if: github.event.inputs.environment == 'pypi'
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc
+        with:
+          verbose: true
+
+      - name: Create deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Package**: traigent-schema" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version**: ${{ steps.package_version.outputs.package_version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment**: ${{ github.event.inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status**: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+
+  verify-publication:
+    needs: publish
+    runs-on: ubuntu-latest
+    if: always() && needs.publish.result == 'success'
+
+    steps:
+      - name: Wait for package propagation
+        run: sleep 60
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Test installation from package index
+        env:
+          EXPECTED_VERSION: ${{ needs.publish.outputs.package_version }}
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "testpypi" ]; then
+            PACKAGE_LABEL="TestPyPI"
+            PACKAGE_API_URL="https://test.pypi.org/pypi/traigent-schema/json"
+            INSTALL_ARGS=(--index-url "https://test.pypi.org/simple/" --extra-index-url "https://pypi.org/simple/")
+          else
+            PACKAGE_LABEL="PyPI"
+            PACKAGE_API_URL="https://pypi.org/pypi/traigent-schema/json"
+            INSTALL_ARGS=()
+          fi
+
+          VERSION="$EXPECTED_VERSION"
+          echo "Testing installation of traigent-schema==$VERSION from $PACKAGE_LABEL"
+
+          curl -fsSL "$PACKAGE_API_URL" -o package.json
+          python - "$VERSION" package.json <<'PY'
+          import json
+          import sys
+
+          version = sys.argv[1]
+          path = sys.argv[2]
+          with open(path, encoding="utf-8") as handle:
+              data = json.load(handle)
+          releases = data.get("releases", {})
+          if version not in releases or not releases[version]:
+              raise SystemExit(f"Version {version} not found on package index")
+          print(f"Verified version {version} exists on package index")
+          PY
+
+          python -m venv test_env
+          source test_env/bin/activate
+          pip install --upgrade pip
+          pip install "${INSTALL_ARGS[@]}" "traigent-schema==$VERSION"
+          python - <<'PY'
+          import traigent_schema
+          from traigent_schema import SchemaValidator, load_schema
+
+          print(f"Installed traigent-schema v{traigent_schema.__version__}")
+          print(f"Available schemas: {len(SchemaValidator().available_schemas)}")
+          print(load_schema("experiment_schema")["$schema"])
+          PY
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Package successfully published and verified." >> "$GITHUB_STEP_SUMMARY"
+          echo "Users can now install with: \`pip install traigent-schema\`" >> "$GITHUB_STEP_SUMMARY"

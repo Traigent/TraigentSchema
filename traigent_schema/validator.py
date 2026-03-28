@@ -10,7 +10,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
 from referencing import Registry, Resource
@@ -41,7 +41,7 @@ class SchemaValidator:
         self._schemas: dict[str, dict[str, Any]] = {}
         self._endpoint_schemas: dict[str, str] = {}
         self._inline_request_schemas: dict[str, dict[str, Any]] = {}
-        self._registry: Optional[Registry] = None
+        self._registry: Registry | None = None
         self._load_schemas()
         self._load_endpoint_mappings()
 
@@ -180,6 +180,7 @@ class SchemaValidator:
         if inline_schema:
             return self._validate_inline_schema(data, inline_schema)
 
+        assert schema_name is not None
         return self.validate_json(data, schema_name)
 
     def _normalize_endpoint(self, method: str, endpoint: str) -> str:

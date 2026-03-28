@@ -21,7 +21,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     if: github.event.inputs.confirm_publish == 'true'
-    environment: ${{ github.event.inputs.environment || 'pypi' }}
+    environment: ${{ github.event.inputs.environment || 'testpypi' }}
     outputs:
       package_version: ${{ steps.package_version.outputs.package_version }}
     permissions:
@@ -62,17 +62,7 @@ jobs:
 
       - name: Verify version consistency
         run: |
-          VERSION_FILE=$(python - <<'PY'
-          from pathlib import Path
-          import re
-
-          text = Path("traigent_schema/version.py").read_text(encoding="utf-8")
-          match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
-          if not match:
-              raise SystemExit("Unable to determine package version")
-          print(match.group(1))
-          PY
-          )
+          VERSION_FILE="${{ steps.package_version.outputs.package_version }}"
           VERSION_IMPORT=$(python -c "import traigent_schema; print(traigent_schema.__version__)")
           echo "version.py: $VERSION_FILE"
           echo "package import: $VERSION_IMPORT"

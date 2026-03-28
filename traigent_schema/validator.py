@@ -186,10 +186,14 @@ class SchemaValidator:
     def _normalize_endpoint(self, method: str, endpoint: str) -> str:
         """Normalize concrete paths to OpenAPI path templates before lookup."""
         direct_key = f"{method.upper()}:{endpoint}"
-        if direct_key in self._endpoint_schemas:
+        if (
+            direct_key in self._endpoint_schemas
+            or direct_key in self._inline_request_schemas
+        ):
             return endpoint
 
-        for candidate_key in self._endpoint_schemas:
+        candidate_keys = set(self._endpoint_schemas) | set(self._inline_request_schemas)
+        for candidate_key in candidate_keys:
             candidate_method, candidate_path = candidate_key.split(":", 1)
             if candidate_method != method.upper():
                 continue

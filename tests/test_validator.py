@@ -180,6 +180,19 @@ class TestValidateRequest:
         )
         assert errors == []
 
+    def test_sdk_session_path_parameters_normalize_for_inline_request_schemas(self, sdk_validator):
+        errors = sdk_validator.validate_request(
+            "/api/v1/sessions/sess_abc/results",
+            "POST",
+            {
+                "status": "completed",
+            },
+        )
+        assert errors
+        assert any("trial_id" in error for error in errors)
+        assert any("metrics" in error for error in errors)
+        assert any("duration" in error for error in errors)
+
     def test_default_backend_contract_ignores_planned_project_routes(self, validator):
         errors = validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/summary",

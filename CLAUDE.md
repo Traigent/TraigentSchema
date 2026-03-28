@@ -115,7 +115,10 @@ cd ~/Traigent_enterprise/TraigentFrontend
 
 1. **Design schema first** - Define in TraigentSchema (this repo)
 2. **Validate structure** - Use `SchemaValidator.validate_json()`
-3. **Add to OpenAPI** - Update `mep_endpoints.json` with endpoints
+3. **Add to OpenAPI** - Update the correct contract root:
+   - `mep_endpoints.json` for current backend routes
+   - `sdk_tuning_endpoints.json` for canonical SDK direct-tuning routes
+   - `planned_projects_endpoints.json` for planned `/api/v1beta/projects/...` routes
 4. **Create SDK DTO** - Implement DTO in Traigent SDK matching schema
 5. **Backend models** - Create SQLAlchemy models in TraigentBackend
 6. **Frontend types** - Generate TypeScript types in TraigentFrontend
@@ -165,7 +168,9 @@ export interface ExampleScoreDTO {
 **This Repository:**
 - `traigent_schema/schemas/` - All JSON schema definitions
 - `traigent_schema/validator.py` - Validation utilities
-- `traigent_schema/schemas/mep_endpoints.json` - OpenAPI specification
+- `traigent_schema/schemas/mep_endpoints.json` - Canonical backend OpenAPI contract
+- `traigent_schema/schemas/sdk_tuning_endpoints.json` - Canonical SDK tuning contract
+- `traigent_schema/schemas/planned_projects_endpoints.json` - Planned project-scoped contract
 
 **Related Projects:**
 - **SDK**: `traigent/cloud/dtos.py` - Python DTOs implementing schemas
@@ -183,13 +188,16 @@ TraigentSchema/
 │   ├── utils.py            # Utility functions
 │   └── schemas/            # All JSON schema files
 │       ├── mep.json        # MEP root definition
-│       ├── mep_endpoints.json  # OpenAPI specification
+│       ├── mep_endpoints.json  # Canonical backend contract
+│       ├── sdk_tuning_endpoints.json  # Canonical SDK direct-tuning contract
+│       ├── planned_projects_endpoints.json  # Planned project-scoped contract
 │       ├── status_schema.json
 │       ├── agents/         # Agent-related schemas
 │       ├── datasets/       # Dataset schemas
-│       ├── evaluation/     # Evaluation schemas
 │       ├── execution/      # Execution schemas
 │       ├── measures/       # Measure schemas
+│       ├── optimization/   # SDK tuning route schemas
+│       ├── projects/       # Planned project payload schemas
 │       └── results/        # Results schemas
 ├── tests/                  # Test suite
 ├── docs/                   # Documentation
@@ -205,7 +213,10 @@ TraigentSchema/
 2. Follow existing naming conventions (`*_schema.json`)
 3. Include proper `$id`, `title`, and `description` fields
 4. Add tests for the new schema in `tests/`
-5. Update the OpenAPI spec (`mep_endpoints.json`) if adding new endpoints
+5. Update the appropriate contract root if adding new endpoints:
+   - `mep_endpoints.json` for backend parity
+   - `sdk_tuning_endpoints.json` for SDK direct tuning
+   - `planned_projects_endpoints.json` for planned project APIs
 
 ### Running Tests
 

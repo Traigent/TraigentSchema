@@ -192,7 +192,10 @@ class SchemaValidator:
         ):
             return endpoint
 
-        candidate_keys = set(self._endpoint_schemas) | set(self._inline_request_schemas)
+        candidate_keys = {
+            **self._endpoint_schemas,
+            **self._inline_request_schemas,
+        }
         for candidate_key in candidate_keys:
             candidate_method, candidate_path = candidate_key.split(":", 1)
             if candidate_method != method.upper():

@@ -105,6 +105,12 @@ class TestRequiredSchemas:
         """Should have mep_endpoints.json."""
         assert (schemas_dir / "mep_endpoints.json").exists()
 
+    def test_sdk_tuning_endpoints_exists(self, schemas_dir):
+        assert (schemas_dir / "sdk_tuning_endpoints.json").exists()
+
+    def test_planned_projects_endpoints_exists(self, schemas_dir):
+        assert (schemas_dir / "planned_projects_endpoints.json").exists()
+
     def test_agent_schema_exists(self, schemas_dir):
         """Should have agent_schema.json."""
         assert (schemas_dir / "agents" / "agent_schema.json").exists()
@@ -219,8 +225,22 @@ class TestRequiredSchemas:
             schemas_dir / "projects" / "project_membership_create_request_schema.json"
         ).exists()
 
-    def test_optimization_endpoint_module_is_listed_in_root_openapi(self, schemas_dir):
+    def test_backend_root_lists_only_canonical_backend_modules(self, schemas_dir):
         with open(schemas_dir / "mep_endpoints.json", encoding="utf-8") as handle:
+            openapi = json.load(handle)
+
+        modules = openapi.get("x-endpoint-modules", [])
+        paths_files = {
+            module.get("paths_file")
+            for module in modules
+            if isinstance(module, dict)
+        }
+        assert "./optimization/optimization_endpoints.json" not in paths_files
+        assert "./projects/projects_endpoints.json" not in paths_files
+        assert "./datasets/example_sets_endpoints.json" in paths_files
+
+    def test_sdk_tuning_root_references_direct_tuning_module(self, schemas_dir):
+        with open(schemas_dir / "sdk_tuning_endpoints.json", encoding="utf-8") as handle:
             openapi = json.load(handle)
 
         modules = openapi.get("x-endpoint-modules", [])
@@ -382,7 +402,7 @@ class TestProjectContracts:
 
     @pytest.fixture
     def validator(self):
-        return SchemaValidator()
+        return SchemaValidator(contract="planned_projects")
 
     @pytest.fixture
     def analytics_validator(self):
@@ -412,7 +432,7 @@ class TestProjectContracts:
         errors = validator.validate_request(
             "/api/v1beta/projects/proj_123",
             "PATCH",
-            {},
+            {"unexpected": True},
         )
         assert errors
 

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-03-28
+
+### Changed
+- Split endpoint catalogs into three explicit contract roots:
+  - `mep_endpoints.json` is now the canonical current-backend contract
+  - `sdk_tuning_endpoints.json` is the canonical direct-tuning contract for SDK session and hybrid flows
+  - `planned_projects_endpoints.json` preserves the `/api/v1beta/projects/...` surface as planned/experimental
+- `SchemaValidator` now accepts `contract="backend" | "sdk_tuning" | "planned_projects"`, while `get_openapi_path()` remains a backward-compatible alias for the backend contract root.
+- Canonical backend endpoint modules now use explicit `/api/v1/...` paths and only reference current backend route families.
+
+### Removed
+- Planned project-scoped routes and legacy tunables/config-space routes are no longer part of the default backend contract.
+
+### Fixed
+- Request validation now supports inline OpenAPI request schemas in addition to `$ref`-based mappings, which keeps split contract files simpler without losing validator coverage.
+
 ## [3.2.2] - 2026-03-28
 
 ### Changed

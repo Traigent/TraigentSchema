@@ -1,1313 +1,204 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Execution API",
+    "title": "Traigent Backend Execution Routes",
     "version": "1.0.0",
-    "description": "API for executing and managing experiment runs"
+    "description": "Canonical backend routes for experiments, runs, configuration runs, and traces."
   },
   "paths": {
-    "/experiments": {
+    "/api/v1/experiments": {
+      "get": {
+        "summary": "List experiments",
+        "responses": {
+          "200": {
+            "description": "Experiments retrieved successfully"
+          }
+        }
+      },
       "post": {
-        "summary": "Create a new experiment",
+        "summary": "Create experiment",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "../schemas/experiment_schema.json"
+                "$ref": "../evaluation/experiment_schema.json"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Experiment created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Operation successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Operation completed successfully"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "The requested resource was not found"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "summary": "List all experiments",
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "running",
-                "completed",
-                "failed",
-                "cancelled"
-              ]
-            },
-            "description": "Filter experiments by status"
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1,
-              "minimum": 1
-            },
-            "description": "Page number to retrieve"
-          },
-          {
-            "name": "per_page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "minimum": 1,
-              "maximum": 100
-            },
-            "description": "Number of experiments to return per page"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Experiments retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "type": "object"
-                          }
-                        },
-                        "pagination": {
-                          "$ref": "../pagination_schema.json"
-                        }
-                      },
-                      "required": [
-                        "items",
-                        "pagination"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message",
-                    "data"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "Invalid request parameters"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "The requested resource was not found"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Experiment created successfully"
           }
         }
       }
     },
-    "/experiments/{experiment_id}": {
-      "parameters": [
-        {
-          "name": "experiment_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
+    "/api/v1/experiments/{experiment_id}": {
       "get": {
-        "summary": "Get experiment details",
+        "summary": "Get experiment",
         "responses": {
           "200": {
-            "description": "Experiment retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Experiment not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "Invalid request parameters"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Experiment retrieved successfully"
           }
         }
       },
       "put": {
-        "summary": "Update an experiment",
+        "summary": "Update experiment",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "../evaluation/experiment_schema.json"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Experiment updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Experiment not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "description": "Experiment updated successfully"
           }
         }
       },
       "delete": {
-        "summary": "Delete an experiment and all associated resources",
+        "summary": "Delete experiment",
         "responses": {
-          "200": {
-            "description": "Experiment deleted successfully or partially",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "experiment_id": {
-                          "type": "string"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "completed",
-                            "partially_completed"
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Experiment not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "Invalid request parameters"
-                    }
-                  }
-                }
-              }
-            }
+          "204": {
+            "description": "Experiment deleted successfully"
           }
         }
       }
     },
-    "/experiments/{experiment_id}/runs": {
-      "parameters": [
-        {
-          "name": "experiment_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
+    "/api/v1/experiment-runs/{experiment_id}/runs": {
+      "get": {
+        "summary": "List experiment runs for an experiment",
+        "responses": {
+          "200": {
+            "description": "Experiment runs retrieved successfully"
           }
         }
-      ],
+      },
       "post": {
-        "summary": "Create a new experiment run",
+        "summary": "Create experiment run",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "../schemas/experiment_run_schema.json"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Experiment run created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object"
-                    }
-                  }
-                }
+            "description": "Experiment run created successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/experiment-runs/runs/{experiment_run_id}/configurations": {
+      "post": {
+        "summary": "Create configuration run from experiment run",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../evaluation/configuration_run_schema.json"
               }
             }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Experiment not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Configuration run created successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/experiment-runs/runs/{run_id}": {
+      "get": {
+        "summary": "Get experiment run",
+        "responses": {
           "200": {
-            "description": "Operation successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Operation completed successfully"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Experiment run retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/experiment-runs/runs/{run_id}/status": {
+      "get": {
+        "summary": "Get experiment run status",
+        "responses": {
+          "200": {
+            "description": "Experiment run status retrieved successfully"
           }
         }
       },
-      "get": {
-        "summary": "Get all runs for an experiment",
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "running",
-                "completed",
-                "failed",
-                "cancelled"
-              ]
-            },
-            "description": "Filter runs by status"
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1,
-              "minimum": 1
-            },
-            "description": "Page number to retrieve"
-          },
-          {
-            "name": "per_page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "minimum": 1,
-              "maximum": 100
-            },
-            "description": "Number of runs to return per page"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Experiment runs retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "type": "object"
-                          }
-                        },
-                        "pagination": {
-                          "$ref": "../pagination_schema.json"
-                        }
-                      },
-                      "required": [
-                        "items",
-                        "pagination"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message",
-                    "data"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Experiment not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "Invalid request parameters"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/experiments/{experiment_id}/runs/{run_id}": {
-      "parameters": [
-        {
-          "name": "experiment_id",
-          "in": "path",
+      "put": {
+        "summary": "Update experiment run status",
+        "requestBody": {
           "required": true,
-          "schema": {
-            "type": "string"
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
           }
         },
-        {
-          "name": "run_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
+        "responses": {
+          "200": {
+            "description": "Experiment run status updated successfully"
           }
         }
-      ],
+      }
+    },
+    "/api/v1/experiment-runs/runs/{run_id}/results": {
       "get": {
-        "summary": "Get details of a specific experiment run",
-        "parameters": [
-          {
-            "name": "sync",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          }
-        ],
+        "summary": "Get experiment run results",
         "responses": {
           "200": {
-            "description": "Experiment run retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Run not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "Invalid request parameters"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete a specific experiment run and its associated resources",
-        "responses": {
-          "200": {
-            "description": "Experiment run deleted successfully or partially",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "experiment_id": {
-                          "type": "string"
-                        },
-                        "run_id": {
-                          "type": "string"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "completed",
-                            "partially_completed"
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Run not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "Invalid request parameters"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Experiment run results retrieved successfully"
           }
         }
       }
     },
-    "/experiments/{experiment_id}/runs/{run_id}/resume": {
-      "parameters": [
-        {
-          "name": "experiment_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        },
-        {
-          "name": "run_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "post": {
-        "summary": "Resume an experiment run",
-        "responses": {
-          "200": {
-            "description": "Experiment run resumed successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Run cannot be resumed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Run not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/experiments/{experiment_id}/runs/{run_id}/cancel": {
-      "parameters": [
-        {
-          "name": "experiment_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        },
-        {
-          "name": "run_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "post": {
-        "summary": "Cancel an experiment run",
-        "responses": {
-          "200": {
-            "description": "Experiment run cancelled successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Run cannot be cancelled",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Run not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/experiments/{experiment_id}/runs/{run_id}/status": {
-      "parameters": [
-        {
-          "name": "experiment_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        },
-        {
-          "name": "run_id",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
+    "/api/v1/experiment-runs/runs/{run_id}/configurations": {
       "get": {
-        "summary": "Get status of an experiment run",
+        "summary": "List configuration runs for an experiment run",
         "responses": {
           "200": {
-            "description": "Experiment run status retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "pending",
-                            "running",
-                            "completed",
-                            "failed",
-                            "cancelled",
-                            "paused"
-                          ]
-                        },
-                        "progress": {
-                          "type": "number",
-                          "format": "float",
-                          "description": "Progress percentage (0-100)"
-                        },
-                        "started_at": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "completed_at": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Run not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "example": "Invalid request parameters"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/keys/accessible-resources": {
-      "get": {
-        "summary": "Get resources accessible to the authenticated user",
-        "description": "Returns resources available for API key grant operations.",
-        "responses": {
-          "200": {
-            "description": "Accessible resources retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "agents": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "description": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "name"
-                            ],
-                            "additionalProperties": false
-                          }
-                        },
-                        "benchmarks": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "label": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "name"
-                            ],
-                            "additionalProperties": false
-                          }
-                        },
-                        "experiments": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              },
-                              "description": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "name"
-                            ],
-                            "additionalProperties": false
-                          }
-                        },
-                        "measures": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "label": {
-                                "type": "string"
-                              },
-                              "description": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "label"
-                            ],
-                            "additionalProperties": false
-                          }
-                        }
-                      },
-                      "required": [
-                        "agents",
-                        "benchmarks",
-                        "experiments",
-                        "measures"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "summary": {
-                      "type": "object",
-                      "properties": {
-                        "total_agents": {
-                          "type": "integer"
-                        },
-                        "total_benchmarks": {
-                          "type": "integer"
-                        },
-                        "total_experiments": {
-                          "type": "integer"
-                        },
-                        "total_measures": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "total_agents",
-                        "total_benchmarks",
-                        "total_experiments",
-                        "total_measures"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "data",
-                    "summary"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Configuration runs retrieved successfully"
           }
         }
       }
     },
     "/api/v1/experiment-runs/runs/{run_id}/traces": {
       "get": {
-        "summary": "Get workflow trace data for an experiment run",
-        "description": "Returns graph data, paginated trial traces, attributions, and optimization recommendations.",
-        "parameters": [
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "include_spans",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "trial_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1,
-              "minimum": 1
-            }
-          },
-          {
-            "name": "per_page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
+        "summary": "Get paginated traces for an experiment run",
         "responses": {
           "200": {
-            "description": "Trace data retrieved successfully",
+            "description": "Traces retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "success": {
-                      "type": "boolean",
-                      "example": true
+                      "type": "boolean"
                     },
                     "message": {
                       "type": "string"
@@ -1315,74 +206,14 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "run_id": {
-                          "type": "string"
-                        },
-                        "graph": {
-                          "type": "object",
-                          "additionalProperties": true
-                        },
-                        "trials": {
-                          "description": "Deprecated legacy flat trials list. Use trials_page.items.",
-                          "deprecated": true,
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "additionalProperties": true
-                          }
-                        },
                         "trials_page": {
-                          "type": "object",
-                          "properties": {
-                            "items": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "additionalProperties": true
-                              }
-                            },
-                            "pagination": {
-                              "$ref": "../pagination_schema.json"
-                            }
-                          },
-                          "required": [
-                            "items",
-                            "pagination"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "trials_pagination": {
-                          "allOf": [
-                            {
-                              "$ref": "../pagination_schema.json"
-                            }
-                          ],
-                          "description": "Deprecated legacy pagination metadata. Use trials_page.pagination.",
-                          "deprecated": true
-                        },
-                        "attribution": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "additionalProperties": true
-                          }
-                        },
-                        "recommendations": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "additionalProperties": true
-                          }
+                          "type": "object"
                         }
                       },
                       "required": [
-                        "run_id",
-                        "graph",
-                        "trials_page",
-                        "attribution",
-                        "recommendations"
+                        "trials_page"
                       ],
-                      "additionalProperties": false
+                      "additionalProperties": true
                     }
                   },
                   "required": [
@@ -1391,42 +222,6 @@
                     "data"
                   ],
                   "additionalProperties": false
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Run not found or no trace data available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
                 }
               }
             }
@@ -1434,176 +229,227 @@
         }
       }
     },
-    "/api/v1/traces/{trace_id}": {
+    "/api/v1/configuration-runs/runs/{experiment_run_id}/configurations": {
       "get": {
-        "summary": "Get spans for a trace",
-        "description": "Returns paginated spans for a single trace identifier.",
-        "parameters": [
-          {
-            "name": "trace_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1,
-              "minimum": 1
-            }
-          },
-          {
-            "name": "per_page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 100,
-              "minimum": 1,
-              "maximum": 500
-            }
-          }
-        ],
+        "summary": "List configuration runs through configuration-run routes",
         "responses": {
           "200": {
-            "description": "Trace spans retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "trace_id": {
-                          "type": "string"
-                        },
-                        "span_count": {
-                          "type": "integer",
-                          "minimum": 0
-                        },
-                        "spans": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "additionalProperties": true
-                          }
-                        },
-                        "pagination": {
-                          "$ref": "../pagination_schema.json"
-                        }
-                      },
-                      "required": [
-                        "trace_id",
-                        "span_count",
-                        "spans",
-                        "pagination"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message",
-                    "data"
-                  ],
-                  "additionalProperties": false
-                }
+            "description": "Configuration runs retrieved successfully"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create configuration run",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../evaluation/configuration_run_schema.json"
               }
             }
-          },
-          "404": {
-            "description": "Trace not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": false
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message",
-                    "error"
-                  ],
-                  "additionalProperties": true
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": false
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message",
-                    "error"
-                  ],
-                  "additionalProperties": true
-                }
-              }
-            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Configuration run created successfully"
           }
         }
       }
-    }
-  },
-  "components": {
-    "schemas": {
-      "Error": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
+    },
+    "/api/v1/configuration-runs/{config_run_id}": {
+      "get": {
+        "summary": "Get configuration run",
+        "responses": {
+          "200": {
+            "description": "Configuration run retrieved successfully"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update configuration run",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../evaluation/configuration_run_schema.json"
               }
-            },
-            "additionalProperties": true
-          },
-          "details": {
-            "type": "object",
-            "additionalProperties": true
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration run updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete configuration run",
+        "responses": {
+          "204": {
+            "description": "Configuration run deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/configuration-runs/{config_run_id}/status": {
+      "put": {
+        "summary": "Update configuration run status",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  },
+                  "error_message": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration run status updated successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/configuration-runs/{config_run_id}/measures": {
+      "put": {
+        "summary": "Update configuration run measures",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./metric_submission_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration run measures updated successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/configuration-runs/{config_run_id}/summary-stats": {
+      "put": {
+        "summary": "Update configuration run summary stats",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "summary_stats"
+                ],
+                "properties": {
+                  "summary_stats": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration run summary stats updated successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/configuration-runs/{config_run_id}/workflow-metadata": {
+      "put": {
+        "summary": "Update configuration run workflow metadata",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./workflow_metadata_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workflow metadata updated successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/traces/ingest": {
+      "post": {
+        "summary": "Ingest workflow traces",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "graph": {
+                    "type": "object"
+                  },
+                  "spans": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Traces ingested successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/traces/{trace_id}": {
+      "get": {
+        "summary": "Get trace spans",
+        "responses": {
+          "200": {
+            "description": "Trace retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/traces/graphs/{graph_id}": {
+      "get": {
+        "summary": "Get workflow graph",
+        "responses": {
+          "200": {
+            "description": "Graph retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/traces/experiments/{experiment_id}/graphs": {
+      "get": {
+        "summary": "List workflow graphs for an experiment",
+        "responses": {
+          "200": {
+            "description": "Experiment graphs retrieved successfully"
           }
         }
       }

@@ -1,0 +1,21 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent SDK Direct Tuning Contract",
+    "version": "1.0.0",
+    "description": "Canonical session-based tuning contract consumed by the SDK."
+  },
+  "x-traigent-contract": {
+    "name": "sdk_tuning",
+    "status": "canonical",
+    "description": "Consumer-facing direct tuning surface for session and hybrid optimization flows."
+  },
+  "paths": {},
+  "x-endpoint-modules": [
+    {
+      "name": "Direct Tuning",
+      "description": "Session and hybrid tuning routes used by SDK clients.",
+      "paths_file": "./optimization/optimization_endpoints.json"
+    }
+  ]
+}

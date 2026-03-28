@@ -4,9 +4,29 @@ Schema utility functions for the Traigent Schema Library.
 Provides functions for locating, loading, and managing JSON schema files.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+ContractName = Literal["backend", "sdk_tuning", "planned_projects"]
+
+_CONTRACT_FILES: dict[ContractName, str] = {
+    "backend": "mep_endpoints.json",
+    "sdk_tuning": "sdk_tuning_endpoints.json",
+    "planned_projects": "planned_projects_endpoints.json",
+}
+
+
+def _validate_contract_name(contract: str) -> ContractName:
+    """Validate a runtime contract name and return the narrowed literal value."""
+    if contract not in _CONTRACT_FILES:
+        valid_contracts = ", ".join(sorted(_CONTRACT_FILES))
+        raise ValueError(
+            f"Unknown contract {contract!r}; expected one of: {valid_contracts}"
+        )
+    return contract  # type: ignore[return-value]
 
 
 def get_schemas_dir() -> Path:
@@ -71,12 +91,26 @@ def get_all_schema_files() -> list[Path]:
 
 def get_openapi_path() -> Path:
     """
-    Get the path to the MEP OpenAPI specification.
+    Get the path to the canonical backend OpenAPI contract.
 
     Returns:
         Path to mep_endpoints.json
     """
-    return get_schemas_dir() / "mep_endpoints.json"
+    return get_contract_path("backend")
+
+
+def get_contract_path(contract: ContractName | str) -> Path:
+    """
+    Get the path to a named endpoint contract root.
+
+    Args:
+        contract: Contract catalog name.
+
+    Returns:
+        Path to the requested endpoint contract file.
+    """
+    contract_name = _validate_contract_name(contract)
+    return get_schemas_dir() / _CONTRACT_FILES[contract_name]
 
 
 def load_schema(schema_name: str) -> dict[str, Any]:

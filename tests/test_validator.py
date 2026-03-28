@@ -1,7 +1,10 @@
 """Tests for traigent_schema.validator module."""
 
+import logging
+
 import pytest
 
+import traigent_schema.validator as validator_module
 from traigent_schema.validator import SchemaValidator
 
 
@@ -24,6 +27,34 @@ class TestSchemaValidatorInit:
         schemas = validator.available_schemas
         assert isinstance(schemas, list)
         assert "agent_schema" in schemas
+
+    def test_can_select_non_default_contract(self):
+        validator = SchemaValidator(contract="sdk_tuning")
+        assert validator.contract == "sdk_tuning"
+
+    def test_invalid_contract_name_raises_value_error(self):
+        with pytest.raises(ValueError, match="Unknown contract"):
+            SchemaValidator(contract="invalid")
+
+    def test_logs_warning_when_contract_root_is_invalid_json(
+        self, monkeypatch, tmp_path, caplog
+    ):
+        broken_contract = tmp_path / "broken_contract.json"
+        broken_contract.write_text("{ not-json", encoding="utf-8")
+
+        monkeypatch.setattr(
+            validator_module,
+            "get_contract_path",
+            lambda _contract: broken_contract,
+        )
+
+        with caplog.at_level(logging.WARNING):
+            SchemaValidator()
+
+        assert any(
+            "Failed to load OpenAPI contract root" in message
+            for message in caplog.messages
+        )
 
 
 class TestValidateJson:
@@ -83,6 +114,14 @@ class TestValidateRequest:
         """Create a validator instance."""
         return SchemaValidator()
 
+    @pytest.fixture
+    def sdk_validator(self):
+        return SchemaValidator(contract="sdk_tuning")
+
+    @pytest.fixture
+    def planned_validator(self):
+        return SchemaValidator(contract="planned_projects")
+
     def test_unknown_endpoint_passes(self, validator):
         """Should pass for unknown endpoints (no schema)."""
         data = {"any": "data"}
@@ -116,20 +155,32 @@ class TestValidateRequest:
         assert errors
         assert any("id" in error or "agent_type" in error for error in errors)
 
-    def test_optimization_request_uses_root_catalog_module_reference(self, validator):
-        """Optimization endpoints should be discoverable via the root catalog."""
-        errors = validator.validate_request(
-            "/api/v1/tunables",
+    def test_sdk_session_request_uses_contract_specific_catalog(self, sdk_validator):
+        """Direct-tuning endpoints should validate through the SDK contract."""
+        errors = sdk_validator.validate_request(
+            "/api/v1/sessions",
             "POST",
             {
-                "id": "tunable_123",
-                "name": "Support Router",
+                "function_name": "support_router",
+                "configuration_space": {"temperature": [0.1, 0.9]},
+                "objectives": ["accuracy"],
             },
         )
         assert errors == []
 
-    def test_project_path_normalization_for_analytics_route(self, validator):
-        """Concrete project analytics paths should normalize to the OpenAPI template."""
+    def test_sdk_hybrid_session_request_uses_inline_contract_schema(self, sdk_validator):
+        errors = sdk_validator.validate_request(
+            "/api/v1/hybrid/sessions",
+            "POST",
+            {
+                "problem_statement": "Optimize tone and retrieval quality",
+                "search_space": {"temperature": [0.0, 1.0]},
+                "optimization_config": {"max_trials": 10},
+            },
+        )
+        assert errors == []
+
+    def test_default_backend_contract_ignores_planned_project_routes(self, validator):
         errors = validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/summary",
             "GET",
@@ -137,18 +188,35 @@ class TestValidateRequest:
         )
         assert errors == []
 
-    def test_project_path_normalization_for_pricing_catalog_route(self, validator):
-        """Concrete pricing catalog paths should normalize to the OpenAPI template."""
+    def test_default_backend_contract_ignores_removed_tunable_routes(self, validator):
         errors = validator.validate_request(
+            "/api/v1/tunables",
+            "POST",
+            {"id": "tunable_123", "name": "Support Router"},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_analytics_route(self, planned_validator):
+        """Concrete project analytics paths should normalize to the OpenAPI template."""
+        errors = planned_validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/summary",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_project_path_normalization_for_pricing_catalog_route(self, planned_validator):
+        """Concrete pricing catalog paths should normalize to the OpenAPI template."""
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/pricing-catalog",
             "GET",
             {},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_optimization_dashboard_route(self, validator):
+    def test_project_path_normalization_for_optimization_dashboard_route(self, planned_validator):
         """Concrete optimization dashboard paths should normalize to the OpenAPI template."""
-        errors = validator.validate_request(
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/dashboards/optimization-overview",
             "GET",
             {},
@@ -156,19 +224,19 @@ class TestValidateRequest:
         assert errors == []
 
     def test_project_path_normalization_for_evaluator_quality_dashboard_route(
-        self, validator
+        self, planned_validator
     ):
         """Concrete evaluator dashboard paths should normalize to the OpenAPI template."""
-        errors = validator.validate_request(
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/dashboards/evaluator-quality",
             "GET",
             {},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_project_usage_dashboard_route(self, validator):
+    def test_project_path_normalization_for_project_usage_dashboard_route(self, planned_validator):
         """Concrete project usage dashboard paths should normalize to the OpenAPI template."""
-        errors = validator.validate_request(
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/dashboards/project-usage",
             "GET",
             {},
@@ -176,70 +244,70 @@ class TestValidateRequest:
         assert errors == []
 
     def test_project_path_normalization_for_observability_summary_dashboard_route(
-        self, validator
+        self, planned_validator
     ):
         """Concrete observability dashboard paths should normalize to the OpenAPI template."""
-        errors = validator.validate_request(
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/dashboards/observability-summary",
             "GET",
             {},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_export_jobs_route(self, validator):
+    def test_project_path_normalization_for_export_jobs_route(self, planned_validator):
         """Concrete export job list paths should normalize to the OpenAPI template."""
-        errors = validator.validate_request(
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/export-jobs",
             "GET",
             {},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_export_job_detail_route(self, validator):
+    def test_project_path_normalization_for_export_job_detail_route(self, planned_validator):
         """Concrete export job detail paths should normalize to the OpenAPI template."""
-        errors = validator.validate_request(
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/export-jobs/export_job_123",
             "GET",
             {},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_rate_limit_policy_route(self, validator):
+    def test_project_path_normalization_for_rate_limit_policy_route(self, planned_validator):
         """Concrete project policy paths should normalize to the OpenAPI template."""
-        errors = validator.validate_request(
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/policies/rate-limits",
             "GET",
             {},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_retention_policy_route(self, validator):
+    def test_project_path_normalization_for_retention_policy_route(self, planned_validator):
         """Concrete retention policy paths should normalize to the OpenAPI template."""
-        errors = validator.validate_request(
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/policies/retention",
             "GET",
             {},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_membership_list_route(self, validator):
-        errors = validator.validate_request(
+    def test_project_path_normalization_for_membership_list_route(self, planned_validator):
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/memberships",
             "GET",
             {},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_membership_create_route(self, validator):
-        errors = validator.validate_request(
+    def test_project_path_normalization_for_membership_create_route(self, planned_validator):
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/memberships",
             "POST",
             {"user_id": "user_123", "role": "editor", "status": "active"},
         )
         assert errors == []
 
-    def test_project_path_normalization_for_membership_update_route(self, validator):
-        errors = validator.validate_request(
+    def test_project_path_normalization_for_membership_update_route(self, planned_validator):
+        errors = planned_validator.validate_request(
             "/api/v1beta/projects/project_abc/memberships/project_membership_123",
             "PATCH",
             {"role": "viewer"},

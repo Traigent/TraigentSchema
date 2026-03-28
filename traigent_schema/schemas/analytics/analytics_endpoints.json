@@ -1,35 +1,59 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent API - Analytics Operations",
+    "title": "Traigent Backend Analytics Routes",
     "version": "1.0.0",
-    "description": "Endpoints for example and dataset quality scoring analytics"
+    "description": "Canonical backend routes for example-scoring analytics."
   },
   "paths": {
-    "/api/analytics/example-scoring/{experiment_run_id}/compute": {
+    "/api/v1/analytics/example-scoring/{experiment_run_id}/compute": {
       "post": {
-        "summary": "Trigger async scoring computation",
-        "description": "Initiate an asynchronous job to compute example and dataset quality scores for a completed experiment run",
-        "operationId": "triggerExampleScoring",
-        "tags": ["analytics"],
-        "parameters": [
-          {
-            "name": "experiment_run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-zA-Z0-9_-]+$"
-            },
-            "description": "ID of the experiment run to compute scores for"
+        "summary": "Start example scoring computation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
           }
-        ],
-        "security": [
-          {"BearerAuth": []}
-        ],
+        },
         "responses": {
           "202": {
-            "description": "Scoring job accepted and queued for processing",
+            "description": "Example scoring computation accepted"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/example-scoring/{experiment_run_id}/features": {
+      "post": {
+        "summary": "Upload example-scoring features",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Features accepted successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/example-scoring/jobs/{job_id}": {
+      "get": {
+        "summary": "Get scoring job status",
+        "responses": {
+          "200": {
+            "description": "Scoring job retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -37,205 +61,23 @@
                 }
               }
             }
-          },
-          "400": {
-            "description": "Invalid request (e.g., experiment run not completed)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - valid authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - user does not own this experiment run",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Experiment run not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
         }
       }
     },
-    "/api/analytics/example-scoring/{experiment_run_id}/scores": {
+    "/api/v1/analytics/example-scoring/{experiment_run_id}/scores": {
       "get": {
-        "summary": "Retrieve computed example scores",
-        "description": "Get quality scores for all or specific examples in an experiment run",
-        "operationId": "getExampleScores",
-        "tags": ["analytics"],
-        "parameters": [
-          {
-            "name": "experiment_run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-zA-Z0-9_-]+$"
-            },
-            "description": "ID of the experiment run"
-          },
-          {
-            "name": "example_ids",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
-              }
-            },
-            "description": "Filter to specific example IDs (comma-separated)"
-          },
-          {
-            "name": "sort_by",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["composite_score", "informativeness", "difficulty", "content_uniqueness", "content_novelty"]
-            },
-            "description": "Field to sort results by"
-          },
-          {
-            "name": "sort_order",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": ["asc", "desc"],
-              "default": "desc"
-            },
-            "description": "Sort order (ascending or descending)"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 100,
-              "maximum": 1000
-            },
-            "description": "Maximum number of scores to return"
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0
-            },
-            "description": "Number of scores to skip"
-          }
-        ],
-        "security": [
-          {"BearerAuth": []}
-        ],
+        "summary": "Get example scores",
         "responses": {
           "200": {
             "description": "Example scores retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "$ref": "./example_score_schema.json"
-                      },
-                      "description": "Map of example_id to ExampleScore"
-                    },
-                    "count": {
-                      "type": "integer",
-                      "description": "Number of scores in this response"
-                    },
-                    "total": {
-                      "type": "integer",
-                      "description": "Total number of scores available"
-                    },
-                    "algorithm_version": {
-                      "type": "string",
-                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-                      "description": "Version of the scoring algorithm used"
-                    }
+                  "type": "array",
+                  "items": {
+                    "$ref": "./example_score_schema.json"
                   }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - user does not own this experiment run",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scores not found (not yet computed or experiment run not found)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -243,79 +85,16 @@
         }
       }
     },
-    "/api/analytics/example-scoring/{experiment_run_id}/dataset-quality": {
+    "/api/v1/analytics/example-scoring/{experiment_run_id}/dataset-quality": {
       "get": {
-        "summary": "Retrieve dataset quality metrics",
-        "description": "Get aggregated dataset-level quality metrics and recommendations for an experiment run",
-        "operationId": "getDatasetQuality",
-        "tags": ["analytics"],
-        "parameters": [
-          {
-            "name": "experiment_run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-zA-Z0-9_-]+$"
-            },
-            "description": "ID of the experiment run"
-          }
-        ],
-        "security": [
-          {"BearerAuth": []}
-        ],
+        "summary": "Get dataset quality summary",
         "responses": {
           "200": {
             "description": "Dataset quality retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "./dataset_quality_schema.json"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - user does not own this experiment run",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Quality not found (not yet computed or experiment run not found)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "./dataset_quality_schema.json"
                 }
               }
             }
@@ -323,112 +102,14 @@
         }
       }
     },
-    "/api/jobs/{job_id}": {
+    "/api/v1/analytics/example-scoring/{experiment_run_id}/summary": {
       "get": {
-        "summary": "Poll job status",
-        "description": "Check the status of an asynchronous scoring job",
-        "operationId": "getJobStatus",
-        "tags": ["jobs"],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^score_[a-zA-Z0-9_-]+_[0-9]+$"
-            },
-            "description": "ID of the scoring job"
-          }
-        ],
-        "security": [
-          {"BearerAuth": []}
-        ],
+        "summary": "Get example-scoring summary",
         "responses": {
           "200": {
-            "description": "Job status retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./scoring_job_status_schema.json"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - user does not own this job",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "description": "Analytics summary retrieved successfully"
           }
         }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "Error": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": true
-          },
-          "details": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        }
-      }
-    },
-    "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "description": "JWT authentication token"
       }
     }
   }

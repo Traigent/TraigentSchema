@@ -9,6 +9,7 @@ import pytest
 from traigent_schema.analytics_validators import AnalyticsValidator
 from traigent_schema.utils import (
     get_all_schema_files,
+    get_contract_path,
     get_openapi_path,
     get_schema_path,
     get_schemas_dir,
@@ -166,6 +167,14 @@ class TestSchemaUtils:
         path = get_openapi_path()
         assert path.name == "mep_endpoints.json"
         assert path.exists()
+
+    def test_get_contract_path_points_to_additional_contract_catalogs(self) -> None:
+        sdk_path = get_contract_path("sdk_tuning")
+        planned_path = get_contract_path("planned_projects")
+        assert sdk_path.name == "sdk_tuning_endpoints.json"
+        assert planned_path.name == "planned_projects_endpoints.json"
+        assert sdk_path.exists()
+        assert planned_path.exists()
 
     def test_load_schema_returns_dict(self) -> None:
         schema = load_schema("project_schema")

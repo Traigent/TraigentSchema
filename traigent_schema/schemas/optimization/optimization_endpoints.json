@@ -1,372 +1,277 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Optimization Endpoints",
+    "title": "Traigent SDK Direct Tuning Routes",
     "version": "1.0.0",
-    "description": "Endpoints for managing tunables and config spaces"
+    "description": "Canonical SDK session and hybrid tuning contract."
   },
   "paths": {
-    "/api/v1/tunables": {
-      "get": {
-        "summary": "List tunables",
-        "description": "Retrieve all tunables for the current project",
-        "operationId": "listTunables",
-        "parameters": [
-          {
-            "name": "agent_id",
-            "in": "query",
-            "description": "Filter by associated agent ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of tunables",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "./tunable_schema.json"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
+    "/api/v1/sessions": {
       "post": {
-        "summary": "Create tunable",
-        "description": "Create a new tunable",
-        "operationId": "createTunable",
+        "summary": "Create optimization session",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./tunable_schema.json"
+                "type": "object",
+                "required": [
+                  "function_name",
+                  "configuration_space",
+                  "objectives"
+                ],
+                "properties": {
+                  "function_name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "configuration_space": {
+                    "type": "object"
+                  },
+                  "objectives": {
+                    "type": "array",
+                    "minItems": 1
+                  },
+                  "dataset_metadata": {
+                    "type": "object"
+                  },
+                  "max_trials": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "budget": {
+                    "type": "object"
+                  },
+                  "constraints": {
+                    "type": "object"
+                  },
+                  "default_config": {
+                    "type": "object"
+                  },
+                  "promotion_policy": {
+                    "type": "object"
+                  },
+                  "optimization_strategy": {
+                    "type": "object"
+                  },
+                  "user_id": {
+                    "type": "string"
+                  },
+                  "billing_tier": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": true
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Tunable created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./tunable_schema.json"
-                }
-              }
-            }
+            "description": "Session created successfully"
           }
         }
       }
     },
-    "/api/v1/tunables/{tunable_id}": {
-      "get": {
-        "summary": "Get tunable",
-        "description": "Retrieve a specific tunable by ID",
-        "operationId": "getTunable",
-        "parameters": [
-          {
-            "name": "tunable_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Tunable details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./tunable_schema.json"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tunable not found"
-          }
-        }
-      },
-      "put": {
-        "summary": "Update tunable",
-        "description": "Update an existing tunable",
-        "operationId": "updateTunable",
-        "parameters": [
-          {
-            "name": "tunable_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./tunable_schema.json"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Tunable updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./tunable_schema.json"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete tunable",
-        "description": "Delete a tunable",
-        "operationId": "deleteTunable",
-        "parameters": [
-          {
-            "name": "tunable_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Tunable deleted"
-          }
-        }
-      }
-    },
-    "/api/v1/tunables/{tunable_id}/config-space": {
-      "get": {
-        "summary": "Get config space for tunable",
-        "description": "Retrieve the config space associated with a specific tunable",
-        "operationId": "getTunableConfigSpace",
-        "parameters": [
-          {
-            "name": "tunable_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Config space for the tunable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./config_space_schema.json"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tunable or config space not found"
-          }
-        }
-      },
-      "put": {
-        "summary": "Set config space for tunable",
-        "description": "Create or update the config space for a specific tunable",
-        "operationId": "setTunableConfigSpace",
-        "parameters": [
-          {
-            "name": "tunable_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./config_space_schema.json"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Config space updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./config_space_schema.json"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/config-spaces": {
-      "get": {
-        "summary": "List config spaces",
-        "description": "Retrieve all config spaces",
-        "operationId": "listConfigSpaces",
-        "parameters": [
-          {
-            "name": "tunable_id",
-            "in": "query",
-            "description": "Filter by tunable ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of config spaces",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "./config_space_schema.json"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
+    "/api/v1/sessions/{session_id}/next-trial": {
       "post": {
-        "summary": "Create config space",
-        "description": "Create a new config space",
-        "operationId": "createConfigSpace",
+        "summary": "Fetch the next trial suggestion",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./config_space_schema.json"
+                "type": "object",
+                "properties": {
+                  "previous_results": {
+                    "type": "array"
+                  },
+                  "request_metadata": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Next trial suggestion returned"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/results": {
+      "post": {
+        "summary": "Submit trial results",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "trial_id",
+                  "metrics",
+                  "duration",
+                  "status"
+                ],
+                "properties": {
+                  "trial_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "metrics": {
+                    "type": "object"
+                  },
+                  "duration": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "outputs_sample": {
+                    "type": "array"
+                  },
+                  "error_message": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Results submitted successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/finalize": {
+      "post": {
+        "summary": "Finalize optimization session",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "include_full_history": {
+                    "type": "boolean"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session finalized successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/hybrid/sessions": {
+      "post": {
+        "summary": "Create hybrid session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "problem_statement",
+                  "search_space",
+                  "optimization_config"
+                ],
+                "properties": {
+                  "problem_statement": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "search_space": {
+                    "type": "object"
+                  },
+                  "optimization_config": {
+                    "type": "object"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": true
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Config space created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./config_space_schema.json"
-                }
-              }
-            }
+            "description": "Hybrid session created successfully"
           }
         }
       }
     },
-    "/api/v1/config-spaces/{config_space_id}": {
+    "/api/v1/hybrid/sessions/{session_id}/status": {
       "get": {
-        "summary": "Get config space",
-        "description": "Retrieve a specific config space by ID",
-        "operationId": "getConfigSpace",
-        "parameters": [
-          {
-            "name": "config_space_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "summary": "Get hybrid session status",
         "responses": {
           "200": {
-            "description": "Config space details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./config_space_schema.json"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Config space not found"
+            "description": "Hybrid session status retrieved successfully"
           }
         }
-      },
-      "put": {
-        "summary": "Update config space",
-        "description": "Update an existing config space",
-        "operationId": "updateConfigSpace",
-        "parameters": [
-          {
-            "name": "config_space_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+      }
+    },
+    "/api/v1/hybrid/sessions/{session_id}/results": {
+      "post": {
+        "summary": "Submit hybrid results",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./config_space_schema.json"
+                "type": "object",
+                "required": [
+                  "scores"
+                ],
+                "properties": {
+                  "scores": {
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": true
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Config space updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./config_space_schema.json"
-                }
-              }
-            }
+            "description": "Hybrid results submitted successfully"
           }
         }
-      },
-      "delete": {
-        "summary": "Delete config space",
-        "description": "Delete a config space",
-        "operationId": "deleteConfigSpace",
-        "parameters": [
-          {
-            "name": "config_space_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+      }
+    },
+    "/api/v1/hybrid/sessions/{session_id}/abort": {
+      "post": {
+        "summary": "Abort hybrid session",
         "responses": {
-          "204": {
-            "description": "Config space deleted"
+          "200": {
+            "description": "Hybrid session aborted successfully"
           }
         }
       }

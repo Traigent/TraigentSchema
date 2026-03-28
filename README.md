@@ -30,9 +30,21 @@ pip install -e ".[dev]"
 ```python
 from traigent_schema import SchemaValidator, load_schema
 
-# Validate API requests
-validator = SchemaValidator()
-errors = validator.validate_request('/api/v1/agents', 'POST', request_data)
+# Validate current backend requests
+backend_validator = SchemaValidator()
+errors = backend_validator.validate_request('/api/v1/agents', 'POST', request_data)
+
+# Validate SDK direct-tuning requests
+tuning_validator = SchemaValidator(contract="sdk_tuning")
+errors = tuning_validator.validate_request('/api/v1/sessions', 'POST', session_request)
+
+# Validate planned project-scoped beta routes
+planned_validator = SchemaValidator(contract="planned_projects")
+errors = planned_validator.validate_request(
+    '/api/v1beta/projects/proj_123/analytics/summary',
+    'GET',
+    {},
+)
 
 if errors:
     print(f"Validation errors: {errors}")
@@ -90,12 +102,25 @@ The library includes schemas organized by domain:
 
 ## API Reference
 
+### Contract Catalogs
+
+`traigent-schema` now ships three endpoint catalogs:
+
+- `backend`: current `TraigentBackend` truth, loaded by default through `SchemaValidator()`
+- `sdk_tuning`: direct-tuning session and hybrid routes used by SDK clients
+- `planned_projects`: planned and beta project-scoped `/api/v1beta/projects/...` routes
+
+Use `get_openapi_path()` when you want the canonical backend contract root, or
+`get_contract_path(...)` when you need one of the non-default catalogs.
+
 ### SchemaValidator
 
 ```python
 from traigent_schema import SchemaValidator
 
 validator = SchemaValidator()
+sdk_validator = SchemaValidator(contract="sdk_tuning")
+planned_validator = SchemaValidator(contract="planned_projects")
 
 # Validate by endpoint
 errors = validator.validate_request(endpoint, method, data)
@@ -114,7 +139,8 @@ from traigent_schema import (
     get_schemas_dir,      # Get path to schemas directory
     get_schema_path,      # Get path to specific schema
     get_all_schema_files, # List all schema files
-    get_openapi_path,     # Get path to OpenAPI spec
+    get_openapi_path,     # Get path to canonical backend contract root
+    get_contract_path,    # Get path to backend/sdk_tuning/planned_projects root
     load_schema,          # Load and parse a schema
 )
 ```
@@ -137,7 +163,7 @@ mypy traigent_schema
 
 ## Version
 
-Current release line: **3.2.2**
+Current release line: **4.0.0**
 
 Package metadata is derived from `traigent_schema/version.py` to keep runtime and published versions aligned.
 

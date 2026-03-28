@@ -1,0 +1,123 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Example Set Routes",
+    "version": "1.0.0",
+    "description": "Canonical backend routes for example set management."
+  },
+  "paths": {
+    "/api/v1/example-sets": {
+      "get": {
+        "summary": "List example sets",
+        "responses": {
+          "200": {
+            "description": "Example sets retrieved successfully"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create example set",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./example_set_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Example set created successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/example-sets/{set_id}": {
+      "get": {
+        "summary": "Get example set",
+        "responses": {
+          "200": {
+            "description": "Example set retrieved successfully"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update example set",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./example_set_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Example set updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete example set",
+        "responses": {
+          "204": {
+            "description": "Example set deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/example-sets/{set_id}/examples": {
+      "get": {
+        "summary": "List examples in an example set",
+        "responses": {
+          "200": {
+            "description": "Examples retrieved successfully"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add example to an example set",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Example created successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/example-sets/{set_id}/upload": {
+      "post": {
+        "summary": "Upload examples into an example set",
+        "responses": {
+          "200": {
+            "description": "Examples uploaded successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/example-sets/{set_id}/examples/{example_id}": {
+      "delete": {
+        "summary": "Delete example from an example set",
+        "responses": {
+          "204": {
+            "description": "Example deleted successfully"
+          }
+        }
+      }
+    }
+  }
+}

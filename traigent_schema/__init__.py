@@ -15,6 +15,7 @@ Example:
 from traigent_schema.analytics_validators import AnalyticsValidator
 from traigent_schema.utils import (
     get_all_schema_files,
+    get_contract_path,
     get_openapi_path,
     get_schema_path,
     get_schemas_dir,
@@ -29,6 +30,7 @@ __all__ = [
     "get_schemas_dir",
     "get_schema_path",
     "get_all_schema_files",
+    "get_contract_path",
     "get_openapi_path",
     "load_schema",
     "__version__",

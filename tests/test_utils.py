@@ -9,6 +9,7 @@ from traigent_schema.utils import (
     get_schemas_dir,
     get_schema_path,
     get_all_schema_files,
+    get_contract_path,
     get_openapi_path,
     load_schema,
 )
@@ -112,6 +113,26 @@ class TestGetOpenapiPath:
         """Should return path to mep_endpoints.json."""
         result = get_openapi_path()
         assert result.name == "mep_endpoints.json"
+
+
+class TestGetContractPath:
+    """Tests for get_contract_path function."""
+
+    def test_backend_contract_path(self):
+        result = get_contract_path("backend")
+        assert result.name == "mep_endpoints.json"
+
+    def test_sdk_tuning_contract_path(self):
+        result = get_contract_path("sdk_tuning")
+        assert result.name == "sdk_tuning_endpoints.json"
+
+    def test_planned_projects_contract_path(self):
+        result = get_contract_path("planned_projects")
+        assert result.name == "planned_projects_endpoints.json"
+
+    def test_invalid_contract_path_raises_value_error(self):
+        with pytest.raises(ValueError, match="Unknown contract"):
+            get_contract_path("invalid_contract")
 
 
 class TestLoadSchema:

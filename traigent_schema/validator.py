@@ -4,15 +4,20 @@ Schema Validator for the Traigent platform.
 Provides validation of API requests and JSON data against Traigent schemas.
 """
 
+from __future__ import annotations
+
 import json
+import logging
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
 from referencing import Registry, Resource
 
-from traigent_schema.utils import get_openapi_path, get_schemas_dir
+from traigent_schema.utils import ContractName, get_contract_path, get_schemas_dir
+
+logger = logging.getLogger(__name__)
 
 
 class SchemaValidator:
@@ -30,11 +35,13 @@ class SchemaValidator:
             print(f"Validation failed: {errors}")
     """
 
-    def __init__(self):
+    def __init__(self, contract: ContractName = "backend"):
         """Initialize the validator with all available schemas."""
+        self.contract = contract
         self._schemas: dict[str, dict[str, Any]] = {}
         self._endpoint_schemas: dict[str, str] = {}
-        self._registry: Optional[Registry] = None
+        self._inline_request_schemas: dict[str, dict[str, Any]] = {}
+        self._registry: Registry | None = None
         self._load_schemas()
         self._load_endpoint_mappings()
 
@@ -51,9 +58,8 @@ class SchemaValidator:
                     schema = json.load(f)
                     schema_name = schema_file.stem
                     self._schemas[schema_name] = schema
-            except (OSError, json.JSONDecodeError):
-                # Log warning but continue loading other schemas
-                pass
+            except (OSError, json.JSONDecodeError) as exc:
+                logger.warning("Failed to load schema file %s: %s", schema_file, exc)
 
         self._build_registry()
 
@@ -70,8 +76,13 @@ class SchemaValidator:
     def _load_endpoint_mappings(self) -> None:
         """Load endpoint-to-schema mappings from OpenAPI spec."""
         try:
-            openapi_path = get_openapi_path()
+            openapi_path = get_contract_path(self.contract)
             if not openapi_path.exists():
+                logger.warning(
+                    "OpenAPI contract root %s does not exist for contract %s",
+                    openapi_path,
+                    self.contract,
+                )
                 return
 
             with open(openapi_path, encoding='utf-8') as f:
@@ -79,8 +90,12 @@ class SchemaValidator:
 
             self._parse_openapi(openapi)
             self._load_endpoint_modules(openapi, openapi_path.parent)
-        except (OSError, json.JSONDecodeError):
-            pass
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning(
+                "Failed to load OpenAPI contract root for %s: %s",
+                self.contract,
+                exc,
+            )
 
     def _load_endpoint_modules(
         self,
@@ -98,13 +113,19 @@ class SchemaValidator:
 
             module_path = base_dir / paths_file
             if not module_path.exists():
+                logger.warning(
+                    "OpenAPI endpoint module %s referenced by contract %s does not exist",
+                    module_path,
+                    self.contract,
+                )
                 continue
 
             try:
                 with open(module_path, encoding="utf-8") as f:
                     module_openapi = json.load(f)
                     self._parse_openapi(module_openapi)
-            except (OSError, json.JSONDecodeError):
+            except (OSError, json.JSONDecodeError) as exc:
+                logger.warning("Failed to load endpoint module %s: %s", module_path, exc)
                 continue
 
     def _parse_openapi(self, openapi: dict[str, Any]) -> None:
@@ -119,22 +140,17 @@ class SchemaValidator:
                 request_body = spec.get("requestBody", {})
                 content = request_body.get("content", {})
                 json_content = content.get("application/json", {})
-                schema_ref = json_content.get("schema", {}).get("$ref", "")
+                json_schema = json_content.get("schema", {})
+                schema_ref = json_schema.get("$ref", "")
+                key = f"{method.upper()}:{path}"
 
                 if schema_ref:
                     schema_name = schema_ref.split("/")[-1]
                     if schema_name.endswith(".json"):
                         schema_name = schema_name[:-5]
-                    for candidate_path in self._endpoint_path_variants(path):
-                        key = f"{method.upper()}:{candidate_path}"
-                        self._endpoint_schemas[key] = schema_name
-
-    def _endpoint_path_variants(self, path: str) -> list[str]:
-        """Return path variants used by the validator for endpoint lookups."""
-        variants = [path]
-        if path.startswith("/") and not path.startswith("/api/"):
-            variants.append(f"/api/v1{path}")
-        return variants
+                    self._endpoint_schemas[key] = schema_name
+                elif isinstance(json_schema, dict) and json_schema:
+                    self._inline_request_schemas[key] = json_schema
 
     def validate_request(
         self,
@@ -156,10 +172,15 @@ class SchemaValidator:
         endpoint = self._normalize_endpoint(method, endpoint)
         key = f"{method.upper()}:{endpoint}"
         schema_name = self._endpoint_schemas.get(key)
+        inline_schema = self._inline_request_schemas.get(key)
 
-        if not schema_name:
+        if not schema_name and not inline_schema:
             return []  # No schema defined for this endpoint
 
+        if inline_schema:
+            return self._validate_inline_schema(data, inline_schema)
+
+        assert schema_name is not None
         return self.validate_json(data, schema_name)
 
     def _normalize_endpoint(self, method: str, endpoint: str) -> str:
@@ -207,6 +228,19 @@ class SchemaValidator:
                 registry=self._registry,
                 format_checker=FormatChecker()
             )
+            errors = list(validator.iter_errors(data))
+            return [self._format_error(e) for e in errors]
+        except Exception as e:
+            return [f"Validation error: {str(e)}"]
+
+    def _validate_inline_schema(
+        self,
+        data: dict[str, Any],
+        schema: dict[str, Any],
+    ) -> list[str]:
+        """Validate JSON data against an inline request schema."""
+        try:
+            validator = Draft7Validator(schema, format_checker=FormatChecker())
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
         except Exception as e:

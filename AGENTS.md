@@ -45,7 +45,10 @@ When modifying schemas:
 
 ### Adding New Schemas
 1. Design schema first (JSON in `traigent_schema/schemas/`)
-2. Add to OpenAPI (`mep_endpoints.json`)
+2. Add to the appropriate endpoint catalog:
+   - `mep_endpoints.json` for canonical backend routes
+   - `sdk_tuning_endpoints.json` for direct SDK tuning routes
+   - `planned_projects_endpoints.json` for planned/beta project-scoped routes
 3. Create SDK DTO (Traigent)
 4. Backend models (TraigentBackend)
 5. Frontend types (TraigentFrontend)
@@ -54,7 +57,9 @@ When modifying schemas:
 ### Key Files
 - `traigent_schema/schemas/` - All schema definitions
 - `traigent_schema/validator.py` - Validation utilities
-- `traigent_schema/schemas/mep_endpoints.json` - OpenAPI spec
+- `traigent_schema/schemas/mep_endpoints.json` - Canonical backend contract root
+- `traigent_schema/schemas/sdk_tuning_endpoints.json` - Direct SDK tuning contract root
+- `traigent_schema/schemas/planned_projects_endpoints.json` - Planned project-scoped contract root
 
 ## Project Structure & Commands
 

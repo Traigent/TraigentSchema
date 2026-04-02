@@ -180,3 +180,8 @@ class TestSchemaUtils:
         schema = load_schema("project_schema")
         assert isinstance(schema, dict)
         assert schema.get("title") == "Project Schema"
+
+    def test_load_dataset_schema_returns_canonical_dataset_contract(self) -> None:
+        schema = load_schema("dataset_schema")
+        assert isinstance(schema, dict)
+        assert schema.get("title") == "Dataset Schema"

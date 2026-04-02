@@ -69,8 +69,9 @@ The library includes schemas organized by domain:
 - `retriever_schema.json` - Retrieval configurations
 
 ### Datasets (`schemas/datasets/`)
+- `dataset_schema.json` - Canonical public dataset resource
+- `evaluation_set_schema.json` - Legacy-compatible evaluation dataset schema
 - `example_set_schema.json` - Example set definitions
-- `evaluation_set_schema.json` - Evaluation dataset specs
 - `generator_config_schema.json` - Data generator configs
 - `evaluator_config_schema.json` - Evaluator configurations
 

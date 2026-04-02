@@ -237,7 +237,10 @@ class TestRequiredSchemas:
         }
         assert "./optimization/optimization_endpoints.json" not in paths_files
         assert "./projects/projects_endpoints.json" not in paths_files
-        assert "./datasets/example_sets_endpoints.json" in paths_files
+        assert "./datasets/datasets_endpoints.json" in paths_files
+
+    def test_dataset_schema_exists(self, schemas_dir):
+        assert (schemas_dir / "datasets" / "dataset_schema.json").exists()
 
     def test_sdk_tuning_root_references_direct_tuning_module(self, schemas_dir):
         with open(schemas_dir / "sdk_tuning_endpoints.json", encoding="utf-8") as handle:

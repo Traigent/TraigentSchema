@@ -92,9 +92,14 @@
       "$ref": "./status_schema.json#/definitions/ExperimentRunStatus",
       "description": "Current execution status of the experiment"
     },
+    "dataset_id": {
+      "type": "string",
+      "description": "Canonical public identifier for the evaluation dataset being evaluated",
+      "x-reference": true
+    },
     "eval_dataset_id": {
       "type": "string",
-      "description": "Canonical reference to the evaluation dataset being evaluated",
+      "description": "Legacy alias for the evaluation dataset identifier",
       "x-reference": true
     },
     "evaluation_set_id": {
@@ -137,13 +142,21 @@
       "format": "date-time",
       "description": "ISO 8601 timestamp of the last modification to this experiment"
     },
+    "dataset": {
+      "$ref": "../datasets/dataset_schema.json#",
+      "description": "Canonical public dataset configuration being evaluated"
+    },
     "eval_dataset": {
-      "$ref": "./evaluation_set_schema.json#",
-      "description": "Canonical full evaluation dataset configuration being evaluated"
+      "$ref": "../datasets/dataset_schema.json#",
+      "description": "Legacy alias for the dataset configuration being evaluated"
     },
     "evaluation_set": {
-      "$ref": "./evaluation_set_schema.json#",
+      "$ref": "../datasets/dataset_schema.json#",
       "description": "Legacy full evaluation dataset configuration alias"
+    },
+    "benchmark": {
+      "$ref": "../datasets/dataset_schema.json#",
+      "description": "Compatibility alias for the dataset configuration"
     },
     "agent": {
       "$ref": "./agent_schema.json#",
@@ -215,6 +228,9 @@
     "measures"
   ],
   "anyOf": [
+    {
+      "required": ["dataset_id"]
+    },
     {
       "required": ["eval_dataset_id"]
     },

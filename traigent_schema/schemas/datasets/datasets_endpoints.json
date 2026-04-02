@@ -1,0 +1,123 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Dataset Routes",
+    "version": "1.0.0",
+    "description": "Canonical backend routes for dataset management."
+  },
+  "paths": {
+    "/api/v1/datasets": {
+      "get": {
+        "summary": "List datasets",
+        "responses": {
+          "200": {
+            "description": "Datasets retrieved successfully"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create dataset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./dataset_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dataset created successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/datasets/{dataset_id}": {
+      "get": {
+        "summary": "Get dataset",
+        "responses": {
+          "200": {
+            "description": "Dataset retrieved successfully"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update dataset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./dataset_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dataset updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete dataset",
+        "responses": {
+          "204": {
+            "description": "Dataset deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/examples": {
+      "get": {
+        "summary": "List examples in a dataset",
+        "responses": {
+          "200": {
+            "description": "Dataset examples retrieved successfully"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add example to a dataset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dataset example created successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/upload": {
+      "post": {
+        "summary": "Upload examples into a dataset",
+        "responses": {
+          "200": {
+            "description": "Dataset examples uploaded successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/examples/{example_id}": {
+      "delete": {
+        "summary": "Delete example from a dataset",
+        "responses": {
+          "204": {
+            "description": "Dataset example deleted successfully"
+          }
+        }
+      }
+    }
+  }
+}

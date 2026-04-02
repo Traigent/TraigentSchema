@@ -18,9 +18,9 @@
       "paths_file": "./agents/agents_endpoints.json"
     },
     {
-      "name": "Example Sets",
-      "description": "Current backend dataset and example-set routes.",
-      "paths_file": "./datasets/example_sets_endpoints.json"
+      "name": "Datasets",
+      "description": "Canonical backend dataset routes.",
+      "paths_file": "./datasets/datasets_endpoints.json"
     },
     {
       "name": "Measures",

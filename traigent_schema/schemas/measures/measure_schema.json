@@ -6,7 +6,7 @@
   "version": "1.0.0",
   "definitions": {
     "AgentType": {
-      "$ref": "./agent_types_schema.json#/definitions/AgentType"
+      "$ref": "https://schemas.traigent.ai/agents/agent_types_schema.json#/definitions/AgentType"
     },
     "MeasureType": {
       "type": "string",

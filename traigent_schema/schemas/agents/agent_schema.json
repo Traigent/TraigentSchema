@@ -121,7 +121,7 @@
     "example_sets": {
       "type": "array",
       "items": {
-        "$ref": "./example_set_schema.json#"
+        "$ref": "https://schemas.traigent.ai/datasets/example_set_schema.json#"
       },
       "description": "Collection of example sets used for agent training or validation"
     },

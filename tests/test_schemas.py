@@ -513,7 +513,7 @@ class TestDatasetContracts:
             "examples_count": 1,
             "generator_config": {
                 "id": "generator_123",
-                "eval_dataset_id": "dataset_123",
+                "dataset_id": "dataset_123",
                 "model_parameters_id": "model_parameters_123",
                 "instructions": "Generate realistic customer support questions",
                 "context_type": "text",
@@ -521,7 +521,7 @@ class TestDatasetContracts:
             },
             "evaluator_config": {
                 "id": "evaluator_123",
-                "eval_dataset_id": "dataset_123",
+                "dataset_id": "dataset_123",
                 "model_parameters_id": "model_parameters_123",
                 "instructions": "Evaluate answer quality against the reference output",
                 "context_type": "text",
@@ -594,3 +594,31 @@ class TestDatasetContracts:
         assert errors
         assert not any("Unresolvable" in error or "Validation error:" in error for error in errors)
         assert any("status" in error for error in errors)
+
+    def test_experiment_schema_accepts_nested_model_parameters_object(self, validator):
+        payload = {
+            "id": "experiment_456",
+            "name": "support-qa-experiment",
+            "description": "Compares prompt variants on the support QA dataset",
+            "configurations": {
+                "infrastructure": {
+                    "infrastructure_id": "infra_123",
+                    "compute": "cpu",
+                    "memory": "8GB",
+                    "timeout": 300,
+                }
+            },
+            "agent_id": "agent_123",
+            "model_parameters_id": "model_parameters_123",
+            "dataset_id": "dataset_123",
+            "dataset": self._valid_dataset_payload(),
+            "model_parameters": {
+                "id": "model_parameters_123",
+                "model_id": "gpt-4o-mini",
+                "temperature": 0.2,
+            },
+            "measures": ["measure_123"],
+        }
+
+        errors = validator.validate_json(payload, "experiment_schema")
+        assert errors == []

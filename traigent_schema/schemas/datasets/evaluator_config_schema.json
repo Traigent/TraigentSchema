@@ -39,9 +39,14 @@
       "description": "Unique identifier for this evaluator configuration",
       "x-identifier": true
     },
-    "eval_dataset_id": {
+    "dataset_id": {
       "type": "string",
       "description": "Canonical reference to the evaluation dataset this evaluator is associated with",
+      "x-reference": true
+    },
+    "eval_dataset_id": {
+      "type": "string",
+      "description": "Legacy alias for the evaluation dataset identifier",
       "x-reference": true
     },
     "evaluation_set_id": {
@@ -109,6 +114,9 @@
     "context_source"
   ],
   "anyOf": [
+    {
+      "required": ["dataset_id"]
+    },
     {
       "required": ["eval_dataset_id"]
     },

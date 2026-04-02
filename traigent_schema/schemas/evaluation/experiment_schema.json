@@ -67,7 +67,7 @@
       "additionalProperties": false
     },
     "ModelParameters": {
-      "$ref": "https://schemas.traigent.ai/agents/model_parameters_schema.json#/definitions/ModelParameters"
+      "$ref": "https://schemas.traigent.ai/agents/model_parameters_schema.json#"
     }
   },
   "properties": {

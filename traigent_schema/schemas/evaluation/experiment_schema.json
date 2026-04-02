@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/evaluation/experiment_schema.json",
   "type": "object",
   "title": "Experiment Schema",
   "description": "Defines the configuration and execution details of an experiment for evaluating model performance",
@@ -176,11 +177,11 @@
       "items": {
         "oneOf": [
           {
-            "$ref": "./measure_schema.json#/properties/id",
+            "$ref": "https://schemas.traigent.ai/measures/measure_schema.json#/properties/id",
             "description": "Reference to a predefined measure"
           },
           {
-            "$ref": "./measure_schema.json#",
+            "$ref": "https://schemas.traigent.ai/measures/measure_schema.json#",
             "description": "Full measure configuration"
           }
         ]

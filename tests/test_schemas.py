@@ -242,6 +242,11 @@ class TestRequiredSchemas:
     def test_dataset_schema_exists(self, schemas_dir):
         assert (schemas_dir / "datasets" / "dataset_schema.json").exists()
 
+    def test_dataset_schema_declares_stable_id(self, schemas_dir):
+        with open(schemas_dir / "datasets" / "dataset_schema.json", encoding="utf-8") as handle:
+            schema = json.load(handle)
+        assert schema["$id"] == "https://schemas.traigent.ai/datasets/dataset_schema.json"
+
     def test_sdk_tuning_root_references_direct_tuning_module(self, schemas_dir):
         with open(schemas_dir / "sdk_tuning_endpoints.json", encoding="utf-8") as handle:
             openapi = json.load(handle)
@@ -487,3 +492,80 @@ class TestProjectContracts:
             with open(schemas_dir / "projects" / schema_name, encoding="utf-8") as handle:
                 payload = json.load(handle)
             assert payload.get("x-privacy-classification") in {"aggregate_safe", "manifest_safe"}
+
+
+class TestDatasetContracts:
+    """Tests for canonical dataset contract validation and nested ref resolution."""
+
+    @pytest.fixture
+    def validator(self):
+        return SchemaValidator()
+
+    @staticmethod
+    def _valid_dataset_payload() -> dict[str, object]:
+        return {
+            "id": "dataset_123",
+            "name": "support_qa_dataset",
+            "label": "Support QA Dataset",
+            "description": "Evaluation dataset for support-style Q&A flows",
+            "type": "input-output",
+            "agent_type": "qa",
+            "examples_count": 1,
+            "generator_config": {
+                "id": "generator_123",
+                "eval_dataset_id": "dataset_123",
+                "model_parameters_id": "model_parameters_123",
+                "instructions": "Generate realistic customer support questions",
+                "context_type": "text",
+                "context_source": "dataset",
+            },
+            "evaluator_config": {
+                "id": "evaluator_123",
+                "eval_dataset_id": "dataset_123",
+                "model_parameters_id": "model_parameters_123",
+                "instructions": "Evaluate answer quality against the reference output",
+                "context_type": "text",
+                "context_source": "dataset",
+            },
+        }
+
+    def test_dataset_create_request_validates_with_nested_refs(self, validator):
+        errors = validator.validate_request(
+            "/api/v1/datasets",
+            "POST",
+            self._valid_dataset_payload(),
+        )
+        assert errors == []
+
+    def test_dataset_create_request_reports_schema_errors_not_ref_failures(self, validator):
+        payload = self._valid_dataset_payload()
+        payload["agent_type"] = "not-a-real-agent-type"
+        errors = validator.validate_request("/api/v1/datasets", "POST", payload)
+        assert errors
+        assert not any("Unresolvable" in error or "Validation error:" in error for error in errors)
+        assert any("agent_type" in error for error in errors)
+
+    def test_experiment_create_request_validates_dataset_alias_and_nested_dataset(self, validator):
+        errors = validator.validate_request(
+            "/api/v1/experiments",
+            "POST",
+            {
+                "id": "experiment_123",
+                "name": "support-qa-experiment",
+                "description": "Compares prompt variants on the support QA dataset",
+                "configurations": {
+                    "infrastructure": {
+                        "infrastructure_id": "infra_123",
+                        "compute": "cpu",
+                        "memory": "8GB",
+                        "timeout": 300,
+                    }
+                },
+                "agent_id": "agent_123",
+                "model_parameters_id": "model_parameters_123",
+                "dataset_id": "dataset_123",
+                "dataset": self._valid_dataset_payload(),
+                "measures": ["measure_123"],
+            },
+        )
+        assert errors == []

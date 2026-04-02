@@ -1,12 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/evaluator_config_schema.json",
   "type": "object",
   "title": "Evaluator Configuration Schema",
   "description": "Defines the configuration for evaluating model outputs and measuring performance",
   "version": "1.0.0",
   "definitions": {
     "AgentType": {
-      "$ref": "./agent_types_schema.json#/definitions/AgentType"
+      "$ref": "https://schemas.traigent.ai/agents/agent_types_schema.json#/definitions/AgentType"
     },
     "ContextType": {
       "type": "string",

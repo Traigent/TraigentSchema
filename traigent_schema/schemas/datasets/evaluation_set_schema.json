@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/evaluation_set_schema.json",
   "type": "object",
   "title": "Evaluation Set Schema",
   "description": "Defines the structure and configuration of a evaluation set for evaluating model performance",
@@ -166,7 +167,7 @@
       "description": "Primary use case this evaluation set is designed to evaluate"
     },
     "agent_type": {
-      "$ref": "./agent_types_schema.json#/definitions/AgentType",
+      "$ref": "https://schemas.traigent.ai/agents/agent_types_schema.json#/definitions/AgentType",
       "description": "Type of agent this evaluation set is designed to evaluate"
     },
     "examples_count": {
@@ -182,11 +183,11 @@
       "description": "Files associated with this evaluation set for evaluation"
     },
     "generator_config": {
-      "$ref": "./generator_config_schema.json#",
+      "$ref": "https://schemas.traigent.ai/datasets/generator_config_schema.json#",
       "description": "Configuration for example generation"
     },
     "evaluator_config": {
-      "$ref": "./evaluator_config_schema.json#",
+      "$ref": "https://schemas.traigent.ai/datasets/evaluator_config_schema.json#",
       "description": "Configuration for example evaluation"
     },
     "examples": {

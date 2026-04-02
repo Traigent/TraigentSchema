@@ -18,6 +18,7 @@ from referencing import Registry, Resource
 from traigent_schema.utils import ContractName, get_contract_path, get_schemas_dir
 
 logger = logging.getLogger(__name__)
+SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
 
 
 class SchemaValidator:
@@ -56,6 +57,9 @@ class SchemaValidator:
             try:
                 with open(schema_file, encoding='utf-8') as f:
                     schema = json.load(f)
+                    if "$id" not in schema:
+                        relative_path = schema_file.relative_to(schemas_dir).as_posix()
+                        schema["$id"] = f"{SCHEMA_ID_BASE}{relative_path}"
                     schema_name = schema_file.stem
                     self._schemas[schema_name] = schema
             except (OSError, json.JSONDecodeError) as exc:

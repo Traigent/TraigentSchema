@@ -67,7 +67,7 @@
       "additionalProperties": false
     },
     "ModelParameters": {
-      "$ref": "./model_parameters_schema.json#/definitions/ModelParameters"
+      "$ref": "https://schemas.traigent.ai/agents/model_parameters_schema.json#/definitions/ModelParameters"
     }
   },
   "properties": {
@@ -90,7 +90,7 @@
       "description": "Configurations settings controlling experiment execution"
     },
     "status": {
-      "$ref": "./status_schema.json#/definitions/ExperimentRunStatus",
+      "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ExperimentRunStatus",
       "description": "Current execution status of the experiment"
     },
     "dataset_id": {
@@ -160,11 +160,11 @@
       "description": "Compatibility alias for the dataset configuration"
     },
     "agent": {
-      "$ref": "./agent_schema.json#",
+      "$ref": "https://schemas.traigent.ai/agents/agent_schema.json#",
       "description": "Full agent configuration performing the evaluation"
     },
     "model_parameters": {
-      "$ref": "./model_parameters_schema.json#",
+      "$ref": "https://schemas.traigent.ai/agents/model_parameters_schema.json#",
       "description": "Full model parameters configuration for the experiment"
     },
     "experiment_parameters": {

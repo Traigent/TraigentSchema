@@ -569,3 +569,28 @@ class TestDatasetContracts:
             },
         )
         assert errors == []
+
+    def test_experiment_create_request_reports_nested_ref_validation_errors(self, validator):
+        payload = {
+            "id": "experiment_123",
+            "name": "support-qa-experiment",
+            "description": "Compares prompt variants on the support QA dataset",
+            "configurations": {
+                "infrastructure": {
+                    "infrastructure_id": "infra_123",
+                    "compute": "cpu",
+                    "memory": "8GB",
+                    "timeout": 300,
+                }
+            },
+            "agent_id": "agent_123",
+            "model_parameters_id": "model_parameters_123",
+            "dataset_id": "dataset_123",
+            "dataset": self._valid_dataset_payload(),
+            "status": "not-a-real-status",
+            "measures": ["measure_123"],
+        }
+        errors = validator.validate_request("/api/v1/experiments", "POST", payload)
+        assert errors
+        assert not any("Unresolvable" in error or "Validation error:" in error for error in errors)
+        assert any("status" in error for error in errors)

@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/status_schema.json",
   "title": "Status Schemas",
   "description": "Various status type definitions for Traigent platform",
   "version": "1.0.0",

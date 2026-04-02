@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/agent_schema.json",
   "type": "object",
   "title": "Agent Schema",
   "description": "Defines the configuration, capabilities, and behavior settings of an AI agent in the system",

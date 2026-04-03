@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/session_schema.json",
+  "title": "Observability Session Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "user_id": { "type": ["string", "null"], "maxLength": 255 },
+    "environment": { "type": ["string", "null"], "maxLength": 64 },
+    "release": { "type": ["string", "null"], "maxLength": 128 },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object", "additionalProperties": true },
+    "started_at": { "type": ["string", "null"], "format": "date-time" },
+    "ended_at": { "type": ["string", "null"], "format": "date-time" },
+    "trace_count": { "type": ["integer", "null"], "minimum": 0 },
+    "average_latency_ms": { "type": ["integer", "null"], "minimum": 0 },
+    "total_cost_usd": { "type": ["number", "null"], "minimum": 0 }
+  },
+  "required": ["id"]
+}

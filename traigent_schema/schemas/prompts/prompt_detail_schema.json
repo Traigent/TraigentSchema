@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/prompt_detail_schema.json",
+  "title": "Prompt Detail Schema",
+  "allOf": [
+    { "$ref": "./prompt_summary_schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "versions": {
+          "type": "array",
+          "items": { "$ref": "./prompt_version_schema.json" }
+        }
+      },
+      "required": ["versions"]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/prompt_version_schema.json",
+  "title": "Prompt Version Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": ["string", "null"] },
+    "project_id": { "type": ["string", "null"] },
+    "version": { "type": "integer", "minimum": 1 },
+    "prompt_type": { "type": "string", "enum": ["text", "chat"] },
+    "prompt_text": { "type": ["string", "null"] },
+    "chat_messages": {
+      "type": ["array", "null"],
+      "items": { "$ref": "./chat_prompt_message_schema.json" }
+    },
+    "config": { "type": "object", "additionalProperties": true },
+    "commit_message": { "type": ["string", "null"] },
+    "variable_names": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "created_by": { "type": ["string", "null"] },
+    "created_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "required": ["id", "version", "prompt_type"]
+}

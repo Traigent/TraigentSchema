@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/prompt_labels_update_request_schema.json",
+  "title": "Prompt Labels Update Request Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "labels": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._\\-]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  },
+  "required": ["labels"]
+}

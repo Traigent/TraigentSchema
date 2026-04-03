@@ -1,0 +1,166 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Observability Beta Routes",
+    "version": "1.0.0",
+    "description": "Planned project-scoped and tenant-scoped stored observability routes used by the beta SDK surface."
+  },
+  "paths": {
+    "/api/v1beta/observability/ingest": {
+      "post": {
+        "summary": "Ingest observability traces",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./observability_ingest_request_schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/observability/ingest": {
+      "post": {
+        "summary": "Ingest project observability traces",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./observability_ingest_request_schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/observability/traces/{trace_id}/comments": {
+      "post": {
+        "summary": "Create trace comment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./trace_comment_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trace comments retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_comments_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/observability/traces/{trace_id}/comments": {
+      "post": {
+        "summary": "Create project trace comment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./trace_comment_create_request_schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/observability/traces/{trace_id}/feedback": {
+      "put": {
+        "summary": "Upsert trace feedback",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./trace_feedback_upsert_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trace feedback updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_feedback_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/observability/traces/{trace_id}/feedback": {
+      "put": {
+        "summary": "Upsert project trace feedback",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./trace_feedback_upsert_request_schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/observability/traces/{trace_id}/collaboration": {
+      "patch": {
+        "summary": "Update trace collaboration state",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./trace_collaboration_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trace collaboration state updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_collaboration_state_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/observability/traces/{trace_id}/collaboration": {
+      "patch": {
+        "summary": "Update project trace collaboration state",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./trace_collaboration_update_request_schema.json"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

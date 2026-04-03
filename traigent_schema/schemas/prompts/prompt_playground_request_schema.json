@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/prompt_playground_request_schema.json",
+  "title": "Prompt Playground Request Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": ["integer", "null"], "minimum": 1 },
+    "label": {
+      "type": ["string", "null"],
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._\\-]{0,63}$"
+    },
+    "prompt_text": { "type": ["string", "null"], "minLength": 1 },
+    "chat_messages": {
+      "type": ["array", "null"],
+      "items": { "$ref": "./chat_prompt_message_schema.json" }
+    },
+    "variables": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": true
+    },
+    "provider": { "type": ["string", "null"], "maxLength": 64 },
+    "model": { "type": ["string", "null"], "maxLength": 255 },
+    "temperature": { "type": ["number", "null"], "minimum": 0, "maximum": 2 },
+    "max_tokens": { "type": ["integer", "null"], "minimum": 1, "maximum": 32768 },
+    "dry_run": { "type": "boolean", "default": false },
+    "metadata": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": true
+    }
+  }
+}

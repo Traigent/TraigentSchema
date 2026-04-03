@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/prompt_playground_result_schema.json",
+  "title": "Prompt Playground Result Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "prompt_name": { "type": "string", "minLength": 1 },
+    "version": { "type": ["integer", "null"], "minimum": 1 },
+    "label": { "type": ["string", "null"] },
+    "executed": { "type": "boolean" },
+    "trace_id": { "type": ["string", "null"] },
+    "trace_status": { "type": ["string", "null"] },
+    "rendered_prompt_text": { "type": ["string", "null"] },
+    "rendered_chat_messages": {
+      "type": ["array", "null"],
+      "items": { "$ref": "./chat_prompt_message_schema.json" }
+    },
+    "output_text": { "type": ["string", "null"] },
+    "provider": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "latency_ms": { "type": ["integer", "null"], "minimum": 0 },
+    "token_usage": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["prompt_name", "executed"]
+}

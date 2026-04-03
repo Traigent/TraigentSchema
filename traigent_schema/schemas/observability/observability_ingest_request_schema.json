@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/observability_ingest_request_schema.json",
+  "title": "Observability Ingest Request Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "traces": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "./trace_schema.json" }
+    },
+    "source": { "type": "string", "minLength": 1 }
+  },
+  "required": ["traces"]
+}

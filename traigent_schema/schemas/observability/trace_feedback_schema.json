@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_feedback_schema.json",
+  "title": "Trace Feedback Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "author_user_id": { "type": ["string", "null"] },
+    "rating": { "type": "string", "enum": ["up", "down"] },
+    "comment": { "type": ["string", "null"] },
+    "correction_output": {},
+    "created_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "required": ["id", "trace_id", "rating"]
+}

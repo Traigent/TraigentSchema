@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/user_summary_schema.json",
+  "title": "Observability User Summary Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "user_id": { "type": "string", "minLength": 1 },
+    "session_count": { "type": "integer", "minimum": 0 },
+    "trace_count": { "type": "integer", "minimum": 0 },
+    "recent_sessions": {
+      "type": "array",
+      "items": { "$ref": "./session_schema.json" }
+    },
+    "recent_traces": {
+      "type": "array",
+      "items": { "$ref": "./trace_schema.json" }
+    }
+  },
+  "required": ["user_id", "session_count", "trace_count", "recent_sessions", "recent_traces"]
+}

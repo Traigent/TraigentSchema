@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/prompt_version_create_request_schema.json",
+  "title": "Prompt Version Create Request Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "prompt_text": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "chat_messages": {
+      "type": ["array", "null"],
+      "items": {
+        "$ref": "./chat_prompt_message_schema.json"
+      }
+    },
+    "config": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": true
+    },
+    "commit_message": {
+      "type": ["string", "null"],
+      "maxLength": 2000
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._\\-]{0,63}$"
+      },
+      "default": []
+    }
+  }
+}

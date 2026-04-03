@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/correlation_ids_schema.json",
+  "title": "Correlation IDs Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "otel_trace_id": { "type": ["string", "null"] },
+    "otel_span_id": { "type": ["string", "null"] },
+    "otel_parent_span_id": { "type": ["string", "null"] }
+  }
+}

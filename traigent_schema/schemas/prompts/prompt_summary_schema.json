@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/prompt_summary_schema.json",
+  "title": "Prompt Summary Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": ["string", "null"] },
+    "project_id": { "type": ["string", "null"] },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "prompt_type": { "type": "string", "enum": ["text", "chat"] },
+    "description": { "type": ["string", "null"] },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "latest_version": { "type": "integer", "minimum": 0 },
+    "version_count": { "type": "integer", "minimum": 0 },
+    "labels": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
+    "created_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "required": ["id", "name", "prompt_type", "latest_version", "version_count", "labels"]
+}

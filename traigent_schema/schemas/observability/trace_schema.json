@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_schema.json",
+  "title": "Trace Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "status": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "session_id": { "type": ["string", "null"], "maxLength": 128 },
+    "user_id": { "type": ["string", "null"], "maxLength": 255 },
+    "environment": { "type": ["string", "null"], "maxLength": 64 },
+    "release": { "type": ["string", "null"], "maxLength": 128 },
+    "custom_trace_id": { "type": ["string", "null"], "maxLength": 128 },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object", "additionalProperties": true },
+    "input_data": {},
+    "output_data": {},
+    "started_at": { "type": ["string", "null"], "format": "date-time" },
+    "ended_at": { "type": ["string", "null"], "format": "date-time" },
+    "correlation_ids": { "$ref": "./correlation_ids_schema.json" },
+    "prompt_reference": { "$ref": "./prompt_reference_schema.json" },
+    "session": { "$ref": "./session_schema.json" },
+    "observations": {
+      "type": "array",
+      "items": { "$ref": "./observation_schema.json" }
+    },
+    "comments": {
+      "type": "array",
+      "items": { "$ref": "./trace_comment_schema.json" }
+    },
+    "feedback": { "$ref": "./trace_feedback_schema.json" },
+    "collaboration": { "$ref": "./trace_collaboration_state_schema.json" },
+    "prompt_links": {
+      "type": "array",
+      "items": { "$ref": "./prompt_link_schema.json" }
+    }
+  },
+  "required": ["id", "name"]
+}

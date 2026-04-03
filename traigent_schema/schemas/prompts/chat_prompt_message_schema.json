@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/chat_prompt_message_schema.json",
+  "title": "Chat Prompt Message Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "role": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "content": { "type": "string", "minLength": 1 },
+    "name": { "type": ["string", "null"], "maxLength": 255 }
+  },
+  "required": ["role", "content"]
+}

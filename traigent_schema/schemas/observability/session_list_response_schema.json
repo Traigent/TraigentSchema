@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/session_list_response_schema.json",
+  "title": "Session List Response Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "$ref": "./session_schema.json" }
+    },
+    "page": { "type": "integer", "minimum": 1 },
+    "per_page": { "type": "integer", "minimum": 1 },
+    "total": { "type": "integer", "minimum": 0 }
+  },
+  "required": ["items", "page", "per_page", "total"]
+}

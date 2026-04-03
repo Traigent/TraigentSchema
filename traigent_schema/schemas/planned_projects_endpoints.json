@@ -10,6 +10,16 @@
     "status": "planned",
     "description": "Project-scoped v1beta routes used by beta SDK surfaces but not asserted against current backend parity."
   },
+  "x-endpoint-modules": [
+    {
+      "name": "prompt_management",
+      "paths_file": "./prompts/prompts_endpoints.json"
+    },
+    {
+      "name": "observability",
+      "paths_file": "./observability/observability_endpoints.json"
+    }
+  ],
   "paths": {
     "/api/v1beta/projects": {
       "get": {

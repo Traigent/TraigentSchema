@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_collaboration_state_schema.json",
+  "title": "Trace Collaboration State Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "trace_id": { "type": "string", "minLength": 1 },
+    "is_bookmarked": { "type": "boolean" },
+    "is_published": { "type": "boolean" }
+  },
+  "required": ["trace_id", "is_bookmarked", "is_published"]
+}

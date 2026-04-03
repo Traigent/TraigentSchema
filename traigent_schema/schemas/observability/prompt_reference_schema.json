@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/prompt_reference_schema.json",
+  "title": "Prompt Reference Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "version": { "type": ["integer", "null"], "minimum": 1 },
+    "label": { "type": ["string", "null"], "maxLength": 64 },
+    "variables": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": true
+    }
+  },
+  "required": ["name"]
+}

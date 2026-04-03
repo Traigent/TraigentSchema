@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_comments_response_schema.json",
+  "title": "Trace Comments Response Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "trace_id": { "type": "string", "minLength": 1 },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "./trace_comment_schema.json" }
+    }
+  },
+  "required": ["trace_id", "items"]
+}

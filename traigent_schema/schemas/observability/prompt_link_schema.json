@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/prompt_link_schema.json",
+  "title": "Prompt Link Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "prompt_name": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "observation_id": { "type": ["string", "null"] },
+    "version": { "type": ["integer", "null"], "minimum": 1 },
+    "label": { "type": ["string", "null"] },
+    "linked_at": { "type": ["string", "null"], "format": "date-time" },
+    "variables": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": ["prompt_name", "trace_id"]
+}

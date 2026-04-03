@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/prompts/prompt_analytics_schema.json",
+  "title": "Prompt Analytics Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "prompt_name": { "type": "string", "minLength": 1 },
+    "totals": {
+      "type": "object",
+      "properties": {
+        "link_count": { "type": "integer", "minimum": 0 },
+        "trace_count": { "type": "integer", "minimum": 0 },
+        "observation_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "recent_links": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    }
+  },
+  "required": ["prompt_name", "totals", "recent_links"]
+}

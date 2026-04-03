@@ -460,6 +460,79 @@ class TestProjectContracts:
         )
         assert errors == []
 
+    def test_planned_projects_root_references_prompt_and_observability_modules(self):
+        schemas_dir = get_schemas_dir()
+        with open(schemas_dir / "planned_projects_endpoints.json", encoding="utf-8") as handle:
+            openapi = json.load(handle)
+
+        modules = openapi.get("x-endpoint-modules", [])
+        paths_files = {
+            module.get("paths_file")
+            for module in modules
+            if isinstance(module, dict)
+        }
+        assert "./prompts/prompts_endpoints.json" in paths_files
+        assert "./observability/observability_endpoints.json" in paths_files
+
+    def test_prompt_create_request_validates_against_planned_contract(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123/prompts",
+            "POST",
+            {
+                "name": "langfuse.prompt.support",
+                "prompt_type": "text",
+                "prompt_text": "Hello {{name}}",
+                "labels": ["production"],
+                "config": {"model": "mock-model"},
+            },
+        )
+        assert errors == []
+
+    def test_playground_run_request_validates_against_planned_contract(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123/prompts/langfuse.prompt.support/playground/run",
+            "POST",
+            {
+                "version": 1,
+                "variables": {"name": "Dana"},
+                "provider": "mock",
+                "model": "mock-model",
+                "dry_run": False,
+            },
+        )
+        assert errors == []
+
+    def test_observability_ingest_request_validates_against_planned_contract(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123/observability/ingest",
+            "POST",
+            {
+                "traces": [
+                    {
+                        "id": "trace_123",
+                        "name": "dataset-run",
+                        "session": {"id": "session_123", "user_id": "user_123"},
+                        "observations": [
+                            {
+                                "id": "obs_123",
+                                "type": "generation",
+                                "name": "llm_call",
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+        assert errors == []
+
+    def test_trace_feedback_request_rejects_missing_rating(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123/observability/traces/trace_123/feedback",
+            "PUT",
+            {"comment": "Helpful"},
+        )
+        assert errors
+
     def test_metrics_not_dict_fails(self, analytics_validator):
         """Metrics as non-dict type should fail."""
         data = {

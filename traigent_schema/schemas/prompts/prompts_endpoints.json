@@ -1,0 +1,226 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Prompt Management Beta Routes",
+    "version": "1.0.0",
+    "description": "Planned project-scoped and tenant-scoped prompt management and playground routes used by the beta SDK surface."
+  },
+  "paths": {
+    "/api/v1beta/prompts": {
+      "post": {
+        "summary": "Create prompt",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./prompt_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prompt created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./prompt_detail_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/prompts": {
+      "post": {
+        "summary": "Create project prompt",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./prompt_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prompt created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./prompt_detail_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/prompts/{prompt_name}/versions": {
+      "post": {
+        "summary": "Create prompt version",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./prompt_version_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prompt version created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./prompt_version_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/prompts/{prompt_name}/versions": {
+      "post": {
+        "summary": "Create project prompt version",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./prompt_version_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prompt version created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./prompt_version_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/prompts/{prompt_name}/labels": {
+      "patch": {
+        "summary": "Update prompt labels",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./prompt_labels_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Prompt labels updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./prompt_detail_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/prompts/{prompt_name}/labels": {
+      "patch": {
+        "summary": "Update project prompt labels",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./prompt_labels_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Prompt labels updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./prompt_detail_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/prompts/{prompt_name}/playground/run": {
+      "post": {
+        "summary": "Run prompt in playground",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./prompt_playground_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Playground run completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./prompt_playground_result_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/prompts/{prompt_name}/playground/run": {
+      "post": {
+        "summary": "Run project prompt in playground",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./prompt_playground_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Playground run completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./prompt_playground_result_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

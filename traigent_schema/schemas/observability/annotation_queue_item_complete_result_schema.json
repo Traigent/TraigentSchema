@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/annotation_queue_item_complete_result_schema.json",
+  "title": "Annotation Queue Item Complete Result Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "queue_id": { "type": "string", "minLength": 1 },
+    "item": { "$ref": "./annotation_queue_item_schema.json" },
+    "scores": {
+      "type": "array",
+      "items": { "$ref": "./review_score_schema.json" }
+    }
+  },
+  "required": ["queue_id", "item", "scores"]
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/annotation_queue_schema.json",
+  "title": "Annotation Queue Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": ["string", "null"] },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run"
+      ]
+    },
+    "measure_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "status": { "type": "string", "enum": ["active", "paused", "archived"] },
+    "measures": {
+      "type": "array",
+      "items": { "$ref": "./review_measure_summary_schema.json" }
+    },
+    "created_by": { "type": ["string", "null"] },
+    "updated_by": { "type": ["string", "null"] },
+    "created_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "required": ["name", "target_type", "measure_ids", "status"]
+}

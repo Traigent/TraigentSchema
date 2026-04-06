@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/evaluator_backfill_result_schema.json",
+  "title": "Evaluator Backfill Result Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "evaluator_id": { "type": "string", "minLength": 1 },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run"
+      ]
+    },
+    "submitted_count": { "type": "integer", "minimum": 0 },
+    "skipped_count": { "type": "integer", "minimum": 0 },
+    "skipped_target_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "./evaluator_run_schema.json" }
+    }
+  },
+  "required": ["evaluator_id", "target_type", "submitted_count", "skipped_count", "skipped_target_ids", "items"]
+}

@@ -60,6 +60,25 @@
         "ranking"
       ],
       "description": "Mathematical output type of the metric:\n- binary: Output is true/false or 0/1\n- discrete: Output is from a finite set of values\n- continuous: Output is a real number in a continuous range\n- ranking: Output represents relative position in an ordered list"
+    },
+    "TargetType": {
+      "type": "string",
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run"
+      ],
+      "description": "Review surfaces this measure can be attached to."
+    },
+    "AllowedScoreSource": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "evaluator",
+        "api"
+      ],
+      "description": "Permitted score origins for this measure."
     }
   },
   "properties": {
@@ -104,6 +123,22 @@
     "output_type": {
       "$ref": "#/definitions/MetricOutputType",
       "description": "Mathematical characterization of the output produced by this measure"
+    },
+    "target_types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TargetType"
+      },
+      "description": "Review targets where this measure is valid.",
+      "default": []
+    },
+    "allowed_score_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/AllowedScoreSource"
+      },
+      "description": "Score sources permitted to write this measure in review workflows.",
+      "default": []
     },
     "agent_types": {
       "type": "array",

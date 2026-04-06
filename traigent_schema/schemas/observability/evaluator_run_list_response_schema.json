@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/evaluator_run_list_response_schema.json",
+  "title": "Evaluator Run List Response Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "$ref": "./evaluator_run_schema.json" }
+    },
+    "pagination": { "$ref": "../pagination_schema.json" }
+  },
+  "required": ["items", "pagination"]
+}

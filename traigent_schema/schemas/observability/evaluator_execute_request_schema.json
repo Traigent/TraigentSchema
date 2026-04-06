@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/evaluator_execute_request_schema.json",
+  "title": "Evaluator Execute Request Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run"
+      ]
+    },
+    "target_id": { "type": "string", "minLength": 1 },
+    "source": { "type": "string" }
+  },
+  "required": ["target_type", "target_id"]
+}

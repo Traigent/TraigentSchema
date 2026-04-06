@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/evaluator_run_schema.json",
+  "title": "Evaluator Run Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "evaluator_id": { "type": "string", "minLength": 1 },
+    "measure_id": { "type": "string", "minLength": 1 },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run"
+      ]
+    },
+    "target_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["pending", "running", "completed", "failed"] },
+    "source": { "type": "string" },
+    "input_snapshot": { "type": "object", "additionalProperties": true },
+    "output_payload": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "score_record_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "input_tokens": { "type": "integer", "minimum": 0 },
+    "output_tokens": { "type": "integer", "minimum": 0 },
+    "total_tokens": { "type": "integer", "minimum": 0 },
+    "cost_usd": { "type": "number", "minimum": 0 },
+    "latency_ms": { "type": "integer", "minimum": 0 },
+    "error_message": { "type": ["string", "null"] },
+    "observability_trace_id": { "type": ["string", "null"] },
+    "job_id": { "type": ["string", "null"] },
+    "created_by": { "type": ["string", "null"] },
+    "started_at": { "type": ["string", "null"], "format": "date-time" },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" },
+    "created_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "required": ["id", "evaluator_id", "measure_id", "target_type", "target_id", "status"]
+}

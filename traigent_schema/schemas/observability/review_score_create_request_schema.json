@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/review_score_create_request_schema.json",
+  "title": "Trace Review Score Create Request Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "definitions": {
+    "ScoreInput": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "score_id": { "type": "string" },
+        "measure_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "target_type": {
+          "type": "string",
+          "enum": [
+            "observability_trace",
+            "observability_observation",
+            "configuration_run",
+            "experiment_run"
+          ]
+        },
+        "target_id": { "type": "string", "minLength": 1 },
+        "trace_id": { "type": "string", "minLength": 1 },
+        "numeric_value": { "type": "number" },
+        "categorical_value": { "type": "string" },
+        "boolean_value": { "type": "boolean" },
+        "value": {},
+        "source": { "type": "string", "enum": ["manual", "evaluator", "api", "human", "user", "llm", "model", "sdk"] },
+        "comment": { "type": ["string", "null"] },
+        "metadata": { "type": "object", "additionalProperties": true },
+        "evaluator_run_id": { "type": ["string", "null"] },
+        "queue_item_id": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            { "required": ["measure_id"] },
+            { "required": ["name"] }
+          ]
+        },
+        {
+          "oneOf": [
+            { "required": ["trace_id"] },
+            { "required": ["target_type", "target_id"] }
+          ]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "scores": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/ScoreInput" },
+      "minItems": 1
+    },
+    "id": { "type": "string" },
+    "score_id": { "type": "string" },
+    "measure_id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run"
+      ]
+    },
+    "target_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "numeric_value": { "type": "number" },
+    "categorical_value": { "type": "string" },
+    "boolean_value": { "type": "boolean" },
+    "value": {},
+    "source": { "type": "string", "enum": ["manual", "evaluator", "api", "human", "user", "llm", "model", "sdk"] },
+    "comment": { "type": ["string", "null"] },
+    "metadata": { "type": "object", "additionalProperties": true },
+    "evaluator_run_id": { "type": ["string", "null"] },
+    "queue_item_id": { "type": ["string", "null"] }
+  },
+  "oneOf": [
+    { "required": ["scores"] },
+    {
+      "allOf": [
+        {
+          "oneOf": [
+            { "required": ["measure_id"] },
+            { "required": ["name"] }
+          ]
+        },
+        {
+          "oneOf": [
+            { "required": ["trace_id"] },
+            { "required": ["target_type", "target_id"] }
+          ]
+        }
+      ]
+    }
+  ]
+}

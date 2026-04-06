@@ -33,6 +33,11 @@
       "paths_file": "./execution/execution_endpoints.json"
     },
     {
+      "name": "Observability",
+      "description": "Current backend observability and trace review routes.",
+      "paths_file": "./observability/observability_endpoints.json"
+    },
+    {
       "name": "Results",
       "description": "Current backend optimization comparison and report-module routes.",
       "paths_file": "./results/results_endpoints.json"

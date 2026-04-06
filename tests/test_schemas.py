@@ -123,6 +123,26 @@ class TestRequiredSchemas:
         """Should have measure_schema.json."""
         assert (schemas_dir / "measures" / "measure_schema.json").exists()
 
+    def test_observability_trace_score_summary_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "observability" / "trace_score_summary_schema.json"
+        ).exists()
+
+    def test_observability_review_score_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "observability" / "review_score_schema.json"
+        ).exists()
+
+    def test_observability_evaluator_definition_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "observability" / "evaluator_definition_schema.json"
+        ).exists()
+
+    def test_observability_annotation_queue_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir / "observability" / "annotation_queue_schema.json"
+        ).exists()
+
     def test_project_schema_exists(self, schemas_dir):
         """Should have project_schema.json."""
         assert (schemas_dir / "projects" / "project_schema.json").exists()
@@ -238,6 +258,7 @@ class TestRequiredSchemas:
         assert "./optimization/optimization_endpoints.json" not in paths_files
         assert "./projects/projects_endpoints.json" not in paths_files
         assert "./datasets/datasets_endpoints.json" in paths_files
+        assert "./observability/observability_endpoints.json" in paths_files
 
     def test_dataset_schema_exists(self, schemas_dir):
         assert (schemas_dir / "datasets" / "dataset_schema.json").exists()

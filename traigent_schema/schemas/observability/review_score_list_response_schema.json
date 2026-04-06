@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/review_score_list_response_schema.json",
+  "title": "Trace Review Score List Response Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "$ref": "./review_score_schema.json" }
+    },
+    "scores": {
+      "type": "array",
+      "items": { "$ref": "./review_score_schema.json" }
+    },
+    "pagination": {
+      "$ref": "../pagination_schema.json"
+    },
+    "total": { "type": "integer", "minimum": 0 }
+  },
+  "required": ["items", "scores", "pagination", "total"]
+}

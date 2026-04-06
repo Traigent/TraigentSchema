@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_score_summary_schema.json",
+  "title": "Trace Score Summary Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "latest_score_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "value_type_breakdown": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "scores": {
+      "type": "array",
+      "items": { "$ref": "./review_score_schema.json" }
+    },
+    "recent_evaluator_runs": {
+      "type": "array",
+      "items": { "$ref": "./evaluator_run_schema.json" }
+    }
+  },
+  "required": ["count", "value_type_breakdown", "scores", "recent_evaluator_runs"]
+}

@@ -201,6 +201,78 @@ class TestValidateRequest:
         )
         assert errors == []
 
+    def test_default_backend_contract_validates_trace_score_summary_route(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/observability/traces/trace_abc/score-summary",
+            "GET",
+            {},
+        )
+        assert errors == []
+
+    def test_default_backend_contract_validates_score_create_request(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/scores",
+            "POST",
+            {
+                "measure_id": "helpfulness",
+                "target_type": "observability_trace",
+                "target_id": "trace_abc",
+                "numeric_value": 0.9,
+                "source": "manual",
+            },
+        )
+        assert errors == []
+
+    def test_default_backend_contract_validates_evaluator_create_request(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/evaluators",
+            "POST",
+            {
+                "name": "Trace Accuracy Judge",
+                "measure_id": "accuracy",
+                "target_type": "observability_trace",
+                "judge_config": {
+                    "instructions": "Score the trace for accuracy.",
+                    "model_id": "gpt-4o-mini",
+                    "context_type": "trace",
+                },
+            },
+        )
+        assert errors == []
+
+    def test_default_backend_contract_validates_evaluator_partial_update_request(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/evaluators/eval_abc",
+            "PATCH",
+            {
+                "is_active": False,
+                "sampling_rate": 0.5,
+            },
+        )
+        assert errors == []
+
+    def test_default_backend_contract_validates_annotation_queue_create_request(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/annotation-queues",
+            "POST",
+            {
+                "name": "Runtime Trace Review",
+                "target_type": "observability_trace",
+                "measure_ids": ["helpfulness", "relevance"],
+            },
+        )
+        assert errors == []
+
+    def test_default_backend_contract_validates_annotation_queue_partial_update_request(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/annotation-queues/queue_abc",
+            "PATCH",
+            {
+                "status": "paused",
+            },
+        )
+        assert errors == []
+
     def test_default_backend_contract_ignores_removed_tunable_routes(self, validator):
         errors = validator.validate_request(
             "/api/v1/tunables",

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/annotation_queue_item_schema.json",
+  "title": "Annotation Queue Item Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "queue_id": { "type": "string", "minLength": 1 },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run"
+      ]
+    },
+    "target_id": { "type": "string", "minLength": 1 },
+    "target_snapshot": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "completed", "skipped"]
+    },
+    "assigned_user_id": { "type": ["string", "null"] },
+    "note": { "type": ["string", "null"] },
+    "score_record_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "created_by": { "type": ["string", "null"] },
+    "completed_by": { "type": ["string", "null"] },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" },
+    "created_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "required": ["id", "queue_id", "target_type", "target_id", "status", "score_record_ids"]
+}

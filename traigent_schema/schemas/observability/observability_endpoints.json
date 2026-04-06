@@ -161,6 +161,543 @@
           }
         }
       }
+    },
+    "/api/v1beta/observability/traces/{trace_id}/score-summary": {
+      "get": {
+        "summary": "Get trace score summary",
+        "responses": {
+          "200": {
+            "description": "Trace score summary retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_score_summary_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/observability/traces/{trace_id}/score-summary": {
+      "get": {
+        "summary": "Get project trace score summary",
+        "responses": {
+          "200": {
+            "description": "Project trace score summary retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_score_summary_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/scores": {
+      "get": {
+        "summary": "List trace review scores",
+        "responses": {
+          "200": {
+            "description": "Scores retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./review_score_list_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create trace review scores",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./review_score_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Scores created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "accepted": { "type": "integer", "minimum": 0 },
+                    "score_ids": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "scores": {
+                      "type": "array",
+                      "items": { "$ref": "./review_score_schema.json" }
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  },
+                  "required": ["accepted", "score_ids", "scores", "errors"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/scores/{score_id}": {
+      "get": {
+        "summary": "Get trace review score",
+        "responses": {
+          "200": {
+            "description": "Score retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./review_score_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/evaluators": {
+      "get": {
+        "summary": "List evaluator definitions",
+        "responses": {
+          "200": {
+            "description": "Evaluators retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_list_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create evaluator definition",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./evaluator_definition_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Evaluator created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_definition_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/evaluators/{evaluator_id}": {
+      "get": {
+        "summary": "Get evaluator definition",
+        "responses": {
+          "200": {
+            "description": "Evaluator retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_definition_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update evaluator definition",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./evaluator_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evaluator updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_definition_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/evaluators/{evaluator_id}/execute": {
+      "post": {
+        "summary": "Execute evaluator synchronously",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./evaluator_execute_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Evaluator run completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_run_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/evaluators/{evaluator_id}/backfill": {
+      "post": {
+        "summary": "Backfill evaluator over existing traces",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "target_ids": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "force": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Evaluator backfill completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_backfill_result_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/evaluator-runs": {
+      "get": {
+        "summary": "List evaluator runs",
+        "responses": {
+          "200": {
+            "description": "Evaluator runs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_run_list_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/evaluator-runs/{run_id}": {
+      "get": {
+        "summary": "Get evaluator run",
+        "responses": {
+          "200": {
+            "description": "Evaluator run retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_run_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/evaluator-runs/{run_id}/retry": {
+      "post": {
+        "summary": "Retry evaluator run",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Evaluator run retried successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_run_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/annotation-queues": {
+      "get": {
+        "summary": "List annotation queues",
+        "responses": {
+          "200": {
+            "description": "Annotation queues retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./annotation_queue_list_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create annotation queue",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./annotation_queue_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Annotation queue created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./annotation_queue_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/annotation-queues/{queue_id}": {
+      "get": {
+        "summary": "Get annotation queue",
+        "responses": {
+          "200": {
+            "description": "Annotation queue retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./annotation_queue_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update annotation queue",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./annotation_queue_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Annotation queue updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./annotation_queue_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/annotation-queues/{queue_id}/items": {
+      "get": {
+        "summary": "List annotation queue items",
+        "responses": {
+          "200": {
+            "description": "Annotation queue items retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./annotation_queue_item_list_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add annotation queue items",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./annotation_queue_item_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Annotation queue items saved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./annotation_queue_item_create_result_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/annotation-queues/{queue_id}/next": {
+      "get": {
+        "summary": "Get next annotation queue item",
+        "responses": {
+          "200": {
+            "description": "Annotation queue next item retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "./annotation_queue_item_schema.json" },
+                    { "type": "null" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/annotation-queues/items/{item_id}": {
+      "patch": {
+        "summary": "Update annotation queue item",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["pending", "in_progress", "completed", "skipped"]
+                  },
+                  "assigned_user_id": { "type": ["string", "null"] },
+                  "note": { "type": ["string", "null"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Annotation queue item updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./annotation_queue_item_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/annotation-queues/items/{item_id}/complete": {
+      "post": {
+        "summary": "Complete annotation queue item",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "scores": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "./review_score_create_request_schema.json#/definitions/ScoreInput"
+                    }
+                  },
+                  "note": { "type": ["string", "null"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Annotation queue item completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./annotation_queue_item_complete_result_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

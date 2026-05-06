@@ -715,3 +715,41 @@ class TestDatasetContracts:
 
         errors = validator.validate_json(payload, "experiment_schema")
         assert errors == []
+
+    def test_experiment_schema_accepts_list_response_stats(self, validator):
+        payload = {
+            "id": "experiment_789",
+            "name": "support-qa-experiment",
+            "description": "List response with compact run stats",
+            "configurations": {
+                "infrastructure": {
+                    "infrastructure_id": "infra_123",
+                    "compute": "cpu",
+                    "memory": "8GB",
+                    "timeout": 300,
+                }
+            },
+            "agent_id": "agent_123",
+            "model_parameters_id": "model_parameters_123",
+            "dataset_id": "dataset_123",
+            "measures": ["measure_123"],
+            "configuration_runs_count": 3,
+            "total_examples": 42,
+            "optimization_runs_count": 2,
+            "experiment_run": {
+                "id": "run_123",
+                "run_id": "run_123",
+                "experiment_id": "experiment_789",
+                "status": "completed",
+                "configuration_runs_count": 1,
+                "summary_stats": {
+                    "total_examples": 12,
+                    "accuracy": 0.91,
+                    "metrics": {"latency_ms": 120},
+                },
+                "metrics": {"latency_ms": 120},
+            },
+        }
+
+        errors = validator.validate_json(payload, "experiment_schema")
+        assert errors == []

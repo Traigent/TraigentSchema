@@ -63,8 +63,7 @@ venv.bak/
 
 # IDEs
 .idea/
-.vscode/*
-!.vscode/settings.json
+.vscode/
 *.swp
 *.swo
 *~

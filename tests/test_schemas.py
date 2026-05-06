@@ -1,12 +1,11 @@
 """Tests for schema file integrity and structure."""
 
 import json
-from pathlib import Path
 
 import pytest
 
-from traigent_schema.utils import get_schemas_dir, get_all_schema_files
 from traigent_schema import AnalyticsValidator, SchemaValidator
+from traigent_schema.utils import get_all_schema_files, get_schemas_dir
 
 
 class TestSchemaFileIntegrity:
@@ -17,7 +16,7 @@ class TestSchemaFileIntegrity:
         schema_files = get_all_schema_files()
         for schema_file in schema_files:
             try:
-                with open(schema_file, 'r', encoding='utf-8') as f:
+                with open(schema_file, encoding='utf-8') as f:
                     json.load(f)
             except json.JSONDecodeError as e:
                 pytest.fail(f"Failed to parse {schema_file}: {e}")
@@ -81,11 +80,11 @@ class TestNoBrandingIssues:
         """Schema files should not contain OptiGen references."""
         schema_files = get_all_schema_files()
         for schema_file in schema_files:
-            with open(schema_file, 'r', encoding='utf-8') as f:
+            with open(schema_file, encoding='utf-8') as f:
                 content = f.read()
 
             assert "OptiGen" not in content, f"Found 'OptiGen' in {schema_file}"
-            assert "optigen" not in content.lower() or "traigent" in content.lower(), \
+            assert "optigen" not in content.lower(), \
                 f"Found 'optigen' in {schema_file}"
 
 

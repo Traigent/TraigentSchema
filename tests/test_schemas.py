@@ -85,7 +85,7 @@ class TestNoBrandingIssues:
                 content = f.read()
 
             assert "OptiGen" not in content, f"Found 'OptiGen' in {schema_file}"
-            assert "optigen" not in content.lower() or "traigent" in content.lower(), \
+            assert "optigen" not in content.lower(), \
                 f"Found 'optigen' in {schema_file}"
 
 

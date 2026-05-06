@@ -4,7 +4,7 @@
   "type": "object",
   "title": "Experiment Schema",
   "description": "Defines the configuration and execution details of an experiment for evaluating model performance",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "definitions": {
     "Infrastructure": {
       "type": "object",
@@ -68,6 +68,79 @@
     },
     "ModelParameters": {
       "$ref": "https://schemas.traigent.ai/agents/model_parameters_schema.json#"
+    },
+    "ExperimentListRunSummary": {
+      "type": "object",
+      "description": "Compact latest experiment run summary embedded in experiment list responses",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the latest experiment run"
+        },
+        "run_id": {
+          "type": "string",
+          "description": "Compatibility alias for the latest experiment run identifier"
+        },
+        "experiment_id": {
+          "type": "string",
+          "description": "Reference to the parent experiment"
+        },
+        "status": {
+          "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ExperimentRunStatus",
+          "description": "Current status of the latest experiment run"
+        },
+        "created_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the run was created"
+        },
+        "updated_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of the last run update"
+        },
+        "started_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the run started"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the run completed"
+        },
+        "configuration_runs_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of configuration runs attached to this experiment run"
+        },
+        "summary_stats": {
+          "type": ["object", "null"],
+          "description": "Compact numeric latest-configuration summary for list views",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "number" },
+              {
+                "type": "object",
+                "additionalProperties": { "type": "number" }
+              }
+            ]
+          }
+        },
+        "metrics": {
+          "type": ["object", "null"],
+          "description": "Compact numeric latest-configuration measures for list views",
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "required": [
+        "id",
+        "run_id",
+        "experiment_id",
+        "status",
+        "configuration_runs_count"
+      ],
+      "additionalProperties": false
     }
   },
   "properties": {
@@ -188,6 +261,25 @@
       },
       "description": "List of measures used to evaluate performance",
       "minItems": 1
+    },
+    "configuration_runs_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of configuration runs for this experiment in list responses"
+    },
+    "total_examples": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total examples processed across configuration runs for this experiment in list responses"
+    },
+    "optimization_runs_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of optimization/experiment runs for this experiment in list responses"
+    },
+    "experiment_run": {
+      "$ref": "#/definitions/ExperimentListRunSummary",
+      "description": "Latest experiment run summary when available"
     },
     "metadata": {
       "type": "object",

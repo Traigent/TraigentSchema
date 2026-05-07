@@ -102,6 +102,16 @@
       "set_default_observability_client"
     ]
   },
+  "releasePolicy": {
+    "js020PythonReleaseOrder": "JS 0.2.0 may ship before Python 0.12.0. If it does, release notes must describe this as forward-compatible with the next Python public surface, not parity with the currently published Python package.",
+    "publishedPythonCompatibilityNote": "Python 0.11.4 at pin time does not expose BenchmarkClient, BenchmarkClientConfig, Dataset, or EvaluationExample. Those symbols are included because the manifest tracks Python develop at f9f1adcb.",
+    "refreshCadence": [
+      "Refresh the manifest on every Python public SDK release candidate or release branch.",
+      "Refresh the manifest in the same PR family as any Python change to traigent.__all__.",
+      "Refresh the manifest before every JS minor parity release.",
+      "If neither SDK releases for a quarter, run a quarterly drift check and open a no-op or update PR documenting the result."
+    ]
+  },
   "classificationDefinitions": {
     "matched": "JS exports a production implementation or schema-backed type with the same public intent.",
     "additive-js-alias": "JS exports a compatibility alias over an existing camelCase JS type or helper.",
@@ -280,6 +290,8 @@
   "decisions": {
     "manifestLocation": "TraigentSchema/parity/python-js-sdk.json is authoritative; JS and Python CI read this file instead of maintaining repo-local ignore lists.",
     "pythonPinning": "Only the Python SHA is pinned. JS is validated as any build that satisfies the manifest-required exports.",
+    "js020PythonReleaseOrder": "JS 0.2.0 is allowed to ship before Python 0.12.0 as a forward-compatible parity release, provided release notes state that the manifest tracks next Python, not published Python 0.11.4.",
+    "manifestRefresh": "TraigentSchema owns manifest refreshes for Python release candidates, Python __all__ changes, JS minor parity releases, and quarterly drift checks when release cadence is slow.",
     "benchmarkClient": "JS 0.2.0 exports a throwing BenchmarkClient stub because Python develop re-added BenchmarkClient, but the benchmark dataset generation endpoint is not yet schema-owned.",
     "enterpriseAdminClient": "JS 0.2.0 keeps the throwing EnterpriseAdminClient migration stub pending Traigent/traigent-js#30.",
     "observabilityWrappers": "Default-client helpers and the observe wrapper are deferred to 0.3.0 to avoid expanding the 0.2.0 parity release with new runtime semantics.",

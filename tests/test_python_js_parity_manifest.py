@@ -214,6 +214,16 @@ def test_required_js_exports_are_classified_and_include_stubs() -> None:
     assert {"EnterpriseAdminClient", "EnterpriseAdminConfig"} <= stub_exports
 
 
+def test_release_policy_documents_forward_binding_and_refresh_cadence() -> None:
+    manifest = load_manifest()
+    release_policy = manifest["releasePolicy"]
+
+    assert "may ship before Python 0.12.0" in release_policy["js020PythonReleaseOrder"]
+    assert "Python 0.11.4" in release_policy["publishedPythonCompatibilityNote"]
+    assert len(release_policy["refreshCadence"]) >= 4
+    assert "manifestRefresh" in manifest["decisions"]
+
+
 def test_observability_default_wrappers_are_deferred_out_of_0_2_0() -> None:
     manifest = load_manifest()
     deferred = set(manifest["classifications"]["deferred-backlog"])

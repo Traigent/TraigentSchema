@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
 PYTHON_DEVELOP_SHA = "f9f1adcb19ea8c3874bb1b7ef21f6d11b1b95a18"
 
@@ -205,14 +204,20 @@ def test_required_js_exports_are_classified_and_include_stubs() -> None:
     manifest = load_manifest()
     required = set(manifest["javascript"]["requiredRootExports"])
     stub_exports = set(manifest["javascript"]["stubRootExports"])
+    deferred_out_of_release = set(manifest["javascript"]["deferredOutOfRelease"])
+    classifications = manifest["classifications"]
     classified = {
         symbol
-        for symbols in manifest["classifications"].values()
+        for symbols in classifications.values()
         for symbol in symbols
     }
+    production_exports = set(classifications["matched"]) | set(classifications["additive-js-alias"])
 
     assert required <= classified
+    assert production_exports <= required
     assert stub_exports <= required
+    assert stub_exports.isdisjoint(deferred_out_of_release)
+    assert required.isdisjoint(deferred_out_of_release)
     assert {"BenchmarkClient", "BenchmarkClientConfig"} <= stub_exports
     assert {"EnterpriseAdminClient", "EnterpriseAdminConfig"} <= stub_exports
 

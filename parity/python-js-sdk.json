@@ -52,6 +52,7 @@
       "ObservationDTO",
       "ObservationRecord",
       "ObservationType",
+      "OptimizationResult",
       "PaginationInfo",
       "ProjectManagementClient",
       "ProjectManagementConfig",
@@ -117,7 +118,7 @@
     "matched": "JS exports a production implementation or schema-backed type with the same public intent.",
     "additive-js-alias": "JS exports a compatibility alias over an existing camelCase JS type or helper.",
     "deferred-schema": "Python exposes the symbol, but JS cannot implement production behavior until TraigentSchema has the contract; JS may expose a throwing migration stub.",
-    "deferred-backlog": "Tracked for a future JS release or open decision ticket.",
+    "deferred-backlog": "Tracked for future JS production behavior or an open decision ticket; may be exported only as a throwing migration stub when also listed in stubRootExports.",
     "out-of-scope-permanent": "Python-only runtime, analysis, plotting, validation, or internal surface that is not part of the JS SDK parity contract."
   },
   "classifications": {

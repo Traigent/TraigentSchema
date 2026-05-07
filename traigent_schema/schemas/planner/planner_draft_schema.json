@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/planner/planner_draft_schema.json",
+  "title": "Planner Draft Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "draft_id": {
+      "type": ["string", "null"],
+      "description": "Planner draft identifier returned by the planner API."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The user's original planning request."
+    },
+    "agent": {
+      "anyOf": [
+        { "$ref": "../agents/agent_schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "benchmark": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "Benchmark or dataset draft payload. A dedicated benchmark schema does not exist yet."
+    },
+    "measures": {
+      "type": "array",
+      "items": { "$ref": "../measures/measure_schema.json" },
+      "default": []
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {}
+    },
+    "status": {
+      "type": ["string", "null"],
+      "enum": ["created", "processing", "completed", "error", "cancelled", null]
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  },
+  "required": ["description"]
+}

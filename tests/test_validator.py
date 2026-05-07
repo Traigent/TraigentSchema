@@ -430,6 +430,40 @@ class TestSchemaValidation:
         errors = validator.validate_json(data, "measure_schema")
         assert isinstance(errors, list)
 
+    def test_planner_draft_schema_valid(self, validator):
+        """Should validate a planner draft with canonical measure payloads."""
+        data = {
+            "draft_id": "draft_answer_quality",
+            "description": "Create a support agent and evaluate answer helpfulness.",
+            "agent": None,
+            "benchmark": None,
+            "measures": [
+                {
+                    "id": "answer_helpfulness",
+                    "version": "1.0.0",
+                    "label": "Answer Helpfulness",
+                    "description": "Scores whether the response is useful.",
+                    "category": "Response Quality",
+                    "measure_type": "quality",
+                    "evaluation_method": "llm_based",
+                    "target_aspect": "response",
+                    "metric_type": "single_turn",
+                    "output_type": "continuous",
+                    "agent_types": ["chat"],
+                    "domain_min": 0.0,
+                    "domain_max": 1.0,
+                    "inverse": False,
+                    "is_custom": True,
+                    "target_types": ["observability_trace", "configuration_run"],
+                    "allowed_score_sources": ["manual", "evaluator"],
+                }
+            ],
+            "metadata": {"source": "phase1_fixture"},
+            "status": "created",
+        }
+        errors = validator.validate_json(data, "planner_draft_schema")
+        assert errors == []
+
     def test_project_list_response_schema_resolves_pagination_ref(self, validator):
         """Paginated project responses should resolve the shared pagination schema."""
         data = {

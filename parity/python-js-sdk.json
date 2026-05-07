@@ -45,6 +45,7 @@
       "IntRange",
       "JudgeConfigDTO",
       "LogRange",
+      "MeasuresDict",
       "MeasureValueType",
       "ObservabilityClient",
       "ObservabilityConfig",
@@ -140,6 +141,7 @@
       "EvaluatorRunStatus",
       "IntRange",
       "LogRange",
+      "MeasuresDict",
       "ObservabilityClient",
       "ObservabilityConfig",
       "ObservationType",
@@ -200,6 +202,7 @@
       "BenchmarkClientConfig"
     ],
     "deferred-backlog": [
+      "AgentCostBreakdown",
       "EnterpriseAdminClient",
       "EnterpriseAdminConfig",
       "ObserveContext",
@@ -212,6 +215,7 @@
       "TenantMembershipStatus",
       "TenantSSOConfigDTO",
       "TraceFeedbackSummary",
+      "WorkflowCostSummary",
       "get_default_observability_client",
       "observe",
       "set_default_observability_client"

@@ -11,6 +11,7 @@ PYTHON_DEVELOP_SHA = "f9f1adcb19ea8c3874bb1b7ef21f6d11b1b95a18"
 
 PYTHON_DEVELOP_ROOT_SYMBOLS = {
     "AndCondition",
+    "AgentCostBreakdown",
     "AnnotationQueueDTO",
     "AnnotationQueueItemDTO",
     "AnnotationQueueItemListResponse",
@@ -55,6 +56,7 @@ PYTHON_DEVELOP_ROOT_SYMBOLS = {
     "JudgeConfigDTO",
     "LogRange",
     "LoggingCallback",
+    "MeasuresDict",
     "MeasureValueType",
     "MetricExtractionError",
     "MultiObjectiveMetrics",
@@ -133,6 +135,7 @@ PYTHON_DEVELOP_ROOT_SYMBOLS = {
     "TrialResult",
     "ValidationResult",
     "WhenBuilder",
+    "WorkflowCostSummary",
     "configure",
     "configure_for_budget",
     "constraints_to_callables",

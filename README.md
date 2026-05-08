@@ -119,8 +119,10 @@ Use `get_openapi_path()` when you want the canonical backend contract root, or
 The `backend` and `sdk_tuning` catalogs are the supported contract roots for
 released Traigent surfaces. The `planned_projects` catalog documents planned
 and beta project-scoped routes for coordinated development. It is not a stable
-public API contract and may change before general availability unless a
-downstream release explicitly states otherwise.
+public API contract, may change without a major-version bump, and may break
+between minor releases until those routes graduate. Pin a specific
+`traigent-schema` version if you build directly against this pre-release
+surface.
 
 ### Schema Governance
 
@@ -186,7 +188,7 @@ mypy traigent_schema
 
 ## Version
 
-Current release line: **4.0.0**
+Current release line: **4.1.0**
 
 Package metadata is derived from `traigent_schema/version.py` to keep runtime and published versions aligned.
 

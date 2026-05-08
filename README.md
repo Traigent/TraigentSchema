@@ -114,6 +114,28 @@ The library includes schemas organized by domain:
 Use `get_openapi_path()` when you want the canonical backend contract root, or
 `get_contract_path(...)` when you need one of the non-default catalogs.
 
+### Contract Stability
+
+The `backend` and `sdk_tuning` catalogs are the supported contract roots for
+released Traigent surfaces. The `planned_projects` catalog documents planned
+and beta project-scoped routes for coordinated development. It is not a stable
+public API contract and may change before general availability unless a
+downstream release explicitly states otherwise.
+
+### Schema Governance
+
+TraigentSchema is the canonical source of truth for Traigent data contracts
+across the Python SDK, backend, frontend, and JavaScript SDK parity checks.
+When changing schemas, update the JSON Schema first, then update downstream
+DTOs, backend models, generated frontend types, tests, and the changelog as
+needed.
+
+The shared MeasuresDict contract is enforced across projects:
+
+- max 50 keys
+- keys match the Python identifier pattern `^[a-zA-Z_][a-zA-Z0-9_]*$`
+- values are numeric or null
+
 ### SchemaValidator
 
 ```python

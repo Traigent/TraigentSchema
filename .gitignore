@@ -89,6 +89,9 @@ Thumbs.db
 # Project specific
 *.log
 .claude/
+AGENTS.md
+CLAUDE.md
 
 # SonarQube
 .scannerwork/
+sonar-project.local.properties

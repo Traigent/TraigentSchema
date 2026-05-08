@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-05-08
+
+### Added
+- `multi_objective_semantics_schema.json` under `optimization/` codifies the
+  normative behavioral contract for multi-objective normalization. Pins
+  `zero_span_fallback = 0.5`, `zero_span_epsilon = 1e-9`,
+  `weight_normalization = "sum_to_one"`, and `dominance_guard.max_normalized_weight = 0.99`
+  with `validation_scope = ["sdk"]`. The document is a meta-contract: the
+  constants are not wire-format fields, they describe behavior implementations
+  must hard-code. Rolls out across Python SDK, traigent-js, TraigentBackend
+  (recompute path), and TraigentFrontend.
+- `objective_definition_schema.json` bumped to `0.9.1` with a description
+  pointer to the new semantics doc; no field changes.
+
 ## [4.0.0] - 2026-03-28
 
 ### Changed

@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/optimization/multi_objective_semantics_schema.json",
+  "title": "Multi-Objective Semantics (normative meta-contract)",
+  "description": "Normative behavioral contract for how implementations must normalize and aggregate multiple objectives. This document is META-CONTRACT documentation, NOT a wire-format schema: the fields below are not transmitted in API payloads. Implementations (Python SDK, traigent-js SDK, TraigentBackend, TraigentFrontend) must hard-code the const values listed here. The schema exists so behavior is discoverable and testable across the four codebases that consume objective definitions; it does not validate any request or response body. Wire-format objective fields are defined in objective_definition_schema.json.",
+  "version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "zero_span_fallback": {
+      "type": "number",
+      "const": 0.5,
+      "description": "Value returned by min-max normalization when |max - min| < zero_span_epsilon for an objective. 0.5 is a neutral midpoint: an all-equal trial set carries no information for that objective, so every trial contributes equally to the weighted sum. NOT a runtime field; implementations hard-code this constant."
+    },
+    "zero_span_epsilon": {
+      "type": "number",
+      "const": 1e-9,
+      "description": "Single normative tolerance for detecting zero-span. All implementations must use exactly this value, not '<= this'. Spans below this collapse to zero_span_fallback; spans above this are normalized linearly. NOT a runtime field; implementations hard-code this constant."
+    },
+    "weight_normalization": {
+      "type": "string",
+      "const": "sum_to_one",
+      "description": "Relative objective weights are rescaled so Sigma w_i = 1 before aggregation. Weights flow on the wire in their raw user-supplied form (see objective_definition_schema.json#/properties/weight); rescaling happens at ObjectiveSchema construction time inside each SDK. NOT a runtime field."
+    },
+    "dominance_guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Design-time validation that prevents a single objective from dominating a multi-objective schema. NOT a runtime field; implementations enforce this at ObjectiveSchema construction.",
+      "properties": {
+        "max_normalized_weight": {
+          "type": "number",
+          "const": 0.99,
+          "description": "Maximum allowed normalized weight (after sum-to-one rescaling) for any single objective when objectives.length > 1. Exceeding this raises a validation error at schema construction. Matches Python SDK's MAX_SINGLE_OBJECTIVE_WEIGHT."
+        },
+        "validation_scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["sdk", "backend", "frontend"]
+          },
+          "const": ["sdk"],
+          "description": "METADATA about which codebases enforce dominance_guard at schema construction. NOT a wire-format field. Today only the Python and JS SDKs enforce the guard; TraigentBackend's interactive_session_service objective normalizer validates positive weights only, and TraigentFrontend trusts already-validated payloads. Future expansion to ['sdk', 'backend'] is filed as a follow-up; this field documents current scope so consumers do not assume universal enforcement."
+        }
+      },
+      "required": ["max_normalized_weight", "validation_scope"]
+    }
+  },
+  "required": [
+    "zero_span_fallback",
+    "zero_span_epsilon",
+    "weight_normalization",
+    "dominance_guard"
+  ]
+}

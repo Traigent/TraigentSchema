@@ -2,8 +2,8 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "Objective Definition Schema",
-  "description": "Defines an optimization objective compatible with TVL 0.9. Specifies a metric to optimize, its direction, and optional banding.",
-  "version": "0.9.0",
+  "description": "Defines an optimization objective compatible with TVL 0.9. Specifies a metric to optimize, its direction, and optional banding. Multi-objective normalization and aggregation behavior (zero-span fallback, weight rescaling, dominance guard) is specified separately in multi_objective_semantics_schema.json as a meta-contract; those constants are not wire-format fields.",
+  "version": "0.9.1",
   "definitions": {
     "ObjectiveDirection": {
       "type": "string",

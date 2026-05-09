@@ -6,11 +6,10 @@ import json
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
-PYTHON_DEVELOP_SHA = "f9f1adcb19ea8c3874bb1b7ef21f6d11b1b95a18"
+PYTHON_DEVELOP_SHA = "8200124b10f27e3b9d7b408d9657e16572a9f2b8"
 
-PYTHON_DEVELOP_ROOT_SYMBOLS = {
+PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "AndCondition",
-    "AgentCostBreakdown",
     "AnnotationQueueDTO",
     "AnnotationQueueItemDTO",
     "AnnotationQueueItemListResponse",
@@ -55,7 +54,6 @@ PYTHON_DEVELOP_ROOT_SYMBOLS = {
     "JudgeConfigDTO",
     "LogRange",
     "LoggingCallback",
-    "MeasuresDict",
     "MeasureValueType",
     "MetricExtractionError",
     "MultiObjectiveMetrics",
@@ -134,7 +132,6 @@ PYTHON_DEVELOP_ROOT_SYMBOLS = {
     "TrialResult",
     "ValidationResult",
     "WhenBuilder",
-    "WorkflowCostSummary",
     "configure",
     "configure_for_budget",
     "constraints_to_callables",
@@ -170,9 +167,36 @@ PYTHON_DEVELOP_ROOT_SYMBOLS = {
     "with_usage",
 }
 
+PYTHON_DEVELOP_CONDITIONAL_ROOT_SYMBOLS = {
+    "AgentCostBreakdown",
+    "MeasuresDict",
+    "WorkflowCostSummary",
+}
+
+PYTHON_DEVELOP_ROOT_SYMBOLS = (
+    PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS | PYTHON_DEVELOP_CONDITIONAL_ROOT_SYMBOLS
+)
+
 
 def load_manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
+def conditional_root_exports(manifest: dict) -> list[dict]:
+    value = manifest["python"].get("conditionalRootExports")
+    assert isinstance(value, list)
+    assert value
+    return value
+
+
+def conditional_symbols_by_js_runtime(manifest: dict, js_runtime: str) -> set[str]:
+    symbols: set[str] = set()
+    for block in conditional_root_exports(manifest):
+        runtime = block.get("runtime", {})
+        assert runtime.get("python") == "conditional"
+        if runtime.get("js") == js_runtime:
+            symbols.update(block["symbols"])
+    return symbols
 
 
 def test_manifest_tracks_python_develop_pin() -> None:
@@ -181,7 +205,17 @@ def test_manifest_tracks_python_develop_pin() -> None:
     assert manifest["authority"] == "TraigentSchema"
     assert manifest["python"]["targetRef"] == "origin/develop"
     assert manifest["python"]["targetSha"] == PYTHON_DEVELOP_SHA
-    assert manifest["python"]["releaseSurface"] == "next-python-release"
+    assert manifest["python"]["releaseSurface"] == "next-release"
+
+
+def test_manifest_records_js_observed_sha_as_informational() -> None:
+    manifest = load_manifest()
+    observed_sha = manifest["javascript"]["observedSha"]
+
+    assert manifest["javascript"]["observedRef"] == "origin/main"
+    assert len(observed_sha) == 40
+    assert set(observed_sha) <= set("0123456789abcdef")
+    assert "Informational only" in manifest["javascript"]["observedShaPolicy"]
 
 
 def test_every_python_root_symbol_has_one_classification() -> None:
@@ -200,6 +234,41 @@ def test_every_python_root_symbol_has_one_classification() -> None:
     assert set(seen) == PYTHON_DEVELOP_ROOT_SYMBOLS
 
 
+def test_conditional_python_root_exports_are_modeled_explicitly() -> None:
+    manifest = load_manifest()
+    blocks = conditional_root_exports(manifest)
+    by_source = {block["source"]: block for block in blocks}
+
+    assert set(by_source) == {
+        "traigent.cloud.agent_dtos",
+        "traigent.cloud.dtos",
+    }
+    assert set(by_source["traigent.cloud.agent_dtos"]["symbols"]) == {
+        "AgentCostBreakdown",
+        "WorkflowCostSummary",
+    }
+    assert by_source["traigent.cloud.agent_dtos"]["runtime"] == {
+        "python": "conditional",
+        "js": "not-required",
+    }
+    assert by_source["traigent.cloud.agent_dtos"]["classification"] == "deferred-backlog"
+
+    measures_runtime = by_source["traigent.cloud.dtos"]["runtime"]
+    assert by_source["traigent.cloud.dtos"]["symbols"] == ["MeasuresDict"]
+    assert measures_runtime["python"] == "conditional"
+    assert measures_runtime["js"] == "required"
+    assert measures_runtime["javascriptKind"] == "type"
+    assert measures_runtime["javascriptRuntimeCompanion"] == "MeasuresDictSchema"
+    assert by_source["traigent.cloud.dtos"]["classification"] == "matched"
+
+    conditional_symbols = {
+        symbol
+        for block in blocks
+        for symbol in block["symbols"]
+    }
+    assert conditional_symbols == PYTHON_DEVELOP_CONDITIONAL_ROOT_SYMBOLS
+
+
 def test_required_js_exports_are_classified_and_include_stubs() -> None:
     manifest = load_manifest()
     required = set(manifest["javascript"]["requiredRootExports"])
@@ -215,6 +284,8 @@ def test_required_js_exports_are_classified_and_include_stubs() -> None:
 
     assert required <= classified
     assert production_exports <= required
+    assert conditional_symbols_by_js_runtime(manifest, "required") <= required
+    assert conditional_symbols_by_js_runtime(manifest, "not-required").isdisjoint(required)
     assert stub_exports <= required
     assert stub_exports.isdisjoint(deferred_out_of_release)
     assert required.isdisjoint(deferred_out_of_release)

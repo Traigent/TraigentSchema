@@ -5,14 +5,46 @@
   "python": {
     "repo": "Traigent/Traigent",
     "targetRef": "origin/develop",
-    "targetSha": "f9f1adcb19ea8c3874bb1b7ef21f6d11b1b95a18",
-    "releaseSurface": "next-python-release",
+    "targetSha": "8200124b10f27e3b9d7b408d9657e16572a9f2b8",
+    "releaseSurface": "next-release",
     "publishedVersionAtPinTime": "0.11.4",
-    "note": "This manifest intentionally tracks Python develop, not the currently published Python package. JS 0.2.0 is forward-bound to the next Python public surface unless Python 0.12.0 ships first."
+    "note": "This manifest intentionally tracks Python develop, not the currently published Python package. JS 0.2.0 is forward-bound to the next Python 0.12.0 public surface unless Python 0.12.0 ships first.",
+    "conditionalRootExports": [
+      {
+        "source": "traigent.cloud.agent_dtos",
+        "condition": "Python runtime extends traigent.__all__ only when importing traigent.cloud.agent_dtos through the traigent.cloud package succeeds.",
+        "symbols": [
+          "AgentCostBreakdown",
+          "WorkflowCostSummary"
+        ],
+        "runtime": {
+          "python": "conditional",
+          "js": "not-required"
+        },
+        "classification": "deferred-backlog"
+      },
+      {
+        "source": "traigent.cloud.dtos",
+        "condition": "Python runtime extends traigent.__all__ only when importing traigent.cloud.dtos through the traigent.cloud package succeeds.",
+        "symbols": [
+          "MeasuresDict"
+        ],
+        "runtime": {
+          "python": "conditional",
+          "js": "required",
+          "javascriptKind": "type",
+          "javascriptRuntimeCompanion": "MeasuresDictSchema"
+        },
+        "classification": "matched"
+      }
+    ]
   },
   "javascript": {
     "package": "@traigent/sdk",
     "targetRelease": "0.2.0",
+    "observedRef": "origin/main",
+    "observedSha": "c5c7f7e2e58ecf3195f8b3163891850c88da34ba",
+    "observedShaPolicy": "Informational only. JS is validated as any build that satisfies requiredRootExports; observedSha is recorded for parity-drift postmortems.",
     "requiredRootExports": [
       "AnnotationQueueDTO",
       "AnnotationQueueItemDTO",
@@ -106,7 +138,7 @@
   },
   "releasePolicy": {
     "js020PythonReleaseOrder": "JS 0.2.0 may ship before Python 0.12.0. If it does, release notes must describe this as forward-compatible with the next Python public surface, not parity with the currently published Python package.",
-    "publishedPythonCompatibilityNote": "Python 0.11.4 at pin time does not expose BenchmarkClient, BenchmarkClientConfig, Dataset, or EvaluationExample. Those symbols are included because the manifest tracks Python develop at f9f1adcb.",
+    "publishedPythonCompatibilityNote": "Python 0.11.4 at pin time does not expose BenchmarkClient, BenchmarkClientConfig, Dataset, or EvaluationExample. Those symbols are included because the manifest tracks Python develop at 8200124b.",
     "refreshCadence": [
       "Refresh the manifest on every Python public SDK release candidate or release branch.",
       "Refresh the manifest in the same PR family as any Python change to traigent.__all__.",
@@ -299,7 +331,7 @@
     "manifestRefresh": "TraigentSchema owns manifest refreshes for Python release candidates, Python __all__ changes, JS minor parity releases, and quarterly drift checks when release cadence is slow.",
     "benchmarkClient": "JS 0.2.0 exports a throwing BenchmarkClient stub because Python develop re-added BenchmarkClient, but the benchmark dataset generation endpoint is not yet schema-owned.",
     "enterpriseAdminClient": "JS 0.2.0 keeps the throwing EnterpriseAdminClient migration stub pending Traigent/traigent-js#30.",
-    "observabilityWrappers": "Default-client helpers and the observe wrapper are deferred to 0.3.0 to avoid expanding the 0.2.0 parity release with new runtime semantics.",
+    "observabilityWrappers": "Default-client helpers and the observe wrapper are deferred to 0.3.0 to avoid expanding the 0.2.0 parity release with new runtime semantics; track in Traigent/traigent-js#38.",
     "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order."
   }
 }

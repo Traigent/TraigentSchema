@@ -5,16 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.1.0] - 2026-05-08
+## [4.1.0] - 2026-05-09
 
 ### Added
-- Added `parity/python-js-sdk.json` as the authoritative Python/JavaScript SDK
+- `multi_objective_semantics_schema.json` under `optimization/` codifies the
+  normative behavioral contract for multi-objective normalization. Pins
+  `zero_span_fallback = 0.5`, `zero_span_epsilon = 1e-9`,
+  `weight_normalization = "sum_to_one"`, and `dominance_guard.max_normalized_weight = 0.99`
+  with `validation_scope = ["sdk"]`. The document is a meta-contract: the
+  constants are not wire-format fields, they describe behavior implementations
+  must hard-code. Rolls out across Python SDK, traigent-js, TraigentBackend
+  (recompute path), and TraigentFrontend.
+- `objective_definition_schema.json` bumped to `0.9.1` with a description
+  pointer to the new semantics doc; no field changes.
+- `experiment_schema.json` bumped to `1.1.0` to expose list-stats fields:
+  `configuration_runs_count`, `total_examples`, `optimization_runs_count`, and
+  the `ExperimentListRunSummary` / `experiment_run` summary nested under
+  `experiments[*]`. Consumed by the SDK list endpoint and the Frontend
+  experiments table; no breaking changes to existing consumers.
+- `parity/python-js-sdk.json` as the authoritative Python/JavaScript SDK
   parity manifest, including release-order and refresh-cadence policy.
-- Added manifest classifications for workflow-cost parity symbols used by the
+- Manifest classifications for workflow-cost parity symbols used by the
   Python and JavaScript SDKs.
-- Added CI coverage that validates Python root-symbol classifications and
+- CI coverage that validates Python root-symbol classifications and
   required JavaScript export coverage against the parity manifest.
-- Added `planner/planner_draft_schema.json` for planner draft contracts.
+- `planner/planner_draft_schema.json` for planner draft contracts.
 
 ### Changed
 - Published the repository as the public source for `traigent-schema` contracts.

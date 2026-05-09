@@ -135,7 +135,7 @@
     "measures": {
       "type": "array",
       "items": {
-        "$ref": "./measure_schema.json#"
+        "$ref": "../measures/measure_schema.json#"
       },
       "description": "Performance and evaluation measures associated with the agent"
     },

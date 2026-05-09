@@ -262,6 +262,10 @@
       "description": "List of measures used to evaluate performance",
       "minItems": 1
     },
+    "objectives": {
+      "$ref": "../optimization/objective_schema.json",
+      "description": "SDK-defined objective names, orientations, weights, and normalization defaults for this experiment"
+    },
     "configuration_runs_count": {
       "type": "integer",
       "minimum": 0,

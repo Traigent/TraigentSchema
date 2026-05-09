@@ -15,7 +15,7 @@
           "x-reference": true
         },
         "generator_config": {
-          "$ref": "./generator_config_schema.json#",
+          "$ref": "../datasets/generator_config_schema.json#",
           "description": "Generator configuration"
         },
         "evaluator_config_id": {
@@ -24,7 +24,7 @@
           "x-reference": true
         },
         "evaluator_config": {
-          "$ref": "./evaluator_config_schema.json#",
+          "$ref": "../datasets/evaluator_config_schema.json#",
           "description": "Evaluator configuration"
         },
         "model_parameters_id": {
@@ -77,6 +77,72 @@
         }
       },
       "additionalProperties": false
+    },
+    "NormalizationRange": {
+      "type": "object",
+      "description": "Observed min/max range used to normalize one objective.",
+      "required": ["min", "max"],
+      "properties": {
+        "min": {
+          "type": "number",
+          "description": "Minimum observed objective value"
+        },
+        "max": {
+          "type": "number",
+          "description": "Maximum observed objective value"
+        }
+      },
+      "additionalProperties": false
+    },
+    "MultiObjectiveAnalysis": {
+      "type": "object",
+      "description": "SDK-computed multi-objective scoring details carried through summary_stats.",
+      "properties": {
+        "weighted_score": {
+          "type": ["number", "null"],
+          "description": "Weighted aggregate score after objective normalization"
+        },
+        "objective_weights": {
+          "type": "object",
+          "description": "Objective name to user-supplied relative weight",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "normalization_ranges": {
+          "type": "object",
+          "description": "Objective name to observed normalization range",
+          "additionalProperties": {
+            "$ref": "#/definitions/NormalizationRange"
+          }
+        },
+        "analysis_timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the SDK computed this analysis"
+        }
+      },
+      "additionalProperties": true
+    },
+    "SummaryStats": {
+      "type": "object",
+      "description": "Aggregated run metrics, including objective-aware weighted scoring metadata.",
+      "properties": {
+        "weighted_score": {
+          "type": ["number", "null"],
+          "description": "Weighted aggregate score after objective normalization"
+        },
+        "multi_objective_analysis": {
+          "$ref": "#/definitions/MultiObjectiveAnalysis",
+          "description": "Detailed multi-objective scoring metadata"
+        },
+        "metrics": {
+          "$ref": "#/definitions/MeasureResults",
+          "description": "Flat aggregate metrics by name"
+        }
+      },
+      "additionalProperties": true
     }
   },
   "properties": {
@@ -110,8 +176,16 @@
       ],
       "description": "Results from measure evaluations for this configuration. Each item contains example_id and metrics."
     },
+    "summary_stats": {
+      "$ref": "#/definitions/SummaryStats",
+      "description": "Aggregated metrics and optional multi-objective analysis for this configuration run"
+    },
+    "weighted_score": {
+      "type": ["number", "null"],
+      "description": "SDK-computed aggregate score for the configured objectives, exposed as a top-level field for sorting and display"
+    },
     "status": {
-      "$ref": "./status_schema.json#/definitions/ConfigurationRunStatus",
+      "$ref": "../status_schema.json#/definitions/ConfigurationRunStatus",
       "description": "Current execution status of the configuration run"
     },
     "error_message": {

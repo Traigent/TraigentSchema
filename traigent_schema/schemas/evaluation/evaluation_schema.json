@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "definitions": {
     "EvaluationStatus": {
-      "$ref": "./status_schema.json#/definitions/EvaluationStatus",
+      "$ref": "../status_schema.json#/definitions/EvaluationStatus",
       "description": "Status of an evaluation request"
     },
     "EvaluationRequest": {
@@ -112,13 +112,13 @@
           "description": "Summary statistics by metric type and statistic name"
         },
         "scores": {
-          "$ref": "./score_schema.json#/definitions/ScoreCollection",
+          "$ref": "../measures/score_schema.json#/definitions/ScoreCollection",
           "description": "Collection of scores for this evaluation"
         },
         "responses": {
           "type": "array",
           "items": {
-            "$ref": "./agent_response_schema.json",
+            "$ref": "../agents/agent_response_schema.json",
             "description": "Agent execution responses that were evaluated"
           }
         }
@@ -134,4 +134,4 @@
     {"$ref": "#/definitions/EvaluationResult"}
   ],
   "description": "Evaluation data structures for the Traigent platform"
-} 
+}

@@ -28,6 +28,44 @@ class TestSchemaFileIntegrity:
         assert len(schema_files) >= 35
 
 
+def _objective_schema_payload():
+    return {
+        "schema_version": "1.0.0",
+        "objectives": [
+            {
+                "name": "accuracy",
+                "orientation": "maximize",
+                "weight": 0.3,
+                "normalization": "min_max",
+            },
+            {
+                "name": "cost",
+                "orientation": "minimize",
+                "weight": 0.2,
+                "normalization": "min_max",
+                "unit": "usd",
+            },
+            {
+                "name": "latency",
+                "orientation": "minimize",
+                "weight": 0.5,
+                "normalization": "robust",
+                "bounds": [0, 1000],
+                "unit": "ms",
+            },
+        ],
+    }
+
+
+def _infrastructure_payload():
+    return {
+        "infrastructure_id": "infra_123",
+        "compute": "cpu",
+        "memory": "8GB",
+        "timeout": 300,
+    }
+
+
 class TestSchemaStructure:
     """Tests for schema file structure."""
 
@@ -753,3 +791,148 @@ class TestDatasetContracts:
 
         errors = validator.validate_json(payload, "experiment_schema")
         assert errors == []
+
+
+class TestObjectiveSchemaContracts:
+    def test_objective_schema_accepts_sdk_defined_objectives(self):
+        validator = SchemaValidator()
+
+        errors = validator.validate_json(_objective_schema_payload(), "objective_schema")
+
+        assert errors == []
+
+    def test_objective_schema_requires_orientation_and_weight(self):
+        validator = SchemaValidator()
+        payload = {
+            "objectives": [
+                {
+                    "name": "accuracy",
+                }
+            ]
+        }
+
+        errors = validator.validate_json(payload, "objective_schema")
+
+        assert errors
+        assert any("orientation" in error for error in errors)
+        assert any("weight" in error for error in errors)
+
+    def test_experiment_schema_accepts_objectives_contract(self):
+        validator = SchemaValidator()
+        payload = {
+            "id": "experiment_objectives_123",
+            "name": "support-qa-experiment",
+            "description": "Experiment with SDK-defined objectives",
+            "configurations": {
+                "infrastructure": _infrastructure_payload(),
+            },
+            "agent_id": "agent_123",
+            "model_parameters_id": "model_parameters_123",
+            "dataset_id": "dataset_123",
+            "measures": ["measure_123"],
+            "objectives": _objective_schema_payload(),
+        }
+
+        errors = validator.validate_json(payload, "experiment_schema")
+
+        assert errors == []
+
+    def test_experiment_run_schema_accepts_objectives_contract(self):
+        validator = SchemaValidator()
+        payload = {
+            "id": "experiment_run_123",
+            "experiment_id": "experiment_objectives_123",
+            "experiment_data": {},
+            "objectives": _objective_schema_payload(),
+        }
+
+        errors = validator.validate_json(payload, "experiment_run_schema")
+
+        assert errors == []
+
+    def test_configuration_run_schema_accepts_multi_objective_summary_stats(self):
+        validator = SchemaValidator()
+        payload = {
+            "id": "configuration_run_123",
+            "experiment_run_id": "experiment_run_123",
+            "experiment_parameters": {
+                "infrastructure": _infrastructure_payload(),
+            },
+            "status": "pruned",
+            "weighted_score": 0.89,
+            "summary_stats": {
+                "weighted_score": 0.89,
+                "metrics": {
+                    "accuracy": 0.94,
+                    "cost": 0.12,
+                    "latency": 180,
+                },
+                "multi_objective_analysis": {
+                    "weighted_score": 0.89,
+                    "objective_weights": {
+                        "accuracy": 0.3,
+                        "cost": 0.2,
+                        "latency": 0.5,
+                    },
+                    "normalization_ranges": {
+                        "accuracy": {"min": 0.7, "max": 0.99},
+                        "cost": {"min": 0.1, "max": 0.5},
+                        "latency": {"min": 100, "max": 400},
+                    },
+                    "analysis_timestamp": "2026-05-09T07:00:00Z",
+                },
+            },
+        }
+
+        errors = validator.validate_json(payload, "configuration_run_schema")
+
+        assert errors == []
+
+    @pytest.mark.parametrize(
+        ("schema_name", "payload"),
+        [
+            (
+                "agent_schema",
+                {
+                    "id": "agent_123",
+                    "name": "Support Agent",
+                    "agent_type": "qa",
+                    "measures": [{}],
+                },
+            ),
+            (
+                "evaluation_schema",
+                {
+                    "evaluation_id": "eval_123",
+                    "configuration_id": "configuration_run_123",
+                    "experiment_run_id": "experiment_run_123",
+                    "experiment_id": "experiment_123",
+                    "metrics": ["accuracy"],
+                    "status": "completed",
+                    "scores": {},
+                    "responses": [{}],
+                },
+            ),
+            (
+                "evaluation_results_schema",
+                {
+                    "id": "eval_results_123",
+                    "evaluation_id": "eval_123",
+                    "scores": {},
+                    "detailed_metrics": {"accuracy": {}},
+                    "created_at": "2026-05-09T07:00:00Z",
+                },
+            ),
+        ],
+    )
+    def test_schema_references_resolve_without_unresolvable_errors(
+        self, schema_name, payload
+    ):
+        validator = SchemaValidator()
+
+        errors = validator.validate_json(payload, schema_name)
+
+        assert not any(
+            "Unresolvable" in error or "Validation error:" in error
+            for error in errors
+        )

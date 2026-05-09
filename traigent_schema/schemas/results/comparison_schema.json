@@ -152,7 +152,7 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": {
-              "$ref": "./score_schema.json#/definitions/AggregatedStatistics"
+              "$ref": "../measures/score_schema.json#/definitions/AggregatedStatistics"
             },
             "description": "Detailed metrics by configuration ID"
           },
@@ -215,4 +215,4 @@
   },
   "required": ["id", "configurations", "metrics", "status", "created_at"],
   "additionalProperties": false
-} 
+}

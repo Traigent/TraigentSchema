@@ -6,7 +6,7 @@
   "version": "1.0.0",
   "definitions": {
     "ExperimentRunStatus": {
-      "$ref": "./status_schema.json#/definitions/ExperimentRunStatus",
+      "$ref": "../status_schema.json#/definitions/ExperimentRunStatus",
       "description": "Current execution status of the configuration run"
     },
     "ParameterValue": {
@@ -415,7 +415,7 @@
           "x-reference": true
         },
     "generator_config": {
-      "$ref": "./generator_config_schema.json#",
+      "$ref": "../datasets/generator_config_schema.json#",
       "description": "Generator configuration"
     },
     "evaluator_config_id": {
@@ -424,8 +424,12 @@
       "x-reference": true
     },
     "evaluator_config": {
-      "$ref": "./evaluator_config_schema.json#",
+      "$ref": "../datasets/evaluator_config_schema.json#",
       "description": "Evaluator configuration"
+    },
+    "objectives": {
+      "$ref": "../optimization/objective_schema.json",
+      "description": "SDK-defined objective names, orientations, weights, and normalization defaults for this run"
     },
     "status": {
       "$ref": "#/definitions/ExperimentRunStatus",

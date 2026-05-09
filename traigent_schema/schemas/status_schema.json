@@ -26,6 +26,7 @@
         "completed",
         "failed",
         "cancelled",
+        "pruned",
         "paused",
         "pending",
         "partially_deleted"

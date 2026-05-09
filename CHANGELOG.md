@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `optimization/objective_schema.json` as the wire-format container for
+  SDK-defined objective names, orientations, weights, and normalization defaults.
+- Optional `objectives` fields on experiment and experiment-run schemas, plus
+  `summary_stats`, `weighted_score`, and `multi_objective_analysis` support on
+  configuration runs.
+
+### Fixed
+- Corrected stale sibling-directory `$ref` paths in agent, evaluation,
+  configuration-run, experiment-run, and comparison schemas.
+- Added `pruned` to `ConfigurationRunStatus` to reflect the SDK/backend trial
+  submission contract.
+
 ## [4.1.0] - 2026-05-09
 
 ### Added

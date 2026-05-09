@@ -1,9 +1,10 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/objective_definition_schema.json",
   "type": "object",
   "title": "Objective Definition Schema",
-  "description": "Defines an optimization objective compatible with TVL 0.9. Specifies a metric to optimize, its direction, and optional banding. Multi-objective normalization and aggregation behavior (zero-span fallback, weight rescaling, dominance guard) is specified separately in multi_objective_semantics_schema.json as a meta-contract; those constants are not wire-format fields.",
-  "version": "0.9.1",
+  "description": "Defines an optimization objective compatible with TVL 0.9 and SDK wire payloads. Specifies a metric to optimize, its orientation/direction, weight, normalization, and optional banding. Multi-objective normalization and aggregation behavior (zero-span fallback, weight rescaling, dominance guard) is specified separately in multi_objective_semantics_schema.json as a meta-contract; those constants are not wire-format fields.",
+  "version": "0.9.2",
   "definitions": {
     "ObjectiveDirection": {
       "type": "string",
@@ -39,6 +40,12 @@
         }
       },
       "additionalProperties": false
+    },
+    "NormalizationStrategy": {
+      "type": "string",
+      "enum": ["min_max", "z_score", "robust"],
+      "default": "min_max",
+      "description": "Strategy used to normalize objective values before weighted aggregation."
     }
   },
   "properties": {
@@ -49,7 +56,11 @@
     },
     "direction": {
       "$ref": "#/definitions/ObjectiveDirection",
-      "description": "Optimization direction for this objective"
+      "description": "Optimization direction for this objective. Kept as the TVL-compatible alias for orientation."
+    },
+    "orientation": {
+      "$ref": "#/definitions/ObjectiveDirection",
+      "description": "SDK wire-format optimization orientation for this objective."
     },
     "weight": {
       "type": "number",
@@ -57,13 +68,46 @@
       "default": 1,
       "minimum": 0
     },
+    "normalization": {
+      "$ref": "#/definitions/NormalizationStrategy",
+      "description": "Normalization strategy used before aggregating this objective"
+    },
+    "bounds": {
+      "type": ["array", "null"],
+      "description": "Optional [lower, upper] objective bounds used by SDK objective schemas",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
     "unit": {
-      "type": "string",
+      "type": ["string", "null"],
       "description": "Optional unit of measurement (e.g., 'percent', 'seconds', 'usd')"
     },
     "band": {
-      "$ref": "#/definitions/BandTarget",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/BandTarget"
+        },
+        {
+          "type": "null"
+        }
+      ],
       "description": "Target band specification (required when direction is 'band')"
+    },
+    "band_test": {
+      "type": "string",
+      "enum": ["TOST"],
+      "default": "TOST",
+      "description": "SDK wire-format statistical test for banded objectives"
+    },
+    "band_alpha": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.05,
+      "description": "SDK wire-format significance level for banded objectives"
     }
   },
   "required": ["name"],

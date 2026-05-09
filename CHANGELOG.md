@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.1.0] - 2026-05-08
+## [4.1.0] - 2026-05-09
 
 ### Added
 - `multi_objective_semantics_schema.json` under `optimization/` codifies the
@@ -18,6 +18,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (recompute path), and TraigentFrontend.
 - `objective_definition_schema.json` bumped to `0.9.1` with a description
   pointer to the new semantics doc; no field changes.
+- `experiment_schema.json` bumped to `1.1.0` to expose list-stats fields:
+  `configuration_runs_count`, `total_examples`, `optimization_runs_count`, and
+  the `ExperimentListRunSummary` / `experiment_run` summary nested under
+  `experiments[*]`. Consumed by the SDK list endpoint and the Frontend
+  experiments table; no breaking changes to existing consumers.
+- `parity/python-js-sdk.json` as the authoritative Python/JavaScript SDK
+  parity manifest, including release-order and refresh-cadence policy.
+- Manifest classifications for workflow-cost parity symbols used by the
+  Python and JavaScript SDKs.
+- CI coverage that validates Python root-symbol classifications and
+  required JavaScript export coverage against the parity manifest.
+- `planner/planner_draft_schema.json` for planner draft contracts.
+
+### Changed
+- Published the repository as the public source for `traigent-schema` contracts.
+- Removed local-only agent instruction files and Sonar workspace configuration
+  from version control, and ignored those local files going forward.
+- Clarified that `planned_projects` is a pre-release contract surface that may
+  change without a major-version bump until it graduates.
 
 ## [4.0.0] - 2026-03-28
 

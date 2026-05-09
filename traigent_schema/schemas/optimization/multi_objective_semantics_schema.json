@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/optimization/multi_objective_semantics_schema.json",
+  "$id": "https://schemas.traigent.ai/optimization/multi_objective_semantics_schema.json",
   "title": "Multi-Objective Semantics (normative meta-contract)",
   "description": "Normative behavioral contract for how implementations must normalize and aggregate multiple objectives. This document is META-CONTRACT documentation, NOT a wire-format schema: the fields below are not transmitted in API payloads. Implementations (Python SDK, traigent-js SDK, TraigentBackend, TraigentFrontend) must hard-code the const values listed here. The schema exists so behavior is discoverable and testable across the four codebases that consume objective definitions; it does not validate any request or response body. Wire-format objective fields are defined in objective_definition_schema.json.",
   "version": "1.0.0",

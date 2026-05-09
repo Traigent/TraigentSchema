@@ -282,7 +282,10 @@
       "description": "Total number of optimization/experiment runs for this experiment in list responses"
     },
     "experiment_run": {
-      "$ref": "#/definitions/ExperimentListRunSummary",
+      "oneOf": [
+        {"$ref": "#/definitions/ExperimentListRunSummary"},
+        {"type": "null"}
+      ],
       "description": "Latest experiment run summary when available"
     },
     "metadata": {

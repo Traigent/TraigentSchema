@@ -1,5 +1,6 @@
 """Tests for traigent_schema.validator module."""
 
+import json
 import logging
 
 import pytest
@@ -193,6 +194,73 @@ class TestValidateRequest:
         assert any("metrics" in error for error in errors)
         assert any("duration" in error for error in errors)
 
+    def test_inline_request_schema_resolves_registry_refs(self, validator):
+        """Inline schemas should resolve package schema $refs via the shared registry."""
+        validator._inline_request_schemas["POST:/inline-agent"] = {
+            "$ref": "https://schemas.traigent.ai/agents/agent_schema.json"
+        }
+
+        errors = validator.validate_request(
+            "/inline-agent",
+            "POST",
+            {"name": "Missing required fields"},
+        )
+
+        assert errors
+        assert any("id" in error or "agent_type" in error for error in errors)
+
+    def test_path_template_matching_treats_literal_dots_as_literals(self, validator):
+        """OpenAPI path normalization should not use unescaped regex literals."""
+        validator._endpoint_schemas = {"GET:/files/{file_id}/v1.0": "agent_schema"}
+        validator._inline_request_schemas = {}
+
+        assert (
+            validator._normalize_endpoint("GET", "/files/report/v1.0")
+            == "/files/{file_id}/v1.0"
+        )
+        assert (
+            validator._normalize_endpoint("GET", "/files/report/v1x0")
+            == "/files/report/v1x0"
+        )
+
+    def test_endpoint_modules_are_confined_to_contract_directory(
+        self, validator, tmp_path, caplog
+    ):
+        safe_module = tmp_path / "safe_endpoints.json"
+        safe_module.write_text(
+            json.dumps(
+                {
+                    "paths": {
+                        "/safe": {
+                            "post": {
+                                "requestBody": {
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {"type": "object"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        openapi = {
+            "x-endpoint-modules": [
+                {"paths_file": "../outside.json"},
+                {"paths_file": "safe_endpoints.json"},
+            ]
+        }
+
+        validator._inline_request_schemas = {}
+        with caplog.at_level(logging.WARNING):
+            validator._load_endpoint_modules(openapi, tmp_path)
+
+        assert "POST:/safe" in validator._inline_request_schemas
+        assert any("escapes" in message for message in caplog.messages)
+
     def test_default_backend_contract_ignores_planned_project_routes(self, validator):
         errors = validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/summary",
@@ -263,7 +331,9 @@ class TestValidateRequest:
         )
         assert errors == []
 
-    def test_default_backend_contract_validates_annotation_queue_partial_update_request(self, validator):
+    def test_default_backend_contract_validates_annotation_queue_partial_update_request(
+        self, validator
+    ):
         errors = validator.validate_request(
             "/api/v1beta/annotation-queues/queue_abc",
             "PATCH",

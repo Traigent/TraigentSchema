@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +44,20 @@ class SchemaValidator:
         self._registry: Registry | None = None
         self._load_schemas()
         self._load_endpoint_mappings()
+
+    @staticmethod
+    def _resolve_package_relative_path(base_dir: Path, relative_path: str) -> Path | None:
+        """Resolve an OpenAPI module path without allowing directory escape."""
+        raw_path = Path(relative_path)
+        if raw_path.is_absolute():
+            return None
+
+        base_root = base_dir.resolve()
+        resolved_path = (base_dir / raw_path).resolve()
+        if not resolved_path.is_relative_to(base_root):
+            return None
+
+        return resolved_path
 
     def _load_schemas(self) -> None:
         """Load all schema files into memory."""
@@ -115,7 +128,16 @@ class SchemaValidator:
             if not isinstance(paths_file, str):
                 continue
 
-            module_path = base_dir / paths_file
+            module_path = self._resolve_package_relative_path(base_dir, paths_file)
+            if module_path is None:
+                logger.warning(
+                    "OpenAPI endpoint module %r referenced by contract %s escapes %s",
+                    paths_file,
+                    self.contract,
+                    base_dir,
+                )
+                continue
+
             if not module_path.exists():
                 logger.warning(
                     "OpenAPI endpoint module %s referenced by contract %s does not exist",
@@ -184,8 +206,27 @@ class SchemaValidator:
         if inline_schema:
             return self._validate_inline_schema(data, inline_schema)
 
-        assert schema_name is not None
+        if schema_name is None:
+            return [f"Schema not found for endpoint: {method.upper()} {endpoint}"]
         return self.validate_json(data, schema_name)
+
+    @staticmethod
+    def _template_matches_endpoint(template: str, endpoint: str) -> bool:
+        """Match OpenAPI path templates without compiling dynamic regexes."""
+        template_parts = template.split("/")
+        endpoint_parts = endpoint.split("/")
+        if len(template_parts) != len(endpoint_parts):
+            return False
+
+        for template_part, endpoint_part in zip(template_parts, endpoint_parts):
+            if template_part.startswith("{") and template_part.endswith("}"):
+                if not endpoint_part:
+                    return False
+                continue
+            if template_part != endpoint_part:
+                return False
+
+        return True
 
     def _normalize_endpoint(self, method: str, endpoint: str) -> str:
         """Normalize concrete paths to OpenAPI path templates before lookup."""
@@ -204,8 +245,7 @@ class SchemaValidator:
             candidate_method, candidate_path = candidate_key.split(":", 1)
             if candidate_method != method.upper():
                 continue
-            pattern = "^" + re.sub(r"\{[^/]+\}", r"[^/]+", candidate_path) + "$"
-            if re.match(pattern, endpoint):
+            if self._template_matches_endpoint(candidate_path, endpoint):
                 return candidate_path
 
         return endpoint
@@ -251,7 +291,11 @@ class SchemaValidator:
     ) -> list[str]:
         """Validate JSON data against an inline request schema."""
         try:
-            validator = Draft7Validator(schema, format_checker=FormatChecker())
+            validator = Draft7Validator(
+                schema,
+                registry=self._registry,
+                format_checker=FormatChecker(),
+            )
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
         except Exception as e:

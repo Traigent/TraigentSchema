@@ -39,6 +39,44 @@ def get_schemas_dir() -> Path:
     return Path(__file__).parent / "schemas"
 
 
+def _normalize_schema_filename(schema_name: str) -> str:
+    """Return a safe schema filename for package-local lookup."""
+    if not schema_name or schema_name in {".", ".."}:
+        raise ValueError("Schema name must be a non-empty file name")
+
+    raw_path = Path(schema_name)
+    if raw_path.is_absolute() or raw_path.name != schema_name or "\\" in schema_name:
+        raise ValueError("Schema name must not include path components")
+
+    if not schema_name.endswith(".json"):
+        schema_name = f"{schema_name}.json"
+
+    if schema_name in {".json", "..json"}:
+        raise ValueError("Schema name must be a non-empty file name")
+
+    return schema_name
+
+
+def _schema_candidate_if_safe(
+    search_dir: Path,
+    schema_name: str,
+    allowed_root: Path,
+) -> Path | None:
+    candidate = search_dir / schema_name
+    if not candidate.exists():
+        return None
+
+    schemas_root = allowed_root.resolve()
+    resolved_candidate = candidate.resolve()
+    if not resolved_candidate.is_relative_to(schemas_root):
+        raise ValueError("Schema path escapes the package schema directory")
+
+    if not resolved_candidate.is_file():
+        raise FileNotFoundError(f"Schema not found: {schema_name}")
+
+    return resolved_candidate
+
+
 def get_schema_path(schema_name: str) -> Path:
     """
     Get the full path to a specific schema file.
@@ -51,31 +89,26 @@ def get_schema_path(schema_name: str) -> Path:
 
     Raises:
         FileNotFoundError: If schema file doesn't exist.
+        ValueError: If schema_name contains path components.
     """
     schemas_dir = get_schemas_dir()
+    normalized_name = _normalize_schema_filename(schema_name)
+    candidate_names = [normalized_name]
 
-    # Normalize name
-    if not schema_name.endswith('.json'):
-        schema_name = f"{schema_name}.json"
+    if not normalized_name.endswith("_schema.json"):
+        candidate_names.append(normalized_name.removesuffix(".json") + "_schema.json")
 
-    # Try direct path first
-    schema_path = schemas_dir / schema_name
-    if schema_path.exists():
-        return schema_path
+    for candidate_name in candidate_names:
+        if schema_path := _schema_candidate_if_safe(schemas_dir, candidate_name, schemas_dir):
+            return schema_path
 
-    # Search in subdirectories
-    for subdir in schemas_dir.iterdir():
-        if subdir.is_dir():
-            candidate = subdir / schema_name
-            if candidate.exists():
-                return candidate
+        for subdir in schemas_dir.iterdir():
+            if not subdir.is_dir():
+                continue
+            if schema_path := _schema_candidate_if_safe(subdir, candidate_name, schemas_dir):
+                return schema_path
 
-    # Try with _schema suffix
-    if not schema_name.endswith('_schema.json'):
-        alt_name = schema_name.replace('.json', '_schema.json')
-        return get_schema_path(alt_name)
-
-    raise FileNotFoundError(f"Schema not found: {schema_name}")
+    raise FileNotFoundError(f"Schema not found: {normalized_name}")
 
 
 def get_all_schema_files() -> list[Path]:

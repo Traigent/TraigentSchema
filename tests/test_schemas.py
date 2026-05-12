@@ -583,6 +583,22 @@ class TestProjectContracts:
         )
         assert errors == []
 
+    def test_observability_ingest_request_rejects_oversized_trace_batches(self, validator):
+        errors = validator.validate_request(
+            "/api/v1beta/projects/proj_123/observability/ingest",
+            "POST",
+            {
+                "traces": [
+                    {
+                        "id": f"trace_{index}",
+                        "name": "dataset-run",
+                    }
+                    for index in range(101)
+                ]
+            },
+        )
+        assert any("maxItems" in error or "too long" in error for error in errors)
+
     def test_trace_feedback_request_rejects_missing_rating(self, validator):
         errors = validator.validate_request(
             "/api/v1beta/projects/proj_123/observability/traces/trace_123/feedback",

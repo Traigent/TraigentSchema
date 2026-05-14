@@ -1,0 +1,90 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent MFA Contract (registered routes)",
+    "version": "1.0.0",
+    "description": "Documented Flask MFA routes registered in TraigentBackend/src/routes/mfa_routes.py. V1: minimal path + method declarations to satisfy the cross-repo conformance gate. Full request/response schemas are follow-up authoring work (Batch 3b). Codex review of Batch 3: response codes replaced with `default` until each handler is traced; this prevents the OpenAPI from contradicting actual handler returns."
+  },
+  "paths": {
+    "/api/v1/mfa/disable": {
+      "delete": {
+        "summary": "Disable MFA for the current user",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/mfa/backup-codes": {
+      "get": {
+        "summary": "Retrieve current MFA backup codes",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/mfa/setup/qr": {
+      "get": {
+        "summary": "Return MFA setup QR-code payload",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/mfa/status": {
+      "get": {
+        "summary": "Get the current user's MFA enrollment status",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/mfa/recovery": {
+      "post": {
+        "summary": "Initiate MFA recovery flow with a backup code",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/mfa/setup": {
+      "post": {
+        "summary": "Begin MFA enrollment",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/mfa/setup/verify": {
+      "post": {
+        "summary": "Verify an MFA setup token to complete enrollment",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/mfa/verify": {
+      "post": {
+        "summary": "Verify an MFA code at login (post-credential challenge)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    }
+  }
+}

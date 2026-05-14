@@ -111,7 +111,7 @@
     "source": {
       "type": "string",
       "enum": ["local_import", "ui", "api", "sdk", "import"],
-      "description": "Provenance of the agent record. `local_import` is set by the SDK's SyncManager.convert_session_to_traigent_format when an agent is created from a local optimization session; other producers (UI / API / SDK / generic import) may use the analogous tag."
+      "description": "Provenance of the agent record. Only `local_import` is stamped by a producer today: the Python SDK's SyncManager.convert_session_to_traigent_format (Traigent/traigent/cloud/sync_manager.py) sets it when an agent is created from a local optimization session. The other enum values reserve naming for future producers — `ui` for FE-initiated creation, `api` for direct REST creation, `sdk` for explicit SDK-initiated registration, `import` for the BE AgentImportService once it stamps provenance. The schema accepts these values today; downstream BE persistence (AgentDAL.create_agent and Agent.to_dict) is a separate follow-up."
     },
     "created_at": {
       "type": "string",

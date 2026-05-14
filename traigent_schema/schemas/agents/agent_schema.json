@@ -108,6 +108,11 @@
       "type": ["object", "array"],
       "description": "Custom response templates and patterns for specific scenarios"
     },
+    "source": {
+      "type": "string",
+      "enum": ["local_import", "ui", "api", "sdk", "import"],
+      "description": "Provenance of the agent record. `local_import` is set by the SDK's SyncManager.convert_session_to_traigent_format when an agent is created from a local optimization session; other producers (UI / API / SDK / generic import) may use the analogous tag."
+    },
     "created_at": {
       "type": "string",
       "format": "date-time",

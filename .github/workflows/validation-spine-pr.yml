@@ -1,0 +1,122 @@
+# Validation Spine — PR-time scope-mode run for TraigentSchema.
+#
+# Mirrors Traigent SDK's validation-spine-pr.yml. Advisory for the
+# initial calibration window. See
+# /home/nimrodbu/.claude/plans/async-plotting-stardust.md (Phase D, E1).
+#
+# Schema specializations:
+#   - Path filter targets the schema package (traigent_schema/) plus
+#     OpenAPI/JSON schema artifacts and tests/.
+#   - Particularly relevant for the `assert_in_production` and
+#     `weak_crypto_constant` markers (Schema #29/#33 calibration cases
+#     came from this repo).
+#   - Branch: main (matches existing Schema CI convention).
+
+name: validation-spine-pr
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "traigent_schema/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/validation-spine-pr.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: validation-spine-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spine-pr-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true  # advisory mode — promote after calibration
+
+    steps:
+      # Spine's hardcoded `_PYTHON_REPOS` expects Schema sources at
+      # `<workspace>/TraigentSchema/`, so check out at that subpath.
+      - name: Checkout product repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: TraigentSchema
+
+      - name: Checkout validation spine
+        uses: actions/checkout@v4
+        with:
+          repository: Traigent/traigent-validation-spine
+          ref: chore/l6-and-batch1-fixes  # WIP branch — pin to a tagged spine release once develop exists
+          path: .spine
+          token: ${{ secrets.SPINE_RO_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install --upgrade pip uv
+
+      - name: Install spine
+        working-directory: .spine
+        run: uv sync --extra dev
+
+      - name: Run security_ledger against product repo
+        id: spine-run
+        working-directory: .spine
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.spine-health"
+          # Scans the full TraigentSchema repo on every PR; PR-incremental
+          # scope is a spine follow-up.
+          ./.venv/bin/validation security-ledger run \
+            --workspace-root "$GITHUB_WORKSPACE" \
+            --health-dir "$GITHUB_WORKSPACE/.spine-health" \
+            --file-limit 500
+
+      - name: Summarize new critical findings
+        if: always()
+        working-directory: .spine
+        run: |
+          set -e
+          GAPS="$GITHUB_WORKSPACE/.spine-health/latest-security-ledger-gaps.json"
+          if [[ ! -f "$GAPS" ]]; then
+            echo "::warning::no gap report emitted (spine run failed?)"
+            exit 0
+          fi
+          ./.venv/bin/python - <<'PY'
+          import json, os, pathlib
+          gaps_path = pathlib.Path(os.environ["GITHUB_WORKSPACE"]) / ".spine-health" / "latest-security-ledger-gaps.json"
+          data = json.loads(gaps_path.read_text())
+          by_severity = (data.get("summary") or {}).get("by_severity") or {}
+          critical = by_severity.get("critical", 0)
+          high     = by_severity.get("high", 0)
+          medium   = by_severity.get("medium", 0)
+          step_summary = pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
+          with step_summary.open("a") as fh:
+              fh.write("## Validation Spine — PR scan\n\n")
+              fh.write("| Severity | Count |\n| --- | ---: |\n")
+              fh.write(f"| critical | {critical} |\n| high | {high} |\n| medium | {medium} |\n\n")
+              if critical:
+                  fh.write("**Critical findings — review before merge.** ")
+                  fh.write("Full detail in the `validation-spine-gaps` artifact below.\n")
+              else:
+                  fh.write("No critical findings.\n")
+          print(f"critical={critical} high={high} medium={medium}")
+          if critical:
+              print(f"::warning::spine reported {critical} critical finding(s); see artifact")
+          PY
+
+      - name: Upload spine gap artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-spine-gaps
+          path: .spine-health/
+          retention-days: 14
+          if-no-files-found: warn

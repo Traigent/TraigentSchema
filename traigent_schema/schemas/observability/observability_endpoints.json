@@ -213,10 +213,16 @@
                     "description": "Existing evaluation dataset the candidate is intended for."
                   },
                   "corrected_expected_output": {
-                    "description": "Optional operator-corrected expected output to preview with the candidate.",
+                    "description": "Optional operator-corrected expected output to preview with the candidate. Non-string values are serialized to a stable text representation in the response expected_output.",
                     "oneOf": [
-                      { "type": "object", "additionalProperties": true },
-                      { "type": "array", "items": {} },
+                      {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      {
+                        "type": "array",
+                        "items": {}
+                      },
                       { "type": "string" },
                       { "type": "number" },
                       { "type": "boolean" },
@@ -241,14 +247,14 @@
                     "evaluation_dataset_id": { "type": "string" },
                     "source_trace_id": {
                       "type": "string",
-                      "description": "Stored trace used as the lineage source for the candidate."
+                      "description": "Stored trace used as the lineage source for the candidate. This top-level field is the canonical client convenience field; metadata and lineage mirror it for persisted example metadata and audit consumers."
                     },
                     "input_text": {
                       "type": "string",
                       "description": "Proposed evaluation dataset example input text derived from the trace."
                     },
                     "expected_output": {
-                      "description": "Expected output proposed from the stored trace.",
+                      "description": "Expected output proposed from the stored trace, serialized as text for persistence on evaluation dataset examples.",
                       "oneOf": [
                         { "type": "string" },
                         { "type": "null" }
@@ -300,10 +306,16 @@
                     "description": "Evaluation dataset example input text derived from the trace or accepted from a candidate."
                   },
                   "expected_output": {
-                    "description": "Expected output derived from the trace or accepted from a candidate.",
+                    "description": "Expected output derived from the trace or accepted from a candidate. Non-string values are serialized to a stable text representation in the response expected_output.",
                     "oneOf": [
-                      { "type": "object", "additionalProperties": true },
-                      { "type": "array", "items": {} },
+                      {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      {
+                        "type": "array",
+                        "items": {}
+                      },
                       { "type": "string" },
                       { "type": "number" },
                       { "type": "boolean" },
@@ -311,10 +323,16 @@
                     ]
                   },
                   "corrected_expected_output": {
-                    "description": "Optional operator-corrected expected output to persist instead of the derived expected output.",
+                    "description": "Optional operator-corrected expected output to persist instead of the derived expected output. Non-string values are serialized to a stable text representation in the response expected_output.",
                     "oneOf": [
-                      { "type": "object", "additionalProperties": true },
-                      { "type": "array", "items": {} },
+                      {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      {
+                        "type": "array",
+                        "items": {}
+                      },
                       { "type": "string" },
                       { "type": "number" },
                       { "type": "boolean" },
@@ -340,13 +358,13 @@
                     "example_id": { "type": "string" },
                     "source_trace_id": {
                       "type": "string",
-                      "description": "Stored trace retained as lineage for the created example."
+                      "description": "Stored trace retained as lineage for the created example. This top-level field is the canonical client convenience field; metadata and lineage mirror it for persisted example metadata and audit consumers."
                     },
                     "input_text": {
                       "type": "string"
                     },
                     "expected_output": {
-                      "description": "Expected output persisted on the evaluation dataset example after applying any correction.",
+                      "description": "Expected output persisted on the evaluation dataset example after applying any correction, serialized as text.",
                       "oneOf": [
                         { "type": "string" },
                         { "type": "null" }

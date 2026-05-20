@@ -79,7 +79,7 @@ class TestGetSchemaPath:
         "schema_name",
         [
             "../mep",
-            "/tmp/mep.json",
+            str(Path.cwd() / "mep.json"),
             "agents/agent_schema",
             r"agents\agent_schema",
         ],

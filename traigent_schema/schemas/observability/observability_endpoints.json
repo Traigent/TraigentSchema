@@ -217,7 +217,7 @@
                     "description": "Optional operator-reviewed input text to use when stored trace input is redacted or should be corrected."
                   },
                   "expected_output": {
-                    "description": "Optional operator-reviewed expected output to preview with the candidate. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
+                    "description": "Optional operator-reviewed expected output to preview with the candidate. Mutually exclusive with corrected_expected_output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
                     "oneOf": [
                       {
                         "type": "object",
@@ -234,7 +234,7 @@
                     ]
                   },
                   "corrected_expected_output": {
-                    "description": "Optional operator-corrected expected output to preview with the candidate. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
+                    "description": "Optional operator-corrected expected output to preview with the candidate. Mutually exclusive with expected_output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
                     "oneOf": [
                       {
                         "type": "object",
@@ -250,6 +250,9 @@
                       { "type": "null" }
                     ]
                   }
+                },
+                "not": {
+                  "required": ["expected_output", "corrected_expected_output"]
                 },
                 "required": ["evaluation_dataset_id"]
               }
@@ -330,7 +333,7 @@
                     "description": "Evaluation dataset example input text derived from the trace or accepted from a candidate."
                   },
                   "expected_output": {
-                    "description": "Expected output derived from the trace or accepted from a candidate. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
+                    "description": "Expected output derived from the trace or accepted from a candidate. Mutually exclusive with corrected_expected_output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
                     "oneOf": [
                       {
                         "type": "object",
@@ -347,7 +350,7 @@
                     ]
                   },
                   "corrected_expected_output": {
-                    "description": "Optional operator-corrected expected output to persist instead of the derived expected output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
+                    "description": "Optional operator-corrected expected output to persist instead of the derived expected output. Mutually exclusive with expected_output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
                     "oneOf": [
                       {
                         "type": "object",
@@ -363,6 +366,9 @@
                       { "type": "null" }
                     ]
                   }
+                },
+                "not": {
+                  "required": ["expected_output", "corrected_expected_output"]
                 },
                 "required": ["source_trace_id"]
               }

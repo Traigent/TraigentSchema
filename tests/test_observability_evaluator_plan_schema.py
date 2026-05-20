@@ -87,3 +87,40 @@ def test_evaluation_dataset_evaluator_plan_schema_rejects_autorun():
 
     assert errors
     assert any(list(error.path) == ["execution", "can_autorun"] for error in errors)
+
+
+def test_evaluation_dataset_evaluator_plan_schema_requires_provenance_signal():
+    schema = _load_schema()
+    payload = {
+        "plan_id": "evalplan_012345abcdef",
+        "spec_version": "2026-05-21.v1",
+        "status": "operator_review_required",
+        "evaluation_dataset_id": "eval_dataset_001",
+        "source_trace_id": "trace_001",
+        "evaluators": [
+            {
+                "evaluator_key": "expected_output_alignment",
+                "display_name": "Expected Output Alignment",
+                "measure_key": "expected_output_alignment",
+                "target_type": "evaluation_dataset_example",
+                "target_field": "expected_output",
+                "priority": "required",
+                "rationale": "The generated example has expected output that should be judged.",
+            }
+        ],
+        "execution": {
+            "mode": "manual_review_before_run",
+            "can_autorun": False,
+            "suggested_sample_size": 1,
+        },
+        "warnings": [],
+        "provenance": {
+            "source": "trace_to_evaluation_dataset_example",
+            "signals": [],
+        },
+    }
+
+    errors = list(Draft202012Validator(schema).iter_errors(payload))
+
+    assert errors
+    assert any(list(error.path) == ["provenance", "signals"] for error in errors)

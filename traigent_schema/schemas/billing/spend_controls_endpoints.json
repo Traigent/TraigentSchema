@@ -1,0 +1,66 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Billing \u2014 Spend Controls",
+    "version": "1.0.0",
+    "description": "Spend-policy CRUD + spend-approval workflow (request, approve, reject). Codex priority audit P5: split out of `billing_extra_endpoints.json`."
+  },
+  "paths": {
+    "/api/v1/billing/spend-approvals": {
+      "get": {
+        "summary": "List pending spend approvals for the current tenant",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new spend-approval request",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/spend-policy": {
+      "get": {
+        "summary": "Get the active spend-policy thresholds",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update spend-policy thresholds (admin only)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/spend-approvals/{approval_id}/approve": {
+      "post": {
+        "summary": "Approve a pending spend request",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/spend-approvals/{approval_id}/reject": {
+      "post": {
+        "summary": "Reject a pending spend request",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    }
+  }
+}

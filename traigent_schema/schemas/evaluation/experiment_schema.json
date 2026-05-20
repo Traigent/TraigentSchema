@@ -262,6 +262,10 @@
       "description": "List of measures used to evaluate performance",
       "minItems": 1
     },
+    "objectives": {
+      "$ref": "../optimization/objective_schema.json",
+      "description": "SDK-defined objective names, orientations, weights, and normalization defaults for this experiment"
+    },
     "configuration_runs_count": {
       "type": "integer",
       "minimum": 0,
@@ -278,7 +282,10 @@
       "description": "Total number of optimization/experiment runs for this experiment in list responses"
     },
     "experiment_run": {
-      "$ref": "#/definitions/ExperimentListRunSummary",
+      "oneOf": [
+        {"$ref": "#/definitions/ExperimentListRunSummary"},
+        {"type": "null"}
+      ],
       "description": "Latest experiment run summary when available"
     },
     "metadata": {

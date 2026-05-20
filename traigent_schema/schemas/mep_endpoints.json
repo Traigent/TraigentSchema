@@ -46,6 +46,46 @@
       "name": "Analytics",
       "description": "Current backend example-scoring analytics routes.",
       "paths_file": "./analytics/analytics_endpoints.json"
+    },
+    {
+      "name": "Auth",
+      "description": "Current backend authentication and account routes.",
+      "paths_file": "./auth/auth_endpoints.json"
+    },
+    {
+      "name": "Audit",
+      "description": "Current backend audit, compliance, and security-alert routes.",
+      "paths_file": "./audit/audit_endpoints.json"
+    },
+    {
+      "name": "Billing Paddle",
+      "description": "Current backend Paddle-backed billing routes.",
+      "paths_file": "./billing/paddle_endpoints.json"
+    },
+    {
+      "name": "Billing Subscription Lifecycle",
+      "description": "Current backend subscription and usage routes.",
+      "paths_file": "./billing/subscription_lifecycle_endpoints.json"
+    },
+    {
+      "name": "Billing Spend Controls",
+      "description": "Current backend spend policy and approval routes.",
+      "paths_file": "./billing/spend_controls_endpoints.json"
+    },
+    {
+      "name": "Billing Wallet",
+      "description": "Current backend tenant wallet routes.",
+      "paths_file": "./billing/wallet_endpoints.json"
+    },
+    {
+      "name": "MFA",
+      "description": "Current backend multi-factor authentication routes.",
+      "paths_file": "./mfa/mfa_endpoints.json"
+    },
+    {
+      "name": "Security",
+      "description": "Current backend security event routes.",
+      "paths_file": "./security/security_endpoints.json"
     }
   ]
 }

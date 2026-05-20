@@ -1,0 +1,50 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Billing \u2014 Paddle Integration",
+    "version": "1.0.0",
+    "description": "Public-surface Flask routes covering the Paddle integration: subscription-plan catalog (public), customer portal URL, checkout intent, and the inbound webhook. Codex priority audit P5: split out of the temporary `billing_extra_endpoints.json` into semantic groups before TraigentSchema absorption."
+  },
+  "paths": {
+    "/api/v1/billing/plans": {
+      "get": {
+        "summary": "Public: list available subscription plans + prices (Paddle-backed)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/portal": {
+      "get": {
+        "summary": "Return the URL for the Paddle customer portal",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/checkout": {
+      "post": {
+        "summary": "Create a Paddle checkout intent (returns hosted checkout URL)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/webhook": {
+      "post": {
+        "summary": "Public webhook: Paddle billing-event callback (signature verified)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Audit Contract (registered routes)",
+    "version": "1.0.0",
+    "description": "Documented Flask audit routes registered in TraigentBackend/src/routes/audit_routes.py. V1: minimal path + method declarations to satisfy the cross-repo conformance gate. Full request/response schemas, query-parameter validation, and pagination definitions are follow-up authoring work (Batch 3c). Codex review of Batch 3: response codes replaced with `default` until each handler is traced; this prevents the OpenAPI from contradicting actual handler returns."
+  },
+  "paths": {
+    "/api/v1/audit/alerts": {
+      "get": {
+        "summary": "List audit-driven security alerts",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/health": {
+      "get": {
+        "summary": "Get audit-pipeline health (logging backend reachable, retention healthy)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/logs": {
+      "get": {
+        "summary": "List audit log entries (paginated, filterable)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/logs/export": {
+      "post": {
+        "summary": "Initiate an audit-log export (async job)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/logs/{log_id}": {
+      "get": {
+        "summary": "Get a specific audit log entry by id",
+        "parameters": [
+          {
+            "name": "log_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/retention-policies": {
+      "get": {
+        "summary": "List configured audit retention policies",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/security/incidents": {
+      "get": {
+        "summary": "List security incidents derived from audit signal",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/soc2/compliance-report": {
+      "get": {
+        "summary": "Generate a SOC2 compliance report from audit history",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/soc2/security-incidents": {
+      "get": {
+        "summary": "SOC2-scoped view of security incidents",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/audit/statistics": {
+      "get": {
+        "summary": "Aggregate audit-log statistics (counts by category, etc.)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Billing \u2014 Subscription Lifecycle (Flask handlers)",
+    "version": "1.0.0",
+    "description": "Subscription read + cancel + usage statistics. Complements TraigentSchema/billing/billing_endpoints.json which covers the subscription/* resource family (catalog, current, usage-periods, usage-buckets, spend-alerts, entitlements). This file documents the Flask handlers that don't fit cleanly under those resource paths. Codex priority audit P5: split out of `billing_extra_endpoints.json`."
+  },
+  "paths": {
+    "/api/v1/billing/subscription": {
+      "get": {
+        "summary": "Get the current user's subscription details",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/subscription/cancel": {
+      "post": {
+        "summary": "Cancel the current subscription (effective at period end)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/usage": {
+      "get": {
+        "summary": "Current-period usage statistics",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/usage/check": {
+      "get": {
+        "summary": "Check whether the user can perform a budget-gated action",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/usage/history": {
+      "get": {
+        "summary": "Usage history over the last N days",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    }
+  }
+}

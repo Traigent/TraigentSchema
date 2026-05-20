@@ -3,7 +3,7 @@
   "$id": "https://schemas.traigent.ai/projects/project_retention_policy_update_request_schema.json",
   "type": "object",
   "title": "Project Retention Policy Update Request Schema",
-  "description": "Patch request for project-scoped beta retention policy settings for export artifacts and materialized exports.",
+  "description": "Patch request for project-scoped beta retention and lifecycle policy settings.",
   "additionalProperties": false,
   "properties": {
     "export_artifact_retention_days": {
@@ -15,7 +15,37 @@
       "type": ["integer", "null"],
       "minimum": 1,
       "maximum": 3650
-    }
+    },
+    "trace_retention_days": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 3650
+    },
+    "dataset_retention_days": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 3650
+    },
+  "dataset_storage_limit_bytes": {
+    "type": ["integer", "null"],
+    "minimum": 1,
+    "maximum": 10995116277760
+  },
+    "observability_ingest_rpm": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 1000000
+    },
+  "inline_payload_max_bytes": {
+    "type": ["integer", "null"],
+    "minimum": 1,
+    "maximum": 10485760
+  },
+  "payload_max_bytes": {
+    "type": ["integer", "null"],
+    "minimum": 1,
+    "maximum": 104857600
+  }
   },
   "minProperties": 1
 }

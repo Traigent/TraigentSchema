@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.traigent.ai/observability/evaluation_dataset_evaluator_plan_schema.json",
   "title": "Evaluation Dataset Evaluator Plan",
   "description": "Deterministic, operator-reviewable evaluator recommendations attached to a trace-derived evaluation dataset example.",

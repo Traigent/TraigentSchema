@@ -1,0 +1,50 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Billing \u2014 Wallet Surface",
+    "version": "1.0.0",
+    "description": "Tenant-wallet routes: balance, ledger, top-ups (Paddle-checkout-backed), admin adjustments. Codex priority audit P5: split out of `billing_extra_endpoints.json`."
+  },
+  "paths": {
+    "/api/v1/billing/wallet": {
+      "get": {
+        "summary": "Get the tenant wallet balance and account state",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/wallet/ledger": {
+      "get": {
+        "summary": "Wallet transaction ledger (debits / credits / adjustments)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/wallet/admin-adjustments": {
+      "post": {
+        "summary": "Admin: manually adjust a tenant's wallet balance",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    },
+    "/api/v1/billing/wallet/top-ups": {
+      "post": {
+        "summary": "Initiate a wallet top-up (creates a Paddle checkout intent)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    }
+  }
+}

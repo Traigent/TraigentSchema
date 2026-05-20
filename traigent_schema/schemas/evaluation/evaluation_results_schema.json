@@ -31,7 +31,7 @@
       "x-reference": true
     },
     "scores": {
-      "$ref": "./score_schema.json#/definitions/ScoreCollection",
+      "$ref": "../measures/score_schema.json#/definitions/ScoreCollection",
       "description": "Collection of scores across all metrics"
     },
     "aggregate_metrics": {
@@ -44,7 +44,7 @@
     "detailed_metrics": {
       "type": "object",
       "additionalProperties": {
-        "$ref": "./score_schema.json#/definitions/AggregatedStatistics"
+        "$ref": "../measures/score_schema.json#/definitions/AggregatedStatistics"
       },
       "description": "Detailed statistics for each metric"
     },
@@ -132,4 +132,4 @@
   },
   "required": ["id", "evaluation_id", "scores", "created_at"],
   "additionalProperties": false
-} 
+}

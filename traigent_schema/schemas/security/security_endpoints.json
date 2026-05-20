@@ -1,0 +1,20 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Security Contract (registered routes)",
+    "version": "1.0.0",
+    "description": "Documented Flask security routes registered in TraigentBackend/src/routes/audit_routes.py. V1: minimal path + method declarations to satisfy the cross-repo conformance gate. Full request/response schemas are follow-up authoring work (Batch 3a). Codex review of Batch 3: response codes replaced with `default` until each handler is traced; this prevents the OpenAPI from contradicting actual handler returns."
+  },
+  "paths": {
+    "/api/v1/security/events": {
+      "get": {
+        "summary": "List recent security events (filtered audit log subset)",
+        "responses": {
+          "default": {
+            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,16 +1,15 @@
 """Tests for traigent_schema.utils module."""
 
-import json
 from pathlib import Path
 
 import pytest
 
 from traigent_schema.utils import (
-    get_schemas_dir,
-    get_schema_path,
     get_all_schema_files,
     get_contract_path,
     get_openapi_path,
+    get_schema_path,
+    get_schemas_dir,
     load_schema,
 )
 
@@ -75,6 +74,20 @@ class TestGetSchemaPath:
         """Should raise FileNotFoundError for missing schemas."""
         with pytest.raises(FileNotFoundError):
             get_schema_path("nonexistent_schema_xyz")
+
+    @pytest.mark.parametrize(
+        "schema_name",
+        [
+            "../mep",
+            "/tmp/mep.json",
+            "agents/agent_schema",
+            r"agents\agent_schema",
+        ],
+    )
+    def test_rejects_schema_path_components(self, schema_name):
+        """Schema lookup should only accept package-local schema file names."""
+        with pytest.raises(ValueError):
+            get_schema_path(schema_name)
 
 
 class TestGetAllSchemaFiles:

@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional `objectives` fields on experiment and experiment-run schemas, plus
   `summary_stats`, `weighted_score`, and `multi_objective_analysis` support on
   configuration runs.
+- `audit/security_incidents_response_schema.json` pinning the response shape
+  for `GET /api/v1/audit/security/incidents` (and the SOC2 alias). Locks the
+  backend's canonical `timestamp` / `severity` fields plus dashboard aliases
+  `detected_at` / `threat_level`, so backend/frontend field drift is caught by
+  contract tests for TraigentSchema#35. `audit/audit_endpoints.json` now
+  references the schema as the canonical `200` response for both routes.
 
 ### Fixed
 - Corrected stale sibling-directory `$ref` paths in agent, evaluation,

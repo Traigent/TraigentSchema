@@ -80,8 +80,15 @@
       "get": {
         "summary": "List security incidents derived from audit signal",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Security incidents in the requested window with a severity-rollup summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./security_incidents_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -100,8 +107,15 @@
       "get": {
         "summary": "SOC2-scoped view of security incidents",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Alias of /api/v1/audit/security/incidents kept for SOC2 clients \u2014 same response shape.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./security_incidents_response_schema.json"
+                }
+              }
+            }
           }
         }
       }

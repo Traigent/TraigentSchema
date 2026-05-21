@@ -4,7 +4,12 @@
   "title": "Security Incidents Response",
   "description": "Response shape for GET /api/v1/audit/security/incidents and GET /api/v1/audit/soc2/security-incidents. Mirrors TraigentBackend SecurityMonitor.get_recent_incidents, including both canonical fields (`timestamp`, `severity`) and dashboard aliases (`detected_at`, `threat_level`) so backend/frontend drift is caught by contract tests.",
   "type": "object",
-  "required": ["success", "data", "incidents", "summary"],
+  "required": [
+    "success",
+    "data",
+    "incidents",
+    "summary"
+  ],
   "additionalProperties": true,
   "properties": {
     "success": {
@@ -13,14 +18,20 @@
     "data": {
       "type": "array",
       "description": "Canonical incidents list. Mirrors `incidents` for legacy clients that read `data` instead.",
-      "items": { "$ref": "#/definitions/SecurityIncident" }
+      "items": {
+        "$ref": "#/definitions/SecurityIncident"
+      }
     },
     "incidents": {
       "type": "array",
       "description": "Same incidents as `data`, kept for SOC2/legacy clients.",
-      "items": { "$ref": "#/definitions/SecurityIncident" }
+      "items": {
+        "$ref": "#/definitions/SecurityIncident"
+      }
     },
-    "summary": { "$ref": "#/definitions/SecurityIncidentSummary" }
+    "summary": {
+      "$ref": "#/definitions/SecurityIncidentSummary"
+    }
   },
   "definitions": {
     "SecurityIncident": {
@@ -45,25 +56,40 @@
       "additionalProperties": true,
       "properties": {
         "id": {
-          "type": ["integer", "string"],
+          "type": [
+            "integer",
+            "string"
+          ],
           "description": "SecurityAuditLog primary key."
         },
         "timestamp": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time",
           "description": "Latest event timestamp as ISO-8601 UTC."
         },
         "detected_at": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time",
           "description": "Dashboard alias for the latest event timestamp."
         },
         "first_detected_at": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time"
         },
         "last_detected_at": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date-time"
         },
         "incident_type": {
@@ -76,57 +102,156 @@
         },
         "severity": {
           "type": "string",
-          "enum": ["critical", "high", "medium", "low"],
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
           "description": "Canonical severity label."
         },
         "threat_level": {
           "type": "string",
-          "enum": ["critical", "high", "medium", "low"],
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
           "description": "Dashboard alias for severity."
         },
-        "source_ip": { "type": ["string", "null"] },
-        "user_id": { "type": ["string", "integer", "null"] },
-        "actor": { "type": "string" },
+        "source_ip": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "user_id": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "actor": {
+          "type": "string"
+        },
         "resource": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Formatted as `<resource_type>/<resource_id>` when resource_type is set; null otherwise."
         },
         "affected_users": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "affected_resources": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
-        "description": { "type": ["string", "null"] },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "evidence": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": true,
             "properties": {
-              "event_id": { "type": ["integer", "string"] },
-              "event_type": { "type": "string" },
-              "detected_at": { "type": ["string", "null"], "format": "date-time" },
-              "reason": { "type": ["string", "null"] },
-              "source_ip": { "type": ["string", "null"] },
-              "user_id": { "type": ["string", "integer", "null"] }
+              "event_id": {
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "event_type": {
+                "type": "string"
+              },
+              "detected_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source_ip": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "user_id": {
+                "type": [
+                  "string",
+                  "integer",
+                  "null"
+                ]
+              }
             }
           }
         },
-        "event_count": { "type": "integer", "minimum": 1 },
+        "event_count": {
+          "type": "integer",
+          "minimum": 1
+        },
         "recommended_actions": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
-        "auto_response_taken": { "type": "boolean" },
-        "resolved": { "type": "boolean" },
-        "resolved_at": { "type": ["string", "null"], "format": "date-time" },
-        "resolution_notes": { "type": ["string", "null"] },
-        "outcome": { "type": ["string", "null"] },
-        "additional_context": { "type": ["object", "null"] },
-        "soc2_control": { "type": ["string", "null"] }
+        "auto_response_taken": {
+          "type": "boolean"
+        },
+        "resolved": {
+          "type": "boolean"
+        },
+        "resolved_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "resolution_notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outcome": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "additional_context": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "soc2_control": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "SecurityIncidentSummary": {
@@ -148,19 +273,59 @@
       ],
       "additionalProperties": true,
       "properties": {
-        "total_incidents": { "type": "integer", "minimum": 0 },
-        "all_incidents": { "type": "integer", "minimum": 0 },
-        "total_incident_groups": { "type": "integer", "minimum": 0 },
-        "active_incident_groups": { "type": "integer", "minimum": 0 },
-        "active_event_count": { "type": "integer", "minimum": 0 },
-        "resolved_incidents": { "type": "integer", "minimum": 0 },
-        "resolved_event_count": { "type": "integer", "minimum": 0 },
-        "resolved_incident_groups": { "type": "integer", "minimum": 0 },
-        "critical_severity": { "type": "integer", "minimum": 0 },
-        "high_severity": { "type": "integer", "minimum": 0 },
-        "medium_severity": { "type": "integer", "minimum": 0 },
-        "low_severity": { "type": "integer", "minimum": 0 },
-        "window_days": { "type": "integer", "minimum": 1, "maximum": 90 }
+        "total_incidents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "all_incidents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_incident_groups": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_incident_groups": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolved_incidents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolved_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolved_incident_groups": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "critical_severity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high_severity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium_severity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low_severity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "window_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90
+        }
       }
     }
   }

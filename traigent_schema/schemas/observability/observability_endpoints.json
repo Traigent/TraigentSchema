@@ -199,7 +199,7 @@
     "/api/v1beta/observability/traces/{trace_id}/evaluation-dataset-example-candidate": {
       "post": {
         "summary": "Generate evaluation dataset example candidate",
-        "description": "Derives an operator-reviewable evaluation dataset example candidate from a stored trace. The response returns selected example fields and source_trace_id lineage.",
+        "description": "Builds an operator-reviewable evaluation dataset example candidate from a stored trace plus any operator-supplied input or expected-output overrides. Stored trace content may be redacted; callers should provide input_text when redaction prevents safe derivation. The response returns selected example fields, source_trace_id lineage, and a deterministic recommended evaluator plan.",
         "requestBody": {
           "required": true,
           "content": {
@@ -212,8 +212,29 @@
                     "type": "string",
                     "description": "Existing evaluation dataset the candidate is intended for."
                   },
+                  "input_text": {
+                    "type": "string",
+                    "description": "Optional operator-reviewed input text to use when stored trace input is redacted or should be corrected."
+                  },
+                  "expected_output": {
+                    "description": "Optional operator-reviewed expected output to preview with the candidate. Mutually exclusive with corrected_expected_output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      {
+                        "type": "array",
+                        "items": {}
+                      },
+                      { "type": "string" },
+                      { "type": "number" },
+                      { "type": "boolean" },
+                      { "type": "null" }
+                    ]
+                  },
                   "corrected_expected_output": {
-                    "description": "Optional operator-corrected expected output to preview with the candidate. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
+                    "description": "Optional operator-corrected expected output to preview with the candidate. Mutually exclusive with expected_output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
                     "oneOf": [
                       {
                         "type": "object",
@@ -229,6 +250,9 @@
                       { "type": "null" }
                     ]
                   }
+                },
+                "not": {
+                  "required": ["expected_output", "corrected_expected_output"]
                 },
                 "required": ["evaluation_dataset_id"]
               }
@@ -251,10 +275,10 @@
                     },
                     "input_text": {
                       "type": "string",
-                      "description": "Proposed evaluation dataset example input text derived from the trace."
+                      "description": "Proposed evaluation dataset example input text derived from the trace or provided by the operator."
                     },
                     "expected_output": {
-                      "description": "Expected output proposed from the stored trace, serialized as text for persistence on evaluation dataset examples.",
+                      "description": "Expected output proposed from the stored trace or operator override, serialized as text for persistence on evaluation dataset examples.",
                       "oneOf": [
                         { "type": "string" },
                         { "type": "null" }
@@ -275,9 +299,12 @@
                         "source_trace_id": { "type": "string" }
                       },
                       "required": ["source_trace_id"]
+                    },
+                    "recommended_evaluator_plan": {
+                      "$ref": "./evaluation_dataset_evaluator_plan_schema.json"
                     }
                   },
-                  "required": ["evaluation_dataset_id", "source_trace_id", "input_text", "expected_output", "metadata", "lineage"]
+                  "required": ["evaluation_dataset_id", "source_trace_id", "input_text", "expected_output", "metadata", "lineage", "recommended_evaluator_plan"]
                 }
               }
             }
@@ -288,7 +315,7 @@
     "/api/v1beta/evaluation-datasets/{evaluation_dataset_id}/examples/from-trace": {
       "post": {
         "summary": "Create evaluation dataset example from trace",
-        "description": "Creates an example in an existing evaluation dataset using a stored trace and source_trace_id lineage. Operators may provide a corrected expected output before creation.",
+        "description": "Creates an example in an existing evaluation dataset using a stored trace and source_trace_id lineage. Operators may provide a corrected expected output before creation. The response includes a deterministic recommended evaluator plan for the created example.",
         "requestBody": {
           "required": true,
           "content": {
@@ -306,7 +333,7 @@
                     "description": "Evaluation dataset example input text derived from the trace or accepted from a candidate."
                   },
                   "expected_output": {
-                    "description": "Expected output derived from the trace or accepted from a candidate. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
+                    "description": "Expected output derived from the trace or accepted from a candidate. Mutually exclusive with corrected_expected_output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
                     "oneOf": [
                       {
                         "type": "object",
@@ -323,7 +350,7 @@
                     ]
                   },
                   "corrected_expected_output": {
-                    "description": "Optional operator-corrected expected output to persist instead of the derived expected output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
+                    "description": "Optional operator-corrected expected output to persist instead of the derived expected output. Mutually exclusive with expected_output. Non-string, non-null values are serialized to a stable text representation in the response expected_output; null remains null.",
                     "oneOf": [
                       {
                         "type": "object",
@@ -339,6 +366,9 @@
                       { "type": "null" }
                     ]
                   }
+                },
+                "not": {
+                  "required": ["expected_output", "corrected_expected_output"]
                 },
                 "required": ["source_trace_id"]
               }
@@ -385,9 +415,12 @@
                         "source_trace_id": { "type": "string" }
                       },
                       "required": ["source_trace_id"]
+                    },
+                    "recommended_evaluator_plan": {
+                      "$ref": "./evaluation_dataset_evaluator_plan_schema.json"
                     }
                   },
-                  "required": ["evaluation_dataset_id", "example_id", "source_trace_id", "input_text", "expected_output", "metadata", "lineage"]
+                  "required": ["evaluation_dataset_id", "example_id", "source_trace_id", "input_text", "expected_output", "metadata", "lineage", "recommended_evaluator_plan"]
                 }
               }
             }

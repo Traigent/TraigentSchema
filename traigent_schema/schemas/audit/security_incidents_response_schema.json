@@ -63,18 +63,12 @@
           "description": "SecurityAuditLog primary key."
         },
         "timestamp": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": "string",
           "format": "date-time",
           "description": "Latest event timestamp as ISO-8601 UTC."
         },
         "detected_at": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": "string",
           "format": "date-time",
           "description": "Dashboard alias for the latest event timestamp."
         },

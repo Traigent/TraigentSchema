@@ -148,3 +148,15 @@ def test_payload_missing_dashboard_aliases_fails() -> None:
     bad["data"][0].pop("threat_level")
     errors = validator.validate_json(bad, SCHEMA_NAME)
     assert any("detected_at" in error or "threat_level" in error for error in errors), errors
+
+
+def test_payload_null_required_timestamps_fails() -> None:
+    """Required incident timestamps are non-null in backend aggregation output."""
+    validator = SchemaValidator()
+    bad = _backend_payload()
+    bad["incidents"][0]["timestamp"] = None
+    bad["incidents"][0]["detected_at"] = None
+    bad["data"][0]["timestamp"] = None
+    bad["data"][0]["detected_at"] = None
+    errors = validator.validate_json(bad, SCHEMA_NAME)
+    assert any("timestamp" in error or "detected_at" in error for error in errors), errors

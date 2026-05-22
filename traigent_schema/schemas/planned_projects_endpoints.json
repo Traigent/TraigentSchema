@@ -352,6 +352,105 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/membership-candidates": {
+      "get": {
+        "summary": "Lookup or search tenant users for the project membership picker",
+        "description": "Tenant-scoped lookup/search used by the FE add-member picker. The tenant is resolved server-side from the project in the URL path (canonical project context); the caller cannot influence tenant scope via headers or query. Requires the project:membership:manage permission on the path-scoped project; callers without it receive a 403 with error_code=INSUFFICIENT_PERMISSIONS, NOT an empty 200 (so the FE can show a permission state instead of an apparent 'no users' state). Empty items[] in a 200 response means 'no tenant user matched'; the FE uses it to drive inline 'not found' validation before POST /api/v1beta/projects/{project_id}/memberships.",
+        "operationId": "lookupProjectMembershipCandidates",
+        "x-required-permission": "project:membership:manage",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "minLength": 1, "maxLength": 128 }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Free-text prefix/substring matched against tenant users' email and display_name. Mutually exclusive with email. Server-side trimmed; queries shorter than 2 chars after trim are rejected with INVALID_LOOKUP_QUERY to keep the picker from broadcasting full tenant directories on a single keystroke.",
+            "schema": { "type": "string", "minLength": 2, "maxLength": 255 }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "description": "Exact-match lookup used by the FE before POST /memberships to validate an existence claim. Mutually exclusive with q. When combined with require_match=true, a missing user returns 404 USER_NOT_FOUND instead of 200 with empty items.",
+            "schema": { "type": "string", "format": "email", "minLength": 3, "maxLength": 320 }
+          },
+          {
+            "name": "require_match",
+            "in": "query",
+            "required": false,
+            "description": "Only meaningful with email=. When true, a missing user yields 404 USER_NOT_FOUND so the FE can wire it to inline validation in one call; when false (default), missing users yield 200 with items=[].",
+            "schema": { "type": "boolean", "default": false }
+          },
+          {
+            "name": "exclude_existing_members",
+            "in": "query",
+            "required": false,
+            "description": "When true, users that already have a project_membership for {project_id} are filtered out of items. When false (default), they are returned with is_existing_member=true so the FE can show a disabled row.",
+            "schema": { "type": "boolean", "default": false }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "description": "Per-page cap is intentionally tight (max 50) to keep accidental directory-scrape patterns bounded.",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Membership candidate list retrieved successfully. items may be empty.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_member_candidate_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid lookup query (missing q and email, both provided, or format/length violation).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_member_lookup_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller lacks project:membership:manage on the path-scoped project, or the project is outside the caller's accessible tenant scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_member_lookup_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found within the caller's tenant scope, or (only when email= and require_match=true) the requested user does not exist in the tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_member_lookup_error_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/core-metrics/overview": {
       "get": {
         "summary": "Get project core metrics overview",

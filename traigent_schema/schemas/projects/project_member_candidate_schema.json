@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_member_candidate_schema.json",
+  "type": "object",
+  "title": "Project Member Candidate Schema",
+  "description": "Tenant-scoped user summary returned by the project-membership picker lookup/search endpoint. The candidate set is restricted to users in the same tenant as the requested project; cross-tenant lookups MUST NOT be served by this contract. Email and display name are exposed so admins can disambiguate users in the picker, but only project admins (or higher) for the given project may receive a non-empty list.",
+  "x-privacy-classification": "tenant_admin_safe",
+  "x-required-permission": "project:membership:manage",
+  "additionalProperties": false,
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "x-identifier": true,
+      "description": "Tenant-scoped user identifier. Same shape as project_membership_schema.user_id; safe to pass directly to POST /projects/{project_id}/memberships."
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Tenant the candidate belongs to. The backend MUST set this to the tenant resolved from the request's canonical project context, never from a client-supplied header."
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "minLength": 3,
+      "maxLength": 320,
+      "description": "Primary email address. Used by the picker for exact-match validation before POST."
+    },
+    "display_name": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Human-readable name for picker rendering. Null when the user has not set one."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "invited", "suspended"],
+      "description": "Tenant-level account status. Suspended users SHOULD still be returned so the FE can show a disabled row with a reason, rather than appearing missing."
+    },
+    "is_existing_member": {
+      "type": "boolean",
+      "description": "True when the candidate already has a project_membership record for the project in the URL path. FE uses this to disable the row in the picker instead of submitting a duplicate POST."
+    },
+    "existing_role": {
+      "type": ["string", "null"],
+      "enum": ["admin", "editor", "viewer", null],
+      "description": "Role of the candidate's existing project membership when is_existing_member is true; null otherwise."
+    }
+  },
+  "required": [
+    "user_id",
+    "tenant_id",
+    "email",
+    "display_name",
+    "status",
+    "is_existing_member",
+    "existing_role"
+  ]
+}

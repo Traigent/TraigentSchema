@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_member_candidate_list_response_schema.json",
+  "type": "object",
+  "title": "Project Member Candidate List Response Schema",
+  "description": "Paginated response for the tenant-scoped project-membership picker lookup/search endpoint. Empty items[] is a valid 200 response and indicates that no tenant user matched the lookup; the FE should render an inline 'no matches' state, not treat empty as an error.",
+  "x-privacy-classification": "tenant_admin_safe",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "./project_member_candidate_schema.json"
+      }
+    },
+    "pagination": {
+      "$ref": "../pagination_schema.json"
+    },
+    "query": {
+      "type": "object",
+      "description": "Echo of the resolved server-side query so the FE can reconcile the response with the request that produced it (useful for debouncing).",
+      "additionalProperties": false,
+      "properties": {
+        "q": {
+          "type": ["string", "null"],
+          "maxLength": 255
+        },
+        "email": {
+          "type": ["string", "null"],
+          "format": "email",
+          "maxLength": 320
+        },
+        "exclude_existing_members": {
+          "type": "boolean"
+        }
+      },
+      "required": ["q", "email", "exclude_existing_members"]
+    }
+  },
+  "required": ["items", "pagination", "query"]
+}

@@ -76,6 +76,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ParetoFront",
     "ParetoFrontCalculator",
     "PersistenceManager",
+    "PlatformCapabilityError",
     "PlotGenerator",
     "ProgressBarCallback",
     "ProjectManagementClient",

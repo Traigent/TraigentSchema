@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit/retention_policies_response_schema.json",
+  "title": "Audit Retention Policies Response",
+  "description": "Response shape for GET /api/v1/audit/retention-policies. Mirrors TraigentBackend audit_routes.get_retention_policies, which returns both a canonical `data` list and a `policies` alias so dashboard clients reading either field stay in sync.",
+  "type": "object",
+  "required": [
+    "success",
+    "data",
+    "policies"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "data": {
+      "type": "array",
+      "description": "Canonical retention policy list. Mirrors `policies` for legacy clients reading `data`.",
+      "items": {
+        "$ref": "#/definitions/RetentionPolicy"
+      }
+    },
+    "policies": {
+      "type": "array",
+      "description": "Same policies as `data`, kept for dashboard clients reading `policies`.",
+      "items": {
+        "$ref": "#/definitions/RetentionPolicy"
+      }
+    }
+  },
+  "definitions": {
+    "RetentionPolicy": {
+      "type": "object",
+      "required": [
+        "policy_id",
+        "name",
+        "description",
+        "retention_days",
+        "grace_period_days",
+        "applies_to",
+        "status",
+        "enforced"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "policy_id": {
+          "type": "string",
+          "description": "Stable identifier for the retention policy."
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of days a covered record is retained before deletion."
+        },
+        "grace_period_days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Days beyond `retention_days` during which records may still be recovered."
+        },
+        "applies_to": {
+          "type": "array",
+          "description": "Record classes covered by the policy (e.g. `audit_logs`, `security_events`).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "Lifecycle state of the policy (e.g. `active`, `disabled`)."
+        },
+        "enforced": {
+          "type": "boolean",
+          "description": "Whether the policy is currently being enforced by the backend."
+        }
+      }
+    }
+  }
+}

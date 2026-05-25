@@ -296,6 +296,14 @@ class TestRequiredSchemas:
         assert "./projects/projects_endpoints.json" not in paths_files
         assert "./datasets/datasets_endpoints.json" in paths_files
         assert "./observability/observability_endpoints.json" in paths_files
+        assert "./auth/auth_endpoints.json" in paths_files
+        assert "./audit/audit_endpoints.json" in paths_files
+        assert "./billing/paddle_endpoints.json" in paths_files
+        assert "./billing/subscription_lifecycle_endpoints.json" in paths_files
+        assert "./billing/spend_controls_endpoints.json" in paths_files
+        assert "./billing/wallet_endpoints.json" in paths_files
+        assert "./mfa/mfa_endpoints.json" in paths_files
+        assert "./security/security_endpoints.json" in paths_files
 
     def test_dataset_schema_exists(self, schemas_dir):
         assert (schemas_dir / "datasets" / "dataset_schema.json").exists()

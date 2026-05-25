@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.traigent.ai/observability/evaluation_dataset_evaluator_plan_schema.json",
+  "title": "Evaluation Dataset Evaluator Plan",
+  "description": "Deterministic, operator-reviewable evaluator recommendations attached to a trace-derived evaluation dataset example.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "pattern": "^evalplan_[a-f0-9]{12}$",
+      "description": "Stable identifier derived from the spec version, dataset id, source trace id, and structural recommendation signals. It must not embed trace content."
+    },
+    "spec_version": {
+      "type": "string",
+      "enum": ["2026-05-21.v1"],
+      "const": "2026-05-21.v1",
+      "description": "Version of the deterministic evaluator-plan recommendation contract."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["operator_review_required"],
+      "description": "Plans are advisory until an operator creates or selects concrete evaluators."
+    },
+    "evaluation_dataset_id": {
+      "type": "string"
+    },
+    "source_trace_id": {
+      "type": "string"
+    },
+    "evaluators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "evaluator_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "measure_key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "target_type": {
+            "type": "string",
+            "enum": ["evaluation_dataset_example"]
+          },
+          "target_field": {
+            "type": "string",
+            "enum": ["input_text", "expected_output", "both"]
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["required", "recommended"]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "evaluator_key",
+          "display_name",
+          "measure_key",
+          "target_type",
+          "target_field",
+          "priority",
+          "rationale"
+        ]
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["manual_review_before_run"]
+        },
+        "can_autorun": {
+          "type": "boolean",
+          "enum": [false],
+          "const": false
+        },
+        "suggested_sample_size": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["mode", "can_autorun", "suggested_sample_size"]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["trace_to_evaluation_dataset_example"]
+        },
+        "signals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["trace_io", "operator_correction", "expected_output_present", "structured_expected_output"]
+          }
+        }
+      },
+      "required": ["source", "signals"]
+    }
+  },
+  "required": [
+    "plan_id",
+    "spec_version",
+    "status",
+    "evaluation_dataset_id",
+    "source_trace_id",
+    "evaluators",
+    "execution",
+    "warnings",
+    "provenance"
+  ]
+}

@@ -8,17 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `optimization/objective_schema.json` as the wire-format container for
-  SDK-defined objective names, orientations, weights, and normalization defaults.
-- Optional `objectives` fields on experiment and experiment-run schemas, plus
-  `summary_stats`, `weighted_score`, and `multi_objective_analysis` support on
-  configuration runs.
 - `audit/security_incidents_response_schema.json` pinning the response shape
   for `GET /api/v1/audit/security/incidents` (and the SOC2 alias). Locks the
   backend's canonical `timestamp` / `severity` fields plus dashboard aliases
   `detected_at` / `threat_level`, so backend/frontend field drift is caught by
   contract tests for TraigentSchema#35. `audit/audit_endpoints.json` now
   references the schema as the canonical `200` response for both routes.
+
+## [4.2.0] - 2026-05-20
+
+### Added
+- `optimization/objective_schema.json` as the wire-format container for
+  SDK-defined objective names, orientations, weights, and normalization defaults.
+- Optional `objectives` fields on experiment and experiment-run schemas, plus
+  `summary_stats`, `weighted_score`, and `multi_objective_analysis` support on
+  configuration runs.
+- Canonical backend endpoint modules for auth, audit, MFA, security events, and
+  billing surfaces covering Paddle, subscriptions, spend controls, and wallet
+  operations. These modules are registered from `mep_endpoints.json` so backend
+  parity checks exercise the routes now present in TraigentBackend.
 
 ### Fixed
 - Corrected stale sibling-directory `$ref` paths in agent, evaluation,

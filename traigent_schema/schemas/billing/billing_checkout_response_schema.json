@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/billing_checkout_response_schema.json",
+  "title": "Billing Checkout Response",
+  "description": "Server-created Paddle checkout transaction response.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "checkout_url": { "type": "string", "format": "uri", "maxLength": 2048 },
+        "transaction_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "required": ["checkout_url", "transaction_id"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

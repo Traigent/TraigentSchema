@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/billing_plan_schema.json",
+  "title": "Billing Plan",
+  "description": "Public subscription plan metadata. Checkout options are opaque Traigent IDs, never Paddle price IDs.",
+  "x-privacy-classification": "aggregate_safe",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "hobby" },
+        "legacy_ids": {
+          "type": "array",
+          "items": { "enum": ["free"] }
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "price": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "monthly": { "type": "number", "minimum": 0 },
+            "annual": { "type": "number", "minimum": 0 }
+          },
+          "required": ["monthly", "annual"]
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 180 }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "popular": { "type": "boolean" },
+        "custom": { "type": "boolean" }
+      },
+      "required": ["id", "name", "description", "price", "features", "limits"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "pro" },
+        "legacy_ids": {
+          "type": "array",
+          "items": { "enum": ["individual"] }
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "price": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "monthly": { "type": "number", "minimum": 0 },
+            "annual": { "type": "number", "minimum": 0 }
+          },
+          "required": ["monthly", "annual"]
+        },
+        "checkout_options": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "monthly": { "type": ["string", "null"], "enum": ["pro_monthly", null] },
+            "annual": { "type": ["string", "null"], "enum": ["pro_annual", null] }
+          },
+          "required": ["monthly", "annual"]
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 180 }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "popular": { "type": "boolean" },
+        "custom": { "type": "boolean" }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "price",
+        "checkout_options",
+        "features",
+        "limits"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "team" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "price": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "monthly": { "type": "number", "minimum": 0 },
+            "annual": { "type": "number", "minimum": 0 }
+          },
+          "required": ["monthly", "annual"]
+        },
+        "checkout_options": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "monthly": { "type": ["string", "null"], "enum": ["team_monthly", null] },
+            "annual": { "type": ["string", "null"], "enum": ["team_annual", null] }
+          },
+          "required": ["monthly", "annual"]
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 180 }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "popular": { "type": "boolean" },
+        "custom": { "type": "boolean" }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "price",
+        "checkout_options",
+        "features",
+        "limits"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "enterprise" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "price": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "monthly": { "type": "number", "minimum": 0 },
+            "annual": { "enum": [null] }
+          },
+          "required": ["monthly", "annual"]
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 180 }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "popular": { "type": "boolean" },
+        "custom": { "type": "boolean" }
+      },
+      "required": ["id", "name", "description", "price", "features", "limits"]
+    }
+  ]
+}

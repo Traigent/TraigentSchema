@@ -5,12 +5,25 @@
   "title": "Wallet Top Up Packs Response Schema",
   "additionalProperties": false,
   "properties": {
-    "packs": {
-      "type": "array",
-      "items": {
-        "$ref": "https://schemas.traigent.ai/billing/wallet_top_up_pack_schema.json"
-      }
+    "success": {
+      "const": true
+    },
+    "message": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packs": {
+          "type": "array",
+          "items": {
+            "$ref": "https://schemas.traigent.ai/billing/wallet_top_up_pack_schema.json"
+          }
+        }
+      },
+      "required": ["packs"]
     }
   },
-  "required": ["packs"]
+  "required": ["success", "message", "data"]
 }

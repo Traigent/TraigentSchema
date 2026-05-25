@@ -42,7 +42,11 @@ def test_wallet_top_up_packs_response_hides_paddle_price_ids():
     validator = SchemaValidator()
 
     errors = validator.validate_json(
-        {"packs": [{"pack_id": "starter", "credit_usd": "5.00"}]},
+        {
+            "success": True,
+            "message": "Success",
+            "data": {"packs": [{"pack_id": "starter", "credit_usd": "5.00"}]},
+        },
         "wallet_top_up_packs_response_schema",
     )
 

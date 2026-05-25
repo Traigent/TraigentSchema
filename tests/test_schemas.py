@@ -334,6 +334,30 @@ class TestRequiredSchemas:
         assert "trials" not in required
         assert "trials_pagination" not in required
 
+    def test_workflow_metadata_schema_version_matches_field_set(self, schemas_dir):
+        with open(
+            schemas_dir / "execution" / "workflow_metadata_schema.json",
+            encoding="utf-8",
+        ) as handle:
+            schema = json.load(handle)
+
+        agent_definition = schema["definitions"]["AgentCostBreakdown"]
+        workflow_required = set(schema["definitions"]["WorkflowMetadata"]["required"])
+
+        assert schema["version"] == "3.1.0"
+        assert "v3.1.0" in schema["$comment"]
+        assert "model_used" in agent_definition["required"]
+        assert "model" not in agent_definition["properties"]
+        assert "total_tokens" in agent_definition["required"]
+        assert {
+            "total_input_tokens",
+            "total_output_tokens",
+            "total_tokens",
+            "total_input_cost",
+            "total_output_cost",
+            "total_cost",
+        } <= workflow_required
+
     def test_project_membership_update_request_schema_exists(self, schemas_dir):
         assert (
             schemas_dir / "projects" / "project_membership_update_request_schema.json"

@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit/health_response_schema.json",
+  "title": "Audit Health Response",
+  "description": "Response shape for GET /api/v1/audit/health. Mirrors TraigentBackend audit_routes.get_audit_health, which wraps a deterministic health snapshot under `data` (status, rolling 24h counters, warnings, ISO-8601 timestamp). Error path returns `success=false` with `error` and `message` strings; this schema covers both paths so the dashboard never reads through an unrecognized shape.",
+  "type": "object",
+  "required": [
+    "success"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "data": {
+      "$ref": "#/definitions/AuditHealthSnapshot"
+    },
+    "error": {
+      "type": "string",
+      "description": "Short error code returned on the failure path."
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable error detail returned on the failure path."
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        }
+      }
+    },
+    {
+      "required": [
+        "error",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "AuditHealthSnapshot": {
+      "type": "object",
+      "required": [
+        "status",
+        "recent_events",
+        "critical_events_24h",
+        "scope_violations_24h",
+        "scope_discrepancies_24h",
+        "warnings",
+        "timestamp"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Rollup health status. Backend currently emits `healthy` when no warnings fire and `warning` when critical events or scope violations are present.",
+          "enum": [
+            "healthy",
+            "warning"
+          ]
+        },
+        "recent_events": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of audit events in the last 30 minutes."
+        },
+        "critical_events_24h": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of events flagged as `severity=critical` in the last 24 hours."
+        },
+        "scope_violations_24h": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of tenant or project scope violations in the last 24 hours."
+        },
+        "scope_discrepancies_24h": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of scope dual-run discrepancies in the last 24 hours."
+        },
+        "warnings": {
+          "type": "array",
+          "description": "Human-readable warning messages explaining any non-healthy status.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC timestamp captured when the snapshot was produced."
+        }
+      }
+    }
+  }
+}

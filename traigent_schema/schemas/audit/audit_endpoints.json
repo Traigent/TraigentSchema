@@ -20,8 +20,25 @@
       "get": {
         "summary": "Get audit-pipeline health (logging backend reachable, retention healthy)",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Health snapshot for the audit pipeline: rolling counters, warnings, and an ISO-8601 timestamp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./health_response_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path \u2014 backend returns `success=false` with `error` and `message`; same schema covers both paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./health_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -70,8 +87,15 @@
       "get": {
         "summary": "List configured audit retention policies",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Retention policies with canonical `data` list and a `policies` alias for dashboard consumers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./retention_policies_response_schema.json"
+                }
+              }
+            }
           }
         }
       }

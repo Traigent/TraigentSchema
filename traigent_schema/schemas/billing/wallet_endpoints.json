@@ -45,6 +45,23 @@
           }
         }
       }
+    },
+    "/api/v1/billing/wallet/top-up-packs": {
+      "get": {
+        "summary": "List server-configured wallet top-up packs without exposing Paddle price IDs",
+        "responses": {
+          "200": {
+            "description": "Wallet top-up packs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./wallet_top_up_packs_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

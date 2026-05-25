@@ -46,6 +46,11 @@
       "name": "Analytics",
       "description": "Current backend example-scoring analytics routes.",
       "paths_file": "./analytics/analytics_endpoints.json"
+    },
+    {
+      "name": "Billing Wallet",
+      "description": "Current backend wallet billing routes.",
+      "paths_file": "./billing/wallet_endpoints.json"
     }
   ]
 }

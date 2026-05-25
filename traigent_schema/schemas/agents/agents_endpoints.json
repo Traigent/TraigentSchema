@@ -30,6 +30,16 @@
         "responses": {
           "201": {
             "description": "Agent created successfully"
+          },
+          "429": {
+            "description": "Subscription quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../billing/quota_exceeded_error_schema.json"
+                }
+              }
+            }
           }
         }
       }

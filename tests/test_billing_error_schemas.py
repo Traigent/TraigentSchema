@@ -47,3 +47,186 @@ def test_wallet_top_up_packs_response_hides_paddle_price_ids():
     )
 
     assert errors == []
+
+
+def test_billing_plans_response_uses_opaque_checkout_options():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": [
+                {
+                    "id": "pro",
+                    "legacy_ids": ["individual"],
+                    "name": "Pro",
+                    "description": "For production teams starting paid usage",
+                    "price": {"monthly": 49, "annual": 490},
+                    "checkout_options": {"monthly": "pro_monthly", "annual": "pro_annual"},
+                    "features": ["Email support"],
+                    "limits": {"trials": 500, "api_calls": 100000, "agents": 3},
+                    "popular": True,
+                }
+            ],
+        },
+        "billing_plans_response_schema",
+    )
+
+    assert errors == []
+
+
+def test_billing_plans_response_rejects_paddle_price_ids():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": [
+                {
+                    "id": "pro",
+                    "name": "Pro",
+                    "description": "For production teams starting paid usage",
+                    "price": {"monthly": 49, "annual": 490},
+                    "price_ids": {"monthly": "pri_secret", "annual": "pri_secret_annual"},
+                    "features": ["Email support"],
+                    "limits": {"trials": 500, "api_calls": 100000, "agents": 3},
+                }
+            ],
+        },
+        "billing_plans_response_schema",
+    )
+
+    assert errors
+
+
+def test_billing_plans_response_rejects_mismatched_checkout_cycle():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": [
+                {
+                    "id": "pro",
+                    "name": "Pro",
+                    "description": "For production teams starting paid usage",
+                    "price": {"monthly": 49, "annual": 490},
+                    "checkout_options": {"monthly": "pro_annual", "annual": "pro_monthly"},
+                    "features": ["Email support"],
+                    "limits": {"trials": 500, "api_calls": 100000, "agents": 3},
+                }
+            ],
+        },
+        "billing_plans_response_schema",
+    )
+
+    assert errors
+
+
+def test_billing_plans_response_rejects_paid_plan_missing_checkout_options():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": [
+                {
+                    "id": "pro",
+                    "name": "Pro",
+                    "description": "For production teams starting paid usage",
+                    "price": {"monthly": 49, "annual": 490},
+                    "features": ["Email support"],
+                    "limits": {"trials": 500, "api_calls": 100000, "agents": 3},
+                }
+            ],
+        },
+        "billing_plans_response_schema",
+    )
+
+    assert errors
+
+
+def test_billing_plans_response_rejects_cross_plan_checkout_options():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": [
+                {
+                    "id": "pro",
+                    "name": "Pro",
+                    "description": "For production teams starting paid usage",
+                    "price": {"monthly": 49, "annual": 490},
+                    "checkout_options": {
+                        "monthly": "team_monthly",
+                        "annual": "team_annual",
+                    },
+                    "features": ["Email support"],
+                    "limits": {"trials": 500, "api_calls": 100000, "agents": 3},
+                }
+            ],
+        },
+        "billing_plans_response_schema",
+    )
+
+    assert errors
+
+
+def test_billing_checkout_request_uses_checkout_id_not_price_id():
+    validator = SchemaValidator()
+
+    assert (
+        validator.validate_json(
+            {
+                "checkout_id": "team_annual",
+                "success_url": "https://portal-dev.traigent.ai/billing/success",
+            },
+            "billing_checkout_request_schema",
+        )
+        == []
+    )
+
+    errors = validator.validate_json(
+        {"price_id": "pri_secret"},
+        "billing_checkout_request_schema",
+    )
+
+    assert errors
+
+
+def test_billing_checkout_request_rejects_cancel_url():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "checkout_id": "pro_monthly",
+            "cancel_url": "https://portal-dev.traigent.ai/billing/canceled",
+        },
+        "billing_checkout_request_schema",
+    )
+
+    assert errors
+
+
+def test_billing_checkout_response_accepts_success_wrapper():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": {
+                "checkout_url": "https://portal-dev.traigent.ai/billing/success?_ptxn=txn_123",
+                "transaction_id": "txn_123",
+            },
+        },
+        "billing_checkout_response_schema",
+    )
+
+    assert errors == []

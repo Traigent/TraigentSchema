@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/billing_plans_response_schema.json",
+  "title": "Billing Plans Response",
+  "description": "Public response for /api/v1/billing/plans.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "data": {
+      "type": "array",
+      "items": { "$ref": "./billing_plan_schema.json" }
+    }
+  },
+  "required": ["success", "message", "data"]
+}

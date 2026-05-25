@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/billing_checkout_request_schema.json",
+  "title": "Billing Checkout Request",
+  "description": "Authenticated subscription checkout request. checkout_id is an opaque Traigent ID resolved server-side to configured Paddle prices.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "checkout_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*_(monthly|annual)$"
+    },
+    "success_url": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "maxLength": 2048
+    }
+  },
+  "required": ["checkout_id"]
+}

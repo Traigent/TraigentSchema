@@ -8,10 +8,15 @@
   "paths": {
     "/api/v1/billing/plans": {
       "get": {
-        "summary": "Public: list available subscription plans + prices (Paddle-backed)",
+        "summary": "Public: list available subscription plans and opaque checkout options",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Public plan catalog without Paddle price IDs.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./billing_plans_response_schema.json" }
+              }
+            }
           }
         }
       }
@@ -28,10 +33,23 @@
     },
     "/api/v1/billing/checkout": {
       "post": {
-        "summary": "Create a Paddle checkout intent (returns hosted checkout URL)",
+        "summary": "Create a Paddle checkout intent from an opaque Traigent checkout ID",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "./billing_checkout_request_schema.json" }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Server-created checkout transaction.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./billing_checkout_response_schema.json" }
+              }
+            }
           }
         }
       }

@@ -16,6 +16,11 @@
       "name": "Direct Tuning",
       "description": "Session and hybrid tuning routes used by SDK clients.",
       "paths_file": "./optimization/optimization_endpoints.json"
+    },
+    {
+      "name": "Guided Generation",
+      "description": "Session routes that issue an opaque GuidancePlan and ingest content-free generation results.",
+      "paths_file": "./guidance/guidance_endpoints.json"
     }
   ]
 }

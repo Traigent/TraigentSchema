@@ -1,0 +1,15 @@
+{
+  "plan_id": "plan_run123_v3",
+  "plan_token": "v1.eyJ0ZW5hbnQiOiJ0MSJ9.abcdef0123456789",
+  "results": [
+    {
+      "seed_ref": "ex_a1b2c3d4_0",
+      "action": "generate_harder",
+      "generated_count": 3,
+      "new_example_refs": [
+        "ex_99887766_0",
+        "ex_99887766_1"
+      ]
+    }
+  ]
+}

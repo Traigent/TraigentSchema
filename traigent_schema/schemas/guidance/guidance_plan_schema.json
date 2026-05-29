@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/guidance/guidance_plan_schema.json",
+  "title": "GuidancePlan",
+  "description": "The opaque guidance primitive returned to clients. It conveys SELECTION (which seeds, what action, a coarse priority) but no proprietary tuning signals: no signal names, no numeric signal values, no formulas, and no per-seed count. Plans are deterministic and idempotent per (run, policy_version); items are ordered by hash(seed_ref) by the server so position leaks nothing. additionalProperties is false at every level so no signal field can be smuggled in.",
+  "type": "object",
+  "required": [
+    "plan_id",
+    "policy_version",
+    "plan_kind",
+    "items",
+    "plan_budget",
+    "plan_token",
+    "expires_at"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "description": "Stable identifier for this plan. Deterministic for a given (run, policy_version)."
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "description": "Opaque version tag of the server-side selection policy that produced this plan. Rotated periodically; not client-interpretable."
+    },
+    "plan_kind": {
+      "$ref": "./guidance_action_schema.json#/definitions/PlanKind"
+    },
+    "items": {
+      "type": "array",
+      "description": "Selected seeds with their action and coarse priority. May be empty (e.g. for a degenerate or too-small run, the server returns no items rather than isolating a signal).",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "./guidance_plan_item_schema.json"
+      }
+    },
+    "plan_budget": {
+      "type": "object",
+      "description": "Plan-level generation budget. This is the client's requested budget, echoed and capped by the server — NOT a signal-derived per-seed number.",
+      "required": [
+        "total_generations"
+      ],
+      "properties": {
+        "total_generations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Maximum number of artifacts the client may generate from this plan in total."
+        }
+      },
+      "additionalProperties": false
+    },
+    "plan_token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "Opaque, server-signed token binding {tenant, project, run, policy_version, item-set, expiry}. Not client-interpretable; echoed back unchanged on guidance-results."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp after which the plan_token is no longer accepted."
+    }
+  },
+  "additionalProperties": false
+}

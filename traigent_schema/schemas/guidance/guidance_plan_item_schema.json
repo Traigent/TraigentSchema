@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/guidance/guidance_plan_item_schema.json",
+  "title": "GuidancePlanItem",
+  "description": "One selected seed in a GuidancePlan. Carries the client's own seed reference, a generation action, and an opaque coarse priority. It intentionally has NO numeric score field and NO per-seed count: a per-seed count would be a near-continuous channel that leaks selection ordering. Generation volume is governed by the plan-level budget instead. additionalProperties is false so no signal can ride along.",
+  "type": "object",
+  "required": [
+    "seed_ref",
+    "action",
+    "coarse_priority"
+  ],
+  "properties": {
+    "seed_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "description": "A reference the CLIENT owns and resolves locally to content (an example id such as ex_{hash}_{index}, or a prompt-variant reference). The server never sees the underlying content."
+    },
+    "action": {
+      "$ref": "./guidance_action_schema.json#/definitions/Action"
+    },
+    "coarse_priority": {
+      "$ref": "./guidance_action_schema.json#/definitions/CoarsePriority"
+    }
+  },
+  "additionalProperties": false
+}

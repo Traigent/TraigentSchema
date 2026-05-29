@@ -28,6 +28,8 @@ _FORBIDDEN_PHRASES = [
     "highest informativeness",
     "highest difficulty",
     "weighted composite of all",
+    "Sensitivity of metrics",
+    "Variance in metrics",
 ]
 
 

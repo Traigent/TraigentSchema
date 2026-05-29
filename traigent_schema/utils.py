@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 ContractName = Literal["backend", "sdk_tuning", "planned_projects"]
-
-JSON_SUFFIX = ".json"
+_JSON_SUFFIX = ".json"
 
 _CONTRACT_FILES: dict[ContractName, str] = {
     "backend": "mep_endpoints.json",
@@ -50,10 +49,10 @@ def _normalize_schema_filename(schema_name: str) -> str:
     if raw_path.is_absolute() or raw_path.name != schema_name or "\\" in schema_name:
         raise ValueError("Schema name must not include path components")
 
-    if not schema_name.endswith(JSON_SUFFIX):
-        schema_name = f"{schema_name}{JSON_SUFFIX}"
+    if not schema_name.endswith(_JSON_SUFFIX):
+        schema_name = f"{schema_name}{_JSON_SUFFIX}"
 
-    if schema_name in {JSON_SUFFIX, f".{JSON_SUFFIX}"}:
+    if schema_name in {_JSON_SUFFIX, f".{_JSON_SUFFIX}"}:
         raise ValueError("Schema name must be a non-empty file name")
 
     return schema_name
@@ -97,9 +96,9 @@ def get_schema_path(schema_name: str) -> Path:
     normalized_name = _normalize_schema_filename(schema_name)
     candidate_names = [normalized_name]
 
-    if not normalized_name.endswith(f"_schema{JSON_SUFFIX}"):
+    if not normalized_name.endswith(f"_schema{_JSON_SUFFIX}"):
         candidate_names.append(
-            normalized_name.removesuffix(JSON_SUFFIX) + f"_schema{JSON_SUFFIX}"
+            normalized_name.removesuffix(_JSON_SUFFIX) + f"_schema{_JSON_SUFFIX}"
         )
 
     for candidate_name in candidate_names:

@@ -3,7 +3,6 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-
 SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
     / "traigent_schema"

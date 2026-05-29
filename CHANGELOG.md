@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `audit/security_incidents_response_schema.json` pinning the response shape
+  for `GET /api/v1/audit/security/incidents` (and the SOC2 alias). Locks the
+  backend's canonical `timestamp` / `severity` fields plus dashboard aliases
+  `detected_at` / `threat_level`, so backend/frontend field drift is caught by
+  contract tests for TraigentSchema#35. `audit/audit_endpoints.json` now
+  references the schema as the canonical `200` response for both routes.
+
 ## [4.2.0] - 2026-05-20
 
 ### Added
@@ -23,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configuration-run, experiment-run, and comparison schemas.
 - Added `pruned` to `ConfigurationRunStatus` to reflect the SDK/backend trial
   submission contract.
+- Corrected `workflow_metadata_schema.json`'s stale `3.0.0` version label to
+  `3.1.0` and documented the `model_used` / `total_tokens` / flattened totals
+  transition inline.
 
 ## [4.1.0] - 2026-05-09
 

@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/project_member_lookup_error_schema.json",
+  "type": "object",
+  "title": "Project Member Lookup Error Schema",
+  "description": "Error envelope for the project-membership picker lookup/search endpoint. Pins the small set of error codes the FE handles inline (before issuing POST /projects/{project_id}/memberships). The envelope intentionally never echoes user_id, email, q, or any other lookup input back to the caller, so a denied or not-found response cannot be used to enumerate users in another tenant.",
+  "additionalProperties": false,
+  "properties": {
+    "error_code": {
+      "type": "string",
+      "enum": [
+        "PROJECT_CONTEXT_REQUIRED",
+        "PROJECT_NOT_FOUND",
+        "PROJECT_ACCESS_DENIED",
+        "INSUFFICIENT_PERMISSIONS",
+        "INVALID_LOOKUP_QUERY",
+        "USER_NOT_FOUND"
+      ],
+      "description": "Stable code the FE switches on. PROJECT_CONTEXT_REQUIRED / PROJECT_NOT_FOUND / PROJECT_ACCESS_DENIED mirror project_context_error_schema for cross-endpoint consistency. INSUFFICIENT_PERMISSIONS is returned when the caller is authenticated for the project but lacks the project:membership:manage permission. INVALID_LOOKUP_QUERY is returned when neither q nor email is provided, when both are provided, or when q/email fail format/length checks. USER_NOT_FOUND is returned only by the single-user variant (email= exact lookup with require_match=true); the list variant returns 200 with items=[] instead."
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Human-readable message safe for inline rendering. MUST NOT include the requested email, user_id, or query string; that would let a caller probe other tenants by reading back the echoed value."
+    },
+    "permission_required": {
+      "type": ["string", "null"],
+      "description": "Set to the missing permission name (e.g. 'project:membership:manage') when error_code is INSUFFICIENT_PERMISSIONS; null otherwise.",
+      "maxLength": 128
+    },
+    "project_id": {
+      "type": ["string", "null"],
+      "description": "Echo of the project path parameter on PROJECT_* errors so the FE can correlate the error with the picker context. Null on non-project-context errors.",
+      "maxLength": 128
+    }
+  },
+  "required": ["error_code", "message"]
+}

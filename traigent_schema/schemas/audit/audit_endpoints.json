@@ -10,8 +10,25 @@
       "get": {
         "summary": "List audit-driven security alerts",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Active audit alert rollup with canonical `data`, dashboard `alerts` alias, static threshold configuration, and observed 24-hour metrics.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./alerts_response_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./alerts_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -20,8 +37,25 @@
       "get": {
         "summary": "Get audit-pipeline health (logging backend reachable, retention healthy)",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Health snapshot for the audit pipeline: rolling counters, warnings, and an ISO-8601 timestamp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./health_response_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path \u2014 backend returns `success=false` with `error` and `message`; same schema covers both paths.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./health_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -70,8 +104,15 @@
       "get": {
         "summary": "List configured audit retention policies",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Retention policies with canonical `data` list and a `policies` alias for dashboard consumers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./retention_policies_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -80,8 +121,15 @@
       "get": {
         "summary": "List security incidents derived from audit signal",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Security incidents in the requested window with a severity-rollup summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./security_incidents_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -100,8 +148,15 @@
       "get": {
         "summary": "SOC2-scoped view of security incidents",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Alias of /api/v1/audit/security/incidents kept for SOC2 clients \u2014 same response shape.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./security_incidents_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -110,8 +165,25 @@
       "get": {
         "summary": "Aggregate audit-log statistics (counts by category, etc.)",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Audit statistics for a requested time window: summary counts, event-type counts, and ISO-8601 date range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./statistics_response_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./statistics_response_schema.json"
+                }
+              }
+            }
           }
         }
       }

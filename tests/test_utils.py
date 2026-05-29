@@ -13,6 +13,8 @@ from traigent_schema.utils import (
     load_schema,
 )
 
+_ABSOLUTE_SCHEMA_PROBE = str((Path.cwd() / "mep.json").resolve())
+
 
 class TestGetSchemasDir:
     """Tests for get_schemas_dir function."""
@@ -79,7 +81,7 @@ class TestGetSchemaPath:
         "schema_name",
         [
             "../mep",
-            str(Path.cwd() / "mep.json"),
+            _ABSOLUTE_SCHEMA_PROBE,
             "agents/agent_schema",
             r"agents\agent_schema",
         ],

@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/quota_exceeded_error_schema.json",
+  "type": "object",
+  "title": "Quota Exceeded Error Schema",
+  "additionalProperties": false,
+  "properties": {
+    "error_code": {
+      "type": "string",
+      "const": "quota_exceeded"
+    },
+    "resource_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_usage": {
+      "type": "number",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reset_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "upgrade_url": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": ["error_code", "resource_type", "current_usage", "limit", "message"]
+}

@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit/statistics_response_schema.json",
+  "title": "Audit Statistics Response",
+  "description": "Response shape for GET /api/v1/audit/statistics. Mirrors TraigentBackend audit_routes.get_audit_statistics: a success payload wraps summary counts, event-type counts, and the ISO-8601 date range under `data`; the failure path uses the standard `success=false`, `error`, and `message` envelope.",
+  "type": "object",
+  "required": [
+    "success"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "data": {
+      "$ref": "#/definitions/AuditStatisticsData"
+    },
+    "error": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "error_code": {
+      "type": "string"
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        }
+      }
+    },
+    {
+      "required": [
+        "error",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "AuditStatisticsData": {
+      "type": "object",
+      "required": [
+        "summary",
+        "event_types",
+        "date_range"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "summary": {
+          "$ref": "#/definitions/AuditStatisticsSummary"
+        },
+        "event_types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AuditEventTypeCount"
+          }
+        },
+        "date_range": {
+          "$ref": "#/definitions/AuditStatisticsDateRange"
+        }
+      }
+    },
+    "AuditStatisticsSummary": {
+      "type": "object",
+      "required": [
+        "total_events",
+        "success_events",
+        "failure_events",
+        "success_rate",
+        "security_events"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "total_events": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "success_events": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_events": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "success_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "security_events": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "AuditEventTypeCount": {
+      "type": "object",
+      "required": [
+        "event_type",
+        "count"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "event_type": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "AuditStatisticsDateRange": {
+      "type": "object",
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

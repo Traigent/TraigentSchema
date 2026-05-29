@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/wallet_insufficient_balance_error_schema.json",
+  "type": "object",
+  "title": "Wallet Insufficient Balance Error Schema",
+  "additionalProperties": false,
+  "properties": {
+    "error_code": {
+      "type": "string",
+      "const": "wallet_insufficient_balance"
+    },
+    "available_usd": {
+      "type": "string",
+      "pattern": "^-?\\d+(\\.\\d+)?$"
+    },
+    "required_usd": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$"
+    },
+    "operation_id": {
+      "type": ["string", "null"]
+    },
+    "operation_group_id": {
+      "type": ["string", "null"]
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": ["error_code", "available_usd", "required_usd", "message"]
+}

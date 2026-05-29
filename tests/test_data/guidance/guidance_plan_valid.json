@@ -17,6 +17,6 @@
   "plan_budget": {
     "total_generations": 20
   },
-  "plan_token": "v1.eyJ0ZW5hbnQiOiJ0MSJ9.abcdef0123456789",
+  "plan_token": "opaque-plan-token-test-placeholder",
   "expires_at": "2026-05-30T00:00:00Z"
 }

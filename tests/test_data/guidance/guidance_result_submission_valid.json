@@ -1,6 +1,6 @@
 {
   "plan_id": "plan_run123_v3",
-  "plan_token": "v1.eyJ0ZW5hbnQiOiJ0MSJ9.abcdef0123456789",
+  "plan_token": "opaque-plan-token-test-placeholder",
   "results": [
     {
       "seed_ref": "ex_a1b2c3d4_0",

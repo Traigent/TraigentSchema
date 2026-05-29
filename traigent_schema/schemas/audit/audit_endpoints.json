@@ -10,8 +10,25 @@
       "get": {
         "summary": "List audit-driven security alerts",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Active audit alert rollup with canonical `data`, dashboard `alerts` alias, static threshold configuration, and observed 24-hour metrics.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./alerts_response_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./alerts_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -148,8 +165,25 @@
       "get": {
         "summary": "Aggregate audit-log statistics (counts by category, etc.)",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Audit statistics for a requested time window: summary counts, event-type counts, and ISO-8601 date range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./statistics_response_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./statistics_response_schema.json"
+                }
+              }
+            }
           }
         }
       }

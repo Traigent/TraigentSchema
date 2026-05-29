@@ -1,0 +1,204 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit/alerts_response_schema.json",
+  "title": "Audit Alerts Response",
+  "description": "Response shape for GET /api/v1/audit/alerts. Mirrors TraigentBackend audit_routes.get_security_alerts, including both canonical `data` and dashboard `alerts` lists plus the configured thresholds and observed 24-hour metrics. The failure path uses the standard `success=false`, `error`, and `message` envelope.",
+  "type": "object",
+  "required": [
+    "success"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "data": {
+      "type": "array",
+      "description": "Canonical active alert list.",
+      "items": {
+        "$ref": "#/definitions/AuditAlert"
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "description": "Dashboard alias for the active alert list.",
+      "items": {
+        "$ref": "#/definitions/AuditAlert"
+      }
+    },
+    "configuration": {
+      "$ref": "#/definitions/AuditAlertConfiguration"
+    },
+    "metrics": {
+      "$ref": "#/definitions/AuditAlertMetrics"
+    },
+    "error": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "error_code": {
+      "type": "string"
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "data",
+        "alerts",
+        "configuration",
+        "metrics"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        }
+      }
+    },
+    {
+      "required": [
+        "error",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "AuditAlert": {
+      "type": "object",
+      "required": [
+        "alert_id",
+        "severity",
+        "summary",
+        "observed_value"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "alert_id": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "observed_value": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "AuditAlertConfiguration": {
+      "type": "object",
+      "required": [
+        "alert_id",
+        "name",
+        "description",
+        "conditions",
+        "channels",
+        "enabled"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "alert_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "conditions": {
+          "$ref": "#/definitions/AuditAlertConditions"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AuditAlertConditions": {
+      "type": "object",
+      "required": [
+        "critical_events_per_day",
+        "brute_force_attempts",
+        "suspicious_activity",
+        "scope_violations_per_day",
+        "scope_discrepancies_per_day"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "critical_events_per_day": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "brute_force_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suspicious_activity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scope_violations_per_day": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scope_discrepancies_per_day": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "AuditAlertMetrics": {
+      "type": "object",
+      "required": [
+        "critical_events_24h",
+        "total_security_events_24h",
+        "scope_violations_24h",
+        "scope_discrepancies_24h"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "critical_events_24h": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_security_events_24h": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scope_violations_24h": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scope_discrepancies_24h": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

@@ -2,7 +2,8 @@
 
 Advances TraigentSchema#35 by covering the audit alerts endpoint. The backend
 handler emits both canonical `data` and dashboard `alerts` lists, static
-threshold configuration, and observed 24-hour metrics.
+threshold configuration, and observed 24-hour metrics. The failure path uses
+the standard error envelope (success=false, error, message).
 """
 
 from __future__ import annotations
@@ -14,6 +15,14 @@ from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
 SCHEMA_NAME = "alerts_response_schema"
+
+
+def _backend_failure_payload() -> dict[str, object]:
+    return {
+        "success": False,
+        "message": "Internal server error",
+        "error": "database timeout",
+    }
 
 
 def _backend_payload() -> dict[str, object]:
@@ -71,15 +80,31 @@ def test_audit_endpoints_references_alerts_schema() -> None:
     with open(path, encoding="utf-8") as handle:
         spec = json.load(handle)
 
-    response = spec["paths"]["/api/v1/audit/alerts"]["get"]["responses"]["200"]
-    schema_ref = response["content"]["application/json"]["schema"]["$ref"]
-    assert schema_ref.endswith("alerts_response_schema.json")
+    responses = spec["paths"]["/api/v1/audit/alerts"]["get"]["responses"]
+    ok_ref = responses["200"]["content"]["application/json"]["schema"]["$ref"]
+    err_ref = responses["500"]["content"]["application/json"]["schema"]["$ref"]
+    assert ok_ref.endswith("alerts_response_schema.json")
+    assert err_ref.endswith("alerts_response_schema.json")
 
 
 def test_backend_payload_validates() -> None:
     validator = SchemaValidator()
     errors = validator.validate_json(_backend_payload(), SCHEMA_NAME)
     assert errors == [], f"Expected clean validation, got: {errors}"
+
+
+def test_failure_payload_validates() -> None:
+    validator = SchemaValidator()
+    errors = validator.validate_json(_backend_failure_payload(), SCHEMA_NAME)
+    assert errors == [], f"Expected clean validation, got: {errors}"
+
+
+def test_failure_payload_missing_message_fails() -> None:
+    validator = SchemaValidator()
+    bad = deepcopy(_backend_failure_payload())
+    bad.pop("message")
+    errors = validator.validate_json(bad, SCHEMA_NAME)
+    assert errors, "Expected validation errors when failure payload omits message"
 
 
 def test_empty_active_alerts_payload_validates() -> None:
@@ -96,7 +121,7 @@ def test_payload_missing_alerts_alias_fails() -> None:
     bad = deepcopy(_backend_payload())
     bad.pop("alerts")
     errors = validator.validate_json(bad, SCHEMA_NAME)
-    assert any("alerts" in error for error in errors), errors
+    assert errors, "Expected validation errors when success payload omits alerts alias"
 
 
 def test_payload_missing_configuration_fails() -> None:
@@ -104,7 +129,7 @@ def test_payload_missing_configuration_fails() -> None:
     bad = deepcopy(_backend_payload())
     bad.pop("configuration")
     errors = validator.validate_json(bad, SCHEMA_NAME)
-    assert any("configuration" in error for error in errors), errors
+    assert errors, "Expected validation errors when success payload omits configuration"
 
 
 def test_payload_missing_metrics_fails() -> None:
@@ -112,7 +137,7 @@ def test_payload_missing_metrics_fails() -> None:
     bad = deepcopy(_backend_payload())
     bad.pop("metrics")
     errors = validator.validate_json(bad, SCHEMA_NAME)
-    assert any("metrics" in error for error in errors), errors
+    assert errors, "Expected validation errors when success payload omits metrics"
 
 
 def test_configuration_missing_condition_fails() -> None:

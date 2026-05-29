@@ -2,20 +2,15 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/audit/alerts_response_schema.json",
   "title": "Audit Alerts Response",
-  "description": "Response shape for GET /api/v1/audit/alerts. Mirrors TraigentBackend audit_routes.get_security_alerts, including both canonical `data` and dashboard `alerts` lists plus the configured thresholds and observed 24-hour metrics.",
+  "description": "Response shape for GET /api/v1/audit/alerts. Mirrors TraigentBackend audit_routes.get_security_alerts, including both canonical `data` and dashboard `alerts` lists plus the configured thresholds and observed 24-hour metrics. The failure path uses the standard `success=false`, `error`, and `message` envelope.",
   "type": "object",
   "required": [
-    "success",
-    "data",
-    "alerts",
-    "configuration",
-    "metrics"
+    "success"
   ],
   "additionalProperties": true,
   "properties": {
     "success": {
-      "type": "boolean",
-      "const": true
+      "type": "boolean"
     },
     "data": {
       "type": "array",
@@ -36,8 +31,47 @@
     },
     "metrics": {
       "$ref": "#/definitions/AuditAlertMetrics"
+    },
+    "error": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "error_code": {
+      "type": "string"
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": true
     }
   },
+  "oneOf": [
+    {
+      "required": [
+        "data",
+        "alerts",
+        "configuration",
+        "metrics"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        }
+      }
+    },
+    {
+      "required": [
+        "error",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        }
+      }
+    }
+  ],
   "definitions": {
     "AuditAlert": {
       "type": "object",

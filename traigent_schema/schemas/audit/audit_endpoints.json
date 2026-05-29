@@ -19,6 +19,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./alerts_response_schema.json"
+                }
+              }
+            }
           }
         }
       }

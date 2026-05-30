@@ -188,12 +188,17 @@ mypy traigent_schema
 
 ## Version
 
-Current release line: **4.1.0**
+Current release line: **4.3.0**
 
 Package metadata is derived from `traigent_schema/version.py` to keep runtime and published versions aligned.
 
 ## License
 
-Open-source releases of this repository are licensed under the GNU Affero
-General Public License v3.0 only. See [LICENSE](LICENSE) and [NOTICE](NOTICE)
-for details.
+`traigent-schema` is **dual-licensed**: **AGPL-3.0-only** (see [LICENSE](LICENSE)) **OR** a
+**Traigent commercial license** for use without AGPL copyleft (see
+[COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)).
+SPDX: `AGPL-3.0-only OR LicenseRef-Traigent-Commercial`.
+
+Use it free under AGPL-3.0, or contact **legal@traigent.ai** for a commercial license.
+See [LICENSING.md](LICENSING.md) for a short FAQ, [NOTICE](NOTICE) for third-party
+attributions, and [CONTRIBUTING.md](CONTRIBUTING.md) (contributions require a [CLA](CLA.md)).

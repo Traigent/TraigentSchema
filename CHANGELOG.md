@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-05-31
+
+### Changed
+- **Dual-licensed** under `AGPL-3.0-only OR LicenseRef-Traigent-Commercial`: the project is now
+  offered under the GNU AGPL-3.0-only **or** a Traigent commercial license. Added an SPDX
+  `License-Expression` (PEP 639 metadata via `hatchling>=1.27.0`), per-module SPDX headers, and
+  `COMMERCIAL-LICENSE.md`, `LICENSING.md`, `CONTRIBUTING.md`, `CLA.md`; updated `NOTICE` and
+  `README`. Dropped the deprecated AGPL trove classifier in favor of the SPDX expression.
+
 ### Added
 - `audit/security_incidents_response_schema.json` pinning the response shape
   for `GET /api/v1/audit/security/incidents` (and the SOC2 alias). Locks the

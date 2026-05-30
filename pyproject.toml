@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27.0"]  # PEP 639 SPDX license expressions require hatchling >= 1.27
 build-backend = "hatchling.build"
 
 [project]
@@ -7,8 +7,8 @@ name = "traigent-schema"
 dynamic = ["version"]
 description = "Traigent Schema Library - Data contracts and validation for the Traigent AI optimization platform"
 readme = "README.md"
-license = "AGPL-3.0-only"
-license-files = ["LICENSE", "NOTICE"]
+license = "AGPL-3.0-only OR LicenseRef-Traigent-Commercial"
+license-files = ["LICENSE", "NOTICE", "COMMERCIAL-LICENSE.md", "LICENSING.md"]
 requires-python = ">=3.9"
 authors = [
     { name = "Traigent Team", email = "dev@traigent.ai" }
@@ -16,7 +16,6 @@ authors = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",

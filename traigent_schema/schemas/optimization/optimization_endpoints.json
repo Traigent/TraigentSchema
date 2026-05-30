@@ -52,7 +52,8 @@
                     "type": "object"
                   },
                   "optimization_strategy": {
-                    "type": "object"
+                    "$ref": "./optimization_strategy_schema.json#/definitions/OptimizationStrategyConfig",
+                    "description": "Canonical optimization strategy selection constrained to implemented or explicitly aliased algorithms."
                   },
                   "user_id": {
                     "type": "string"

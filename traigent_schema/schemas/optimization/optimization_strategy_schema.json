@@ -1,0 +1,228 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json",
+  "title": "Optimization Strategy Schema",
+  "description": "Canonical optimization strategy selection and capability mapping for advertised algorithm names.",
+  "allOf": [
+    {
+      "$ref": "#/definitions/OptimizationStrategyConfig"
+    }
+  ],
+  "x-traigent-optimization-capabilities": {
+    "grid": {
+      "canonical_algorithm": "grid",
+      "implementation_status": "supported",
+      "execution_mode": "local_default",
+      "description": "Basic local/default exhaustive grid search."
+    },
+    "random": {
+      "canonical_algorithm": "random",
+      "implementation_status": "supported",
+      "execution_mode": "local_default",
+      "description": "Basic local/default random search."
+    },
+    "optuna": {
+      "canonical_algorithm": "optuna",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "description": "Smart backend optimization backed by Optuna."
+    },
+    "bayesian": {
+      "canonical_algorithm": "optuna",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "alias_for": "optuna",
+      "sampler": "tpe",
+      "description": "Alias for Optuna using the TPE sampler."
+    },
+    "tpe": {
+      "canonical_algorithm": "optuna",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "alias_for": "optuna",
+      "sampler": "tpe",
+      "description": "Alias for Optuna using the TPE sampler."
+    },
+    "hyperband": {
+      "canonical_algorithm": "hyperband",
+      "implementation_status": "deprecated_unsupported",
+      "execution_mode": "unsupported",
+      "deprecated": true,
+      "description": "Deprecated advertised name retained for compatibility metadata only; not accepted for new optimization_strategy requests."
+    }
+  },
+  "definitions": {
+    "AdvertisedOptimizationAlgorithmName": {
+      "type": "string",
+      "description": "All algorithm names that may appear in public capability metadata, including deprecated unsupported names.",
+      "enum": [
+        "grid",
+        "random",
+        "optuna",
+        "bayesian",
+        "tpe",
+        "hyperband"
+      ]
+    },
+    "SupportedOptimizationStrategyName": {
+      "type": "string",
+      "description": "Algorithm names accepted for new optimization_strategy requests.",
+      "enum": [
+        "grid",
+        "random",
+        "optuna",
+        "bayesian",
+        "tpe"
+      ]
+    },
+    "OptimizationImplementationStatus": {
+      "type": "string",
+      "enum": [
+        "supported",
+        "deprecated_unsupported"
+      ]
+    },
+    "OptimizationExecutionMode": {
+      "type": "string",
+      "enum": [
+        "local_default",
+        "smart_backend",
+        "unsupported"
+      ]
+    },
+    "OptimizationCapability": {
+      "type": "object",
+      "required": [
+        "canonical_algorithm",
+        "implementation_status",
+        "execution_mode"
+      ],
+      "properties": {
+        "canonical_algorithm": {
+          "$ref": "#/definitions/AdvertisedOptimizationAlgorithmName"
+        },
+        "implementation_status": {
+          "$ref": "#/definitions/OptimizationImplementationStatus"
+        },
+        "execution_mode": {
+          "$ref": "#/definitions/OptimizationExecutionMode"
+        },
+        "alias_for": {
+          "type": "string",
+          "enum": [
+            "optuna"
+          ]
+        },
+        "sampler": {
+          "type": "string",
+          "enum": [
+            "tpe"
+          ]
+        },
+        "deprecated": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "OptimizationStrategyConfig": {
+      "description": "Optimization strategy requested by SDK direct tuning clients. Hyperband is intentionally absent because it is deprecated and unsupported.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/SupportedOptimizationStrategyName"
+        },
+        {
+          "type": "object",
+          "required": [
+            "algorithm"
+          ],
+          "properties": {
+            "algorithm": {
+              "$ref": "#/definitions/SupportedOptimizationStrategyName"
+            },
+            "seed": {
+              "type": "integer"
+            },
+            "sampler": {
+              "type": "string",
+              "enum": [
+                "tpe",
+                "random"
+              ]
+            },
+            "max_trials": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startup_trials": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_startup_trials": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "random_seed": {
+              "type": "integer"
+            },
+            "tracking_mode": {
+              "type": "string"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "$ref": "#/definitions/SupportedOptimizationStrategyName"
+            },
+            "seed": {
+              "type": "integer"
+            },
+            "sampler": {
+              "type": "string",
+              "enum": [
+                "tpe",
+                "random"
+              ]
+            },
+            "max_trials": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startup_trials": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_startup_trials": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "random_seed": {
+              "type": "integer"
+            },
+            "tracking_mode": {
+              "type": "string"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}

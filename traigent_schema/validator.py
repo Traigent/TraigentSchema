@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -92,7 +93,7 @@ class SchemaValidator:
             with open(openapi_path, encoding='utf-8') as f:
                 openapi = json.load(f)
 
-            self._parse_openapi(openapi)
+            self._parse_openapi(openapi, openapi_path)
             self._load_endpoint_modules(openapi, openapi_path.parent)
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning(
@@ -127,12 +128,16 @@ class SchemaValidator:
             try:
                 with open(module_path, encoding="utf-8") as f:
                     module_openapi = json.load(f)
-                    self._parse_openapi(module_openapi)
+                    self._parse_openapi(module_openapi, module_path)
             except (OSError, json.JSONDecodeError) as exc:
                 logger.warning("Failed to load endpoint module %s: %s", module_path, exc)
                 continue
 
-    def _parse_openapi(self, openapi: dict[str, Any]) -> None:
+    def _parse_openapi(
+        self,
+        openapi: dict[str, Any],
+        source_path: Path | None = None,
+    ) -> None:
         """Parse OpenAPI spec to extract endpoint-schema mappings."""
         paths = openapi.get("paths", {})
         for path, methods in paths.items():
@@ -154,7 +159,16 @@ class SchemaValidator:
                         schema_name = schema_name[:-5]
                     self._endpoint_schemas[key] = schema_name
                 elif isinstance(json_schema, dict) and json_schema:
-                    self._inline_request_schemas[key] = json_schema
+                    inline_schema = deepcopy(json_schema)
+                    if source_path is not None and "$id" not in inline_schema:
+                        try:
+                            relative_path = source_path.relative_to(
+                                get_schemas_dir()
+                            ).as_posix()
+                        except ValueError:
+                            relative_path = source_path.name
+                        inline_schema["$id"] = f"{SCHEMA_ID_BASE}{relative_path}"
+                    self._inline_request_schemas[key] = inline_schema
 
     def validate_request(
         self,
@@ -251,7 +265,11 @@ class SchemaValidator:
     ) -> list[str]:
         """Validate JSON data against an inline request schema."""
         try:
-            validator = Draft7Validator(schema, format_checker=FormatChecker())
+            validator = Draft7Validator(
+                schema,
+                registry=self._registry,
+                format_checker=FormatChecker(),
+            )
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
         except Exception as e:

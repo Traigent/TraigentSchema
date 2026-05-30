@@ -61,8 +61,10 @@ jobs:
           echo "package_version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Verify version consistency
+        env:
+          PACKAGE_VERSION: ${{ steps.package_version.outputs.package_version }}
         run: |
-          VERSION_FILE="${{ steps.package_version.outputs.package_version }}"
+          VERSION_FILE="$PACKAGE_VERSION"
           VERSION_IMPORT=$(python -c "import traigent_schema; print(traigent_schema.__version__)")
           echo "version.py: $VERSION_FILE"
           echo "package import: $VERSION_IMPORT"
@@ -113,12 +115,16 @@ jobs:
 
       - name: Create deployment summary
         if: always()
+        env:
+          PACKAGE_VERSION: ${{ steps.package_version.outputs.package_version }}
+          INPUT_ENVIRONMENT: ${{ github.event.inputs.environment }}
+          JOB_STATUS: ${{ job.status }}
         run: |
           echo "## Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Package**: traigent-schema" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Version**: ${{ steps.package_version.outputs.package_version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Environment**: ${{ github.event.inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Status**: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version**: $PACKAGE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment**: $INPUT_ENVIRONMENT" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status**: $JOB_STATUS" >> "$GITHUB_STEP_SUMMARY"
 
   verify-publication:
     needs: publish
@@ -137,8 +143,9 @@ jobs:
       - name: Test installation from package index
         env:
           EXPECTED_VERSION: ${{ needs.publish.outputs.package_version }}
+          INPUT_ENVIRONMENT: ${{ github.event.inputs.environment }}
         run: |
-          if [ "${{ github.event.inputs.environment }}" = "testpypi" ]; then
+          if [ "$INPUT_ENVIRONMENT" = "testpypi" ]; then
             PACKAGE_LABEL="TestPyPI"
             PACKAGE_API_URL="https://test.pypi.org/pypi/traigent-schema/json"
             INSTALL_ARGS=(--index-url "https://test.pypi.org/simple/" --extra-index-url "https://pypi.org/simple/")

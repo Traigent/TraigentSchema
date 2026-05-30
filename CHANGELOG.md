@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-05-31
+
+### Added
+- Supported Hyperband as an Optuna-backed smart optimization strategy in the SDK tuning
+  contract, including `algorithm: "hyperband"` and `algorithm: "optuna"` with
+  `pruner: "hyperband"` plus Hyperband resource/pruning knobs.
+
+### Changed
+- Constrained Optuna pruner/resource fields in optimization strategy payloads so
+  Hyperband-specific knobs are accepted only for backend-routed Hyperband strategies.
+
 ## [4.0.0] - 2026-03-28
 
 ### Changed

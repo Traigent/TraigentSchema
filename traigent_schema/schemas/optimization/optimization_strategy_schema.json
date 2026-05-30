@@ -44,11 +44,13 @@
       "description": "Alias for Optuna using the TPE sampler."
     },
     "hyperband": {
-      "canonical_algorithm": "hyperband",
-      "implementation_status": "deprecated_unsupported",
-      "execution_mode": "unsupported",
-      "deprecated": true,
-      "description": "Deprecated advertised name retained for compatibility metadata only; not accepted for new optimization_strategy requests."
+      "canonical_algorithm": "optuna",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "alias_for": "optuna",
+      "sampler": "tpe",
+      "pruner": "hyperband",
+      "description": "Alias for Optuna using the Hyperband pruner."
     }
   },
   "definitions": {
@@ -72,7 +74,51 @@
         "random",
         "optuna",
         "bayesian",
-        "tpe"
+        "tpe",
+        "hyperband"
+      ]
+    },
+    "BasicOptimizationStrategyName": {
+      "type": "string",
+      "description": "Basic algorithms supported by local/default execution.",
+      "enum": [
+        "grid",
+        "random"
+      ]
+    },
+    "OptimizationSamplerName": {
+      "type": "string",
+      "description": "Optuna sampler names accepted by backend smart optimization.",
+      "enum": [
+        "tpe",
+        "random"
+      ]
+    },
+    "OptimizationPrunerName": {
+      "type": "string",
+      "description": "Optuna pruner names accepted by backend smart optimization.",
+      "enum": [
+        "hyperband"
+      ]
+    },
+    "HyperbandMinResource": {
+      "type": "integer",
+      "description": "Optuna Hyperband minimum resource bound.",
+      "minimum": 1
+    },
+    "HyperbandMaxResource": {
+      "description": "Optuna Hyperband maximum resource bound.",
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "enum": [
+            "auto"
+          ]
+        }
       ]
     },
     "OptimizationImplementationStatus": {
@@ -114,10 +160,10 @@
           ]
         },
         "sampler": {
-          "type": "string",
-          "enum": [
-            "tpe"
-          ]
+          "$ref": "#/definitions/OptimizationSamplerName"
+        },
+        "pruner": {
+          "$ref": "#/definitions/OptimizationPrunerName"
         },
         "deprecated": {
           "type": "boolean"
@@ -128,99 +174,230 @@
       },
       "additionalProperties": false
     },
+    "OptimizationStrategyCommonProperties": {
+      "type": "object",
+      "properties": {
+        "seed": {
+          "type": "integer"
+        },
+        "sampler": {
+          "$ref": "#/definitions/OptimizationSamplerName"
+        },
+        "pruner": {
+          "$ref": "#/definitions/OptimizationPrunerName"
+        },
+        "max_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "startup_trials": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_startup_trials": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "random_seed": {
+          "type": "integer"
+        },
+        "min_resource": {
+          "$ref": "#/definitions/HyperbandMinResource"
+        },
+        "max_resource": {
+          "$ref": "#/definitions/HyperbandMaxResource"
+        },
+        "reduction_factor": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "bootstrap_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tracking_mode": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "HyperbandPruningPropertyPresence": {
+      "anyOf": [
+        {
+          "required": [
+            "pruner"
+          ]
+        },
+        {
+          "required": [
+            "min_resource"
+          ]
+        },
+        {
+          "required": [
+            "max_resource"
+          ]
+        },
+        {
+          "required": [
+            "reduction_factor"
+          ]
+        },
+        {
+          "required": [
+            "bootstrap_count"
+          ]
+        }
+      ]
+    },
+    "OptimizationStrategyAlgorithmObject": {
+      "type": "object",
+      "required": [
+        "algorithm"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/definitions/OptimizationStrategyCommonProperties"
+        },
+        {
+          "if": {
+            "properties": {
+              "algorithm": {
+                "$ref": "#/definitions/BasicOptimizationStrategyName"
+              }
+            },
+            "required": [
+              "algorithm"
+            ]
+          },
+          "then": {
+            "not": {
+              "$ref": "#/definitions/HyperbandPruningPropertyPresence"
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/definitions/HyperbandPruningPropertyPresence"
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": {
+                  "algorithm": {
+                    "const": "hyperband"
+                  }
+                },
+                "required": [
+                  "algorithm"
+                ]
+              },
+              {
+                "properties": {
+                  "algorithm": {
+                    "const": "optuna"
+                  },
+                  "pruner": {
+                    "const": "hyperband"
+                  }
+                },
+                "required": [
+                  "algorithm",
+                  "pruner"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "algorithm": {
+          "$ref": "#/definitions/SupportedOptimizationStrategyName"
+        }
+      },
+      "additionalProperties": true
+    },
+    "OptimizationStrategyTypeObject": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/definitions/OptimizationStrategyCommonProperties"
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "$ref": "#/definitions/BasicOptimizationStrategyName"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "not": {
+              "$ref": "#/definitions/HyperbandPruningPropertyPresence"
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/definitions/HyperbandPruningPropertyPresence"
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": {
+                  "type": {
+                    "const": "hyperband"
+                  }
+                },
+                "required": [
+                  "type"
+                ]
+              },
+              {
+                "properties": {
+                  "type": {
+                    "const": "optuna"
+                  },
+                  "pruner": {
+                    "const": "hyperband"
+                  }
+                },
+                "required": [
+                  "type",
+                  "pruner"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/SupportedOptimizationStrategyName"
+        }
+      },
+      "additionalProperties": true
+    },
     "OptimizationStrategyConfig": {
-      "description": "Optimization strategy requested by SDK direct tuning clients. Hyperband is intentionally absent because it is deprecated and unsupported.",
+      "description": "Optimization strategy requested by SDK direct tuning clients. Grid and random are basic local/default algorithms; Optuna, Bayesian/TPE aliases, and Hyperband pruning are smart backend strategies.",
       "oneOf": [
         {
           "$ref": "#/definitions/SupportedOptimizationStrategyName"
         },
         {
-          "type": "object",
-          "required": [
-            "algorithm"
-          ],
-          "properties": {
-            "algorithm": {
-              "$ref": "#/definitions/SupportedOptimizationStrategyName"
-            },
-            "seed": {
-              "type": "integer"
-            },
-            "sampler": {
-              "type": "string",
-              "enum": [
-                "tpe",
-                "random"
-              ]
-            },
-            "max_trials": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "startup_trials": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "n_startup_trials": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "random_seed": {
-              "type": "integer"
-            },
-            "tracking_mode": {
-              "type": "string"
-            },
-            "parameters": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          },
-          "additionalProperties": true
+          "$ref": "#/definitions/OptimizationStrategyAlgorithmObject"
         },
         {
-          "type": "object",
-          "required": [
-            "type"
-          ],
-          "properties": {
-            "type": {
-              "$ref": "#/definitions/SupportedOptimizationStrategyName"
-            },
-            "seed": {
-              "type": "integer"
-            },
-            "sampler": {
-              "type": "string",
-              "enum": [
-                "tpe",
-                "random"
-              ]
-            },
-            "max_trials": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "startup_trials": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "n_startup_trials": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "random_seed": {
-              "type": "integer"
-            },
-            "tracking_mode": {
-              "type": "string"
-            },
-            "parameters": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          },
-          "additionalProperties": true
+          "$ref": "#/definitions/OptimizationStrategyTypeObject"
         }
       ]
     }

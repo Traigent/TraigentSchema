@@ -154,6 +154,7 @@ def test_supported_optimization_strategy_names_validate_with_hyperband_pruning()
         {"algorithm": "optuna", "pruner": "median"},
         {"algorithm": "hyperband", "min_resource": 0},
         {"algorithm": "hyperband", "min_resource": "auto"},
+        {"algorithm": "hyperband", "reduction_factor": 1.5},
         {"algorithm": "optuna", "pruner": "hyperband", "reduction_factor": 1},
         {"algorithm": "optuna", "pruner": "hyperband", "bootstrap_count": -1},
         {"algorithm": "grid", "pruner": "hyperband"},

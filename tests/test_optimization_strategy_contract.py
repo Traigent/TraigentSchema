@@ -30,6 +30,8 @@ def test_each_advertised_optimization_algorithm_has_capability_mapping():
     capabilities = schema["x-traigent-optimization-capabilities"]
 
     assert set(capabilities) == advertised
+    assert "optuna" not in advertised
+    assert "optuna" in schema["definitions"]["SupportedOptimizationStrategyName"]["enum"]
 
 
 def test_optimization_capabilities_match_supported_implementation_status():
@@ -39,10 +41,10 @@ def test_optimization_capabilities_match_supported_implementation_status():
     expected = {
         "grid": ("grid", "supported", "local_default", None, None),
         "random": ("random", "supported", "local_default", None, None),
-        "optuna": ("optuna", "supported", "smart_backend", None, None),
-        "bayesian": ("optuna", "supported", "smart_backend", "tpe", None),
-        "tpe": ("optuna", "supported", "smart_backend", "tpe", None),
-        "hyperband": ("optuna", "supported", "smart_backend", "tpe", "hyperband"),
+        "bayesian": ("bayesian", "supported", "smart_backend", "tpe", None),
+        "tpe": ("tpe", "supported", "smart_backend", "tpe", None),
+        "hyperband": ("hyperband", "supported", "smart_backend", "tpe", "hyperband"),
+        "frontier_scout": ("frontier_scout", "supported", "smart_backend", None, None),
     }
 
     for name, (canonical, status, execution_mode, sampler, pruner) in expected.items():
@@ -84,13 +86,22 @@ def test_supported_strategy_enum_matches_supported_capabilities():
         if capability["implementation_status"] == "supported"
     }
 
-    assert supported_enum == supported_capabilities
+    assert supported_enum == supported_capabilities | {"optuna"}
+    assert "optuna" not in supported_capabilities
 
 
 def test_supported_optimization_strategy_names_validate_with_hyperband_pruning():
     validator = SchemaValidator(contract="sdk_tuning")
 
-    for algorithm in ("grid", "random", "optuna", "bayesian", "tpe", "hyperband"):
+    for algorithm in (
+        "grid",
+        "random",
+        "optuna",
+        "bayesian",
+        "tpe",
+        "hyperband",
+        "frontier_scout",
+    ):
         errors = validator.validate_json(
             {"algorithm": algorithm},
             "optimization_strategy_schema",
@@ -99,6 +110,7 @@ def test_supported_optimization_strategy_names_validate_with_hyperband_pruning()
 
     assert validator.validate_json("bayesian", "optimization_strategy_schema") == []
     assert validator.validate_json("hyperband", "optimization_strategy_schema") == []
+    assert validator.validate_json("frontier_scout", "optimization_strategy_schema") == []
     assert (
         validator.validate_json(
             {
@@ -148,6 +160,28 @@ def test_supported_optimization_strategy_names_validate_with_hyperband_pruning()
         )
         == []
     )
+    assert (
+        validator.validate_json(
+            {
+                "algorithm": "frontier_scout",
+                "benchmark_id": "support_eval",
+                "budget_cap_usd": 25.0,
+                "quality_estimator": "mean_bounds",
+                "confidence_delta": 0.05,
+                "quality_margin_epsilon": 0.1,
+                "anchor_pack_easy": 5,
+                "anchor_pack_medium": 5,
+                "anchor_pack_hard": 5,
+                "fixed_batch_size": 10,
+                "probe_batch_size": 5,
+                "max_probe_items": 10,
+                "candidate_bank_size": 50,
+                "random_seed": 7,
+            },
+            "optimization_strategy_schema",
+        )
+        == []
+    )
 
     for payload in (
         {"algorithm": "hyperband", "sampler": "hyperband"},
@@ -161,6 +195,11 @@ def test_supported_optimization_strategy_names_validate_with_hyperband_pruning()
         {"algorithm": "random", "min_resource": 1},
         {"algorithm": "optuna", "min_resource": 1},
         {"algorithm": "bayesian", "pruner": "hyperband"},
+        {"algorithm": "frontier_scout", "budget_cap_usd": 0},
+        {"algorithm": "frontier_scout", "quality_estimator": "unknown"},
+        {"algorithm": "frontier_scout", "confidence_delta": 1},
+        {"algorithm": "frontier_scout", "candidate_bank_size": 0},
+        {"algorithm": "frontier_scout", "random_seed": -1},
     ):
         _assert_invalid_strategy(validator, payload)
 
@@ -212,6 +251,20 @@ def test_sdk_session_request_validates_constrained_optimization_strategy():
         },
     )
     assert hyperband_errors == []
+
+    frontier_scout_errors = validator.validate_request(
+        "/api/v1/sessions",
+        "POST",
+        {
+            **base_payload,
+            "optimization_strategy": {
+                "algorithm": "frontier_scout",
+                "candidate_bank_size": 20,
+                "random_seed": 11,
+            },
+        },
+    )
+    assert frontier_scout_errors == []
 
     optuna_hyperband_errors = validator.validate_request(
         "/api/v1/sessions",

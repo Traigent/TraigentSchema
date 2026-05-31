@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json",
   "title": "Optimization Strategy Schema",
-  "description": "Canonical optimization strategy selection and capability mapping for advertised algorithm names.",
+  "description": "Canonical optimization strategy selection and capability mapping for advertised and legacy accepted algorithm names.",
   "allOf": [
     {
       "$ref": "#/definitions/OptimizationStrategyConfig"
@@ -21,61 +21,59 @@
       "execution_mode": "local_default",
       "description": "Basic local/default random search."
     },
-    "optuna": {
-      "canonical_algorithm": "optuna",
-      "implementation_status": "supported",
-      "execution_mode": "smart_backend",
-      "description": "Smart backend optimization backed by Optuna."
-    },
     "bayesian": {
-      "canonical_algorithm": "optuna",
+      "canonical_algorithm": "bayesian",
       "implementation_status": "supported",
       "execution_mode": "smart_backend",
-      "alias_for": "optuna",
       "sampler": "tpe",
-      "description": "Alias for Optuna using the TPE sampler."
+      "description": "Backend-managed Bayesian search using a TPE-style sampler."
     },
     "tpe": {
-      "canonical_algorithm": "optuna",
+      "canonical_algorithm": "tpe",
       "implementation_status": "supported",
       "execution_mode": "smart_backend",
-      "alias_for": "optuna",
       "sampler": "tpe",
-      "description": "Alias for Optuna using the TPE sampler."
+      "description": "Backend-managed Tree-structured Parzen Estimator search."
     },
     "hyperband": {
-      "canonical_algorithm": "optuna",
+      "canonical_algorithm": "hyperband",
       "implementation_status": "supported",
       "execution_mode": "smart_backend",
-      "alias_for": "optuna",
       "sampler": "tpe",
       "pruner": "hyperband",
-      "description": "Alias for Optuna using the Hyperband pruner."
+      "description": "Backend-managed multi-fidelity search using Hyperband pruning."
+    },
+    "frontier_scout": {
+      "canonical_algorithm": "frontier_scout",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "description": "Traigent-owned backend smart optimization backed by traigent-smartopt FrontierScout."
     }
   },
   "definitions": {
     "AdvertisedOptimizationAlgorithmName": {
       "type": "string",
-      "description": "All algorithm names that may appear in public capability metadata, including deprecated unsupported names.",
+      "description": "Algorithm names that may appear in public capability metadata.",
       "enum": [
         "grid",
         "random",
-        "optuna",
         "bayesian",
         "tpe",
-        "hyperband"
+        "hyperband",
+        "frontier_scout"
       ]
     },
     "SupportedOptimizationStrategyName": {
       "type": "string",
-      "description": "Algorithm names accepted for new optimization_strategy requests.",
+      "description": "Algorithm names accepted for optimization_strategy requests. The optuna name is accepted for legacy/internal compatibility but is not publicly advertised.",
       "enum": [
         "grid",
         "random",
         "optuna",
         "bayesian",
         "tpe",
-        "hyperband"
+        "hyperband",
+        "frontier_scout"
       ]
     },
     "BasicOptimizationStrategyName": {
@@ -88,7 +86,7 @@
     },
     "OptimizationSamplerName": {
       "type": "string",
-      "description": "Optuna sampler names accepted by backend smart optimization.",
+      "description": "Sampler names accepted by backend smart optimization.",
       "enum": [
         "tpe",
         "random"
@@ -96,18 +94,18 @@
     },
     "OptimizationPrunerName": {
       "type": "string",
-      "description": "Optuna pruner names accepted by backend smart optimization.",
+      "description": "Pruner names accepted by backend smart optimization.",
       "enum": [
         "hyperband"
       ]
     },
     "HyperbandMinResource": {
       "type": "integer",
-      "description": "Optuna Hyperband minimum resource bound.",
+      "description": "Hyperband minimum resource bound.",
       "minimum": 1
     },
     "HyperbandMaxResource": {
-      "description": "Optuna Hyperband maximum resource bound.",
+      "description": "Hyperband maximum resource bound.",
       "oneOf": [
         {
           "type": "integer",
@@ -199,7 +197,61 @@
           "minimum": 0
         },
         "random_seed": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
+        },
+        "benchmark_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "budget_cap_usd": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "quality_estimator": {
+          "type": "string",
+          "enum": [
+            "mean_bounds",
+            "irt_2pl"
+          ]
+        },
+        "confidence_delta": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "quality_margin_epsilon": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "anchor_pack_easy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "anchor_pack_medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "anchor_pack_hard": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fixed_batch_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "probe_batch_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_probe_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_bank_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
         },
         "min_resource": {
           "$ref": "#/definitions/HyperbandMinResource"
@@ -388,7 +440,7 @@
       "additionalProperties": true
     },
     "OptimizationStrategyConfig": {
-      "description": "Optimization strategy requested by SDK direct tuning clients. Grid and random are basic local/default algorithms; Optuna, Bayesian/TPE aliases, and Hyperband pruning are smart backend strategies.",
+      "description": "Optimization strategy requested by SDK direct tuning clients. Grid and random are basic local/default algorithms; Bayesian/TPE aliases, Hyperband pruning, and FrontierScout are smart backend strategies. The optuna name is accepted only for legacy/internal compatibility.",
       "oneOf": [
         {
           "$ref": "#/definitions/SupportedOptimizationStrategyName"

@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/guaranteed_selection_request_schema.json",
+  "title": "Guaranteed Selection Request Schema",
+  "description": "Request parameters for a guaranteed optimizer mode. selection_mode keep_accuracy_reduce_cost requires a baseline_ref; accuracy_then_cost selects the empirical accuracy peak as the anchor. delta is the accuracy non-inferiority margin; epsilon is the failure probability of the whole guarantee (allocated across accuracy and cost as a single global event).",
+  "version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "selection_mode", "delta", "epsilon"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "traigent.guaranteed_selection_request.v1" },
+    "selection_mode": {
+      "type": "string",
+      "enum": ["keep_accuracy_reduce_cost", "accuracy_then_cost"]
+    },
+    "delta": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "Accuracy non-inferiority margin (e.g. 0.02 = within 2 accuracy points of the anchor)."
+    },
+    "epsilon": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1,
+      "description": "Failure probability of the guarantee (confidence is 1 - epsilon)."
+    },
+    "epsilon_allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional explicit split; acc + cost must be <= epsilon. Defaults to epsilon/2 each.",
+      "required": ["acc", "cost"],
+      "properties": {
+        "acc": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "cost": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+      }
+    },
+    "eta": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0,
+      "description": "Cost-optimality tolerance for ties between candidates (interpreted per eta_kind)."
+    },
+    "eta_kind": {
+      "type": "string",
+      "enum": ["relative", "absolute", "max_abs_rel"],
+      "default": "relative"
+    },
+    "baseline_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Reference to the baseline config (config_id) anchoring keep_accuracy_reduce_cost."
+    },
+    "ci_method": {
+      "type": "string",
+      "enum": ["empirical_bernstein_fixed", "anytime_valid_confidence_sequence"],
+      "default": "empirical_bernstein_fixed"
+    },
+    "min_pairs": {
+      "type": "integer",
+      "minimum": 2,
+      "default": 2,
+      "description": "Minimum paired fixed-benchmark tasks required before a candidate can be decided."
+    },
+    "cost_value_range": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Upper bound on per-example cost (e.g. max_output_tokens * price). Null treats cost as deterministic on the eval workload."
+    },
+    "allow_best_effort_uncertified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Opt-in: when no config can be certified, return a BEST_EFFORT_UNCERTIFIED suggestion. Still never deployable."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "selection_mode": { "const": "keep_accuracy_reduce_cost" } },
+        "required": ["selection_mode"]
+      },
+      "then": { "required": ["baseline_ref"] }
+    }
+  ]
+}

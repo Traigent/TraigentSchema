@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/guarantee_certificate_schema.json",
+  "title": "Guarantee Certificate Schema",
+  "description": "Evidence artifact for a guaranteed optimizer-mode decision: the (delta, epsilon)-PAC non-inferiority cheapest-feasible certificate. Mirrors traigent_smartopt.guarantee.GuaranteeCertificate. Standalone (no $ref into best_config) and aligned to the best-config deploy surface by convention via config_id/spec_hash/config_hash so the backend can fail-closed verify a publish against it.",
+  "version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "anchor_id",
+    "selected_id",
+    "delta",
+    "epsilon",
+    "epsilon_acc",
+    "epsilon_cost",
+    "eta",
+    "eta_kind",
+    "ci_method",
+    "design",
+    "multiplicity_scheme",
+    "delta_prime_acc",
+    "delta_prime_cost",
+    "per_candidate",
+    "quality_ci",
+    "cost_ci",
+    "sample_count"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "traigent.guarantee_certificate.v1" },
+    "mode": { "$ref": "#/definitions/SelectionMode" },
+    "anchor_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "selected_id": { "type": ["string", "null"], "maxLength": 128 },
+    "delta": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "Accuracy non-inferiority margin."
+    },
+    "epsilon": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "epsilon_acc": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "epsilon_cost": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "eta": { "type": "number", "minimum": 0 },
+    "eta_kind": { "type": "string", "enum": ["relative", "absolute", "max_abs_rel"] },
+    "ci_method": {
+      "type": "string",
+      "enum": ["empirical_bernstein_fixed", "anytime_valid_confidence_sequence"],
+      "description": "v1 ships the fixed-budget empirical-Bernstein method; anytime-valid is a future drop-in."
+    },
+    "design": {
+      "type": "string",
+      "const": "paired",
+      "description": "v1 mandates paired evaluation (anchor and candidate scored on the same tasks)."
+    },
+    "multiplicity_scheme": {
+      "type": "string",
+      "enum": ["mode1_2K", "mode2_pairwise_ordered", "mode2_arm_level"],
+      "description": "Bonferroni allocation over one-sided bounds: Mode 1 uses 2K, Mode 2 uses K(K-1) ordered pairs."
+    },
+    "delta_prime_acc": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "delta_prime_cost": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "per_candidate": {
+      "type": "object",
+      "description": "candidate_id -> disposition.",
+      "minProperties": 1,
+      "maxProperties": 4096,
+      "propertyNames": { "type": "string", "maxLength": 128 },
+      "additionalProperties": { "$ref": "#/definitions/CandidateDisposition" }
+    },
+    "quality_ci": {
+      "type": "object",
+      "description": "candidate_id -> [lcb, ucb] on the paired accuracy difference vs the anchor.",
+      "maxProperties": 4096,
+      "additionalProperties": { "$ref": "#/definitions/Interval" }
+    },
+    "cost_ci": {
+      "type": "object",
+      "description": "candidate_id -> [lcb, ucb] on per-example cost.",
+      "maxProperties": 4096,
+      "additionalProperties": { "$ref": "#/definitions/Interval" }
+    },
+    "sample_count": {
+      "type": "object",
+      "description": "candidate_id -> number of paired fixed-benchmark tasks used.",
+      "maxProperties": 4096,
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "cost_treated_as": { "type": "string", "enum": ["deterministic", "bounded_stochastic"] },
+    "peak_gap_upper_bound": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Mode 2 only: tau, a UCB on (true in-set max accuracy - selected peak accuracy)."
+    },
+    "composite_gap_to_true_max": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Mode 2 only: delta + tau, the honest worst-case gap of the selection to the true in-set max."
+    },
+    "best_effort_candidate": {
+      "type": ["string", "null"],
+      "maxLength": 128,
+      "description": "An uncertified cheaper candidate surfaced only under explicit best-effort opt-in; never deployable."
+    },
+    "no_decision_reason": { "type": ["string", "null"], "maxLength": 512 },
+    "achievable_delta_at_budget": { "type": ["number", "null"], "minimum": 0 },
+    "extra_examples_for_target_delta": { "type": ["integer", "null"], "minimum": 0 },
+    "config_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "spec_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "config_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "runtime_config_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "eval_workload_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "candidate_set_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "price_snapshot_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "scope_notes": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 512 },
+      "maxItems": 32
+    }
+  },
+  "allOf": [
+    {
+      "description": "Mode 2 (accuracy_then_cost) must report the peak-honesty fields.",
+      "if": {
+        "properties": { "mode": { "const": "accuracy_then_cost" } },
+        "required": ["mode"]
+      },
+      "then": {
+        "required": ["peak_gap_upper_bound", "composite_gap_to_true_max"],
+        "properties": {
+          "peak_gap_upper_bound": { "type": "number", "minimum": 0 },
+          "composite_gap_to_true_max": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "SelectionMode": {
+      "type": "string",
+      "enum": ["keep_accuracy_reduce_cost", "accuracy_then_cost"]
+    },
+    "CandidateDisposition": {
+      "type": "string",
+      "enum": ["selected", "feasible", "infeasible", "undecided", "peak", "anchor"]
+    },
+    "Interval": {
+      "type": "array",
+      "description": "[lower_confidence_bound, upper_confidence_bound]",
+      "items": { "type": "number" },
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}

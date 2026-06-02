@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/validation_error_schema.json",
+  "title": "Validation Error DTO",
+  "description": "ErrorEnvelopeDTO specialized for 422 input-validation failures. Composes error_envelope_schema.json and narrows `details` to a {field: [reason, ...]} map so the client can attach per-field messages. Aligned with BE#671.",
+  "allOf": [
+    {
+      "$ref": "./error_envelope_schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "details": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "description": "Per-field validation messages: each key is a field name, each value a non-empty list of human-readable reasons. No server internals."
+        }
+      },
+      "required": ["details"]
+    }
+  ]
+}

@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/observability/trace_schema.json",
   "title": "Trace Schema",
+  "$comment": "metadata is persisted as-is by the backend (trace_metadata column; rename tracked by BE#665). correlation_ids is split into OTel columns and prompt_reference is materialized in the observability_prompt_links join table — structured platform data must use those dedicated top-level fields, never metadata sub-keys.",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -14,9 +15,21 @@
     "release": { "type": ["string", "null"], "maxLength": 128 },
     "custom_trace_id": { "type": ["string", "null"], "maxLength": 128 },
     "tags": { "type": "array", "items": { "type": "string" } },
-    "metadata": { "type": "object", "additionalProperties": true },
-    "input_data": {},
-    "output_data": {},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Opaque user-supplied annotations. Do NOT place structured platform data here — correlation_ids and prompt_reference are dedicated top-level fields, never sub-keys of metadata."
+    },
+    "input_data": {
+      "description": "Raw user-supplied input payload for this trace (e.g. the prompt). Unconstrained JSON.",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
+    },
+    "output_data": {
+      "description": "Raw model/agent output payload for this trace. Unconstrained JSON.",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
+    },
     "started_at": { "type": ["string", "null"], "format": "date-time" },
     "ended_at": { "type": ["string", "null"], "format": "date-time" },
     "correlation_ids": { "$ref": "./correlation_ids_schema.json" },

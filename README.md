@@ -138,6 +138,27 @@ The shared MeasuresDict contract is enforced across projects:
 - keys match the Python identifier pattern `^[a-zA-Z_][a-zA-Z0-9_]*$`
 - values are numeric or null
 
+#### Field-level privacy classification (`x-privacy-classification`)
+
+Schemas may tag fields (or object groupings) with a machine-readable privacy
+class so redaction, retention, and export tooling can reason **by contract**
+instead of hard-coding field names. Allowed values:
+
+| Value | Meaning |
+|-------|---------|
+| `user_content` | Raw user-supplied content / model output (prompts, inputs, outputs). The hybrid-path content fields use this — paired with `x-content: true` so a consumer can enumerate content-bearing leaves directly from the contract. |
+| `aggregate_safe` | Aggregated / derived values safe to surface broadly. |
+| `billing_sensitive` | Billing / pricing data (e.g. wallet, checkout). |
+| `tenant_admin_safe` | Visible to tenant admins only. |
+| `manifest_safe` | Safe to include in exported manifests. |
+
+Content-bearing fields on the hybrid DTOs carry `x-content: true` +
+`x-privacy-classification: user_content`: `trace`/`observation`
+`input_data`/`output_data`, `Example.input`/`output`,
+`EvaluationSetExample.input_text`/`expected_output`, and the metric-submission
+`ConfigurationParameters`. Adding these `x-` keywords is additive and ignored by
+standard JSON-Schema validators.
+
 ### SchemaValidator
 
 ```python

@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/planner/planner_status_response_schema.json",
+  "title": "Planner Status Response DTO",
+  "description": "200 body for GET /api/v1/planner/status/{draft_id}: the {success, message, data} envelope wrapping the live planner status object. This is DISTINCT from planner_draft_schema.json (which models the draft itself). Missing/deleted drafts return 404 with ErrorEnvelopeDTO (per BE#659), NOT a 200 with a not_found status.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["created", "processing", "completed", "error", "cancelled"],
+          "description": "Planner status. Initial state is 'created' (canonicalized in BE#658)."
+        },
+        "progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Generation progress percentage (may be fractional)."
+        },
+        "message": { "type": "string" },
+        "generatedParts": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["agent", "benchmark", "measure"] },
+          "description": "Parts generated so far. camelCase, matching the backend response key."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC; present on created/error/cancelled transitions."
+        }
+      },
+      "required": ["status", "progress", "message", "generatedParts"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

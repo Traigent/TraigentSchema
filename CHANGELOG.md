@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Planner draft-status contract (TraigentSchema#57): `planner/planner_endpoints.json`
+  wires `GET /api/v1/planner/status/{draft_id}` (registered in `mep_endpoints.json`
+  `x-endpoint-modules` as "Planner"), with `200` → new
+  `planner/planner_status_response_schema.json` and `404` → `ErrorEnvelopeDTO`. The
+  200 is the `{success, message, data}` envelope wrapping the live status object
+  (`status`, `progress`, `message`, `generatedParts` camelCase, optional
+  `timestamp`) — **distinct** from `planner_draft_schema.json`. Initial status is
+  `created` (BE#658); missing/deleted drafts are a **404** (BE#659), not a 200 with
+  a `not_found` status, so `not_found` is intentionally absent from the enum.
 - `error_envelope_schema.json` (`ErrorEnvelopeDTO`) — the canonical error response
   envelope (Shape A: `{success:false, message, error, error_code?, details?}`) decided in
   BE#669 and already consumed by FE `errorUtils.ts`. Strict (`additionalProperties:false`)

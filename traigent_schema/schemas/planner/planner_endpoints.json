@@ -1,0 +1,41 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Planner Contract (registered routes)",
+    "version": "1.0.0",
+    "description": "Documented planner routes registered in TraigentBackend/src/routes/planner_routes.py."
+  },
+  "paths": {
+    "/api/v1/planner/status/{draft_id}": {
+      "get": {
+        "summary": "Get the status of a planner draft (auth + experiment.read)",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Live planner status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./planner_status_response_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "Draft not found or deleted. Per BE#659 this is a 404 error envelope (error_code NOT_FOUND), not a 200 with a not_found status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

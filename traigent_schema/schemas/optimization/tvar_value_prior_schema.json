@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "TVAR Value Prior Schema",
+  "description": "Defines a learned promising-value prior for a tuned variable, aggregated from observations. Consumers must treat low-support_n or low-confidence priors as hints only.",
+  "version": "1.0.0",
+  "definitions": {
+    "TvarValue": {
+      "description": "Compact scalar tuned-variable value.",
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "ValuePrior": {
+      "type": "object",
+      "description": "Learned score for a candidate tuned-variable value.",
+      "properties": {
+        "value": {
+          "$ref": "#/definitions/TvarValue"
+        },
+        "score": {
+          "type": "number",
+          "description": "Higher scores are more promising for the target metric."
+        },
+        "support_n": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of observations behind this candidate value."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": ["value", "score", "support_n", "confidence"],
+      "additionalProperties": false
+    },
+    "DerivedFrom": {
+      "type": "object",
+      "description": "Aggregate source summary for this learned prior.",
+      "properties": {
+        "observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "run_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "window": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": ["observation_count"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this learned-prior contract."
+    },
+    "tvar_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "catalog_entry_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "agent_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "metric": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Objective metric this prior is for."
+    },
+    "objective_direction": {
+      "type": "string",
+      "enum": ["maximize", "minimize"]
+    },
+    "value_priors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ValuePrior"
+      }
+    },
+    "recommended_values": {
+      "type": "array",
+      "description": "Gated top picks from value_priors.",
+      "items": {
+        "$ref": "#/definitions/TvarValue"
+      }
+    },
+    "support_n": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total observations behind this prior."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "derived_from": {
+      "$ref": "#/definitions/DerivedFrom"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schema_version",
+    "tvar_name",
+    "metric",
+    "value_priors",
+    "support_n",
+    "confidence"
+  ],
+  "additionalProperties": false
+}

@@ -275,6 +275,79 @@
           }
         }
       }
+    },
+    "/optimization/priors": {
+      "get": {
+        "summary": "Read learned TVAR priors",
+        "description": "Returns read-only, gated learned hints aggregated from TVAR observations.",
+        "parameters": [
+          {
+            "name": "agent_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "tvar_names",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated tuned-variable names.",
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gated learned priors returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "value_priors": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "./tvar_value_prior_schema.json"
+                      }
+                    },
+                    "correlations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "./tvar_correlation_schema.json"
+                      }
+                    },
+                    "generated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["value_priors", "correlations"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "TVAR Correlation Schema",
+  "description": "Defines a learned correlation between tuned variables or between agent type and tuned variable.",
+  "version": "1.0.0",
+  "definitions": {
+    "TvarValue": {
+      "description": "Compact scalar tuned-variable value.",
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "CorrelationSide": {
+      "type": "object",
+      "description": "One side of a learned correlation.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["tvar", "agent_type"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "value": {
+          "$ref": "#/definitions/TvarValue"
+        }
+      },
+      "required": ["type", "name"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this learned-correlation contract."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["tvar_tvar", "agent_type_tvar"]
+    },
+    "a": {
+      "$ref": "#/definitions/CorrelationSide"
+    },
+    "b": {
+      "$ref": "#/definitions/CorrelationSide"
+    },
+    "metric": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "strength": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["positive", "negative", "none"]
+    },
+    "support_n": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "interpretation": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "Short, content-free interpretation."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "a",
+    "b",
+    "metric",
+    "strength",
+    "support_n",
+    "confidence"
+  ],
+  "additionalProperties": false
+}

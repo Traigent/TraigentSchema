@@ -20,6 +20,9 @@ OPT_DIR = (
 )
 CATALOG_ENTRY_FILE = OPT_DIR / "tvar_catalog_entry_schema.json"
 OBSERVATION_FILE = OPT_DIR / "tvar_observation_schema.json"
+VALUE_PRIOR_FILE = OPT_DIR / "tvar_value_prior_schema.json"
+CORRELATION_FILE = OPT_DIR / "tvar_correlation_schema.json"
+OPT_ENDPOINTS_FILE = OPT_DIR / "optimization_endpoints.json"
 
 
 def _load(path: Path) -> dict:
@@ -96,8 +99,63 @@ def _valid_observation() -> dict:
     }
 
 
+def _valid_value_prior() -> dict:
+    return {
+        "schema_version": "1.0.0",
+        "tvar_name": "temperature",
+        "catalog_entry_id": "cat_temperature_low_cost_v1",
+        "agent_type": "rag",
+        "metric": "quality_score",
+        "objective_direction": "maximize",
+        "value_priors": [
+            {
+                "value": 0.2,
+                "score": 0.87,
+                "support_n": 96,
+                "confidence": 0.82,
+            },
+            {
+                "value": 0.7,
+                "score": 0.44,
+                "support_n": 64,
+                "confidence": 0.58,
+            },
+        ],
+        "recommended_values": [0.2],
+        "support_n": 160,
+        "confidence": 0.79,
+        "derived_from": {
+            "observation_count": 160,
+            "run_ids": ["run_20260602_temperature"],
+            "window": "2026-06-01/2026-06-02",
+        },
+        "generated_at": "2026-06-02T12:00:00Z",
+    }
+
+
+def _valid_correlation() -> dict:
+    return {
+        "schema_version": "1.0.0",
+        "kind": "agent_type_tvar",
+        "a": {"type": "agent_type", "name": "rag"},
+        "b": {"type": "tvar", "name": "temperature", "value": 0.2},
+        "metric": "quality_score",
+        "strength": 0.63,
+        "direction": "positive",
+        "support_n": 144,
+        "confidence": 0.76,
+        "interpretation": "Higher support quality in this aggregate slice.",
+        "generated_at": "2026-06-02T12:00:00Z",
+    }
+
+
 def test_schemas_are_valid_draft7() -> None:
-    for path in (CATALOG_ENTRY_FILE, OBSERVATION_FILE):
+    for path in (
+        CATALOG_ENTRY_FILE,
+        OBSERVATION_FILE,
+        VALUE_PRIOR_FILE,
+        CORRELATION_FILE,
+    ):
         Draft7Validator.check_schema(_load(path))
 
 
@@ -146,8 +204,54 @@ def test_observation_rejects_per_input_policy_rows() -> None:
     assert _errors(OBSERVATION_FILE, invalid)
 
 
+def test_valid_value_prior_passes() -> None:
+    assert _errors(VALUE_PRIOR_FILE, _valid_value_prior()) == []
+
+
+def test_value_prior_missing_support_n_fails() -> None:
+    invalid = _valid_value_prior()
+    del invalid["support_n"]
+
+    assert _errors(VALUE_PRIOR_FILE, invalid)
+
+
+def test_valid_correlation_passes() -> None:
+    assert _errors(CORRELATION_FILE, _valid_correlation()) == []
+
+
+def test_correlation_strength_out_of_range_fails() -> None:
+    invalid = _valid_correlation()
+    invalid["strength"] = 1.2
+
+    assert _errors(CORRELATION_FILE, invalid)
+
+
 def test_schemas_are_registered_by_runtime_discovery() -> None:
     available = set(SchemaValidator().available_schemas)
 
     assert "tvar_catalog_entry_schema" in available
     assert "tvar_observation_schema" in available
+    assert "tvar_value_prior_schema" in available
+    assert "tvar_correlation_schema" in available
+
+
+def test_priors_endpoint_path_parses_as_openapi() -> None:
+    openapi = _load(OPT_ENDPOINTS_FILE)
+    priors = openapi["paths"]["/optimization/priors"]["get"]
+
+    assert openapi["openapi"] == "3.0.0"
+    assert {"openapi", "info", "paths"} <= set(openapi)
+    assert {parameter["name"] for parameter in priors["parameters"]} == {
+        "agent_type",
+        "metric",
+        "tvar_names",
+    }
+    response_schema = priors["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    assert response_schema["properties"]["value_priors"]["items"]["$ref"] == (
+        "./tvar_value_prior_schema.json"
+    )
+    assert response_schema["properties"]["correlations"]["items"]["$ref"] == (
+        "./tvar_correlation_schema.json"
+    )

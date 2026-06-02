@@ -91,12 +91,16 @@
               "description": "A sequence of inputs representing a multi-turn conversation"
             }
           ],
-          "description": "The input text/question given to the agent. Can be a single string or a list of strings for multi-turn interaction"
+          "description": "The input text/question given to the agent. Can be a single string or a list of strings for multi-turn interaction",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
         },
         "expected_output": {
           "type": "string",
           "description": "The expected output or answer from the agent",
-          "optional": true
+          "optional": true,
+          "x-content": true,
+          "x-privacy-classification": "user_content"
         },
         "tags": {
           "type": "array",

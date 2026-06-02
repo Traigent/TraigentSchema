@@ -27,8 +27,10 @@
     },
     "ConfigurationParameters": {
       "type": "object",
-      "description": "The configuration parameters that produced these metrics",
-      "additionalProperties": true
+      "description": "The configuration parameters that produced these metrics. Free-form and may carry user-derived values (e.g. prompt templates, tool configs), so it is classified as user content for redaction/governance purposes.",
+      "additionalProperties": true,
+      "x-content": true,
+      "x-privacy-classification": "user_content"
     }
   },
   "properties": {

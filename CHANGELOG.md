@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Field-level content/privacy annotations on the hybrid-path DTOs (TraigentSchema#78):
+  content-bearing leaves now carry `x-content: true` + `x-privacy-classification:
+  user_content` so redaction/governance tooling can enumerate user content from the
+  contract — `trace`/`observation` `input_data`/`output_data`, `Example.input`/`output`,
+  `EvaluationSetExample.input_text`/`expected_output`, and the metric-submission
+  `ConfigurationParameters`. New `user_content` value documented in the README privacy
+  vocabulary. Additive `x-` keywords; no type/required/validation change.
+
+### Changed
+- Documented `metadata` on `trace_schema.json` and `observation_schema.json` as
+  **opaque user-supplied data only** (TraigentSchema#63), with a root `$comment`
+  recording the backend persistence mapping. `correlation_ids` / `prompt_reference`
+  remain the dedicated top-level fields; no structural or breaking change.
+
 ## [4.3.0] - 2026-05-31
 
 ### Changed

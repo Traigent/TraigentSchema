@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/observability/observation_schema.json",
   "title": "Observation Schema",
+  "$comment": "metadata is persisted as-is by the backend. correlation_ids and prompt_reference are dedicated top-level fields — structured platform data must use them, never metadata sub-keys.",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -19,9 +20,21 @@
     "cost_usd": { "type": "number", "minimum": 0 },
     "model_name": { "type": ["string", "null"], "maxLength": 255 },
     "tool_name": { "type": ["string", "null"], "maxLength": 255 },
-    "input_data": {},
-    "output_data": {},
-    "metadata": { "type": "object", "additionalProperties": true },
+    "input_data": {
+      "description": "Raw user-supplied input payload for this observation (e.g. the prompt sent to the model/tool). Unconstrained JSON.",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
+    },
+    "output_data": {
+      "description": "Raw model/tool output payload for this observation. Unconstrained JSON.",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Opaque user-supplied annotations. Do NOT place structured platform data here — correlation_ids and prompt_reference are dedicated top-level fields, never sub-keys of metadata."
+    },
     "correlation_ids": { "$ref": "./correlation_ids_schema.json" },
     "prompt_reference": { "$ref": "./prompt_reference_schema.json" },
     "children": {

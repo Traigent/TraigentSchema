@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `error_envelope_schema.json` (`ErrorEnvelopeDTO`) — the canonical error response
+  envelope (Shape A: `{success:false, message, error, error_code?, details?}`) decided in
+  BE#669 and already consumed by FE `errorUtils.ts`. Strict (`additionalProperties:false`)
+  so raw internals / user-input echo cannot leak through an error body; `details` carries a
+  documented redaction constraint. Resolves the canonical-envelope deliverable of
+  TraigentSchema#59.
+- `validation_error_schema.json` (`ValidationErrorDTO`) — composes `error_envelope_schema.json`
+  via `allOf` and narrows `details` to a `{field: [reason, ...]}` map for 422 responses
+  (aligned with BE#671).
+- Note: migrating the four existing domain-specific error schemas (`quota_exceeded`,
+  `wallet_insufficient_balance`, `project_context_error`, `project_member_lookup_error`) to
+  *require* Shape A is intentionally deferred — today they validate as `{error_code, message, …}`
+  with no `success`/`error`, matching current backend output. Forcing the envelope on them
+  would assert a shape the backend does not yet emit; that migration is gated on the BE
+  producer change (BE#669), which TraigentSchema#59 lists as out of scope.
+
 ## [4.3.0] - 2026-05-31
 
 ### Changed

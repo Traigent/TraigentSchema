@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `error_envelope_schema.json` (`ErrorEnvelopeDTO`) — the canonical error response
+  envelope (Shape A: `{success:false, message, error, error_code?, details?}`) decided in
+  BE#669 and already consumed by FE `errorUtils.ts`. Strict (`additionalProperties:false`)
+  so raw internals / user-input echo cannot leak through an error body; `details` carries a
+  documented redaction constraint. Resolves the canonical-envelope deliverable of
+  TraigentSchema#59.
+- `validation_error_schema.json` (`ValidationErrorDTO`) — composes `error_envelope_schema.json`
+  via `allOf` and narrows `details` to a `{field: [reason, ...]}` map for 422 responses
+  (aligned with BE#671).
+- Note: migrating the four existing domain-specific error schemas (`quota_exceeded`,
+  `wallet_insufficient_balance`, `project_context_error`, `project_member_lookup_error`) to
+  *require* Shape A is intentionally deferred — today they validate as `{error_code, message, …}`
+  with no `success`/`error`, matching current backend output. Forcing the envelope on them
+  would assert a shape the backend does not yet emit; that migration is gated on the BE
+  producer change (BE#669), which TraigentSchema#59 lists as out of scope.
+- Field-level content/privacy annotations on the hybrid-path DTOs (TraigentSchema#78):
+  content-bearing leaves now carry `x-content: true` + `x-privacy-classification:
+  user_content` so redaction/governance tooling can enumerate user content from the
+  contract — `trace`/`observation` `input_data`/`output_data`, `Example.input`/`output`,
+  `EvaluationSetExample.input_text`/`expected_output`, and the metric-submission
+  `ConfigurationParameters`. New `user_content` value documented in the README privacy
+  vocabulary. Additive `x-` keywords; no type/required/validation change.
 - `execution/workflow_trace_schema.json` — a real contract for `POST /api/v1/traces/ingest`
   (the Python-only LangGraph workflow-trace surface), replacing the inline opaque
   `{graph, spans}` body (TraigentSchema#64). Models the SDK producer
@@ -17,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (the SDK sources them from OTel attributes), not enum-locked. Carries an explicit
   `$comment` that it is **distinct** from `observability/trace_schema.json` (v1beta OTel
   surface, backed by a different DB model). `execution_endpoints.json` now `$ref`s it.
+
+### Changed
+- Documented `metadata` on `trace_schema.json` and `observation_schema.json` as
+  **opaque user-supplied data only** (TraigentSchema#63), with a root `$comment`
+  recording the backend persistence mapping. `correlation_ids` / `prompt_reference`
+  remain the dedicated top-level fields; no structural or breaking change.
 
 ## [4.3.0] - 2026-05-31
 

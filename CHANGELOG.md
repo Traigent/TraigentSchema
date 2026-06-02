@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `execution/workflow_trace_schema.json` — a real contract for `POST /api/v1/traces/ingest`
+  (the Python-only LangGraph workflow-trace surface), replacing the inline opaque
+  `{graph, spans}` body (TraigentSchema#64). Models the SDK producer
+  `workflow_traces.py` field-for-field: `WorkflowGraph` (nodes / edges / loops topology)
+  and a `SpanBatch` wrapper of `SpanPayload` (incl. LangGraph `node_id`, `decision_reason`,
+  `span_type`). `span_type` / `status` are free strings with documented canonical values
+  (the SDK sources them from OTel attributes), not enum-locked. Carries an explicit
+  `$comment` that it is **distinct** from `observability/trace_schema.json` (v1beta OTel
+  surface, backed by a different DB model). `execution_endpoints.json` now `$ref`s it.
+
 ## [4.3.0] - 2026-05-31
 
 ### Changed

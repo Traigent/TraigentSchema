@@ -32,7 +32,7 @@
     },
     "EvidenceRef": {
       "type": "object",
-      "description": "Reference to supporting aggregate evidence for the recommendation. Public-safe provenance only; internal artifact paths and run IDs are intentionally excluded from this public contract.",
+      "description": "Public-safe evidence summary.",
       "properties": {
         "scope": {
           "type": "string",

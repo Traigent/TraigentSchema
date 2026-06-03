@@ -276,10 +276,10 @@
         }
       }
     },
-    "/optimization/priors": {
+    "/optimization/recommendations": {
       "get": {
-        "summary": "Read learned TVAR priors",
-        "description": "Returns read-only, gated learned hints aggregated from TVAR observations.",
+        "summary": "Read tuned-variable value recommendations",
+        "description": "Read tuned-variable value recommendations.",
         "parameters": [
           {
             "name": "agent_type",
@@ -317,16 +317,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Gated learned priors returned",
+            "description": "Tuned-variable value recommendations returned",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "value_priors": {
+                    "value_recommendations": {
                       "type": "array",
                       "items": {
-                        "$ref": "./tvar_value_prior_schema.json"
+                        "$ref": "./tvar_value_recommendation_schema.json"
                       }
                     },
                     "correlations": {
@@ -340,7 +340,7 @@
                       "format": "date-time"
                     }
                   },
-                  "required": ["value_priors", "correlations"],
+                  "required": ["value_recommendations", "correlations"],
                   "additionalProperties": false
                 }
               }

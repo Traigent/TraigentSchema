@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/guarantee_certificate_schema.json",
   "title": "Guarantee Certificate Schema",
-  "description": "Evidence artifact for a guaranteed optimizer-mode decision: the (delta, epsilon)-PAC non-inferiority cheapest-feasible certificate. Mirrors traigent_smartopt.guarantee.GuaranteeCertificate. Standalone (no $ref into best_config) and aligned to the best-config deploy surface by convention via config_id/spec_hash/config_hash so the backend can fail-closed verify a publish against it.",
+  "description": "Evidence artifact for a guaranteed optimizer-mode decision.",
   "version": "0.1.0",
   "type": "object",
   "additionalProperties": false,
@@ -36,7 +36,7 @@
       "type": "number",
       "exclusiveMinimum": 0,
       "maximum": 1,
-      "description": "Accuracy non-inferiority margin."
+      "description": "Decision margin."
     },
     "epsilon": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
     "epsilon_acc": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
@@ -46,17 +46,17 @@
     "ci_method": {
       "type": "string",
       "enum": ["empirical_bernstein_fixed", "anytime_valid_confidence_sequence"],
-      "description": "v1 ships the fixed-budget empirical-Bernstein method; anytime-valid is a future drop-in."
+      "description": "Confidence interval method (opaque)."
     },
     "design": {
       "type": "string",
       "const": "paired",
-      "description": "v1 mandates paired evaluation (anchor and candidate scored on the same tasks)."
+      "description": "Evaluation design (opaque)."
     },
     "multiplicity_scheme": {
       "type": "string",
       "enum": ["mode1_2K", "mode2_pairwise_ordered", "mode2_arm_level"],
-      "description": "Bonferroni allocation over one-sided bounds: Mode 1 uses 2K, Mode 2 uses K(K-1) ordered pairs."
+      "description": "Multiplicity allocation (opaque)."
     },
     "delta_prime_acc": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
     "delta_prime_cost": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
@@ -70,19 +70,19 @@
     },
     "quality_ci": {
       "type": "object",
-      "description": "candidate_id -> [lcb, ucb] on the paired accuracy difference vs the anchor.",
+      "description": "candidate_id -> interval values.",
       "maxProperties": 4096,
       "additionalProperties": { "$ref": "#/definitions/Interval" }
     },
     "cost_ci": {
       "type": "object",
-      "description": "candidate_id -> [lcb, ucb] on per-example cost.",
+      "description": "candidate_id -> cost interval values.",
       "maxProperties": 4096,
       "additionalProperties": { "$ref": "#/definitions/Interval" }
     },
     "sample_count": {
       "type": "object",
-      "description": "candidate_id -> number of paired fixed-benchmark tasks used.",
+      "description": "candidate_id -> sample count used.",
       "maxProperties": 4096,
       "additionalProperties": { "type": "integer", "minimum": 0 }
     },
@@ -90,12 +90,12 @@
     "peak_gap_upper_bound": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "Mode 2 only: tau, a UCB on (true in-set max accuracy - selected peak accuracy)."
+      "description": "Mode-specific upper bound."
     },
     "composite_gap_to_true_max": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "Mode 2 only: delta + tau, the honest worst-case gap of the selection to the true in-set max."
+      "description": "Mode-specific composite bound."
     },
     "best_effort_candidate": {
       "type": ["string", "null"],
@@ -120,7 +120,7 @@
   },
   "allOf": [
     {
-      "description": "Mode 2 (accuracy_then_cost) must report the peak-honesty fields.",
+      "description": "Mode-specific result fields.",
       "if": {
         "properties": { "mode": { "const": "accuracy_then_cost" } },
         "required": ["mode"]
@@ -145,7 +145,7 @@
     },
     "Interval": {
       "type": "array",
-      "description": "[lower_confidence_bound, upper_confidence_bound]",
+      "description": "Interval values.",
       "items": { "type": "number" },
       "minItems": 2,
       "maxItems": 2

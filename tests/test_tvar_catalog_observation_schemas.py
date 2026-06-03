@@ -20,7 +20,7 @@ OPT_DIR = (
 )
 CATALOG_ENTRY_FILE = OPT_DIR / "tvar_catalog_entry_schema.json"
 OBSERVATION_FILE = OPT_DIR / "tvar_observation_schema.json"
-VALUE_PRIOR_FILE = OPT_DIR / "tvar_value_prior_schema.json"
+VALUE_RECOMMENDATION_FILE = OPT_DIR / "tvar_value_recommendation_schema.json"
 CORRELATION_FILE = OPT_DIR / "tvar_correlation_schema.json"
 OPT_ENDPOINTS_FILE = OPT_DIR / "optimization_endpoints.json"
 
@@ -97,7 +97,7 @@ def _valid_observation() -> dict:
     }
 
 
-def _valid_value_prior() -> dict:
+def _valid_value_recommendation() -> dict:
     return {
         "schema_version": "1.0.0",
         "tvar_name": "temperature",
@@ -105,7 +105,7 @@ def _valid_value_prior() -> dict:
         "agent_type": "rag",
         "metric": "quality_score",
         "objective_direction": "maximize",
-        "value_priors": [
+        "value_recommendations": [
             {
                 "value": 0.2,
                 "score": 0.87,
@@ -124,7 +124,6 @@ def _valid_value_prior() -> dict:
         "confidence": 0.79,
         "derived_from": {
             "observation_count": 160,
-            "run_ids": ["run_20260602_temperature"],
             "window": "2026-06-01/2026-06-02",
         },
         "generated_at": "2026-06-02T12:00:00Z",
@@ -151,7 +150,7 @@ def test_schemas_are_valid_draft7() -> None:
     for path in (
         CATALOG_ENTRY_FILE,
         OBSERVATION_FILE,
-        VALUE_PRIOR_FILE,
+        VALUE_RECOMMENDATION_FILE,
         CORRELATION_FILE,
     ):
         Draft7Validator.check_schema(_load(path))
@@ -213,15 +212,15 @@ def test_observation_rejects_per_input_policy_rows() -> None:
     assert _errors(OBSERVATION_FILE, invalid)
 
 
-def test_valid_value_prior_passes() -> None:
-    assert _errors(VALUE_PRIOR_FILE, _valid_value_prior()) == []
+def test_valid_value_recommendation_passes() -> None:
+    assert _errors(VALUE_RECOMMENDATION_FILE, _valid_value_recommendation()) == []
 
 
-def test_value_prior_missing_support_n_fails() -> None:
-    invalid = _valid_value_prior()
+def test_value_recommendation_missing_support_n_fails() -> None:
+    invalid = _valid_value_recommendation()
     del invalid["support_n"]
 
-    assert _errors(VALUE_PRIOR_FILE, invalid)
+    assert _errors(VALUE_RECOMMENDATION_FILE, invalid)
 
 
 def test_valid_correlation_passes() -> None:
@@ -240,26 +239,26 @@ def test_schemas_are_registered_by_runtime_discovery() -> None:
 
     assert "tvar_catalog_entry_schema" in available
     assert "tvar_observation_schema" in available
-    assert "tvar_value_prior_schema" in available
+    assert "tvar_value_recommendation_schema" in available
     assert "tvar_correlation_schema" in available
 
 
-def test_priors_endpoint_path_parses_as_openapi() -> None:
+def test_recommendations_endpoint_path_parses_as_openapi() -> None:
     openapi = _load(OPT_ENDPOINTS_FILE)
-    priors = openapi["paths"]["/optimization/priors"]["get"]
+    recommendations = openapi["paths"]["/optimization/recommendations"]["get"]
 
     assert openapi["openapi"] == "3.0.0"
     assert {"openapi", "info", "paths"} <= set(openapi)
-    assert {parameter["name"] for parameter in priors["parameters"]} == {
+    assert {parameter["name"] for parameter in recommendations["parameters"]} == {
         "agent_type",
         "metric",
         "tvar_names",
     }
-    response_schema = priors["responses"]["200"]["content"]["application/json"][
-        "schema"
-    ]
-    assert response_schema["properties"]["value_priors"]["items"]["$ref"] == (
-        "./tvar_value_prior_schema.json"
+    response_schema = recommendations["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]
+    assert response_schema["properties"]["value_recommendations"]["items"]["$ref"] == (
+        "./tvar_value_recommendation_schema.json"
     )
     assert response_schema["properties"]["correlations"]["items"]["$ref"] == (
         "./tvar_correlation_schema.json"

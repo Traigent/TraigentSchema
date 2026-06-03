@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/multi_objective_semantics_schema.json",
   "title": "Multi-Objective Semantics (normative meta-contract)",
-  "description": "Normative behavioral contract for how implementations must normalize and aggregate multiple objectives. This document is META-CONTRACT documentation, NOT a wire-format schema: the fields below are not transmitted in API payloads. Implementations (Python SDK, traigent-js SDK, TraigentBackend, TraigentFrontend) must hard-code the const values listed here. The schema exists so behavior is discoverable and testable across the four codebases that consume objective definitions; it does not validate any request or response body. Wire-format objective fields are defined in objective_definition_schema.json.",
+  "description": "Normative behavioral contract for how implementations must normalize and aggregate multiple objectives. This document is META-CONTRACT documentation, NOT a wire-format schema: the fields below are not transmitted in API payloads. Implementations (SDKs, backend, frontend) must hard-code the const values listed here. The schema exists so behavior is discoverable and testable across consuming codebases; it does not validate any request or response body. Wire-format objective fields are defined in objective_definition_schema.json.",
   "version": "1.0.0",
   "type": "object",
   "additionalProperties": false,
@@ -39,7 +39,7 @@
             "enum": ["sdk", "backend", "frontend"]
           },
           "const": ["sdk"],
-          "description": "METADATA about which codebases enforce dominance_guard at schema construction. NOT a wire-format field. Today only the Python and JS SDKs enforce the guard; TraigentBackend's interactive_session_service objective normalizer validates positive weights only, and TraigentFrontend trusts already-validated payloads. Future expansion to ['sdk', 'backend'] is filed as a follow-up; this field documents current scope so consumers do not assume universal enforcement."
+          "description": "METADATA about which codebases enforce dominance_guard at schema construction. NOT a wire-format field. Today only the SDKs enforce the guard; the backend objective normalizer validates positive weights only, and the frontend trusts already-validated payloads. Future expansion to ['sdk', 'backend'] is filed as a follow-up; this field documents current scope so consumers do not assume universal enforcement."
         }
       },
       "required": ["max_normalized_weight", "validation_scope"]

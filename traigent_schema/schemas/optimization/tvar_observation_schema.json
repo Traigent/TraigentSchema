@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "TVAR Observation Schema",
-  "description": "Defines a content-free, privacy-safe observation record emitted per optimization trial under tvar_observation_v1 result metadata.",
+  "description": "Defines a content-free, privacy-safe trial summary record under tvar_observation_v1 result metadata.",
   "version": "1.0.0",
   "definitions": {
     "VariableKind": {
@@ -56,7 +56,7 @@
     },
     "Comparability": {
       "type": "object",
-      "description": "Scope and count used to compare this trial with other observations.",
+      "description": "Scope and count for privacy-safe trial-summary comparison.",
       "properties": {
         "scope": {
           "type": "string",
@@ -101,7 +101,7 @@
     },
     "Privacy": {
       "type": "object",
-      "description": "Privacy declaration for the observation payload.",
+      "description": "Privacy declaration for the trial summary payload.",
       "properties": {
         "raw_content_included": {
           "const": false,
@@ -115,7 +115,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "description": "Version of this observation contract."
+      "description": "Version of this trial summary contract."
     },
     "session_id": {
       "type": "string",

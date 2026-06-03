@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/guaranteed_selection_result_schema.json",
   "title": "Guaranteed Selection Result Schema",
-  "description": "Discriminated, fail-closed result of a guaranteed optimizer mode. deployable is true ONLY for CERTIFIED_SELECTION, and only then is selected_config populated; every other status carries a fallback_config and a null selected_config, so an uncertified config can never occupy the slot a consumer deploys from. Carries the GuaranteeCertificate as evidence.",
+  "description": "Result envelope for a guaranteed optimizer-mode decision.",
   "version": "0.1.0",
   "type": "object",
   "additionalProperties": false,
@@ -27,18 +27,18 @@
     },
     "deployable": {
       "type": "boolean",
-      "description": "True only for CERTIFIED_SELECTION (enforced below). Deploy gates MUST require this true."
+      "description": "True only for CERTIFIED_SELECTION."
     },
     "selected_config": {
       "type": ["string", "null"],
       "maxLength": 128,
-      "description": "The certified config to deploy. Non-null ONLY for CERTIFIED_SELECTION."
+      "description": "Selected config. Non-null only for CERTIFIED_SELECTION."
     },
     "fallback_config": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "description": "The config to keep running when nothing is certified (baseline for Mode 1, peak for Mode 2)."
+      "description": "Config to keep running when no selection is certified."
     },
     "certificate": { "$ref": "./guarantee_certificate_schema.json" }
   },

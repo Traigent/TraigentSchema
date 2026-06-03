@@ -1,8 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/tvar_value_recommendation_schema.json",
   "type": "object",
-  "title": "TVAR Value Prior Schema",
-  "description": "Defines a server-provided promising-value hint for a tuned variable. Consumers must treat low-support_n or low-confidence priors as hints only.",
+  "title": "TVAR Value Recommendation Schema",
+  "description": "Defines a server-provided recommendation hint for a tuned variable. Consumers must treat low-support_n or low-confidence recommendations as hints only.",
   "version": "1.0.0",
   "definitions": {
     "TvarValue": {
@@ -23,9 +24,9 @@
         }
       ]
     },
-    "ValuePrior": {
+    "ValueRecommendation": {
       "type": "object",
-      "description": "Server-provided score for a candidate tuned-variable value.",
+      "description": "Server-provided recommendation score for a candidate tuned-variable value.",
       "properties": {
         "value": {
           "$ref": "#/definitions/TvarValue"
@@ -50,19 +51,11 @@
     },
     "DerivedFrom": {
       "type": "object",
-      "description": "Optional opaque source summary for this hint.",
+      "description": "Optional opaque source summary for this recommendation hint.",
       "properties": {
         "observation_count": {
           "type": "integer",
           "minimum": 0
-        },
-        "run_ids": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256
-          }
         },
         "window": {
           "type": "string",
@@ -98,21 +91,21 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
-      "description": "Objective metric this prior is for."
+      "description": "Objective metric this recommendation is for."
     },
     "objective_direction": {
       "type": "string",
       "enum": ["maximize", "minimize"]
     },
-    "value_priors": {
+    "value_recommendations": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/ValuePrior"
+        "$ref": "#/definitions/ValueRecommendation"
       }
     },
     "recommended_values": {
       "type": "array",
-      "description": "Gated top picks from value_priors.",
+      "description": "Gated top picks from value_recommendations.",
       "items": {
         "$ref": "#/definitions/TvarValue"
       }
@@ -139,7 +132,7 @@
     "schema_version",
     "tvar_name",
     "metric",
-    "value_priors",
+    "value_recommendations",
     "support_n",
     "confidence"
   ],

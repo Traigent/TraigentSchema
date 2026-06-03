@@ -53,8 +53,6 @@ def _valid_catalog_entry() -> dict:
         "agent_types": ["rag", "chat", "general_llm"],
         "evidence_refs": [
             {
-                "artifact_path": "artifacts/tvar/temperature.json",
-                "run_id": "run_20260602_temperature",
                 "scope": "heldout",
                 "metric": "quality_score",
                 "n": 128,
@@ -175,6 +173,17 @@ def test_catalog_entry_rejects_strategy_unless_executable() -> None:
     invalid["effectuation_status"] = "manual_guidance"
 
     assert _errors(CATALOG_ENTRY_FILE, invalid)
+
+
+def test_catalog_entry_evidence_ref_rejects_internal_provenance() -> None:
+    invalid = _valid_catalog_entry()
+    invalid["evidence_refs"][0]["artifact_path"] = "artifacts/tvar/temperature.json"
+    invalid["evidence_refs"][0]["run_id"] = "run_20260602_temperature"
+
+    errors = _errors(CATALOG_ENTRY_FILE, invalid)
+
+    assert errors
+    assert any(error.validator == "additionalProperties" for error in errors)
 
 
 def test_valid_observation_passes() -> None:

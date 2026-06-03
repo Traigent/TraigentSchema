@@ -32,20 +32,8 @@
     },
     "EvidenceRef": {
       "type": "object",
-      "description": "Reference to supporting aggregate evidence for the recommendation.",
+      "description": "Reference to supporting aggregate evidence for the recommendation. Public-safe provenance only; internal artifact paths and run IDs are intentionally excluded from this public contract.",
       "properties": {
-        "artifact_path": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024,
-          "description": "Path or URI for the evidence artifact."
-        },
-        "run_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256,
-          "description": "Run identifier that produced the evidence."
-        },
         "scope": {
           "type": "string",
           "minLength": 1,
@@ -95,8 +83,6 @@
         }
       },
       "required": [
-        "artifact_path",
-        "run_id",
         "scope",
         "metric",
         "n",

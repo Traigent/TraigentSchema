@@ -82,6 +82,32 @@
         "minimum": 0
       }
     },
+    "EffectuationEvent": {
+      "type": "object",
+      "description": "Aggregate executable effectuation event metadata only; raw prompts, examples, and outputs are not allowed.",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.:/-]+$"
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_.:/-]+$"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "boolean"
+          }
+        ]
+      }
+    },
     "PromptArtifactRef": {
       "type": "object",
       "description": "Hash and optional artifact reference for prompt material. Raw content is not allowed.",
@@ -164,6 +190,12 @@
     },
     "policy_events_summary": {
       "$ref": "#/definitions/PolicyEventsSummary"
+    },
+    "effectuation_events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/EffectuationEvent"
+      }
     },
     "prompt_artifact_refs": {
       "type": "array",

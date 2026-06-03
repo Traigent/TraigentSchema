@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from traigent_schema.analytics_validators import AnalyticsValidator
@@ -25,20 +23,32 @@ class TestAnalyticsValidatorHelpers:
     def test_validate_example_score_delegates_to_schema_validator(
         self, validator: AnalyticsValidator
     ) -> None:
-        payload = {"example_id": "ex_a3f4b2c8d1_0", "score": 0.9}
-        errors = validator.validate_example_score(payload)
-        assert isinstance(errors, list)
+        payload = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "experiment_run_id": "run_123",
+            "algorithm_version": "1.0.0",
+            "composite_score": 0.9,
+        }
+
+        assert validator.validate_example_score(payload) == []
+
+        invalid_payload = {**payload, "example_id": "EX_a3f4b2c8d1_0"}
+        assert validator.validate_example_score(invalid_payload)
 
     def test_validate_dataset_quality_delegates_to_schema_validator(
         self, validator: AnalyticsValidator
     ) -> None:
         payload = {
-            "dataset_id": "dataset_123",
-            "quality_score": 0.82,
+            "experiment_run_id": "run_123",
+            "dataset_quality": 0.82,
+            "algorithm_version": "1.0.0",
             "recommendations": [],
         }
-        errors = validator.validate_dataset_quality(payload)
-        assert isinstance(errors, list)
+
+        assert validator.validate_dataset_quality(payload) == []
+
+        invalid_payload = {**payload, "dataset_quality": 1.1}
+        assert validator.validate_dataset_quality(invalid_payload)
 
     def test_validate_scoring_job_status_delegates_to_schema_validator(
         self, validator: AnalyticsValidator
@@ -46,10 +56,18 @@ class TestAnalyticsValidatorHelpers:
         payload = {
             "job_id": "score_dataset_eval_1705320600",
             "status": "completed",
-            "progress": 1.0,
+            "result": {
+                "experiment_run_id": "run_123",
+                "num_examples": 12,
+                "dataset_quality": 0.91,
+                "algorithm_version": "1.0.0",
+            },
         }
-        errors = validator.validate_scoring_job_status(payload)
-        assert isinstance(errors, list)
+
+        assert validator.validate_scoring_job_status(payload) == []
+
+        invalid_payload = {key: value for key, value in payload.items() if key != "result"}
+        assert validator.validate_scoring_job_status(invalid_payload)
 
     @pytest.mark.parametrize(
         ("example_id", "expected"),

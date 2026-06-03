@@ -328,27 +328,45 @@ class TestScoringJobStatusSchema:
         errors = validator.validate_json(data, "scoring_job_status_schema")
         assert errors == [], f"Unexpected errors: {errors}"
 
-    def test_completed_without_result_rejected(self, validator):
-        """Should reject completed status without result."""
-        data = {
-            "status": "completed",
-            "job_id": "score_run123_1234567890"
-            # Missing 'result' - should fail oneOf
-        }
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {
+                "status": "completed",
+                "job_id": "score_run123_1234567890",
+            },
+            {
+                "status": "completed",
+                "job_id": "score_run123_1234567890",
+                "result": None,
+            },
+        ],
+    )
+    def test_completed_without_result_rejected(self, validator, data):
+        """Should reject completed status without an object result."""
 
         errors = validator.validate_json(data, "scoring_job_status_schema")
-        assert len(errors) > 0, "Expected validation error for completed without result"
+        assert any("not valid under any of the given schemas" in e for e in errors)
 
-    def test_failed_without_error_rejected(self, validator):
-        """Should reject failed status without error."""
-        data = {
-            "status": "failed",
-            "job_id": "score_run123_1234567890"
-            # Missing 'error' - should fail oneOf
-        }
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {
+                "status": "failed",
+                "job_id": "score_run123_1234567890",
+            },
+            {
+                "status": "failed",
+                "job_id": "score_run123_1234567890",
+                "error": None,
+            },
+        ],
+    )
+    def test_failed_without_error_rejected(self, validator, data):
+        """Should reject failed status without a string error."""
 
         errors = validator.validate_json(data, "scoring_job_status_schema")
-        assert len(errors) > 0, "Expected validation error for failed without error"
+        assert any("not valid under any of the given schemas" in e for e in errors)
 
     def test_invalid_status_rejected(self, validator):
         """Should reject invalid status value."""

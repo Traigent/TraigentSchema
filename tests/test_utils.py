@@ -1,16 +1,15 @@
 """Tests for traigent_schema.utils module."""
 
-import json
 from pathlib import Path
 
 import pytest
 
 from traigent_schema.utils import (
-    get_schemas_dir,
-    get_schema_path,
     get_all_schema_files,
     get_contract_path,
     get_openapi_path,
+    get_schema_path,
+    get_schemas_dir,
     load_schema,
 )
 
@@ -143,10 +142,14 @@ class TestLoadSchema:
         result = load_schema("agent_schema")
         assert isinstance(result, dict)
 
-    def test_schema_has_required_fields(self):
-        """Should contain expected schema fields."""
+    def test_agent_schema_has_contract_invariants(self):
+        """Should preserve the canonical Agent schema contract."""
         result = load_schema("agent_schema")
-        assert "$schema" in result or "type" in result
+        assert result["$schema"] == "http://json-schema.org/draft-07/schema#"
+        assert result["$id"] == "https://schemas.traigent.ai/agents/agent_schema.json"
+        assert result["type"] == "object"
+        assert result["additionalProperties"] is False
+        assert set(result["required"]) == {"id", "name", "agent_type"}
 
     def test_loads_different_schemas(self):
         """Should load various schemas correctly."""

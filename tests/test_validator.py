@@ -65,17 +65,19 @@ class TestValidateJson:
         """Create a validator instance."""
         return SchemaValidator()
 
-    def test_valid_agent_data(self, validator):
-        """Should validate correct agent data."""
-        data = {
+    @pytest.fixture
+    def valid_agent_data(self):
+        """Return a minimal payload accepted by agent_schema."""
+        return {
             "id": "test-agent-1",
             "name": "Test Agent",
-            "agent_type": "qa"
+            "agent_type": "qa",
         }
-        errors = validator.validate_json(data, "agent_schema")
-        # Note: May have reference resolution errors for cross-file $refs
-        # The validator correctly validates the core structure
-        assert isinstance(errors, list)
+
+    def test_valid_agent_data(self, validator, valid_agent_data):
+        """Should validate correct agent data."""
+        errors = validator.validate_json(valid_agent_data, "agent_schema")
+        assert errors == []
 
     def test_invalid_agent_missing_required(self, validator):
         """Should catch missing required fields."""
@@ -84,7 +86,10 @@ class TestValidateJson:
             # Missing id and agent_type
         }
         errors = validator.validate_json(data, "agent_schema")
-        assert len(errors) > 0
+        assert errors == [
+            "root: 'id' is a required property",
+            "root: 'agent_type' is a required property",
+        ]
 
     def test_nonexistent_schema(self, validator):
         """Should return error for missing schema."""
@@ -93,17 +98,11 @@ class TestValidateJson:
         assert len(errors) == 1
         assert "Schema not found" in errors[0]
 
-    def test_schema_name_without_suffix(self, validator):
+    def test_schema_name_without_suffix(self, validator, valid_agent_data):
         """Should find schema without _schema suffix."""
-        data = {
-            "id": "test-agent-1",
-            "name": "Test Agent",
-            "agent_type": "qa"
-        }
         # Try with just "agent" instead of "agent_schema"
-        errors = validator.validate_json(data, "agent")
-        # Should either work or gracefully report not found
-        assert isinstance(errors, list)
+        errors = validator.validate_json(valid_agent_data, "agent")
+        assert errors == []
 
 
 class TestValidateRequest:
@@ -263,7 +262,9 @@ class TestValidateRequest:
         )
         assert errors == []
 
-    def test_default_backend_contract_validates_annotation_queue_partial_update_request(self, validator):
+    def test_default_backend_contract_validates_annotation_queue_partial_update_request(
+        self, validator
+    ):
         errors = validator.validate_request(
             "/api/v1beta/annotation-queues/queue_abc",
             "PATCH",

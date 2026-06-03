@@ -276,7 +276,7 @@
         }
       }
     },
-    "/optimization/recommendations": {
+    "/api/v1/optimization/recommendations": {
       "get": {
         "summary": "Read tuned-variable value recommendations",
         "description": "Read tuned-variable value recommendations.",

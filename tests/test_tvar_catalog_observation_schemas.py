@@ -245,10 +245,12 @@ def test_schemas_are_registered_by_runtime_discovery() -> None:
 
 def test_recommendations_endpoint_path_parses_as_openapi() -> None:
     openapi = _load(OPT_ENDPOINTS_FILE)
-    recommendations = openapi["paths"]["/optimization/recommendations"]["get"]
+    recommendations = openapi["paths"]["/api/v1/optimization/recommendations"]["get"]
 
     assert openapi["openapi"] == "3.0.0"
     assert {"openapi", "info", "paths"} <= set(openapi)
+    # SoT path carries the /api/v1 prefix to match every sibling endpoint and the served route.
+    assert "/optimization/recommendations" not in openapi["paths"]
     assert {parameter["name"] for parameter in recommendations["parameters"]} == {
         "agent_type",
         "metric",

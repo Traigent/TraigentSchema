@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "TVAR Correlation Schema",
-  "description": "Defines a learned correlation between tuned variables or between agent type and tuned variable.",
+  "description": "Defines a server-provided correlation hint between tuned variables or between agent type and tuned variable.",
   "version": "1.0.0",
   "definitions": {
     "TvarValue": {
@@ -47,7 +47,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "description": "Version of this learned-correlation contract."
+      "description": "Version of this correlation hint contract."
     },
     "kind": {
       "type": "string",

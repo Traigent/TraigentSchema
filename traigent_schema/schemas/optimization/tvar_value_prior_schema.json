@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "TVAR Value Prior Schema",
-  "description": "Defines a learned promising-value prior for a tuned variable, aggregated from observations. Consumers must treat low-support_n or low-confidence priors as hints only.",
+  "description": "Defines a server-provided promising-value hint for a tuned variable. Consumers must treat low-support_n or low-confidence priors as hints only.",
   "version": "1.0.0",
   "definitions": {
     "TvarValue": {
@@ -25,7 +25,7 @@
     },
     "ValuePrior": {
       "type": "object",
-      "description": "Learned score for a candidate tuned-variable value.",
+      "description": "Server-provided score for a candidate tuned-variable value.",
       "properties": {
         "value": {
           "$ref": "#/definitions/TvarValue"
@@ -37,7 +37,7 @@
         "support_n": {
           "type": "integer",
           "minimum": 0,
-          "description": "Number of observations behind this candidate value."
+          "description": "Sample size backing this candidate value."
         },
         "confidence": {
           "type": "number",
@@ -50,7 +50,7 @@
     },
     "DerivedFrom": {
       "type": "object",
-      "description": "Aggregate source summary for this learned prior.",
+      "description": "Optional opaque source summary for this hint.",
       "properties": {
         "observation_count": {
           "type": "integer",
@@ -77,7 +77,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "description": "Version of this learned-prior contract."
+      "description": "Version of this hint contract."
     },
     "tvar_name": {
       "type": "string",
@@ -120,7 +120,7 @@
     "support_n": {
       "type": "integer",
       "minimum": 0,
-      "description": "Total observations behind this prior."
+      "description": "Sample size backing this hint."
     },
     "confidence": {
       "type": "number",

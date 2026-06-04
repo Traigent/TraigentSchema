@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/csrf_token_response_schema.json",
+  "title": "CSRF Token Response DTO",
+  "description": "200 body for GET /api/v1/auth/csrf-token (side-effect-free, auth-required). The same token is also set as a non-HttpOnly `traigent_csrf_token` cookie (max-age 3600, SameSite=Lax, Secure in production); the client mirrors it back in the `X-CSRF-Token` request header on state-changing requests (double-submit-cookie pattern). No session-expiry field is carried here.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "csrf_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Random CSRF token (also delivered via the traigent_csrf_token cookie)."
+        }
+      },
+      "required": ["csrf_token"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

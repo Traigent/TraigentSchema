@@ -10,4 +10,4 @@ pluggy==1.6.0
 Pygments==2.20.0
 pytest==9.0.3  # CVE-2025-71176
 pytest-cov==7.1.0
-ruff==0.15.13
+ruff==0.15.15

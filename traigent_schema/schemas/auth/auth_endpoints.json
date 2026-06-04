@@ -58,8 +58,19 @@
       "post": {
         "summary": "Authenticate with email + password; returns access + refresh tokens",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Authenticated. Session expiry is exposed via the X-Session-Expires-At header, not the body.",
+            "headers": {
+              "X-Session-Expires-At": {
+                "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
+                "schema": { "type": "string", "format": "date-time" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./login_response_schema.json" }
+              }
+            }
           }
         }
       }
@@ -78,8 +89,51 @@
       "post": {
         "summary": "Exchange a refresh token for a new access token",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Refreshed. Session expiry is exposed via the X-Session-Expires-At header, not the body.",
+            "headers": {
+              "X-Session-Expires-At": {
+                "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
+                "schema": { "type": "string", "format": "date-time" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./token_refresh_response_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/csrf-token": {
+      "get": {
+        "summary": "Fetch a CSRF token for cookie-mode auth (side-effect-free, auth-required)",
+        "description": "Returns a CSRF token and sets it as a non-HttpOnly traigent_csrf_token cookie. The client mirrors the value back in the X-CSRF-Token request header on state-changing requests (double-submit-cookie).",
+        "responses": {
+          "200": {
+            "description": "CSRF token issued (also set as the traigent_csrf_token cookie).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./csrf_token_response_schema.json" }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
           }
         }
       }

@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/token_refresh_response_schema.json",
+  "title": "Token Refresh Response DTO",
+  "description": "200 body for POST /api/v1/auth/refresh. Returns a fresh (rotated) access + refresh token. As with login, session expiry is carried by the `X-Session-Expires-At` response header (ISO-8601 UTC), not in the body.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "New JWT access token."
+        },
+        "refresh_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Rotated refresh token."
+        },
+        "user": {
+          "type": ["object", "null"],
+          "additionalProperties": true,
+          "description": "Authenticated user identity claims; see GET /api/v1/auth/me for the full shape. Modeled permissively to avoid drift."
+        },
+        "csrf_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present only for cookie-mode auth."
+        }
+      },
+      "required": ["access_token", "refresh_token"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `timestamp`) — **distinct** from `planner_draft_schema.json`. Initial status is
   `created` (BE#658); missing/deleted drafts are a **404** (BE#659), not a 200 with
   a `not_found` status, so `not_found` is intentionally absent from the enum.
+- Auth response contracts (TraigentSchema#58, #62), replacing the `default`
+  "Response shape pending" placeholders in `auth/auth_endpoints.json`:
+  `auth/login_response_schema.json` (`LoginResponseDTO`) and
+  `auth/token_refresh_response_schema.json` (`TokenRefreshResponseDTO`) model the
+  `{success, message, data:{access_token, refresh_token, user?, …}}` envelope the
+  backend emits and the Python SDK consumes. **Session expiry is the
+  `X-Session-Expires-At` response header, not a body field** (documented on both
+  routes; `expires_at` lives only on `GET /auth/me`) — the schemas reject an
+  expiry field in the body to prevent drift. `auth/csrf_token_response_schema.json`
+  (`CSRFTokenResponseDTO`) + a new `GET /api/v1/auth/csrf-token` path document the
+  cookie-mode CSRF flow (`traigent_csrf_token` cookie ↔ `X-CSRF-Token` header),
+  with 401/403 composing `ErrorEnvelopeDTO`.
 - `error_envelope_schema.json` (`ErrorEnvelopeDTO`) — the canonical error response
   envelope (Shape A: `{success:false, message, error, error_code?, details?}`) decided in
   BE#669 and already consumed by FE `errorUtils.ts`. Strict (`additionalProperties:false`)

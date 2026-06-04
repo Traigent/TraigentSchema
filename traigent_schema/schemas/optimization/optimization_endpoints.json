@@ -275,6 +275,79 @@
           }
         }
       }
+    },
+    "/api/v1/optimization/recommendations": {
+      "get": {
+        "summary": "Read tuned-variable value recommendations",
+        "description": "Read tuned-variable value recommendations.",
+        "parameters": [
+          {
+            "name": "agent_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "tvar_names",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated tuned-variable names.",
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tuned-variable value recommendations returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "value_recommendations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "./tvar_value_recommendation_schema.json"
+                      }
+                    },
+                    "correlations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "./tvar_correlation_schema.json"
+                      }
+                    },
+                    "generated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["value_recommendations", "correlations"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

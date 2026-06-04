@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/login_response_schema.json",
+  "title": "Login Response DTO",
+  "description": "200 body for POST /api/v1/auth/login. Session expiry is NOT carried in the body — it is exposed via the `X-Session-Expires-At` response header (ISO-8601 UTC). `expires_at` appears in a response body only on GET /api/v1/auth/me. The SDK reads `data.access_token` and derives expiry from the JWT `exp` claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "JWT access token."
+        },
+        "refresh_token": { "type": "string", "minLength": 1 },
+        "user": {
+          "type": ["object", "null"],
+          "additionalProperties": true,
+          "description": "Authenticated user identity claims (id, email, name, role, organization, …). Full shape is documented at GET /api/v1/auth/me (future AuthMeResponseDTO); modeled permissively here to avoid drift."
+        },
+        "mfa_enabled": {
+          "type": "boolean",
+          "description": "Present only when MFA is globally enabled."
+        },
+        "csrf_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present only for cookie-mode auth (request sent with X-Use-Cookie-Auth)."
+        }
+      },
+      "required": ["access_token", "refresh_token"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

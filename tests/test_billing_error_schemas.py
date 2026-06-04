@@ -1,4 +1,7 @@
+import json
+
 from traigent_schema import SchemaValidator
+from traigent_schema.utils import get_schemas_dir
 
 
 def test_quota_exceeded_error_schema_accepts_contract_shape():
@@ -234,3 +237,90 @@ def test_billing_checkout_response_accepts_success_wrapper():
     )
 
     assert errors == []
+
+
+def test_subscription_response_accepts_no_subscription_marker():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": {"status": "none", "tier": "free"},
+        },
+        "subscription_response_schema",
+    )
+
+    assert errors == []
+
+
+def test_subscription_response_accepts_public_subscription_shape():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": {
+                "id": 123,
+                "user_id": "user_123",
+                "tenant_id": "tenant_123",
+                "status": "active",
+                "plan_tier": "team",
+                "billing_cycle": "monthly",
+                "scheduled_plan_tier": "individual",
+                "scheduled_billing_cycle": "annual",
+                "scheduled_change_at": "2026-06-04T12:00:00+00:00",
+                "current_period_start": "2026-06-04T12:00:00+00:00",
+                "current_period_end": "2026-07-04T12:00:00+00:00",
+                "cancel_at_period_end": False,
+                "created_at": "2026-06-04T12:00:00+00:00",
+            },
+        },
+        "subscription_response_schema",
+    )
+
+    assert errors == []
+
+
+def test_subscription_response_rejects_paddle_price_ids():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": {
+                "id": 123,
+                "user_id": "user_123",
+                "tenant_id": "tenant_123",
+                "status": "active",
+                "plan_tier": "team",
+                "billing_cycle": "monthly",
+                "scheduled_plan_tier": None,
+                "scheduled_billing_cycle": None,
+                "scheduled_change_at": None,
+                "current_period_start": "2026-06-04T12:00:00+00:00",
+                "current_period_end": "2026-07-04T12:00:00+00:00",
+                "cancel_at_period_end": False,
+                "created_at": "2026-06-04T12:00:00+00:00",
+                "scheduled_price_id": "pri_secret",
+            },
+        },
+        "subscription_response_schema",
+    )
+
+    assert errors
+
+
+def test_subscription_lifecycle_endpoint_wires_subscription_response_schema():
+    with open(
+        get_schemas_dir() / "billing" / "subscription_lifecycle_endpoints.json",
+        encoding="utf-8",
+    ) as fh:
+        spec = json.load(fh)
+
+    response = spec["paths"]["/api/v1/billing/subscription"]["get"]["responses"]["200"]
+    schema_ref = response["content"]["application/json"]["schema"]["$ref"]
+
+    assert schema_ref.endswith("subscription_response_schema.json")

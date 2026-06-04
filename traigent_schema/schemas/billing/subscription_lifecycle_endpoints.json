@@ -10,8 +10,13 @@
       "get": {
         "summary": "Get the current user's subscription details",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Current subscription details or a no-subscription marker.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./subscription_response_schema.json" }
+              }
+            }
           }
         }
       }

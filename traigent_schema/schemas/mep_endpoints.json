@@ -58,6 +58,11 @@
       "paths_file": "./audit/audit_endpoints.json"
     },
     {
+      "name": "Planner",
+      "description": "Current backend planner draft-status routes.",
+      "paths_file": "./planner/planner_endpoints.json"
+    },
+    {
       "name": "Billing Paddle",
       "description": "Current backend Paddle-backed billing routes.",
       "paths_file": "./billing/paddle_endpoints.json"

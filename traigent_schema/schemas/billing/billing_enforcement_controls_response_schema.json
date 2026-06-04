@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/billing_enforcement_controls_response_schema.json",
+  "title": "Billing Enforcement Controls Response",
+  "description": "200 response for GET /api/v1/billing/enforcement-controls. Pins the public effective limit fields consumed by clients.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "success": { "const": true },
+    "message": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "effective_limits": { "$ref": "./billing_limits_schema.json" }
+      },
+      "required": ["effective_limits"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

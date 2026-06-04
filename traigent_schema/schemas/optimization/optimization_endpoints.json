@@ -113,39 +113,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "trial_id",
-                  "metrics",
-                  "duration",
-                  "status"
-                ],
-                "properties": {
-                  "trial_id": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "metrics": {
-                    "type": "object"
-                  },
-                  "duration": {
-                    "type": "number",
-                    "minimum": 0
-                  },
-                  "status": {
-                    "type": "string"
-                  },
-                  "outputs_sample": {
-                    "type": "array"
-                  },
-                  "error_message": {
-                    "type": "string"
-                  },
-                  "metadata": {
-                    "type": "object"
-                  }
-                },
-                "additionalProperties": true
+                "$ref": "./session_submit_results_request_schema.json"
               }
             }
           }

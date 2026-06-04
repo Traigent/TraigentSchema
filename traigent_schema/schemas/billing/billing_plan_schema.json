@@ -30,8 +30,7 @@
           "items": { "type": "string", "minLength": 1, "maxLength": 180 }
         },
         "limits": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
+          "$ref": "./billing_limits_schema.json"
         },
         "popular": { "type": "boolean" },
         "custom": { "type": "boolean" }
@@ -82,8 +81,7 @@
           "items": { "type": "string", "minLength": 1, "maxLength": 180 }
         },
         "limits": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
+          "$ref": "./billing_limits_schema.json"
         },
         "popular": { "type": "boolean" },
         "custom": { "type": "boolean" }
@@ -139,8 +137,7 @@
           "items": { "type": "string", "minLength": 1, "maxLength": 180 }
         },
         "limits": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
+          "$ref": "./billing_limits_schema.json"
         },
         "popular": { "type": "boolean" },
         "custom": { "type": "boolean" }
@@ -177,8 +174,7 @@
           "items": { "type": "string", "minLength": 1, "maxLength": 180 }
         },
         "limits": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
+          "$ref": "./billing_limits_schema.json"
         },
         "popular": { "type": "boolean" },
         "custom": { "type": "boolean" }

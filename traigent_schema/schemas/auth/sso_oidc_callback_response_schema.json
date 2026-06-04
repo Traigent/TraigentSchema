@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/sso_oidc_callback_response_schema.json",
+  "title": "OIDC SSO Callback Response DTO",
+  "description": "200 JSON body for GET /api/v1/auth/sso/oidc/callback when the callback completes without a return_to redirect.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "auth_sensitive",
+  "properties": {
+    "success": { "const": true },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "JWT access token issued for the OIDC-authenticated user."
+        },
+        "refresh_token": { "type": "string", "minLength": 1 },
+        "csrf_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CSRF token generated with the browser session."
+        },
+        "user": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Authenticated user identity claims produced by serialize_auth_user."
+        },
+        "sso": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": { "const": "oidc" },
+            "tenant_id": { "type": "string", "minLength": 1 },
+            "tenant_slug": { "type": "string", "minLength": 1 }
+          },
+          "required": ["provider", "tenant_id", "tenant_slug"]
+        }
+      },
+      "required": ["access_token", "refresh_token", "csrf_token", "user", "sso"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

@@ -22,6 +22,22 @@ def _login(**data_overrides):
     return {"success": True, "message": "Login successful", "data": data}
 
 
+def _oidc_sso_callback(**data_overrides):
+    data = {
+        "access_token": "eyJ.jwt.token",
+        "refresh_token": "refresh-abc",
+        "csrf_token": "csrf-abc",
+        "user": {"id": "u1", "email": "alice@example.com", "role": "member"},
+        "sso": {
+            "provider": "oidc",
+            "tenant_id": "tenant_123",
+            "tenant_slug": "tenant-acme",
+        },
+    }
+    data.update(data_overrides)
+    return {"success": True, "message": "SSO login successful", "data": data}
+
+
 # --- LoginResponseDTO ------------------------------------------------------
 
 
@@ -132,6 +148,33 @@ def test_refresh_requires_tokens():
     assert v.validate_json(payload, "token_refresh_response_schema")
 
 
+# --- OIDC SSO callback response -------------------------------------------
+
+
+def test_oidc_sso_callback_accepts_token_response():
+    v = SchemaValidator()
+    assert v.validate_json(_oidc_sso_callback(), "sso_oidc_callback_response_schema") == []
+
+
+def test_oidc_sso_callback_requires_sso_context():
+    v = SchemaValidator()
+    body = _oidc_sso_callback()
+    del body["data"]["sso"]["tenant_slug"]
+    assert v.validate_json(body, "sso_oidc_callback_response_schema")
+
+
+def test_oidc_sso_callback_rejects_unknown_and_wrong_provider():
+    v = SchemaValidator()
+    leaky = _oidc_sso_callback()
+    leaky["data"]["id_token"] = "raw-idp-token"
+    assert v.validate_json(leaky, "sso_oidc_callback_response_schema")
+
+    wrong_provider = _oidc_sso_callback(
+        sso={"provider": "saml", "tenant_id": "tenant_123", "tenant_slug": "tenant-acme"}
+    )
+    assert v.validate_json(wrong_provider, "sso_oidc_callback_response_schema")
+
+
 # --- CSRF token response ---------------------------------------------------
 
 
@@ -184,3 +227,36 @@ def test_auth_endpoints_wire_the_new_dtos():
         assert csrf[code]["content"]["application/json"]["schema"]["$ref"].endswith(
             "error_envelope_schema.json"
         )
+
+
+def test_auth_endpoints_wire_oidc_sso_contracts():
+    with open(get_schemas_dir() / "auth" / "auth_endpoints.json", encoding="utf-8") as fh:
+        spec = json.load(fh)
+    paths = spec["paths"]
+
+    login = paths["/api/v1/auth/sso/oidc/login"]["get"]
+    login_params = {param["name"]: param for param in login["parameters"]}
+    assert {"tenant_id", "tenant_slug", "return_to", "login_hint"} <= set(login_params)
+    assert login["responses"]["302"]["headers"]["Location"]["schema"]["format"] == "uri"
+    assert "Set-Cookie" in login["responses"]["302"]["headers"]
+    for code in ("400", "404"):
+        assert login["responses"][code]["content"]["application/json"]["schema"]["$ref"].endswith(
+            "error_envelope_schema.json"
+        )
+    assert login["responses"]["429"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "rate_limit_info_schema.json"
+    )
+
+    callback = paths["/api/v1/auth/sso/oidc/callback"]["get"]
+    callback_params = {param["name"]: param for param in callback["parameters"]}
+    assert {"code", "state", "error"} <= set(callback_params)
+    assert callback["responses"]["200"]["content"]["application/json"]["schema"][
+        "$ref"
+    ].endswith("sso_oidc_callback_response_schema.json")
+    assert "Location" in callback["responses"]["302"]["headers"]
+    assert "X-Session-Expires-At" in callback["responses"]["200"]["headers"]
+    assert "X-Session-Expires-At" in callback["responses"]["302"]["headers"]
+    for code in ("400", "401", "403", "404", "500", "502"):
+        assert callback["responses"][code]["content"]["application/json"]["schema"][
+            "$ref"
+        ].endswith("error_envelope_schema.json")

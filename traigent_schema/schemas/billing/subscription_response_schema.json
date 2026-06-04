@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/subscription_response_schema.json",
+  "title": "Subscription Response",
+  "description": "200 response for GET /api/v1/billing/subscription. The body is the standard success envelope around either a no-subscription marker or the public Subscription.to_dict() shape. Paddle price IDs are intentionally excluded.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "success": { "const": true },
+    "message": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "data": {
+      "oneOf": [
+        { "$ref": "#/definitions/NoSubscription" },
+        { "$ref": "#/definitions/Subscription" }
+      ]
+    }
+  },
+  "required": ["success", "message", "data"],
+  "definitions": {
+    "NoSubscription": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": { "const": "none" },
+        "tier": { "type": ["string", "null"], "minLength": 1, "maxLength": 64 }
+      },
+      "required": ["status", "tier"]
+    },
+    "Subscription": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer" },
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "tenant_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+        "status": {
+          "type": ["string", "null"],
+          "enum": ["active", "canceled", "past_due", "paused", "trialing", null]
+        },
+        "plan_tier": {
+          "type": ["string", "null"],
+          "enum": ["hobby", "pro", "enterprise", "free", "individual", "team", null]
+        },
+        "billing_cycle": {
+          "type": ["string", "null"],
+          "enum": ["monthly", "annual", null]
+        },
+        "scheduled_plan_tier": {
+          "type": ["string", "null"],
+          "enum": ["hobby", "pro", "enterprise", "free", "individual", "team", null]
+        },
+        "scheduled_billing_cycle": {
+          "type": ["string", "null"],
+          "enum": ["monthly", "annual", null]
+        },
+        "scheduled_change_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "current_period_start": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "current_period_end": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "cancel_at_period_end": { "type": "boolean" },
+        "created_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "tenant_id",
+        "status",
+        "plan_tier",
+        "billing_cycle",
+        "scheduled_plan_tier",
+        "scheduled_billing_cycle",
+        "scheduled_change_at",
+        "current_period_start",
+        "current_period_end",
+        "cancel_at_period_end",
+        "created_at"
+      ]
+    }
+  }
+}

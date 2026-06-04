@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   includes headers) — are documented via an `x-response-headers` extension so
   consumers can derive retry/backoff behavior from the contract (prerequisite for
   FE#870). Per-endpoint `responses["429"]` wiring is a follow-up as consumers opt in.
+- Auth response contracts (TraigentSchema#58, #62), replacing the `default`
+  "Response shape pending" placeholders in `auth/auth_endpoints.json`:
+  `auth/login_response_schema.json` (`LoginResponseDTO`) and
+  `auth/token_refresh_response_schema.json` (`TokenRefreshResponseDTO`) model the
+  `{success, message, data:{access_token, refresh_token, user?, …}}` envelope the
+  backend emits and the Python SDK consumes. **Session expiry is the
+  `X-Session-Expires-At` response header, not a body field** (documented on both
+  routes; `expires_at` lives only on `GET /auth/me`) — the schemas reject an
+  expiry field in the body to prevent drift. `auth/csrf_token_response_schema.json`
+  (`CSRFTokenResponseDTO`) + a new `GET /api/v1/auth/csrf-token` path document the
+  cookie-mode CSRF flow (`traigent_csrf_token` cookie ↔ `X-CSRF-Token` header),
+  with 401/403 composing `ErrorEnvelopeDTO`.
 - `error_envelope_schema.json` (`ErrorEnvelopeDTO`) — the canonical error response
   envelope (Shape A: `{success:false, message, error, error_code?, details?}`) decided in
   BE#669 and already consumed by FE `errorUtils.ts`. Strict (`additionalProperties:false`)

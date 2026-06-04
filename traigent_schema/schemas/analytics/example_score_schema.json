@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://traigent.ai/schemas/analytics/example_score.json",
   "title": "ExampleScore",
-  "description": "Quality scores for individual examples in an experiment run. Combines content-based scores (computed in SDK) with statistical scores (computed in backend).",
+  "description": "INTERNAL per-example scoring record. The per-example tuning signals below are proprietary and are NOT returned to clients; the API returns only non-signal metadata (example_id, sample_count, algorithm_version, timestamps). Signal field semantics and formulas are intentionally not documented here. Signal-driven guidance is delivered to clients via the GuidancePlan API.",
   "type": "object",
   "required": [
     "example_id",
@@ -31,67 +31,67 @@
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Content-based uniqueness score (1.0 = completely unique, 0.0 = duplicate). Computed in SDK using TF-IDF similarity."
+      "description": "Internal content-feature score in [0, 1]. Proprietary; not returned to clients."
     },
     "content_novelty": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Content-based novelty score (1.0 = very novel, 0.0 = average). Computed in SDK by distance from dataset centroid."
+      "description": "Internal content-feature score in [0, 1]. Proprietary; not returned to clients."
     },
     "informativeness": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Statistical informativeness score based on variance across different configurations. High = example discriminates well between configs."
+      "description": "Internal scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "consistency": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Statistical consistency score based on variance within same configuration. High = stable/reliable example."
+      "description": "Internal scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "difficulty": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Statistical difficulty score based on correlation with config quality. High = difficult example that challenges good configs."
+      "description": "Internal scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "discriminative_power": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Statistical measure of how well this example differentiates between configurations."
+      "description": "Internal scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "cost_efficiency": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Information gain per unit of execution cost. High = valuable example relative to cost."
+      "description": "Internal scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "error_sensitivity": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Sensitivity of metrics to execution variance. High = metrics vary significantly on this example."
+      "description": "Internal scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "predictive_value": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Correlation between example performance and overall config quality. High = good predictor of general performance."
+      "description": "Internal scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "ambiguity": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Variance in metrics independent of config quality. High = ambiguous/noisy example."
+      "description": "Internal scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "composite_score": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Weighted composite of all individual scores. Overall quality indicator."
+      "description": "Internal composite scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "sample_count": {
       "type": ["integer", "null"],

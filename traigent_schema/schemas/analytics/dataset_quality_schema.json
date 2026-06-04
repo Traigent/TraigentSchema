@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://traigent.ai/schemas/analytics/dataset_quality.json",
   "title": "DatasetQuality",
-  "description": "Dataset-level quality metrics aggregated from example scores. Provides overall assessment and recommendations for dataset improvement.",
+  "description": "INTERNAL dataset-level scoring record aggregated from example scores. The quality signals and ranked example-ID lists below are proprietary and are NOT returned to clients; the API returns only non-signal metadata. Signal semantics and formulas are intentionally not documented here.",
   "type": "object",
   "required": [
     "experiment_run_id",
@@ -24,25 +24,25 @@
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Overall dataset quality score (weighted composite of component scores)"
+      "description": "Internal dataset scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "coverage_score": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "How well the dataset covers the problem space (based on diversity and spread)"
+      "description": "Internal dataset scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "diversity_score": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Diversity of examples in the dataset (low redundancy, high uniqueness)"
+      "description": "Internal dataset scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "efficiency_score": {
       "type": ["number", "null"],
       "minimum": 0.0,
       "maximum": 1.0,
-      "description": "Cost efficiency of the dataset (information per resource spent)"
+      "description": "Internal dataset scoring signal in [0, 1]. Proprietary; not returned to clients."
     },
     "top_informative_ids": {
       "type": ["array", "null"],
@@ -51,7 +51,7 @@
         "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
       },
       "maxItems": 20,
-      "description": "IDs of the top 20 most informative examples (highest informativeness scores)"
+      "description": "Internal ranked example IDs. Proprietary; not returned to clients."
     },
     "top_difficult_ids": {
       "type": ["array", "null"],
@@ -60,7 +60,7 @@
         "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
       },
       "maxItems": 20,
-      "description": "IDs of the top 20 most difficult examples (highest difficulty scores)"
+      "description": "Internal ranked example IDs. Proprietary; not returned to clients."
     },
     "low_value_ids": {
       "type": ["array", "null"],
@@ -69,7 +69,7 @@
         "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$"
       },
       "maxItems": 20,
-      "description": "IDs of up to 20 low-value examples (candidates for removal)"
+      "description": "Internal ranked example IDs. Proprietary; not returned to clients."
     },
     "redundant_pairs": {
       "type": ["array", "null"],
@@ -83,11 +83,11 @@
         "maxItems": 2
       },
       "maxItems": 50,
-      "description": "Pairs of example IDs that are highly similar/redundant (max 50 pairs)"
+      "description": "Internal redundant example ID pairs. Proprietary; not returned to clients."
     },
     "score_distributions": {
       "type": ["object", "null"],
-      "description": "Distribution statistics for each score type",
+      "description": "Internal score distribution statistics. Proprietary; not returned to clients.",
       "additionalProperties": {
         "type": "object",
         "properties": {
@@ -131,7 +131,7 @@
         }
       },
       "maxItems": 50,
-      "description": "Actionable recommendations for improving dataset quality"
+      "description": "Internal improvement recommendations. Proprietary; not returned to clients."
     },
     "algorithm_version": {
       "type": "string",

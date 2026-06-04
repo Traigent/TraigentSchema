@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `rate_limit_info_schema.json` (`RateLimitInfoDTO`) — the canonical 429 (Too Many
+  Requests) response body standardized in BE#670 (TraigentSchema#60). Composes
+  `error_envelope_schema.json` (Shape A) and constrains `error_code` to
+  `RATE_LIMIT_EXCEEDED` with a `details` block (`scope`, `retry_after`, optional
+  `limit` / `reset_time`). The accompanying response headers — `Retry-After`
+  (always) and `X-RateLimit-Limit` / `-Remaining` / `-Reset` (when the limiter
+  includes headers) — are documented via an `x-response-headers` extension so
+  consumers can derive retry/backoff behavior from the contract (prerequisite for
+  FE#870). Per-endpoint `responses["429"]` wiring is a follow-up as consumers opt in.
 - Auth response contracts (TraigentSchema#58, #62), replacing the `default`
   "Response shape pending" placeholders in `auth/auth_endpoints.json`:
   `auth/login_response_schema.json` (`LoginResponseDTO`) and

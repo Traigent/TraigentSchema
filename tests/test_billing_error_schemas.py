@@ -68,6 +68,11 @@ def test_billing_plans_response_uses_opaque_checkout_options():
                     "description": "For production teams starting paid usage",
                     "price": {"monthly": 49, "annual": 490},
                     "checkout_options": {"monthly": "pro_monthly", "annual": "pro_annual"},
+                    "quantity_limits": {
+                        "minimum": 1,
+                        "maximum": 5,
+                        "overflow_route": "enterprise",
+                    },
                     "features": ["Email support"],
                     "limits": {"trials": 500, "api_calls": 100000, "agents": 3},
                     "popular": True,
@@ -119,6 +124,11 @@ def test_billing_plans_response_rejects_mismatched_checkout_cycle():
                     "description": "For production teams starting paid usage",
                     "price": {"monthly": 49, "annual": 490},
                     "checkout_options": {"monthly": "pro_annual", "annual": "pro_monthly"},
+                    "quantity_limits": {
+                        "minimum": 1,
+                        "maximum": 5,
+                        "overflow_route": "enterprise",
+                    },
                     "features": ["Email support"],
                     "limits": {"trials": 500, "api_calls": 100000, "agents": 3},
                 }
@@ -171,6 +181,11 @@ def test_billing_plans_response_rejects_cross_plan_checkout_options():
                         "monthly": "team_monthly",
                         "annual": "team_annual",
                     },
+                    "quantity_limits": {
+                        "minimum": 1,
+                        "maximum": 5,
+                        "overflow_route": "enterprise",
+                    },
                     "features": ["Email support"],
                     "limits": {"trials": 500, "api_calls": 100000, "agents": 3},
                 }
@@ -189,6 +204,7 @@ def test_billing_checkout_request_uses_checkout_id_not_price_id():
         validator.validate_json(
             {
                 "checkout_id": "team_annual",
+                "quantity": 25,
                 "success_url": "https://portal-dev.traigent.ai/billing/success",
             },
             "billing_checkout_request_schema",
@@ -199,6 +215,58 @@ def test_billing_checkout_request_uses_checkout_id_not_price_id():
     errors = validator.validate_json(
         {"price_id": "pri_secret"},
         "billing_checkout_request_schema",
+    )
+
+    assert errors
+
+
+def test_billing_checkout_request_caps_quantity_by_plan():
+    validator = SchemaValidator()
+
+    assert (
+        validator.validate_json(
+            {"checkout_id": "pro_monthly", "quantity": 5},
+            "billing_checkout_request_schema",
+        )
+        == []
+    )
+    assert (
+        validator.validate_json(
+            {"checkout_id": "team_monthly", "quantity": 25},
+            "billing_checkout_request_schema",
+        )
+        == []
+    )
+    assert validator.validate_json(
+        {"checkout_id": "pro_monthly", "quantity": 6},
+        "billing_checkout_request_schema",
+    )
+    assert validator.validate_json(
+        {"checkout_id": "team_monthly", "quantity": True},
+        "billing_checkout_request_schema",
+    )
+
+
+def test_billing_plans_response_rejects_paid_plan_missing_quantity_limits():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "success": True,
+            "message": "Success",
+            "data": [
+                {
+                    "id": "team",
+                    "name": "Team",
+                    "description": "For teams running higher-volume evaluation workflows",
+                    "price": {"monthly": 249, "annual": 2490},
+                    "checkout_options": {"monthly": "team_monthly", "annual": "team_annual"},
+                    "features": ["Priority support"],
+                    "limits": {"users": 25},
+                }
+            ],
+        },
+        "billing_plans_response_schema",
     )
 
     assert errors

@@ -110,6 +110,11 @@ class TestSchemaStructure:
         assert results_dir.exists()
         assert results_dir.is_dir()
 
+    def test_has_costs_directory(self, schemas_dir):
+        costs_dir = schemas_dir / "costs"
+        assert costs_dir.exists()
+        assert costs_dir.is_dir()
+
 
 class TestNoBrandingIssues:
     """Tests to verify proper rebranding."""
@@ -245,6 +250,17 @@ class TestRequiredSchemas:
     def test_project_export_job_list_response_schema_exists(self, schemas_dir):
         assert (
             schemas_dir / "projects" / "project_export_job_list_response_schema.json"
+        ).exists()
+
+    def test_cost_response_schemas_exist(self, schemas_dir):
+        assert (schemas_dir / "costs" / "cost_users_response_schema.json").exists()
+        assert (schemas_dir / "costs" / "cost_user_usage_response_schema.json").exists()
+
+    def test_hybrid_session_create_request_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir
+            / "optimization"
+            / "hybrid_session_create_request_schema.json"
         ).exists()
 
     def test_project_rate_limit_policy_schema_exists(self, schemas_dir):

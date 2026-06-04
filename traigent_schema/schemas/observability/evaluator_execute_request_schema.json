@@ -14,8 +14,14 @@
         "experiment_run"
       ]
     },
-    "target_id": { "type": "string", "minLength": 1 },
-    "source": { "type": "string" }
+    "target_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "source": { "type": "string" },
+    "override_judge_config": {
+      "oneOf": [
+        { "$ref": "./evaluator_definition_schema.json#/definitions/JudgeConfig" },
+        { "type": "null" }
+      ]
+    }
   },
   "required": ["target_type", "target_id"]
 }

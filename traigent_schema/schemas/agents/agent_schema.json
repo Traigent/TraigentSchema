@@ -18,10 +18,13 @@
     },
     "name": {
       "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
       "description": "Human-readable name for identifying and displaying the agent"
     },
     "description": {
       "type": "string",
+      "maxLength": 1000,
       "description": "Comprehensive description of the agent's purpose, capabilities, and intended use cases"
     },
     "agent_type": {
@@ -34,38 +37,46 @@
     },
     "prompt_template": {
       "type": "string",
+      "maxLength": 10000,
       "description": "Base template used for constructing prompts, including placeholders and formatting instructions"
     },
     "reasoning": {
       "type": "string",
+      "maxLength": 10000,
       "description": "Specific reasoning methodology employed by the agent (e.g., 'chain-of-thought', 'direct', 'step-by-step')"
     },
     "style": {
       "type": "string",
+      "maxLength": 1000,
       "description": "Writing style guidelines for agent responses (e.g., 'concise', 'detailed', 'technical')"
     },
     "tone": {
       "type": "string",
+      "maxLength": 1000,
       "description": "Communication tone settings for responses (e.g., 'professional', 'casual', 'friendly')"
     },
     "format": {
       "type": "string",
+      "maxLength": 1000,
       "description": "Output format specification for responses (e.g., 'markdown', 'plain-text', 'structured')"
     },
     "persona": {
       "type": "string",
+      "maxLength": 10000,
       "description": "Character or role the agent should embody in responses (e.g., 'expert', 'teacher', 'assistant')"
     },
     "guidelines": {
       "oneOf": [
         {
           "type": "string",
+          "maxLength": 10000,
           "description": "Single guideline string for simple cases"
         },
         {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 10000
           },
           "description": "List of specific behavioral guidelines and rules for the agent"
         }

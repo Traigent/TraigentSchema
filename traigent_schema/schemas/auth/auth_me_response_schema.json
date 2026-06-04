@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/auth_me_response_schema.json",
+  "title": "Auth Me Response DTO",
+  "description": "200 body for GET /api/v1/auth/me. JWT-backed sessions expose the session expiry in data.expires_at; API-key and DB fallback responses may omit it.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "name": { "type": ["string", "null"] },
+        "display_name": { "type": ["string", "null"] },
+        "is_admin": { "type": "boolean" },
+        "subscription_tier": { "type": ["string", "null"] },
+        "email_verified": { "type": "boolean" },
+        "team_id": { "type": ["string", "null"] },
+        "role": { "type": ["string", "null"] },
+        "onboarding_completed": { "type": "boolean" },
+        "expires_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Session expiry as an ISO-8601 UTC timestamp when the request is backed by JWT claims."
+        },
+        "_source": {
+          "type": "string",
+          "enum": ["claims", "db"],
+          "description": "Non-production diagnostic marker added by the backend only outside production."
+        }
+      }
+    }
+  },
+  "required": ["success", "message", "data"]
+}

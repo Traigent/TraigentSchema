@@ -83,6 +83,11 @@
       "paths_file": "./billing/wallet_endpoints.json"
     },
     {
+      "name": "Costs",
+      "description": "Current backend persisted cost reporting routes.",
+      "paths_file": "./costs/costs_endpoints.json"
+    },
+    {
       "name": "MFA",
       "description": "Current backend multi-factor authentication routes.",
       "paths_file": "./mfa/mfa_endpoints.json"

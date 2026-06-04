@@ -65,6 +65,54 @@ def test_login_rejects_unknown_top_level():
     assert v.validate_json(payload, "login_response_schema")
 
 
+# --- AuthMeResponseDTO -----------------------------------------------------
+
+
+def test_auth_me_accepts_session_expiry_alias():
+    v = SchemaValidator()
+    payload = {
+        "success": True,
+        "message": "Success",
+        "data": {
+            "id": "user_1",
+            "email": "a@example.com",
+            "name": "A User",
+            "display_name": "A User",
+            "is_admin": False,
+            "subscription_tier": "pro",
+            "email_verified": True,
+            "team_id": "team_1",
+            "role": "member",
+            "onboarding_completed": True,
+            "expires_at": "2026-06-02T12:00:00Z",
+            "_source": "claims",
+        },
+    }
+
+    assert v.validate_json(payload, "auth_me_response_schema") == []
+
+
+def test_auth_me_allows_db_fallback_without_session_expiry():
+    v = SchemaValidator()
+    payload = {
+        "success": True,
+        "message": "Success",
+        "data": {
+            "id": "user_1",
+            "email": "a@example.com",
+            "settings": {"theme": "dark"},
+        },
+    }
+
+    assert v.validate_json(payload, "auth_me_response_schema") == []
+
+
+def test_auth_me_rejects_unknown_top_level():
+    v = SchemaValidator()
+    payload = {"success": True, "message": "Success", "data": {}, "expires_at": "leak"}
+    assert v.validate_json(payload, "auth_me_response_schema")
+
+
 # --- TokenRefreshResponseDTO ----------------------------------------------
 
 
@@ -106,6 +154,15 @@ def test_auth_endpoints_wire_the_new_dtos():
     with open(get_schemas_dir() / "auth" / "auth_endpoints.json", encoding="utf-8") as fh:
         spec = json.load(fh)
     paths = spec["paths"]
+
+    auth_me = paths["/api/v1/auth/me"]["get"]["responses"]
+    assert auth_me["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "auth_me_response_schema.json"
+    )
+    for code in ("401", "404", "500"):
+        assert auth_me[code]["content"]["application/json"]["schema"]["$ref"].endswith(
+            "error_envelope_schema.json"
+        )
 
     login = paths["/api/v1/auth/login"]["post"]["responses"]["200"]
     assert login["content"]["application/json"]["schema"]["$ref"].endswith(

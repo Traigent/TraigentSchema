@@ -194,28 +194,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "problem_statement",
-                  "search_space",
-                  "optimization_config"
-                ],
-                "properties": {
-                  "problem_statement": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "search_space": {
-                    "type": "object"
-                  },
-                  "optimization_config": {
-                    "type": "object"
-                  },
-                  "metadata": {
-                    "type": "object"
-                  }
-                },
-                "additionalProperties": true
+                "$ref": "./hybrid_session_create_request_schema.json"
               }
             }
           }

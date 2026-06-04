@@ -29,6 +29,10 @@
     "privacy_mode": {
       "type": "boolean"
     },
+    "source_privacy_protected": {
+      "type": "boolean",
+      "description": "Backward-compatible alias for privacy_mode emitted by the backend export manifest."
+    },
     "include_content": {
       "type": "boolean"
     },
@@ -98,6 +102,7 @@
     "context",
     "export_mode",
     "privacy_mode",
+    "source_privacy_protected",
     "include_content",
     "job_id",
     "record_count",

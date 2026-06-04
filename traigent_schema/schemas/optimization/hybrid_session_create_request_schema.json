@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/hybrid_session_create_request_schema.json",
+  "title": "Hybrid Session Create Request",
+  "description": "POST /api/v1/hybrid/sessions request. Accepts the canonical backend shape and the SDK legacy shape; prompt-like text is capped at 10,000 characters.",
+  "type": "object",
+  "additionalProperties": true,
+  "definitions": {
+    "ModelSpec": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "model_name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "provider": { "type": ["string", "null"] },
+        "temperature": { "type": ["number", "null"], "minimum": 0, "maximum": 2 },
+        "max_tokens": { "type": ["integer", "null"], "minimum": 1, "maximum": 100000 }
+      },
+      "required": ["model_name"]
+    }
+  },
+  "properties": {
+    "config_space": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 200,
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "task_description": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "problem_statement": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "search_space": {
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 200,
+          "items": { "type": "object", "additionalProperties": true }
+        },
+        { "type": "object", "additionalProperties": true }
+      ]
+    },
+    "optimization_config": { "type": "object", "additionalProperties": true },
+    "epsilon": { "type": "number", "minimum": 0.01, "maximum": 2 },
+    "delta": { "type": "number", "minimum": 0.001, "maximum": 0.5 },
+    "max_rounds": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "items_per_round": { "type": "integer", "minimum": 1, "maximum": 200 },
+    "eval_dataset": {
+      "type": ["array", "null"],
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "generator_model": { "oneOf": [{ "$ref": "#/definitions/ModelSpec" }, { "type": "null" }] },
+    "judge_model": { "oneOf": [{ "$ref": "#/definitions/ModelSpec" }, { "type": "null" }] },
+    "evaluation_criteria": { "type": ["string", "null"], "maxLength": 10000 },
+    "scored_examples": {
+      "type": ["array", "null"],
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["content"]
+      }
+    },
+    "metadata": { "type": ["object", "null"], "additionalProperties": true }
+  },
+  "anyOf": [
+    { "required": ["config_space", "task_description"] },
+    { "required": ["search_space", "problem_statement"] }
+  ]
+}

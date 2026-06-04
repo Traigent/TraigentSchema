@@ -11,7 +11,13 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "pattern": "^[a-z][a-z0-9_]*_(monthly|annual)$"
+      "enum": ["pro_monthly", "pro_annual", "team_monthly", "team_annual"]
+    },
+    "quantity": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 25,
+      "description": "Self-serve seat quantity. Defaults to the plan minimum when omitted."
     },
     "success_url": {
       "type": ["string", "null"],
@@ -19,5 +25,33 @@
       "maxLength": 2048
     }
   },
-  "required": ["checkout_id"]
+  "required": ["checkout_id"],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "checkout_id": { "enum": ["pro_monthly", "pro_annual"] }
+        },
+        "required": ["checkout_id"]
+      },
+      "then": {
+        "properties": {
+          "quantity": { "type": "integer", "minimum": 1, "maximum": 5 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "checkout_id": { "enum": ["team_monthly", "team_annual"] }
+        },
+        "required": ["checkout_id"]
+      },
+      "then": {
+        "properties": {
+          "quantity": { "type": "integer", "minimum": 1, "maximum": 25 }
+        }
+      }
+    }
+  ]
 }

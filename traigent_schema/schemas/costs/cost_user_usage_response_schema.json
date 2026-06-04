@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/costs/cost_user_usage_response_schema.json",
+  "title": "Cost User Usage Response",
+  "description": "Success envelope for GET /api/v1/costs/usage/user/{user_id}.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "user_id": { "type": "string", "minLength": 1 },
+        "email": { "type": ["string", "null"] },
+        "total_cost": { "type": "number", "minimum": 0 },
+        "total_requests": { "type": "integer", "minimum": 0 },
+        "request_count": { "type": "integer", "minimum": 0 },
+        "input_tokens": { "type": "integer", "minimum": 0 },
+        "output_tokens": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "last_activity": { "type": ["string", "null"], "format": "date-time" },
+        "summary": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "total_cost": { "type": "number", "minimum": 0 },
+              "request_count": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["total_cost", "request_count"]
+          }
+        },
+        "period": { "type": "string", "minLength": 1 },
+        "start_date": { "type": ["string", "null"], "format": "date-time" },
+        "end_date": { "type": ["string", "null"], "format": "date-time" },
+        "generated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "user_id",
+        "email",
+        "total_cost",
+        "total_requests",
+        "request_count",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "last_activity",
+        "summary",
+        "period",
+        "start_date",
+        "end_date",
+        "generated_at"
+      ]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

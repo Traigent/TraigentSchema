@@ -692,8 +692,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true
+                "$ref": "./evaluator_run_retry_request_schema.json"
               }
             }
           }

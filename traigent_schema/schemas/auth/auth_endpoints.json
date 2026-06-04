@@ -20,8 +20,37 @@
       "get": {
         "summary": "Get the currently authenticated user's profile",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Authenticated user profile. JWT-backed sessions include data.expires_at.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./auth_me_response_schema.json" }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "Authenticated principal could not be resolved to a user.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "500": {
+            "description": "Profile lookup failed.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
           }
         }
       },

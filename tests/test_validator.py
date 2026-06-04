@@ -910,7 +910,9 @@ class TestSchemaValidation:
             },
             "export_mode": "manifest",
             "privacy_mode": True,
+            "source_privacy_protected": True,
             "include_content": False,
+            "job_id": "export_job_123",
             "record_count": 1,
             "records": [
                 {
@@ -938,3 +940,39 @@ class TestSchemaValidation:
 
         errors = validator.validate_json(data, "project_scoped_fine_tuning_manifest_schema")
         assert errors
+
+    def test_project_scoped_fine_tuning_manifest_accepts_privacy_alias(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-11T10:15:00Z",
+                "privacy_classification": "manifest_safe",
+            },
+            "export_mode": "manifest",
+            "privacy_mode": True,
+            "source_privacy_protected": True,
+            "include_content": False,
+            "job_id": "export_job_123",
+            "record_count": 1,
+            "records": [
+                {
+                    "record_id": "config_1",
+                    "experiment_id": "exp_1",
+                    "experiment_run_id": "run_1",
+                    "configuration_run_id": "config_1",
+                    "input_hash": "hash-input",
+                    "output_hash": "hash-output",
+                    "input_ref": "configuration_run:config_1:input",
+                    "output_ref": "configuration_run:config_1:output",
+                    "input_content": None,
+                    "output_content": None,
+                    "materialization": "local_only",
+                    "measure_summary": {"accuracy": 0.91},
+                    "metadata": {"measure_metadata_model_name": "gpt-4o-mini"},
+                }
+            ],
+        }
+
+        errors = validator.validate_json(data, "project_scoped_fine_tuning_manifest_schema")
+        assert errors == []

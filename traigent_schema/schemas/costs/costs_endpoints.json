@@ -1,0 +1,56 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Cost Reporting Routes",
+    "version": "1.0.0",
+    "description": "Canonical backend routes for persisted cost reporting."
+  },
+  "paths": {
+    "/api/v1/costs/users": {
+      "get": {
+        "summary": "List tenant-scoped per-user cost aggregates",
+        "responses": {
+          "200": {
+            "description": "User usage retrieved.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./cost_users_response_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/costs/usage/user/{user_id}": {
+      "get": {
+        "summary": "Get tenant-scoped cost usage for one user",
+        "responses": {
+          "200": {
+            "description": "Usage retrieved.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./cost_user_usage_response_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -51,6 +51,21 @@
         }
       }
     },
+    "/api/v1/billing/enforcement-controls": {
+      "get": {
+        "summary": "Get the current tenant's billing enforcement controls and effective limits",
+        "responses": {
+          "200": {
+            "description": "Billing enforcement controls retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./billing_enforcement_controls_response_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/billing/usage/history": {
       "get": {
         "summary": "Usage history over the last N days",

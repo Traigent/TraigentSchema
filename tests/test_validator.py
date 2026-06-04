@@ -192,7 +192,18 @@ class TestValidateRequest:
         assert errors
         assert any("trial_id" in error for error in errors)
         assert any("metrics" in error for error in errors)
-        assert any("duration" in error for error in errors)
+
+    def test_sdk_session_results_request_accepts_top_level_config(self, sdk_validator):
+        errors = sdk_validator.validate_request(
+            "/api/v1/sessions/sess_abc/results",
+            "POST",
+            {
+                "trial_id": "trial-sdk-local-1",
+                "metrics": {"accuracy": 0.875},
+                "config": {"modelVariant": "balanced", "temperature": 0.4},
+            },
+        )
+        assert errors == []
 
     def test_inline_request_schema_resolves_registry_refs(self, validator):
         """Inline schemas should resolve package schema $refs via the shared registry."""

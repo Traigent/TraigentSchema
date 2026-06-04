@@ -83,6 +83,191 @@
         }
       }
     },
+    "/api/v1/auth/sso/oidc/login": {
+      "get": {
+        "summary": "Start tenant OIDC SSO login",
+        "description": "Resolves a tenant by tenant_id or tenant_slug, sets a signed OIDC state cookie, and redirects to the tenant IdP authorization URL.",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Tenant id. Either tenant_id or tenant_slug is required by the backend."
+          },
+          {
+            "name": "tenant_slug",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Tenant slug. Either tenant_id or tenant_slug is required by the backend."
+          },
+          {
+            "name": "return_to",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Optional relative return path persisted in OIDC state when it passes backend sanitization."
+          },
+          {
+            "name": "login_hint",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Optional OIDC login_hint forwarded to the IdP."
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the tenant OIDC authorization endpoint.",
+            "headers": {
+              "Location": {
+                "description": "Tenant IdP authorization URL.",
+                "schema": { "type": "string", "format": "uri" }
+              },
+              "Set-Cookie": {
+                "description": "Signed traigent_oidc_state cookie.",
+                "schema": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "400": {
+            "description": "OIDC tenant configuration is invalid.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "OIDC SSO is not available for the requested tenant.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "429": {
+            "description": "Login flow rate-limited.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../rate_limit_info_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sso/oidc/callback": {
+      "get": {
+        "summary": "Complete tenant OIDC SSO callback",
+        "description": "Validates signed state and OIDC identity claims, issues Traigent session tokens, and either returns a JSON login envelope or redirects to the sanitized return_to path.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "OIDC authorization code. Required for non-error callbacks."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Opaque state value matched against the signed OIDC state cookie."
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "IdP error signal. When present, the backend returns OIDC_PROVIDER_REJECTED."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OIDC login completed and tokens returned as JSON.",
+            "headers": {
+              "X-Session-Expires-At": {
+                "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
+                "schema": { "type": "string", "format": "date-time" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./sso_oidc_callback_response_schema.json" }
+              }
+            }
+          },
+          "302": {
+            "description": "OIDC login completed and the browser was redirected to the sanitized return_to path.",
+            "headers": {
+              "Location": {
+                "description": "Sanitized relative return path.",
+                "schema": { "type": "string", "minLength": 1 }
+              },
+              "X-Session-Expires-At": {
+                "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
+                "schema": { "type": "string", "format": "date-time" }
+              },
+              "Set-Cookie": {
+                "description": "Browser auth cookies and cleared OIDC state cookie.",
+                "schema": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing code, invalid state, invalid session id, or invalid tenant OIDC configuration.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "401": {
+            "description": "The IdP rejected the login.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "OIDC identity is not allowed for the tenant.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "OIDC SSO is not available for the tenant from signed state.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "500": {
+            "description": "OIDC SSO login failed.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "502": {
+            "description": "OIDC token exchange failed.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "summary": "Authenticate with email + password; returns access + refresh tokens",

@@ -82,7 +82,6 @@ def test_billing_plans_response_uses_opaque_checkout_options():
                         "api_calls": 100000,
                         "agents": 3,
                         "benchmarks": 250,
-                        "datasets": 250,
                         "users": 5,
                     },
                     "popular": True,
@@ -115,7 +114,6 @@ def test_billing_plans_response_rejects_paddle_price_ids():
                         "api_calls": 100000,
                         "agents": 3,
                         "benchmarks": 250,
-                        "datasets": 250,
                         "users": 5,
                     },
                 }
@@ -152,7 +150,6 @@ def test_billing_plans_response_rejects_mismatched_checkout_cycle():
                         "api_calls": 100000,
                         "agents": 3,
                         "benchmarks": 250,
-                        "datasets": 250,
                         "users": 5,
                     },
                 }
@@ -183,7 +180,6 @@ def test_billing_plans_response_rejects_paid_plan_missing_checkout_options():
                         "api_calls": 100000,
                         "agents": 3,
                         "benchmarks": 250,
-                        "datasets": 250,
                         "users": 5,
                     },
                 }
@@ -223,7 +219,6 @@ def test_billing_plans_response_rejects_cross_plan_checkout_options():
                         "api_calls": 100000,
                         "agents": 3,
                         "benchmarks": 250,
-                        "datasets": 250,
                         "users": 5,
                     },
                 }
@@ -259,7 +254,6 @@ def test_billing_plans_response_requires_new_record_limit_fields():
                     "trials": 500,
                     "api_calls": 100000,
                     "agents": 3,
-                    "datasets": 250,
                     "users": 5,
                 },
             }
@@ -277,7 +271,6 @@ def test_billing_limits_reject_unknown_and_invalid_fields():
         "api_calls": 100000,
         "agents": 3,
         "benchmarks": 250,
-        "datasets": 250,
         "users": 5,
     }
     assert validator.validate_json(valid_limits, "billing_limits_schema") == []
@@ -302,7 +295,6 @@ def test_billing_enforcement_controls_accepts_effective_record_limits():
                 "api_calls": 100000,
                 "agents": 3,
                 "benchmarks": 250,
-                "datasets": 250,
                 "users": 5,
             },
         },
@@ -314,7 +306,7 @@ def test_billing_enforcement_controls_accepts_effective_record_limits():
 def test_billing_enforcement_controls_rejects_missing_or_invalid_record_limits():
     validator = SchemaValidator()
 
-    payload = {
+    missing_benchmarks = {
         "success": True,
         "message": "Billing enforcement controls retrieved",
         "data": {
@@ -322,22 +314,22 @@ def test_billing_enforcement_controls_rejects_missing_or_invalid_record_limits()
                 "trials": 500,
                 "api_calls": 100000,
                 "agents": 3,
-                "benchmarks": 250,
                 "users": 5,
             },
         },
     }
-    assert validator.validate_json(payload, "billing_enforcement_controls_response_schema")
+    assert validator.validate_json(
+        missing_benchmarks, "billing_enforcement_controls_response_schema"
+    )
 
     invalid = {
-        **payload,
+        **missing_benchmarks,
         "data": {
             "effective_limits": {
                 "trials": 500,
                 "api_calls": 100000,
                 "agents": 3,
                 "benchmarks": True,
-                "datasets": 250,
                 "users": 5,
             }
         },

@@ -14,9 +14,10 @@
     },
     "device_code": {
       "type": "string",
-      "minLength": 20,
+      "minLength": 43,
       "maxLength": 256,
-      "pattern": "^[A-Za-z0-9._~-]+$"
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "description": "Opaque server-generated device code with at least 128 bits of entropy, encoded with an unpadded base64url character set."
     },
     "client_id": {
       "type": "string",

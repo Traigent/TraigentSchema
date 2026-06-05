@@ -148,6 +148,7 @@ instead of hard-coding field names. Allowed values:
 |-------|---------|
 | `user_content` | Raw user-supplied content / model output (prompts, inputs, outputs). The hybrid-path content fields use this — paired with `x-content: true` so a consumer can enumerate content-bearing leaves directly from the contract. |
 | `aggregate_safe` | Aggregated / derived values safe to surface broadly. |
+| `auth_sensitive` | Authentication and authorization payloads such as device-flow tokens, API keys, and SSO auth responses. |
 | `billing_sensitive` | Billing / pricing data (e.g. wallet, checkout). |
 | `tenant_admin_safe` | Visible to tenant admins only. |
 | `manifest_safe` | Safe to include in exported manifests. |

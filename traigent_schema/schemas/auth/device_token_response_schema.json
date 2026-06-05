@@ -50,6 +50,19 @@
         {
           "if": {
             "properties": {
+              "error": { "const": "authorization_pending" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "authorization_pending" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "error": { "const": "slow_down" }
             },
             "required": ["error"]
@@ -62,8 +75,9 @@
                 "properties": {
                   "interval": {
                     "type": "integer",
-                    "minimum": 1,
-                    "maximum": 60
+                    "minimum": 6,
+                    "maximum": 60,
+                    "description": "RFC 8628 slow_down interval: at least 5 seconds greater than the previously issued interval; clients MUST adopt this value."
                   },
                   "retry_after": {
                     "type": "integer",
@@ -74,6 +88,45 @@
               }
             },
             "required": ["details"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "slow_down" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "slow_down" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "access_denied" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "access_denied" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "expired_token" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "expired_token" }
+            }
           }
         }
       ]

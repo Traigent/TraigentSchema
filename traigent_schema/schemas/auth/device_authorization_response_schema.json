@@ -15,17 +15,17 @@
       "properties": {
         "device_code": {
           "type": "string",
-          "minLength": 20,
+          "minLength": 43,
           "maxLength": 256,
-          "pattern": "^[A-Za-z0-9._~-]+$",
-          "description": "Opaque device code used only by the polling CLI."
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "description": "Opaque server-generated device code used only by the polling CLI; it carries at least 128 bits of entropy and uses an unpadded base64url character set."
         },
         "user_code": {
           "type": "string",
-          "minLength": 4,
-          "maxLength": 32,
-          "pattern": "^[A-Z0-9-]+$",
-          "description": "Short code displayed by the CLI and entered or confirmed in the portal."
+          "minLength": 9,
+          "maxLength": 9,
+          "pattern": "^[BCDFGHJKMNPQRSTVWXYZ23456789]{4}-[BCDFGHJKMNPQRSTVWXYZ23456789]{4}$",
+          "description": "Short non-ambiguous uppercase code displayed by the CLI and entered or confirmed in the portal, grouped as XXXX-XXXX."
         },
         "verification_uri": {
           "type": "string",

@@ -16,6 +16,8 @@ DEVICE_TOKEN_REQUEST = "device_token_request_schema"
 DEVICE_TOKEN_RESPONSE = "device_token_response_schema"
 DEVICE_TOKEN_SUCCESS = "device_token_success_schema"
 PROVISIONED_WORKSPACE = "provisioned_workspace_schema"
+DEVICE_CODE = "Abcdefghijklmnopqrstuvwxyz0123456789_-ABCDEFG"
+USER_CODE = "BCDF-GHJK"
 
 
 def _device_authorization_response() -> dict:
@@ -23,10 +25,10 @@ def _device_authorization_response() -> dict:
         "success": True,
         "message": "Device authorization started",
         "data": {
-            "device_code": "dev_abcdefghijklmnopqrstuvwxyz123456",
-            "user_code": "ABCD-EFGH",
+            "device_code": DEVICE_CODE,
+            "user_code": USER_CODE,
             "verification_uri": "https://app.traigent.ai/device",
-            "verification_uri_complete": "https://app.traigent.ai/device?user_code=ABCD-EFGH",
+            "verification_uri_complete": f"https://app.traigent.ai/device?user_code={USER_CODE}",
             "expires_in": 900,
             "interval": 5,
         },
@@ -36,7 +38,7 @@ def _device_authorization_response() -> dict:
 def _device_token_request() -> dict:
     return {
         "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-        "device_code": "dev_abcdefghijklmnopqrstuvwxyz123456",
+        "device_code": DEVICE_CODE,
         "client_id": "traigent-python-cli",
     }
 
@@ -113,9 +115,32 @@ def test_device_authorization_response_requires_all_rfc8628_fields() -> None:
 
 def test_device_authorization_response_rejects_lowercase_user_code() -> None:
     payload = _device_authorization_response()
-    payload["data"]["user_code"] = "abcd-efgh"
+    payload["data"]["user_code"] = "bcdf-ghjk"
 
     assert SchemaValidator().validate_json(payload, DEVICE_AUTH_RESPONSE)
+
+
+def test_device_authorization_response_rejects_ambiguous_user_code_chars() -> None:
+    payload = _device_authorization_response()
+    payload["data"]["user_code"] = "BCDI-GHJK"
+
+    assert SchemaValidator().validate_json(payload, DEVICE_AUTH_RESPONSE)
+
+
+def test_device_authorization_response_rejects_unformatted_user_code() -> None:
+    payload = _device_authorization_response()
+    payload["data"]["user_code"] = "BCDFGHJK"
+
+    assert SchemaValidator().validate_json(payload, DEVICE_AUTH_RESPONSE)
+
+
+def test_device_authorization_response_rejects_weak_device_code_shape() -> None:
+    validator = SchemaValidator()
+
+    for device_code in ("short-code", "Abcdefghijklmnopqrstuvwxyz0123456789_.ABCDEFG"):
+        payload = _device_authorization_response()
+        payload["data"]["device_code"] = device_code
+        assert validator.validate_json(payload, DEVICE_AUTH_RESPONSE)
 
 
 def test_device_token_request_accepts_device_code_grant() -> None:
@@ -127,6 +152,15 @@ def test_device_token_request_rejects_wrong_grant() -> None:
     payload["grant_type"] = "authorization_code"
 
     assert SchemaValidator().validate_json(payload, DEVICE_TOKEN_REQUEST)
+
+
+def test_device_token_request_rejects_weak_device_code_shape() -> None:
+    validator = SchemaValidator()
+
+    for device_code in ("short-code", "Abcdefghijklmnopqrstuvwxyz0123456789_.ABCDEFG"):
+        payload = _device_token_request()
+        payload["device_code"] = device_code
+        assert validator.validate_json(payload, DEVICE_TOKEN_REQUEST)
 
 
 def test_device_token_success_payload_accepts_project_scoped_key() -> None:
@@ -162,6 +196,13 @@ def test_device_token_response_accepts_rfc8628_poll_errors() -> None:
 
     for error in ("authorization_pending", "access_denied", "expired_token"):
         assert validator.validate_json(_device_token_error(error), DEVICE_TOKEN_RESPONSE) == []
+        assert (
+            validator.validate_json(
+                _device_token_error(error, error_code=error),
+                DEVICE_TOKEN_RESPONSE,
+            )
+            == []
+        )
 
     slow_down = _device_token_error(
         "slow_down",
@@ -178,10 +219,38 @@ def test_device_token_response_rejects_unknown_poll_error() -> None:
     assert SchemaValidator().validate_json(payload, DEVICE_TOKEN_RESPONSE)
 
 
+def test_device_token_response_rejects_mismatched_error_code() -> None:
+    validator = SchemaValidator()
+    mismatches = {
+        "authorization_pending": "expired_token",
+        "slow_down": "expired_token",
+        "access_denied": "authorization_pending",
+        "expired_token": "slow_down",
+    }
+
+    for error, error_code in mismatches.items():
+        payload = _device_token_error(error, error_code=error_code)
+        if error == "slow_down":
+            payload["details"] = {"interval": 10}
+        assert validator.validate_json(payload, DEVICE_TOKEN_RESPONSE)
+
+
 def test_device_token_response_requires_interval_for_slow_down() -> None:
     payload = _device_token_error("slow_down", details={"retry_after": 10})
 
     assert SchemaValidator().validate_json(payload, DEVICE_TOKEN_RESPONSE)
+
+
+def test_device_token_response_rejects_slow_down_interval_below_rfc_minimum() -> None:
+    validator = SchemaValidator()
+
+    for interval in (5, 0):
+        payload = _device_token_error(
+            "slow_down",
+            error_code="slow_down",
+            details={"interval": interval},
+        )
+        assert validator.validate_json(payload, DEVICE_TOKEN_RESPONSE)
 
 
 def test_provisioned_workspace_accepts_default_project_shape() -> None:

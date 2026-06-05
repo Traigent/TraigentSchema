@@ -66,5 +66,30 @@
       "description": "Approving user's active subscription tier. free and legacy hobby are both accepted during the free-tier rollout."
     }
   },
-  "required": ["user_code", "decision", "project", "subscription_tier"]
+  "required": ["user_code", "decision"],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "decision": { "const": "approved" } },
+        "required": ["decision"]
+      },
+      "then": {
+        "required": ["project", "subscription_tier"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "decision": { "const": "denied" } },
+        "required": ["decision"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["project"] },
+            { "required": ["subscription_tier"] }
+          ]
+        }
+      }
+    }
+  ]
 }

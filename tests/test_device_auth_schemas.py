@@ -69,11 +69,26 @@ def _device_decision_success_payload() -> dict:
     }
 
 
+def _device_decision_denied_success_payload() -> dict:
+    return {
+        "user_code": USER_CODE,
+        "decision": "denied",
+    }
+
+
 def _device_decision_success_response() -> dict:
     return {
         "success": True,
         "message": "Device authorization approved",
         "data": _device_decision_success_payload(),
+    }
+
+
+def _device_decision_denied_success_response() -> dict:
+    return {
+        "success": True,
+        "message": "Device authorization denied",
+        "data": _device_decision_denied_success_payload(),
     }
 
 
@@ -231,12 +246,37 @@ def test_device_decision_success_response_confirms_safe_summary() -> None:
     ) == []
 
 
-def test_device_decision_success_response_accepts_denied_decision() -> None:
-    payload = _device_decision_success_response()
-    payload["message"] = "Device authorization denied"
-    payload["data"]["decision"] = "denied"
+def test_device_decision_success_response_accepts_minimal_denied_decision() -> None:
+    assert SchemaValidator().validate_json(
+        _device_decision_denied_success_response(),
+        DEVICE_DECISION_RESPONSE,
+    ) == []
 
-    assert SchemaValidator().validate_json(payload, DEVICE_DECISION_RESPONSE) == []
+
+def test_device_decision_success_response_rejects_denied_workspace_fields() -> None:
+    validator = SchemaValidator()
+
+    for field, value in (
+        ("project", {"id": "project_default_123", "name": "Default Project"}),
+        ("subscription_tier", "free"),
+    ):
+        payload = _device_decision_denied_success_response()
+        payload["data"][field] = value
+
+        assert validator.validate_json(payload, DEVICE_DECISION_RESPONSE)
+
+
+def test_device_decision_success_payload_requires_workspace_fields_for_approval() -> None:
+    validator = SchemaValidator()
+
+    for field in ("project", "subscription_tier"):
+        payload = _device_decision_success_payload()
+        del payload[field]
+
+        errors = validator.validate_json(payload, DEVICE_DECISION_SUCCESS)
+
+        assert errors
+        assert any(field in error for error in errors)
 
 
 def test_device_decision_success_response_rejects_extra_data_fields() -> None:

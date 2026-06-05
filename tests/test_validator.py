@@ -720,6 +720,7 @@ class TestSchemaValidation:
             "range_days": 30,
             "summary_cards": {
                 "experiments_total": 4,
+                "experiments_in_range": 3,
                 "experiment_runs_in_range": 8,
                 "configuration_runs_in_range": 21,
                 "priced_configuration_runs_in_range": 18,

@@ -228,6 +228,10 @@
           "description": "Version of the configuration run",
           "pattern": "^\\d+\\.\\d+\\.\\d+$"
         },
+        "strategy_preset": {
+          "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+          "description": "Optional advisory strategy preset metadata recorded for this configuration run."
+        },
         "notes": {
           "type": "string",
           "description": "Additional notes about this configuration run"

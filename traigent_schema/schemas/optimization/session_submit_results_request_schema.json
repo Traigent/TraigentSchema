@@ -28,6 +28,12 @@
     "error_message": { "type": ["string", "null"] },
     "metadata": {
       "type": ["object", "null"],
+      "properties": {
+        "strategy_preset": {
+          "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+          "description": "Optional advisory strategy preset metadata recorded for this trial result."
+        }
+      },
       "additionalProperties": true
     },
     "measures": {

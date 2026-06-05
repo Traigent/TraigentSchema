@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/device_decision_success_schema.json",
+  "title": "Device Decision Success Payload DTO",
+  "description": "Safe human-facing summary returned after the portal records an approved or denied device authorization decision. SECURITY INVARIANT: this payload MUST NEVER contain the API key; the key is delivered exclusively through the CLI's /api/v1/auth/device/token poll.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "auth_sensitive",
+  "properties": {
+    "user_code": {
+      "type": "string",
+      "minLength": 9,
+      "maxLength": 9,
+      "pattern": "^[BCDFGHJKMNPQRSTVWXYZ23456789]{4}-[BCDFGHJKMNPQRSTVWXYZ23456789]{4}$",
+      "description": "The normalized user_code whose pending authorization was decided."
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["approved", "denied"],
+      "description": "Decision recorded for the device authorization."
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional safe client/device display summary for the human. Values are public or server-masked; never include secrets.",
+      "properties": {
+        "masked_client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Public or server-masked client identifier shown for confirmation."
+        },
+        "device_hint": {
+          "type": ["string", "null"],
+          "maxLength": 256,
+          "description": "Optional server-sanitized device or CLI hint shown for human disambiguation."
+        }
+      },
+      "anyOf": [
+        { "required": ["masked_client_id"] },
+        { "required": ["device_hint"] }
+      ]
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Project scope that the CLI key will be limited to after approval.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Project id for the approved default project scope."
+        },
+        "name": {
+          "type": ["string", "null"],
+          "maxLength": 256,
+          "description": "Human-readable project name when available."
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "subscription_tier": {
+      "type": "string",
+      "enum": ["free", "hobby", "pro", "individual", "team", "enterprise"],
+      "description": "Approving user's active subscription tier. free and legacy hobby are both accepted during the free-tier rollout."
+    }
+  },
+  "required": ["user_code", "decision", "project", "subscription_tier"]
+}

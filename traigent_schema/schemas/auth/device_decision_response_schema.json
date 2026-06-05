@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/device_decision_response_schema.json",
+  "title": "Device Decision Response DTO",
+  "description": "Response body for POST /api/v1/auth/device/decision. Success confirms the portal decision with a safe human-facing summary. Domain errors use Traigent's standard error envelope for unknown, expired, or already-decided user_code values. SECURITY INVARIANT: this response MUST NEVER contain the API key; the key is delivered exclusively through the CLI's /api/v1/auth/device/token poll. No api_key field is allowed in any branch.",
+  "x-privacy-classification": "auth_sensitive",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "success": { "const": true },
+        "message": { "type": "string", "minLength": 1 },
+        "data": { "$ref": "./device_decision_success_schema.json" }
+      },
+      "required": ["success", "message", "data"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "success": { "const": false },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Client-safe message. Do not include raw exception strings or internal diagnostics."
+        },
+        "error": { "$ref": "#/definitions/DeviceDecisionError" },
+        "error_code": { "$ref": "#/definitions/DeviceDecisionError" },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "user_code": {
+              "type": "string",
+              "minLength": 9,
+              "maxLength": 9,
+              "pattern": "^[BCDFGHJKMNPQRSTVWXYZ23456789]{4}-[BCDFGHJKMNPQRSTVWXYZ23456789]{4}$",
+              "description": "Normalized user_code when it is safe to echo for the current error. Servers MAY omit it for unknown-code responses."
+            }
+          }
+        }
+      },
+      "required": ["success", "message", "error"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "unknown_user_code" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "unknown_user_code" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "expired_user_code" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "expired_user_code" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "already_decided_user_code" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "already_decided_user_code" }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "DeviceDecisionError": {
+      "type": "string",
+      "enum": [
+        "unknown_user_code",
+        "expired_user_code",
+        "already_decided_user_code"
+      ],
+      "description": "Device decision domain errors. unknown_user_code maps to 404, already_decided_user_code maps to 409, and expired_user_code maps to 410."
+    }
+  }
+}

@@ -392,6 +392,92 @@
         }
       }
     },
+    "/api/v1/auth/device/decision": {
+      "post": {
+        "summary": "Approve or deny a device authorization from the portal",
+        "description": "Session-authenticated portal endpoint called by /activate to record the human decision for a pending device authorization. Uses one decision route with an explicit approved/denied enum so approval and denial share the same user_code validation, auth checks, rate limits, and idempotency semantics. SECURITY INVARIANT: this endpoint MUST NEVER return the API key; the key is delivered exclusively through the CLI's /api/v1/auth/device/token poll.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "./device_decision_request_schema.json" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device authorization decision recorded. Response contains only a safe human-facing summary, never the issued API key.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_decision_response_schema.json" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid decision request, including malformed user_code or unsupported decision value.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. A logged-in portal session is required to approve or deny device authorization.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated portal user is not allowed to decide this device authorization for the resolved project/workspace.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "No pending device authorization exists for the supplied user_code.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_decision_response_schema.json" }
+              }
+            }
+          },
+          "409": {
+            "description": "The supplied user_code has already been approved or denied.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_decision_response_schema.json" }
+              }
+            }
+          },
+          "410": {
+            "description": "The supplied user_code existed but has expired.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_decision_response_schema.json" }
+              }
+            }
+          },
+          "429": {
+            "description": "Device decision request rate-limited.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds the portal client should wait before retrying.",
+                "schema": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../rate_limit_info_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/device/token": {
       "post": {
         "summary": "Poll device authorization status and issue a project-scoped API key",

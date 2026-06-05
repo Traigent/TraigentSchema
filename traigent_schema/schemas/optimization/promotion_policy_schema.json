@@ -8,7 +8,11 @@
     "ChanceConstraint": {
       "type": "object",
       "description": "Probabilistic constraint requiring a metric to meet a threshold with specified confidence",
-      "required": ["name", "threshold", "confidence"],
+      "required": [
+        "name",
+        "threshold",
+        "confidence"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -32,7 +36,9 @@
   "properties": {
     "dominance": {
       "type": "string",
-      "enum": ["epsilon_pareto"],
+      "enum": [
+        "epsilon_pareto"
+      ],
       "default": "epsilon_pareto",
       "description": "Dominance criterion for comparing configurations"
     },
@@ -55,7 +61,10 @@
     },
     "adjust": {
       "type": "string",
-      "enum": ["none", "BH"],
+      "enum": [
+        "none",
+        "BH"
+      ],
       "default": "none",
       "description": "Multiple comparison adjustment method (BH = Benjamini-Hochberg)"
     },
@@ -72,7 +81,36 @@
       "patternProperties": {
         "^[a-zA-Z_][a-zA-Z0-9_]*$": {
           "type": "string",
-          "enum": ["min_abs_deviation", "custom"]
+          "enum": [
+            "min_abs_deviation",
+            "custom"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "require_calibration": {
+      "type": "object",
+      "description": "TVL 1.1 strict evidence mode (RFC 0001 \u00a73.5/\u00a73.6): when enabled, promotion requires certificate-backed evidence; runs without a certified selection end with reason_code NO_CERTIFIED_SELECTION instead of a raw best. hash_covered_context selects EXTENSION keys only \u2014 the mandatory freshness-context core is implicit and not configurable. Field semantics mirror tvl/spec/grammar/tvl.schema.json \u00a7promotion_policy (same required/enum members); this copy additionally pins items.type and uniqueItems as wire hardening.",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "hash_covered_context": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "stage_versions",
+              "model_versions",
+              "budget_assumptions",
+              "cost_assumptions"
+            ]
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

@@ -49,7 +49,7 @@
                     "type": "object"
                   },
                   "promotion_policy": {
-                    "$ref": "./promotion_policy_schema.json"
+                    "$ref": "https://schemas.traigent.ai/optimization/promotion_policy_schema.json"
                   },
                   "optimization_strategy": {
                     "type": "object"
@@ -153,7 +153,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./session_finalize_response_schema.json"
+                  "$ref": "https://schemas.traigent.ai/optimization/session_finalize_response_schema.json"
                 }
               }
             }

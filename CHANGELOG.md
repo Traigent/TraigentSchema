@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Refreshed the Python/JavaScript parity manifest for the Python 0.12.0
+  release line and classified advisory strategy-preset / recommendation helper
+  exports as deferred from the JS 0.2.0 parity surface.
+
 ## [4.3.0] - 2026-05-31
 
 ### Changed

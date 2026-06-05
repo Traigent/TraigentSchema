@@ -37,6 +37,10 @@
           "minimum": 0,
           "description": "Total experiments currently in the active project."
         },
+        "experiments_in_range": {
+          "type": "integer",
+          "minimum": 0
+        },
         "experiment_runs_in_range": {
           "type": "integer",
           "minimum": 0
@@ -68,6 +72,7 @@
       },
       "required": [
         "experiments_total",
+        "experiments_in_range",
         "experiment_runs_in_range",
         "configuration_runs_in_range",
         "priced_configuration_runs_in_range",

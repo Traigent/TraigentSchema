@@ -61,7 +61,14 @@
                     "type": "string"
                   },
                   "metadata": {
-                    "type": "object"
+                    "type": "object",
+                    "properties": {
+                      "strategy_preset": {
+                        "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+                        "description": "Optional advisory strategy preset metadata recorded for this session."
+                      }
+                    },
+                    "additionalProperties": true
                   }
                 },
                 "additionalProperties": true
@@ -139,7 +146,14 @@
                     "type": "boolean"
                   },
                   "metadata": {
-                    "type": "object"
+                    "type": "object",
+                    "properties": {
+                      "strategy_preset": {
+                        "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+                        "description": "Optional advisory strategy preset metadata recorded for session finalization."
+                      }
+                    },
+                    "additionalProperties": true
                   }
                 },
                 "additionalProperties": true

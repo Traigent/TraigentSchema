@@ -119,6 +119,10 @@
         "client_version": {
           "type": "string",
           "description": "Version of the client submitting metrics"
+        },
+        "strategy_preset": {
+          "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+          "description": "Optional advisory strategy preset metadata recorded for this metric submission."
         }
       },
       "additionalProperties": true

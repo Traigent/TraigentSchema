@@ -6,9 +6,10 @@ import json
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
-PYTHON_DEVELOP_SHA = "8200124b10f27e3b9d7b408d9657e16572a9f2b8"
+PYTHON_DEVELOP_SHA = "c79bc47cacfb6480b75c8c3c8539722decfc63b5"
 
 PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
+    "ADVISORY_SELECTION_NOTICE",
     "AndCondition",
     "AnnotationQueueDTO",
     "AnnotationQueueItemDTO",
@@ -57,6 +58,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "MeasureValueType",
     "MetricExtractionError",
     "MultiObjectiveMetrics",
+    "NormalizedStrategyPreset",
     "NotCondition",
     "ObservabilityClient",
     "ObservabilityConfig",
@@ -78,6 +80,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "PersistenceManager",
     "PlatformCapabilityError",
     "PlotGenerator",
+    "PresetSelection",
     "ProgressBarCallback",
     "ProjectManagementClient",
     "ProjectManagementConfig",
@@ -107,6 +110,8 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "SessionRecord",
     "StatisticsCallback",
     "StrategyConfig",
+    "StrategyPresetError",
+    "StrategyPresetValidationError",
     "TenantDTO",
     "TenantListResponse",
     "TenantMembershipDTO",
@@ -131,6 +136,8 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "TraigentWarning",
     "TrialError",
     "TrialResult",
+    "UnknownStrategyPresetError",
+    "VALID_PRESET_NAMES",
     "ValidationResult",
     "WhenBuilder",
     "configure",
@@ -151,15 +158,19 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "implies",
     "initialize",
     "is_traigent_metadata",
+    "list_recommendation_agent_types",
     "max_tokens_constraint",
     "model_cost_constraint",
+    "normalize_strategy_preset",
     "normalize_constraints",
     "observe",
     "optimize",
     "override_config",
     "require",
+    "recommend_configuration_space",
     "retry",
     "serialize_trials",
+    "select_strategy_preset",
     "set_default_observability_client",
     "set_strategy",
     "temperature_constraint",

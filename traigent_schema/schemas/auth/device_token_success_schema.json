@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/device_token_success_schema.json",
+  "title": "Device Token Success Payload DTO",
+  "description": "Success payload returned after a verified portal user approves the device authorization. The API key is project-scoped and must not carry tenant-wide privileges.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "auth_sensitive",
+  "properties": {
+    "api_key": {
+      "type": "string",
+      "minLength": 23,
+      "maxLength": 256,
+      "pattern": "^sk_[A-Za-z0-9._-]{20,}$",
+      "description": "Project-scoped Traigent API key. Consumers display or persist the secret once; servers return only this sk_-prefixed value at issuance time."
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Tenant/workspace id that owns the issued project-scoped key."
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Default project id the issued API key is scoped to."
+    },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 320
+        }
+      },
+      "required": ["id", "email"]
+    },
+    "subscription_tier": {
+      "type": "string",
+      "enum": ["free", "hobby", "pro", "individual", "team", "enterprise"],
+      "description": "Approved user's active subscription tier. `free` and legacy `hobby` are both accepted during the free-tier rollout."
+    },
+    "quota": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "trial_limit": {
+          "type": "integer",
+          "minimum": -1,
+          "description": "Allowed trials for the current tier. -1 means unlimited."
+        },
+        "api_call_limit": {
+          "type": "integer",
+          "minimum": -1,
+          "description": "Allowed API calls for the current tier. -1 means unlimited."
+        }
+      },
+      "required": ["trial_limit", "api_call_limit"]
+    }
+  },
+  "required": [
+    "api_key",
+    "tenant_id",
+    "project_id",
+    "user",
+    "subscription_tier",
+    "quota"
+  ]
+}

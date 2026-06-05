@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **TVL 1.1 governance crosses the wire** (Phase 7, contract-decision REVISION 1,
+  ChangeSession `cs_ca64fcc251f489b1`): `promotion_policy_schema.json` gains the
+  closed-shape `require_calibration {enabled, hash_covered_context}` strict
+  evidence mode (byte-mirrors `tvl/spec/grammar/tvl.schema.json`; the SDKs already
+  serialize it — the backend rejected/dropped it until now).
+  `optimization_endpoints.json` session-create now BINDS `promotion_policy` to the
+  promotion-policy schema (was an unconstrained object), and the finalize 200
+  gains `session_finalize_response_schema.json`: fail-closed contract — strict
+  sessions without certified selection evidence return empty `best_config` +
+  `reason_code: NO_CERTIFIED_SELECTION`, never a raw best. New
+  `tvl_governance_schema.json` (`TvlGovernanceDTO`): content-free governance
+  summary (cvar names/types/governed flags, per-CVAR certificate decisions using
+  the shared `CERTIFIED_SELECTION | NO_DECISION | BEST_EFFORT_UNCERTIFIED`
+  vocabulary, policy names/strategies) — P8: never values, evidence, or prompts;
+  backends construct it from an allowlist, never caller-metadata passthrough.
 - Planner draft-status contract (TraigentSchema#57): `planner/planner_endpoints.json`
   wires `GET /api/v1/planner/status/{draft_id}` (registered in `mep_endpoints.json`
   `x-endpoint-modules` as "Planner"), with `200` → new

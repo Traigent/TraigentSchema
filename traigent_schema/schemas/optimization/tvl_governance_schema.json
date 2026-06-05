@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tvl_governance_schema.json",
+  "title": "TvlGovernanceDTO",
+  "description": "Content-free TVL 1.1 governance summary (RFC 0001, property P8): identifies WHICH calibrated variables, certificates, and policies governed a session — never their values, evidence, prompts, or signal contents. Certificates use the per-CVAR decision vocabulary shared with guarantee_certificate_schema.json (one ontology, two scopes: per-CVAR value certification here, per-config selection there). Echoed by the backend from an ALLOWLIST it constructs server-side; never caller-metadata passthrough.",
+  "type": "object",
+  "properties": {
+    "cvars": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+          },
+          "type": { "type": "string" },
+          "governed": {
+            "type": "boolean",
+            "description": "DECLARED governance (per-CVAR require_calibration, pinned certificate, or certificate-backed target) — never inferred from runtime evidence."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "certificates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cvar_name", "decision"],
+        "properties": {
+          "cvar_name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+          },
+          "decision": {
+            "type": "string",
+            "enum": ["CERTIFIED_SELECTION", "NO_DECISION", "BEST_EFFORT_UNCERTIFIED"]
+          },
+          "freshness_hash": {
+            "type": "string",
+            "description": "sha256 of the canonical freshness context (hash only — the context itself never crosses)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+          },
+          "strategy": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

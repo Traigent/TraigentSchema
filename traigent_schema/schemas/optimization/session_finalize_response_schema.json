@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/session_finalize_response_schema.json",
   "title": "SessionFinalizeResponseDTO",
-  "description": "Finalization result of an optimization session. FAIL-CLOSED CONTRACT (RFC 0001 \u00a73.6 / root Rule 1): when the session's promotion_policy declares a strict evidence mode (require_calibration.enabled) and no certified selection evidence exists, best_config is EMPTY and reason_code is NO_CERTIFIED_SELECTION \u2014 the server never synthesizes a raw best for strict sessions. Non-strict sessions are unchanged.",
+  "description": "Finalization result of an optimization session. FAIL-CLOSED CONTRACT (RFC 0001 \u00a73.6 / root Rule 1): when the session's promotion_policy declares a strict evidence mode (require_calibration.enabled) and no certified selection evidence exists, best_config is EMPTY and reason_code is NO_CERTIFIED_SELECTION \u2014 the server never synthesizes a raw best for strict sessions. CLOSED TAXONOMY (v4.5.0, enforced by oneOf): every response carries EXACTLY ONE of selection_basis (a winner and how it was selected) or reason_code (an honest no-winner and why) \u2014 producers must emit selection_basis=objective_best for non-strict winners and NO_RANKING_ELIGIBLE_TRIALS for empty non-strict sessions.",
   "type": "object",
   "required": [
     "session_id",
@@ -27,6 +27,40 @@
         "NO_RANKING_ELIGIBLE_TRIALS"
       ],
       "description": "Present ONLY on honest no-winner results; consumers must not treat best_config as deployable when set."
+    },
+    "selection_basis": {
+      "type": "string",
+      "enum": [
+        "certified_selection",
+        "objective_best"
+      ],
+      "description": "How the winner was selected, present ONLY when best_config is non-empty (mutually exclusive with reason_code — ENFORCED by the allOf conditionals below). certified_selection: a strict session's winner backed by a client-attested certified-selection report, server-bound to its own trial record. objective_best: a non-strict raw objective winner. Consumers (FE) key off this field — never infer certification from tvl_governance internals."
+    },
+    "selection_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "description": "Content-free provenance of a certified selection (present IFF selection_basis=certified_selection — ENFORCED by the allOf conditionals below). HONESTY CONTRACT: the server cross-checked trial binding and per-CVAR coverage but did NOT verify the certificates' evidence — display as client-attested, never as server-verified.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "client_attested"
+          ]
+        },
+        "attested_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
+          "description": "Attesting client identifier (e.g. python_sdk)."
+        },
+        "sdk_version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9+_.-]{0,63}$",
+          "description": "Anchored version token — never free text (P8: no room for value/evidence snippets)."
+        }
+      }
     },
     "tvl_governance": {
       "$ref": "https://schemas.traigent.ai/optimization/tvl_governance_schema.json"
@@ -106,5 +140,85 @@
       }
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "required": [
+        "selection_basis"
+      ]
+    },
+    {
+      "required": [
+        "reason_code"
+      ]
+    }
+  ],
+  "allOf": [
+    {
+      "description": "selection_basis requires a NON-EMPTY winner.",
+      "if": {
+        "required": [
+          "selection_basis"
+        ]
+      },
+      "then": {
+        "properties": {
+          "best_config": {
+            "minProperties": 1
+          }
+        }
+      }
+    },
+    {
+      "description": "reason_code (honest no-winner) requires an EMPTY best_config — the fail-closed Phase 7 contract, now enforced.",
+      "if": {
+        "required": [
+          "reason_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "best_config": {
+            "maxProperties": 0
+          }
+        }
+      }
+    },
+    {
+      "description": "selection_attestation appears IFF the basis is certified_selection (forward direction).",
+      "if": {
+        "required": [
+          "selection_attestation"
+        ]
+      },
+      "then": {
+        "required": [
+          "selection_basis"
+        ],
+        "properties": {
+          "selection_basis": {
+            "const": "certified_selection"
+          }
+        }
+      }
+    },
+    {
+      "description": "certified_selection basis REQUIRES the attestation (reverse direction) — a certified winner is never unattributed.",
+      "if": {
+        "properties": {
+          "selection_basis": {
+            "const": "certified_selection"
+          }
+        },
+        "required": [
+          "selection_basis"
+        ]
+      },
+      "then": {
+        "required": [
+          "selection_attestation"
+        ]
+      }
+    }
+  ]
 }

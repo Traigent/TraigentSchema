@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Certified selection over the wire** (Phase 8, contract-decision REVISION 2,
+  ChangeSession `cs_3122014091d19761`): new `certified_selection_schema.json`
+  (`CertifiedSelectionReport`) — a CLIENT-ATTESTED, content-free report the SDK
+  may attach to session finalize when strict evidence mode certified a winner
+  locally: backend `trial_id` binding (the server returns the winner from ITS
+  OWN trial record — client configs never cross at finalize), per-CVAR
+  certificate decisions (shared `CERTIFIED_SELECTION | NO_DECISION |
+  BEST_EFFORT_UNCERTIFIED` vocabulary), and the certificate's issued
+  (freshness-context) sha256. Deliberately excluded (P8): calibrated values,
+  `subject_value_hash` (dictionary-invertible on low-entropy values), evidence
+  counts, pool hashes, target details. `optimization_endpoints.json` finalize
+  requestBody gains the optional `certified_selection` `$ref` (top-level key;
+  the finalize envelope stays open for legacy back-compat, so the SERVER
+  additionally rejects reports tunneled under metadata).
+  `session_finalize_response_schema.json` gains `selection_basis`
+  (`certified_selection | objective_best`) and the content-free
+  `selection_attestation {type: client_attested, attested_by, sdk_version}`,
+  with the invariants ENFORCED as schema conditionals: basis ⊕ reason_code,
+  basis ⇒ non-empty winner, reason_code ⇒ empty `best_config`, attestation ⇔
+  certified basis — consumers key off `selection_basis` and must display
+  certified winners as client-attested, never server-verified. Version 4.5.0.
 - **TVL 1.1 governance crosses the wire** (Phase 7, contract-decision REVISION 1,
   ChangeSession `cs_ca64fcc251f489b1`): `promotion_policy_schema.json` gains the
   closed-shape `require_calibration {enabled, hash_covered_context}` strict

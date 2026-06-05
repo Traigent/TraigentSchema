@@ -154,6 +154,10 @@
                       }
                     },
                     "additionalProperties": true
+                  },
+                  "certified_selection": {
+                    "$ref": "https://schemas.traigent.ai/optimization/certified_selection_schema.json",
+                    "description": "OPTIONAL client-attested, content-free certified-selection report (strict evidence mode only). Validated fail-closed: non-strict session + report, unknown/incomplete trial binding, or incomplete governed-CVAR coverage all reject. Accepted only at this top-level key; the envelope is open for legacy back-compat, so the SERVER additionally rejects reports tunneled under metadata (enforced server-side — the schema alone cannot close the open envelope)."
                   }
                 },
                 "additionalProperties": true
@@ -308,7 +312,10 @@
                       "format": "date-time"
                     }
                   },
-                  "required": ["value_recommendations", "correlations"],
+                  "required": [
+                    "value_recommendations",
+                    "correlations"
+                  ],
                   "additionalProperties": false
                 }
               }

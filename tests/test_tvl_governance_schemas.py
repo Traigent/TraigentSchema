@@ -110,13 +110,18 @@ class TestFinalizeResponse:
         }
         assert not _errors(FINALIZE, response)
 
-    def test_legacy_winner_shape_unchanged(self) -> None:
+    def test_winner_requires_selection_basis_since_v450(self) -> None:
+        """Phase 8 closed taxonomy: the Phase 7 'legacy winner' shape (no
+        selection_basis) is no longer valid — every winner says HOW it was
+        selected, every no-winner says WHY (oneOf-enforced)."""
         response = {
             "session_id": "s1",
             "best_config": {"model": "gpt-4o"},
             "best_metrics": {"accuracy": 0.9},
             "total_trials": 4,
         }
+        assert _errors(FINALIZE, response)
+        response["selection_basis"] = "objective_best"
         assert not _errors(FINALIZE, response)
 
     def test_unknown_reason_code_rejected(self) -> None:
@@ -185,6 +190,7 @@ class TestWirePathBindings:
         response = {
             "session_id": "s1",
             "best_config": {"model": "a"},
+            "selection_basis": "objective_best",
             "total_trials": 1,
             "full_history": [
                 {

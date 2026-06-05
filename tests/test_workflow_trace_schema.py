@@ -12,6 +12,7 @@ from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
 SCHEMA = "workflow_trace_schema"
+TRIAL_RESPONSE_SCHEMA = "workflow_trace_trial_response_schema"
 
 
 def _valid_span():
@@ -54,6 +55,20 @@ def _span_batch():
         "trace_id": "0123456789abcdef0123456789abcdef",
         "configuration_run_id": "cr-1",
         "spans": [_valid_span()],
+    }
+
+
+def _valid_trial_response():
+    return {
+        "trial_id": "trial-1",
+        "configuration_run_id": "cr-1",
+        "trace_id": "trace-1",
+        "quality_score": None,
+        "total_latency_ms": 123.4,
+        "total_cost_usd": 0.0123,
+        "start_time": "2026-06-02T00:00:00Z",
+        "end_time": None,
+        "status": "COMPLETED",
     }
 
 
@@ -141,3 +156,44 @@ def test_ingest_endpoint_wires_workflow_trace_schema():
     body = spec["paths"]["/api/v1/traces/ingest"]["post"]["requestBody"]
     ref = body["content"]["application/json"]["schema"]["$ref"]
     assert ref.endswith("workflow_trace_schema.json"), ref
+
+
+def test_trial_response_accepts_required_nullable_quality_score():
+    v = SchemaValidator()
+    assert v.validate_json(_valid_trial_response(), TRIAL_RESPONSE_SCHEMA) == []
+
+
+def test_trial_response_accepts_optional_spans():
+    v = SchemaValidator()
+    payload = {
+        **_valid_trial_response(),
+        "quality_score": 0.91,
+        "spans": [
+            {
+                "id": "span-1",
+                "trace_id": "trace-1",
+                "configuration_run_id": "cr-1",
+                "span_name": "Generator",
+            }
+        ],
+    }
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA) == []
+
+
+def test_trial_response_rejects_missing_required_field():
+    v = SchemaValidator()
+    payload = _valid_trial_response()
+    del payload["quality_score"]
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)
+
+
+def test_trial_response_rejects_string_quality_score():
+    v = SchemaValidator()
+    payload = {**_valid_trial_response(), "quality_score": "0.91"}
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)
+
+
+def test_trial_response_rejects_additional_properties():
+    v = SchemaValidator()
+    payload = {**_valid_trial_response(), "weighted_score": 0.91}
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)

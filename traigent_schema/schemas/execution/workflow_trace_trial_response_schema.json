@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/workflow_trace_trial_response_schema.json",
+  "title": "Workflow Trace Trial Response",
+  "description": "Per-configuration-run workflow trace row returned by GET /api/v1/experiment-runs/runs/{run_id}/traces.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "trial_id": {
+      "type": "string"
+    },
+    "configuration_run_id": {
+      "type": "string"
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "quality_score": {
+      "type": ["number", "null"],
+      "description": "Best-available raw quality metric; null when none. NOT configuration_run.weighted_score."
+    },
+    "total_latency_ms": {
+      "type": "number"
+    },
+    "total_cost_usd": {
+      "type": "number"
+    },
+    "start_time": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "end_time": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "status": {
+      "type": ["string", "null"]
+    },
+    "spans": {
+      "type": "array",
+      "description": "Detailed span rows included only when include_spans=true.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "trial_id",
+    "configuration_run_id",
+    "trace_id",
+    "quality_score",
+    "total_latency_ms",
+    "total_cost_usd",
+    "start_time",
+    "end_time",
+    "status"
+  ]
+}

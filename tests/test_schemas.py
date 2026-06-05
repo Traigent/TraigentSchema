@@ -340,23 +340,37 @@ class TestRequiredSchemas:
             if isinstance(module, dict)
         )
 
-    def test_traces_response_requires_only_paginated_trials_shape(self, schemas_dir):
+    def test_traces_response_requires_typed_trials_shape(self, schemas_dir):
         with open(
             schemas_dir / "execution" / "execution_endpoints.json",
             encoding="utf-8",
         ) as handle:
             execution_openapi = json.load(handle)
 
-        required = (
+        data_schema = (
             execution_openapi["paths"]["/api/v1/experiment-runs/runs/{run_id}/traces"][
                 "get"
             ]["responses"]["200"]["content"]["application/json"]["schema"]["properties"][
                 "data"
-            ]["required"]
+            ]
         )
-        assert "trials_page" in required
-        assert "trials" not in required
-        assert "trials_pagination" not in required
+        required = data_schema["required"]
+        assert "trials" in required
+        assert "trials_pagination" in required
+        assert "trials_page" not in required
+        assert (
+            data_schema["properties"]["trials"]["items"]["$ref"]
+            == "./workflow_trace_trial_response_schema.json"
+        )
+        assert (
+            data_schema["properties"]["trials_pagination"]["$ref"]
+            == "../pagination_schema.json"
+        )
+        assert (
+            schemas_dir
+            / "execution"
+            / data_schema["properties"]["trials"]["items"]["$ref"].removeprefix("./")
+        ).exists()
 
     def test_workflow_metadata_schema_version_matches_field_set(self, schemas_dir):
         with open(

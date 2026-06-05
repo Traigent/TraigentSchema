@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit/audit_log_export_response_schema.json",
+  "title": "Audit Log Export Response",
+  "description": "JSON response stream for POST /api/v1/audit/logs/export when format=json. CSV exports are returned as text/csv and are documented separately in audit_endpoints.json.",
+  "type": "object",
+  "required": [
+    "success",
+    "data"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string"
+    },
+    "data": {
+      "$ref": "#/definitions/AuditLogExportData"
+    }
+  },
+  "definitions": {
+    "AuditLogExportData": {
+      "type": "object",
+      "required": [
+        "logs",
+        "total_exported",
+        "export_timestamp",
+        "filters_applied"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "logs": {
+          "type": "array",
+          "items": {
+            "$ref": "./audit_log_entry_response_schema.json#/definitions/AuditLogEntry"
+          }
+        },
+        "total_exported": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "export_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "filters_applied": {
+          "$ref": "#/definitions/AuditLogExportFilters"
+        }
+      }
+    },
+    "AuditLogExportFilters": {
+      "type": "object",
+      "required": [
+        "start_date",
+        "end_date",
+        "event_type",
+        "user_id",
+        "outcome",
+        "resource_type"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "start_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "event_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "user_id": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "outcome": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resource_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

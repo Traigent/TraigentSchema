@@ -352,6 +352,100 @@
         }
       }
     },
+    "/api/v1/auth/device/authorize": {
+      "post": {
+        "summary": "Start device authorization for CLI login",
+        "description": "Issues an RFC 8628-style device_code/user_code pair. Portal approval requires a verified logged-in session and is the gate before a project-scoped API key can be issued.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "./device_authorization_request_schema.json" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device authorization started.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_authorization_response_schema.json" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid device authorization request.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "429": {
+            "description": "Device authorization request rate-limited.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../rate_limit_info_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/device/token": {
+      "post": {
+        "summary": "Poll device authorization status and issue a project-scoped API key",
+        "description": "The CLI polls this endpoint with the device_code grant. Success returns a one-time sk_-prefixed API key scoped to the approved default project. Pending/denied/expired/slow_down states use RFC 8628 error names in Traigent's standard error envelope.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "./device_token_request_schema.json" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device authorization approved; project-scoped API key issued.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_token_response_schema.json" }
+              }
+            }
+          },
+          "400": {
+            "description": "Authorization is pending or the device code has expired.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_token_response_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "The human denied the device authorization.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_token_response_schema.json" }
+              }
+            }
+          },
+          "429": {
+            "description": "The client polled faster than the allowed interval.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds the CLI should wait before polling again.",
+                "schema": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_token_response_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "summary": "Create a new user account",

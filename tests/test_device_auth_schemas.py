@@ -1,0 +1,274 @@
+"""Contract tests for the self-service device authorization flow."""
+
+from __future__ import annotations
+
+import json
+
+from jsonschema import Draft7Validator
+
+from traigent_schema import SchemaValidator, load_schema
+from traigent_schema.utils import get_schemas_dir
+
+
+DEVICE_AUTH_REQUEST = "device_authorization_request_schema"
+DEVICE_AUTH_RESPONSE = "device_authorization_response_schema"
+DEVICE_TOKEN_REQUEST = "device_token_request_schema"
+DEVICE_TOKEN_RESPONSE = "device_token_response_schema"
+DEVICE_TOKEN_SUCCESS = "device_token_success_schema"
+PROVISIONED_WORKSPACE = "provisioned_workspace_schema"
+
+
+def _device_authorization_response() -> dict:
+    return {
+        "success": True,
+        "message": "Device authorization started",
+        "data": {
+            "device_code": "dev_abcdefghijklmnopqrstuvwxyz123456",
+            "user_code": "ABCD-EFGH",
+            "verification_uri": "https://app.traigent.ai/device",
+            "verification_uri_complete": "https://app.traigent.ai/device?user_code=ABCD-EFGH",
+            "expires_in": 900,
+            "interval": 5,
+        },
+    }
+
+
+def _device_token_request() -> dict:
+    return {
+        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+        "device_code": "dev_abcdefghijklmnopqrstuvwxyz123456",
+        "client_id": "traigent-python-cli",
+    }
+
+
+def _device_token_success_payload() -> dict:
+    return {
+        "api_key": "sk_abcdefghijklmnopqrstuvwxyz123456",
+        "tenant_id": "tenant_personal_123",
+        "project_id": "project_default_123",
+        "user": {"id": "user_123", "email": "alice@example.com"},
+        "subscription_tier": "free",
+        "quota": {"trial_limit": 25, "api_call_limit": 1000},
+    }
+
+
+def _device_token_success_response() -> dict:
+    return {
+        "success": True,
+        "message": "Device authorization approved",
+        "data": _device_token_success_payload(),
+    }
+
+
+def _device_token_error(error: str, **overrides) -> dict:
+    payload = {
+        "success": False,
+        "message": "Device authorization is still pending",
+        "error": error,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_device_flow_schemas_are_valid_draft7() -> None:
+    for schema_name in (
+        DEVICE_AUTH_REQUEST,
+        DEVICE_AUTH_RESPONSE,
+        DEVICE_TOKEN_REQUEST,
+        DEVICE_TOKEN_RESPONSE,
+        DEVICE_TOKEN_SUCCESS,
+        PROVISIONED_WORKSPACE,
+    ):
+        Draft7Validator.check_schema(load_schema(schema_name))
+
+
+def test_device_authorization_request_accepts_public_cli_client() -> None:
+    payload = {"client_id": "traigent-python-cli", "scope": "api:project"}
+
+    assert SchemaValidator().validate_json(payload, DEVICE_AUTH_REQUEST) == []
+
+
+def test_device_authorization_request_rejects_unknown_fields() -> None:
+    payload = {"client_id": "traigent-python-cli", "unexpected_field": "never"}
+
+    errors = SchemaValidator().validate_json(payload, DEVICE_AUTH_REQUEST)
+
+    assert errors
+    assert any("Additional properties" in error for error in errors)
+
+
+def test_device_authorization_response_uses_rfc8628_fields_under_envelope() -> None:
+    assert SchemaValidator().validate_json(
+        _device_authorization_response(),
+        DEVICE_AUTH_RESPONSE,
+    ) == []
+
+
+def test_device_authorization_response_requires_all_rfc8628_fields() -> None:
+    payload = _device_authorization_response()
+    del payload["data"]["verification_uri_complete"]
+
+    assert SchemaValidator().validate_json(payload, DEVICE_AUTH_RESPONSE)
+
+
+def test_device_authorization_response_rejects_lowercase_user_code() -> None:
+    payload = _device_authorization_response()
+    payload["data"]["user_code"] = "abcd-efgh"
+
+    assert SchemaValidator().validate_json(payload, DEVICE_AUTH_RESPONSE)
+
+
+def test_device_token_request_accepts_device_code_grant() -> None:
+    assert SchemaValidator().validate_json(_device_token_request(), DEVICE_TOKEN_REQUEST) == []
+
+
+def test_device_token_request_rejects_wrong_grant() -> None:
+    payload = _device_token_request()
+    payload["grant_type"] = "authorization_code"
+
+    assert SchemaValidator().validate_json(payload, DEVICE_TOKEN_REQUEST)
+
+
+def test_device_token_success_payload_accepts_project_scoped_key() -> None:
+    assert SchemaValidator().validate_json(
+        _device_token_success_payload(),
+        DEVICE_TOKEN_SUCCESS,
+    ) == []
+
+
+def test_device_token_success_payload_rejects_non_sk_prefix() -> None:
+    payload = _device_token_success_payload()
+    payload["api_key"] = "pk_abcdefghijklmnopqrstuvwxyz123456"
+
+    assert SchemaValidator().validate_json(payload, DEVICE_TOKEN_SUCCESS)
+
+
+def test_device_token_success_response_accepts_project_scoped_payload() -> None:
+    assert SchemaValidator().validate_json(
+        _device_token_success_response(),
+        DEVICE_TOKEN_RESPONSE,
+    ) == []
+
+
+def test_device_token_success_response_rejects_extra_user_fields() -> None:
+    payload = _device_token_success_response()
+    payload["data"]["user"]["role"] = "owner"
+
+    assert SchemaValidator().validate_json(payload, DEVICE_TOKEN_RESPONSE)
+
+
+def test_device_token_response_accepts_rfc8628_poll_errors() -> None:
+    validator = SchemaValidator()
+
+    for error in ("authorization_pending", "access_denied", "expired_token"):
+        assert validator.validate_json(_device_token_error(error), DEVICE_TOKEN_RESPONSE) == []
+
+    slow_down = _device_token_error(
+        "slow_down",
+        message="Polling too quickly",
+        error_code="slow_down",
+        details={"interval": 10, "retry_after": 10},
+    )
+    assert validator.validate_json(slow_down, DEVICE_TOKEN_RESPONSE) == []
+
+
+def test_device_token_response_rejects_unknown_poll_error() -> None:
+    payload = _device_token_error("invalid_grant")
+
+    assert SchemaValidator().validate_json(payload, DEVICE_TOKEN_RESPONSE)
+
+
+def test_device_token_response_requires_interval_for_slow_down() -> None:
+    payload = _device_token_error("slow_down", details={"retry_after": 10})
+
+    assert SchemaValidator().validate_json(payload, DEVICE_TOKEN_RESPONSE)
+
+
+def test_provisioned_workspace_accepts_default_project_shape() -> None:
+    payload = {
+        "tenant_id": "tenant_personal_123",
+        "team_id": "team_personal_123",
+        "default_project_id": "project_default_123",
+    }
+
+    assert SchemaValidator().validate_json(payload, PROVISIONED_WORKSPACE) == []
+
+
+def test_provisioned_workspace_requires_default_project_id() -> None:
+    payload = {
+        "tenant_id": "tenant_personal_123",
+        "team_id": "team_personal_123",
+    }
+
+    assert SchemaValidator().validate_json(payload, PROVISIONED_WORKSPACE)
+
+
+def test_device_flow_schemas_are_registered_by_runtime_discovery() -> None:
+    available = set(SchemaValidator().available_schemas)
+
+    assert {
+        DEVICE_AUTH_REQUEST,
+        DEVICE_AUTH_RESPONSE,
+        DEVICE_TOKEN_REQUEST,
+        DEVICE_TOKEN_RESPONSE,
+        DEVICE_TOKEN_SUCCESS,
+        PROVISIONED_WORKSPACE,
+    } <= available
+
+
+def test_backend_contract_validates_device_flow_requests() -> None:
+    validator = SchemaValidator()
+
+    assert validator.validate_request(
+        "/api/v1/auth/device/authorize",
+        "POST",
+        {"client_id": "traigent-python-cli"},
+    ) == []
+    assert validator.validate_request(
+        "/api/v1/auth/device/token",
+        "POST",
+        _device_token_request(),
+    ) == []
+
+    invalid = _device_token_request()
+    invalid["grant_type"] = "authorization_code"
+    assert validator.validate_request("/api/v1/auth/device/token", "POST", invalid)
+
+
+def test_auth_device_flow_endpoints_are_wired() -> None:
+    schemas_dir = get_schemas_dir()
+    with open(schemas_dir / "mep_endpoints.json", encoding="utf-8") as fh:
+        root = json.load(fh)
+    assert any(
+        module.get("paths_file") == "./auth/auth_endpoints.json"
+        for module in root["x-endpoint-modules"]
+    )
+
+    with open(schemas_dir / "auth" / "auth_endpoints.json", encoding="utf-8") as fh:
+        endpoints = json.load(fh)
+
+    authorize = endpoints["paths"]["/api/v1/auth/device/authorize"]["post"]
+    assert authorize["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "device_authorization_request_schema.json"
+    )
+    assert authorize["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "device_authorization_response_schema.json"
+    )
+
+    token = endpoints["paths"]["/api/v1/auth/device/token"]["post"]
+    assert token["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "device_token_request_schema.json"
+    )
+    assert token["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "device_token_response_schema.json"
+    )
+    assert token["responses"]["400"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "device_token_response_schema.json"
+    )
+    assert token["responses"]["403"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "device_token_response_schema.json"
+    )
+    assert token["responses"]["429"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "device_token_response_schema.json"
+    )
+    assert "Retry-After" in token["responses"]["429"]["headers"]

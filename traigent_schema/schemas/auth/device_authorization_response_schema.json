@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/device_authorization_response_schema.json",
+  "title": "Device Authorization Response DTO",
+  "description": "200 body for POST /api/v1/auth/device/authorize. The RFC 8628 field names are carried under data to match Traigent's standard success envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "auth_sensitive",
+  "properties": {
+    "success": { "const": true },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "device_code": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9._~-]+$",
+          "description": "Opaque device code used only by the polling CLI."
+        },
+        "user_code": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32,
+          "pattern": "^[A-Z0-9-]+$",
+          "description": "Short code displayed by the CLI and entered or confirmed in the portal."
+        },
+        "verification_uri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048,
+          "description": "Portal URL where the human approves the device authorization."
+        },
+        "verification_uri_complete": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048,
+          "description": "Portal URL preloaded with the user_code for copy/paste or clickable CLI flows."
+        },
+        "expires_in": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Seconds until the device_code and user_code expire."
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Minimum seconds the CLI must wait between token polling requests."
+        }
+      },
+      "required": [
+        "device_code",
+        "user_code",
+        "verification_uri",
+        "verification_uri_complete",
+        "expires_in",
+        "interval"
+      ]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/provisioned_workspace_schema.json",
+  "title": "Provisioned Workspace DTO",
+  "description": "Reusable shape for the personal workspace provisioned during self-service signup: a single-member tenant/team plus its default project.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "tenant_admin_safe",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Tenant/workspace id created for the user."
+    },
+    "team_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Single-member team id created inside the tenant."
+    },
+    "default_project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Default project id used for self-service CLI API keys."
+    }
+  },
+  "required": ["tenant_id", "team_id", "default_project_id"]
+}

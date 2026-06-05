@@ -154,13 +154,32 @@ class TestP8Hardening:
 
 
 class TestWirePathBindings:
-    def test_hybrid_create_constrains_promotion_policy(self) -> None:
-        request = {
+    def test_hybrid_wire_path_constrains_promotion_policy(self) -> None:
+        """TRUE wire-path evidence (round-2 review): validate_request against
+        the /api/v1/hybrid/sessions endpoint, with an otherwise-VALID fixture,
+        so the failure is attributable to the promotion_policy binding."""
+        base = {
             "function_name": "fn",
-            "configuration_space": {},
-            "promotion_policy": {"require_calibration": {"enabled": "yes-ish"}},
+            "config_space": [
+                {"name": "model", "type": "categorical", "choices": ["a", "b"]},
+                {"name": "temperature", "type": "float", "low": 0.0, "high": 1.0},
+            ],
+            "task_description": "phase-7 wire-path regression fixture",
         }
-        assert _errors("hybrid_session_create_request_schema", request)
+        # the hybrid endpoint is mapped in the sdk_tuning contract
+        validator = SchemaValidator(contract="sdk_tuning")
+        errs = validator.validate_request(
+            "/api/v1/hybrid/sessions",
+            "POST",
+            {**base, "promotion_policy": {"require_calibration": {"enabled": True}}},
+        )
+        assert not errs, errs
+        errs = validator.validate_request(
+            "/api/v1/hybrid/sessions",
+            "POST",
+            {**base, "promotion_policy": {"require_calibration": {"enabled": "yes-ish"}}},
+        )
+        assert errs
 
     def test_finalize_full_history_accepted(self) -> None:
         response = {

@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TVL 1.1 governance crosses the wire** (Phase 7, contract-decision REVISION 1,
   ChangeSession `cs_ca64fcc251f489b1`): `promotion_policy_schema.json` gains the
   closed-shape `require_calibration {enabled, hash_covered_context}` strict
-  evidence mode (byte-mirrors `tvl/spec/grammar/tvl.schema.json`; the SDKs already
+  evidence mode (field semantics mirror `tvl/spec/grammar/tvl.schema.json` —
+  same required/enum members, plus `uniqueItems` wire hardening; the SDKs already
   serialize it — the backend rejected/dropped it until now).
   `optimization_endpoints.json` session-create now BINDS `promotion_policy` to the
   promotion-policy schema (was an unconstrained object), and the finalize 200

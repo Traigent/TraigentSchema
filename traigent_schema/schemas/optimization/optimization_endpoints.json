@@ -15,6 +15,129 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "definitions": {
+                  "CanonicalTypedObjectiveDefinition": {
+                    "allOf": [
+                      {
+                        "$ref": "https://schemas.traigent.ai/optimization/objective_definition_schema.json"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "orientation",
+                          "weight"
+                        ]
+                      }
+                    ]
+                  },
+                  "LegacyObjectObjectiveDefinition": {
+                    "type": "object",
+                    "description": "Legacy SDK/backend objective object accepted by TraigentBackend interactive_session_service._normalize_objectives.",
+                    "required": [
+                      "metric"
+                    ],
+                    "anyOf": [
+                      {
+                        "required": [
+                          "direction"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "band"
+                        ]
+                      }
+                    ],
+                    "additionalProperties": true,
+                    "properties": {
+                      "metric": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "maximize",
+                          "minimize"
+                        ]
+                      },
+                      "weight": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "band": {
+                        "$ref": "#/definitions/LegacyObjectiveBand"
+                      },
+                      "test": {
+                        "type": "string",
+                        "enum": [
+                          "TOST"
+                        ]
+                      },
+                      "alpha": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "exclusiveMaximum": 1
+                      }
+                    }
+                  },
+                  "LegacyObjectiveBand": {
+                    "type": "object",
+                    "oneOf": [
+                      {
+                        "required": [
+                          "low",
+                          "high"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "center",
+                          "tol"
+                        ]
+                      }
+                    ],
+                    "additionalProperties": true,
+                    "properties": {
+                      "low": {
+                        "type": "number"
+                      },
+                      "high": {
+                        "type": "number"
+                      },
+                      "center": {
+                        "type": "number"
+                      },
+                      "tol": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    }
+                  },
+                  "TypedObjectiveArray": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/definitions/CanonicalTypedObjectiveDefinition"
+                        },
+                        {
+                          "$ref": "#/definitions/LegacyObjectObjectiveDefinition"
+                        }
+                      ]
+                    }
+                  },
+                  "LegacyStringObjectiveArray": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
                 "required": [
                   "function_name",
                   "configuration_space",
@@ -29,8 +152,15 @@
                     "type": "object"
                   },
                   "objectives": {
-                    "type": "array",
-                    "minItems": 1
+                    "description": "Optimization objectives. Accepts canonical typed objective definitions, legacy SDK/backend objective objects, and the legacy SDK string-array form still accepted by the backend.",
+                    "oneOf": [
+                      {
+                        "$ref": "#/definitions/TypedObjectiveArray"
+                      },
+                      {
+                        "$ref": "#/definitions/LegacyStringObjectiveArray"
+                      }
+                    ]
                   },
                   "dataset_metadata": {
                     "type": "object"

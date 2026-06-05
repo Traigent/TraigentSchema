@@ -64,18 +64,97 @@
       "get": {
         "summary": "List audit log entries (paginated, filterable)",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Paginated audit logs under data.logs plus data.pagination.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_log_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges required for the resolved audit scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/audit/logs/export": {
       "post": {
-        "summary": "Initiate an audit-log export (async job)",
+        "summary": "Export audit logs as JSON or CSV stream",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Audit-log export stream. JSON exports use the documented envelope; CSV exports return text/csv rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_log_export_response_schema.json"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid export format or query/body filters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing audit export permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -94,8 +173,45 @@
           }
         ],
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Single audit log entry serialized by SecurityAuditLogger._event_to_dict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_log_entry_response_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges required for the resolved audit scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Audit log not found or outside tenant audit scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -138,8 +254,35 @@
       "get": {
         "summary": "Generate a SOC2 compliance report from audit history",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "SOC2 compliance report with metadata, trust-service criteria, scores, and recommendations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./soc2_compliance_report_response_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing audit read/admin permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failure path from the standard error envelope used by the backend handler.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

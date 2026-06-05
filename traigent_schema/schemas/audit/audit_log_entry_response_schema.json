@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit/audit_log_entry_response_schema.json",
+  "title": "Audit Log Entry Response",
+  "description": "Response shape for GET /api/v1/audit/logs/{log_id}. The row fields mirror TraigentBackend SecurityAuditLogger._event_to_dict.",
+  "type": "object",
+  "required": [
+    "success",
+    "data"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string"
+    },
+    "data": {
+      "$ref": "#/definitions/AuditLogEntry"
+    }
+  },
+  "definitions": {
+    "AuditLogEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "event_type",
+        "timestamp",
+        "user_id",
+        "api_key_id",
+        "resource",
+        "permission",
+        "action",
+        "outcome",
+        "reason",
+        "is_admin_action",
+        "ip_address",
+        "event_data",
+        "checksum"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "user_id": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "api_key_id": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        },
+        "resource": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "permission": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_admin_action": {
+          "type": "boolean"
+        },
+        "ip_address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "event_data": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
+        },
+        "checksum": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

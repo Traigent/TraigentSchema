@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit/audit_log_list_response_schema.json",
+  "title": "Audit Log List Response",
+  "description": "Response shape for GET /api/v1/audit/logs. Mirrors TraigentBackend audit_routes.get_audit_logs: success wraps data.logs plus data.pagination.",
+  "type": "object",
+  "required": [
+    "success",
+    "data"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string"
+    },
+    "data": {
+      "$ref": "#/definitions/AuditLogListData"
+    }
+  },
+  "definitions": {
+    "AuditLogListData": {
+      "type": "object",
+      "required": [
+        "logs",
+        "pagination"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "logs": {
+          "type": "array",
+          "items": {
+            "$ref": "./audit_log_entry_response_schema.json#/definitions/AuditLogEntry"
+          }
+        },
+        "pagination": {
+          "$ref": "../pagination_schema.json"
+        }
+      }
+    }
+  }
+}

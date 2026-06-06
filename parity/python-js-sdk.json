@@ -267,7 +267,6 @@
    "UnknownStrategyPresetError",
    "VALID_PRESET_NAMES",
    "WorkflowCostSummary",
-   "add_agent_span",
    "get_default_observability_client",
    "list_recommendation_agent_types",
    "normalize_strategy_preset",
@@ -357,7 +356,6 @@
   "enterpriseAdminClient": "JS 0.2.0 keeps the throwing EnterpriseAdminClient migration stub pending Traigent/traigent-js#30.",
   "observabilityWrappers": "Default-client helpers and the observe wrapper are deferred to 0.3.0 to avoid expanding the 0.2.0 parity release with new runtime semantics; track in Traigent/traigent-js#38.",
   "advisorySelectionHelpers": "Python exposes advisory strategy-preset selection and recommendation-catalog helpers in the 0.12.0 release line. JS 0.2.0 defers root exports until the JS advisory-helper surface is designed; these helpers are not schema DTOs or required JS clients.",
-  "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order.",
-  "0.12.0-agent-spans": "Python 0.12.0 added add_agent_span (per-agent observability spans, SDK #1090) ahead of JS; deferred-backlog (JS parity pending)."
+  "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order."
  }
 }

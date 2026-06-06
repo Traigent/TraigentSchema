@@ -108,6 +108,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   surface, backed by a different DB model). `execution_endpoints.json` now `$ref`s it.
 
 ### Changed
+- Refreshed the Python/JavaScript parity manifest for the Python 0.12.0
+  release line and classified advisory strategy-preset / recommendation helper
+  exports as deferred from the JS 0.2.0 parity surface.
 - Documented `metadata` on `trace_schema.json` and `observation_schema.json` as
   **opaque user-supplied data only** (TraigentSchema#63), with a root `$comment`
   recording the backend persistence mapping. `correlation_ids` / `prompt_reference`

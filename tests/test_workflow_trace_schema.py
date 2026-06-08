@@ -148,6 +148,25 @@ def test_span_batch_requires_trace_and_config_run():
         assert v.validate_json({"spans": batch}, SCHEMA), f"missing {missing} should fail"
 
 
+def test_span_configuration_run_id_documents_trial_id_linkage():
+    with open(
+        get_schemas_dir() / "execution" / "workflow_trace_schema.json",
+        encoding="utf-8",
+    ) as handle:
+        spec = json.load(handle)
+
+    for definition_name in ("SpanBatch", "SpanPayload"):
+        field = spec["definitions"][definition_name]["properties"]["configuration_run_id"]
+        assert "trial_id" in field["description"]
+        assert "MUST equal" in field["description"]
+        assert field["x-reference"].endswith(
+            "evaluation/configuration_run_schema.json#/properties/id"
+        )
+        assert field["x-equal-to"].endswith(
+            "session_submit_results_request_schema.json#/properties/trial_id"
+        )
+
+
 def test_ingest_endpoint_wires_workflow_trace_schema():
     with open(
         get_schemas_dir() / "execution" / "execution_endpoints.json", encoding="utf-8"
@@ -161,6 +180,21 @@ def test_ingest_endpoint_wires_workflow_trace_schema():
 def test_trial_response_accepts_required_nullable_quality_score():
     v = SchemaValidator()
     assert v.validate_json(_valid_trial_response(), TRIAL_RESPONSE_SCHEMA) == []
+
+
+def test_trial_response_documents_trial_and_configuration_run_equivalence():
+    with open(
+        get_schemas_dir() / "execution" / "workflow_trace_trial_response_schema.json",
+        encoding="utf-8",
+    ) as handle:
+        spec = json.load(handle)
+
+    props = spec["properties"]
+    assert "MUST treat them as equal" in spec["$comment"]
+    assert props["trial_id"]["x-equal-to"] == "#/properties/configuration_run_id"
+    assert props["configuration_run_id"]["x-equal-to"] == "#/properties/trial_id"
+    assert "configuration_run_id" in props["trial_id"]["description"]
+    assert "trial_id" in props["configuration_run_id"]["description"]
 
 
 def test_trial_response_accepts_optional_spans():

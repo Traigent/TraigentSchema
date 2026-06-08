@@ -3,14 +3,21 @@
   "$id": "https://schemas.traigent.ai/execution/workflow_trace_trial_response_schema.json",
   "title": "Workflow Trace Trial Response",
   "description": "Per-configuration-run workflow trace row returned by GET /api/v1/experiment-runs/runs/{run_id}/traces.",
+  "$comment": "trial_id and configuration_run_id expose the same canonical trial/configuration-run identifier under legacy field names; consumers MUST treat them as equal for joining trial results to workflow spans.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "trial_id": {
-      "type": "string"
+      "type": "string",
+      "description": "Canonical trial/configuration-run identifier for the trial result. This value MUST equal configuration_run_id in this response.",
+      "x-reference": "../optimization/session_submit_results_request_schema.json#/properties/trial_id",
+      "x-equal-to": "#/properties/configuration_run_id"
     },
     "configuration_run_id": {
-      "type": "string"
+      "type": "string",
+      "description": "Canonical configuration-run identifier for the workflow spans. This value MUST equal trial_id in this response.",
+      "x-reference": "../evaluation/configuration_run_schema.json#/properties/id",
+      "x-equal-to": "#/properties/trial_id"
     },
     "trace_id": {
       "type": "string"

@@ -7,7 +7,16 @@
   "additionalProperties": false,
   "x-privacy-classification": "sdk_runtime_metadata",
   "properties": {
-    "trial_id": { "type": "string", "minLength": 1 },
+    "trial_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical trial/configuration-run identifier for the submitted result. Workflow spans for this same trial MUST be ingested with SpanBatch.configuration_run_id and SpanPayload.configuration_run_id equal to this value.",
+      "x-reference": "../evaluation/configuration_run_schema.json#/properties/id",
+      "x-equal-to": [
+        "../execution/workflow_trace_schema.json#/definitions/SpanBatch/properties/configuration_run_id",
+        "../execution/workflow_trace_schema.json#/definitions/SpanPayload/properties/configuration_run_id"
+      ]
+    },
     "metrics": {
       "type": "object",
       "additionalProperties": true

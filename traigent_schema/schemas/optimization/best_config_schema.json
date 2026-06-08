@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/best_config_schema.json",
+  "title": "Traigent Best Config",
+  "description": "Canonical promoted runtime configuration selected by an optimization run.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "config_id",
+    "config"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "traigent.best_config.v1"
+    },
+    "config_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "not": {
+        "pattern": "[/\\\\\\u0000]"
+      }
+    },
+    "function_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*(\\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$"
+    },
+    "environment": {
+      "$ref": "#/definitions/best_config_environment"
+    },
+    "config": {
+      "type": "object",
+      "maxProperties": 512,
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "maxProperties": 128,
+      "properties": {
+        "algorithm": {
+          "$ref": "./optimization_strategy_schema.json#/definitions/SupportedOptimizationStrategyName"
+        },
+        "created_at": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "exported_at": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "optimization_id": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "published_at": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "source_optimization_id": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "source_session_id": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "traigent_version": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "maxProperties": 128,
+      "additionalProperties": true
+    },
+    "forward_compat": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "best_config_environment": {
+      "type": "string",
+      "enum": [
+        "default",
+        "dev",
+        "development",
+        "test",
+        "staging",
+        "prod",
+        "production"
+      ]
+    }
+  }
+}

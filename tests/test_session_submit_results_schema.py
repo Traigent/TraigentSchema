@@ -41,6 +41,25 @@ def test_submit_results_requires_trial_id_and_metrics_only():
     assert validator.validate_json({"trial_id": "trial-1"}, SCHEMA)
 
 
+def test_trial_id_documents_workflow_trace_identifier_linkage():
+    with open(
+        get_schemas_dir() / "optimization" / "session_submit_results_request_schema.json",
+        encoding="utf-8",
+    ) as fh:
+        spec = json.load(fh)
+
+    trial_id = spec["properties"]["trial_id"]
+    assert "configuration_run_id" in trial_id["description"]
+    assert "MUST" in trial_id["description"]
+    assert trial_id["x-reference"].endswith(
+        "evaluation/configuration_run_schema.json#/properties/id"
+    )
+    assert trial_id["x-equal-to"] == [
+        "../execution/workflow_trace_schema.json#/definitions/SpanBatch/properties/configuration_run_id",
+        "../execution/workflow_trace_schema.json#/definitions/SpanPayload/properties/configuration_run_id",
+    ]
+
+
 def test_submit_results_rejects_invalid_config_and_metadata():
     validator = SchemaValidator(contract="sdk_tuning")
 

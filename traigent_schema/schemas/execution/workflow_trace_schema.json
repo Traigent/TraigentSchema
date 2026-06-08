@@ -72,7 +72,13 @@
       "additionalProperties": false,
       "properties": {
         "trace_id": { "type": "string", "minLength": 1 },
-        "configuration_run_id": { "type": "string", "minLength": 1 },
+        "configuration_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canonical trial/configuration-run identifier for every span in this batch. It MUST equal the trial_id submitted for the same trial at POST /api/v1/sessions/{session_id}/results.",
+          "x-reference": "../evaluation/configuration_run_schema.json#/properties/id",
+          "x-equal-to": "../optimization/session_submit_results_request_schema.json#/properties/trial_id"
+        },
         "spans": { "type": "array", "items": { "$ref": "#/definitions/SpanPayload" } }
       },
       "required": ["trace_id", "configuration_run_id", "spans"]
@@ -84,7 +90,13 @@
       "properties": {
         "span_id": { "type": "string", "minLength": 1 },
         "trace_id": { "type": "string", "minLength": 1 },
-        "configuration_run_id": { "type": "string", "minLength": 1 },
+        "configuration_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canonical trial/configuration-run identifier for this span. It MUST equal the SpanBatch.configuration_run_id and the trial_id submitted for the same trial at POST /api/v1/sessions/{session_id}/results.",
+          "x-reference": "../evaluation/configuration_run_schema.json#/properties/id",
+          "x-equal-to": "../optimization/session_submit_results_request_schema.json#/properties/trial_id"
+        },
         "span_name": { "type": "string", "minLength": 1 },
         "span_type": {
           "type": "string",

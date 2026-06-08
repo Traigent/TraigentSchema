@@ -1,0 +1,162 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Cloud Best Config Routes",
+    "version": "1.0.0",
+    "description": "Backend routes for publishing, fetching, listing, and rolling back promoted runtime best configs."
+  },
+  "paths": {
+    "/api/v1/best-configs": {
+      "get": {
+        "summary": "List current cloud best configs",
+        "parameters": [
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "../optimization/best_config_schema.json#/definitions/best_config_environment"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Best configs retrieved successfully"
+          }
+        }
+      },
+      "post": {
+        "summary": "Publish current cloud best config",
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "Required when replacing an existing best config. Use the current ETag returned by GET or publish.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./best_config_publish_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing best config returned or updated"
+          },
+          "201": {
+            "description": "Best config published successfully"
+          },
+          "409": {
+            "description": "Publish precondition failed or function_ref conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/best-configs/{config_id}": {
+      "get": {
+        "summary": "Fetch current cloud best config",
+        "parameters": [
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "Return 304 when the current best config ETag matches this value.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "../optimization/best_config_schema.json#/definitions/best_config_environment"
+            }
+          },
+          {
+            "name": "function_ref",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Best config retrieved successfully"
+          },
+          "304": {
+            "description": "Cached best config is current"
+          },
+          "404": {
+            "description": "Best config not found"
+          }
+        }
+      }
+    },
+    "/api/v1/best-configs/{config_id}/versions": {
+      "get": {
+        "summary": "List immutable cloud best-config versions",
+        "responses": {
+          "200": {
+            "description": "Best config versions retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/best-configs/{config_id}/rollback": {
+      "post": {
+        "summary": "Rollback current best config to a previous immutable version",
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Current best-config ETag required to publish a rollback version.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./best_config_rollback_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Best config rollback published successfully"
+          },
+          "409": {
+            "description": "Rollback precondition failed"
+          }
+        }
+      }
+    }
+  }
+}

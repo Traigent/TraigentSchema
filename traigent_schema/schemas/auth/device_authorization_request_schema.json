@@ -15,10 +15,8 @@
       "description": "Public device-flow client identifier, e.g. the Python SDK CLI client id."
     },
     "scope": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 512,
-      "description": "Optional space-delimited scope request. The approved token is always constrained to the approved default project."
+      "$ref": "./api_key_authorization_vocabulary_schema.json#/definitions/ApiKeyScopeList",
+      "description": "Optional space-delimited scope request using canonical API-key scope tokens. The approved token is always constrained to the approved default project."
     }
   },
   "required": ["client_id"]

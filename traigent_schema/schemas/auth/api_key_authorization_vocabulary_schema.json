@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_authorization_vocabulary_schema.json",
+  "title": "API Key Authorization Vocabulary",
+  "description": "Canonical contract vocabulary for API-key scopes and permissions. Scopes use OAuth-style colon tokens with plural resources; backend permissions use canonical dot tokens with singular resources. The scope-to-permission map is the bridge between those two deliberate forms.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-source-of-truth": "api_key_authorization_vocabulary",
+  "x-scope-convention": {
+    "description": "API-key scopes are resource:action tokens. User resource scopes use plural resources plus read/write actions; privileged platform scope is admin:all.",
+    "pattern": "^(?:[a-z][a-z0-9_]*s:(?:read|write)|admin:all)$",
+    "resource_number": "plural",
+    "delimiter": ":"
+  },
+  "x-permission-convention": {
+    "description": "Canonical backend permissions are either coarse API-key grants or singular resource.action tokens. Compatibility aliases such as read:experiment are documented in the scope map but are not the canonical permission vocabulary.",
+    "pattern": "^(?:read|write|delete|admin|[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+)$",
+    "resource_number": "singular",
+    "delimiter": "."
+  },
+  "x-user-requestable-scopes": [
+    "agents:read",
+    "agents:write",
+    "benchmarks:read",
+    "benchmarks:write",
+    "datasets:read",
+    "datasets:write",
+    "experiments:read",
+    "experiments:write",
+    "measures:read",
+    "measures:write",
+    "traces:read",
+    "traces:write"
+  ],
+  "x-privileged-scopes": [
+    "admin:all"
+  ],
+  "x-scope-permission-map": {
+    "agents:read": {
+      "permissions": ["agent.read"],
+      "compatibility_aliases": ["read:agent"]
+    },
+    "agents:write": {
+      "permissions": ["agent.write", "agent.read"],
+      "compatibility_aliases": ["write:agent", "read:agent"]
+    },
+    "admin:all": {
+      "permissions": ["admin"],
+      "compatibility_aliases": [],
+      "privileged": true
+    },
+    "benchmarks:read": {
+      "permissions": ["benchmark.read"],
+      "compatibility_aliases": ["read:benchmark"]
+    },
+    "benchmarks:write": {
+      "permissions": ["benchmark.write", "benchmark.read"],
+      "compatibility_aliases": ["write:benchmark", "read:benchmark"]
+    },
+    "datasets:read": {
+      "permissions": ["dataset.read"],
+      "compatibility_aliases": ["read:dataset"]
+    },
+    "datasets:write": {
+      "permissions": ["dataset.write", "dataset.read"],
+      "compatibility_aliases": ["write:dataset", "read:dataset"]
+    },
+    "experiments:read": {
+      "permissions": ["experiment.read"],
+      "compatibility_aliases": ["read:experiment"]
+    },
+    "experiments:write": {
+      "permissions": ["experiment.write", "experiment.read"],
+      "compatibility_aliases": ["write:experiment", "read:experiment"]
+    },
+    "measures:read": {
+      "permissions": ["measure.read"],
+      "compatibility_aliases": ["read:measure"]
+    },
+    "measures:write": {
+      "permissions": ["measure.write", "measure.read"],
+      "compatibility_aliases": ["write:measure", "read:measure"]
+    },
+    "traces:read": {
+      "permissions": ["trace.read"],
+      "compatibility_aliases": ["read:trace"]
+    },
+    "traces:write": {
+      "permissions": ["trace.write", "trace.read"],
+      "compatibility_aliases": ["write:trace", "read:trace"]
+    }
+  },
+  "properties": {},
+  "definitions": {
+    "ApiKeyScopeToken": {
+      "type": "string",
+      "description": "One canonical API-key scope token. Resource scopes use plural resource names and colon delimiters; admin:all is privileged and not user-requestable.",
+      "enum": [
+        "agents:read",
+        "agents:write",
+        "admin:all",
+        "benchmarks:read",
+        "benchmarks:write",
+        "datasets:read",
+        "datasets:write",
+        "experiments:read",
+        "experiments:write",
+        "measures:read",
+        "measures:write",
+        "traces:read",
+        "traces:write"
+      ],
+      "pattern": "^(?:[a-z][a-z0-9_]*s:(?:read|write)|admin:all)$"
+    },
+    "ApiKeyScopeList": {
+      "type": "string",
+      "description": "Space-delimited API-key scope request string. Each token MUST be a canonical ApiKeyScopeToken.",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?:agents:read|agents:write|admin:all|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|admin:all|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write))*$",
+      "x-token-ref": "#/definitions/ApiKeyScopeToken"
+    },
+    "ApiKeyScopeArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ApiKeyScopeToken"
+      },
+      "uniqueItems": true
+    },
+    "ApiKeyPermissionToken": {
+      "type": "string",
+      "description": "Canonical API-key permission token. Coarse grants are read/write/delete/admin; granular backend checks use singular resource.action dot tokens.",
+      "enum": [
+        "admin",
+        "agent.read",
+        "agent.write",
+        "audit.export",
+        "audit.read",
+        "benchmark.read",
+        "benchmark.write",
+        "dataset.read",
+        "dataset.write",
+        "delete",
+        "experiment.read",
+        "experiment.write",
+        "measure.read",
+        "measure.write",
+        "project.membership.manage",
+        "read",
+        "system.read",
+        "trace.read",
+        "trace.write",
+        "write"
+      ],
+      "pattern": "^(?:read|write|delete|admin|[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+)$"
+    },
+    "ApiKeyPermissionArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ApiKeyPermissionToken"
+      },
+      "uniqueItems": true
+    },
+    "AuditPermissionValue": {
+      "description": "Nullable audit-log permission field. API-key permission values must be canonical tokens; comma-separated values are allowed because API-key lifecycle audit rows can record several granted permissions in one field.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/definitions/ApiKeyPermissionToken"
+        },
+        {
+          "type": "string",
+          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*$",
+          "x-token-ref": "#/definitions/ApiKeyPermissionToken"
+        }
+      ]
+    },
+    "ProjectPermissionToken": {
+      "type": "string",
+      "description": "Project RBAC permission annotation token used by planned project-scoped endpoints. It maps to project.membership.manage in the canonical backend permission vocabulary while preserving the existing annotation string.",
+      "enum": ["project:membership:manage"],
+      "pattern": "^project:[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$",
+      "x-canonical-permission": "project.membership.manage"
+    },
+    "ProjectPermissionValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/definitions/ProjectPermissionToken"
+        }
+      ]
+    }
+  }
+}

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Canonical API-key authorization vocabulary (TraigentSchema#107): new
+  `auth/api_key_authorization_vocabulary_schema.json` pins API-key scope tokens,
+  canonical permission tokens, and the scope-to-permission map that preserves the
+  current colon scope / dot permission split. Device authorization `scope`, audit
+  log `permission`, project membership `permission_required`, and
+  `x-required-permission` annotations now reference the shared vocabulary metadata
+  without changing backend/frontend runtime behavior.
 - **Certified selection over the wire** (Phase 8, contract-decision REVISION 2,
   ChangeSession `cs_3122014091d19761`): new `certified_selection_schema.json`
   (`CertifiedSelectionReport`) — a CLIENT-ATTESTED, content-free report the SDK

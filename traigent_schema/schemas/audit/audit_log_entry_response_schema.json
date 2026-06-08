@@ -78,10 +78,7 @@
           ]
         },
         "permission": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "$ref": "../auth/api_key_authorization_vocabulary_schema.json#/definitions/AuditPermissionValue"
         },
         "action": {
           "type": "string",

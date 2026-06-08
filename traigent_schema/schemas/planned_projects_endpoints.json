@@ -358,6 +358,7 @@
         "description": "Tenant-scoped lookup/search used by the FE add-member picker. The tenant is resolved server-side from the project in the URL path (canonical project context); the caller cannot influence tenant scope via headers or query. Requires the project:membership:manage permission on the path-scoped project; callers without it receive a 403 with error_code=INSUFFICIENT_PERMISSIONS, NOT an empty 200 (so the FE can show a permission state instead of an apparent 'no users' state). Empty items[] in a 200 response means 'no tenant user matched'; the FE uses it to drive inline 'not found' validation before POST /api/v1beta/projects/{project_id}/memberships.",
         "operationId": "lookupProjectMembershipCandidates",
         "x-required-permission": "project:membership:manage",
+        "x-required-permission-vocabulary": "./auth/api_key_authorization_vocabulary_schema.json#/definitions/ProjectPermissionToken",
         "parameters": [
           {
             "name": "project_id",

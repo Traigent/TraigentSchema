@@ -9,7 +9,6 @@ from jsonschema import Draft7Validator
 from traigent_schema import SchemaValidator, load_schema
 from traigent_schema.utils import get_schemas_dir
 
-
 DEVICE_AUTH_REQUEST = "device_authorization_request_schema"
 DEVICE_AUTH_RESPONSE = "device_authorization_response_schema"
 DEVICE_DECISION_REQUEST = "device_decision_request_schema"
@@ -147,7 +146,10 @@ def test_device_flow_schemas_are_valid_draft7() -> None:
 
 
 def test_device_authorization_request_accepts_public_cli_client() -> None:
-    payload = {"client_id": "traigent-python-cli", "scope": "api:project"}
+    payload = {
+        "client_id": "traigent-python-cli",
+        "scope": "experiments:read experiments:write",
+    }
 
     assert SchemaValidator().validate_json(payload, DEVICE_AUTH_REQUEST) == []
 
@@ -206,11 +208,17 @@ def test_device_authorization_response_rejects_weak_device_code_shape() -> None:
 
 
 def test_device_token_request_accepts_device_code_grant() -> None:
-    assert SchemaValidator().validate_json(_device_token_request(), DEVICE_TOKEN_REQUEST) == []
+    assert (
+        SchemaValidator().validate_json(_device_token_request(), DEVICE_TOKEN_REQUEST)
+        == []
+    )
 
 
 def test_device_decision_request_accepts_portal_decision() -> None:
-    assert SchemaValidator().validate_json(_device_decision_request(), DEVICE_DECISION_REQUEST) == []
+    assert (
+        SchemaValidator().validate_json(_device_decision_request(), DEVICE_DECISION_REQUEST)
+        == []
+    )
 
 
 def test_device_decision_request_rejects_bad_user_code_charset() -> None:
@@ -313,7 +321,10 @@ def test_device_decision_response_accepts_domain_errors() -> None:
         "expired_user_code",
         "already_decided_user_code",
     ):
-        assert validator.validate_json(_device_decision_error(error), DEVICE_DECISION_RESPONSE) == []
+        assert (
+            validator.validate_json(_device_decision_error(error), DEVICE_DECISION_RESPONSE)
+            == []
+        )
         assert (
             validator.validate_json(
                 _device_decision_error(error, error_code=error, details={"user_code": USER_CODE}),

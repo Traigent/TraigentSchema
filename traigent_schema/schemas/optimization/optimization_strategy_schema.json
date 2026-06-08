@@ -1,0 +1,217 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json",
+  "title": "Optimization Strategy Schema",
+  "description": "Canonical optimization strategy selection and capability mapping for public algorithm names.",
+  "allOf": [
+    {
+      "$ref": "#/definitions/OptimizationStrategyConfig"
+    }
+  ],
+  "x-traigent-optimization-capabilities": {
+    "grid": {
+      "canonical_algorithm": "grid",
+      "implementation_status": "supported",
+      "execution_mode": "local_default",
+      "description": "Basic local/default exhaustive grid search."
+    },
+    "random": {
+      "canonical_algorithm": "random",
+      "implementation_status": "supported",
+      "execution_mode": "local_default",
+      "description": "Basic local/default random search."
+    },
+    "bayesian": {
+      "canonical_algorithm": "tpe",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "alias_for": "tpe",
+      "description": "Smart backend Bayesian-style search using TPE."
+    },
+    "tpe": {
+      "canonical_algorithm": "tpe",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "description": "Smart backend TPE search."
+    },
+    "hyperband": {
+      "canonical_algorithm": "hyperband",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "description": "Smart backend early-pruning search."
+    },
+    "frontier_scout": {
+      "canonical_algorithm": "frontier_scout",
+      "implementation_status": "supported",
+      "execution_mode": "smart_backend",
+      "description": "Smart backend Pareto-frontier exploration."
+    }
+  },
+  "definitions": {
+    "AdvertisedOptimizationAlgorithmName": {
+      "type": "string",
+      "description": "All algorithm names that may appear in public capability metadata.",
+      "enum": [
+        "grid",
+        "random",
+        "bayesian",
+        "tpe",
+        "hyperband",
+        "frontier_scout"
+      ]
+    },
+    "SupportedOptimizationStrategyName": {
+      "type": "string",
+      "description": "Algorithm names accepted for new optimization_strategy requests.",
+      "enum": [
+        "grid",
+        "random",
+        "bayesian",
+        "tpe",
+        "hyperband",
+        "frontier_scout"
+      ]
+    },
+    "OptimizationImplementationStatus": {
+      "type": "string",
+      "enum": [
+        "supported"
+      ]
+    },
+    "OptimizationExecutionMode": {
+      "type": "string",
+      "enum": [
+        "local_default",
+        "smart_backend"
+      ]
+    },
+    "OptimizationCapability": {
+      "type": "object",
+      "required": [
+        "canonical_algorithm",
+        "implementation_status",
+        "execution_mode"
+      ],
+      "properties": {
+        "canonical_algorithm": {
+          "$ref": "#/definitions/AdvertisedOptimizationAlgorithmName"
+        },
+        "implementation_status": {
+          "$ref": "#/definitions/OptimizationImplementationStatus"
+        },
+        "execution_mode": {
+          "$ref": "#/definitions/OptimizationExecutionMode"
+        },
+        "alias_for": {
+          "type": "string",
+          "enum": [
+            "tpe"
+          ]
+        },
+        "deprecated": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "OptimizationStrategyConfig": {
+      "description": "Optimization strategy requested by SDK direct tuning clients.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/SupportedOptimizationStrategyName"
+        },
+        {
+          "type": "object",
+          "required": [
+            "algorithm"
+          ],
+          "properties": {
+            "algorithm": {
+              "$ref": "#/definitions/SupportedOptimizationStrategyName"
+            },
+            "seed": {
+              "type": "integer"
+            },
+            "sampler": {
+              "type": "string",
+              "enum": [
+                "tpe",
+                "random"
+              ]
+            },
+            "max_trials": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startup_trials": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_startup_trials": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "random_seed": {
+              "type": "integer"
+            },
+            "tracking_mode": {
+              "type": "string"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "$ref": "#/definitions/SupportedOptimizationStrategyName"
+            },
+            "seed": {
+              "type": "integer"
+            },
+            "sampler": {
+              "type": "string",
+              "enum": [
+                "tpe",
+                "random"
+              ]
+            },
+            "max_trials": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "startup_trials": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_startup_trials": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "random_seed": {
+              "type": "integer"
+            },
+            "tracking_mode": {
+              "type": "string"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}

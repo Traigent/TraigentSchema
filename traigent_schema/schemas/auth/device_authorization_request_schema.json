@@ -15,8 +15,8 @@
       "description": "Public device-flow client identifier, e.g. the Python SDK CLI client id."
     },
     "scope": {
-      "$ref": "./api_key_authorization_vocabulary_schema.json#/definitions/ApiKeyScopeList",
-      "description": "Optional space-delimited scope request using canonical API-key scope tokens. The approved token is always constrained to the approved default project."
+      "$ref": "./api_key_authorization_vocabulary_schema.json#/definitions/UserRequestableApiKeyScopeList",
+      "description": "Optional space-delimited scope request using user-requestable canonical API-key scope tokens. Privileged platform scopes such as admin:all cannot be requested by public device-flow clients. The approved token is always constrained to the approved default project."
     }
   },
   "required": ["client_id"]

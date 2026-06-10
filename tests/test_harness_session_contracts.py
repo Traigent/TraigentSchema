@@ -197,6 +197,13 @@ def test_content_bearing_extra_field_fails_top_level_and_nested_level() -> None:
     assert any("harness: Additional properties" in error for error in nested_errors)
 
 
+def test_ingest_source_backfill_accepted() -> None:
+    payload = _minimal_harness_session()
+    payload["ingest_source"] = "backfill"
+
+    assert SchemaValidator().validate_json(payload, HARNESS_SESSION_RECORD) == []
+
+
 def test_bad_enum_value_fails() -> None:
     payload = _minimal_harness_session()
     payload["data_sharing_mode"] = "public"

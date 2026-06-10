@@ -182,7 +182,7 @@
     },
     "ingest_source": {
       "type": "string",
-      "enum": ["otel", "hooks", "merged"]
+      "enum": ["otel", "hooks", "merged", "backfill"]
     }
   },
   "required": [

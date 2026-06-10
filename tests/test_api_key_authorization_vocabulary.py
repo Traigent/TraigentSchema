@@ -121,9 +121,14 @@ def test_canonical_scope_and_permission_enums_are_pinned() -> None:
     definitions = schema["definitions"]
 
     assert definitions["ApiKeyScopeToken"]["enum"] == EXPECTED_SCOPES
+    assert (
+        definitions["UserRequestableApiKeyScopeToken"]["enum"]
+        == EXPECTED_USER_REQUESTABLE_SCOPES
+    )
     assert definitions["ApiKeyPermissionToken"]["enum"] == EXPECTED_PERMISSIONS
     assert schema["x-user-requestable-scopes"] == EXPECTED_USER_REQUESTABLE_SCOPES
     assert schema["x-privileged-scopes"] == ["admin:all"]
+    assert "admin:all" not in definitions["UserRequestableApiKeyScopeToken"]["enum"]
 
 
 def test_scope_permission_map_covers_every_scope_once() -> None:
@@ -134,8 +139,7 @@ def test_scope_permission_map_covers_every_scope_once() -> None:
 
     assert sorted(scope_map) == sorted(scope_enum)
     assert {
-        scope: metadata["permissions"]
-        for scope, metadata in scope_map.items()
+        scope: metadata["permissions"] for scope, metadata in scope_map.items()
     } == EXPECTED_SCOPE_PERMISSION_MAP
 
     for scope, metadata in scope_map.items():
@@ -158,24 +162,36 @@ def test_scope_and_permission_conventions_are_documented_and_enforced() -> None:
     assert schema["x-permission-convention"]["delimiter"] == "."
 
 
-def test_device_authorization_scope_refs_canonical_scope_list() -> None:
+def test_device_authorization_scope_refs_user_requestable_scope_list() -> None:
     request_schema = load_schema(DEVICE_AUTH_REQUEST)
     scope_schema = request_schema["properties"]["scope"]
 
     assert (
         scope_schema["$ref"]
-        == "./api_key_authorization_vocabulary_schema.json#/definitions/ApiKeyScopeList"
+        == "./api_key_authorization_vocabulary_schema.json#/definitions/UserRequestableApiKeyScopeList"
     )
 
 
 def test_device_authorization_scope_accepts_only_canonical_tokens() -> None:
     validator = SchemaValidator()
-    assert validator.validate_json(
-        {"client_id": "traigent-python-cli", "scope": "experiments:read traces:write"},
-        DEVICE_AUTH_REQUEST,
-    ) == []
+    assert (
+        validator.validate_json(
+            {
+                "client_id": "traigent-python-cli",
+                "scope": "experiments:read traces:write",
+            },
+            DEVICE_AUTH_REQUEST,
+        )
+        == []
+    )
 
-    for invalid_scope in ("api:project", "dataset:write", "experiments.write"):
+    for invalid_scope in (
+        "api:project",
+        "dataset:write",
+        "experiments.write",
+        "admin:all",
+        "experiments:read admin:all",
+    ):
         errors = validator.validate_json(
             {"client_id": "traigent-python-cli", "scope": invalid_scope},
             DEVICE_AUTH_REQUEST,
@@ -185,7 +201,9 @@ def test_device_authorization_scope_accepts_only_canonical_tokens() -> None:
 
 def test_audit_permission_refs_canonical_permission_value() -> None:
     schema = load_schema(AUDIT_LOG_ENTRY_RESPONSE)
-    permission_schema = schema["definitions"]["AuditLogEntry"]["properties"]["permission"]
+    permission_schema = schema["definitions"]["AuditLogEntry"]["properties"][
+        "permission"
+    ]
 
     assert (
         permission_schema["$ref"]
@@ -197,10 +215,13 @@ def test_audit_permission_accepts_canonical_tokens_and_rejects_scope_tokens() ->
     validator = SchemaValidator()
 
     for permission in ("audit.read", "read,write", None):
-        assert validator.validate_json(
-            _audit_log_entry(permission),
-            AUDIT_LOG_ENTRY_RESPONSE,
-        ) == []
+        assert (
+            validator.validate_json(
+                _audit_log_entry(permission),
+                AUDIT_LOG_ENTRY_RESPONSE,
+            )
+            == []
+        )
 
     errors = validator.validate_json(
         _audit_log_entry("experiments:read"),
@@ -217,10 +238,7 @@ def test_project_permission_required_refs_canonical_project_permission() -> None
         "../auth/api_key_authorization_vocabulary_schema.json"
         "#/definitions/ProjectPermissionValue"
     )
-    assert (
-        permission_schema["$ref"]
-        == expected_ref
-    )
+    assert permission_schema["$ref"] == expected_ref
 
 
 def test_project_permission_required_rejects_unknown_permission() -> None:
@@ -247,12 +265,14 @@ def test_required_permission_annotations_point_to_project_permission_vocab() -> 
         encoding="utf-8",
     ) as handle:
         candidate = json.load(handle)
-    with open(schemas_dir / "planned_projects_endpoints.json", encoding="utf-8") as handle:
+    with open(
+        schemas_dir / "planned_projects_endpoints.json", encoding="utf-8"
+    ) as handle:
         planned = json.load(handle)
 
-    operation = planned["paths"]["/api/v1beta/projects/{project_id}/membership-candidates"][
-        "get"
-    ]
+    operation = planned["paths"][
+        "/api/v1beta/projects/{project_id}/membership-candidates"
+    ]["get"]
 
     assert candidate["x-required-permission"] == "project:membership:manage"
     assert operation["x-required-permission"] == "project:membership:manage"

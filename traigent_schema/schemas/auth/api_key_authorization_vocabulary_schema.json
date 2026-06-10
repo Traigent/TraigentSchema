@@ -114,11 +114,39 @@
     },
     "ApiKeyScopeList": {
       "type": "string",
-      "description": "Space-delimited API-key scope request string. Each token MUST be a canonical ApiKeyScopeToken.",
+      "description": "Space-delimited API-key scope string. Each token MUST be a canonical ApiKeyScopeToken, including privileged platform scopes when used by trusted server-side contexts.",
       "minLength": 1,
       "maxLength": 512,
       "pattern": "^(?:agents:read|agents:write|admin:all|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|admin:all|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write))*$",
       "x-token-ref": "#/definitions/ApiKeyScopeToken"
+    },
+    "UserRequestableApiKeyScopeToken": {
+      "type": "string",
+      "description": "API-key scope token that an unprivileged public device-flow client may request. Excludes privileged platform scopes such as admin:all.",
+      "enum": [
+        "agents:read",
+        "agents:write",
+        "benchmarks:read",
+        "benchmarks:write",
+        "datasets:read",
+        "datasets:write",
+        "experiments:read",
+        "experiments:write",
+        "measures:read",
+        "measures:write",
+        "traces:read",
+        "traces:write"
+      ],
+      "pattern": "^[a-z][a-z0-9_]*s:(?:read|write)$"
+    },
+    "UserRequestableApiKeyScopeList": {
+      "type": "string",
+      "description": "Space-delimited API-key scope request string for public device-flow clients. Each token MUST be user-requestable; privileged platform scopes such as admin:all are rejected.",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?:agents:read|agents:write|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write))*$",
+      "x-token-ref": "#/definitions/UserRequestableApiKeyScopeToken",
+      "x-excludes": ["admin:all"]
     },
     "ApiKeyScopeArray": {
       "type": "array",

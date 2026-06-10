@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   current colon scope / dot permission split. Device authorization `scope`, audit
   log `permission`, project membership `permission_required`, and
   `x-required-permission` annotations now reference the shared vocabulary metadata
-  without changing backend/frontend runtime behavior.
+  without changing backend/frontend runtime behavior. Device authorization uses
+  the user-requestable scope subset so privileged `admin:all` remains vocabulary
+  metadata only and is not valid in public device-flow scope requests.
 - **Certified selection over the wire** (Phase 8, contract-decision REVISION 2,
   ChangeSession `cs_3122014091d19761`): new `certified_selection_schema.json`
   (`CertifiedSelectionReport`) — a CLIENT-ATTESTED, content-free report the SDK

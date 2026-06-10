@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/task_outcome.json",
+  "title": "TaskOutcome v1",
+  "description": "Privacy-by-construction: metadata only; this contract cannot carry prompts, code, file paths, or any free-text content.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "manifest_safe",
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "session_end_reason": {
+      "type": "string",
+      "enum": ["clear", "logout", "exit", "prompt_input_exit", "other", "unknown"]
+    },
+    "verification_runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": ["test", "build", "lint", "typecheck", "deploy", "other"]
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failures": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["category", "runs", "failures"]
+      }
+    },
+    "commit_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pr_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lines_added": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lines_removed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "success_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "required": ["schema_version"]
+}

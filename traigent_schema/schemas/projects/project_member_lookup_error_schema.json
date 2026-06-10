@@ -25,7 +25,7 @@
       "description": "Human-readable message safe for inline rendering. MUST NOT include the requested email, user_id, or query string; that would let a caller probe other tenants by reading back the echoed value."
     },
     "permission_required": {
-      "type": ["string", "null"],
+      "$ref": "../auth/api_key_authorization_vocabulary_schema.json#/definitions/ProjectPermissionValue",
       "description": "Set to the missing permission name (e.g. 'project:membership:manage') when error_code is INSUFFICIENT_PERMISSIONS; null otherwise.",
       "maxLength": 128
     },

@@ -79,6 +79,20 @@ class AnalyticsValidator:
             "scoring_job_status_schema"
         )
 
+    def validate_next_steps(self, next_steps_data: dict[str, Any]) -> list[str]:
+        """Validate NextSteps response data against schema."""
+        return self._validator.validate_json(
+            next_steps_data,
+            "next_steps_schema"
+        )
+
+    def validate_curation_advice(self, advice_data: dict[str, Any]) -> list[str]:
+        """Validate CurationAdvice response data against schema."""
+        return self._validator.validate_json(
+            advice_data,
+            "curation_advice_schema"
+        )
+
     def validate_example_metrics(self, data: dict[str, Any]) -> list[str]:
         """Validate ExampleMetrics structure (nested example format).
 
@@ -225,4 +239,6 @@ class AnalyticsValidator:
             "example_score_schema",
             "dataset_quality_schema",
             "scoring_job_status_schema",
+            "next_steps_schema",
+            "curation_advice_schema",
         ]

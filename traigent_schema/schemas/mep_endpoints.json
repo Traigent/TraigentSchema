@@ -58,6 +58,11 @@
       "paths_file": "./audit/audit_endpoints.json"
     },
     {
+      "name": "Planner",
+      "description": "Current backend planner draft-status routes.",
+      "paths_file": "./planner/planner_endpoints.json"
+    },
+    {
       "name": "Billing Paddle",
       "description": "Current backend Paddle-backed billing routes.",
       "paths_file": "./billing/paddle_endpoints.json"
@@ -76,6 +81,11 @@
       "name": "Billing Wallet",
       "description": "Current backend tenant wallet routes.",
       "paths_file": "./billing/wallet_endpoints.json"
+    },
+    {
+      "name": "Costs",
+      "description": "Current backend persisted cost reporting routes.",
+      "paths_file": "./costs/costs_endpoints.json"
     },
     {
       "name": "MFA",

@@ -1,0 +1,192 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit/soc2_compliance_report_response_schema.json",
+  "title": "SOC2 Compliance Report Response",
+  "description": "Response shape for GET /api/v1/audit/soc2/compliance-report. Mirrors TraigentBackend audit_routes.get_soc2_compliance_report.",
+  "type": "object",
+  "required": [
+    "success",
+    "data"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string"
+    },
+    "data": {
+      "$ref": "#/definitions/SOC2ComplianceReportData"
+    }
+  },
+  "definitions": {
+    "SOC2ComplianceReportData": {
+      "type": "object",
+      "required": [
+        "report_metadata",
+        "trust_service_criteria",
+        "overall_compliance"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "report_metadata": {
+          "$ref": "#/definitions/SOC2ReportMetadata"
+        },
+        "trust_service_criteria": {
+          "$ref": "#/definitions/SOC2TrustServiceCriteria"
+        },
+        "overall_compliance": {
+          "$ref": "#/definitions/SOC2OverallCompliance"
+        }
+      }
+    },
+    "SOC2ReportMetadata": {
+      "type": "object",
+      "required": [
+        "report_type",
+        "generated_at",
+        "period_start",
+        "period_end",
+        "period_days",
+        "generated_by"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "report_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "period_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        },
+        "generated_by": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "SOC2TrustServiceCriteria": {
+      "type": "object",
+      "required": [
+        "CC6.1_logical_access_controls",
+        "CC6.2_authorization",
+        "CC6.3_access_management",
+        "CC6.6_vulnerability_management",
+        "CC6.7_data_protection",
+        "CC7.1_security_monitoring"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "CC6.1_logical_access_controls": {
+          "$ref": "#/definitions/SOC2Criterion"
+        },
+        "CC6.2_authorization": {
+          "$ref": "#/definitions/SOC2Criterion"
+        },
+        "CC6.3_access_management": {
+          "$ref": "#/definitions/SOC2Criterion"
+        },
+        "CC6.6_vulnerability_management": {
+          "$ref": "#/definitions/SOC2Criterion"
+        },
+        "CC6.7_data_protection": {
+          "$ref": "#/definitions/SOC2Criterion"
+        },
+        "CC7.1_security_monitoring": {
+          "$ref": "#/definitions/SOC2Criterion"
+        }
+      }
+    },
+    "SOC2Criterion": {
+      "type": "object",
+      "required": [
+        "description",
+        "metrics",
+        "compliance_score",
+        "status"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metrics": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "compliance_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "COMPLIANT",
+            "ATTENTION_REQUIRED",
+            "MONITORING"
+          ]
+        }
+      }
+    },
+    "SOC2OverallCompliance": {
+      "type": "object",
+      "required": [
+        "average_score",
+        "status",
+        "audit_log_coverage",
+        "recommendations"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "average_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "COMPLIANT",
+            "ATTENTION_REQUIRED"
+          ]
+        },
+        "audit_log_coverage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

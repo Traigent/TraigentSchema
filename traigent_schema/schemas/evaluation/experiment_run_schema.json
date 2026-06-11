@@ -319,6 +319,10 @@
               "type": "string",
               "description": "Version of the run configuration",
               "pattern": "^\\d+\\.\\d+\\.\\d+$"
+            },
+            "strategy_preset": {
+              "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+              "description": "Optional advisory strategy preset metadata recorded for this experiment run."
             }
           },
           "additionalProperties": true
@@ -485,6 +489,10 @@
           "type": "string",
           "description": "Version of the run configuration",
           "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "strategy_preset": {
+          "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+          "description": "Optional advisory strategy preset metadata recorded for this experiment run."
         },
         "environment": {
           "type": "object",

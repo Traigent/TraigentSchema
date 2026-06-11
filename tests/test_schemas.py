@@ -110,6 +110,11 @@ class TestSchemaStructure:
         assert results_dir.exists()
         assert results_dir.is_dir()
 
+    def test_has_costs_directory(self, schemas_dir):
+        costs_dir = schemas_dir / "costs"
+        assert costs_dir.exists()
+        assert costs_dir.is_dir()
+
 
 class TestNoBrandingIssues:
     """Tests to verify proper rebranding."""
@@ -247,6 +252,17 @@ class TestRequiredSchemas:
             schemas_dir / "projects" / "project_export_job_list_response_schema.json"
         ).exists()
 
+    def test_cost_response_schemas_exist(self, schemas_dir):
+        assert (schemas_dir / "costs" / "cost_users_response_schema.json").exists()
+        assert (schemas_dir / "costs" / "cost_user_usage_response_schema.json").exists()
+
+    def test_hybrid_session_create_request_schema_exists(self, schemas_dir):
+        assert (
+            schemas_dir
+            / "optimization"
+            / "hybrid_session_create_request_schema.json"
+        ).exists()
+
     def test_project_rate_limit_policy_schema_exists(self, schemas_dir):
         assert (
             schemas_dir / "projects" / "project_rate_limit_policy_schema.json"
@@ -324,23 +340,37 @@ class TestRequiredSchemas:
             if isinstance(module, dict)
         )
 
-    def test_traces_response_requires_only_paginated_trials_shape(self, schemas_dir):
+    def test_traces_response_requires_typed_trials_shape(self, schemas_dir):
         with open(
             schemas_dir / "execution" / "execution_endpoints.json",
             encoding="utf-8",
         ) as handle:
             execution_openapi = json.load(handle)
 
-        required = (
+        data_schema = (
             execution_openapi["paths"]["/api/v1/experiment-runs/runs/{run_id}/traces"][
                 "get"
             ]["responses"]["200"]["content"]["application/json"]["schema"]["properties"][
                 "data"
-            ]["required"]
+            ]
         )
-        assert "trials_page" in required
-        assert "trials" not in required
-        assert "trials_pagination" not in required
+        required = data_schema["required"]
+        assert "trials" in required
+        assert "trials_pagination" in required
+        assert "trials_page" not in required
+        assert (
+            data_schema["properties"]["trials"]["items"]["$ref"]
+            == "./workflow_trace_trial_response_schema.json"
+        )
+        assert (
+            data_schema["properties"]["trials_pagination"]["$ref"]
+            == "../pagination_schema.json"
+        )
+        assert (
+            schemas_dir
+            / "execution"
+            / data_schema["properties"]["trials"]["items"]["$ref"].removeprefix("./")
+        ).exists()
 
     def test_workflow_metadata_schema_version_matches_field_set(self, schemas_dir):
         with open(

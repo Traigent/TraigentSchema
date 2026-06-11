@@ -4,11 +4,55 @@
   "title": "Evaluator Definition Schema",
   "type": "object",
   "additionalProperties": true,
+  "definitions": {
+    "JudgeModelParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model_id": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "temperature": { "type": ["number", "null"], "minimum": 0, "maximum": 2 },
+        "max_tokens": { "type": ["integer", "null"], "minimum": 1, "maximum": 1000000 },
+        "top_p": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "frequency_penalty": { "type": ["number", "null"], "minimum": -2, "maximum": 2 },
+        "presence_penalty": { "type": ["number", "null"], "minimum": -2, "maximum": 2 },
+        "top_k": { "type": ["integer", "null"], "minimum": 1, "maximum": 1000000 },
+        "repetition_penalty": { "type": ["number", "null"], "minimum": 0, "maximum": 2 },
+        "stop_sequences": {
+          "type": ["array", "null"],
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["model_id"]
+    },
+    "JudgeConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instructions": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "model_id": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "context_type": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "context_source": { "type": ["string", "null"], "maxLength": 10000 },
+        "parameters": {
+          "oneOf": [
+            { "$ref": "#/definitions/JudgeModelParameters" },
+            { "type": "null" }
+          ]
+        },
+        "scoring_rubric": { "type": ["object", "null"], "additionalProperties": true },
+        "response_format_instructions": {
+          "type": ["string", "null"],
+          "maxLength": 10000
+        },
+        "max_budget": { "type": ["number", "null"], "minimum": 0 }
+      },
+      "required": ["instructions", "model_id", "context_type"]
+    }
+  },
   "properties": {
     "id": { "type": "string" },
-    "name": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 255 },
     "description": { "type": ["string", "null"] },
-    "measure_id": { "type": "string", "minLength": 1 },
+    "measure_id": { "type": "string", "minLength": 1, "maxLength": 100 },
     "primary_measure_id": { "type": ["string", "null"] },
     "target_type": {
       "type": "string",
@@ -20,21 +64,9 @@
       ]
     },
     "judge_config": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "instructions": { "type": "string", "minLength": 1 },
-        "model_id": { "type": "string", "minLength": 1 },
-        "context_type": { "type": "string", "minLength": 1 },
-        "context_source": { "type": ["string", "null"] },
-        "parameters": { "type": ["object", "null"], "additionalProperties": true },
-        "scoring_rubric": { "type": ["object", "null"], "additionalProperties": true },
-        "response_format_instructions": { "type": ["string", "null"] },
-        "max_budget": { "type": ["number", "null"] }
-      },
-      "required": ["instructions", "model_id", "context_type"]
+      "$ref": "#/definitions/JudgeConfig"
     },
-    "sampling_rate": { "type": "number", "minimum": 0 },
+    "sampling_rate": { "type": "number", "minimum": 0, "maximum": 1 },
     "target_filters": { "type": "object", "additionalProperties": true },
     "is_active": { "type": "boolean" },
     "measure": { "$ref": "./review_measure_summary_schema.json" },

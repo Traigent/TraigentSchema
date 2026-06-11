@@ -6,6 +6,7 @@
   "description": "Tenant-scoped user summary returned by the project-membership picker lookup/search endpoint. The candidate set is restricted to users in the same tenant as the requested project; cross-tenant lookups MUST NOT be served by this contract. Email and display name are exposed so admins can disambiguate users in the picker, but only project admins (or higher) for the given project may receive a non-empty list.",
   "x-privacy-classification": "tenant_admin_safe",
   "x-required-permission": "project:membership:manage",
+  "x-required-permission-vocabulary": "../auth/api_key_authorization_vocabulary_schema.json#/definitions/ProjectPermissionToken",
   "additionalProperties": false,
   "properties": {
     "user_id": {

@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/device_token_response_schema.json",
+  "title": "Device Token Poll Response DTO",
+  "description": "Response body for POST /api/v1/auth/device/token. Success uses Traigent's standard envelope with a device_token_success payload; polling errors use the standard error envelope with RFC 8628 error names.",
+  "x-privacy-classification": "auth_sensitive",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "success": { "const": true },
+        "message": { "type": "string", "minLength": 1 },
+        "data": { "$ref": "./device_token_success_schema.json" }
+      },
+      "required": ["success", "message", "data"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "success": { "const": false },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Client-safe message. Do not include raw exception strings or internal diagnostics."
+        },
+        "error": { "$ref": "#/definitions/DeviceTokenError" },
+        "error_code": { "$ref": "#/definitions/DeviceTokenError" },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "interval": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "description": "Seconds the CLI should wait before the next poll."
+            },
+            "retry_after": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Retry-After value in seconds when the response is rate-limited."
+            }
+          }
+        }
+      },
+      "required": ["success", "message", "error"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "authorization_pending" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "authorization_pending" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "slow_down" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "details": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "interval": {
+                    "type": "integer",
+                    "minimum": 6,
+                    "maximum": 60,
+                    "description": "RFC 8628 slow_down interval: at least 5 seconds greater than the previously issued interval; clients MUST adopt this value."
+                  },
+                  "retry_after": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": ["interval"]
+              }
+            },
+            "required": ["details"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "slow_down" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "slow_down" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "access_denied" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "access_denied" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error": { "const": "expired_token" }
+            },
+            "required": ["error"]
+          },
+          "then": {
+            "properties": {
+              "error_code": { "const": "expired_token" }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "DeviceTokenError": {
+      "type": "string",
+      "enum": [
+        "authorization_pending",
+        "slow_down",
+        "access_denied",
+        "expired_token"
+      ]
+    }
+  }
+}

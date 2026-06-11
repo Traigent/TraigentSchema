@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/device_authorization_request_schema.json",
+  "title": "Device Authorization Request DTO",
+  "description": "Request body for POST /api/v1/auth/device/authorize. Public CLI clients request an RFC 8628-style device code; portal approval by a verified logged-in user is required before the poll endpoint can issue a project-scoped API key.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "auth_sensitive",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "description": "Public device-flow client identifier, e.g. the Python SDK CLI client id."
+    },
+    "scope": {
+      "$ref": "./api_key_authorization_vocabulary_schema.json#/definitions/UserRequestableApiKeyScopeList",
+      "description": "Optional space-delimited scope request using user-requestable canonical API-key scope tokens. Privileged platform scopes such as admin:all cannot be requested by public device-flow clients. The approved token is always constrained to the approved default project."
+    }
+  },
+  "required": ["client_id"]
+}

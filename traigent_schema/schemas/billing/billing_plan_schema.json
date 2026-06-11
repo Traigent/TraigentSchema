@@ -30,8 +30,7 @@
           "items": { "type": "string", "minLength": 1, "maxLength": 180 }
         },
         "limits": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
+          "$ref": "./billing_limits_schema.json"
         },
         "popular": { "type": "boolean" },
         "custom": { "type": "boolean" }
@@ -67,13 +66,22 @@
           },
           "required": ["monthly", "annual"]
         },
+        "quantity_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minimum": { "type": "integer", "const": 1 },
+            "maximum": { "type": "integer", "const": 5 },
+            "overflow_route": { "type": "string", "const": "enterprise" }
+          },
+          "required": ["minimum", "maximum", "overflow_route"]
+        },
         "features": {
           "type": "array",
           "items": { "type": "string", "minLength": 1, "maxLength": 180 }
         },
         "limits": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
+          "$ref": "./billing_limits_schema.json"
         },
         "popular": { "type": "boolean" },
         "custom": { "type": "boolean" }
@@ -84,6 +92,7 @@
         "description",
         "price",
         "checkout_options",
+        "quantity_limits",
         "features",
         "limits"
       ]
@@ -113,13 +122,22 @@
           },
           "required": ["monthly", "annual"]
         },
+        "quantity_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minimum": { "type": "integer", "const": 1 },
+            "maximum": { "type": "integer", "const": 25 },
+            "overflow_route": { "type": "string", "const": "enterprise" }
+          },
+          "required": ["minimum", "maximum", "overflow_route"]
+        },
         "features": {
           "type": "array",
           "items": { "type": "string", "minLength": 1, "maxLength": 180 }
         },
         "limits": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
+          "$ref": "./billing_limits_schema.json"
         },
         "popular": { "type": "boolean" },
         "custom": { "type": "boolean" }
@@ -130,6 +148,7 @@
         "description",
         "price",
         "checkout_options",
+        "quantity_limits",
         "features",
         "limits"
       ]
@@ -155,8 +174,7 @@
           "items": { "type": "string", "minLength": 1, "maxLength": 180 }
         },
         "limits": {
-          "type": "object",
-          "additionalProperties": { "type": "integer" }
+          "$ref": "./billing_limits_schema.json"
         },
         "popular": { "type": "boolean" },
         "custom": { "type": "boolean" }

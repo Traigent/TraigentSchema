@@ -7,10 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Canonical API-key authorization vocabulary (TraigentSchema#107): new
+  `auth/api_key_authorization_vocabulary_schema.json` pins API-key scope tokens,
+  canonical permission tokens, and the scope-to-permission map that preserves the
+  current colon scope / dot permission split. Device authorization `scope`, audit
+  log `permission`, project membership `permission_required`, and
+  `x-required-permission` annotations now reference the shared vocabulary metadata
+  without changing backend/frontend runtime behavior. Device authorization uses
+  the user-requestable scope subset so privileged `admin:all` remains vocabulary
+  metadata only and is not valid in public device-flow scope requests.
+- **Certified selection over the wire** (Phase 8, contract-decision REVISION 2,
+  ChangeSession `cs_3122014091d19761`): new `certified_selection_schema.json`
+  (`CertifiedSelectionReport`) — a CLIENT-ATTESTED, content-free report the SDK
+  may attach to session finalize when strict evidence mode certified a winner
+  locally: backend `trial_id` binding (the server returns the winner from ITS
+  OWN trial record — client configs never cross at finalize), per-CVAR
+  certificate decisions (shared `CERTIFIED_SELECTION | NO_DECISION |
+  BEST_EFFORT_UNCERTIFIED` vocabulary), and the certificate's issued
+  (freshness-context) sha256. Deliberately excluded (P8): calibrated values,
+  `subject_value_hash` (dictionary-invertible on low-entropy values), evidence
+  counts, pool hashes, target details. `optimization_endpoints.json` finalize
+  requestBody gains the optional `certified_selection` `$ref` (top-level key;
+  the finalize envelope stays open for legacy back-compat, so the SERVER
+  additionally rejects reports tunneled under metadata).
+  `session_finalize_response_schema.json` gains `selection_basis`
+  (`certified_selection | objective_best`) and the content-free
+  `selection_attestation {type: client_attested, attested_by, sdk_version}`,
+  with the invariants ENFORCED as schema conditionals: basis ⊕ reason_code,
+  basis ⇒ non-empty winner, reason_code ⇒ empty `best_config`, attestation ⇔
+  certified basis — consumers key off `selection_basis` and must display
+  certified winners as client-attested, never server-verified. Version 4.5.0.
+- **TVL 1.1 governance crosses the wire** (Phase 7, contract-decision REVISION 1,
+  ChangeSession `cs_ca64fcc251f489b1`): `promotion_policy_schema.json` gains the
+  closed-shape `require_calibration {enabled, hash_covered_context}` strict
+  evidence mode (field semantics mirror `tvl/spec/grammar/tvl.schema.json` —
+  same required/enum members, plus `uniqueItems` wire hardening; the SDKs already
+  serialize it — the backend rejected/dropped it until now).
+  `optimization_endpoints.json` session-create now BINDS `promotion_policy` to the
+  promotion-policy schema (was an unconstrained object), and the finalize 200
+  gains `session_finalize_response_schema.json`: fail-closed contract — strict
+  sessions without certified selection evidence return empty `best_config` +
+  `reason_code: NO_CERTIFIED_SELECTION`, never a raw best. New
+  `tvl_governance_schema.json` (`TvlGovernanceDTO`): content-free governance
+  summary (cvar names/types/governed flags, per-CVAR certificate decisions using
+  the shared `CERTIFIED_SELECTION | NO_DECISION | BEST_EFFORT_UNCERTIFIED`
+  vocabulary, policy names/strategies) — P8: never values, evidence, or prompts;
+  backends construct it from an allowlist, never caller-metadata passthrough.
+- Planner draft-status contract (TraigentSchema#57): `planner/planner_endpoints.json`
+  wires `GET /api/v1/planner/status/{draft_id}` (registered in `mep_endpoints.json`
+  `x-endpoint-modules` as "Planner"), with `200` → new
+  `planner/planner_status_response_schema.json` and `404` → `ErrorEnvelopeDTO`. The
+  200 is the `{success, message, data}` envelope wrapping the live status object
+  (`status`, `progress`, `message`, `generatedParts` camelCase, optional
+  `timestamp`) — **distinct** from `planner_draft_schema.json`. Initial status is
+  `created` (BE#658); missing/deleted drafts are a **404** (BE#659), not a 200 with
+  a `not_found` status, so `not_found` is intentionally absent from the enum.
+- `rate_limit_info_schema.json` (`RateLimitInfoDTO`) — the canonical 429 (Too Many
+  Requests) response body standardized in BE#670 (TraigentSchema#60). Composes
+  `error_envelope_schema.json` (Shape A) and constrains `error_code` to
+  `RATE_LIMIT_EXCEEDED` with a `details` block (`scope`, `retry_after`, optional
+  `limit` / `reset_time`). The accompanying response headers — `Retry-After`
+  (always) and `X-RateLimit-Limit` / `-Remaining` / `-Reset` (when the limiter
+  includes headers) — are documented via an `x-response-headers` extension so
+  consumers can derive retry/backoff behavior from the contract (prerequisite for
+  FE#870). Per-endpoint `responses["429"]` wiring is a follow-up as consumers opt in.
+- Auth response contracts (TraigentSchema#58, #62), replacing the `default`
+  "Response shape pending" placeholders in `auth/auth_endpoints.json`:
+  `auth/login_response_schema.json` (`LoginResponseDTO`) and
+  `auth/token_refresh_response_schema.json` (`TokenRefreshResponseDTO`) model the
+  `{success, message, data:{access_token, refresh_token, user?, …}}` envelope the
+  backend emits and the Python SDK consumes. **Session expiry is the
+  `X-Session-Expires-At` response header, not a body field** (documented on both
+  routes; `expires_at` lives only on `GET /auth/me`) — the schemas reject an
+  expiry field in the body to prevent drift. `auth/csrf_token_response_schema.json`
+  (`CSRFTokenResponseDTO`) + a new `GET /api/v1/auth/csrf-token` path document the
+  cookie-mode CSRF flow (`traigent_csrf_token` cookie ↔ `X-CSRF-Token` header),
+  with 401/403 composing `ErrorEnvelopeDTO`.
+- `error_envelope_schema.json` (`ErrorEnvelopeDTO`) — the canonical error response
+  envelope (Shape A: `{success:false, message, error, error_code?, details?}`) decided in
+  BE#669 and already consumed by FE `errorUtils.ts`. Strict (`additionalProperties:false`)
+  so raw internals / user-input echo cannot leak through an error body; `details` carries a
+  documented redaction constraint. Resolves the canonical-envelope deliverable of
+  TraigentSchema#59.
+- `validation_error_schema.json` (`ValidationErrorDTO`) — composes `error_envelope_schema.json`
+  via `allOf` and narrows `details` to a `{field: [reason, ...]}` map for 422 responses
+  (aligned with BE#671).
+- Note: migrating the four existing domain-specific error schemas (`quota_exceeded`,
+  `wallet_insufficient_balance`, `project_context_error`, `project_member_lookup_error`) to
+  *require* Shape A is intentionally deferred — today they validate as `{error_code, message, …}`
+  with no `success`/`error`, matching current backend output. Forcing the envelope on them
+  would assert a shape the backend does not yet emit; that migration is gated on the BE
+  producer change (BE#669), which TraigentSchema#59 lists as out of scope.
+- Field-level content/privacy annotations on the hybrid-path DTOs (TraigentSchema#78):
+  content-bearing leaves now carry `x-content: true` + `x-privacy-classification:
+  user_content` so redaction/governance tooling can enumerate user content from the
+  contract — `trace`/`observation` `input_data`/`output_data`, `Example.input`/`output`,
+  `EvaluationSetExample.input_text`/`expected_output`, and the metric-submission
+  `ConfigurationParameters`. New `user_content` value documented in the README privacy
+  vocabulary. Additive `x-` keywords; no type/required/validation change.
+- `execution/workflow_trace_schema.json` — a real contract for `POST /api/v1/traces/ingest`
+  (the Python-only LangGraph workflow-trace surface), replacing the inline opaque
+  `{graph, spans}` body (TraigentSchema#64). Models the SDK producer
+  `workflow_traces.py` field-for-field: `WorkflowGraph` (nodes / edges / loops topology)
+  and a `SpanBatch` wrapper of `SpanPayload` (incl. LangGraph `node_id`, `decision_reason`,
+  `span_type`). `span_type` / `status` are free strings with documented canonical values
+  (the SDK sources them from OTel attributes), not enum-locked. Carries an explicit
+  `$comment` that it is **distinct** from `observability/trace_schema.json` (v1beta OTel
+  surface, backed by a different DB model). `execution_endpoints.json` now `$ref`s it.
+
 ### Changed
 - Refreshed the Python/JavaScript parity manifest for the Python 0.12.0
   release line and classified advisory strategy-preset / recommendation helper
   exports as deferred from the JS 0.2.0 parity surface.
+- Documented `metadata` on `trace_schema.json` and `observation_schema.json` as
+  **opaque user-supplied data only** (TraigentSchema#63), with a root `$comment`
+  recording the backend persistence mapping. `correlation_ids` / `prompt_reference`
+  remain the dedicated top-level fields; no structural or breaking change.
 
 ## [4.3.0] - 2026-05-31
 

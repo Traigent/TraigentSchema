@@ -16,11 +16,15 @@
         },
         "input": {
           "type": "string",
-          "description": "Input text or prompt for the example"
+          "description": "Input text or prompt for the example",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
         },
         "output": {
           "type": "string",
-          "description": "Expected or reference output for the input"
+          "description": "Expected or reference output for the input",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
         },
         "metadata": {
           "type": "object",

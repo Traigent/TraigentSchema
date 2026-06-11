@@ -27,8 +27,10 @@
     },
     "ConfigurationParameters": {
       "type": "object",
-      "description": "The configuration parameters that produced these metrics",
-      "additionalProperties": true
+      "description": "The configuration parameters that produced these metrics. Free-form and may carry user-derived values (e.g. prompt templates, tool configs), so it is classified as user content for redaction/governance purposes.",
+      "additionalProperties": true,
+      "x-content": true,
+      "x-privacy-classification": "user_content"
     }
   },
   "properties": {
@@ -117,6 +119,10 @@
         "client_version": {
           "type": "string",
           "description": "Version of the client submitting metrics"
+        },
+        "strategy_preset": {
+          "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+          "description": "Optional advisory strategy preset metadata recorded for this metric submission."
         }
       },
       "additionalProperties": true

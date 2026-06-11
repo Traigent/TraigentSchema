@@ -192,7 +192,18 @@ class TestValidateRequest:
         assert errors
         assert any("trial_id" in error for error in errors)
         assert any("metrics" in error for error in errors)
-        assert any("duration" in error for error in errors)
+
+    def test_sdk_session_results_request_accepts_top_level_config(self, sdk_validator):
+        errors = sdk_validator.validate_request(
+            "/api/v1/sessions/sess_abc/results",
+            "POST",
+            {
+                "trial_id": "trial-sdk-local-1",
+                "metrics": {"accuracy": 0.875},
+                "config": {"modelVariant": "balanced", "temperature": 0.4},
+            },
+        )
+        assert errors == []
 
     def test_inline_request_schema_resolves_registry_refs(self, validator):
         """Inline schemas should resolve package schema $refs via the shared registry."""
@@ -709,6 +720,7 @@ class TestSchemaValidation:
             "range_days": 30,
             "summary_cards": {
                 "experiments_total": 4,
+                "experiments_in_range": 3,
                 "experiment_runs_in_range": 8,
                 "configuration_runs_in_range": 21,
                 "priced_configuration_runs_in_range": 18,
@@ -910,7 +922,9 @@ class TestSchemaValidation:
             },
             "export_mode": "manifest",
             "privacy_mode": True,
+            "source_privacy_protected": True,
             "include_content": False,
+            "job_id": "export_job_123",
             "record_count": 1,
             "records": [
                 {
@@ -938,3 +952,39 @@ class TestSchemaValidation:
 
         errors = validator.validate_json(data, "project_scoped_fine_tuning_manifest_schema")
         assert errors
+
+    def test_project_scoped_fine_tuning_manifest_accepts_privacy_alias(self, validator):
+        data = {
+            "context": {
+                "tenant_id": "tenant_acme",
+                "project_id": "project_alpha",
+                "generated_at": "2026-03-11T10:15:00Z",
+                "privacy_classification": "manifest_safe",
+            },
+            "export_mode": "manifest",
+            "privacy_mode": True,
+            "source_privacy_protected": True,
+            "include_content": False,
+            "job_id": "export_job_123",
+            "record_count": 1,
+            "records": [
+                {
+                    "record_id": "config_1",
+                    "experiment_id": "exp_1",
+                    "experiment_run_id": "run_1",
+                    "configuration_run_id": "config_1",
+                    "input_hash": "hash-input",
+                    "output_hash": "hash-output",
+                    "input_ref": "configuration_run:config_1:input",
+                    "output_ref": "configuration_run:config_1:output",
+                    "input_content": None,
+                    "output_content": None,
+                    "materialization": "local_only",
+                    "measure_summary": {"accuracy": 0.91},
+                    "metadata": {"measure_metadata_model_name": "gpt-4o-mini"},
+                }
+            ],
+        }
+
+        errors = validator.validate_json(data, "project_scoped_fine_tuning_manifest_schema")
+        assert errors == []

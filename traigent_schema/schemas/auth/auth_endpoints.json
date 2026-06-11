@@ -20,8 +20,37 @@
       "get": {
         "summary": "Get the currently authenticated user's profile",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Authenticated user profile. JWT-backed sessions include data.expires_at.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./auth_me_response_schema.json" }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "Authenticated principal could not be resolved to a user.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "500": {
+            "description": "Profile lookup failed.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
           }
         }
       },
@@ -54,12 +83,208 @@
         }
       }
     },
+    "/api/v1/auth/sso/oidc/login": {
+      "get": {
+        "summary": "Start tenant OIDC SSO login",
+        "description": "Resolves a tenant by tenant_id or tenant_slug, sets a signed OIDC state cookie, and redirects to the tenant IdP authorization URL.",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Tenant id. Either tenant_id or tenant_slug is required by the backend."
+          },
+          {
+            "name": "tenant_slug",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Tenant slug. Either tenant_id or tenant_slug is required by the backend."
+          },
+          {
+            "name": "return_to",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Optional relative return path persisted in OIDC state when it passes backend sanitization."
+          },
+          {
+            "name": "login_hint",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Optional OIDC login_hint forwarded to the IdP."
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the tenant OIDC authorization endpoint.",
+            "headers": {
+              "Location": {
+                "description": "Tenant IdP authorization URL.",
+                "schema": { "type": "string", "format": "uri" }
+              },
+              "Set-Cookie": {
+                "description": "Signed traigent_oidc_state cookie.",
+                "schema": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "400": {
+            "description": "OIDC tenant configuration is invalid.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "OIDC SSO is not available for the requested tenant.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "429": {
+            "description": "Login flow rate-limited.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../rate_limit_info_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sso/oidc/callback": {
+      "get": {
+        "summary": "Complete tenant OIDC SSO callback",
+        "description": "Validates signed state and OIDC identity claims, issues Traigent session tokens, and either returns a JSON login envelope or redirects to the sanitized return_to path.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "OIDC authorization code. Required for non-error callbacks."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "Opaque state value matched against the signed OIDC state cookie."
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 1 },
+            "description": "IdP error signal. When present, the backend returns OIDC_PROVIDER_REJECTED."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OIDC login completed and tokens returned as JSON.",
+            "headers": {
+              "X-Session-Expires-At": {
+                "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
+                "schema": { "type": "string", "format": "date-time" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./sso_oidc_callback_response_schema.json" }
+              }
+            }
+          },
+          "302": {
+            "description": "OIDC login completed and the browser was redirected to the sanitized return_to path.",
+            "headers": {
+              "Location": {
+                "description": "Sanitized relative return path.",
+                "schema": { "type": "string", "minLength": 1 }
+              },
+              "X-Session-Expires-At": {
+                "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
+                "schema": { "type": "string", "format": "date-time" }
+              },
+              "Set-Cookie": {
+                "description": "Browser auth cookies and cleared OIDC state cookie.",
+                "schema": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing code, invalid state, invalid session id, or invalid tenant OIDC configuration.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "401": {
+            "description": "The IdP rejected the login.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "OIDC identity is not allowed for the tenant.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "OIDC SSO is not available for the tenant from signed state.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "500": {
+            "description": "OIDC SSO login failed.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "502": {
+            "description": "OIDC token exchange failed.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "summary": "Authenticate with email + password; returns access + refresh tokens",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Authenticated. Session expiry is exposed via the X-Session-Expires-At header, not the body.",
+            "headers": {
+              "X-Session-Expires-At": {
+                "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
+                "schema": { "type": "string", "format": "date-time" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./login_response_schema.json" }
+              }
+            }
           }
         }
       }
@@ -78,8 +303,231 @@
       "post": {
         "summary": "Exchange a refresh token for a new access token",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Refreshed. Session expiry is exposed via the X-Session-Expires-At header, not the body.",
+            "headers": {
+              "X-Session-Expires-At": {
+                "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
+                "schema": { "type": "string", "format": "date-time" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./token_refresh_response_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/csrf-token": {
+      "get": {
+        "summary": "Fetch a CSRF token for cookie-mode auth (side-effect-free, auth-required)",
+        "description": "Returns a CSRF token and sets it as a non-HttpOnly traigent_csrf_token cookie. The client mirrors the value back in the X-CSRF-Token request header on state-changing requests (double-submit-cookie).",
+        "responses": {
+          "200": {
+            "description": "CSRF token issued (also set as the traigent_csrf_token cookie).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./csrf_token_response_schema.json" }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/device/authorize": {
+      "post": {
+        "summary": "Start device authorization for CLI login",
+        "description": "Issues an RFC 8628-style device_code/user_code pair. Portal approval requires a verified logged-in session and is the gate before a project-scoped API key can be issued.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "./device_authorization_request_schema.json" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device authorization started.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_authorization_response_schema.json" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid device authorization request.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "429": {
+            "description": "Device authorization request rate-limited.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../rate_limit_info_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/device/decision": {
+      "post": {
+        "summary": "Approve or deny a device authorization from the portal",
+        "description": "Session-authenticated portal endpoint called by /activate to record the human decision for a pending device authorization. Uses one decision route with an explicit approved/denied enum so approval and denial share the same user_code validation, auth checks, rate limits, and idempotency semantics. SECURITY INVARIANT: this endpoint MUST NEVER return the API key; the key is delivered exclusively through the CLI's /api/v1/auth/device/token poll.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "./device_decision_request_schema.json" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device authorization decision recorded. Response contains only a safe human-facing summary, never the issued API key.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_decision_response_schema.json" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid decision request, including malformed user_code or unsupported decision value.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. A logged-in portal session is required to approve or deny device authorization.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated portal user is not allowed to decide this device authorization for the resolved project/workspace.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../error_envelope_schema.json" }
+              }
+            }
+          },
+          "404": {
+            "description": "No pending device authorization exists for the supplied user_code.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_decision_response_schema.json" }
+              }
+            }
+          },
+          "409": {
+            "description": "The supplied user_code has already been approved or denied.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_decision_response_schema.json" }
+              }
+            }
+          },
+          "410": {
+            "description": "The supplied user_code existed but has expired.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_decision_response_schema.json" }
+              }
+            }
+          },
+          "429": {
+            "description": "Device decision request rate-limited.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds the portal client should wait before retrying.",
+                "schema": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "../rate_limit_info_schema.json" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/device/token": {
+      "post": {
+        "summary": "Poll device authorization status and issue a project-scoped API key",
+        "description": "The CLI polls this endpoint with the device_code grant. Success returns a one-time sk_-prefixed API key scoped to the approved default project. Pending/denied/expired/slow_down states use RFC 8628 error names in Traigent's standard error envelope.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "./device_token_request_schema.json" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device authorization approved; project-scoped API key issued.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_token_response_schema.json" }
+              }
+            }
+          },
+          "400": {
+            "description": "Authorization is pending or the device code has expired.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_token_response_schema.json" }
+              }
+            }
+          },
+          "403": {
+            "description": "The human denied the device authorization.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_token_response_schema.json" }
+              }
+            }
+          },
+          "429": {
+            "description": "The client polled faster than the allowed interval.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds the CLI should wait before polling again.",
+                "schema": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "./device_token_response_schema.json" }
+              }
+            }
           }
         }
       }

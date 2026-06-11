@@ -206,12 +206,19 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "trials_page": {
-                          "type": "object"
+                        "trials": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "./workflow_trace_trial_response_schema.json"
+                          }
+                        },
+                        "trials_pagination": {
+                          "$ref": "../pagination_schema.json"
                         }
                       },
                       "required": [
-                        "trials_page"
+                        "trials",
+                        "trials_pagination"
                       ],
                       "additionalProperties": true
                     }
@@ -402,17 +409,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "graph": {
-                    "type": "object"
-                  },
-                  "spans": {
-                    "type": "object"
-                  }
-                },
-                "additionalProperties": false,
-                "minProperties": 1
+                "$ref": "./workflow_trace_schema.json"
               }
             }
           }

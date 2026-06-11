@@ -81,6 +81,14 @@ def test_candidate_schema_loads_and_pins_privacy_classification() -> None:
 
     assert payload["x-privacy-classification"] == "tenant_admin_safe"
     assert payload["x-required-permission"] == "project:membership:manage"
+    expected_permission_ref = (
+        "../auth/api_key_authorization_vocabulary_schema.json"
+        "#/definitions/ProjectPermissionToken"
+    )
+    assert (
+        payload["x-required-permission-vocabulary"]
+        == expected_permission_ref
+    )
     required = set(payload["required"])
     assert {
         "user_id",
@@ -200,6 +208,10 @@ def test_planned_contract_registers_membership_candidate_route() -> None:
     operation = path["get"]
     assert operation["operationId"] == "lookupProjectMembershipCandidates"
     assert operation["x-required-permission"] == "project:membership:manage"
+    assert (
+        operation["x-required-permission-vocabulary"]
+        == "./auth/api_key_authorization_vocabulary_schema.json#/definitions/ProjectPermissionToken"
+    )
 
     response_ok = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     assert response_ok.endswith("project_member_candidate_list_response_schema.json")

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/device_decision_request_schema.json",
+  "title": "Device Decision Request DTO",
+  "description": "Request body for POST /api/v1/auth/device/decision. A portal-authenticated human submits the decision for a pending device authorization identified by user_code. SECURITY INVARIANT: this request MUST NOT contain the API key; the key is delivered exclusively through the CLI's /api/v1/auth/device/token poll after approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "auth_sensitive",
+  "properties": {
+    "user_code": {
+      "type": "string",
+      "minLength": 9,
+      "maxLength": 9,
+      "pattern": "^[BCDFGHJKMNPQRSTVWXYZ23456789]{4}-[BCDFGHJKMNPQRSTVWXYZ23456789]{4}$",
+      "description": "Short non-ambiguous uppercase code displayed by the CLI and confirmed in the portal, grouped as XXXX-XXXX."
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["approved", "denied"],
+      "description": "Human decision for the pending device authorization. approved allows the CLI poll endpoint to issue the key; denied causes the CLI poll endpoint to return access_denied."
+    }
+  },
+  "required": ["user_code", "decision"]
+}

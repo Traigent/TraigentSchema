@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/best_config_response_schema.json",
+  "title": "Cloud Best Config Response",
+  "description": "Current cloud best-config state returned by backend routes.",
+  "type": "object",
+  "required": [
+    "config_id",
+    "environment",
+    "version",
+    "etag",
+    "spec_hash",
+    "config_hash",
+    "spec",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "config_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "environment": {
+      "$ref": "../optimization/best_config_schema.json#/definitions/best_config_environment"
+    },
+    "function_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "etag": {
+      "type": "string",
+      "minLength": 1
+    },
+    "spec_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "config_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "spec": {
+      "$ref": "../optimization/best_config_schema.json"
+    },
+    "published_by": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "api_key_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "optimization_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

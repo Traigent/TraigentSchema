@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/costs/cost_users_response_schema.json",
+  "title": "Cost Users Response",
+  "description": "Success envelope for GET /api/v1/costs/users.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "./cost_user_usage_item_schema.json" }
+        },
+        "page": { "type": "integer", "minimum": 1 },
+        "per_page": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "total": { "type": "integer", "minimum": 0 },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "total_cost",
+            "total_tokens",
+            "input_tokens",
+            "output_tokens",
+            "request_count",
+            "last_activity"
+          ]
+        },
+        "order": { "type": "string", "enum": ["asc", "desc"] },
+        "period": { "type": "string", "minLength": 1 },
+        "start_date": { "type": ["string", "null"], "format": "date-time" },
+        "end_date": { "type": ["string", "null"], "format": "date-time" },
+        "generated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "items",
+        "page",
+        "per_page",
+        "total",
+        "sort",
+        "order",
+        "period",
+        "start_date",
+        "end_date",
+        "generated_at"
+      ]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

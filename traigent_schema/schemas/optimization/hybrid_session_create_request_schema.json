@@ -1,0 +1,324 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/hybrid_session_create_request_schema.json",
+  "title": "Hybrid Session Create Request",
+  "description": "POST /api/v1/hybrid/sessions request. Accepts the canonical backend shape and the SDK legacy shape; prompt-like text is capped at 10,000 characters.",
+  "type": "object",
+  "additionalProperties": true,
+  "definitions": {
+    "ModelSpec": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "model_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "temperature": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 2
+        },
+        "max_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 100000
+        }
+      },
+      "required": [
+        "model_name"
+      ]
+    },
+    "CanonicalTypedObjectiveDefinition": {
+      "allOf": [
+        {
+          "$ref": "https://schemas.traigent.ai/optimization/objective_definition_schema.json"
+        },
+        {
+          "type": "object",
+          "required": [
+            "name",
+            "orientation",
+            "weight"
+          ]
+        }
+      ]
+    },
+    "LegacyObjectObjectiveDefinition": {
+      "type": "object",
+      "description": "Legacy SDK/backend objective object accepted by TraigentBackend interactive_session_service._normalize_objectives.",
+      "required": [
+        "metric"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "direction"
+          ]
+        },
+        {
+          "required": [
+            "band"
+          ]
+        }
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "maximize",
+            "minimize"
+          ]
+        },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "band": {
+          "$ref": "#/definitions/LegacyObjectiveBand"
+        },
+        "test": {
+          "type": "string",
+          "enum": [
+            "TOST"
+          ]
+        },
+        "alpha": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        }
+      }
+    },
+    "LegacyObjectiveBand": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": [
+            "low",
+            "high"
+          ]
+        },
+        {
+          "required": [
+            "center",
+            "tol"
+          ]
+        }
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "low": {
+          "type": "number"
+        },
+        "high": {
+          "type": "number"
+        },
+        "center": {
+          "type": "number"
+        },
+        "tol": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "TypedObjectiveArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/definitions/CanonicalTypedObjectiveDefinition"
+          },
+          {
+            "$ref": "#/definitions/LegacyObjectObjectiveDefinition"
+          }
+        ]
+      }
+    },
+    "LegacyStringObjectiveArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "properties": {
+    "config_space": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "task_description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    },
+    "problem_statement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    },
+    "search_space": {
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true
+        }
+      ]
+    },
+    "optimization_config": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "epsilon": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 2
+    },
+    "delta": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.5
+    },
+    "max_rounds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "items_per_round": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "eval_dataset": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "generator_model": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ModelSpec"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "judge_model": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ModelSpec"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluation_criteria": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 10000
+    },
+    "scored_examples": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "content"
+        ]
+      }
+    },
+    "metadata": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "strategy_preset": {
+          "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+          "description": "Optional advisory strategy preset metadata recorded for this session."
+        }
+      },
+      "additionalProperties": true
+    },
+    "promotion_policy": {
+      "$ref": "https://schemas.traigent.ai/optimization/promotion_policy_schema.json"
+    },
+    "objectives": {
+      "description": "Optional optimization objectives for hybrid session creation. Accepts canonical typed objective definitions, legacy SDK/backend objective objects, and the legacy SDK string-array form.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/TypedObjectiveArray"
+        },
+        {
+          "$ref": "#/definitions/LegacyStringObjectiveArray"
+        }
+      ]
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "config_space",
+        "task_description"
+      ]
+    },
+    {
+      "required": [
+        "search_space",
+        "problem_statement"
+      ]
+    }
+  ]
+}

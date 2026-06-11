@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/error_envelope_schema.json",
+  "title": "Error Envelope DTO",
+  "description": "Canonical error response envelope (Shape A) returned for 4xx/5xx responses. FE consumes the top-level `message` / `error` fields directly. Domain-specific error bodies (e.g. billing/quota_exceeded) may keep their own schema; generic errors emit exactly this envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false,
+      "description": "Discriminator. Always false for error responses (success envelopes set this true)."
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable summary rendered by the client (e.g. toast text). Must be safe to display to end users."
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Machine-readable error name the client can branch on. Stable, not a raw exception string."
+    },
+    "error_code": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional stable code for finer client branching (e.g. \"quota_exceeded\"). Distinct from `error`, which is the broad name."
+    },
+    "details": {
+      "type": "object",
+      "description": "Optional structured, client-safe diagnostic data. MUST NOT contain stack traces, SQL, raw exception strings, internal identifiers, column names, or any server internals — producers redact before populating. See validation_error_schema.json for the validation-specific shape."
+    }
+  },
+  "required": ["success", "message", "error"]
+}

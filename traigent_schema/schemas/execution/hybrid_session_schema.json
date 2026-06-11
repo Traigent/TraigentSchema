@@ -128,6 +128,10 @@
           "description": "Configuration search space definition",
           "additionalProperties": true
         },
+        "strategy_preset": {
+          "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
+          "description": "Optional advisory strategy preset metadata recorded for this session."
+        },
         "tags": {
           "type": "array",
           "items": {

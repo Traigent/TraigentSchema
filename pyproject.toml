@@ -34,10 +34,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.3",  # CVE-2025-71176
+    # pytest 9.x requires Python >=3.10. Keep the Python 3.9 CI lane on the
+    # newest compatible pytest while newer interpreters use the 9.x floor.
+    "pytest>=8.4.2,<9; python_version < '3.10'",
+    "pytest>=9.0.3; python_version >= '3.10'",  # CVE-2025-71176
     "pytest-cov>=4.0",
     "ruff>=0.1.0",
-    "mypy>=1.0",
+    "mypy>=1.0,<2",
 ]
 
 [project.urls]

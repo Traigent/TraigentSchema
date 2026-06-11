@@ -8,6 +8,7 @@ packaging==26.2
 pathspec==1.1.1
 pluggy==1.6.0
 Pygments==2.20.0
-pytest==9.0.3  # CVE-2025-71176
+pytest==8.4.2; python_version < "3.10"
+pytest==9.0.3; python_version >= "3.10"  # CVE-2025-71176
 pytest-cov==7.1.0
 ruff==0.15.15

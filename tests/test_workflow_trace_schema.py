@@ -121,7 +121,7 @@ def test_span_accepts_langgraph_and_content_fields():
         "parent_span_id": "fedcba9876543210",
         "node_id": "n1",
         "end_time": "2026-06-02T00:00:01Z",
-        "error_message": None if False else "boom",
+        "error_message": "boom",
         "decision_reason": "score below threshold",
         "input_data": {"prompt": "hi"},
         "output_data": {"text": "hello"},

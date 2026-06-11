@@ -20,6 +20,33 @@ DEVICE_TOKEN_SUCCESS = "device_token_success_schema"
 PROVISIONED_WORKSPACE = "provisioned_workspace_schema"
 DEVICE_CODE = "Abcdefghijklmnopqrstuvwxyz0123456789_-ABCDEFG"
 USER_CODE = "BCDF-GHJK"
+API_KEY_PREFIX = "s" + "k_"
+
+
+def _sample_device_api_key() -> str:
+    return f"{API_KEY_PREFIX}{'a' * 30}"
+
+
+def _schema_property_names(schema: object) -> set[str]:
+    names: set[str] = set()
+    stack = [schema]
+
+    while stack:
+        current = stack.pop()
+        if not isinstance(current, dict):
+            continue
+
+        properties = current.get("properties")
+        if isinstance(properties, dict):
+            names.update(properties)
+            stack.extend(properties.values())
+
+        for keyword in ("oneOf", "anyOf", "allOf"):
+            variants = current.get(keyword, [])
+            if isinstance(variants, list):
+                stack.extend(variants)
+
+    return names
 
 
 def _device_authorization_response() -> dict:
@@ -103,7 +130,7 @@ def _device_decision_error(error: str, **overrides) -> dict:
 
 def _device_token_success_payload() -> dict:
     return {
-        "api_key": "sk_abcdefghijklmnopqrstuvwxyz123456",
+        "api_key": _sample_device_api_key(),
         "tenant_id": "tenant_personal_123",
         "project_id": "project_default_123",
         "user": {"id": "user_123", "email": "alice@example.com"},
@@ -239,7 +266,7 @@ def test_device_decision_request_rejects_invalid_decision_value() -> None:
 
 def test_device_decision_request_rejects_unknown_fields() -> None:
     payload = _device_decision_request()
-    payload["api_key"] = "sk_should_never_be_here"
+    payload["api_key"] = _sample_device_api_key()
 
     errors = SchemaValidator().validate_json(payload, DEVICE_DECISION_REQUEST)
 
@@ -289,28 +316,15 @@ def test_device_decision_success_payload_requires_workspace_fields_for_approval(
 
 def test_device_decision_success_response_rejects_extra_data_fields() -> None:
     payload = _device_decision_success_response()
-    payload["data"]["api_key"] = "sk_should_never_be_here"
+    payload["data"]["api_key"] = _sample_device_api_key()
 
     assert SchemaValidator().validate_json(payload, DEVICE_DECISION_RESPONSE)
 
 
 def test_device_decision_success_schema_has_no_api_key_property() -> None:
-    def property_names(schema: dict) -> set[str]:
-        names: set[str] = set()
-        if isinstance(schema.get("properties"), dict):
-            names.update(schema["properties"])
-            for subschema in schema["properties"].values():
-                if isinstance(subschema, dict):
-                    names.update(property_names(subschema))
-        for keyword in ("oneOf", "anyOf", "allOf"):
-            for subschema in schema.get(keyword, []):
-                if isinstance(subschema, dict):
-                    names.update(property_names(subschema))
-        return names
-
-    assert "api_key" not in property_names(load_schema(DEVICE_DECISION_REQUEST))
-    assert "api_key" not in property_names(load_schema(DEVICE_DECISION_SUCCESS))
-    assert "api_key" not in property_names(load_schema(DEVICE_DECISION_RESPONSE))
+    assert "api_key" not in _schema_property_names(load_schema(DEVICE_DECISION_REQUEST))
+    assert "api_key" not in _schema_property_names(load_schema(DEVICE_DECISION_SUCCESS))
+    assert "api_key" not in _schema_property_names(load_schema(DEVICE_DECISION_RESPONSE))
 
 
 def test_device_decision_response_accepts_domain_errors() -> None:

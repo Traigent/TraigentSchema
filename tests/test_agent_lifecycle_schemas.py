@@ -398,3 +398,31 @@ class TestClientFacingSchemaLeakGuard:
         }
 
         assert _schema_property_names(schema).isdisjoint(forbidden)
+
+
+def test_dataset_schema_remains_superset_of_evaluation_set() -> None:
+    """Guard the inlined dataset schema against drift from evaluation_set_schema.
+
+    dataset_schema.json was converted from an ``allOf`` alias into an explicit
+    object (the referenced schema's ``additionalProperties: false`` makes
+    allOf-extension impossible), so this invariant is no longer structural:
+    every property and every required field of evaluation_set_schema must stay
+    accepted by dataset_schema. If evaluation_set_schema gains a field, add it
+    to dataset_schema too.
+    """
+    schemas_dir = get_schemas_dir()
+    with open(schemas_dir / "datasets" / "dataset_schema.json") as fh:
+        dataset = json.load(fh)
+    with open(schemas_dir / "datasets" / "evaluation_set_schema.json") as fh:
+        evaluation_set = json.load(fh)
+
+    dataset_props = set(dataset["properties"])
+    evaluation_props = set(evaluation_set.get("properties", {}))
+    missing = evaluation_props - dataset_props
+    assert not missing, (
+        "dataset_schema.json lost evaluation_set_schema properties: "
+        f"{sorted(missing)} — re-sync the inlined copy."
+    )
+    assert sorted(dataset.get("required", [])) == sorted(
+        evaluation_set.get("required", [])
+    ), "dataset_schema required set drifted from evaluation_set_schema"

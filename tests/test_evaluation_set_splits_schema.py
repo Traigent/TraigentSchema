@@ -95,3 +95,30 @@ def test_evaluation_set_splits_rejects_unknown_property() -> None:
 
     assert errors
     assert any("splits" in error and "notes" in error for error in errors)
+
+def test_evaluation_set_splits_locked_test_false_validates() -> None:
+    payload = _with_splits(_valid_evaluation_set())
+    payload["splits"]["policy"]["locked_test"] = False
+
+    assert _validator().validate_json(payload, SCHEMA) == []
+
+
+def test_evaluation_set_splits_empty_assignments_validates() -> None:
+    # An empty assignments map is contractually valid (e.g. hash-strategy
+    # datasets assign lazily). Referential integrity between assignment keys
+    # and the examples list is runtime/backend-enforced, not expressible in
+    # JSON Schema.
+    payload = _with_splits(_valid_evaluation_set())
+    payload["splits"]["assignments"] = {}
+
+    assert _validator().validate_json(payload, SCHEMA) == []
+
+
+def test_evaluation_set_splits_policy_rejects_unknown_strategy() -> None:
+    payload = _with_splits(_valid_evaluation_set())
+    payload["splits"]["policy"]["strategy"] = "random"
+
+    errors = _validator().validate_json(payload, SCHEMA)
+
+    assert errors
+    assert any("strategy" in error for error in errors)

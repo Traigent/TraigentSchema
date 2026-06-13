@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "activation_envelope_schema",
+  "title": "ActivationEnvelope",
+  "description": "Content-free evidence a client posts to the activation adjudicate endpoint each campaign turn. Carries optimization-run results and structured abstractions ONLY: configuration labels, per-example score vectors keyed by opaque rotating IDs, aggregate metrics, cost. Raw prompts, inputs, outputs, expected outputs, dataset rows, schema/query text, source code, and execution traces are OUT OF CONTRACT and MUST NOT appear in any field, including free-form maps.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["envelope_version", "session_id", "phase", "eval_manifest", "search_space_summary", "trial_summaries"],
+  "properties": {
+    "envelope_version": {
+      "type": "string",
+      "description": "Privacy/abstraction contract version the client compiled this payload against (e.g. 'activation/v1').",
+      "pattern": "^activation/v[0-9]+$"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Opaque activation campaign id."
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["scope", "eval_health", "accuracy", "cost", "safety", "converge"],
+      "description": "Phase the client believes it is in; the server adjudicates and may advance it."
+    },
+    "directive_id": {
+      "type": "string",
+      "description": "Id of the server directive this evidence answers, if any (idempotency / lease binding)."
+    },
+    "eval_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scorer_id", "split_sizes"],
+      "description": "Eval-function descriptor for the eval-health analyzer. Counts and numeric quality only; no example content.",
+      "properties": {
+        "scorer_id": {"type": "string", "description": "Opaque scorer identifier."},
+        "scorer_kind": {"type": "string", "enum": ["exact_match", "execution", "numeric", "classification", "llm_judge", "other"]},
+        "split_sizes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "train": {"type": "integer", "minimum": 0},
+            "selection": {"type": "integer", "minimum": 0},
+            "test": {"type": "integer", "minimum": 0}
+          }
+        },
+        "repeated_run_count": {"type": "integer", "minimum": 1, "description": "How many times identical configs were re-scored (for scorer-variance estimation)."},
+        "unscoreable_count": {"type": "integer", "minimum": 0, "description": "Examples the scorer could not score (errors/timeouts)."},
+        "score_min": {"type": "number"},
+        "score_max": {"type": "number"}
+      }
+    },
+    "search_space_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tvars"],
+      "description": "The configuration space as labels and class summaries — never raw prompt/code values.",
+      "properties": {
+        "tvars": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "kind"],
+            "properties": {
+              "name": {"type": "string", "description": "TVAR label (e.g. 'schema_context'); not a value."},
+              "kind": {"type": "string", "enum": ["enum", "int", "float", "bool", "text_doc", "composite"]},
+              "cardinality": {"type": "integer", "minimum": 1, "description": "Number of distinct candidates for categorical/text knobs."},
+              "domain_summary": {"type": "string", "description": "Coarse class label only (e.g. 'model_tier', 'prompt_variant'); MUST NOT be a raw value."}
+            }
+          }
+        },
+        "composite_measures_present": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Names of composite_* measures emitted by composite knobs (route/escalation/vote counts), not their values."
+        }
+      }
+    },
+    "trial_summaries": {
+      "type": "array",
+      "description": "One row per trial: config identified by hash + TVAR value LABELS, with numeric scores and cost.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["config_hash", "scores"],
+        "properties": {
+          "config_hash": {"type": "string", "description": "Stable hash of the config vector."},
+          "tvar_value_labels": {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "description": "TVAR name -> opaque value label (e.g. 'schema_context' -> 'on'); never raw prompt/code text."
+          },
+          "scores": {
+            "type": "object",
+            "additionalProperties": {"type": "number"},
+            "description": "Objective name -> numeric score."
+          },
+          "cost_usd": {"type": "number", "minimum": 0},
+          "latency_ms": {"type": "number", "minimum": 0},
+          "tokens": {"type": "integer", "minimum": 0},
+          "trial_count": {"type": "integer", "minimum": 1, "description": "Examples evaluated in this trial (for significance)."}
+        }
+      }
+    },
+    "per_example_vectors": {
+      "type": "array",
+      "description": "Per (example, config) outcome keyed by an opaque, per-campaign rotating example id. Booleans/numbers/enums only — no example content.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["example_id", "config_hash", "passed"],
+        "properties": {
+          "example_id": {"type": "string", "description": "Rotating HMAC id, salted per campaign so it cannot be linked across campaigns."},
+          "config_hash": {"type": "string"},
+          "passed": {"type": "boolean"},
+          "score": {"type": "number"},
+          "error_enum": {"type": "string", "description": "Controlled failure taxonomy code (e.g. 'execution_error', 'empty_result', 'syntax_error'); NOT a raw error message."}
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "spent_usd": {"type": "number", "minimum": 0},
+        "remaining_usd": {"type": "number", "minimum": 0}
+      }
+    },
+    "client_proposals": {
+      "type": "array",
+      "description": "Optional content-free next-move candidates the client agent surfaced from its private reflection (the A3 fallback). Action classes + reason codes only.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action_class"],
+        "properties": {
+          "action_class": {"type": "string", "description": "Controlled class (e.g. 'add_knob:repair_policy', 'narrow_domain:model_tier')."},
+          "reason_codes": {"type": "array", "items": {"type": "string"}},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}, "description": "References to observation/cluster ids, not content."}
+        }
+      }
+    }
+  }
+}

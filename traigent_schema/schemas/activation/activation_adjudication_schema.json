@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "activation_adjudication_schema",
+  "title": "ActivationAdjudication",
+  "description": "The server's structured response to an ActivationEnvelope. The activation server runs deterministic analyzers (no LLM) and returns DATA, never prose: computed observations, reason-coded implications, a scoped set of candidate next actions (including stop), a recommendation, and an instruction directing the client's coding-agent LLM to communicate the situation and DECIDE. The coding agent is the brain and the user interface; the server guides the process. The server MUST NOT return human-facing sentences except the fixed agent_directive instruction; all narration is the agent's job, grounded only in the metrics supplied here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["envelope_version", "session_id", "campaign_state", "observations", "candidate_actions", "assessment", "agent_directive"],
+  "properties": {
+    "envelope_version": {"type": "string", "pattern": "^activation/v[0-9]+$"},
+    "session_id": {"type": "string"},
+    "directive_id": {"type": "string", "description": "Id of the directive this adjudication issues (binds the next evidence envelope)."},
+    "campaign_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "round"],
+      "description": "Server-tracked campaign posture; the FE-safe slice of state.",
+      "properties": {
+        "phase": {"type": "string", "enum": ["scope", "eval_health", "accuracy", "cost", "safety", "converge"]},
+        "round": {"type": "integer", "minimum": 0},
+        "best_score": {"type": "number"},
+        "accuracy_floor": {"type": "number", "description": "Frozen accuracy floor once the cost phase begins."},
+        "budget_remaining_usd": {"type": "number", "minimum": 0}
+      }
+    },
+    "observations": {
+      "type": "array",
+      "description": "Computed signals from the deterministic analyzers — the raw material the agent narrates.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["observation_id", "kind", "metrics"],
+        "properties": {
+          "observation_id": {"type": "string"},
+          "kind": {
+            "type": "string",
+            "enum": ["knob_effect", "eval_health", "plateau", "pareto", "hard_cluster", "budget"],
+            "description": "Which analyzer produced it."
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": {"type": ["number", "string", "boolean", "array"]},
+            "description": "Analyzer outputs (effect sizes, variances, frontier points, cluster sizes, example_id lists, etc.)."
+          },
+          "confidence_label": {
+            "type": "string",
+            "enum": ["high", "directional", "insufficient_evidence"],
+            "description": "Honest confidence; 'insufficient_evidence' for under-powered signals (e.g. sub-20-trial knob importances)."
+          },
+          "subject_refs": {"type": "array", "items": {"type": "string"}, "description": "Referenced tvar names / config_hashes / example_ids."}
+        }
+      }
+    },
+    "implications": {
+      "type": "array",
+      "description": "Reason-coded interpretation linking observations to consequences. Codes, not sentences.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["implication_code", "observation_ids"],
+        "properties": {
+          "implication_code": {"type": "string", "description": "Controlled code (e.g. 'eval_untrustworthy', 'accuracy_saturated', 'cost_headroom', 'hard_core_present', 'knob_dominant', 'knob_inert')."},
+          "observation_ids": {"type": "array", "items": {"type": "string"}},
+          "severity": {"type": "string", "enum": ["info", "advisory", "blocking"]}
+        }
+      }
+    },
+    "candidate_actions": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The scoped option space for the next turn (this scoping is part of the IP). Always includes a 'stop' option when stop is eligible.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action_id", "type", "viability"],
+        "properties": {
+          "action_id": {"type": "string"},
+          "type": {
+            "type": "string",
+            "enum": ["continue", "advance_phase", "narrow_space", "add_knob_class", "reflect_on_cluster", "fill_coverage_gap", "downshift_cost", "fix_eval", "stop"]
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Bounding instructions for the action (the tractability levers).",
+            "properties": {
+              "max_new_tvars": {"type": "integer", "minimum": 0},
+              "allowed_tvar_classes": {"type": "array", "items": {"type": "string"}},
+              "target_phase": {"type": "string"},
+              "cluster_id": {"type": "string"},
+              "max_trials": {"type": "integer", "minimum": 1},
+              "accuracy_floor": {"type": "number"}
+            }
+          },
+          "rationale_codes": {"type": "array", "items": {"type": "string"}, "description": "Why this action is on the table (refs implication codes)."},
+          "expected_effect": {
+            "type": "object",
+            "additionalProperties": {"type": ["number", "string"]},
+            "description": "Coarse expected movement (e.g. {'accuracy': 'flat', 'cost': 'down'})."
+          },
+          "viability": {"type": "string", "enum": ["recommended", "viable", "discouraged"]},
+          "required_evidence": {"type": "array", "items": {"type": "string"}, "description": "What the next envelope must contain to adjudicate this action's result."}
+        }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recommended_action_id", "stop_eligible"],
+      "description": "The server's recommendation. Advisory — the coding agent decides.",
+      "properties": {
+        "recommended_action_id": {"type": "string"},
+        "stop_eligible": {"type": "boolean"},
+        "why_codes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "cost_certificate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Present in the cost phase: a Pareto/downshift finding holding the accuracy floor.",
+      "properties": {
+        "winner_config_hash": {"type": "string"},
+        "accuracy_floor": {"type": "number"},
+        "accuracy_at_winner": {"type": "number"},
+        "cost_delta_pct": {"type": "number"},
+        "latency_delta_pct": {"type": "number"},
+        "confidence_label": {"type": "string", "enum": ["high", "directional", "insufficient_evidence"]}
+      }
+    },
+    "agent_directive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instruction"],
+      "description": "The fixed instruction to the client's coding-agent LLM. The agent narrates observations/implications in its own words, recommends a course (it may follow or override the recommendation), explains the why citing ONLY the metrics provided here, then executes the chosen action and returns the required evidence. It must not invent metrics.",
+      "properties": {
+        "instruction": {"type": "string"},
+        "must_cite_observation_ids": {"type": "boolean"}
+      }
+    }
+  }
+}

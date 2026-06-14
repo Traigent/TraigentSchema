@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Two-dimensional optimization metering + differentiated quota enforcement
+  contracts (unified quota/wallet cost model, v1):
+  - `billing/quota_exceeded_error_schema.json` gains optional `action`,
+    `reserved_usage`, and `enforcement_behavior` (`block`/`drop`/`sample`).
+    Wallet/cost ceilings remain reported only via the wallet error contract,
+    never folded into the quota error. Backward compatible — the prior minimal
+    shape still validates.
+  - `billing/billing_limits_schema.json` gains optional `optimization_trials`
+    and `optimization_samples`; a new optimization run is admitted only when
+    BOTH have headroom. `trials` retained as a deprecated alias during
+    migration.
+  - New read-only `billing/usage_summary_response_schema.json` (per-resource
+    used/reserved/limit/reset/behavior + plan tier + enforcement mode) and
+    `billing/quota_preflight_request_schema.json` /
+    `billing/quota_preflight_response_schema.json` (admission preflight that
+    lists ALL blockers — quota and wallet — so clients can distinguish
+    "upgrade" from "top up"). These endpoints are never blocked by a cap.
 - Optional `splits` object on `datasets/evaluation_set_schema.json`
   (TraigentSchema#126): split policy (`explicit`/`hash` strategy, seed,
   `locked_test`) plus per-example `train`/`selection`/`test` assignments.

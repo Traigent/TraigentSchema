@@ -13,13 +13,28 @@
       "type": "string",
       "minLength": 1
     },
+    "action": {
+      "description": "The attempted action that was blocked (e.g. optimization_run, benchmark_generation, agent_create). Lets the client tell apart which create/run/ingest hit the cap.",
+      "type": ["string", "null"],
+      "minLength": 1
+    },
     "current_usage": {
       "type": "number",
+      "minimum": 0
+    },
+    "reserved_usage": {
+      "description": "Units currently reserved (held by in-flight operations) for this resource in the active period, separate from settled current_usage.",
+      "type": ["number", "null"],
       "minimum": 0
     },
     "limit": {
       "type": "number",
       "minimum": 0
+    },
+    "enforcement_behavior": {
+      "description": "How the cap is enforced for this action. block = the action is rejected; drop = the request is accepted but over-quota units are not persisted; sample = a reduced fraction is persisted. Wallet/cost ceilings are reported separately via the wallet error contract, never here.",
+      "type": ["string", "null"],
+      "enum": ["block", "drop", "sample", null]
     },
     "reset_at": {
       "type": ["string", "null"],

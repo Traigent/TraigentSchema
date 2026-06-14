@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Optional `splits` object on `datasets/evaluation_set_schema.json`
+  (TraigentSchema#126): split policy (`explicit`/`hash` strategy, seed,
+  `locked_test`) plus per-example `train`/`selection`/`test` assignments.
+  Contract discipline carried in descriptions: the selection split gates
+  candidate acceptance; the test split is locked until run finalization.
+  Backward compatible — instances without `splits` validate unchanged.
+  Referential integrity of assignment keys is backend-enforced.
 - Canonical API-key authorization vocabulary (TraigentSchema#107): new
   `auth/api_key_authorization_vocabulary_schema.json` pins API-key scope tokens,
   canonical permission tokens, and the scope-to-permission map that preserves the

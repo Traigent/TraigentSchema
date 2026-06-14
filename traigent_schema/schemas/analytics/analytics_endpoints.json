@@ -102,6 +102,40 @@
         }
       }
     },
+    "/api/v1/analytics/experiments/{experiment_run_id}/next-steps": {
+      "get": {
+        "summary": "Get experiment next-step recommendations",
+        "responses": {
+          "200": {
+            "description": "Next-step recommendations retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./next_steps_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice": {
+      "get": {
+        "summary": "Get dataset curation advice",
+        "responses": {
+          "200": {
+            "description": "Curation advice retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./curation_advice_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/analytics/example-scoring/{experiment_run_id}/summary": {
       "get": {
         "summary": "Get example-scoring summary",

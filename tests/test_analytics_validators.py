@@ -128,6 +128,8 @@ class TestAnalyticsValidatorHelpers:
             "example_score_schema",
             "dataset_quality_schema",
             "scoring_job_status_schema",
+            "next_steps_schema",
+            "curation_advice_schema",
         ]
 
 

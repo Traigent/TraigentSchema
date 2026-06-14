@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/analytics/curation_advice.json",
+  "title": "CurationAdvice",
+  "description": "CLIENT-SAFE dataset curation advice response for example-scoring analytics. This contract exposes only category-level, templated advice and aggregate counts. Example IDs and signal scores are intentionally excluded from this contract; proprietary example-scoring signals, rankings, and formulas are NOT returned to clients.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "experiment_run_id",
+    "caveat",
+    "advice"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this response contract."
+    },
+    "experiment_run_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "ID of the experiment run this curation advice belongs to.",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "caveat": {
+      "type": "string",
+      "description": "Client-facing caveat explaining curation-advice limitations."
+    },
+    "advice": {
+      "type": "array",
+      "description": "Client-safe curation advice items.",
+      "items": {
+        "type": "object",
+        "required": [
+          "category",
+          "affected_count",
+          "rationale"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "add_harder_examples",
+              "add_diverse_examples",
+              "remove_redundant",
+              "fix_ambiguous_labels",
+              "increase_coverage",
+              "rebalance_classes"
+            ],
+            "description": "Safe curation advice category."
+          },
+          "affected_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Aggregate count of examples or groups affected by this advice."
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Templated category-level rationale."
+          }
+        }
+      }
+    }
+  }
+}

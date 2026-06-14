@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/billing/quota_preflight_request_schema.json",
   "title": "Quota Preflight Request",
-  "description": "Request body for POST /api/v1/billing/preflight. Asks whether a cost-generating action would be admitted for the caller's tenant, without performing it. The server resolves any unspecified dimensions (e.g. optimization_samples = max_rounds * items_per_round).",
+  "description": "Request body for POST /api/v1/billing/preflight. Asks whether a cost-generating action would be admitted for the caller's tenant, without performing it. The client supplies the dimensions it intends to consume (the same numbers the eventual create will use, e.g. optimization_samples = max_rounds * items_per_round for a hybrid run); the preflight does not infer run configuration. Omitted dimensions default to 1 unit.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -12,7 +12,7 @@
       "enum": ["optimization_run", "benchmark_generation", "agent_create", "benchmark_create"]
     },
     "requested": {
-      "description": "Requested units per quota dimension. Omitted dimensions are resolved server-side. Keys are resource_type values (e.g. optimization_trials, optimization_samples).",
+      "description": "Requested units per quota dimension. Keys are resource_type values (e.g. optimization_trials, optimization_samples). Omitted dimensions default to 1 unit. Preflight is advisory; the create call re-checks admission authoritatively.",
       "type": "object",
       "additionalProperties": { "type": "number", "minimum": 0 }
     }

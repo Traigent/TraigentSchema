@@ -73,6 +73,56 @@
       },
       "description": "Examples associated with this evaluation set"
     },
+    "splits": {
+      "type": "object",
+      "description": "Optional split policy and per-example assignments for this evaluation set. Selection gates candidate acceptance. Test is locked until run finalization.",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "assignments"
+      ],
+      "properties": {
+        "policy": {
+          "type": "object",
+          "description": "Policy used to assign examples to train, selection, and test splits.",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "locked_test"
+          ],
+          "properties": {
+            "strategy": {
+              "type": "string",
+              "enum": [
+                "explicit",
+                "hash"
+              ],
+              "description": "Split assignment strategy."
+            },
+            "seed": {
+              "type": "integer",
+              "description": "Optional deterministic seed for hash-based split assignment."
+            },
+            "locked_test": {
+              "type": "boolean",
+              "description": "Whether the test split is locked. Test is locked until run finalization."
+            }
+          }
+        },
+        "assignments": {
+          "type": "object",
+          "description": "example_id -> split. Selection gates candidate acceptance.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "train",
+              "selection",
+              "test"
+            ]
+          }
+        }
+      }
+    },
     "created_at": {
       "type": "string",
       "format": "date-time",

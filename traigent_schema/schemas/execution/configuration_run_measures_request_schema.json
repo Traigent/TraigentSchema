@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/configuration_run_measures_request_schema.json",
+  "title": "Configuration Run Measures Request",
+  "description": "PUT /api/v1/configuration-runs/{config_run_id}/measures. The backend accepts a {\"measures\": ...} body where measures is either a flat MeasuresDict or a list of per-example results (validate_measures_dict/list).",
+  "type": "object",
+  "required": [
+    "measures"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "measures": {
+      "oneOf": [
+        {
+          "$ref": "../evaluation/configuration_run_schema.json#/definitions/MeasureResults"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      ],
+      "description": "Flat MeasuresDict (identifier keys -> number|null, max 50) or a list of per-example result objects."
+    }
+  }
+}

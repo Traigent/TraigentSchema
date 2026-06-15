@@ -297,7 +297,14 @@
         },
         "responses": {
           "200": {
-            "description": "Next trial suggestion returned"
+            "description": "Next trial suggestion returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "https://schemas.traigent.ai/optimization/session_next_trial_response_schema.json"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request — malformed body or parameters.",

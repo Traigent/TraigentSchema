@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/rbac_privilege_vocabulary_schema.json",
+  "title": "RBAC Privilege Vocabulary",
+  "description": "Canonical contract vocabulary for the request-scoping / privilege rules the backend applies to data-access routes (experiments, datasets, agents, results, observability). Implemented in TraigentBackend request handlers; documented here so SDK / FE / E2E consumers read the contract instead of reverse-engineering it. Advisory documentation: it names the privilege roles and the scoping rules but does NOT constrain any request/response payload.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-source-of-truth": "rbac_privilege_vocabulary",
+  "x-privilege-roles": {
+    "member": {
+      "description": "Default authenticated principal (JWT user or scoped API key). Sees only resources owned by, or shared with, its own canonical tenant/project context.",
+      "is_privileged": false
+    },
+    "admin": {
+      "description": "Platform administrator (admin privilege / admin:all scope). May bypass the owner filter and may target another tenant; see x-scoping-rules.",
+      "is_privileged": true
+    }
+  },
+  "x-scoping-rules": {
+    "owner_filter": {
+      "rule": "Data queries inside request handlers are filtered to the requester's own owner/tenant/project context UNLESS the requester is an admin.",
+      "applies_to": ["member"],
+      "admin_bypass": true,
+      "description": "Non-admin reads and writes are restricted to resources the principal owns or is a project member of. Admins may read across owners."
+    },
+    "tenant_scope": {
+      "rule": "The effective tenant is drawn from the canonical (deployment-scoped) request context, never from a user-supplied value, for non-admin principals.",
+      "applies_to": ["member"],
+      "admin_bypass": true,
+      "admin_override_header": "X-Tenant-Id",
+      "description": "Admins MAY target another tenant's data by supplying X-Tenant-Id; this header is honored ONLY for admin principals. For members it is ignored — tenant is fixed by canonical context (see TraigentBackend tenant-routing policy: request X-Tenant-Id is not trusted for ordinary principals)."
+    },
+    "project_membership": {
+      "rule": "Access to a project-scoped resource requires the principal to be a member of that project UNLESS the principal is an admin.",
+      "applies_to": ["member"],
+      "admin_bypass": true,
+      "description": "Project membership (see project_membership_schema) gates project-scoped data for members; admins are not membership-gated."
+    }
+  },
+  "x-admin-bypass-summary": "Exactly three controls are relaxed for admins and for no one else: the owner filter, the canonical-tenant pin (admins may override via X-Tenant-Id), and the project-membership requirement. Every relaxation is admin-only and is the security-sensitive surface to audit.",
+  "x-references": {
+    "backend_evidence": "TraigentBackend src/routes/experiment_routes.py (owner-filter + admin tenant override + project-membership gates)",
+    "related_vocabulary": "api_key_authorization_vocabulary_schema.json (scope -> permission map)",
+    "project_membership": "../projects/project_membership_schema.json"
+  }
+}

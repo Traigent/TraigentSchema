@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Contract-documentation completeness (schema as single source of truth):
+  - `measures/timing_metric_vocabulary_schema.json` — advisory canonical/legacy
+    timing-metric vocabulary with units and alias->canonical mapping, so SDK/BE/FE
+    stop minting timing names independently (#118). Non-constraining
+    `x-timing-metric-vocabulary` pointer added to `metric_submission_schema`.
+  - `optimization/session_next_trial_response_schema.json` — the previously
+    undocumented 200 response of `POST /sessions/{id}/next-trial`, now referenced
+    from `optimization_endpoints.json` (#145).
+  - `auth/rbac_privilege_vocabulary_schema.json` — documents the admin/member
+    privilege roles and the three admin-only scoping relaxations (owner filter,
+    canonical-tenant pin / `X-Tenant-Id` override, project-membership gate) (#144).
+
 ## [4.6.0] - 2026-06-14
 
 ### Added

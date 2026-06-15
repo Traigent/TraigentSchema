@@ -22,7 +22,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./agent_schema.json"
+                "$ref": "./agent_create_request_schema.json"
               }
             }
           }
@@ -98,7 +98,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./agent_schema.json"
+                "$ref": "./agent_create_request_schema.json"
               }
             }
           }
@@ -128,7 +128,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "../datasets/example_set_schema.json"
+                "$ref": "../datasets/example_set_create_request_schema.json"
               }
             }
           }
@@ -148,7 +148,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./retriever_schema.json"
+                "$ref": "./retriever_create_request_schema.json"
               }
             }
           }
@@ -176,7 +176,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./model_parameters_schema.json"
+                "$ref": "./model_parameters_create_request_schema.json"
               }
             }
           }

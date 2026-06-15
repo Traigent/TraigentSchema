@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_ingest_schema.json",
+  "title": "Trace Ingest Schema",
+  "description": "Ingest-side trace payload. Mirrors the backend TracePayload (extra=\"forbid\"): additionalProperties:false; omits read-only/server fields (comments/feedback/collaboration/prompt_links and the trace rollups). nested observations are breadth-capped. Read responses use trace_schema.json (additionalProperties:true).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 255
+    },
+    "environment": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "release": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "custom_trace_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      },
+      "maxItems": 256
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Opaque user-supplied annotations. Do NOT place structured platform data here — correlation_ids and prompt_reference are dedicated top-level fields, never sub-keys of metadata."
+    },
+    "input_data": {
+      "description": "Raw user-supplied input payload for this trace (e.g. the prompt). Unconstrained JSON.",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
+    },
+    "output_data": {
+      "description": "Raw model/agent output payload for this trace. Unconstrained JSON.",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
+    },
+    "started_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "correlation_ids": {
+      "$ref": "./correlation_ids_schema.json"
+    },
+    "prompt_reference": {
+      "$ref": "./prompt_reference_schema.json"
+    },
+    "session": {
+      "$ref": "./session_ingest_schema.json"
+    },
+    "observations": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "./observation_ingest_schema.json"
+      }
+    }
+  },
+  "required": [
+    "id",
+    "name"
+  ]
+}

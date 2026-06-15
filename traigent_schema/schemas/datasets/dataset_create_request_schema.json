@@ -14,7 +14,8 @@
     "parent_dataset_id": {
       "type": "string",
       "description": "Optional identifier of the dataset instance this revision was derived from.",
-      "x-identifier": true
+      "x-identifier": true,
+      "maxLength": 128
     },
     "revision": {
       "type": "integer",
@@ -24,15 +25,18 @@
     "name": {
       "type": "string",
       "description": "Technical name of the evaluation set (machine-friendly)",
-      "pattern": "^[a-zA-Z0-9_-]+$"
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "maxLength": 255
     },
     "label": {
       "type": "string",
-      "description": "Human-readable name of the evaluation set"
+      "description": "Human-readable name of the evaluation set",
+      "maxLength": 255
     },
     "description": {
       "type": "string",
-      "description": "Detailed description of the evaluation set's purpose and methodology"
+      "description": "Detailed description of the evaluation set's purpose and methodology",
+      "maxLength": 5000
     },
     "type": {
       "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetType",
@@ -125,22 +129,26 @@
         "tags": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 1000
           },
           "description": "Tags for categorizing and filtering evaluation sets"
         },
         "version": {
           "type": "string",
           "description": "Version of the evaluation set",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "maxLength": 255
         },
         "source": {
           "type": "string",
-          "description": "Source or origin of the evaluation set data"
+          "description": "Source or origin of the evaluation set data",
+          "maxLength": 5000
         },
         "license": {
           "type": "string",
-          "description": "License under which the evaluation set is distributed"
+          "description": "License under which the evaluation set is distributed",
+          "maxLength": 255
         }
       },
       "additionalProperties": true
@@ -160,7 +168,8 @@
     },
     "draft_id": {
       "type": "string",
-      "description": "Optional client draft identifier carried through create/update."
+      "description": "Optional client draft identifier carried through create/update.",
+      "maxLength": 128
     }
   }
 }

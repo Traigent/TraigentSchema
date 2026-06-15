@@ -7,33 +7,43 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": "Unique identifier for the evaluation request"
+      "description": "Unique identifier for the evaluation request",
+      "maxLength": 128
     },
     "configuration_id": {
       "type": "string",
       "description": "Reference to the ID of the configuration to evaluate",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "experiment_run_id": {
       "type": "string",
       "description": "Reference to the ID of the experiment run the configuration belongs to",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "experiment_id": {
       "type": "string",
       "description": "Reference to the ID of the experiment",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "metrics": {
       "type": "array",
       "items": {
         "type": "string",
         "description": "Reference to a metric ID (from measure_schema.json)",
-        "x-reference": true
+        "x-reference": true,
+        "maxLength": 1000
       },
       "description": "List of metric IDs to apply in this evaluation (optional, will use metrics from experiment configuration if not provided)"
     }
   },
-  "required": ["id", "configuration_id", "experiment_run_id", "experiment_id"],
+  "required": [
+    "id",
+    "configuration_id",
+    "experiment_run_id",
+    "experiment_id"
+  ],
   "additionalProperties": false
-} 
+}

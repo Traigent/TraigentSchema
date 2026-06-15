@@ -20,19 +20,23 @@
     },
     "description": {
       "type": "string",
-      "description": "Generation description prompt."
+      "description": "Generation description prompt.",
+      "maxLength": 5000
     },
     "instructions": {
       "type": "string",
-      "description": "Generation instructions."
+      "description": "Generation instructions.",
+      "maxLength": 50000
     },
     "context_source": {
       "type": "string",
-      "description": "Optional context source."
+      "description": "Optional context source.",
+      "maxLength": 5000
     },
     "idempotency_key": {
       "type": "string",
-      "description": "Optional idempotency key (also accepted via the Idempotency-Key header)."
+      "description": "Optional idempotency key (also accepted via the Idempotency-Key header).",
+      "maxLength": 2048
     }
   },
   "required": []

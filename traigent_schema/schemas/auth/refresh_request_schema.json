@@ -8,7 +8,8 @@
   "properties": {
     "refresh_token": {
       "type": "string",
-      "description": "Refresh token. Optional — omitted for cookie-based refresh."
+      "description": "Refresh token. Optional — omitted for cookie-based refresh.",
+      "maxLength": 2048
     }
   },
   "required": []

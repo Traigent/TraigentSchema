@@ -40,10 +40,12 @@
       "minimum": 0
     },
     "retrieval_config_id": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 128
     },
     "reranking_strategy": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 255
     },
     "uploaded_files": {
       "type": "array",

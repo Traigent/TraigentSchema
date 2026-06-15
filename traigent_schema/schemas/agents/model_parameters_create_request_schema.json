@@ -9,7 +9,8 @@
   "properties": {
     "modelId": {
       "type": "string",
-      "description": "LLM model identifier."
+      "description": "LLM model identifier.",
+      "maxLength": 128
     }
   }
 }

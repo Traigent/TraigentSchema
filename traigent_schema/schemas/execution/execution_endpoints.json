@@ -364,7 +364,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./metric_submission_schema.json"
+                "$ref": "./configuration_run_measures_request_schema.json"
               }
             }
           }

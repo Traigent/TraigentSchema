@@ -21,13 +21,33 @@
               "experiment_run"
             ]
           },
-          "target_id": { "type": "string", "minLength": 1 },
-          "assigned_user_id": { "type": ["string", "null"] },
-          "note": { "type": ["string", "null"] }
+          "target_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "assigned_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          }
         },
-        "required": ["target_id"]
+        "required": [
+          "target_id"
+        ]
       }
     }
   },
-  "required": ["items"]
+  "required": [
+    "items"
+  ]
 }

@@ -8,15 +8,18 @@
     "id": {
       "type": "string",
       "description": "Unique identifier for this report request",
-      "x-identifier": true
+      "x-identifier": true,
+      "maxLength": 128
     },
     "name": {
       "type": "string",
-      "description": "Human-readable name for the report"
+      "description": "Human-readable name for the report",
+      "maxLength": 255
     },
     "description": {
       "type": "string",
-      "description": "Detailed description of the report"
+      "description": "Detailed description of the report",
+      "maxLength": 5000
     },
     "report_type": {
       "type": "string",
@@ -39,85 +42,117 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["experiment"],
+                "enum": [
+                  "experiment"
+                ],
                 "description": "Data source type"
               },
               "experiment_id": {
                 "type": "string",
                 "description": "ID of the experiment",
-                "x-reference": true
+                "x-reference": true,
+                "maxLength": 128
               }
             },
-            "required": ["type", "experiment_id"],
+            "required": [
+              "type",
+              "experiment_id"
+            ],
             "additionalProperties": false
           },
           {
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["experiment_run"],
+                "enum": [
+                  "experiment_run"
+                ],
                 "description": "Data source type"
               },
               "experiment_id": {
                 "type": "string",
                 "description": "ID of the experiment",
-                "x-reference": true
+                "x-reference": true,
+                "maxLength": 128
               },
               "run_id": {
                 "type": "string",
                 "description": "ID of the experiment run",
-                "x-reference": true
+                "x-reference": true,
+                "maxLength": 128
               }
             },
-            "required": ["type", "experiment_id", "run_id"],
+            "required": [
+              "type",
+              "experiment_id",
+              "run_id"
+            ],
             "additionalProperties": false
           },
           {
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["comparison"],
+                "enum": [
+                  "comparison"
+                ],
                 "description": "Data source type"
               },
               "comparison_id": {
                 "type": "string",
                 "description": "ID of the comparison",
-                "x-reference": true
+                "x-reference": true,
+                "maxLength": 128
               }
             },
-            "required": ["type", "comparison_id"],
+            "required": [
+              "type",
+              "comparison_id"
+            ],
             "additionalProperties": false
           },
           {
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["evaluation"],
+                "enum": [
+                  "evaluation"
+                ],
                 "description": "Data source type"
               },
               "evaluation_id": {
                 "type": "string",
                 "description": "ID of the evaluation",
-                "x-reference": true
+                "x-reference": true,
+                "maxLength": 128
               }
             },
-            "required": ["type", "evaluation_id"],
+            "required": [
+              "type",
+              "evaluation_id"
+            ],
             "additionalProperties": false
           },
           {
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["visualization"],
+                "enum": [
+                  "visualization"
+                ],
                 "description": "Data source type"
               },
               "visualization_id": {
                 "type": "string",
                 "description": "ID of the visualization",
-                "x-reference": true
+                "x-reference": true,
+                "maxLength": 128
               }
             },
-            "required": ["type", "visualization_id"],
+            "required": [
+              "type",
+              "visualization_id"
+            ],
             "additionalProperties": false
           }
         ],
@@ -132,7 +167,8 @@
         "properties": {
           "title": {
             "type": "string",
-            "description": "Title of the section"
+            "description": "Title of the section",
+            "maxLength": 5000
           },
           "content_type": {
             "type": "string",
@@ -172,7 +208,10 @@
             "additionalProperties": true
           }
         },
-        "required": ["title", "content_type"],
+        "required": [
+          "title",
+          "content_type"
+        ],
         "additionalProperties": false
       },
       "description": "Sections to include in the report"
@@ -182,7 +221,11 @@
       "properties": {
         "primary_format": {
           "type": "string",
-          "enum": ["pdf", "html", "json"],
+          "enum": [
+            "pdf",
+            "html",
+            "json"
+          ],
           "default": "pdf",
           "description": "Primary output format for the report"
         },
@@ -190,7 +233,11 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["pdf", "html", "json"]
+            "enum": [
+              "pdf",
+              "html",
+              "json"
+            ]
           },
           "description": "Additional output formats to generate"
         },
@@ -216,26 +263,31 @@
         },
         "template_id": {
           "type": "string",
-          "description": "ID of a template to use for formatting"
+          "description": "ID of a template to use for formatting",
+          "maxLength": 128
         },
         "branding": {
           "type": "object",
           "properties": {
             "logo_url": {
               "type": "string",
-              "description": "URL to a logo image"
+              "description": "URL to a logo image",
+              "maxLength": 5000
             },
             "primary_color": {
               "type": "string",
-              "description": "Primary color for branding elements (hex code)"
+              "description": "Primary color for branding elements (hex code)",
+              "maxLength": 5000
             },
             "secondary_color": {
               "type": "string",
-              "description": "Secondary color for branding elements (hex code)"
+              "description": "Secondary color for branding elements (hex code)",
+              "maxLength": 5000
             },
             "organization_name": {
               "type": "string",
-              "description": "Organization name to include in the report"
+              "description": "Organization name to include in the report",
+              "maxLength": 255
             }
           },
           "additionalProperties": false,
@@ -252,7 +304,11 @@
     },
     "priority": {
       "type": "string",
-      "enum": ["low", "normal", "high"],
+      "enum": [
+        "low",
+        "normal",
+        "high"
+      ],
       "default": "normal",
       "description": "Priority of the report generation task"
     },
@@ -272,6 +328,11 @@
       "description": "Additional metadata for the report request"
     }
   },
-  "required": ["id", "report_type", "data_sources", "created_at"],
+  "required": [
+    "id",
+    "report_type",
+    "data_sources",
+    "created_at"
+  ],
   "additionalProperties": false
-} 
+}

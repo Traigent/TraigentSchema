@@ -66,7 +66,8 @@
     },
     "metrics": {
       "$ref": "#/definitions/MetricResults",
-      "description": "The metric values being submitted"
+      "description": "The metric values being submitted",
+      "x-timing-metric-vocabulary": "../measures/timing_metric_vocabulary_schema.json"
     },
     "configuration": {
       "$ref": "#/definitions/ConfigurationParameters",

@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/refresh_request_schema.json",
+  "title": "Token Refresh Request",
+  "description": "POST /api/v1/auth/refresh body. The refresh token is read from the body when present, otherwise from the session cookie — so the body is OPTIONAL.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "refresh_token": {
+      "type": "string",
+      "description": "Refresh token. Optional — omitted for cookie-based refresh."
+    }
+  },
+  "required": []
+}

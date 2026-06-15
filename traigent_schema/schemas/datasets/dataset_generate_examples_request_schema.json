@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/dataset_generate_examples_request_schema.json",
+  "title": "Dataset Generate-Examples Request",
+  "description": "POST /api/v1/datasets/{id}/generate-examples body. Mirrors the backend generate_examples validation.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Number of examples to generate."
+    },
+    "k_examples": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Number of seed examples to condition on."
+    },
+    "description": {
+      "type": "string",
+      "description": "Generation description prompt."
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Generation instructions."
+    },
+    "context_source": {
+      "type": "string",
+      "description": "Optional context source."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "Optional idempotency key (also accepted via the Idempotency-Key header)."
+    }
+  },
+  "required": []
+}

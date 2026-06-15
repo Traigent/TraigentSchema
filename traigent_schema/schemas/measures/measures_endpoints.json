@@ -43,7 +43,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./measure_schema.json"
+                "$ref": "./measure_create_request_schema.json"
               }
             }
           }
@@ -60,7 +60,14 @@
         "summary": "Get measure",
         "responses": {
           "200": {
-            "description": "Measure retrieved successfully"
+            "description": "Measure retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./measure_schema.json"
+                }
+              }
+            }
           }
         }
       },

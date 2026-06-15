@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/common_types_schema.json",
+  "title": "Canonical Shared Types",
+  "description": "Canonical definitions for shared logical fields (foreign-key identifiers and timestamps). Reference these instead of re-modeling ids/timestamps ad-hoc per schema, to stop cross-schema drift (#137). ForeignKeyId accepts BOTH server-generated UUID4 ids and SDK-generated trial_<hex> ids (the two real id populations).",
+  "definitions": {
+    "ForeignKeyId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "description": "Canonical foreign-key identifier. NOT format:uuid — accepts UUID4 (server) and trial_<hex>/<optimization_id>_<n> (SDK). A format:uuid constraint on these fields rejects real SDK ids (422)."
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Canonical ISO-8601 / RFC-3339 timestamp."
+    },
+    "NullableTimestamp": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "Canonical nullable timestamp."
+    }
+  }
+}

@@ -14,7 +14,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./comparison_schema.json"
+                "$ref": "./comparison_create_request_schema.json"
               }
             }
           }

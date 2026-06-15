@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/model_parameters_create_request_schema.json",
+  "title": "Model Parameters Create Request",
+  "description": "POST /api/v1/agents/{agent_id}/model-parameters. The backend reads modelId (optional; a placeholder model is created if absent). Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side).",
+  "type": "object",
+  "required": [],
+  "additionalProperties": true,
+  "properties": {
+    "modelId": {
+      "type": "string",
+      "description": "LLM model identifier.",
+      "maxLength": 128
+    }
+  }
+}

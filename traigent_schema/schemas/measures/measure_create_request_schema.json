@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/measures/measure_create_request_schema.json",
+  "title": "Measure Create Request",
+  "description": "POST /api/v1/measures. Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side).",
+  "type": "object",
+  "required": [
+    "label",
+    "measure_type"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "measure_type": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 5000
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "value_type": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "categories": {
+      "type": "array"
+    },
+    "is_custom": {
+      "type": "boolean"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/evaluation/configuration_run_create_request_schema.json",
+  "title": "Configuration Run Create Request",
+  "description": "POST /api/v1/(experiment-runs|configuration-runs)/runs/{experiment_run_id}/configurations. experiment_run_id is a path parameter, not a body field. Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side).",
+  "type": "object",
+  "required": [
+    "experiment_parameters"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "experiment_parameters": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/example_set_create_request_schema.json",
+  "title": "Example Set Create Request",
+  "description": "POST /api/v1/agents/{agent_id}/example-sets. Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side).",
+  "type": "object",
+  "required": [
+    "name",
+    "selection_method"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "selection_method": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Example-set selection method.",
+      "maxLength": 255
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "type": {
+      "type": "string",
+      "description": "Example-set type (default input-output).",
+      "maxLength": 255
+    },
+    "num_examples": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "similarity_threshold": {
+      "type": "number"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    }
+  }
+}

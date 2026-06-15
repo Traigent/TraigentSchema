@@ -14,14 +14,28 @@
         "experiment_run"
       ]
     },
-    "target_id": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "source": { "type": "string" },
+    "target_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source": {
+      "type": "string",
+      "maxLength": 5000
+    },
     "override_judge_config": {
       "oneOf": [
-        { "$ref": "./evaluator_definition_schema.json#/definitions/JudgeConfig" },
-        { "type": "null" }
+        {
+          "$ref": "./evaluator_definition_schema.json#/definitions/JudgeConfig"
+        },
+        {
+          "type": "null"
+        }
       ]
     }
   },
-  "required": ["target_type", "target_id"]
+  "required": [
+    "target_type",
+    "target_id"
+  ]
 }

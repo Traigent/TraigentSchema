@@ -39,7 +39,14 @@
         "summary": "Get dataset",
         "responses": {
           "200": {
-            "description": "Dataset retrieved successfully"
+            "description": "Dataset retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./dataset_detail_response_schema.json"
+                }
+              }
+            }
           }
         }
       },

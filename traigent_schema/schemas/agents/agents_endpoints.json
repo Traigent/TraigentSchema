@@ -49,7 +49,15 @@
         "summary": "Get agent",
         "responses": {
           "200": {
-            "description": "Agent retrieved successfully"
+            "description": "Agent retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_schema.json"
+                }
+              }
+            },
+            "x-wrap-status": "unclassified — agent_routes not in the #136 wrap-map; documents the bare agent resource shape (data only). Reconcile envelope status in the #136 follow-up."
           }
         }
       },

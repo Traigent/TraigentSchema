@@ -39,7 +39,14 @@
         "summary": "Get experiment",
         "responses": {
           "200": {
-            "description": "Experiment retrieved successfully"
+            "description": "Experiment retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -124,7 +131,14 @@
         "summary": "Get experiment run",
         "responses": {
           "200": {
-            "description": "Experiment run retrieved successfully"
+            "description": "Experiment run retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_run_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -269,7 +283,14 @@
         "summary": "Get configuration run",
         "responses": {
           "200": {
-            "description": "Configuration run retrieved successfully"
+            "description": "Configuration run retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/configuration_run_schema.json"
+                }
+              }
+            }
           }
         }
       },

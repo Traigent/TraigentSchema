@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/dataset_create_request_schema.json",
+  "title": "Dataset Create/Update Request",
+  "description": "Request body for POST/PUT /api/v1/datasets. Unlike the dataset RESOURCE schema it omits server-generated fields (id, examples_count, created_at, updated_at) and admits the client-supplied form fields the portal sends (model_parameters, processing_functions, draft_id, generator_config, evaluator_config). additionalProperties:true for forward-compat — the backend reads domain fields and ignores extras.",
+  "type": "object",
+  "required": [
+    "name",
+    "type",
+    "label"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "parent_dataset_id": {
+      "type": "string",
+      "description": "Optional identifier of the dataset instance this revision was derived from.",
+      "x-identifier": true
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional positive revision number for this dataset instance."
+    },
+    "name": {
+      "type": "string",
+      "description": "Technical name of the evaluation set (machine-friendly)",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable name of the evaluation set"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the evaluation set's purpose and methodology"
+    },
+    "type": {
+      "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetType",
+      "description": "Format type of the evaluation set"
+    },
+    "use_case": {
+      "$ref": "./evaluation_set_schema.json#/definitions/UseCase",
+      "description": "Primary use case this evaluation set is designed to evaluate"
+    },
+    "agent_type": {
+      "$ref": "https://schemas.traigent.ai/agents/agent_types_schema.json#/definitions/AgentType",
+      "description": "Type of agent this evaluation set is designed to evaluate"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetFile"
+      },
+      "description": "Files associated with this evaluation set for evaluation"
+    },
+    "generator_config": {
+      "$ref": "https://schemas.traigent.ai/datasets/generator_config_schema.json#",
+      "description": "Configuration for example generation"
+    },
+    "evaluator_config": {
+      "$ref": "https://schemas.traigent.ai/datasets/evaluator_config_schema.json#",
+      "description": "Configuration for example evaluation"
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetExample"
+      },
+      "description": "Examples associated with this evaluation set"
+    },
+    "splits": {
+      "type": "object",
+      "description": "Optional split policy and per-example assignments for this evaluation set. Selection gates candidate acceptance. Test is locked until run finalization.",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "assignments"
+      ],
+      "properties": {
+        "policy": {
+          "type": "object",
+          "description": "Policy used to assign examples to train, selection, and test splits.",
+          "additionalProperties": false,
+          "required": [
+            "strategy",
+            "locked_test"
+          ],
+          "properties": {
+            "strategy": {
+              "type": "string",
+              "enum": [
+                "explicit",
+                "hash"
+              ],
+              "description": "Split assignment strategy."
+            },
+            "seed": {
+              "type": "integer",
+              "description": "Optional deterministic seed for hash-based split assignment."
+            },
+            "locked_test": {
+              "type": "boolean",
+              "description": "Whether the test split is locked. Test is locked until run finalization."
+            }
+          }
+        },
+        "assignments": {
+          "type": "object",
+          "description": "example_id -> split. Selection gates candidate acceptance.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "train",
+              "selection",
+              "test"
+            ]
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the evaluation set",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for categorizing and filtering evaluation sets"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the evaluation set",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source or origin of the evaluation set data"
+        },
+        "license": {
+          "type": "string",
+          "description": "License under which the evaluation set is distributed"
+        }
+      },
+      "additionalProperties": true
+    },
+    "model_parameters": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional default model parameters applied to generated examples (client-supplied; backend tolerant)."
+    },
+    "processing_functions": {
+      "type": [
+        "array",
+        "object",
+        "null"
+      ],
+      "description": "Optional processing-function configuration (client-supplied; backend tolerant)."
+    },
+    "draft_id": {
+      "type": "string",
+      "description": "Optional client draft identifier carried through create/update."
+    }
+  }
+}

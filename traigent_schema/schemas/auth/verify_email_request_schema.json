@@ -2,9 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/auth/verify_email_request_schema.json",
   "title": "Verify Email Request",
-  "description": "POST /api/v1/auth/verify-email body.",
+  "description": "POST /api/v1/auth/verify-email body. additionalProperties:true — the backend reads the documented keys and ignores unknown ones (never 422s on extras).",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "verification_token": {
       "type": "string",

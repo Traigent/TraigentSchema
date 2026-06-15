@@ -13,7 +13,8 @@
           "default": {
             "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
           }
-        }
+        },
+        "x-traigent-body": "none — disables MFA for the authenticated caller; no request body consumed."
       }
     },
     "/api/v1/mfa/backup-codes": {

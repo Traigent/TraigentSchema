@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.6.0] - 2026-06-14
+
 ### Added
 - Two-dimensional optimization metering + differentiated quota enforcement
   contracts (unified quota/wallet cost model, v1):

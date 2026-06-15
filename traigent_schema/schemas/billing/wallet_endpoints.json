@@ -149,7 +149,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./billing_checkout_response_schema.json"
+                  "$ref": "./wallet_top_up_response_schema.json"
                 }
               }
             }

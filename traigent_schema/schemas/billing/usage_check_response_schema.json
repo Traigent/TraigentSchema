@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/billing/usage_check_response_schema.json",
   "title": "Usage Check Response",
-  "description": "GET /api/v1/billing/usage/check — whether an action is permitted under current usage. Uses the billing success envelope {success, message, data} (success_response).",
+  "description": "GET /api/v1/billing/usage/check — whether an action is permitted. Billing success envelope {success, message, data} (success_response).",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -17,25 +17,26 @@
       "additionalProperties": true,
       "properties": {
         "can_use": {
-          "type": "boolean",
-          "description": "Whether the action is permitted."
+          "type": "boolean"
         },
         "reason": {
-          "type": "string",
-          "description": "Reason when not permitted."
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "metric": {
-          "type": "string",
-          "description": "Metric the check applies to."
+          "type": [
+            "string",
+            "null"
+          ]
         }
-      },
-      "required": [
-        "can_use"
-      ]
+      }
     }
   },
   "required": [
     "success",
+    "message",
     "data"
   ]
 }

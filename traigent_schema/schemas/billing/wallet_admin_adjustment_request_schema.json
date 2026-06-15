@@ -13,23 +13,26 @@
     "amount_usd": {
       "type": [
         "number",
+        "string",
         "null"
       ],
-      "description": "Adjustment amount in USD."
+      "description": "Adjustment amount in USD (number or decimal string)."
     },
     "balance_delta_usd": {
       "type": [
         "number",
+        "string",
         "null"
       ],
-      "description": "Direct balance delta in USD."
+      "description": "Direct balance delta in USD (number or decimal string)."
     },
     "debt_writeoff_usd": {
       "type": [
         "number",
+        "string",
         "null"
       ],
-      "description": "Debt write-off amount in USD."
+      "description": "Debt write-off amount in USD (number or decimal string)."
     },
     "write_off_debt": {
       "type": "boolean",

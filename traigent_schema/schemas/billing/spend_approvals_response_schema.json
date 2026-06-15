@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/billing/spend_approvals_response_schema.json",
   "title": "Spend Approvals Response",
-  "description": "GET /api/v1/billing/spend-approvals — pending/historical spend approvals. Uses the billing success envelope {success, message, data} (success_response).",
+  "description": "GET /api/v1/billing/spend-approvals — spend approval records (backend-defined shape). Billing success envelope {success, message, data} (success_response).",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -14,7 +14,6 @@
     },
     "data": {
       "type": "array",
-      "description": "Spend approval records.",
       "items": {
         "type": "object",
         "additionalProperties": true
@@ -23,6 +22,7 @@
   },
   "required": [
     "success",
+    "message",
     "data"
   ]
 }

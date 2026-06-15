@@ -25,9 +25,10 @@
     "requested_estimate_usd": {
       "type": [
         "number",
+        "string",
         "null"
       ],
-      "description": "Estimated spend in USD."
+      "description": "Estimated spend in USD (number or decimal string)."
     }
   },
   "required": [

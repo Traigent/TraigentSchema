@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/billing/spend_policy_response_schema.json",
   "title": "Spend Policy Response",
-  "description": "GET/PATCH /api/v1/billing/spend-policy — the tenant spend policy and hard maxes. Uses the billing success envelope {success, message, data} (success_response).",
+  "description": "GET/PATCH /api/v1/billing/spend-policy — spend policy + hard maxes. Billing success envelope {success, message, data} (success_response).",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -17,11 +17,17 @@
       "additionalProperties": true,
       "properties": {
         "policy": {
-          "type": "object",
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": true
         },
         "hard_maxes": {
-          "type": "object",
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": true
         }
       }
@@ -29,6 +35,7 @@
   },
   "required": [
     "success",
+    "message",
     "data"
   ]
 }

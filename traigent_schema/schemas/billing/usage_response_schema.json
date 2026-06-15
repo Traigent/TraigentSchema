@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.traigent.ai/billing/wallet_response_schema.json",
-  "title": "Wallet Response",
-  "description": "GET /api/v1/billing/wallet — current wallet state. Backend serializes monetary amounts as strings; data is left open pending a confirmed @backend field map. Billing success envelope {success, message, data} (success_response).",
+  "$id": "https://schemas.traigent.ai/billing/usage_response_schema.json",
+  "title": "Usage Response",
+  "description": "GET /api/v1/billing/usage — per-metric usage. Backend returns usage_tracker.get_usage() fields (metric/used/limit/percentage/...); data is left open pending a confirmed @backend field map. Billing success envelope {success, message, data} (success_response).",
   "type": "object",
   "additionalProperties": true,
   "properties": {

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/billing/wallet_ledger_response_schema.json",
   "title": "Wallet Ledger Response",
-  "description": "GET /api/v1/billing/wallet/ledger — wallet ledger entries. Uses the billing success envelope {success, message, data} (success_response).",
+  "description": "GET /api/v1/billing/wallet/ledger — ledger entries (backend-defined row shape). Billing success envelope {success, message, data} (success_response).",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -14,7 +14,6 @@
     },
     "data": {
       "type": "array",
-      "description": "Ledger entries.",
       "items": {
         "type": "object",
         "additionalProperties": true
@@ -23,6 +22,7 @@
   },
   "required": [
     "success",
+    "message",
     "data"
   ]
 }

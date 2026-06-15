@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/billing/usage_history_response_schema.json",
   "title": "Usage History Response",
-  "description": "GET /api/v1/billing/usage/history — daily usage rows. Uses the billing success envelope {success, message, data} (success_response).",
+  "description": "GET /api/v1/billing/usage/history — usage rows. Row fields are backend-defined; data is left open pending a confirmed @backend field map. Billing success envelope {success, message, data} (success_response).",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -14,32 +14,15 @@
     },
     "data": {
       "type": "array",
-      "description": "Daily usage rows.",
       "items": {
         "type": "object",
-        "additionalProperties": true,
-        "properties": {
-          "date": {
-            "type": "string",
-            "description": "Usage date."
-          },
-          "metric": {
-            "type": "string",
-            "description": "Metric name."
-          },
-          "used": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Amount used."
-          }
-        }
+        "additionalProperties": true
       }
     }
   },
   "required": [
     "success",
+    "message",
     "data"
   ]
 }

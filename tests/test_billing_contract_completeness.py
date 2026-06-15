@@ -68,3 +68,32 @@ def test_placeholder_routes_now_reference_response_schemas():
         op = _load(cat)["paths"][path][method]
         ref = op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
         assert ref.endswith("_response_schema.json"), f"{path} 200 -> {ref}"
+
+
+def test_response_data_shapes_are_open_not_falsely_precise():
+    """Service-backed read responses must not over-constrain `data` (would reject real
+    backend bodies). They are enveloped {success,message,data} with open data."""
+    for name in ("wallet_response_schema.json", "usage_response_schema.json",
+                 "wallet_top_up_response_schema.json", "usage_history_response_schema.json"):
+        spec = _load(name)
+        assert spec["required"] == ["success", "message", "data"]
+        data = spec["properties"]["data"]
+        if data.get("type") == "array" or "array" in (data.get("type") or []):
+            assert data["items"].get("additionalProperties") is True
+        else:
+            assert data.get("additionalProperties") is True
+            # no required sub-fields invented
+            assert "required" not in data
+
+
+def test_money_request_fields_accept_string_or_number():
+    v = SchemaValidator(contract="backend")
+    # backend serializes money as strings or numbers — contract must accept both
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "12.50"},
+    ) == []
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": 12.5},
+    ) == []

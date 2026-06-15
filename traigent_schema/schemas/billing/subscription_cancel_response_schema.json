@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/billing/subscription_cancel_response_schema.json",
   "title": "Subscription Cancel Response",
-  "description": "POST /api/v1/billing/subscription/cancel — confirms cancellation and effective date. Uses the billing success envelope {success, message, data} (success_response).",
+  "description": "POST /api/v1/billing/subscription/cancel — cancellation confirmation. Billing success envelope {success, message, data} (success_response).",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -17,22 +17,24 @@
       "additionalProperties": true,
       "properties": {
         "effective_date": {
-          "type": "string",
-          "format": "date-time",
-          "description": "When the cancellation takes effect."
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "When the cancellation takes effect (null if not yet determined)."
         },
         "message": {
-          "type": "string",
-          "description": "Human-readable confirmation."
+          "type": [
+            "string",
+            "null"
+          ]
         }
-      },
-      "required": [
-        "effective_date"
-      ]
+      }
     }
   },
   "required": [
     "success",
+    "message",
     "data"
   ]
 }

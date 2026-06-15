@@ -70,7 +70,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./usage_summary_response_schema.json"
+                  "$ref": "./usage_response_schema.json"
                 }
               }
             }

@@ -110,6 +110,14 @@
       }
     },
     "/api/v1/datasets/{dataset_id}/examples/{example_id}": {
+      "delete": {
+        "summary": "Delete example from a dataset",
+        "responses": {
+          "204": {
+            "description": "Dataset example deleted successfully"
+          }
+        }
+      },
       "put": {
         "summary": "Update a dataset example",
         "requestBody": {

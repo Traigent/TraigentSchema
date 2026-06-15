@@ -58,7 +58,9 @@ def test_missing_dataset_routes_added():
     assert "get" in paths["/api/v1/datasets/{dataset_id}/files"]
     assert "post" in paths["/api/v1/datasets/{dataset_id}/files"]
     assert "delete" in paths["/api/v1/datasets/{dataset_id}/files/{file_id}"]
-    assert "put" in paths["/api/v1/datasets/{dataset_id}/examples/{example_id}"]
+    ex_path = paths["/api/v1/datasets/{dataset_id}/examples/{example_id}"]
+    assert "put" in ex_path
+    assert "delete" in ex_path  # pre-existing DELETE must be preserved
 
 
 def test_generate_examples_request_bounds():

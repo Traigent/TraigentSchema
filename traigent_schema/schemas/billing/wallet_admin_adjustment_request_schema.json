@@ -8,6 +8,7 @@
   "properties": {
     "user_id": {
       "type": "string",
+      "maxLength": 128,
       "description": "Target user/account id."
     },
     "amount_usd": {
@@ -16,6 +17,7 @@
         "string",
         "null"
       ],
+      "maxLength": 64,
       "description": "Adjustment amount in USD (number or decimal string)."
     },
     "balance_delta_usd": {
@@ -24,6 +26,7 @@
         "string",
         "null"
       ],
+      "maxLength": 64,
       "description": "Direct balance delta in USD (number or decimal string)."
     },
     "debt_writeoff_usd": {
@@ -32,6 +35,7 @@
         "string",
         "null"
       ],
+      "maxLength": 64,
       "description": "Debt write-off amount in USD (number or decimal string)."
     },
     "write_off_debt": {
@@ -44,6 +48,7 @@
     },
     "reason": {
       "type": "string",
+      "maxLength": 2000,
       "description": "Human-readable justification (audited)."
     },
     "metadata": {

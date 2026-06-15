@@ -8,6 +8,7 @@
   "properties": {
     "pack_id": {
       "type": "string",
+      "maxLength": 128,
       "description": "Top-up pack identifier (see wallet_top_up_pack_schema)."
     },
     "success_url": {

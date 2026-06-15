@@ -18,8 +18,8 @@
       ]
     },
     "metrics": {
-      "type": "object",
-      "additionalProperties": true
+      "$ref": "../evaluation/configuration_run_schema.json#/definitions/MeasureResults",
+      "description": "Per-measure scores for this trial. Inherits the canonical MeasuresDict contract enforced by the backend at the boundary (max 50 keys, identifier keys, numeric|null values)."
     },
     "config": {
       "type": "object",
@@ -41,13 +41,17 @@
         "strategy_preset": {
           "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
           "description": "Optional advisory strategy preset metadata recorded for this trial result."
+        },
+        "measures": {
+          "$ref": "../evaluation/configuration_run_schema.json#/definitions/MeasureResults",
+          "description": "Legacy location for per-measure scores (backend reads metadata.measures when top-level measures is absent). Same MeasuresDict contract as the top-level measures field."
         }
       },
       "additionalProperties": true
     },
     "measures": {
-      "type": "object",
-      "additionalProperties": true
+      "$ref": "../evaluation/configuration_run_schema.json#/definitions/MeasureResults",
+      "description": "Optional per-measure scores. Strictly validated by the backend (validate_measures_dict, strict=true): max 50 keys, identifier keys (^[a-zA-Z_][a-zA-Z0-9_]*$), numeric|null values."
     }
   },
   "required": ["trial_id", "metrics"]

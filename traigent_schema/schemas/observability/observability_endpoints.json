@@ -987,12 +987,16 @@
                     "maxLength": 255
                   },
                   "status": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "enum": [
                       "pending",
                       "in_progress",
                       "completed",
-                      "skipped"
+                      "skipped",
+                      null
                     ]
                   }
                 },

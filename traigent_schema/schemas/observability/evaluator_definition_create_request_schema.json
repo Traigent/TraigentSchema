@@ -30,6 +30,12 @@
     },
     "target_type": {
       "type": "string",
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run"
+      ],
       "description": "Evaluation target type."
     },
     "judge_config": {

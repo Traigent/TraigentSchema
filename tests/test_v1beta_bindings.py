@@ -44,9 +44,23 @@ def test_evaluator_execute_backfill_are_202():
 def test_evaluator_create_omits_server_managed_fields():
     v = SchemaValidator(contract="backend")
     assert v._endpoint_schemas["POST:/api/v1beta/evaluators"] == "evaluator_definition_create_request_schema"
-    body = {"name": "e", "measure_id": "m", "target_type": "trace", "judge_config": {}}
+    body = {"name": "e", "measure_id": "m", "target_type": "observability_trace", "judge_config": {}}
     assert v.validate_request("/api/v1beta/evaluators", "POST", body) == []
     # server-managed id is forbidden (extra=forbid)
     assert v.validate_request("/api/v1beta/evaluators", "POST", {**body, "id": "x"})
     # missing a required domain field is rejected
     assert v.validate_request("/api/v1beta/evaluators", "POST", {"name": "e"})
+    # target_type is the canonical EvaluationTargetType enum (not any string)
+    assert v.validate_request("/api/v1beta/evaluators", "POST", {**body, "target_type": "not-a-target"})
+
+
+def test_annotation_patch_status_accepts_null_with_another_field():
+    v = SchemaValidator(contract="backend")
+    route = "/api/v1beta/annotation-queues/items/{item_id}"
+    # BE at-least-one is on non-null fields; status:null + a real assigned_user_id is valid
+    assert v.validate_request(route, "PATCH", {"assigned_user_id": "u1", "status": None}) == []
+
+
+def test_evaluator_create_stays_201():
+    cat = _cat("observability/observability_endpoints.json")
+    assert "201" in cat["paths"]["/api/v1beta/evaluators"]["post"]["responses"]

@@ -15,7 +15,8 @@
       "x-equal-to": [
         "../execution/workflow_trace_schema.json#/definitions/SpanBatch/properties/configuration_run_id",
         "../execution/workflow_trace_schema.json#/definitions/SpanPayload/properties/configuration_run_id"
-      ]
+      ],
+      "maxLength": 128
     },
     "metrics": {
       "$ref": "../evaluation/configuration_run_schema.json#/definitions/MeasureResults",
@@ -26,17 +27,36 @@
       "additionalProperties": true,
       "description": "Optional SDK-owned trial configuration. For native-local submissions this may replace metadata.config."
     },
-    "duration": { "type": "number", "minimum": 0 },
-    "execution_time": { "type": "number", "minimum": 0 },
-    "status": { "type": "string", "minLength": 1 },
+    "duration": {
+      "type": "number",
+      "minimum": 0
+    },
+    "execution_time": {
+      "type": "number",
+      "minimum": 0
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
     "outputs_sample": {
       "type": "array",
       "items": {},
       "maxItems": 1000
     },
-    "error_message": { "type": ["string", "null"] },
+    "error_message": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 5000
+    },
     "metadata": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "properties": {
         "strategy_preset": {
           "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
@@ -54,5 +74,8 @@
       "description": "Optional per-measure scores. Strictly validated by the backend (validate_measures_dict, strict=true): max 50 keys, identifier keys (^[a-zA-Z_][a-zA-Z0-9_]*$), numeric|null values."
     }
   },
-  "required": ["trial_id", "metrics"]
+  "required": [
+    "trial_id",
+    "metrics"
+  ]
 }

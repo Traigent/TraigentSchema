@@ -6,12 +6,24 @@
   "version": "0.1.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "selection_mode", "delta", "epsilon"],
+  "required": [
+    "schema_version",
+    "selection_mode",
+    "delta",
+    "epsilon"
+  ],
   "properties": {
-    "schema_version": { "type": "string", "const": "traigent.guaranteed_selection_request.v1" },
+    "schema_version": {
+      "type": "string",
+      "const": "traigent.guaranteed_selection_request.v1",
+      "maxLength": 255
+    },
     "selection_mode": {
       "type": "string",
-      "enum": ["keep_accuracy_reduce_cost", "accuracy_then_cost"]
+      "enum": [
+        "keep_accuracy_reduce_cost",
+        "accuracy_then_cost"
+      ]
     },
     "delta": {
       "type": "number",
@@ -29,10 +41,21 @@
       "type": "object",
       "additionalProperties": false,
       "description": "Optional explicit split; acc + cost must be <= epsilon. Defaults to epsilon/2 each.",
-      "required": ["acc", "cost"],
+      "required": [
+        "acc",
+        "cost"
+      ],
       "properties": {
-        "acc": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
-        "cost": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+        "acc": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "cost": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        }
       }
     },
     "eta": {
@@ -43,7 +66,11 @@
     },
     "eta_kind": {
       "type": "string",
-      "enum": ["relative", "absolute", "max_abs_rel"],
+      "enum": [
+        "relative",
+        "absolute",
+        "max_abs_rel"
+      ],
       "default": "relative"
     },
     "baseline_ref": {
@@ -54,7 +81,10 @@
     },
     "ci_method": {
       "type": "string",
-      "enum": ["empirical_bernstein_fixed", "anytime_valid_confidence_sequence"],
+      "enum": [
+        "empirical_bernstein_fixed",
+        "anytime_valid_confidence_sequence"
+      ],
       "default": "empirical_bernstein_fixed"
     },
     "min_pairs": {
@@ -64,7 +94,10 @@
       "description": "Minimum paired fixed-benchmark tasks required before a candidate can be decided."
     },
     "cost_value_range": {
-      "type": ["number", "null"],
+      "type": [
+        "number",
+        "null"
+      ],
       "exclusiveMinimum": 0,
       "description": "Upper bound on per-example cost (e.g. max_output_tokens * price). Null treats cost as deterministic on the eval workload."
     },
@@ -77,10 +110,20 @@
   "allOf": [
     {
       "if": {
-        "properties": { "selection_mode": { "const": "keep_accuracy_reduce_cost" } },
-        "required": ["selection_mode"]
+        "properties": {
+          "selection_mode": {
+            "const": "keep_accuracy_reduce_cost"
+          }
+        },
+        "required": [
+          "selection_mode"
+        ]
       },
-      "then": { "required": ["baseline_ref"] }
+      "then": {
+        "required": [
+          "baseline_ref"
+        ]
+      }
     }
   ]
 }

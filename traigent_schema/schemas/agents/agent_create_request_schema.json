@@ -68,25 +68,29 @@
     "custom_validations": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       }
     },
     "custom_tools": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       }
     },
     "custom_responses": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       }
     },
     "tags": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       }
     },
     "example_sets": {
@@ -113,7 +117,8 @@
     "measure_ids": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       }
     }
   }

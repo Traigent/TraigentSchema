@@ -103,3 +103,51 @@ def test_sdk_request_validator_accepts_top_level_config_and_rejects_invalid_conf
         "POST",
         _request(config=["not", "object"]),
     )
+
+
+def test_submit_results_measures_inherit_measuresdict_contract():
+    """#119: metrics/measures must inherit the canonical MeasuresDict bounds."""
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    # 51 keys exceeds the canonical max of 50
+    too_many = {f"m{i}": 1 for i in range(51)}
+    assert validator.validate_json(_request(metrics=too_many), SCHEMA)
+    assert validator.validate_json(_request(metrics={"a": 1}, measures=too_many), SCHEMA)
+
+    # non-identifier keys are rejected
+    assert validator.validate_json(_request(measures={"bad-key": 1}), SCHEMA)
+    assert validator.validate_json(_request(metrics={"has space": 1}), SCHEMA)
+
+    # non-numeric values are rejected
+    assert validator.validate_json(_request(measures={"f1": "high"}), SCHEMA)
+    assert validator.validate_json(_request(metrics={"acc": True}), SCHEMA)
+
+    # numeric|null values within 50 identifier keys are accepted
+    assert validator.validate_json(
+        _request(metrics={"accuracy": 0.9}, measures={"f1": 0.8, "loss": None}),
+        SCHEMA,
+    ) == []
+
+
+def test_submit_results_legacy_metadata_measures_is_constrained():
+    """#119: the legacy metadata.measures fallback path inherits the same contract."""
+    validator = SchemaValidator(contract="sdk_tuning")
+    payload = _request()
+    payload["metadata"] = {"measures": {"f1": 0.8}}
+    assert validator.validate_json(payload, SCHEMA) == []
+
+    payload["metadata"] = {"measures": {"bad-key": 1}}
+    assert validator.validate_json(payload, SCHEMA)
+
+
+def test_submit_results_measures_reference_canonical_definition():
+    """#119: the bounds are inherited from the single canonical MeasuresDict, not duplicated."""
+    with open(
+        get_schemas_dir() / "optimization" / "session_submit_results_request_schema.json",
+        encoding="utf-8",
+    ) as fh:
+        spec = json.load(fh)
+    ref = "../evaluation/configuration_run_schema.json#/definitions/MeasureResults"
+    assert spec["properties"]["metrics"]["$ref"] == ref
+    assert spec["properties"]["measures"]["$ref"] == ref
+    assert spec["properties"]["metadata"]["properties"]["measures"]["$ref"] == ref

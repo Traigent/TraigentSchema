@@ -10,7 +10,7 @@
       "minItems": 1,
       "maxItems": 100,
       "items": {
-        "$ref": "./trace_schema.json"
+        "$ref": "./trace_ingest_schema.json"
       }
     },
     "source": {

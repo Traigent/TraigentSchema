@@ -1,0 +1,816 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/observation_ingest_schema.json",
+  "title": "Observation Ingest Schema",
+  "description": "Ingest-side observation payload mirroring the backend ObservationPayload (extra=\"forbid\"): additionalProperties:false, the full 11-value ObservationType enum, and the backend rule that event observations carry no children. `children` nesting is bounded in breadth (maxItems 500) and depth (max 6, finite definition chain) — the SDK flattens observations via parent_observation_id, so deep `children` nesting is not used on the wire. Read responses use observation_schema.json.",
+  "$ref": "#/definitions/Observation_d1",
+  "definitions": {
+    "_ObservationType": {
+      "type": "string",
+      "enum": [
+        "span",
+        "generation",
+        "event",
+        "tool_call",
+        "agent",
+        "chain",
+        "tool",
+        "retriever",
+        "evaluator",
+        "embedding",
+        "guardrail"
+      ],
+      "description": "Observation kind. Full set the backend ObservationType accepts (#122)."
+    },
+    "_InputData": {
+      "description": "Raw user-supplied input payload for this observation (e.g. the prompt sent to the model/tool). Unconstrained JSON.",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
+    },
+    "_OutputData": {
+      "description": "Raw model/tool output payload for this observation. Unconstrained JSON.",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
+    },
+    "_Metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Opaque user-supplied annotations. Do NOT place structured platform data here — correlation_ids and prompt_reference are dedicated top-level fields, never sub-keys of metadata."
+    },
+    "Observation_d1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "$ref": "#/definitions/_ObservationType"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "parent_observation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "tool_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "input_data": {
+          "$ref": "#/definitions/_InputData"
+        },
+        "output_data": {
+          "$ref": "#/definitions/_OutputData"
+        },
+        "metadata": {
+          "$ref": "#/definitions/_Metadata"
+        },
+        "correlation_ids": {
+          "$ref": "./correlation_ids_schema.json"
+        },
+        "prompt_reference": {
+          "$ref": "./prompt_reference_schema.json"
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/definitions/Observation_d2"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "event"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "children": {
+                "maxItems": 0
+              }
+            },
+            "description": "Backend rejects children on event observations (ObservationPayload.validate_observation)."
+          }
+        }
+      ]
+    },
+    "Observation_d2": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "$ref": "#/definitions/_ObservationType"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "parent_observation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "tool_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "input_data": {
+          "$ref": "#/definitions/_InputData"
+        },
+        "output_data": {
+          "$ref": "#/definitions/_OutputData"
+        },
+        "metadata": {
+          "$ref": "#/definitions/_Metadata"
+        },
+        "correlation_ids": {
+          "$ref": "./correlation_ids_schema.json"
+        },
+        "prompt_reference": {
+          "$ref": "./prompt_reference_schema.json"
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/definitions/Observation_d3"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "event"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "children": {
+                "maxItems": 0
+              }
+            },
+            "description": "Backend rejects children on event observations (ObservationPayload.validate_observation)."
+          }
+        }
+      ]
+    },
+    "Observation_d3": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "$ref": "#/definitions/_ObservationType"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "parent_observation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "tool_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "input_data": {
+          "$ref": "#/definitions/_InputData"
+        },
+        "output_data": {
+          "$ref": "#/definitions/_OutputData"
+        },
+        "metadata": {
+          "$ref": "#/definitions/_Metadata"
+        },
+        "correlation_ids": {
+          "$ref": "./correlation_ids_schema.json"
+        },
+        "prompt_reference": {
+          "$ref": "./prompt_reference_schema.json"
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/definitions/Observation_d4"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "event"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "children": {
+                "maxItems": 0
+              }
+            },
+            "description": "Backend rejects children on event observations (ObservationPayload.validate_observation)."
+          }
+        }
+      ]
+    },
+    "Observation_d4": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "$ref": "#/definitions/_ObservationType"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "parent_observation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "tool_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "input_data": {
+          "$ref": "#/definitions/_InputData"
+        },
+        "output_data": {
+          "$ref": "#/definitions/_OutputData"
+        },
+        "metadata": {
+          "$ref": "#/definitions/_Metadata"
+        },
+        "correlation_ids": {
+          "$ref": "./correlation_ids_schema.json"
+        },
+        "prompt_reference": {
+          "$ref": "./prompt_reference_schema.json"
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/definitions/Observation_d5"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "event"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "children": {
+                "maxItems": 0
+              }
+            },
+            "description": "Backend rejects children on event observations (ObservationPayload.validate_observation)."
+          }
+        }
+      ]
+    },
+    "Observation_d5": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "$ref": "#/definitions/_ObservationType"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "parent_observation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "tool_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "input_data": {
+          "$ref": "#/definitions/_InputData"
+        },
+        "output_data": {
+          "$ref": "#/definitions/_OutputData"
+        },
+        "metadata": {
+          "$ref": "#/definitions/_Metadata"
+        },
+        "correlation_ids": {
+          "$ref": "./correlation_ids_schema.json"
+        },
+        "prompt_reference": {
+          "$ref": "./prompt_reference_schema.json"
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/definitions/Observation_d6"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "event"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "children": {
+                "maxItems": 0
+              }
+            },
+            "description": "Backend rejects children on event observations (ObservationPayload.validate_observation)."
+          }
+        }
+      ]
+    },
+    "Observation_d6": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "$ref": "#/definitions/_ObservationType"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "parent_observation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "tool_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "input_data": {
+          "$ref": "#/definitions/_InputData"
+        },
+        "output_data": {
+          "$ref": "#/definitions/_OutputData"
+        },
+        "metadata": {
+          "$ref": "#/definitions/_Metadata"
+        },
+        "correlation_ids": {
+          "$ref": "./correlation_ids_schema.json"
+        },
+        "prompt_reference": {
+          "$ref": "./prompt_reference_schema.json"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name"
+      ]
+    }
+  }
+}

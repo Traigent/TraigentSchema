@@ -53,10 +53,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./agent_response_schema.json"
+                  "$ref": "./agent_schema.json"
                 }
               }
-            }
+            },
+            "x-wrap-status": "unclassified — agent_routes not in the #136 wrap-map; documents the bare agent resource shape (data only). Reconcile envelope status in the #136 follow-up."
           }
         }
       },

@@ -7,7 +7,21 @@
   "additionalProperties": false,
   "x-privacy-classification": "aggregate_safe",
   "properties": {
-    "trials": { "type": "integer", "minimum": -1 },
+    "trials": {
+      "description": "DEPRECATED alias for optimization_trials. Retained for backward compatibility during the migration to the two-dimensional optimization meter; producers SHOULD also emit optimization_trials.",
+      "type": "integer",
+      "minimum": -1
+    },
+    "optimization_trials": {
+      "description": "Max optimization sessions (one trial = one optimization session) per billing period. -1 means unlimited.",
+      "type": "integer",
+      "minimum": -1
+    },
+    "optimization_samples": {
+      "description": "Max evaluated samples (examples) across all optimization sessions per billing period. A new run is admitted only if both optimization_trials and optimization_samples have headroom. -1 means unlimited.",
+      "type": "integer",
+      "minimum": -1
+    },
     "api_calls": { "type": "integer", "minimum": -1 },
     "agents": { "type": "integer", "minimum": -1 },
     "benchmarks": { "type": "integer", "minimum": -1 },

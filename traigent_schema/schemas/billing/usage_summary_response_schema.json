@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/usage_summary_response_schema.json",
+  "title": "Usage Summary Response",
+  "description": "200 response for GET /api/v1/billing/usage-summary. Read-only per-resource usage for the caller's tenant in the active billing period. This endpoint is never blocked by a quota cap. Money/cost state is reported via the separate wallet summary, not here.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "success": { "const": true },
+    "message": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "plan_tier": { "type": "string", "minLength": 1 },
+        "enforcement_mode": {
+          "description": "Tenant-level rollout switch governing whether caps are observed only or enforced.",
+          "type": "string",
+          "enum": ["monitor", "warn", "enforce"]
+        },
+        "period_start": { "type": ["string", "null"], "format": "date-time" },
+        "period_end": { "type": ["string", "null"], "format": "date-time" },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "resource_type": { "type": "string", "minLength": 1 },
+              "used": { "type": "number", "minimum": 0 },
+              "reserved": { "type": "number", "minimum": 0 },
+              "limit": {
+                "description": "-1 means unlimited.",
+                "type": "number",
+                "minimum": -1
+              },
+              "reset_at": { "type": ["string", "null"], "format": "date-time" },
+              "enforcement_behavior": {
+                "type": "string",
+                "enum": ["block", "drop", "sample", "allow"]
+              }
+            },
+            "required": ["resource_type", "used", "reserved", "limit", "enforcement_behavior"]
+          }
+        }
+      },
+      "required": ["plan_tier", "enforcement_mode", "resources"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

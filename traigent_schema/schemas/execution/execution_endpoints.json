@@ -149,12 +149,12 @@
                 "required": [
                   "status"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "status": {
-                    "type": "string"
+                    "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ExperimentRunStatus"
                   }
-                },
-                "additionalProperties": true
+                }
               }
             }
           }
@@ -312,15 +312,18 @@
                 "required": [
                   "status"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "status": {
-                    "type": "string"
+                    "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ConfigurationRunStatus"
                   },
                   "error_message": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
-                },
-                "additionalProperties": true
+                }
               }
             }
           }
@@ -364,12 +367,12 @@
                 "required": [
                   "summary_stats"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "summary_stats": {
-                    "type": "object"
+                    "$ref": "https://schemas.traigent.ai/evaluation/configuration_run_schema.json#/definitions/SummaryStats"
                   }
-                },
-                "additionalProperties": true
+                }
               }
             }
           }

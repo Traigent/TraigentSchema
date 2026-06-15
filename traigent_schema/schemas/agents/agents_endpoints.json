@@ -49,7 +49,14 @@
         "summary": "Get agent",
         "responses": {
           "200": {
-            "description": "Agent retrieved successfully"
+            "description": "Agent retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_response_schema.json"
+                }
+              }
+            }
           }
         }
       },

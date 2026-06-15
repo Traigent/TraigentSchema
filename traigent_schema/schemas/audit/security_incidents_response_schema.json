@@ -24,10 +24,11 @@
     },
     "incidents": {
       "type": "array",
-      "description": "Same incidents as `data`, kept for SOC2/legacy clients.",
+      "description": "Same incidents as `data`, kept for SOC2/legacy clients. DEPRECATED back-compat alias of `data` (same rows). Read `data`; this duplicate will be removed once consumers confirm.",
       "items": {
         "$ref": "#/definitions/SecurityIncident"
-      }
+      },
+      "deprecated": true
     },
     "summary": {
       "$ref": "#/definitions/SecurityIncidentSummary"

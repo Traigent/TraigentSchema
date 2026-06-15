@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_recovery_request_schema.json",
+  "title": "MFA Recovery Request",
+  "description": "POST /api/v1/mfa/recovery body — authenticate with a one-time recovery code.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "recovery_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "One-time MFA recovery code."
+    }
+  },
+  "required": [
+    "recovery_code"
+  ]
+}

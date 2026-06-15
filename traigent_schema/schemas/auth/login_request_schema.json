@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/login_request_schema.json",
+  "title": "Login Request",
+  "description": "POST /api/v1/auth/login credential body. additionalProperties:true — the backend reads email/password/mfa_token and ignores unknown keys.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "email": {
+      "type": "string",
+      "minLength": 1,
+      "format": "email",
+      "maxLength": 320,
+      "description": "Account email."
+    },
+    "password": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "description": "Account password."
+    },
+    "mfa_token": {
+      "type": "string",
+      "description": "MFA challenge token, supplied on the second leg of an MFA-gated login."
+    }
+  },
+  "required": [
+    "email",
+    "password"
+  ]
+}

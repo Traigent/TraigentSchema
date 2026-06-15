@@ -11,7 +11,7 @@
         "summary": "Public JWKS for verifying Traigent-issued JWTs (RFC 7517)",
         "responses": {
           "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
           }
         }
       }
@@ -24,7 +24,9 @@
             "description": "Authenticated user profile. JWT-backed sessions include data.expires_at.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./auth_me_response_schema.json" }
+                "schema": {
+                  "$ref": "./auth_me_response_schema.json"
+                }
               }
             }
           },
@@ -32,7 +34,9 @@
             "description": "Not authenticated.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -40,7 +44,9 @@
             "description": "Authenticated principal could not be resolved to a user.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -48,7 +54,9 @@
             "description": "Profile lookup failed.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           }
@@ -56,9 +64,59 @@
       },
       "put": {
         "summary": "Update the currently authenticated user's profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./update_profile_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Profile updated."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -68,7 +126,7 @@
         "summary": "Authentication-service health and feature flags",
         "responses": {
           "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
           }
         }
       }
@@ -76,9 +134,49 @@
     "/api/v1/auth/forgot-password": {
       "post": {
         "summary": "Initiate password-reset flow (sends reset email)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./forgot_password_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Password-reset email sent if the account exists."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -92,28 +190,40 @@
             "name": "tenant_id",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "Tenant id. Either tenant_id or tenant_slug is required by the backend."
           },
           {
             "name": "tenant_slug",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "Tenant slug. Either tenant_id or tenant_slug is required by the backend."
           },
           {
             "name": "return_to",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "Optional relative return path persisted in OIDC state when it passes backend sanitization."
           },
           {
             "name": "login_hint",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "Optional OIDC login_hint forwarded to the IdP."
           }
         ],
@@ -123,11 +233,17 @@
             "headers": {
               "Location": {
                 "description": "Tenant IdP authorization URL.",
-                "schema": { "type": "string", "format": "uri" }
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
               },
               "Set-Cookie": {
                 "description": "Signed traigent_oidc_state cookie.",
-                "schema": { "type": "string", "minLength": 1 }
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             }
           },
@@ -135,7 +251,9 @@
             "description": "OIDC tenant configuration is invalid.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -143,7 +261,9 @@
             "description": "OIDC SSO is not available for the requested tenant.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -151,7 +271,9 @@
             "description": "Login flow rate-limited.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../rate_limit_info_schema.json" }
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
               }
             }
           }
@@ -167,21 +289,30 @@
             "name": "code",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "OIDC authorization code. Required for non-error callbacks."
           },
           {
             "name": "state",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "Opaque state value matched against the signed OIDC state cookie."
           },
           {
             "name": "error",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "minLength": 1 },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
             "description": "IdP error signal. When present, the backend returns OIDC_PROVIDER_REJECTED."
           }
         ],
@@ -191,12 +322,17 @@
             "headers": {
               "X-Session-Expires-At": {
                 "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
-                "schema": { "type": "string", "format": "date-time" }
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                }
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "./sso_oidc_callback_response_schema.json" }
+                "schema": {
+                  "$ref": "./sso_oidc_callback_response_schema.json"
+                }
               }
             }
           },
@@ -205,15 +341,24 @@
             "headers": {
               "Location": {
                 "description": "Sanitized relative return path.",
-                "schema": { "type": "string", "minLength": 1 }
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
               },
               "X-Session-Expires-At": {
                 "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
-                "schema": { "type": "string", "format": "date-time" }
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                }
               },
               "Set-Cookie": {
                 "description": "Browser auth cookies and cleared OIDC state cookie.",
-                "schema": { "type": "string", "minLength": 1 }
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             }
           },
@@ -221,7 +366,9 @@
             "description": "Missing code, invalid state, invalid session id, or invalid tenant OIDC configuration.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -229,7 +376,9 @@
             "description": "The IdP rejected the login.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -237,7 +386,9 @@
             "description": "OIDC identity is not allowed for the tenant.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -245,7 +396,9 @@
             "description": "OIDC SSO is not available for the tenant from signed state.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -253,7 +406,9 @@
             "description": "OIDC SSO login failed.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -261,7 +416,9 @@
             "description": "OIDC token exchange failed.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           }
@@ -271,18 +428,73 @@
     "/api/v1/auth/login": {
       "post": {
         "summary": "Authenticate with email + password; returns access + refresh tokens",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./login_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Authenticated. Session expiry is exposed via the X-Session-Expires-At header, not the body.",
             "headers": {
               "X-Session-Expires-At": {
                 "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
-                "schema": { "type": "string", "format": "date-time" }
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                }
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "./login_response_schema.json" }
+                "schema": {
+                  "$ref": "./login_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           }
@@ -293,27 +505,83 @@
       "post": {
         "summary": "Invalidate the current session and tokens",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Logged out (session cookies cleared)."
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
-        }
+        },
+        "x-traigent-body": "none — cookie/session based; no request body consumed."
       }
     },
     "/api/v1/auth/refresh": {
       "post": {
         "summary": "Exchange a refresh token for a new access token",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./refresh_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Refreshed. Session expiry is exposed via the X-Session-Expires-At header, not the body.",
             "headers": {
               "X-Session-Expires-At": {
                 "description": "Session expiry as an ISO-8601 UTC timestamp (derived from the JWT exp claim).",
-                "schema": { "type": "string", "format": "date-time" }
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                }
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "./token_refresh_response_schema.json" }
+                "schema": {
+                  "$ref": "./token_refresh_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           }
@@ -329,7 +597,9 @@
             "description": "CSRF token issued (also set as the traigent_csrf_token cookie).",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./csrf_token_response_schema.json" }
+                "schema": {
+                  "$ref": "./csrf_token_response_schema.json"
+                }
               }
             }
           },
@@ -337,7 +607,9 @@
             "description": "Not authenticated.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -345,7 +617,9 @@
             "description": "Insufficient permission.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           }
@@ -360,7 +634,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "./device_authorization_request_schema.json" }
+              "schema": {
+                "$ref": "./device_authorization_request_schema.json"
+              }
             }
           }
         },
@@ -369,7 +645,9 @@
             "description": "Device authorization started.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_authorization_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_authorization_response_schema.json"
+                }
               }
             }
           },
@@ -377,7 +655,9 @@
             "description": "Invalid device authorization request.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -385,7 +665,9 @@
             "description": "Device authorization request rate-limited.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../rate_limit_info_schema.json" }
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
               }
             }
           }
@@ -400,7 +682,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "./device_decision_request_schema.json" }
+              "schema": {
+                "$ref": "./device_decision_request_schema.json"
+              }
             }
           }
         },
@@ -409,7 +693,9 @@
             "description": "Device authorization decision recorded. Response contains only a safe human-facing summary, never the issued API key.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_decision_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_decision_response_schema.json"
+                }
               }
             }
           },
@@ -417,7 +703,9 @@
             "description": "Invalid decision request, including malformed user_code or unsupported decision value.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -425,7 +713,9 @@
             "description": "Not authenticated. A logged-in portal session is required to approve or deny device authorization.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -433,7 +723,9 @@
             "description": "Authenticated portal user is not allowed to decide this device authorization for the resolved project/workspace.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "../error_envelope_schema.json" }
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
               }
             }
           },
@@ -441,7 +733,9 @@
             "description": "No pending device authorization exists for the supplied user_code.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_decision_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_decision_response_schema.json"
+                }
               }
             }
           },
@@ -449,7 +743,9 @@
             "description": "The supplied user_code has already been approved or denied.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_decision_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_decision_response_schema.json"
+                }
               }
             }
           },
@@ -457,7 +753,9 @@
             "description": "The supplied user_code existed but has expired.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_decision_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_decision_response_schema.json"
+                }
               }
             }
           },
@@ -466,12 +764,17 @@
             "headers": {
               "Retry-After": {
                 "description": "Seconds the portal client should wait before retrying.",
-                "schema": { "type": "integer", "minimum": 1 }
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "../rate_limit_info_schema.json" }
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
               }
             }
           }
@@ -486,7 +789,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "./device_token_request_schema.json" }
+              "schema": {
+                "$ref": "./device_token_request_schema.json"
+              }
             }
           }
         },
@@ -495,7 +800,9 @@
             "description": "Device authorization approved; project-scoped API key issued.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_token_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_token_response_schema.json"
+                }
               }
             }
           },
@@ -503,7 +810,9 @@
             "description": "Authorization is pending or the device code has expired.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_token_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_token_response_schema.json"
+                }
               }
             }
           },
@@ -511,7 +820,9 @@
             "description": "The human denied the device authorization.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_token_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_token_response_schema.json"
+                }
               }
             }
           },
@@ -520,12 +831,17 @@
             "headers": {
               "Retry-After": {
                 "description": "Seconds the CLI should wait before polling again.",
-                "schema": { "type": "integer", "minimum": 1 }
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "./device_token_response_schema.json" }
+                "schema": {
+                  "$ref": "./device_token_response_schema.json"
+                }
               }
             }
           }
@@ -535,9 +851,59 @@
     "/api/v1/auth/register": {
       "post": {
         "summary": "Create a new user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./register_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Registration accepted."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (e.g. email already registered).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -545,9 +911,49 @@
     "/api/v1/auth/resend-verification": {
       "post": {
         "summary": "Resend the email-verification message",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./resend_verification_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Verification email re-sent if applicable."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -555,9 +961,59 @@
     "/api/v1/auth/reset-password": {
       "post": {
         "summary": "Complete password reset with a token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./reset_password_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Password reset."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -565,9 +1021,59 @@
     "/api/v1/auth/verify-email": {
       "post": {
         "summary": "Verify an email address via the emailed token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./verify_email_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Email verified."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

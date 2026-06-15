@@ -8,14 +8,17 @@
   "properties": {
     "event_id": {
       "type": "string",
+      "maxLength": 512,
       "description": "Paddle event id."
     },
     "event_type": {
       "type": "string",
+      "maxLength": 256,
       "description": "Paddle event type (e.g. subscription.activated)."
     },
     "alert_name": {
       "type": "string",
+      "maxLength": 256,
       "description": "Legacy Paddle Classic alert name."
     },
     "occurred_at": {

@@ -8,18 +8,22 @@
   "properties": {
     "operation_group_id": {
       "type": "string",
+      "maxLength": 128,
       "description": "Operation group the spend belongs to."
     },
     "operation_type": {
       "type": "string",
+      "maxLength": 64,
       "description": "Type of operation requesting spend."
     },
     "model": {
       "type": "string",
+      "maxLength": 128,
       "description": "Model the spend applies to."
     },
     "pricing_version": {
       "type": "string",
+      "maxLength": 64,
       "description": "Pricing version used for the estimate."
     },
     "requested_estimate_usd": {
@@ -28,6 +32,7 @@
         "string",
         "null"
       ],
+      "maxLength": 64,
       "description": "Estimated spend in USD (number or decimal string)."
     }
   },

@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/wallet_admin_adjustment_request_schema.json",
+  "title": "Wallet Admin Adjustment Request",
+  "description": "POST /api/v1/billing/wallet/admin-adjustments — privileged manual wallet correction. additionalProperties:true (admin payload varies by adjustment kind).",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Target user/account id."
+    },
+    "amount_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Adjustment amount in USD."
+    },
+    "balance_delta_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Direct balance delta in USD."
+    },
+    "debt_writeoff_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Debt write-off amount in USD."
+    },
+    "write_off_debt": {
+      "type": "boolean",
+      "description": "Whether to write off outstanding debt."
+    },
+    "resolve_dispute": {
+      "type": "boolean",
+      "description": "Whether this adjustment resolves a dispute."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Human-readable justification (audited)."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": []
+}

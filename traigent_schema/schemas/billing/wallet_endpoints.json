@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Billing \u2014 Wallet Surface",
+    "title": "Traigent Billing — Wallet Surface",
     "version": "1.0.0",
     "description": "Tenant-wallet routes: balance, ledger, top-ups (Paddle-checkout-backed), admin adjustments. Codex priority audit P5: split out of `billing_extra_endpoints.json`."
   },
@@ -10,8 +10,35 @@
       "get": {
         "summary": "Get the tenant wallet balance and account state",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Current wallet state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./wallet_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -20,8 +47,35 @@
       "get": {
         "summary": "Wallet transaction ledger (debits / credits / adjustments)",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Wallet ledger entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./wallet_ledger_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -29,9 +83,49 @@
     "/api/v1/billing/wallet/admin-adjustments": {
       "post": {
         "summary": "Admin: manually adjust a tenant's wallet balance",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./wallet_admin_adjustment_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Adjustment applied."
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -39,9 +133,56 @@
     "/api/v1/billing/wallet/top-ups": {
       "post": {
         "summary": "Initiate a wallet top-up (creates a Paddle checkout intent)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./wallet_top_up_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Top-up checkout created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./billing_checkout_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment required / quota exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Billing \u2014 Paddle Integration",
+    "title": "Traigent Billing — Paddle Integration",
     "version": "1.0.0",
     "description": "Public-surface Flask routes covering the Paddle integration: subscription-plan catalog (public), customer portal URL, checkout intent, and the inbound webhook. Codex priority audit P5: split out of the temporary `billing_extra_endpoints.json` into semantic groups before TraigentSchema absorption."
   },
@@ -14,7 +14,9 @@
             "description": "Public plan catalog without Paddle price IDs.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./billing_plans_response_schema.json" }
+                "schema": {
+                  "$ref": "./billing_plans_response_schema.json"
+                }
               }
             }
           }
@@ -25,8 +27,35 @@
       "get": {
         "summary": "Return the URL for the Paddle customer portal",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Customer portal URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./billing_portal_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -38,7 +67,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "./billing_checkout_request_schema.json" }
+              "schema": {
+                "$ref": "./billing_checkout_request_schema.json"
+              }
             }
           }
         },
@@ -47,7 +78,9 @@
             "description": "Server-created checkout transaction.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./billing_checkout_response_schema.json" }
+                "schema": {
+                  "$ref": "./billing_checkout_response_schema.json"
+                }
               }
             }
           }
@@ -57,9 +90,39 @@
     "/api/v1/billing/webhook": {
       "post": {
         "summary": "Public webhook: Paddle billing-event callback (signature verified)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./paddle_webhook_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Webhook processed (acknowledged)."
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

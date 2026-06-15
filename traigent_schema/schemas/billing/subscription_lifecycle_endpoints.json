@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Billing \u2014 Subscription Lifecycle (Flask handlers)",
+    "title": "Traigent Billing — Subscription Lifecycle (Flask handlers)",
     "version": "1.0.0",
-    "description": "Subscription read + cancel + usage statistics. Complements TraigentSchema/billing/billing_endpoints.json which covers the subscription/* resource family (catalog, current, usage-periods, usage-buckets, spend-alerts, entitlements). This file documents the Flask handlers that don't fit cleanly under those resource paths. Codex priority audit P5: split out of `billing_extra_endpoints.json`."
+    "description": "Subscription read + cancel + usage statistics. Subscription read + cancel + usage statistics for the Flask billing handlers."
   },
   "paths": {
     "/api/v1/billing/subscription": {
@@ -14,7 +14,9 @@
             "description": "Current subscription details or a no-subscription marker.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./subscription_response_schema.json" }
+                "schema": {
+                  "$ref": "./subscription_response_schema.json"
+                }
               }
             }
           }
@@ -24,9 +26,37 @@
     "/api/v1/billing/subscription/cancel": {
       "post": {
         "summary": "Cancel the current subscription (effective at period end)",
+        "x-traigent-body": "none — cancels the caller's active subscription; no request body consumed.",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Cancellation scheduled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./subscription_cancel_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -35,8 +65,35 @@
       "get": {
         "summary": "Current-period usage statistics",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Per-metric usage summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./usage_summary_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -45,8 +102,35 @@
       "get": {
         "summary": "Check whether the user can perform a budget-gated action",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Whether an action is permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./usage_check_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -59,7 +143,9 @@
             "description": "Billing enforcement controls retrieved successfully.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "./billing_enforcement_controls_response_schema.json" }
+                "schema": {
+                  "$ref": "./billing_enforcement_controls_response_schema.json"
+                }
               }
             }
           }
@@ -70,8 +156,35 @@
       "get": {
         "summary": "Usage history over the last N days",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Daily usage rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./usage_history_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

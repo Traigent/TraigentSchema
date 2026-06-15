@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/wallet_response_schema.json",
+  "title": "Wallet Response",
+  "description": "GET /api/v1/billing/wallet — current wallet balance/state. data fields are documented loosely (open object) pending a full @backend field map. Uses the billing success envelope {success, message, data} (success_response).",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "message": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "balance_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Current wallet balance in USD."
+        },
+        "currency": {
+          "type": "string",
+          "description": "Wallet currency."
+        }
+      }
+    }
+  },
+  "required": [
+    "success",
+    "data"
+  ]
+}

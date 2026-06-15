@@ -6,7 +6,10 @@
   "version": "1.0.0",
   "definitions": {
     "MetricValue": {
-      "type": ["number", "null"],
+      "type": [
+        "number",
+        "null"
+      ],
       "description": "A metric value - must be numeric or null. String/boolean values should be placed in metadata instead."
     },
     "MetricResults": {
@@ -22,7 +25,13 @@
     },
     "SubmissionStatus": {
       "type": "string",
-      "enum": ["pending", "submitted", "acknowledged", "failed", "retrying"],
+      "enum": [
+        "pending",
+        "submitted",
+        "acknowledged",
+        "failed",
+        "retrying"
+      ],
       "description": "Status of the metric submission:\n- pending: Metric queued for submission\n- submitted: Sent to backend\n- acknowledged: Backend confirmed receipt\n- failed: Submission failed\n- retrying: Automatic retry in progress"
     },
     "ConfigurationParameters": {
@@ -46,14 +55,12 @@
       "x-reference": "./hybrid_session_schema.json#/properties/session_id"
     },
     "configuration_run_id": {
-      "type": "string",
-      "format": "uuid",
+      "$ref": "../common_types_schema.json#/definitions/ForeignKeyId",
       "description": "Reference to the configuration run these metrics belong to",
       "x-reference": "../evaluation/configuration_run_schema.json#/properties/id"
     },
     "experiment_run_id": {
-      "type": "string",
-      "format": "uuid",
+      "$ref": "../common_types_schema.json#/definitions/ForeignKeyId",
       "description": "Reference to the parent experiment run",
       "x-reference": "../evaluation/experiment_run_schema.json#/properties/id"
     },
@@ -75,12 +82,18 @@
       "description": "ISO 8601 timestamp of when metrics were generated"
     },
     "submitted_at": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time",
       "description": "ISO 8601 timestamp of when submission was sent"
     },
     "acknowledged_at": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time",
       "description": "ISO 8601 timestamp of backend acknowledgment"
     },
@@ -91,7 +104,10 @@
       "description": "Number of retry attempts for this submission"
     },
     "error_message": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Error message if submission failed"
     },
     "metadata": {

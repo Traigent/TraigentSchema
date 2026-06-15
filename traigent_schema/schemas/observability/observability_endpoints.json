@@ -227,10 +227,18 @@
                         "type": "array",
                         "items": {}
                       },
-                      { "type": "string" },
-                      { "type": "number" },
-                      { "type": "boolean" },
-                      { "type": "null" }
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "corrected_expected_output": {
@@ -244,17 +252,30 @@
                         "type": "array",
                         "items": {}
                       },
-                      { "type": "string" },
-                      { "type": "number" },
-                      { "type": "boolean" },
-                      { "type": "null" }
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   }
                 },
                 "not": {
-                  "required": ["expected_output", "corrected_expected_output"]
+                  "required": [
+                    "expected_output",
+                    "corrected_expected_output"
+                  ]
                 },
-                "required": ["evaluation_dataset_id"]
+                "required": [
+                  "evaluation_dataset_id"
+                ]
               }
             }
           }
@@ -268,7 +289,9 @@
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
-                    "evaluation_dataset_id": { "type": "string" },
+                    "evaluation_dataset_id": {
+                      "type": "string"
+                    },
                     "source_trace_id": {
                       "type": "string",
                       "description": "Stored trace used as the lineage source for the candidate. This top-level field is the canonical client convenience field; metadata and lineage mirror it for persisted example metadata and audit consumers."
@@ -280,31 +303,51 @@
                     "expected_output": {
                       "description": "Expected output proposed from the stored trace or operator override, serialized as text for persistence on evaluation dataset examples.",
                       "oneOf": [
-                        { "type": "string" },
-                        { "type": "null" }
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
                     "metadata": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
-                        "source_trace_id": { "type": "string" }
+                        "source_trace_id": {
+                          "type": "string"
+                        }
                       },
-                      "required": ["source_trace_id"]
+                      "required": [
+                        "source_trace_id"
+                      ]
                     },
                     "lineage": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
-                        "source_trace_id": { "type": "string" }
+                        "source_trace_id": {
+                          "type": "string"
+                        }
                       },
-                      "required": ["source_trace_id"]
+                      "required": [
+                        "source_trace_id"
+                      ]
                     },
                     "recommended_evaluator_plan": {
                       "$ref": "./evaluation_dataset_evaluator_plan_schema.json"
                     }
                   },
-                  "required": ["evaluation_dataset_id", "source_trace_id", "input_text", "expected_output", "metadata", "lineage", "recommended_evaluator_plan"]
+                  "required": [
+                    "evaluation_dataset_id",
+                    "source_trace_id",
+                    "input_text",
+                    "expected_output",
+                    "metadata",
+                    "lineage",
+                    "recommended_evaluator_plan"
+                  ]
                 }
               }
             }
@@ -343,10 +386,18 @@
                         "type": "array",
                         "items": {}
                       },
-                      { "type": "string" },
-                      { "type": "number" },
-                      { "type": "boolean" },
-                      { "type": "null" }
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "corrected_expected_output": {
@@ -360,17 +411,30 @@
                         "type": "array",
                         "items": {}
                       },
-                      { "type": "string" },
-                      { "type": "number" },
-                      { "type": "boolean" },
-                      { "type": "null" }
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   }
                 },
                 "not": {
-                  "required": ["expected_output", "corrected_expected_output"]
+                  "required": [
+                    "expected_output",
+                    "corrected_expected_output"
+                  ]
                 },
-                "required": ["source_trace_id"]
+                "required": [
+                  "source_trace_id"
+                ]
               }
             }
           }
@@ -384,8 +448,12 @@
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
-                    "evaluation_dataset_id": { "type": "string" },
-                    "example_id": { "type": "string" },
+                    "evaluation_dataset_id": {
+                      "type": "string"
+                    },
+                    "example_id": {
+                      "type": "string"
+                    },
                     "source_trace_id": {
                       "type": "string",
                       "description": "Stored trace retained as lineage for the created example. This top-level field is the canonical client convenience field; metadata and lineage mirror it for persisted example metadata and audit consumers."
@@ -396,31 +464,52 @@
                     "expected_output": {
                       "description": "Expected output persisted on the evaluation dataset example after applying any correction, serialized as text.",
                       "oneOf": [
-                        { "type": "string" },
-                        { "type": "null" }
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
                     "metadata": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
-                        "source_trace_id": { "type": "string" }
+                        "source_trace_id": {
+                          "type": "string"
+                        }
                       },
-                      "required": ["source_trace_id"]
+                      "required": [
+                        "source_trace_id"
+                      ]
                     },
                     "lineage": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
-                        "source_trace_id": { "type": "string" }
+                        "source_trace_id": {
+                          "type": "string"
+                        }
                       },
-                      "required": ["source_trace_id"]
+                      "required": [
+                        "source_trace_id"
+                      ]
                     },
                     "recommended_evaluator_plan": {
                       "$ref": "./evaluation_dataset_evaluator_plan_schema.json"
                     }
                   },
-                  "required": ["evaluation_dataset_id", "example_id", "source_trace_id", "input_text", "expected_output", "metadata", "lineage", "recommended_evaluator_plan"]
+                  "required": [
+                    "evaluation_dataset_id",
+                    "example_id",
+                    "source_trace_id",
+                    "input_text",
+                    "expected_output",
+                    "metadata",
+                    "lineage",
+                    "recommended_evaluator_plan"
+                  ]
                 }
               }
             }
@@ -465,21 +554,35 @@
                   "type": "object",
                   "additionalProperties": true,
                   "properties": {
-                    "accepted": { "type": "integer", "minimum": 0 },
+                    "accepted": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
                     "score_ids": {
                       "type": "array",
-                      "items": { "type": "string" }
+                      "items": {
+                        "type": "string"
+                      }
                     },
                     "scores": {
                       "type": "array",
-                      "items": { "$ref": "./review_score_schema.json" }
+                      "items": {
+                        "$ref": "./review_score_schema.json"
+                      }
                     },
                     "errors": {
                       "type": "array",
-                      "items": { "type": "string" }
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
-                  "required": ["accepted", "score_ids", "scores", "errors"]
+                  "required": [
+                    "accepted",
+                    "score_ids",
+                    "scores",
+                    "errors"
+                  ]
                 }
               }
             }
@@ -527,7 +630,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./evaluator_definition_schema.json"
+                "$ref": "./evaluator_definition_create_request_schema.json"
               }
             }
           }
@@ -602,7 +705,7 @@
           }
         },
         "responses": {
-          "201": {
+          "202": {
             "description": "Evaluator run completed successfully",
             "content": {
               "application/json": {
@@ -628,16 +731,20 @@
                 "properties": {
                   "target_ids": {
                     "type": "array",
-                    "items": { "type": "string" }
+                    "items": {
+                      "type": "string"
+                    }
                   },
-                  "force": { "type": "boolean" }
+                  "force": {
+                    "type": "boolean"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "201": {
+          "202": {
             "description": "Evaluator backfill completed successfully",
             "content": {
               "application/json": {
@@ -847,8 +954,12 @@
               "application/json": {
                 "schema": {
                   "oneOf": [
-                    { "$ref": "./annotation_queue_item_schema.json" },
-                    { "type": "null" }
+                    {
+                      "$ref": "./annotation_queue_item_schema.json"
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 }
               }
@@ -866,15 +977,42 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "additionalProperties": true,
+                "additionalProperties": false,
                 "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": ["pending", "in_progress", "completed", "skipped"]
+                  "assigned_user_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 255
                   },
-                  "assigned_user_id": { "type": ["string", "null"] },
-                  "note": { "type": ["string", "null"] }
-                }
+                  "status": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "pending",
+                      "in_progress",
+                      "completed",
+                      "skipped",
+                      null
+                    ]
+                  }
+                },
+                "anyOf": [
+                  {
+                    "required": [
+                      "assigned_user_id"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "status"
+                    ]
+                  }
+                ],
+                "description": "At least one of assigned_user_id / status must be provided (backend AnnotationQueueItemUpdateRequest, extra=forbid). `note` is NOT accepted here."
               }
             }
           }
@@ -910,7 +1048,12 @@
                       "$ref": "./review_score_create_request_schema.json#/definitions/ScoreInput"
                     }
                   },
-                  "note": { "type": ["string", "null"] }
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
                 }
               }
             }

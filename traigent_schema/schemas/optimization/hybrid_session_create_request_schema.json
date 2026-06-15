@@ -19,7 +19,8 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "maxLength": 255
         },
         "temperature": {
           "type": [
@@ -79,7 +80,8 @@
       "properties": {
         "metric": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 255
         },
         "direction": {
           "type": "string",
@@ -160,7 +162,8 @@
       "minItems": 1,
       "items": {
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "maxLength": 1000
       }
     }
   },

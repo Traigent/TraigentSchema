@@ -18,7 +18,8 @@
     "selection_method": {
       "type": "string",
       "minLength": 1,
-      "description": "Example-set selection method."
+      "description": "Example-set selection method.",
+      "maxLength": 255
     },
     "description": {
       "type": "string",
@@ -26,7 +27,8 @@
     },
     "type": {
       "type": "string",
-      "description": "Example-set type (default input-output)."
+      "description": "Example-set type (default input-output).",
+      "maxLength": 255
     },
     "num_examples": {
       "type": "integer",
@@ -38,7 +40,8 @@
     "tags": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       }
     }
   }

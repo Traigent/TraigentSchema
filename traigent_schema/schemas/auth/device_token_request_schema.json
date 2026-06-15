@@ -10,7 +10,8 @@
     "grant_type": {
       "type": "string",
       "const": "urn:ietf:params:oauth:grant-type:device_code",
-      "description": "RFC 8628 device-code grant type."
+      "description": "RFC 8628 device-code grant type.",
+      "maxLength": 255
     },
     "device_code": {
       "type": "string",
@@ -27,5 +28,9 @@
       "description": "Public client id that started the device authorization request."
     }
   },
-  "required": ["grant_type", "device_code", "client_id"]
+  "required": [
+    "grant_type",
+    "device_code",
+    "client_id"
+  ]
 }

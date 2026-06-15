@@ -21,7 +21,8 @@
       "type": [
         "string",
         "null"
-      ]
+      ],
+      "maxLength": 5000
     },
     "measure_id": {
       "type": "string",

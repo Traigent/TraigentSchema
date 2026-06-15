@@ -17,7 +17,8 @@
       "items": {
         "type": "string",
         "minLength": 1,
-        "description": "A run id."
+        "description": "A run id.",
+        "maxLength": 1000
       },
       "description": "2-10 unique run ids to compare."
     }

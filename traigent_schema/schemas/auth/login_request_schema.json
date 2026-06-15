@@ -21,7 +21,8 @@
     },
     "mfa_token": {
       "type": "string",
-      "description": "MFA challenge token, supplied on the second leg of an MFA-gated login."
+      "description": "MFA challenge token, supplied on the second leg of an MFA-gated login.",
+      "maxLength": 2048
     }
   },
   "required": [

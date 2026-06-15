@@ -18,7 +18,8 @@
         "infrastructure_id": {
           "type": "string",
           "description": "Unique identifier for the infrastructure configuration",
-          "x-identifier": true
+          "x-identifier": true,
+          "maxLength": 128
         },
         "compute": {
           "type": "string",
@@ -31,7 +32,8 @@
         "memory": {
           "type": "string",
           "description": "Memory allocation for the experiment (e.g., '8GB', '16GB')",
-          "pattern": "^\\d+GB$"
+          "pattern": "^\\d+GB$",
+          "maxLength": 255
         },
         "timeout": {
           "type": "integer",
@@ -85,15 +87,18 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the latest experiment run"
+          "description": "Unique identifier for the latest experiment run",
+          "maxLength": 128
         },
         "run_id": {
           "type": "string",
-          "description": "Compatibility alias for the latest experiment run identifier"
+          "description": "Compatibility alias for the latest experiment run identifier",
+          "maxLength": 128
         },
         "experiment_id": {
           "type": "string",
-          "description": "Reference to the parent experiment"
+          "description": "Reference to the parent experiment",
+          "maxLength": 128
         },
         "status": {
           "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ExperimentRunStatus",
@@ -181,16 +186,19 @@
     "id": {
       "type": "string",
       "description": "Unique identifier for this experiment instance",
-      "x-identifier": true
+      "x-identifier": true,
+      "maxLength": 128
     },
     "name": {
       "type": "string",
       "description": "Name of the experiment for identification",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 255
     },
     "description": {
       "type": "string",
-      "description": "Detailed description of the experiment's purpose and methodology"
+      "description": "Detailed description of the experiment's purpose and methodology",
+      "maxLength": 5000
     },
     "configurations": {
       "$ref": "#/definitions/Configurations",
@@ -203,32 +211,38 @@
     "dataset_id": {
       "type": "string",
       "description": "Canonical public identifier for the evaluation dataset being evaluated",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "eval_dataset_id": {
       "type": "string",
       "description": "Legacy alias for the evaluation dataset identifier",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "evaluation_set_id": {
       "type": "string",
       "description": "Legacy alias for the evaluation dataset identifier",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "benchmark_id": {
       "type": "string",
       "description": "Compatibility alias for the evaluation dataset identifier",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "agent_id": {
       "type": "string",
       "description": "Reference to the agent performing the evaluation",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "model_parameters_id": {
       "type": "string",
       "description": "Reference to the model parameters configuration",
-      "x-reference": true
+      "x-reference": true,
+      "maxLength": 128
     },
     "created_at": {
       "type": "string",
@@ -339,14 +353,16 @@
         "tags": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 1000
           },
           "description": "Tags for categorizing and filtering experiments"
         },
         "version": {
           "type": "string",
           "description": "Version of the experiment configuration",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "maxLength": 255
         },
         "priority": {
           "type": "integer",
@@ -356,7 +372,8 @@
         },
         "notes": {
           "type": "string",
-          "description": "Additional notes about the experiment"
+          "description": "Additional notes about the experiment",
+          "maxLength": 5000
         }
       },
       "additionalProperties": true

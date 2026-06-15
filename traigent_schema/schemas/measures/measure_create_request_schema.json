@@ -12,19 +12,24 @@
   "properties": {
     "label": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 255
     },
     "measure_type": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 255
     },
     "description": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 5000
     },
     "category": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 255
     },
     "value_type": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 255
     },
     "categories": {
       "type": "array"

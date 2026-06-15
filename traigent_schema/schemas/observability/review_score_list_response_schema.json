@@ -7,16 +7,30 @@
   "properties": {
     "items": {
       "type": "array",
-      "items": { "$ref": "./review_score_schema.json" }
+      "items": {
+        "$ref": "./review_score_schema.json"
+      }
     },
     "scores": {
       "type": "array",
-      "items": { "$ref": "./review_score_schema.json" }
+      "items": {
+        "$ref": "./review_score_schema.json"
+      },
+      "deprecated": true,
+      "description": "DEPRECATED back-compat alias of `items` (same rows). Read `items`; this duplicate will be removed once consumers confirm."
     },
     "pagination": {
       "$ref": "../pagination_schema.json"
     },
-    "total": { "type": "integer", "minimum": 0 }
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    }
   },
-  "required": ["items", "scores", "pagination", "total"]
+  "required": [
+    "items",
+    "scores",
+    "pagination",
+    "total"
+  ]
 }

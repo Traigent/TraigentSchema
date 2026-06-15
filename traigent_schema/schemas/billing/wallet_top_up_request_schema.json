@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/wallet_top_up_request_schema.json",
+  "title": "Wallet Top-Up Request",
+  "description": "POST /api/v1/billing/wallet/top-ups — start a wallet top-up checkout for a named pack.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "pack_id": {
+      "type": "string",
+      "description": "Top-up pack identifier (see wallet_top_up_pack_schema)."
+    },
+    "success_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional post-checkout redirect URL."
+    }
+  },
+  "required": [
+    "pack_id"
+  ]
+}

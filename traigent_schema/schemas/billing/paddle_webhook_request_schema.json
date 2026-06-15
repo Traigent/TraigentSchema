@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/paddle_webhook_request_schema.json",
+  "title": "Paddle Webhook Request",
+  "description": "POST /api/v1/billing/webhook — Paddle event envelope (the only unauthenticated state-mutating billing route). additionalProperties:true: Paddle's event shape varies by event type and signature is verified server-side; the contract documents the common envelope without constraining the provider payload.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Paddle event id."
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Paddle event type (e.g. subscription.activated)."
+    },
+    "alert_name": {
+      "type": "string",
+      "description": "Legacy Paddle Classic alert name."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event timestamp."
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Provider event payload."
+    }
+  },
+  "required": []
+}

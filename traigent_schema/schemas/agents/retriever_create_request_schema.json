@@ -1,127 +1,56 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agents/retriever_create_request_schema.json",
-  "title": "Retriever Schema Create Request",
-  "description": "Create request for the Retriever Schema resource. Omits server-generated fields (id) from `required` — the backend generates ids/timestamps server-side and ignores a client-supplied value. additionalProperties:true so a client MAY still send a server field without rejection.",
+  "title": "Retrieval Config Create Request",
+  "description": "POST /api/v1/agents/{agent_id}/retrieval-configs. Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side).",
   "type": "object",
   "required": [
-    "type",
-    "config"
+    "name",
+    "vector_store",
+    "k",
+    "retrieval_k",
+    "chunk_size",
+    "overlap"
   ],
   "additionalProperties": true,
-  "definitions": {
-    "RetrieverType": {
-      "type": "string",
-      "enum": [
-        "vector",
-        "keyword",
-        "hybrid",
-        "semantic",
-        "fuzzy"
-      ],
-      "description": "Types of retrieval methods available:\n- vector: Vector-based similarity search\n- keyword: Traditional keyword matching\n- hybrid: Combination of multiple methods\n- semantic: Meaning-based retrieval\n- fuzzy: Approximate string matching"
-    },
-    "RetrieverConfig": {
-      "type": "object",
-      "description": "Configuration settings for the retriever",
-      "properties": {
-        "collection_name": {
-          "type": "string",
-          "description": "Identifier of the collection or index to search within"
-        },
-        "top_k": {
-          "type": "integer",
-          "description": "Number of top results to retrieve",
-          "minimum": 1,
-          "default": 5
-        },
-        "similarity_threshold": {
-          "type": "number",
-          "description": "Minimum similarity score for inclusion in results",
-          "minimum": 0,
-          "maximum": 1,
-          "default": 0.7
-        },
-        "search_params": {
-          "type": "object",
-          "description": "Additional search parameters specific to the retriever type",
-          "additionalProperties": true
-        }
-      },
-      "required": [
-        "collection_name",
-        "top_k"
-      ],
-      "additionalProperties": false
-    }
-  },
   "properties": {
-    "id": {
-      "type": "string",
-      "description": "Unique identifier for the retriever instance",
-      "x-identifier": true
-    },
-    "type": {
-      "$ref": "#/definitions/RetrieverType",
-      "description": "Type of retrieval method to use"
-    },
-    "config": {
-      "$ref": "#/definitions/RetrieverConfig",
-      "description": "Detailed configuration settings for the retriever"
-    },
     "name": {
       "type": "string",
-      "description": "Human-readable name for the retriever configuration"
+      "minLength": 1,
+      "maxLength": 255
     },
-    "description": {
-      "type": "string",
-      "description": "Detailed explanation of the retriever's purpose and behavior"
-    },
-    "files": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "description": "Path to an individual file for retrieval"
-      },
-      "description": "Collection of file paths to search within",
-      "minItems": 1
-    },
-    "metadata": {
+    "vector_store": {
       "type": "object",
-      "description": "Additional metadata for the retriever configuration",
-      "properties": {
-        "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Tags for categorizing and filtering retrievers"
-        },
-        "version_info": {
-          "type": "object",
-          "properties": {
-            "index_version": {
-              "type": "string",
-              "description": "Version of the index being used"
-            },
-            "model_version": {
-              "type": "string",
-              "description": "Version of any underlying models"
-            }
-          }
-        }
-      },
       "additionalProperties": true
     },
-    "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "ISO 8601 timestamp of when the retriever was created"
+    "k": {
+      "type": "integer",
+      "minimum": 0
     },
-    "updated_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "ISO 8601 timestamp of the last modification to the retriever"
+    "retrieval_k": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "chunk_size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "overlap": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retrieval_config_id": {
+      "type": "string"
+    },
+    "reranking_strategy": {
+      "type": "string"
+    },
+    "uploaded_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
     }
   }
 }

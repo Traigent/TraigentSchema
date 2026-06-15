@@ -1,6 +1,9 @@
-"""#123: POST create ops bound the full resource schema (requiring server-generated
-id/created_at). Create-request schemas omit those from `required`."""
+"""#123: POST create ops reused full resource schemas (requiring server-generated id).
+Create-request schemas now model the actual backend create DTOs (correct required
+fields, additionalProperties:true, no server-generated id)."""
 import json
+
+import pytest
 
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
@@ -18,14 +21,27 @@ CREATE_REQUESTS = [
     "results/comparison_create_request_schema.json",
 ]
 
-POST_BINDINGS = {
-    "POST:/api/v1/agents": "agent_create_request_schema",
-    "POST:/api/v1/agents/import": "agent_create_request_schema",
-    "POST:/api/v1/experiments": "experiment_create_request_schema",
-    "POST:/api/v1/measures": "measure_create_request_schema",
-    "POST:/api/v1/optimization-comparisons": "comparison_create_request_schema",
-    "POST:/api/v1/experiment-runs/runs/{experiment_run_id}/configurations": "configuration_run_create_request_schema",
-}
+# (path, valid backend body, invalid backend body) — required fields mirror the BE create DTOs.
+CASES = [
+    ("/api/v1/agents", {"name": "a", "agent_type_id": "qa"}, {"name": "a"}),
+    ("/api/v1/agents/import", {"name": "a", "agent_type_id": "qa"}, {"agent_type_id": "qa"}),
+    ("/api/v1/agents/{agent_id}/example-sets",
+     {"name": "s", "selection_method": "all"}, {"name": "s"}),
+    ("/api/v1/agents/{agent_id}/retrieval-configs",
+     {"name": "r", "vector_store": {}, "k": 1, "retrieval_k": 1, "chunk_size": 100, "overlap": 0},
+     {"name": "r", "vector_store": {}}),
+    ("/api/v1/agents/{agent_id}/model-parameters", {}, None),
+    ("/api/v1/experiments",
+     {"name": "e", "dataset_id": "d", "agent_id": "a"}, {"name": "e"}),
+    ("/api/v1/experiment-runs/runs/{experiment_run_id}/configurations",
+     {"experiment_parameters": {}}, {}),
+    ("/api/v1/configuration-runs/runs/{experiment_run_id}/configurations",
+     {"experiment_parameters": {}}, {}),
+    ("/api/v1/measures",
+     {"label": "L", "measure_type": "numeric"}, {"label": "L"}),
+    ("/api/v1/optimization-comparisons",
+     {"run_ids": ["r1", "r2"]}, {"run_ids": ["r1"]}),
+]
 
 
 def _load(rel):
@@ -33,30 +49,24 @@ def _load(rel):
         return json.load(fh)
 
 
-def test_create_requests_omit_server_generated_required_fields():
+def test_create_requests_never_require_server_generated_id():
     for rel in CREATE_REQUESTS:
         spec = _load(rel)
         assert "id" not in spec["required"], f"{rel} still requires server-generated id"
-        if "comparison" in rel:
-            assert "created_at" not in spec["required"]
+        assert "created_at" not in spec["required"]
         assert spec["additionalProperties"] is True
-        # domain fields preserved (non-empty required set)
-        assert spec["required"], f"{rel} has no required domain fields"
 
 
-def test_post_create_ops_bound_to_create_requests():
+@pytest.mark.parametrize("path,valid,invalid", CASES)
+def test_create_request_matches_backend_required_fields(path, valid, invalid):
     v = SchemaValidator(contract="backend")
-    for key, schema_stem in POST_BINDINGS.items():
-        assert v._endpoint_schemas.get(key) == schema_stem, key
+    assert v.validate_request(path, "POST", valid) == [], f"{path} rejected a backend-valid body"
+    if invalid is not None:
+        assert v.validate_request(path, "POST", invalid), f"{path} accepted a backend-invalid body"
 
 
-def test_agent_create_no_id_but_domain_validated():
+def test_comparison_run_ids_bounded_2_to_10():
     v = SchemaValidator(contract="backend")
-    # id no longer required
-    assert v.validate_request("/api/v1/agents", "POST", {"name": "a", "agent_type": "qa"}) == []
-    # a client-supplied id is tolerated (BE ignores it)
-    assert v.validate_request("/api/v1/agents", "POST", {"id": "x", "name": "a", "agent_type": "qa"}) == []
-    # domain field still required
-    assert v.validate_request("/api/v1/agents", "POST", {"agent_type": "qa"})
-    # domain enum still validated
-    assert v.validate_request("/api/v1/agents", "POST", {"name": "a", "agent_type": "not-a-type"})
+    assert v.validate_request("/api/v1/optimization-comparisons", "POST", {"run_ids": ["a", "b"]}) == []
+    assert v.validate_request("/api/v1/optimization-comparisons", "POST", {"run_ids": ["a"]})
+    assert v.validate_request("/api/v1/optimization-comparisons", "POST", {"run_ids": [str(i) for i in range(11)]})

@@ -5,7 +5,7 @@
  "python": {
   "repo": "Traigent/Traigent",
   "targetRef": "origin/develop",
-  "targetSha": "c79bc47cacfb6480b75c8c3c8539722decfc63b5",
+  "targetSha": "4fe3cd370eb4f8945644543bce9f03ed12e4857c",
   "releaseSurface": "next-release",
   "publishedVersionAtPinTime": "0.11.4",
   "note": "This manifest intentionally tracks Python develop, not the currently published Python package. JS 0.2.0 is forward-bound to the next Python 0.12.0 public surface unless Python 0.12.0 ships first.",
@@ -149,7 +149,7 @@
  },
  "releasePolicy": {
   "js020PythonReleaseOrder": "JS 0.2.0 may ship before Python 0.12.0. If it does, release notes must describe this as forward-compatible with the next Python public surface, not parity with the currently published Python package.",
-  "publishedPythonCompatibilityNote": "Python 0.11.4 at pin time does not expose BenchmarkClient, BenchmarkClientConfig, Dataset, or EvaluationExample. Those symbols are included because the manifest tracks Python develop at c79bc47c.",
+  "publishedPythonCompatibilityNote": "Python 0.11.4 at pin time does not expose BenchmarkClient, BenchmarkClientConfig, Dataset, or EvaluationExample. Those symbols are included because the manifest tracks Python develop at 4fe3cd37.",
   "refreshCadence": [
    "Refresh the manifest on every Python public SDK release candidate or release branch.",
    "Refresh the manifest in the same PR family as any Python change to traigent.__all__.",
@@ -263,10 +263,12 @@
    "TenantMembershipRole",
    "TenantMembershipStatus",
    "TenantSSOConfigDTO",
+   "TextDocument",
    "TraceFeedbackSummary",
    "UnknownStrategyPresetError",
    "VALID_PRESET_NAMES",
    "WorkflowCostSummary",
+   "add_agent_span",
    "get_default_observability_client",
    "list_recommendation_agent_types",
    "normalize_strategy_preset",
@@ -355,6 +357,9 @@
   "benchmarkClient": "JS 0.2.0 exports a throwing BenchmarkClient stub because Python develop re-added BenchmarkClient, but the benchmark dataset generation endpoint is not yet schema-owned.",
   "enterpriseAdminClient": "JS 0.2.0 keeps the throwing EnterpriseAdminClient migration stub pending Traigent/traigent-js#30.",
   "observabilityWrappers": "Default-client helpers and the observe wrapper are deferred to 0.3.0 to avoid expanding the 0.2.0 parity release with new runtime semantics; track in Traigent/traigent-js#38.",
+  "addAgentSpan": "Python root-exports add_agent_span (traigent.observability) on both develop and main; it is an observability-wrapper helper with no @traigent/sdk twin yet, so it is classified deferred-backlog alongside observe/get_default_observability_client and tracked with the other observability wrappers in Traigent/traigent-js#38 (resolves the js-public-parity manifest gap, TraigentSchema#117).",
+  "textDocument": "Python root-exports TextDocument (traigent.api.parameter_ranges) — a trainable single-text-document parameter type for skill training (Choices[str], trainable=True). It is a concrete tunable type with no @traigent/sdk twin yet, so it is classified deferred-backlog pending a JS skill-training surface (TraigentSchema#117).",
+  "pinRefresh": "Manifest Python pin advanced from c79bc47 to 4fe3cd37 (origin/develop) to cover the two root exports added since the previous pin — add_agent_span and TextDocument — that the live js-public-parity gate flagged (TraigentSchema#117).",
   "advisorySelectionHelpers": "Python exposes advisory strategy-preset selection and recommendation-catalog helpers in the 0.12.0 release line. JS 0.2.0 defers root exports until the JS advisory-helper surface is designed; these helpers are not schema DTOs or required JS clients.",
   "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order."
  }

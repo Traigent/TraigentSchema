@@ -43,7 +43,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./measure_schema.json"
+                "$ref": "./measure_create_request_schema.json"
               }
             }
           }

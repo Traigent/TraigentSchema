@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/agent_create_request_schema.json",
+  "title": "Agent Create Request",
+  "description": "POST /api/v1/agents (and /agents/import). Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side).",
+  "type": "object",
+  "required": [
+    "name",
+    "agent_type_id"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "agent_type_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Agent type identifier."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "prompt_template": {
+      "type": "string",
+      "maxLength": 10000
+    },
+    "reasoning": {
+      "type": "string",
+      "maxLength": 10000
+    },
+    "style": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "tone": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "format": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "persona": {
+      "type": "string",
+      "maxLength": 10000
+    },
+    "guidelines": {
+      "type": "string",
+      "maxLength": 10000
+    },
+    "chat_history_params": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "extra_instructions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "model_kwargs": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "custom_validations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "custom_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "custom_responses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "example_sets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "retrieval_configs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "model_parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "measure_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

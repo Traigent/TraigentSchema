@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/retriever_create_request_schema.json",
+  "title": "Retrieval Config Create Request",
+  "description": "POST /api/v1/agents/{agent_id}/retrieval-configs. Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side).",
+  "type": "object",
+  "required": [
+    "name",
+    "vector_store",
+    "k",
+    "retrieval_k",
+    "chunk_size",
+    "overlap"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "vector_store": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "k": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retrieval_k": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "chunk_size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "overlap": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retrieval_config_id": {
+      "type": "string"
+    },
+    "reranking_strategy": {
+      "type": "string"
+    },
+    "uploaded_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  }
+}

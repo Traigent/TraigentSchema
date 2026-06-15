@@ -9,7 +9,7 @@
     "trace_id": { "type": "string", "minLength": 1 },
     "author_user_id": { "type": ["string", "null"] },
     "author_display_name": { "type": ["string", "null"] },
-    "content": { "type": "string", "minLength": 1 },
+    "content": { "type": "string", "minLength": 1, "x-content": true, "x-privacy-classification": "user_content" },
     "created_at": { "type": ["string", "null"], "format": "date-time" },
     "updated_at": { "type": ["string", "null"], "format": "date-time" }
   },

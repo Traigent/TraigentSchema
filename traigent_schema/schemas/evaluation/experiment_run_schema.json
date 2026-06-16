@@ -386,7 +386,9 @@
               },
               "message": {
                 "type": "string",
-                "description": "Log message content"
+                "description": "Log message content",
+                "x-content": true,
+                "x-privacy-classification": "user_content"
               }
             },
             "required": ["timestamp", "level", "message"],

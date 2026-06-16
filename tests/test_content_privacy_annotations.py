@@ -41,6 +41,16 @@ CONTENT_FIELDS = {
     "observability/observation_schema.json": ["input_data", "output_data"],
     "datasets/example_set_schema.json": ["input", "output"],
     "datasets/evaluation_set_schema.json": ["input_text", "expected_output"],
+    # #125: residual content-bearing carriers beyond the #78 hybrid-DTO scope.
+    # agent_response.text is raw LLM completion text (both stream/non-stream
+    # variants); expected_output is the evaluation reference.
+    "agents/agent_response_schema.json": ["text", "expected_output"],
+    # user-authored trace comments (read + create-request).
+    "observability/trace_comment_schema.json": ["content"],
+    "observability/trace_comment_create_request_schema.json": ["content"],
+    # execution logs can embed user content (logs[].message); tagged as the
+    # governance-safe default (issue #125 judgment call).
+    "evaluation/experiment_run_schema.json": ["message"],
 }
 
 

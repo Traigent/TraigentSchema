@@ -66,7 +66,6 @@ def test_billing_plans_response_uses_opaque_checkout_options():
             "data": [
                 {
                     "id": "pro",
-                    "legacy_ids": ["individual"],
                     "name": "Pro",
                     "description": "For production teams starting paid usage",
                     "price": {"monthly": 49, "annual": 490},
@@ -239,7 +238,6 @@ def test_billing_plans_response_requires_new_record_limit_fields():
         "data": [
             {
                 "id": "pro",
-                "legacy_ids": ["individual"],
                 "name": "Pro",
                 "description": "For production teams starting paid usage",
                 "price": {"monthly": 49, "annual": 490},
@@ -473,7 +471,7 @@ def test_subscription_response_accepts_public_subscription_shape():
                 "status": "active",
                 "plan_tier": "team",
                 "billing_cycle": "monthly",
-                "scheduled_plan_tier": "individual",
+                "scheduled_plan_tier": "pro",
                 "scheduled_billing_cycle": "annual",
                 "scheduled_change_at": "2026-06-04T12:00:00+00:00",
                 "current_period_start": "2026-06-04T12:00:00+00:00",

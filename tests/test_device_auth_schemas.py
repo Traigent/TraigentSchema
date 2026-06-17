@@ -91,7 +91,7 @@ def _device_decision_success_payload() -> dict:
             "id": "project_default_123",
             "name": "Default Project",
         },
-        "subscription_tier": "free",
+        "subscription_tier": "hobby",
     }
 
 
@@ -134,7 +134,7 @@ def _device_token_success_payload() -> dict:
         "tenant_id": "tenant_personal_123",
         "project_id": "project_default_123",
         "user": {"id": "user_123", "email": "alice@example.com"},
-        "subscription_tier": "free",
+        "subscription_tier": "hobby",
         "quota": {"trial_limit": 25, "api_call_limit": 1000},
     }
 

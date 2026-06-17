@@ -10,10 +10,6 @@
       "additionalProperties": false,
       "properties": {
         "id": { "const": "hobby" },
-        "legacy_ids": {
-          "type": "array",
-          "items": { "enum": ["free"] }
-        },
         "name": { "type": "string", "minLength": 1, "maxLength": 120 },
         "description": { "type": "string", "minLength": 1, "maxLength": 240 },
         "price": {
@@ -42,10 +38,6 @@
       "additionalProperties": false,
       "properties": {
         "id": { "const": "pro" },
-        "legacy_ids": {
-          "type": "array",
-          "items": { "enum": ["individual"] }
-        },
         "name": { "type": "string", "minLength": 1, "maxLength": 120 },
         "description": { "type": "string", "minLength": 1, "maxLength": 240 },
         "price": {

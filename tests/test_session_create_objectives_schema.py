@@ -34,21 +34,6 @@ def _session_create_payload(objectives: object) -> dict[str, object]:
     }
 
 
-def _legacy_object_objectives() -> list[dict[str, object]]:
-    return [
-        {
-            "metric": "accuracy",
-            "direction": "maximize",
-            "weight": 0.7,
-        },
-        {
-            "metric": "latency",
-            "direction": "minimize",
-            "weight": 0.3,
-        },
-    ]
-
-
 def _hybrid_create_payload(objectives: object | None = None) -> dict[str, object]:
     payload: dict[str, object] = {
         "config_space": [
@@ -69,30 +54,6 @@ def test_session_create_accepts_typed_objective_definitions() -> None:
         "/api/v1/sessions",
         "POST",
         _session_create_payload(_typed_objectives()),
-    )
-
-    assert errors == [], f"Expected clean validation, got: {errors}"
-
-
-def test_session_create_preserves_legacy_string_objectives() -> None:
-    validator = SchemaValidator(contract="sdk_tuning")
-
-    errors = validator.validate_request(
-        "/api/v1/sessions",
-        "POST",
-        _session_create_payload(["accuracy"]),
-    )
-
-    assert errors == [], f"Expected clean validation, got: {errors}"
-
-
-def test_session_create_preserves_legacy_object_objectives() -> None:
-    validator = SchemaValidator(contract="sdk_tuning")
-
-    errors = validator.validate_request(
-        "/api/v1/sessions",
-        "POST",
-        _session_create_payload(_legacy_object_objectives()),
     )
 
     assert errors == [], f"Expected clean validation, got: {errors}"
@@ -119,30 +80,6 @@ def test_hybrid_create_accepts_optional_typed_objectives() -> None:
         "/api/v1/hybrid/sessions",
         "POST",
         _hybrid_create_payload(_typed_objectives()),
-    )
-
-    assert errors == [], f"Expected clean validation, got: {errors}"
-
-
-def test_hybrid_create_preserves_legacy_string_objectives() -> None:
-    validator = SchemaValidator(contract="sdk_tuning")
-
-    errors = validator.validate_request(
-        "/api/v1/hybrid/sessions",
-        "POST",
-        _hybrid_create_payload(["accuracy"]),
-    )
-
-    assert errors == [], f"Expected clean validation, got: {errors}"
-
-
-def test_hybrid_create_preserves_legacy_object_objectives() -> None:
-    validator = SchemaValidator(contract="sdk_tuning")
-
-    errors = validator.validate_request(
-        "/api/v1/hybrid/sessions",
-        "POST",
-        _hybrid_create_payload(_legacy_object_objectives()),
     )
 
     assert errors == [], f"Expected clean validation, got: {errors}"

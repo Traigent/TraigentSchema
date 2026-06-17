@@ -40,7 +40,7 @@
         },
         "plan_tier": {
           "type": ["string", "null"],
-          "enum": ["hobby", "pro", "enterprise", "free", "individual", "team", null]
+          "enum": ["hobby", "pro", "enterprise", "team", null]
         },
         "billing_cycle": {
           "type": ["string", "null"],
@@ -48,7 +48,7 @@
         },
         "scheduled_plan_tier": {
           "type": ["string", "null"],
-          "enum": ["hobby", "pro", "enterprise", "free", "individual", "team", null]
+          "enum": ["hobby", "pro", "enterprise", "team", null]
         },
         "scheduled_billing_cycle": {
           "type": ["string", "null"],

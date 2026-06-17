@@ -62,8 +62,8 @@
     },
     "subscription_tier": {
       "type": "string",
-      "enum": ["free", "hobby", "pro", "individual", "team", "enterprise"],
-      "description": "Approving user's active subscription tier. free and legacy hobby are both accepted during the free-tier rollout."
+      "enum": ["hobby", "pro", "team", "enterprise"],
+      "description": "Approving user's active subscription tier."
     }
   },
   "required": ["user_code", "decision"],

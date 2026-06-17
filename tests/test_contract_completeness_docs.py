@@ -33,21 +33,11 @@ def test_timing_metric_vocabulary_is_advisory_and_self_consistent() -> None:
     assert voc["x-canonical-unit"] == "millisecond"
 
     canonical = set(voc["definitions"]["CanonicalTimingMetricName"]["enum"])
-    legacy = set(voc["definitions"]["LegacySecondTimingMetricName"]["enum"])
-    # advisory: canonical and legacy sets are disjoint
-    assert canonical.isdisjoint(legacy)
-    # the x-* maps must exactly cover their respective enums
+    # legacy _s aliases removed after compatibility window; no LegacySecondTimingMetricName
+    assert "LegacySecondTimingMetricName" not in voc["definitions"]
+    assert "x-legacy-timing-aliases" not in voc
+    # the x-* canonical map must exactly cover the canonical enum
     assert set(voc["x-canonical-timing-metrics"]) == canonical
-    assert set(voc["x-legacy-timing-aliases"]) == legacy
-
-    # every legacy alias points at a real canonical key, with a unit + factor
-    for name, meta in voc["x-legacy-timing-aliases"].items():
-        assert meta["alias_of"] in canonical, name
-        assert meta["unit"] in {"s", "ms"}
-        assert meta["to_ms"] in {1, 1000}
-    # second-based keys convert x1000; already-ms aliases keep x1
-    for name, meta in voc["x-legacy-timing-aliases"].items():
-        assert meta["to_ms"] == (1000 if meta["unit"] == "s" else 1), name
 
     # decision: function wall-time folds into execution_time_ms (no function_duration_ms)
     pending = voc["x-non-canonical-pending-migration"]

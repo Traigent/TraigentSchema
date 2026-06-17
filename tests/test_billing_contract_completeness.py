@@ -1,7 +1,6 @@
 """#129: the billing contract had placeholder responses, missing request bodies on
 mutating routes, and a dangling billing_endpoints.json pointer."""
 import json
-from pathlib import Path
 
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING (status vocabulary): aligned run/config status enums to the canonical
+  UPPER backend vocabulary** (#172, #173). The whole producer ecosystem (backend
+  model + native Postgres enum + REST wire + SDK write path) emits UPPER; the schema
+  enums were the lone lowercase outliers and several carried the wrong member set.
+  - `status_schema.json#/definitions/ExperimentRunStatus`: now the 9 canonical
+    UPPER members `{NOT_STARTED, PENDING, PAUSED, RUNNING, FAILED, COMPLETED,
+    CANCELLED, UNKNOWN, PARTIALLY_DELETED}` (adds the previously missing `PENDING`
+    and `UNKNOWN`). Matches backend `src/models/status_enums.py:ExperimentRunStatus`
+    (native PG type `experimentrunstatus`). Referenced by `experiment_run_schema`,
+    `experiment_schema`, `experiment_create_request_schema`, and the status PUT in
+    `execution/execution_endpoints.json`.
+  - `status_schema.json#/definitions/ConfigurationRunStatus`: now the 7 canonical
+    UPPER members `{NOT_STARTED, RUNNING, COMPLETED, FAILED, UNKNOWN, CANCELLED,
+    PRUNED}`. Drops the mis-assigned ExperimentRun-only members
+    (`paused`/`pending`/`partially_deleted`) and adds `UNKNOWN`. Matches backend
+    `src/models/status_enums.py:ConfigurationRunStatus`.
+  - `agents/agent_response_schema.json`: removed the inline duplicate
+    `AgentExecutionStatus` definition (a silent-drift fork) and repointed the
+    `status` binding to the central
+    `../status_schema.json#/definitions/AgentExecutionStatus` (member set unchanged:
+    `{success, failed, cancelled, timeout}`).
+
 ### Added
 - Contract-documentation completeness (schema as single source of truth):
   - `measures/timing_metric_vocabulary_schema.json` — advisory canonical/legacy

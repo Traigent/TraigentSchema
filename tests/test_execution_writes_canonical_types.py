@@ -55,10 +55,15 @@ def test_best_config_timestamps_have_format():
 
 def test_status_puts_bound_to_canonical_enum():
     v = SchemaValidator(contract="backend")
-    # valid enum accepted, invalid rejected, extra props rejected (additionalProperties:false)
-    assert v.validate_request("/api/v1/configuration-runs/{config_run_id}/status", "PUT", {"status": "running"}) == []
+    # Canonical UPPER vocabulary (matches backend status_enums.py). Valid enum
+    # accepted, invalid rejected, extra props rejected (additionalProperties:false).
+    assert v.validate_request("/api/v1/configuration-runs/{config_run_id}/status", "PUT", {"status": "RUNNING"}) == []
+    assert v.validate_request("/api/v1/configuration-runs/{config_run_id}/status", "PUT", {"status": "PRUNED"}) == []
     assert v.validate_request("/api/v1/configuration-runs/{config_run_id}/status", "PUT", {"status": "not_a_status"})
-    assert v.validate_request("/api/v1/experiment-runs/runs/{run_id}/status", "PUT", {"status": "completed", "x": 1})
+    # lowercase is the legacy outlier vocabulary and is now rejected (#172/#173)
+    assert v.validate_request("/api/v1/configuration-runs/{config_run_id}/status", "PUT", {"status": "running"})
+    assert v.validate_request("/api/v1/experiment-runs/runs/{run_id}/status", "PUT", {"status": "COMPLETED"}) == []
+    assert v.validate_request("/api/v1/experiment-runs/runs/{run_id}/status", "PUT", {"status": "COMPLETED", "x": 1})
 
 
 def test_summary_stats_put_references_summarystats():

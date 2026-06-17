@@ -8,30 +8,30 @@
     "ExperimentRunStatus": {
       "type": "string",
       "enum": [
-        "not_started",
-        "running",
-        "completed",
-        "failed",
-        "cancelled",
-        "paused",
-        "partially_deleted"
+        "NOT_STARTED",
+        "PENDING",
+        "PAUSED",
+        "RUNNING",
+        "FAILED",
+        "COMPLETED",
+        "CANCELLED",
+        "UNKNOWN",
+        "PARTIALLY_DELETED"
       ],
-      "description": "Status of an experiment run"
+      "description": "Status of an experiment run. Canonical UPPER vocabulary aligned to the backend ExperimentRunStatus enum (native PG type experimentrunstatus); producers (backend, REST wire, SDK write path) emit UPPER."
     },
     "ConfigurationRunStatus": {
       "type": "string",
       "enum": [
-        "not_started",
-        "running",
-        "completed",
-        "failed",
-        "cancelled",
-        "pruned",
-        "paused",
-        "pending",
-        "partially_deleted"
+        "NOT_STARTED",
+        "RUNNING",
+        "COMPLETED",
+        "FAILED",
+        "UNKNOWN",
+        "CANCELLED",
+        "PRUNED"
       ],
-      "description": "Status of a configuration run"
+      "description": "Status of a configuration run. Canonical UPPER vocabulary aligned to the backend ConfigurationRunStatus enum; PRUNED is the early-stopped-for-efficiency success case."
     },
     "RequestProcessingStatus": {
       "type": "string",

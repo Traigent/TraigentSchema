@@ -857,7 +857,7 @@ class TestDatasetContracts:
                 "id": "run_123",
                 "run_id": "run_123",
                 "experiment_id": "experiment_789",
-                "status": "completed",
+                "status": "COMPLETED",
                 "configuration_runs_count": 1,
                 "summary_stats": {
                     "total_examples": 12,
@@ -937,7 +937,7 @@ class TestObjectiveSchemaContracts:
             "experiment_parameters": {
                 "infrastructure": _infrastructure_payload(),
             },
-            "status": "pruned",
+            "status": "PRUNED",
             "weighted_score": 0.89,
             "summary_stats": {
                 "weighted_score": 0.89,

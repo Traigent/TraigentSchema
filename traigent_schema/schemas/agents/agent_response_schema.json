@@ -134,11 +134,6 @@
         }
       },
       "additionalProperties": true
-    },
-    "AgentExecutionStatus": {
-      "type": "string",
-      "enum": ["success", "failed", "cancelled", "timeout"],
-      "description": "Status of the agent execution"
     }
   },
   "type": "object",
@@ -160,7 +155,7 @@
       "x-privacy-classification": "user_content"
     },
     "status": {
-      "$ref": "#/definitions/AgentExecutionStatus",
+      "$ref": "../status_schema.json#/definitions/AgentExecutionStatus",
       "description": "Status of the agent execution"
     },
     "result": {

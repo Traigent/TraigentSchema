@@ -34,6 +34,9 @@
     "x-traigent-optimization-capabilities": { "description": "Declares optimization capabilities exposed by an operation." },
     "x-wrap-map": { "description": "Success-envelope wrapping map (which payload key wraps the resource)." },
     "x-wrap-status": { "description": "Success-envelope status field convention." },
-    "x-deprecated": { "description": "Marks a field as deprecated; value is a migration hint pointing to the canonical replacement." }
+    "x-deprecated": { "description": "Marks a field as deprecated; value is a migration hint pointing to the canonical replacement." },
+    "x-authoritative-signal": { "description": "Names the authoritative field/signal for a semantic gate (e.g. is_admin for platform-admin checks). (#179)" },
+    "x-inert": { "description": "Marks a field as advisory-only / deliberately ignored by the backend (e.g. register.role is always overridden server-side). (#179)" },
+    "x-admin-disambiguation": { "description": "Disambiguates overloaded admin tokens: platform-admin (is_admin on auth/me) vs project-admin (project_membership.role=admin). (#179)" }
   }
 }

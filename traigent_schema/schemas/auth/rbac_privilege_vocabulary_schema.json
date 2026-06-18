@@ -6,13 +6,17 @@
   "type": "object",
   "additionalProperties": false,
   "x-source-of-truth": "rbac_privilege_vocabulary",
+  "x-admin-disambiguation": {
+    "platform": "is_admin=true on auth/me — cross-tenant bypass; platform-level administrator identified by the is_admin boolean on GET /auth/me, not by the role string",
+    "project": "project_membership.role=admin — project-scoped admin; controls access within a single project, does NOT grant cross-tenant bypass"
+  },
   "x-privilege-roles": {
     "member": {
       "description": "Default authenticated principal (JWT user or scoped API key). Sees only resources owned by, or shared with, its own canonical tenant/project context.",
       "is_privileged": false
     },
     "admin": {
-      "description": "Platform administrator (admin privilege / admin:all scope). May bypass the owner filter and may target another tenant; see x-scoping-rules.",
+      "description": "Platform-level admin (cross-tenant bypass via is_admin); distinct from project_membership.role=admin. Identified by is_admin=true on GET /auth/me (not by the role string). May bypass the owner filter and may target another tenant; see x-scoping-rules and x-admin-disambiguation.",
       "is_privileged": true
     }
   },

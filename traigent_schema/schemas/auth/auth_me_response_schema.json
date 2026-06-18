@@ -17,12 +17,22 @@
         "email": { "type": "string", "minLength": 1 },
         "name": { "type": ["string", "null"] },
         "display_name": { "type": ["string", "null"] },
-        "is_admin": { "type": "boolean" },
+        "is_admin": {
+          "type": "boolean",
+          "x-authoritative-signal": "is_admin",
+          "description": "Authoritative platform-admin signal. When true, the user has cross-tenant bypass (platform administrator). This field — not role — is the canonical gate for platform-admin checks. Clients MUST consult is_admin for platform-admin decisions; role is a non-authoritative legacy label."
+        },
         "subscription_tier": { "type": ["string", "null"] },
         "email_verified": { "type": "boolean" },
         "team_id": { "type": ["string", "null"] },
-        "role": { "type": ["string", "null"] },
-        "onboarding_completed": { "type": "boolean" },
+        "role": {
+          "type": ["string", "null"],
+          "description": "Non-authoritative for platform-admin gating; consult is_admin. Legacy developer/member label assigned server-side; may be null for SSO-provisioned users. Do not use this field to gate platform-admin access."
+        },
+        "onboarding_completed": {
+          "type": "boolean",
+          "description": "True when tenant owner/admin first-run provisioning is complete, OR when the user explicitly dismisses onboarding via PUT /auth/me settings. Set to False at register, True at SSO provisioning or client-triggered dismiss."
+        },
         "expires_at": {
           "type": ["string", "null"],
           "format": "date-time",

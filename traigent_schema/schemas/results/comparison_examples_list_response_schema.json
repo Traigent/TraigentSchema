@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/results/comparison_examples_list_response_schema.json",
+  "title": "Comparison Examples List Response Schema",
+  "description": "Success-envelope response schema for GET /api/v1/optimization-comparisons/{comparison_id}/examples. Route is wrapped (optimization_comparison_routes). The data field contains the payload from OptimizationComparisonService.list_examples with offset-based pagination.",
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true,
+      "description": "Discriminator — always true for success responses"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable summary"
+    },
+    "data": {
+      "type": "object",
+      "description": "Paginated comparison examples payload",
+      "properties": {
+        "comparison_id": {
+          "type": "string",
+          "description": "Stateless deterministic comparison ID",
+          "x-identifier": true
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Version of the comparison payload schema"
+        },
+        "available_views": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "View modes available for this comparison (e.g. overview, run_matrix, trial_details)"
+        },
+        "runs": {
+          "type": "array",
+          "description": "Summary metadata for each run in the comparison",
+          "items": {
+            "type": "object",
+            "properties": {
+              "run_id": {
+                "type": "string",
+                "description": "ID of the experiment run",
+                "x-reference": true
+              },
+              "label": {
+                "type": ["string", "null"],
+                "description": "Display label for this run"
+              },
+              "total_examples": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Total number of examples in this run"
+              }
+            },
+            "required": ["run_id", "total_examples"],
+            "additionalProperties": false
+          },
+          "minItems": 2
+        },
+        "items": {
+          "type": "array",
+          "description": "Page of example comparison rows",
+          "items": {
+            "type": "object",
+            "description": "Per-example comparison row with per-run measures and status",
+            "additionalProperties": true
+          }
+        },
+        "pagination": {
+          "type": "object",
+          "description": "Offset-based pagination metadata for this endpoint (uses limit/offset rather than page/per_page)",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum number of items per page"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Offset of the first returned item"
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total number of matching examples (after filtering)"
+            },
+            "has_more": {
+              "type": "boolean",
+              "description": "Whether more items exist beyond the current page"
+            }
+          },
+          "required": ["limit", "offset", "total", "has_more"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["comparison_id", "items", "pagination"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["success", "message", "data"],
+  "additionalProperties": false
+}

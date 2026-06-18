@@ -33,6 +33,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented as hydrated-detail-only forms; canonical reference fields are `agent_id`
   and `model_parameters_id` (#169).
 
+### Added
+- 2xx response schemas for run-results read surfaces and comparison/report read GETs
+  (TraigentSchema#170 — the residual from #128/#162):
+  - `evaluation/experiment_run_list_response_schema.json` — `GET
+    /api/v1/experiment-runs/{experiment_id}/runs` (bare `{runs:[...]}`, no envelope).
+  - `execution/run_results_response_schema.json` — `GET
+    /api/v1/experiment-runs/runs/{run_id}/results` (bare paginated payload via
+    `_bound_run_results_payload`; over-materialization tracked in
+    TraigentBackend#1106).
+  - `results/comparison_response_schema.json` — `GET
+    /api/v1/optimization-comparisons/{comparison_id}` (success-envelope-wrapped).
+  - `results/comparison_examples_list_response_schema.json` — `GET
+    /api/v1/optimization-comparisons/{comparison_id}/examples` (offset-paginated,
+    wrapped).
+  - `results/comparison_example_detail_response_schema.json` — `GET
+    /api/v1/optimization-comparisons/{comparison_id}/examples/{example_id}` (wrapped).
+  - `results/report_payload_response_schema.json` — `GET
+    /api/v1/experiment-runs/runs/{run_id}/report-payload` (bare jsonify).
+  - `results/report_module_status_response_schema.json` — `GET
+    /api/v1/features/report-module-status` (bare jsonify; state ∈ {off, beta, ga}).
+- Extended `tests/test_success_envelope_and_response_coverage.py` with 8 new tests
+  asserting 100% schema coverage on the newly contracted surfaces.
+
 ## [4.6.2] - 2026-06-18
 
 ### Deprecated

@@ -1,11 +1,228 @@
 """Tests for schema file integrity and structure."""
 
 import json
+import re
+from pathlib import Path
 
 import pytest
 
 from traigent_schema import AnalyticsValidator, SchemaValidator
 from traigent_schema.utils import get_all_schema_files, get_schemas_dir
+
+# ---------------------------------------------------------------------------
+# Item 4 — Orphan-schema reachability report
+#
+# KNOWN_ORPHAN_ALLOWLIST is seeded from the current state of the repo so
+# that CI is green immediately.  It serves as a ratchet: adding a NEW
+# schema file that isn't referenced anywhere will fail this test.  When
+# an existing orphan is deliberately connected (or removed), remove it
+# from the allowlist so the ratchet tightens.
+#
+# How "referenced" is defined:
+#   • Another schema file contains a "$ref" or "paths_file" that resolves
+#     to the file (i.e. the file is reachable from the catalog graph).
+#   • A test file under tests/ contains a literal path segment that
+#     matches the schema filename or its relative path.
+#   • An endpoint-root file (mep_endpoints.json, sdk_tuning_endpoints.json,
+#     planned_projects_endpoints.json) lists the file via x-endpoint-modules.
+# ---------------------------------------------------------------------------
+
+KNOWN_ORPHAN_ALLOWLIST: frozenset[str] = frozenset(
+    [
+        # Stand-alone resource schemas not yet wired into an endpoint catalog.
+        "agents/agent_deployment_schema.json",
+        "agents/agent_types_schema.json",
+        "agents/model_schema.json",
+        "agents/retriever_schema.json",
+        # Billing sub-schema referenced only by product code, not catalog.
+        "billing/wallet_top_up_pack_schema.json",
+        # Dataset internal sub-schemas (used by backend DTOs directly).
+        "datasets/evaluator_config_schema.json",
+        "datasets/example_set_schema.json",
+        "datasets/generator_config_schema.json",
+        # Evaluation sub-schema not yet surfaced in catalog.
+        "evaluation/evaluation_request_schema.json",
+        # Execution sub-schemas for internal modes.
+        "execution/best_config_response_schema.json",
+        "execution/dataset_storage_schema.json",
+        "execution/execution_mode_schema.json",
+        "execution/hybrid_session_schema.json",
+        "execution/saas_execution_schema.json",
+        "execution/service_registration_schema.json",
+        # Harness / agent-work schemas.
+        "harness_session_record.json",
+        # Measures sub-schemas.
+        "measures/score_schema.json",
+        "measures/timing_metric_vocabulary_schema.json",
+        # Observability sub-schemas not yet in catalog.
+        "observability/session_list_response_schema.json",
+        "observability/trace_list_response_schema.json",
+        "observability/trace_observations_response_schema.json",
+        "observability/user_summary_schema.json",
+        # Optimization sub-schemas.
+        "optimization/config_space_schema.json",
+        "optimization/multi_objective_semantics_schema.json",
+        "optimization/session_next_trial_response_schema.json",
+        "optimization/tunable_schema.json",
+        # Project sub-schemas.
+        "projects/project_context_error_schema.json",
+        "projects/project_scoped_fine_tuning_export_query_schema.json",
+        # Prompt sub-schemas.
+        "prompts/prompt_analytics_schema.json",
+        "prompts/resolved_prompt_schema.json",
+        # Results sub-schemas.
+        "results/comparison_schema.json",
+        "results/report_request_schema.json",
+        "results/report_schema.json",
+        "results/visualization_request_schema.json",
+        "results/visualization_schema.json",
+    ]
+)
+
+
+_SCHEMA_BASE_URL = "https://schemas.traigent.ai/"
+
+
+def _resolve_ref_url(ref_val: str, schema_file: Path, schemas_dir: Path) -> Path | None:
+    """Resolve a $ref value to a schema Path relative to schemas_dir, or None."""
+    # Strip JSON pointer fragment  (file.json#/definitions/Foo → file.json)
+    ref_val = ref_val.split("#")[0]
+    if not ref_val:
+        return None
+
+    # Absolute URL with the canonical schema base
+    if ref_val.startswith(_SCHEMA_BASE_URL):
+        relative_part = ref_val[len(_SCHEMA_BASE_URL):]
+        candidate = schemas_dir / relative_part
+        if candidate.exists():
+            return Path(relative_part)
+        return None
+
+    # Skip other absolute URLs (http/https without our base, urn:, …)
+    if ref_val.startswith(("http://", "https://", "urn:")):
+        return None
+
+    # Relative file reference
+    ref_path = (schema_file.parent / ref_val).resolve()
+    schemas_root = schemas_dir.resolve()
+    try:
+        return ref_path.relative_to(schemas_root)
+    except ValueError:
+        return None
+
+
+def _compute_referenced_schemas(schemas_dir: Path) -> set[Path]:
+    """Return the set of schema files (relative to schemas_dir) that are reachable.
+
+    Reachability is determined by:
+    1. $ref / paths_file links between schema files (relative and absolute URL).
+    2. Explicit file-path literals in test source files.
+    3. Bare schema names used in validate_json / validate_request test calls.
+    """
+    all_schema_files = list(schemas_dir.rglob("*.json"))
+    referenced: set[Path] = set()
+
+    # --- Pass 1: schema-internal $ref / paths_file links ---
+    for sf in all_schema_files:
+        try:
+            content = sf.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for m in re.finditer(
+            r'"(?:\$ref|paths_file)"\s*:\s*"([^"]+)"', content
+        ):
+            if not m.group(1).endswith(".json") and ".json#" not in m.group(1):
+                continue
+            resolved = _resolve_ref_url(m.group(1), sf, schemas_dir)
+            if resolved is not None:
+                referenced.add(resolved)
+
+    # --- Pass 2: test-file references ---
+    tests_root = Path(__file__).parent
+    for tf in tests_root.rglob("*.py"):
+        try:
+            content = tf.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        # Pattern: schemas_dir / "subdir" / "filename.json"
+        for m in re.finditer(
+            r'schemas_dir\s*/\s*"([^"]+)"\s*/\s*"([^"]+)"', content
+        ):
+            candidate = Path(m.group(1)) / m.group(2)
+            if (schemas_dir / candidate).exists():
+                referenced.add(candidate)
+        # Pattern: schemas_dir / "filename.json"  (single segment)
+        for m in re.finditer(r'schemas_dir\s*/\s*"([^"]+)"', content):
+            candidate = Path(m.group(1))
+            if (schemas_dir / candidate).exists():
+                referenced.add(candidate)
+        # Bare schema names used in validate_json / validate_request calls
+        for m in re.finditer(r'["\'](\w+_schema)(?:\.json)?["\']', content):
+            name = m.group(1) + ".json"
+            for sf in all_schema_files:
+                if sf.name == name:
+                    referenced.add(sf.relative_to(schemas_dir))
+
+    return referenced
+
+
+class TestOrphanSchemas:
+    """Item 4: orphan-schema reachability report.
+
+    Ensures that every schema file that is NOT in the known-orphan allowlist
+    is reachable from at least one catalog, endpoint root, or test.  New
+    schemas that are not yet connected will fail this test — add them to the
+    allowlist only as a temporary measure and open a tracking issue.
+    """
+
+    def test_no_unexpected_orphan_schemas(self) -> None:
+        schemas_dir = get_schemas_dir()
+        all_files = {
+            f.relative_to(schemas_dir)
+            for f in schemas_dir.rglob("*.json")
+        }
+
+        referenced = _compute_referenced_schemas(schemas_dir)
+        unreferenced = all_files - referenced
+
+        # Express as forward-slash strings for platform-independent comparison.
+        unreferenced_str = {p.as_posix() for p in unreferenced}
+        unexpected_orphans = unreferenced_str - KNOWN_ORPHAN_ALLOWLIST
+
+        # Build report for diagnostics (always printed so it's visible in CI).
+        lines = [
+            "",
+            "=== Orphan Schema Reachability Report ===",
+            f"Total schema files   : {len(all_files)}",
+            f"Referenced           : {len(referenced)}",
+            f"Unreferenced (total) : {len(unreferenced)}",
+            f"Known orphans        : {len(KNOWN_ORPHAN_ALLOWLIST)}",
+            f"Unexpected orphans   : {len(unexpected_orphans)}",
+        ]
+        if unreferenced_str:
+            lines.append("")
+            lines.append("All unreferenced schemas (known + unexpected):")
+            for name in sorted(unreferenced_str):
+                marker = "  [KNOWN]" if name in KNOWN_ORPHAN_ALLOWLIST else "  [NEW!] "
+                lines.append(f"  {marker}  {name}")
+        stale_allowlist = KNOWN_ORPHAN_ALLOWLIST - unreferenced_str
+        if stale_allowlist:
+            lines.append("")
+            lines.append(
+                "Allowlist entries that are now reachable (consider removing them):"
+            )
+            for name in sorted(stale_allowlist):
+                lines.append(f"    {name}")
+        report = "\n".join(lines)
+        print(report)  # always emit so it appears in pytest -s / CI logs
+
+        assert not unexpected_orphans, (
+            f"New unreferenced schema files detected — either connect them to a "
+            f"catalog/test or add to KNOWN_ORPHAN_ALLOWLIST in tests/test_schemas.py "
+            f"with a comment explaining why they are currently standalone.\n"
+            f"Unexpected orphans:\n"
+            + "\n".join(f"  {n}" for n in sorted(unexpected_orphans))
+        )
 
 
 class TestSchemaFileIntegrity:

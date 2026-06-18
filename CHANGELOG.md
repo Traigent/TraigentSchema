@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.4] - 2026-06-18
+
+### Added
+- `traigent_schema/schemas/auth/auth_user_identity_schema.json` — shared canonical user
+  identity sub-type pinning the minimum required fields (`id`, `email`) while permitting
+  additional claims. Referenced by login / token-refresh / SSO-callback / register response
+  `user` fields. Closes the zero-pinned-fields gap (#178).
+- `traigent_schema/schemas/auth/register_response_schema.json` — 200 body for
+  `POST /api/v1/auth/register` (`{success, message, user, requires_email_verification,
+  email_sent}`). Closes the missing register response schema gap (#178).
+- Wired `register_response_schema.json` into `auth/auth_endpoints.json`
+  `POST /api/v1/auth/register` 200 response content (#178).
+- 22 new contract tests in `tests/test_auth_onboarding_identity_contracts.py` covering
+  register response shape, auth user identity sub-type, pinned user fields across
+  login/refresh/SSO, auth_me required fields, and provisioned_workspace removal (#178).
+
+### Changed
+- `auth/login_response_schema.json` `data.user` — changed from
+  `{type: ["object","null"], additionalProperties: true}` to
+  `{$ref: auth_user_identity_schema.json}` which requires `id` + `email` when non-null (#178).
+- `auth/token_refresh_response_schema.json` `data.user` — same pinning change (#178).
+- `auth/sso_oidc_callback_response_schema.json` `data.user` — same pinning change (#178).
+- `auth/auth_me_response_schema.json` `data` — added `required: ["id", "email"]`; the
+  properties were already documented but not enforced (#178).
+
+### Removed
+- `traigent_schema/schemas/auth/provisioned_workspace_schema.json` — deleted as an orphan
+  (no endpoint `$ref`, no FE usage). Its `default_project_id` field conflicts with
+  `device_token_success_schema.json`'s `project_id` (the reference implementation for
+  workspace provisioning data). Removed the 2 test cases that validated it and updated the
+  device-flow schema discovery assertion (#178).
+
 ## [4.6.3] - 2026-06-18
 
 ### Added

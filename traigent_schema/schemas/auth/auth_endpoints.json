@@ -863,7 +863,14 @@
         },
         "responses": {
           "200": {
-            "description": "Registration accepted."
+            "description": "Registration accepted. No access token is issued — the user must verify their email before logging in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./register_response_schema.json"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request — malformed or missing fields.",

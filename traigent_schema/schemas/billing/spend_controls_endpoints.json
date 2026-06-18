@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Billing \u2014 Spend Controls",
+    "title": "Traigent Billing — Spend Controls",
     "version": "1.0.0",
     "description": "Spend-policy CRUD + spend-approval workflow (request, approve, reject). Codex priority audit P5: split out of `billing_extra_endpoints.json`."
   },
@@ -10,16 +10,83 @@
       "get": {
         "summary": "List pending spend approvals for the current tenant",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Spend approvals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./spend_approvals_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       },
       "post": {
         "summary": "Create a new spend-approval request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./spend_approval_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Spend approval requested."
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment required / quota exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -28,16 +95,90 @@
       "get": {
         "summary": "Get the active spend-policy thresholds",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Current spend policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./spend_policy_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       },
       "patch": {
         "summary": "Update spend-policy thresholds (admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./spend_policy_update_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Updated spend policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./spend_policy_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -45,9 +186,30 @@
     "/api/v1/billing/spend-approvals/{approval_id}/approve": {
       "post": {
         "summary": "Approve a pending spend request",
+        "x-traigent-body": "none — acts on the path approval_id; no request body consumed.",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Spend approval approved."
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -55,9 +217,30 @@
     "/api/v1/billing/spend-approvals/{approval_id}/reject": {
       "post": {
         "summary": "Reject a pending spend request",
+        "x-traigent-body": "none — acts on the path approval_id; no request body consumed.",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Spend approval rejectd."
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

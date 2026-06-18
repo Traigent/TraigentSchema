@@ -5,9 +5,165 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.6.4] - 2026-06-18
 
 ### Added
+- `traigent_schema/schemas/auth/auth_user_identity_schema.json` — shared canonical user
+  identity sub-type pinning the minimum required fields (`id`, `email`) while permitting
+  additional claims. Referenced by login / token-refresh / SSO-callback / register response
+  `user` fields. Closes the zero-pinned-fields gap (#178).
+- `traigent_schema/schemas/auth/register_response_schema.json` — 200 body for
+  `POST /api/v1/auth/register` (`{success, message, user, requires_email_verification,
+  email_sent}`). Closes the missing register response schema gap (#178).
+- Wired `register_response_schema.json` into `auth/auth_endpoints.json`
+  `POST /api/v1/auth/register` 200 response content (#178).
+- 22 new contract tests in `tests/test_auth_onboarding_identity_contracts.py` covering
+  register response shape, auth user identity sub-type, pinned user fields across
+  login/refresh/SSO, auth_me required fields, and provisioned_workspace removal (#178).
+
+### Changed
+- `auth/login_response_schema.json` `data.user` — changed from
+  `{type: ["object","null"], additionalProperties: true}` to
+  `{$ref: auth_user_identity_schema.json}` which requires `id` + `email` when non-null (#178).
+- `auth/token_refresh_response_schema.json` `data.user` — same pinning change (#178).
+- `auth/sso_oidc_callback_response_schema.json` `data.user` — same pinning change (#178).
+- `auth/auth_me_response_schema.json` `data` — added `required: ["id", "email"]`; the
+  properties were already documented but not enforced (#178).
+
+### Removed
+- `traigent_schema/schemas/auth/provisioned_workspace_schema.json` — deleted as an orphan
+  (no endpoint `$ref`, no FE usage). Its `default_project_id` field conflicts with
+  `device_token_success_schema.json`'s `project_id` (the reference implementation for
+  workspace provisioning data). Removed the 2 test cases that validated it and updated the
+  device-flow schema discovery assertion (#178).
+
+## [4.6.3] - 2026-06-18
+
+### Added
+- `GET /api/v1/experiments` 200 response schema in `execution/execution_endpoints.json`:
+  paginated envelope `{success, message, data: {items: [experiment_schema], pagination}}`.
+  Finishes the list-response coverage residual left by #128/#162 (#169).
+
+### Fixed
+- Added `maxItems`/`maxProperties` bounds to eval-domain result/embed arrays that
+  were missing the bounding pattern already applied in `configuration_run.measures`
+  and observability ingest (#130). Closes #171.
+  - `evaluation/experiment_run_schema.json`: `results.metrics` → `maxProperties: 50`;
+    `results.artifacts[]` → `maxItems: 1000`; `results.logs[]` → `maxItems: 1000`.
+  - `evaluation/evaluation_results_schema.json`: `aggregate_metrics` / `detailed_metrics`
+    / `comparative_analysis.improvement_percentages` / `comparative_analysis.significance_tests`
+    → `maxProperties: 50`; `artifacts[]` → `maxItems: 1000`.
+  - `datasets/dataset_schema.json`: `examples[]` → `maxItems: 10000`; `files[]` → `maxItems: 1000`.
+
+### Deprecated
+- `eval_dataset_id`, `evaluation_set_id` scalar-id aliases in `experiment_schema.json`,
+  `generator_config_schema.json`, and `evaluator_config_schema.json` marked `x-deprecated`
+  (canonical: `dataset_id`). Annotation-only; no fields removed (#169).
+- `eval_dataset`, `evaluation_set` object aliases in `experiment_schema.json` marked
+  `x-deprecated` (canonical: `dataset`). Annotation-only; no fields removed (#169).
+- `agent` and `model_parameters` heavy-object fields in `experiment_schema.json`
+  documented as hydrated-detail-only forms; canonical reference fields are `agent_id`
+  and `model_parameters_id` (#169).
+
+### Added
+- 2xx response schemas for run-results read surfaces and comparison/report read GETs
+  (TraigentSchema#170 — the residual from #128/#162):
+  - `evaluation/experiment_run_list_response_schema.json` — `GET
+    /api/v1/experiment-runs/{experiment_id}/runs` (bare `{runs:[...]}`, no envelope).
+  - `execution/run_results_response_schema.json` — `GET
+    /api/v1/experiment-runs/runs/{run_id}/results` (bare paginated payload via
+    `_bound_run_results_payload`; over-materialization tracked in
+    TraigentBackend#1106).
+  - `results/comparison_response_schema.json` — `GET
+    /api/v1/optimization-comparisons/{comparison_id}` (success-envelope-wrapped).
+  - `results/comparison_examples_list_response_schema.json` — `GET
+    /api/v1/optimization-comparisons/{comparison_id}/examples` (offset-paginated,
+    wrapped).
+  - `results/comparison_example_detail_response_schema.json` — `GET
+    /api/v1/optimization-comparisons/{comparison_id}/examples/{example_id}` (wrapped).
+  - `results/report_payload_response_schema.json` — `GET
+    /api/v1/experiment-runs/runs/{run_id}/report-payload` (bare jsonify).
+  - `results/report_module_status_response_schema.json` — `GET
+    /api/v1/features/report-module-status` (bare jsonify; state ∈ {off, beta, ga}).
+- Extended `tests/test_success_envelope_and_response_coverage.py` with 8 new tests
+  asserting 100% schema coverage on the newly contracted surfaces.
+
+## [4.6.2] - 2026-06-18
+
+### Deprecated
+- `configuration_run_id` in `execution/metric_submission_schema.json` and
+  `projects/project_scoped_fine_tuning_manifest_schema.json` marked `x-deprecated`.
+  The canonical name going forward is `trial_id`. This is an annotation-only
+  pass — no fields removed, no wire format changed (Wave 4, step 1 of N).
+
+## [Unreleased]
+
+### Changed
+- **BREAKING (status vocabulary): aligned run/config status enums to the canonical
+  UPPER backend vocabulary** (#172, #173). The whole producer ecosystem (backend
+  model + native Postgres enum + REST wire + SDK write path) emits UPPER; the schema
+  enums were the lone lowercase outliers and several carried the wrong member set.
+  - `status_schema.json#/definitions/ExperimentRunStatus`: now the 9 canonical
+    UPPER members `{NOT_STARTED, PENDING, PAUSED, RUNNING, FAILED, COMPLETED,
+    CANCELLED, UNKNOWN, PARTIALLY_DELETED}` (adds the previously missing `PENDING`
+    and `UNKNOWN`). Matches backend `src/models/status_enums.py:ExperimentRunStatus`
+    (native PG type `experimentrunstatus`). Referenced by `experiment_run_schema`,
+    `experiment_schema`, `experiment_create_request_schema`, and the status PUT in
+    `execution/execution_endpoints.json`.
+  - `status_schema.json#/definitions/ConfigurationRunStatus`: now the 7 canonical
+    UPPER members `{NOT_STARTED, RUNNING, COMPLETED, FAILED, UNKNOWN, CANCELLED,
+    PRUNED}`. Drops the mis-assigned ExperimentRun-only members
+    (`paused`/`pending`/`partially_deleted`) and adds `UNKNOWN`. Matches backend
+    `src/models/status_enums.py:ConfigurationRunStatus`.
+  - `agents/agent_response_schema.json`: removed the inline duplicate
+    `AgentExecutionStatus` definition (a silent-drift fork) and repointed the
+    `status` binding to the central
+    `../status_schema.json#/definitions/AgentExecutionStatus` (member set unchanged:
+    `{success, failed, cancelled, timeout}`).
+
+### Added
+- Contract-documentation completeness (schema as single source of truth):
+  - `measures/timing_metric_vocabulary_schema.json` — advisory canonical/legacy
+    timing-metric vocabulary with units and alias->canonical mapping, so SDK/BE/FE
+    stop minting timing names independently (#118). Non-constraining
+    `x-timing-metric-vocabulary` pointer added to `metric_submission_schema`.
+  - `optimization/session_next_trial_response_schema.json` — the previously
+    undocumented 200 response of `POST /sessions/{id}/next-trial`, now referenced
+    from `optimization_endpoints.json` (#145).
+  - `auth/rbac_privilege_vocabulary_schema.json` — documents the admin/member
+    privilege roles and the three admin-only scoping relaxations (owner filter,
+    canonical-tenant pin / `X-Tenant-Id` override, project-membership gate) (#144).
+
+## [4.6.1] - 2026-06-18
+
+### Deprecated
+- `benchmark_id` field in `evaluator_config_schema.json` — use `dataset_id` instead; annotated with `x-deprecated`.
+- `benchmark_id` field in `generator_config_schema.json` — use `dataset_id` instead; annotated with `x-deprecated`.
+- `benchmark_id` field in `experiment_schema.json` — use `dataset_id` instead; annotated with `x-deprecated`.
+- `benchmark` field in `experiment_schema.json` — use `dataset` instead; annotated with `x-deprecated`.
+
+All fields remain present (non-breaking); removal planned after 2026-Q4.
+
+## [4.6.0] - 2026-06-14
+
+### Added
+- Two-dimensional optimization metering + differentiated quota enforcement
+  contracts (unified quota/wallet cost model, v1):
+  - `billing/quota_exceeded_error_schema.json` gains optional `action`,
+    `reserved_usage`, and `enforcement_behavior` (`block`/`drop`/`sample`).
+    Wallet/cost ceilings remain reported only via the wallet error contract,
+    never folded into the quota error. Backward compatible — the prior minimal
+    shape still validates.
+  - `billing/billing_limits_schema.json` gains optional `optimization_trials`
+    and `optimization_samples`; a new optimization run is admitted only when
+    BOTH have headroom. `trials` retained as a deprecated alias during
+    migration.
+  - New read-only `billing/usage_summary_response_schema.json` (per-resource
+    used/reserved/limit/reset/behavior + plan tier + enforcement mode) and
+    `billing/quota_preflight_request_schema.json` /
+    `billing/quota_preflight_response_schema.json` (admission preflight that
+    lists ALL blockers — quota and wallet — so clients can distinguish
+    "upgrade" from "top up"). These endpoints are never blocked by a cap.
 - Optional `splits` object on `datasets/evaluation_set_schema.json`
   (TraigentSchema#126): split policy (`explicit`/`hash` strategy, seed,
   `locked_test`) plus per-example `train`/`selection`/`test` assignments.

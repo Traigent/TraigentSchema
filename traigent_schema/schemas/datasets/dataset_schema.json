@@ -53,6 +53,7 @@
     },
     "files": {
       "type": "array",
+      "maxItems": 1000,
       "items": {
         "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetFile"
       },
@@ -68,6 +69,7 @@
     },
     "examples": {
       "type": "array",
+      "maxItems": 10000,
       "items": {
         "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetExample"
       },

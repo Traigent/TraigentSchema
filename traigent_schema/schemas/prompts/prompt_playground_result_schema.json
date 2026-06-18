@@ -10,7 +10,12 @@
     "label": { "type": ["string", "null"] },
     "executed": { "type": "boolean" },
     "trace_id": { "type": ["string", "null"] },
-    "trace_status": { "type": ["string", "null"] },
+    "trace_status": {
+      "anyOf": [
+        { "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus" },
+        { "type": "null" }
+      ]
+    },
     "rendered_prompt_text": { "type": ["string", "null"] },
     "rendered_chat_messages": {
       "type": ["array", "null"],

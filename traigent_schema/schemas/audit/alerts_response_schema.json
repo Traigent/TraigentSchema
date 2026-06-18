@@ -14,10 +14,11 @@
     },
     "data": {
       "type": "array",
-      "description": "Canonical active alert list.",
+      "description": "Canonical active alert list. DEPRECATED back-compat alias of `alerts` (same rows). Read `alerts`; this duplicate will be removed once consumers confirm.",
       "items": {
         "$ref": "#/definitions/AuditAlert"
-      }
+      },
+      "deprecated": true
     },
     "alerts": {
       "type": "array",

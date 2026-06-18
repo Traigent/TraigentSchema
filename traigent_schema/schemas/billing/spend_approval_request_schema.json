@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/spend_approval_request_schema.json",
+  "title": "Spend Approval Request",
+  "description": "POST /api/v1/billing/spend-approvals — request approval for a spend operation above policy thresholds.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "operation_group_id": {
+      "type": "string",
+      "maxLength": 128,
+      "description": "Operation group the spend belongs to."
+    },
+    "operation_type": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Type of operation requesting spend."
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 128,
+      "description": "Model the spend applies to."
+    },
+    "pricing_version": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Pricing version used for the estimate."
+    },
+    "requested_estimate_usd": {
+      "type": [
+        "number",
+        "string",
+        "null"
+      ],
+      "maxLength": 64,
+      "description": "Estimated spend in USD (number or decimal string)."
+    }
+  },
+  "required": [
+    "operation_group_id"
+  ]
+}

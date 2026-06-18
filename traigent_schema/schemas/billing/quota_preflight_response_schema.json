@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/quota_preflight_response_schema.json",
+  "title": "Quota Preflight Response",
+  "description": "200 response for POST /api/v1/billing/preflight. allowed=false lists ALL blockers (quota and/or wallet) so the client can show the right call to action (upgrade vs top up). A normal mutation, by contrast, fails on only the first deterministic blocker (wallet status, then quota, then wallet funds). This endpoint is never blocked by a cap.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "success": { "const": true },
+    "message": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "action": { "type": "string", "minLength": 1 },
+        "blockers": {
+          "type": "array",
+          "description": "Empty when allowed=true. Each blocker is either a quota blocker or a wallet blocker, discriminated by kind.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": { "type": "string", "enum": ["quota", "wallet"] },
+              "message": { "type": "string", "minLength": 1 },
+              "resource_type": { "type": ["string", "null"], "minLength": 1 },
+              "current_usage": { "type": ["number", "null"], "minimum": 0 },
+              "reserved_usage": { "type": ["number", "null"], "minimum": 0 },
+              "requested": { "type": ["number", "null"], "minimum": 0 },
+              "limit": { "type": ["number", "null"], "minimum": -1 },
+              "enforcement_behavior": {
+                "type": ["string", "null"],
+                "enum": ["block", "drop", "sample", null]
+              },
+              "upgrade_url": { "type": ["string", "null"], "minLength": 1 },
+              "wallet_status": {
+                "type": ["string", "null"],
+                "enum": ["active", "suspended", "disputed", null]
+              },
+              "available_balance_usd": { "type": ["string", "null"] },
+              "required_reserve_usd": { "type": ["string", "null"] },
+              "shortfall_usd": { "type": ["string", "null"] },
+              "top_up_url": { "type": ["string", "null"], "minLength": 1 }
+            },
+            "required": ["kind", "message"]
+          }
+        },
+        "reservation_preview": {
+          "description": "What WOULD be reserved if the action proceeds now. Money is in USD strings to avoid float drift; quota dimensions are integer unit counts.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "optimization_trials": { "type": ["number", "null"], "minimum": 0 },
+            "optimization_samples": { "type": ["number", "null"], "minimum": 0 },
+            "estimated_cost_usd": { "type": ["string", "null"] }
+          }
+        }
+      },
+      "required": ["allowed", "action", "blockers"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

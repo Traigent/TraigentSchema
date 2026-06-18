@@ -48,7 +48,7 @@
           "description": "Size of the file in bytes",
           "minimum": 0
         },
-        "evaluation set_id": {
+        "evaluation_set_id": {
           "type": "string",
           "description": "Unique identifier for the evaluation set"
         },
@@ -122,9 +122,9 @@
         },
         "confidence": {
           "type": "number",
-          "description": "Confidence percentage for the expected output",
+          "description": "Confidence as a 0-1 ratio for the expected output (platform convention; FE clamps to [0,1])",
           "minimum": 0,
-          "maximum": 100,
+          "maximum": 1,
           "optional": true
         },
         "status": {
@@ -134,9 +134,9 @@
         },
         "score": {
           "type": "number",
-          "description": "Score percentage for the example",
+          "description": "Score as a 0-1 ratio for the example (platform convention; FE clamps to [0,1])",
           "minimum": 0,
-          "maximum": 100,
+          "maximum": 1,
           "optional": true
         }
       },

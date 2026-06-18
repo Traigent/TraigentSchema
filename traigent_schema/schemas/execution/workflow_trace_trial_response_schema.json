@@ -41,7 +41,10 @@
       "format": "date-time"
     },
     "status": {
-      "type": ["string", "null"]
+      "anyOf": [
+        { "$ref": "../status_schema.json#/definitions/ObservabilitySpanStatus" },
+        { "type": "null" }
+      ]
     },
     "spans": {
       "type": "array",

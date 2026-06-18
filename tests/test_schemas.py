@@ -24,8 +24,9 @@ class TestSchemaFileIntegrity:
     def test_schema_file_count(self):
         """Should have expected number of schema files."""
         schema_files = get_all_schema_files()
-        # We migrated 38 files
-        assert len(schema_files) >= 35
+        # #131: floor was stale by ~8x (35 vs 273 files); min-aligned
+        # ratchet so catastrophic schema-file loss fails CI.
+        assert len(schema_files) >= 273
 
 
 def _objective_schema_payload():
@@ -856,7 +857,7 @@ class TestDatasetContracts:
                 "id": "run_123",
                 "run_id": "run_123",
                 "experiment_id": "experiment_789",
-                "status": "completed",
+                "status": "COMPLETED",
                 "configuration_runs_count": 1,
                 "summary_stats": {
                     "total_examples": 12,
@@ -936,7 +937,7 @@ class TestObjectiveSchemaContracts:
             "experiment_parameters": {
                 "infrastructure": _infrastructure_payload(),
             },
-            "status": "pruned",
+            "status": "PRUNED",
             "weighted_score": 0.89,
             "summary_stats": {
                 "weighted_score": 0.89,

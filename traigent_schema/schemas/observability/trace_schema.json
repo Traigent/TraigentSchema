@@ -8,7 +8,7 @@
   "properties": {
     "id": { "type": "string", "minLength": 1, "maxLength": 128 },
     "name": { "type": "string", "minLength": 1, "maxLength": 255 },
-    "status": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "status": { "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus" },
     "session_id": { "type": ["string", "null"], "maxLength": 128 },
     "user_id": { "type": ["string", "null"], "maxLength": 255 },
     "environment": { "type": ["string", "null"], "maxLength": 64 },

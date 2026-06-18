@@ -11,9 +11,10 @@
         "summary": "Disable MFA for the current user",
         "responses": {
           "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
           }
-        }
+        },
+        "x-traigent-body": "none — disables MFA for the authenticated caller; no request body consumed."
       }
     },
     "/api/v1/mfa/backup-codes": {
@@ -21,7 +22,7 @@
         "summary": "Retrieve current MFA backup codes",
         "responses": {
           "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
           }
         }
       }
@@ -31,7 +32,7 @@
         "summary": "Return MFA setup QR-code payload",
         "responses": {
           "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
           }
         }
       }
@@ -41,7 +42,7 @@
         "summary": "Get the current user's MFA enrollment status",
         "responses": {
           "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
           }
         }
       }
@@ -49,9 +50,59 @@
     "/api/v1/mfa/recovery": {
       "post": {
         "summary": "Initiate MFA recovery flow with a backup code",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./mfa_recovery_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Recovery code accepted."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -60,18 +111,99 @@
       "post": {
         "summary": "Begin MFA enrollment",
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "MFA enrollment started; returns provisioning secret/QR."
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
-        }
+        },
+        "x-traigent-body": "none — generates a new TOTP secret server-side; no request body consumed."
       }
     },
     "/api/v1/mfa/setup/verify": {
       "post": {
         "summary": "Verify an MFA setup token to complete enrollment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./mfa_setup_verify_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "MFA enrollment confirmed."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -79,9 +211,59 @@
     "/api/v1/mfa/verify": {
       "post": {
         "summary": "Verify an MFA code at login (post-credential challenge)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./mfa_verify_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
-          "default": {
-            "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "MFA challenge verified."
+          },
+          "400": {
+            "description": "Bad request — malformed or missing fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

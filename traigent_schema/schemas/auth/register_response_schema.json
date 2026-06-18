@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/register_response_schema.json",
+  "title": "Register Response DTO",
+  "description": "200 body for POST /api/v1/auth/register. No access token is issued at registration time — the user must verify their email before they can log in. The workspace (tenant/team/project) is provisioned asynchronously; project_id is surfaced later via the device-flow (device_token_success_schema.json).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "message", "user", "requires_email_verification", "email_sent"],
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "user": {
+      "$ref": "./auth_user_identity_schema.json",
+      "description": "Registered user identity. email_verified will be false until the user completes the email verification flow."
+    },
+    "requires_email_verification": {
+      "type": "boolean",
+      "description": "Always true for self-service registration — the account is inactive until the verification link is clicked."
+    },
+    "email_sent": {
+      "type": "boolean",
+      "description": "Whether the verification email was successfully dispatched. False only on transient delivery failure; the user can resend via POST /api/v1/auth/resend-verification."
+    }
+  }
+}

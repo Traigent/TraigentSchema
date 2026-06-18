@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
-PYTHON_DEVELOP_SHA = "c79bc47cacfb6480b75c8c3c8539722decfc63b5"
+PYTHON_DEVELOP_SHA = "4fe3cd370eb4f8945644543bce9f03ed12e4857c"
 
 PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ADVISORY_SELECTION_NOTICE",
@@ -283,7 +283,7 @@ def test_conditional_python_root_exports_are_modeled_explicitly() -> None:
     assert conditional_symbols == PYTHON_DEVELOP_CONDITIONAL_ROOT_SYMBOLS
 
 
-def test_required_js_exports_are_classified_and_include_stubs() -> None:
+def test_required_js_exports_are_classified() -> None:
     manifest = load_manifest()
     required = set(manifest["javascript"]["requiredRootExports"])
     stub_exports = set(manifest["javascript"]["stubRootExports"])
@@ -303,8 +303,34 @@ def test_required_js_exports_are_classified_and_include_stubs() -> None:
     assert stub_exports <= required
     assert stub_exports.isdisjoint(deferred_out_of_release)
     assert required.isdisjoint(deferred_out_of_release)
-    assert {"BenchmarkClient", "BenchmarkClientConfig"} <= stub_exports
-    assert {"EnterpriseAdminClient", "EnterpriseAdminConfig"} <= stub_exports
+
+
+def test_removed_stub_symbols_are_deferred_not_exported() -> None:
+    """BenchmarkClient/EnterpriseAdmin stubs were removed from the JS SDK.
+
+    They remain Python root symbols, so they must stay classified (deferred),
+    but they must no longer be advertised as JS exports or stubs.
+    """
+    manifest = load_manifest()
+    required = set(manifest["javascript"]["requiredRootExports"])
+    stub_exports = set(manifest["javascript"]["stubRootExports"])
+    classifications = manifest["classifications"]
+
+    removed_stubs = {
+        "BenchmarkClient",
+        "BenchmarkClientConfig",
+        "EnterpriseAdminClient",
+        "EnterpriseAdminConfig",
+    }
+
+    assert {"BenchmarkClient", "BenchmarkClientConfig"} <= set(
+        classifications["deferred-schema"]
+    )
+    assert {"EnterpriseAdminClient", "EnterpriseAdminConfig"} <= set(
+        classifications["deferred-backlog"]
+    )
+    assert removed_stubs.isdisjoint(required)
+    assert removed_stubs.isdisjoint(stub_exports)
 
 
 def test_release_policy_documents_forward_binding_and_refresh_cadence() -> None:

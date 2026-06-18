@@ -36,7 +36,9 @@
             "properties": {
               "text": {
                 "type": "string",
-                "description": "The completion text"
+                "description": "The completion text",
+                "x-content": true,
+                "x-privacy-classification": "user_content"
               },
               "index": {
                 "type": "integer",
@@ -103,7 +105,9 @@
             "properties": {
               "text": {
                 "type": "string",
-                "description": "The completion text"
+                "description": "The completion text",
+                "x-content": true,
+                "x-privacy-classification": "user_content"
               },
               "index": {
                 "type": "integer",
@@ -130,11 +134,6 @@
         }
       },
       "additionalProperties": true
-    },
-    "AgentExecutionStatus": {
-      "type": "string",
-      "enum": ["success", "failed", "cancelled", "timeout"],
-      "description": "Status of the agent execution"
     }
   },
   "type": "object",
@@ -151,10 +150,12 @@
     },
     "expected_output": {
       "type": ["string", "null"],
-      "description": "Expected output for evaluation purposes"
+      "description": "Expected output for evaluation purposes",
+      "x-content": true,
+      "x-privacy-classification": "user_content"
     },
     "status": {
-      "$ref": "#/definitions/AgentExecutionStatus",
+      "$ref": "../status_schema.json#/definitions/AgentExecutionStatus",
       "description": "Status of the agent execution"
     },
     "result": {

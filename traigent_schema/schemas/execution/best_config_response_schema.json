@@ -86,10 +86,14 @@
       "additionalProperties": false
     },
     "created_at": {
-      "type": "string"
+      "type": "string",
+      "format": "date-time",
+      "description": "Canonical timestamp."
     },
     "updated_at": {
-      "type": "string"
+      "type": "string",
+      "format": "date-time",
+      "description": "Canonical timestamp."
     }
   },
   "additionalProperties": false

@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/measures/timing_metric_vocabulary_schema.json",
+  "title": "Timing Metric Vocabulary",
+  "description": "Canonical contract for timing/latency metric names submitted in MetricResults. Canonical keys carry explicit millisecond suffixes (_ms). Advisory vocabulary: it names and reconciles timing keys but does NOT constrain MetricResults (which intentionally accepts arbitrary evaluator/user metrics).",
+  "type": "object",
+  "additionalProperties": false,
+  "x-source-of-truth": "timing_metric_vocabulary",
+  "x-canonical-unit": "millisecond",
+  "x-naming-convention": {
+    "description": "Timing metric keys SHOULD carry an explicit unit suffix. `_ms` = milliseconds (canonical). New code MUST use canonical _ms keys.",
+    "canonical_suffix": "_ms"
+  },
+  "definitions": {
+    "CanonicalTimingMetricName": {
+      "type": "string",
+      "enum": [
+        "response_time_ms",
+        "avg_response_time_ms",
+        "latency_ms",
+        "avg_latency_ms",
+        "execution_time_ms",
+        "total_latency_ms"
+      ],
+      "description": "Explicit-millisecond canonical timing keys. `response_time_ms` = MODEL CALL latency (per-config single) and `avg_response_time_ms` = its average are PRIMARY. `execution_time_ms` = total WALL-CLOCK execution of the evaluated call (user fn + scoring + overhead) — distinct from model latency; this is the canonical home for SDK function/wall-time durations. `latency_ms`/`avg_latency_ms`/`total_latency_ms` are accepted explicit-ms variants."
+    },
+    "TimingMetricName": {
+      "description": "Any recognized timing key (canonical).",
+      "$ref": "#/definitions/CanonicalTimingMetricName"
+    }
+  },
+  "x-canonical-timing-metrics": {
+    "response_time_ms":     { "unit": "ms", "to_ms": 1,    "role": "primary",   "aggregate": "single",  "scope": "config" },
+    "avg_response_time_ms": { "unit": "ms", "to_ms": 1,    "role": "primary",   "aggregate": "average", "scope": "config" },
+    "latency_ms":           { "unit": "ms", "to_ms": 1,    "role": "accepted",  "aggregate": "single",  "scope": "config" },
+    "avg_latency_ms":       { "unit": "ms", "to_ms": 1,    "role": "accepted",  "aggregate": "average", "scope": "config" },
+    "execution_time_ms":    { "unit": "ms", "to_ms": 1,    "role": "accepted",  "aggregate": "single",  "scope": "config" },
+    "total_latency_ms":     { "unit": "ms", "to_ms": 1,    "role": "accepted",  "aggregate": "sum",     "scope": "config" }
+  },
+  "x-non-canonical-pending-migration": {
+    "description": "Emitted today but NOT canonical. Tracked for SDK migration in Traigent/Traigent#1225; consumers MAY map them during the compat window but new code MUST NOT introduce them. Semantics confirmed by the SDK agent (#1225).",
+    "function_duration":   { "unit": "s", "to_ms": 1000, "should_become": "execution_time_ms", "note": "per-example wall-clock; folds into execution_time_ms (decision in #118). NOT minted as a new function_duration_ms key." },
+    "model_response_time": { "unit": "s", "to_ms": 1000, "should_become": "response_time_ms", "note": "lossy rename of an already-ms model latency; emit raw ms as response_time_ms instead." }
+  }
+}

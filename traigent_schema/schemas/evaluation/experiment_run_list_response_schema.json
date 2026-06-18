@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/evaluation/experiment_run_list_response_schema.json",
+  "title": "Experiment Run List Response Schema",
+  "description": "Response schema for GET /api/v1/experiment-runs/{experiment_id}/runs — returns a bare {runs:[...]} payload (experiment_run_routes is in the 'bare' wrap-map list). The experiment_data embed shape mirrors ExperimentModelParameters from experiment_run_schema.json; the decision to tighten or widen the embed is deferred to TraigentBackend#1134.",
+  "type": "object",
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "./experiment_run_schema.json"
+      },
+      "description": "List of experiment runs for the requested experiment. Currently unpaginated (all runs for the experiment are returned); pagination is a TraigentBackend#1134 follow-up."
+    }
+  },
+  "required": ["runs"],
+  "additionalProperties": false
+}

@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/session_next_trial_response_schema.json",
+  "title": "Session Next-Trial Response",
+  "description": "200 response of POST /api/v1/sessions/{session_id}/next-trial. Mirrors the backend handler (traigent_session_routes.get_next_trial -> _normalize_session_payload, which only canonicalizes session_status). A read response: additionalProperties:true so server-added fields validate. When the trial queue is exhausted, has_next is false and trial is null.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "has_next"
+  ],
+  "properties": {
+    "has_next": {
+      "type": "boolean",
+      "description": "Whether a next trial suggestion is available. false once the pre-generated trial queue is exhausted."
+    },
+    "trial": {
+      "type": ["object", "null"],
+      "description": "The next trial suggestion, or null when has_next is false.",
+      "additionalProperties": true,
+      "properties": {
+        "trial_id": {
+          "type": "string",
+          "description": "Identifier of the suggested trial."
+        },
+        "agent_specification": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "The agent configuration to evaluate for this trial.",
+          "properties": {
+            "agent_platform": {
+              "type": "string",
+              "description": "Target agent platform (e.g. openai)."
+            },
+            "prompt_template": {
+              "type": "string"
+            },
+            "model_parameters": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Model invocation parameters (model, temperature, max_tokens, ...)."
+            }
+          }
+        },
+        "dataset_subset_indices": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Which dataset examples this trial is evaluated against.",
+          "properties": {
+            "indices": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 0 }
+            },
+            "strategy": {
+              "type": "string",
+              "description": "Subset selection strategy (e.g. random)."
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "remaining_trials": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of trials remaining in the session queue after this suggestion."
+    },
+    "session_status": {
+      "type": "string",
+      "description": "Canonical session lifecycle status (normalized server-side)."
+    }
+  }
+}

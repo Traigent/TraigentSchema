@@ -48,7 +48,7 @@
             }
           },
           "500": {
-            "description": "Failure path \u2014 backend returns `success=false` with `error` and `message`; same schema covers both paths.",
+            "description": "Failure path — backend returns `success=false` with `error` and `message`; same schema covers both paths.",
             "content": {
               "application/json": {
                 "schema": {
@@ -110,6 +110,16 @@
     "/api/v1/audit/logs/export": {
       "post": {
         "summary": "Export audit logs as JSON or CSV stream",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./audit_log_export_request_schema.json"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Audit-log export stream. JSON exports use the documented envelope; CSV exports return text/csv rows.",
@@ -292,7 +302,7 @@
         "summary": "SOC2-scoped view of security incidents",
         "responses": {
           "200": {
-            "description": "Alias of /api/v1/audit/security/incidents kept for SOC2 clients \u2014 same response shape.",
+            "description": "Alias of /api/v1/audit/security/incidents kept for SOC2 clients — same response shape.",
             "content": {
               "application/json": {
                 "schema": {

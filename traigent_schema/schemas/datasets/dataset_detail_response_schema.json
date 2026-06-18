@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/dataset_detail_response_schema.json",
+  "title": "Dataset Detail Response",
+  "description": "GET /api/v1/datasets/{id}. Success envelope (success_response): {success, message, data}.",
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "./dataset_schema.json"
+    }
+  }
+}

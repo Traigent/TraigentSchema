@@ -17,7 +17,6 @@ DEVICE_DECISION_SUCCESS = "device_decision_success_schema"
 DEVICE_TOKEN_REQUEST = "device_token_request_schema"
 DEVICE_TOKEN_RESPONSE = "device_token_response_schema"
 DEVICE_TOKEN_SUCCESS = "device_token_success_schema"
-PROVISIONED_WORKSPACE = "provisioned_workspace_schema"
 DEVICE_CODE = "Abcdefghijklmnopqrstuvwxyz0123456789_-ABCDEFG"
 USER_CODE = "BCDF-GHJK"
 API_KEY_PREFIX = "s" + "k_"
@@ -167,7 +166,6 @@ def test_device_flow_schemas_are_valid_draft7() -> None:
         DEVICE_TOKEN_REQUEST,
         DEVICE_TOKEN_RESPONSE,
         DEVICE_TOKEN_SUCCESS,
-        PROVISIONED_WORKSPACE,
     ):
         Draft7Validator.check_schema(load_schema(schema_name))
 
@@ -469,25 +467,6 @@ def test_device_token_response_rejects_slow_down_interval_below_rfc_minimum() ->
         assert validator.validate_json(payload, DEVICE_TOKEN_RESPONSE)
 
 
-def test_provisioned_workspace_accepts_default_project_shape() -> None:
-    payload = {
-        "tenant_id": "tenant_personal_123",
-        "team_id": "team_personal_123",
-        "default_project_id": "project_default_123",
-    }
-
-    assert SchemaValidator().validate_json(payload, PROVISIONED_WORKSPACE) == []
-
-
-def test_provisioned_workspace_requires_default_project_id() -> None:
-    payload = {
-        "tenant_id": "tenant_personal_123",
-        "team_id": "team_personal_123",
-    }
-
-    assert SchemaValidator().validate_json(payload, PROVISIONED_WORKSPACE)
-
-
 def test_device_flow_schemas_are_registered_by_runtime_discovery() -> None:
     available = set(SchemaValidator().available_schemas)
 
@@ -500,7 +479,6 @@ def test_device_flow_schemas_are_registered_by_runtime_discovery() -> None:
         DEVICE_TOKEN_REQUEST,
         DEVICE_TOKEN_RESPONSE,
         DEVICE_TOKEN_SUCCESS,
-        PROVISIONED_WORKSPACE,
     } <= available
 
 

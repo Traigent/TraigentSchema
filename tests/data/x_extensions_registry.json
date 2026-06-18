@@ -10,7 +10,6 @@
     "x-canonical-unit": { "description": "The canonical unit for a vocabulary's values (e.g. millisecond for timing metrics). (#118)" },
     "x-naming-convention": { "description": "Documents the naming/suffix convention for a vocabulary's keys." },
     "x-canonical-timing-metrics": { "description": "Map of canonical timing-metric keys to unit/role/aggregate/scope. (#118)" },
-    "x-legacy-timing-aliases": { "description": "Map of legacy timing-metric aliases to their canonical key + conversion factor. (#118)" },
     "x-non-canonical-pending-migration": { "description": "Timing keys emitted today but pending migration to a canonical key. (#118)" },
     "x-timing-metric-vocabulary": { "description": "Non-constraining pointer from a payload schema to the timing-metric vocabulary. (#118)" },
     "x-privilege-roles": { "description": "RBAC privilege roles (member/admin) and whether each is privileged. (#144)" },

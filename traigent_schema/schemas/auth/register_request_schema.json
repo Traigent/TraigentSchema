@@ -32,7 +32,8 @@
     "role": {
       "type": "string",
       "maxLength": 64,
-      "description": "Optional requested role."
+      "x-inert": true,
+      "description": "Advisory-only. Backend always assigns the server-side default role (AUTH-002). Clients should omit this field; the contract may add an enum constraint in a future minor version."
     },
     "access_code": {
       "type": "string",

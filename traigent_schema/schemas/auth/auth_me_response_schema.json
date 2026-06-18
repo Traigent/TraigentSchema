@@ -42,6 +42,18 @@
           "type": "string",
           "enum": ["claims", "db"],
           "description": "Non-production diagnostic marker added by the backend only outside production."
+        },
+        "is_tenant_override": {
+          "type": "boolean",
+          "description": "True when a platform admin is viewing a tenant they are not a member of. Always present; false when not overriding. Clients should warn the admin when this is true (e.g., 'Admin Override: viewing non-member tenant X')."
+        },
+        "assumed_tenant_id": {
+          "type": ["string", "null"],
+          "description": "The effective tenant ID being viewed under a platform-admin override. Only present when is_tenant_override is true."
+        },
+        "assumed_tenant_name": {
+          "type": ["string", "null"],
+          "description": "Display name of the assumed tenant. Only present when is_tenant_override is true and a name is available."
         }
       }
     }

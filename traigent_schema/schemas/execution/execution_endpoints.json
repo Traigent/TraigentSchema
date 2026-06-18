@@ -11,7 +11,41 @@
         "summary": "List experiments",
         "responses": {
           "200": {
-            "description": "Experiments retrieved successfully"
+            "description": "Experiments retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "message", "data"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "../evaluation/experiment_schema.json"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "../pagination_schema.json"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },

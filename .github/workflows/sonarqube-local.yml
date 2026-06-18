@@ -101,6 +101,8 @@ jobs:
             -Dsonar.host.url="${SONAR_HOST_URL}" \
             -Dsonar.token="${SONAR_TOKEN}" \
             -Dsonar.organization= \
+            -Dsonar.projectKey=Traigent_TraigentSchema \
+            -Dsonar.projectName=TraigentSchema \
             -Dsonar.qualitygate.wait=true \
             -Dsonar.qualitygate.timeout=300
 

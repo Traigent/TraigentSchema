@@ -23,9 +23,8 @@
           "description": "Rotated refresh token."
         },
         "user": {
-          "type": ["object", "null"],
-          "additionalProperties": true,
-          "description": "Authenticated user identity claims; see GET /api/v1/auth/me for the full shape. Modeled permissively to avoid drift."
+          "$ref": "./auth_user_identity_schema.json",
+          "description": "Authenticated user identity claims. Minimum required fields (id, email) are pinned; additional claims are permitted. Full shape is at GET /api/v1/auth/me."
         },
         "csrf_token": {
           "type": "string",

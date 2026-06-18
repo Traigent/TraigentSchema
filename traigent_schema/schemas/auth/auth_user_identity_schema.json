@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/auth_user_identity_schema.json",
+  "title": "AuthUserIdentity",
+  "description": "Canonical user identity shape returned by all auth endpoints (login, token-refresh, SSO callback, register). Pins the minimum required fields (id, email) while permitting the additional claims that richer surfaces (GET /auth/me, device-flow) carry. Patterned after the device_token_success_schema.json user sub-object which is the reference implementation.",
+  "type": ["object", "null"],
+  "required": ["id", "email"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Stable user identifier."
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "minLength": 3,
+      "maxLength": 320,
+      "description": "User email address."
+    },
+    "email_verified": {
+      "type": "boolean",
+      "description": "Whether the user has verified their email address."
+    },
+    "onboarding_completed": {
+      "type": "boolean",
+      "description": "Whether the user has completed the in-product onboarding flow."
+    }
+  }
+}

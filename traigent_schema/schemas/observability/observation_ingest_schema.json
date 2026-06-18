@@ -37,6 +37,9 @@
       "additionalProperties": true,
       "description": "Opaque user-supplied annotations. Do NOT place structured platform data here — correlation_ids and prompt_reference are dedicated top-level fields, never sub-keys of metadata."
     },
+    "_ObservabilityTraceStatus": {
+      "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus"
+    },
     "Observation_d1": {
       "type": "object",
       "additionalProperties": false,
@@ -55,9 +58,7 @@
           "maxLength": 255
         },
         "status": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
+          "$ref": "#/definitions/_ObservabilityTraceStatus"
         },
         "parent_observation_id": {
           "type": [
@@ -189,9 +190,7 @@
           "maxLength": 255
         },
         "status": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
+          "$ref": "#/definitions/_ObservabilityTraceStatus"
         },
         "parent_observation_id": {
           "type": [
@@ -323,9 +322,7 @@
           "maxLength": 255
         },
         "status": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
+          "$ref": "#/definitions/_ObservabilityTraceStatus"
         },
         "parent_observation_id": {
           "type": [
@@ -457,9 +454,7 @@
           "maxLength": 255
         },
         "status": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
+          "$ref": "#/definitions/_ObservabilityTraceStatus"
         },
         "parent_observation_id": {
           "type": [
@@ -591,9 +586,7 @@
           "maxLength": 255
         },
         "status": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
+          "$ref": "#/definitions/_ObservabilityTraceStatus"
         },
         "parent_observation_id": {
           "type": [
@@ -725,9 +718,7 @@
           "maxLength": 255
         },
         "status": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
+          "$ref": "#/definitions/_ObservabilityTraceStatus"
         },
         "parent_observation_id": {
           "type": [

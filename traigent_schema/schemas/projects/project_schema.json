@@ -17,6 +17,10 @@
       "minLength": 1,
       "maxLength": 128
     },
+    "tenant_name": {
+      "type": ["string", "null"],
+      "maxLength": 255
+    },
     "name": {
       "type": "string",
       "minLength": 1,

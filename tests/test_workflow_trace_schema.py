@@ -131,13 +131,30 @@ def test_span_accepts_langgraph_and_content_fields():
     assert v.validate_json(payload, SCHEMA) == []
 
 
-def test_span_type_and_status_are_free_strings():
-    """The SDK sources span_type from an OTel attribute and accepts arbitrary
-    status strings, so the contract must not enum-lock them."""
+def test_span_type_is_free_string_and_status_is_enum_bound():
+    """span_type is sourced from an OTel attribute and remains a free string.
+    span status is now enum-bound to ObservabilitySpanStatus (TraigentSchema#175):
+    canonical UPPER vocab {RUNNING, COMPLETED, FAILED, REJECTED, TIMEOUT, CANCELLED}.
+    """
     v = SchemaValidator()
-    span = {**_valid_span(), "span_type": "custom_kind", "status": "WEIRD_BUT_VALID"}
-    payload = {"spans": {**_span_batch(), "spans": [span]}}
-    assert v.validate_json(payload, SCHEMA) == []
+    # span_type is still a free string - custom values are accepted
+    span_custom_type = {**_valid_span(), "span_type": "custom_kind", "status": "RUNNING"}
+    payload = {"spans": {**_span_batch(), "spans": [span_custom_type]}}
+    assert v.validate_json(payload, SCHEMA) == [], "custom span_type should still be accepted"
+
+    # span status is now enum-bound - non-canonical values are rejected
+    span_bad_status = {**_valid_span(), "status": "WEIRD_BUT_VALID"}
+    payload_bad = {"spans": {**_span_batch(), "spans": [span_bad_status]}}
+    errors = v.validate_json(payload_bad, SCHEMA)
+    assert len(errors) == 1 and "WEIRD_BUT_VALID" in errors[0], (
+        f"non-canonical span status should be rejected (TraigentSchema#175): {errors}"
+    )
+
+    # all canonical UPPER values are accepted
+    for status in ("RUNNING", "COMPLETED", "FAILED", "REJECTED", "TIMEOUT", "CANCELLED"):
+        span_ok = {**_valid_span(), "status": status}
+        payload_ok = {"spans": {**_span_batch(), "spans": [span_ok]}}
+        assert v.validate_json(payload_ok, SCHEMA) == [], f"canonical span status {status!r} should be accepted"
 
 
 def test_span_batch_requires_trace_and_config_run():

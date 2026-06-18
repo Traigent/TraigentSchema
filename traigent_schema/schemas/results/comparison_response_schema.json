@@ -1,0 +1,159 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/results/comparison_response_schema.json",
+  "title": "Comparison Response Schema",
+  "description": "Success-envelope response schema for GET /api/v1/optimization-comparisons/{comparison_id}. The route is in the 'wrapped' list (optimization_comparison_routes), so the payload is wrapped in {success, message, data}. The data field contains the comparison payload built by OptimizationComparisonService._build_comparison_payload.",
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true,
+      "description": "Discriminator — always true for success responses"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable summary"
+    },
+    "data": {
+      "type": "object",
+      "description": "Comparison payload",
+      "properties": {
+        "comparison_id": {
+          "type": "string",
+          "description": "Stateless deterministic comparison ID (cmp_<base64>)",
+          "x-identifier": true
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Version of the comparison payload schema"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ready", "pending", "running", "failed"],
+          "description": "Computation status of the comparison"
+        },
+        "stability": {
+          "type": "string",
+          "enum": ["stable", "experimental", "beta"],
+          "description": "Stability of this comparison surface"
+        },
+        "benchmark_id": {
+          "type": ["string", "null"],
+          "description": "ID of the evaluation dataset used",
+          "x-reference": true
+        },
+        "tunable_id": {
+          "type": ["string", "null"],
+          "description": "ID of the tunable/experiment being compared",
+          "x-reference": true
+        },
+        "runs": {
+          "type": "array",
+          "description": "Metadata for each run included in the comparison",
+          "items": {
+            "type": "object",
+            "properties": {
+              "run_id": {
+                "type": "string",
+                "description": "ID of the experiment run",
+                "x-reference": true
+              },
+              "label": {
+                "type": ["string", "null"],
+                "description": "Display label for this run"
+              },
+              "total_examples": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Total number of examples in this run"
+              },
+              "started_at": {
+                "type": ["string", "null"],
+                "format": "date-time",
+                "description": "ISO 8601 timestamp when the run started"
+              },
+              "completed_at": {
+                "type": ["string", "null"],
+                "format": "date-time",
+                "description": "ISO 8601 timestamp when the run completed"
+              }
+            },
+            "required": ["run_id", "total_examples"],
+            "additionalProperties": false
+          },
+          "minItems": 2
+        },
+        "overlap": {
+          "type": "object",
+          "description": "Example ID overlap analysis across runs",
+          "properties": {
+            "common_example_count": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of example IDs present in all compared runs"
+            },
+            "common_example_ids": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Sorted list of example IDs common to all runs"
+            },
+            "run_only_example_ids": {
+              "type": "object",
+              "description": "Example IDs unique to each run (run_id → [example_id, ...])",
+              "additionalProperties": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          "required": ["common_example_count", "common_example_ids", "run_only_example_ids"],
+          "additionalProperties": false
+        },
+        "summary": {
+          "type": "object",
+          "description": "Aggregated comparison summary statistics",
+          "additionalProperties": true
+        },
+        "model_comparison": {
+          "type": "object",
+          "description": "Per-model metric comparison rows",
+          "additionalProperties": true
+        },
+        "example_comparison": {
+          "type": "array",
+          "description": "Preview example rows (up to PREVIEW_EXAMPLE_LIMIT items)",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "suspicious_examples": {
+          "type": "object",
+          "description": "Examples flagged as potentially anomalous",
+          "additionalProperties": true
+        },
+        "execution_errors": {
+          "description": "Errors encountered during comparison computation (if any)",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "experimental": {
+          "type": "object",
+          "description": "Experimental surface metadata and availability flags",
+          "additionalProperties": true
+        }
+      },
+      "required": ["comparison_id", "status", "runs", "overlap"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["success", "message", "data"],
+  "additionalProperties": false
+}

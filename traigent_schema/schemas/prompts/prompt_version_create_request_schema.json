@@ -6,11 +6,18 @@
   "additionalProperties": false,
   "properties": {
     "prompt_text": {
-      "type": ["string", "null"],
-      "minLength": 1
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 50000
     },
     "chat_messages": {
-      "type": ["array", "null"],
+      "type": [
+        "array",
+        "null"
+      ],
       "items": {
         "$ref": "./chat_prompt_message_schema.json"
       }
@@ -21,14 +28,18 @@
       "additionalProperties": true
     },
     "commit_message": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "maxLength": 2000
     },
     "labels": {
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._\\-]{0,63}$"
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._\\-]{0,63}$",
+        "maxLength": 1000
       },
       "default": []
     }

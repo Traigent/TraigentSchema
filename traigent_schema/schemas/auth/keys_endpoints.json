@@ -1,0 +1,100 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent API Key Management Routes",
+    "version": "1.0.0",
+    "description": "Canonical backend routes for API key lifecycle management (POST /api/v1/keys). Backed by TraigentBackend/src/routes/auth_routes.py key handlers."
+  },
+  "paths": {
+    "/api/v1/keys": {
+      "post": {
+        "summary": "Create API key",
+        "description": "Create a new API key for the authenticated user. The plaintext secret is returned once in the 201 response (create_secret field) and never again — the client must store it immediately. Only user-requestable scopes are accepted; admin:all is a privileged server-side scope and is rejected. Keys may optionally be scoped to a project_id; the caller must be a project member or admin to create project-scoped keys.",
+        "operationId": "createApiKey",
+        "x-required-permission": "write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./api_key_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key created successfully. The create_secret field contains the one-time plaintext secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./api_key_resource_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed body, invalid scope tokens, or name too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated — missing or invalid session/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — only project members or admins may create project-scoped keys; or the requested scopes exceed the caller's entitlements.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — a key with the same name already exists for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

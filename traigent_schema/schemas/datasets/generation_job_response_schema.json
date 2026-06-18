@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/generation_job_response_schema.json",
+  "title": "Generation Job Response",
+  "description": "202 response for async example/dataset generation — a GenerationJob status record.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "description": "Generation job identifier."
+    },
+    "status": {
+      "type": "string",
+      "description": "Job status (e.g. queued, running, completed, failed)."
+    },
+    "dataset_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ]
+}

@@ -8,15 +8,18 @@
     "id": {
       "type": "string",
       "description": "Unique identifier for this visualization request",
-      "x-identifier": true
+      "x-identifier": true,
+      "maxLength": 128
     },
     "name": {
       "type": "string",
-      "description": "Human-readable name for the visualization"
+      "description": "Human-readable name for the visualization",
+      "maxLength": 255
     },
     "description": {
       "type": "string",
-      "description": "Detailed description of the visualization"
+      "description": "Detailed description of the visualization",
+      "maxLength": 5000
     },
     "visualization_type": {
       "type": "string",
@@ -45,60 +48,82 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["experiment_run"],
+              "enum": [
+                "experiment_run"
+              ],
               "description": "Data source type"
             },
             "experiment_id": {
               "type": "string",
               "description": "ID of the experiment",
-              "x-reference": true
+              "x-reference": true,
+              "maxLength": 128
             },
             "run_id": {
               "type": "string",
               "description": "ID of the experiment run",
-              "x-reference": true
+              "x-reference": true,
+              "maxLength": 128
             }
           },
-          "required": ["type", "experiment_id", "run_id"],
+          "required": [
+            "type",
+            "experiment_id",
+            "run_id"
+          ],
           "additionalProperties": false
         },
         {
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["comparison"],
+              "enum": [
+                "comparison"
+              ],
               "description": "Data source type"
             },
             "comparison_id": {
               "type": "string",
               "description": "ID of the comparison",
-              "x-reference": true
+              "x-reference": true,
+              "maxLength": 128
             }
           },
-          "required": ["type", "comparison_id"],
+          "required": [
+            "type",
+            "comparison_id"
+          ],
           "additionalProperties": false
         },
         {
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["evaluation"],
+              "enum": [
+                "evaluation"
+              ],
               "description": "Data source type"
             },
             "evaluation_id": {
               "type": "string",
               "description": "ID of the evaluation",
-              "x-reference": true
+              "x-reference": true,
+              "maxLength": 128
             }
           },
-          "required": ["type", "evaluation_id"],
+          "required": [
+            "type",
+            "evaluation_id"
+          ],
           "additionalProperties": false
         },
         {
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["custom"],
+              "enum": [
+                "custom"
+              ],
               "description": "Data source type"
             },
             "data": {
@@ -107,7 +132,10 @@
               "additionalProperties": true
             }
           },
-          "required": ["type", "data"],
+          "required": [
+            "type",
+            "data"
+          ],
           "additionalProperties": false
         }
       ],
@@ -116,27 +144,38 @@
     "metrics": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       },
       "description": "List of metric IDs to include in the visualization"
     },
     "configurations": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       },
       "description": "List of configuration IDs to include (for multi-configuration visualizations)"
     },
     "parameters": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 1000
       },
       "description": "List of parameter names to include (for parameter-focused visualizations)"
     },
     "aggregation": {
       "type": "string",
-      "enum": ["none", "mean", "median", "max", "min", "sum", "count"],
+      "enum": [
+        "none",
+        "mean",
+        "median",
+        "max",
+        "min",
+        "sum",
+        "count"
+      ],
       "description": "Aggregation method for data points",
       "default": "none"
     },
@@ -147,18 +186,33 @@
         "properties": {
           "field": {
             "type": "string",
-            "description": "Field to filter on"
+            "description": "Field to filter on",
+            "maxLength": 5000
           },
           "operator": {
             "type": "string",
-            "enum": ["eq", "neq", "gt", "lt", "gte", "lte", "in", "nin", "contains"],
+            "enum": [
+              "eq",
+              "neq",
+              "gt",
+              "lt",
+              "gte",
+              "lte",
+              "in",
+              "nin",
+              "contains"
+            ],
             "description": "Filter operator"
           },
           "value": {
             "description": "Value to filter against"
           }
         },
-        "required": ["field", "operator", "value"],
+        "required": [
+          "field",
+          "operator",
+          "value"
+        ],
         "additionalProperties": false
       },
       "description": "Filters to apply to the data"
@@ -168,19 +222,23 @@
       "properties": {
         "title": {
           "type": "string",
-          "description": "Title for the visualization"
+          "description": "Title for the visualization",
+          "maxLength": 5000
         },
         "x_axis_label": {
           "type": "string",
-          "description": "Label for the x-axis"
+          "description": "Label for the x-axis",
+          "maxLength": 255
         },
         "y_axis_label": {
           "type": "string",
-          "description": "Label for the y-axis"
+          "description": "Label for the y-axis",
+          "maxLength": 255
         },
         "color_scheme": {
           "type": "string",
-          "description": "Color scheme for the visualization"
+          "description": "Color scheme for the visualization",
+          "maxLength": 5000
         },
         "include_legend": {
           "type": "boolean",
@@ -208,7 +266,13 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["png", "svg", "pdf", "html", "json"]
+        "enum": [
+          "png",
+          "svg",
+          "pdf",
+          "html",
+          "json"
+        ]
       },
       "description": "Desired output formats for the visualization"
     },
@@ -223,6 +287,11 @@
       "description": "Additional metadata for the visualization request"
     }
   },
-  "required": ["id", "visualization_type", "data_source", "created_at"],
+  "required": [
+    "id",
+    "visualization_type",
+    "data_source",
+    "created_at"
+  ],
   "additionalProperties": false
-} 
+}

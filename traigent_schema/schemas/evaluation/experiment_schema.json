@@ -173,18 +173,21 @@
     },
     "eval_dataset_id": {
       "type": "string",
-      "description": "Legacy alias for the evaluation dataset identifier",
-      "x-reference": true
+      "description": "DEPRECATED: use dataset_id instead. Legacy alias for the evaluation dataset identifier.",
+      "x-reference": true,
+      "x-deprecated": "Use dataset_id instead. eval_dataset_id will be removed after 2026-Q4."
     },
     "evaluation_set_id": {
       "type": "string",
-      "description": "Legacy alias for the evaluation dataset identifier",
-      "x-reference": true
+      "description": "DEPRECATED: use dataset_id instead. Legacy alias for the evaluation dataset identifier.",
+      "x-reference": true,
+      "x-deprecated": "Use dataset_id instead. evaluation_set_id will be removed after 2026-Q4."
     },
     "benchmark_id": {
       "type": "string",
-      "description": "Compatibility alias for the evaluation dataset identifier",
-      "x-reference": true
+      "description": "DEPRECATED: use dataset_id instead. Compatibility alias for the evaluation dataset identifier.",
+      "x-reference": true,
+      "x-deprecated": "Use dataset_id instead. benchmark_id will be removed after 2026-Q4."
     },
     "agent_id": {
       "type": "string",
@@ -222,23 +225,26 @@
     },
     "eval_dataset": {
       "$ref": "../datasets/dataset_schema.json#",
-      "description": "Legacy alias for the dataset configuration being evaluated"
+      "description": "DEPRECATED: use dataset instead. Legacy alias for the dataset configuration being evaluated.",
+      "x-deprecated": "Use dataset instead. eval_dataset will be removed after 2026-Q4."
     },
     "evaluation_set": {
       "$ref": "../datasets/dataset_schema.json#",
-      "description": "Legacy full evaluation dataset configuration alias"
+      "description": "DEPRECATED: use dataset instead. Legacy full evaluation dataset configuration alias.",
+      "x-deprecated": "Use dataset instead. evaluation_set will be removed after 2026-Q4."
     },
     "benchmark": {
       "$ref": "../datasets/dataset_schema.json#",
-      "description": "Compatibility alias for the dataset configuration"
+      "description": "DEPRECATED: use dataset field instead. Compatibility alias for the dataset configuration.",
+      "x-deprecated": "Use dataset instead. benchmark will be removed after 2026-Q4."
     },
     "agent": {
       "$ref": "https://schemas.traigent.ai/agents/agent_schema.json#",
-      "description": "Full agent configuration performing the evaluation"
+      "description": "Full agent configuration performing the evaluation. Heavy hydrated form; canonical reference field is agent_id. Not emitted by list serializers — present only on detail responses that explicitly hydrate the agent object."
     },
     "model_parameters": {
       "$ref": "https://schemas.traigent.ai/agents/model_parameters_schema.json#",
-      "description": "Full model parameters configuration for the experiment"
+      "description": "Full model parameters configuration for the experiment. Heavy hydrated form; canonical reference field is model_parameters_id. Not emitted by list serializers — present only on detail responses that explicitly hydrate the model parameters object."
     },
     "experiment_parameters": {
       "type": "object",

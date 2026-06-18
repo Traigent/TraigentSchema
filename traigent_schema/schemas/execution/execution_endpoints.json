@@ -11,7 +11,41 @@
         "summary": "List experiments",
         "responses": {
           "200": {
-            "description": "Experiments retrieved successfully"
+            "description": "Experiments retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["success", "message", "data"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": ["items", "pagination"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "../evaluation/experiment_schema.json"
+                          }
+                        },
+                        "pagination": {
+                          "$ref": "../pagination_schema.json"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -22,7 +56,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "../evaluation/experiment_schema.json"
+                "$ref": "../evaluation/experiment_create_request_schema.json"
               }
             }
           }
@@ -39,7 +73,14 @@
         "summary": "Get experiment",
         "responses": {
           "200": {
-            "description": "Experiment retrieved successfully"
+            "description": "Experiment retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -75,7 +116,14 @@
         "summary": "List experiment runs for an experiment",
         "responses": {
           "200": {
-            "description": "Experiment runs retrieved successfully"
+            "description": "Experiment runs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_run_list_response_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -107,7 +155,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "../evaluation/configuration_run_schema.json"
+                "$ref": "../evaluation/configuration_run_create_request_schema.json"
               }
             }
           }
@@ -124,7 +172,14 @@
         "summary": "Get experiment run",
         "responses": {
           "200": {
-            "description": "Experiment run retrieved successfully"
+            "description": "Experiment run retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_run_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -149,12 +204,12 @@
                 "required": [
                   "status"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "status": {
-                    "type": "string"
+                    "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ExperimentRunStatus"
                   }
-                },
-                "additionalProperties": true
+                }
               }
             }
           }
@@ -171,7 +226,14 @@
         "summary": "Get experiment run results",
         "responses": {
           "200": {
-            "description": "Experiment run results retrieved successfully"
+            "description": "Experiment run results retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_results_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -252,7 +314,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "../evaluation/configuration_run_schema.json"
+                "$ref": "../evaluation/configuration_run_create_request_schema.json"
               }
             }
           }
@@ -269,7 +331,14 @@
         "summary": "Get configuration run",
         "responses": {
           "200": {
-            "description": "Configuration run retrieved successfully"
+            "description": "Configuration run retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/configuration_run_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -312,15 +381,18 @@
                 "required": [
                   "status"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "status": {
-                    "type": "string"
+                    "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ConfigurationRunStatus"
                   },
                   "error_message": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
-                },
-                "additionalProperties": true
+                }
               }
             }
           }
@@ -340,7 +412,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./metric_submission_schema.json"
+                "$ref": "./configuration_run_measures_request_schema.json"
               }
             }
           }
@@ -364,12 +436,12 @@
                 "required": [
                   "summary_stats"
                 ],
+                "additionalProperties": false,
                 "properties": {
                   "summary_stats": {
-                    "type": "object"
+                    "$ref": "https://schemas.traigent.ai/evaluation/configuration_run_schema.json#/definitions/SummaryStats"
                   }
-                },
-                "additionalProperties": true
+                }
               }
             }
           }

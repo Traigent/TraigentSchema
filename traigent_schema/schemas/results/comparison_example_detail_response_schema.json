@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/results/comparison_example_detail_response_schema.json",
+  "title": "Comparison Example Detail Response Schema",
+  "description": "Success-envelope response schema for GET /api/v1/optimization-comparisons/{comparison_id}/examples/{example_id}. Route is wrapped (optimization_comparison_routes). The data field contains the payload from OptimizationComparisonService.get_example_detail.",
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true,
+      "description": "Discriminator — always true for success responses"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable summary"
+    },
+    "data": {
+      "type": "object",
+      "description": "Per-example detail payload",
+      "properties": {
+        "comparison_id": {
+          "type": "string",
+          "description": "Stateless deterministic comparison ID",
+          "x-identifier": true
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Version of the comparison payload schema"
+        },
+        "example_id": {
+          "type": "string",
+          "description": "ID of the example being detailed",
+          "x-reference": true
+        },
+        "label": {
+          "type": ["string", "null"],
+          "description": "Display label for the example"
+        },
+        "status": {
+          "type": "string",
+          "description": "Comparison status for this example (e.g. improvement, regression, neutral)"
+        },
+        "stability": {
+          "type": "string",
+          "description": "Stability classification for this example row"
+        },
+        "notes": {
+          "type": ["string", "null"],
+          "description": "Optional analyst notes"
+        },
+        "measures_by_run": {
+          "type": "object",
+          "description": "Per-run aggregated measures keyed by run_id",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "trial_counts_by_run": {
+          "type": "object",
+          "description": "Number of trials per run for this example, keyed by run_id",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "available_metric_keys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Sorted union of metric keys across all runs and trials for this example"
+        },
+        "run_summaries": {
+          "type": "array",
+          "description": "Per-run summary including trial count and aggregated measures",
+          "items": {
+            "type": "object",
+            "properties": {
+              "run_id": {
+                "type": "string",
+                "description": "ID of the experiment run",
+                "x-reference": true
+              },
+              "label": {
+                "type": ["string", "null"],
+                "description": "Display label for this run"
+              },
+              "trial_count": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Number of trials for this example in this run"
+              },
+              "measures": {
+                "type": "object",
+                "description": "Aggregated measures for this example in this run",
+                "additionalProperties": true
+              }
+            },
+            "required": ["run_id", "trial_count", "measures"],
+            "additionalProperties": false
+          }
+        },
+        "trials": {
+          "type": "array",
+          "description": "All individual trials across all runs for this example, sorted by run_label/model_label/trial_id",
+          "items": {
+            "type": "object",
+            "description": "Individual trial result",
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": ["comparison_id", "example_id", "status", "run_summaries", "trials"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["success", "message", "data"],
+  "additionalProperties": false
+}

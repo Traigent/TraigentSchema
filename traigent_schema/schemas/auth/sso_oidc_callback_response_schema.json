@@ -25,9 +25,8 @@
           "description": "CSRF token generated with the browser session."
         },
         "user": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Authenticated user identity claims produced by serialize_auth_user."
+          "$ref": "./auth_user_identity_schema.json",
+          "description": "Authenticated user identity claims produced by serialize_auth_user. Minimum required fields (id, email) are pinned; additional claims are permitted."
         },
         "sso": {
           "type": "object",

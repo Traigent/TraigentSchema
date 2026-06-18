@@ -10,6 +10,8 @@
     "status": "planned",
     "description": "Project-scoped v1beta routes used by beta SDK surfaces but not asserted against current backend parity."
   },
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
   "x-endpoint-modules": [
     {
       "name": "prompt_management",
@@ -63,6 +65,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad request — malformed body or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient role or admin privileges required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — a project with the same slug already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -106,6 +148,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "./projects/project_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed body or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient role or admin privileges required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
                 }
               }
             }
@@ -155,6 +227,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad request — malformed body or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient role or admin privileges required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -201,6 +303,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad request — malformed body or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient role or admin privileges required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -244,6 +376,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "./projects/project_export_policy_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed body or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient role or admin privileges required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
                 }
               }
             }
@@ -319,6 +481,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad request — malformed body or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient role or admin privileges required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — the user is already a member of the project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -345,6 +547,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "./projects/project_membership_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed body or validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — insufficient role or admin privileges required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./error_envelope_schema.json"
                 }
               }
             }

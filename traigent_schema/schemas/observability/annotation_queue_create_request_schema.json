@@ -5,8 +5,18 @@
   "type": "object",
   "additionalProperties": true,
   "properties": {
-    "name": { "type": "string", "minLength": 1 },
-    "description": { "type": ["string", "null"] },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 5000
+    },
     "target_type": {
       "type": "string",
       "enum": [
@@ -18,10 +28,24 @@
     },
     "measure_ids": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string",
+        "maxLength": 1000
+      },
       "minItems": 1
     },
-    "status": { "type": "string", "enum": ["active", "paused", "archived"] }
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "paused",
+        "archived"
+      ]
+    }
   },
-  "required": ["name", "target_type", "measure_ids"]
+  "required": [
+    "name",
+    "target_type",
+    "measure_ids"
+  ]
 }

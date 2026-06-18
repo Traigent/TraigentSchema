@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/run_results_response_schema.json",
+  "title": "Run Results Response Schema",
+  "description": "Response schema for GET /api/v1/experiment-runs/runs/{run_id}/results. The route is in the 'bare' wrap-map list (experiment_run_routes), so there is no {success,message,data} envelope. The payload is directly the results object. Configurations are paginated via configurations_pagination (a run-results-specific extension of the standard pagination shape). Over-materialization of this surface is tracked in TraigentBackend#1106.",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "ID of the experiment run",
+      "x-reference": true
+    },
+    "experiment_id": {
+      "type": "string",
+      "description": "ID of the parent experiment",
+      "x-reference": true
+    },
+    "configurations": {
+      "type": "array",
+      "description": "Page of configuration run result objects. Shape is the BE configuration_run to_dict() serialization; see evaluation/configuration_run_schema.json for the canonical resource definition.",
+      "items": {
+        "$ref": "../evaluation/configuration_run_schema.json"
+      }
+    },
+    "results": {
+      "description": "Top-level results object from the experiment run (may be null before completion).",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": true
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metrics": {
+      "description": "Aggregated numeric metrics across all configuration runs (average per key). Null when no numeric measures are recorded.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "start_time": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the run started"
+    },
+    "end_time": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the run completed"
+    },
+    "configurations_pagination": {
+      "description": "Run-results-specific pagination metadata, present when configurations have been paginated by the route layer (_bound_run_results_payload). Extends the standard pagination shape with run-results-specific fields.",
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Current page number (1-indexed)"
+        },
+        "per_page": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Items requested per page"
+        },
+        "max_per_page": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Server-enforced maximum items per page"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of configuration runs"
+        },
+        "total_pages": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of pages"
+        },
+        "has_next": {
+          "type": "boolean",
+          "description": "Whether a next page exists"
+        },
+        "has_prev": {
+          "type": "boolean",
+          "description": "Whether a previous page exists"
+        },
+        "details_included": {
+          "type": "boolean",
+          "description": "Whether per-configuration detail fields are included (controlled by ?detailed=true)"
+        }
+      },
+      "required": ["page", "per_page", "total", "total_pages", "has_next", "has_prev"],
+      "additionalProperties": false
+    },
+    "configurations_truncated": {
+      "type": "boolean",
+      "description": "True when the returned configurations array is a subset of the total (i.e. pagination is active)"
+    },
+    "configuration_details_truncated": {
+      "type": "boolean",
+      "description": "True when detail fields have been stripped from any configuration in the page (i.e. ?detailed was not set)"
+    }
+  },
+  "required": ["run_id", "experiment_id", "configurations"],
+  "additionalProperties": true
+}

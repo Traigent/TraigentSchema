@@ -5,7 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "content": { "type": "string", "minLength": 1, "maxLength": 2000 }
+    "content": { "type": "string", "minLength": 1, "maxLength": 2000, "x-content": true, "x-privacy-classification": "user_content" }
   },
   "required": ["content"]
 }

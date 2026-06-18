@@ -9,10 +9,24 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "id": { "type": "string" },
-        "score_id": { "type": "string" },
-        "measure_id": { "type": "string", "minLength": 1 },
-        "name": { "type": "string", "minLength": 1 },
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "score_id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "measure_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
         "target_type": {
           "type": "string",
           "enum": [
@@ -22,29 +36,94 @@
             "experiment_run"
           ]
         },
-        "target_id": { "type": "string", "minLength": 1 },
-        "trace_id": { "type": "string", "minLength": 1 },
-        "numeric_value": { "type": "number" },
-        "categorical_value": { "type": "string" },
-        "boolean_value": { "type": "boolean" },
+        "target_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "trace_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "numeric_value": {
+          "type": "number"
+        },
+        "categorical_value": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "boolean_value": {
+          "type": "boolean"
+        },
         "value": {},
-        "source": { "type": "string", "enum": ["manual", "evaluator", "api", "human", "user", "llm", "model", "sdk"] },
-        "comment": { "type": ["string", "null"] },
-        "metadata": { "type": "object", "additionalProperties": true },
-        "evaluator_run_id": { "type": ["string", "null"] },
-        "queue_item_id": { "type": ["string", "null"] }
+        "source": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "evaluator",
+            "api",
+            "human",
+            "user",
+            "llm",
+            "model",
+            "sdk"
+          ]
+        },
+        "comment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 5000
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "evaluator_run_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "queue_item_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
       },
       "allOf": [
         {
           "oneOf": [
-            { "required": ["measure_id"] },
-            { "required": ["name"] }
+            {
+              "required": [
+                "measure_id"
+              ]
+            },
+            {
+              "required": [
+                "name"
+              ]
+            }
           ]
         },
         {
           "oneOf": [
-            { "required": ["trace_id"] },
-            { "required": ["target_type", "target_id"] }
+            {
+              "required": [
+                "trace_id"
+              ]
+            },
+            {
+              "required": [
+                "target_type",
+                "target_id"
+              ]
+            }
           ]
         }
       ]
@@ -53,13 +132,29 @@
   "properties": {
     "scores": {
       "type": "array",
-      "items": { "$ref": "#/definitions/ScoreInput" },
+      "items": {
+        "$ref": "#/definitions/ScoreInput"
+      },
       "minItems": 1
     },
-    "id": { "type": "string" },
-    "score_id": { "type": "string" },
-    "measure_id": { "type": "string", "minLength": 1 },
-    "name": { "type": "string", "minLength": 1 },
+    "id": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "score_id": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "measure_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
     "target_type": {
       "type": "string",
       "enum": [
@@ -69,32 +164,101 @@
         "experiment_run"
       ]
     },
-    "target_id": { "type": "string", "minLength": 1 },
-    "trace_id": { "type": "string", "minLength": 1 },
-    "numeric_value": { "type": "number" },
-    "categorical_value": { "type": "string" },
-    "boolean_value": { "type": "boolean" },
+    "target_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "numeric_value": {
+      "type": "number"
+    },
+    "categorical_value": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "boolean_value": {
+      "type": "boolean"
+    },
     "value": {},
-    "source": { "type": "string", "enum": ["manual", "evaluator", "api", "human", "user", "llm", "model", "sdk"] },
-    "comment": { "type": ["string", "null"] },
-    "metadata": { "type": "object", "additionalProperties": true },
-    "evaluator_run_id": { "type": ["string", "null"] },
-    "queue_item_id": { "type": ["string", "null"] }
+    "source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "evaluator",
+        "api",
+        "human",
+        "user",
+        "llm",
+        "model",
+        "sdk"
+      ]
+    },
+    "comment": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 5000
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "evaluator_run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "queue_item_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    }
   },
   "oneOf": [
-    { "required": ["scores"] },
+    {
+      "required": [
+        "scores"
+      ]
+    },
     {
       "allOf": [
         {
           "oneOf": [
-            { "required": ["measure_id"] },
-            { "required": ["name"] }
+            {
+              "required": [
+                "measure_id"
+              ]
+            },
+            {
+              "required": [
+                "name"
+              ]
+            }
           ]
         },
         {
           "oneOf": [
-            { "required": ["trace_id"] },
-            { "required": ["target_type", "target_id"] }
+            {
+              "required": [
+                "trace_id"
+              ]
+            },
+            {
+              "required": [
+                "target_type",
+                "target_id"
+              ]
+            }
           ]
         }
       ]

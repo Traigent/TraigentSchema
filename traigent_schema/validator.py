@@ -37,6 +37,12 @@ class SchemaValidator:
             print(f"Validation failed: {errors}")
     """
 
+    _RECURSION_ERROR_MESSAGE = (
+        "Validation error: input nesting is too deep to validate "
+        "(exceeded the interpreter recursion limit); rejected as malformed. "
+        "Bound the nesting depth of recursive structures (e.g. observation children)."
+    )
+
     def __init__(self, contract: ContractName = "backend"):
         """Initialize the validator with all available schemas."""
         self.contract = contract
@@ -283,6 +289,8 @@ class SchemaValidator:
             )
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
+        except RecursionError:
+            return [self._RECURSION_ERROR_MESSAGE]
         except Exception as e:
             return [f"Validation error: {str(e)}"]
 
@@ -300,6 +308,8 @@ class SchemaValidator:
             )
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
+        except RecursionError:
+            return [self._RECURSION_ERROR_MESSAGE]
         except Exception as e:
             return [f"Validation error: {str(e)}"]
 

@@ -33,6 +33,11 @@
       "paths_file": "./execution/execution_endpoints.json"
     },
     {
+      "name": "Best Configs",
+      "description": "Current backend best-config publish/list/fetch/versions/rollback routes (/api/v1/best-configs).",
+      "paths_file": "./execution/best_config_endpoints.json"
+    },
+    {
       "name": "Observability",
       "description": "Current backend observability and trace review routes.",
       "paths_file": "./observability/observability_endpoints.json"
@@ -96,6 +101,11 @@
       "name": "Security",
       "description": "Current backend security event routes.",
       "paths_file": "./security/security_endpoints.json"
+    },
+    {
+      "name": "API Keys",
+      "description": "Current backend API key lifecycle routes (POST /api/v1/keys).",
+      "paths_file": "./auth/keys_endpoints.json"
     }
   ]
 }

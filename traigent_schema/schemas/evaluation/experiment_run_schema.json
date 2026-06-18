@@ -337,12 +337,14 @@
         "metrics": {
           "type": "object",
           "description": "Quantitative performance metrics",
+          "maxProperties": 50,
           "additionalProperties": {
             "type": "number"
           }
         },
         "artifacts": {
           "type": "array",
+          "maxItems": 1000,
           "items": {
             "type": "object",
             "properties": {
@@ -371,6 +373,7 @@
         },
         "logs": {
           "type": "array",
+          "maxItems": 1000,
           "items": {
             "type": "object",
             "properties": {
@@ -386,7 +389,9 @@
               },
               "message": {
                 "type": "string",
-                "description": "Log message content"
+                "description": "Log message content",
+                "x-content": true,
+                "x-privacy-classification": "user_content"
               }
             },
             "required": ["timestamp", "level", "message"],

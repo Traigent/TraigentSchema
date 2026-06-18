@@ -12,39 +12,39 @@
     "grid": {
       "canonical_algorithm": "grid",
       "implementation_status": "supported",
-      "execution_mode": "local_default",
-      "description": "Basic local/default exhaustive grid search."
+      "execution_mode": "edge_analytics",
+      "description": "Client-side exhaustive grid search (edge_analytics mode)."
     },
     "random": {
       "canonical_algorithm": "random",
       "implementation_status": "supported",
-      "execution_mode": "local_default",
-      "description": "Basic local/default random search."
+      "execution_mode": "edge_analytics",
+      "description": "Client-side random search (edge_analytics mode)."
     },
     "bayesian": {
       "canonical_algorithm": "tpe",
       "implementation_status": "supported",
-      "execution_mode": "smart_backend",
+      "execution_mode": "hybrid",
       "alias_for": "tpe",
-      "description": "Smart backend Bayesian-style search using TPE."
+      "description": "Smart Bayesian-style search using TPE (hybrid mode)."
     },
     "tpe": {
       "canonical_algorithm": "tpe",
       "implementation_status": "supported",
-      "execution_mode": "smart_backend",
-      "description": "Smart backend TPE search."
+      "execution_mode": "hybrid",
+      "description": "Smart TPE search (hybrid mode)."
     },
     "hyperband": {
       "canonical_algorithm": "hyperband",
       "implementation_status": "supported",
-      "execution_mode": "smart_backend",
-      "description": "Smart backend early-pruning search."
+      "execution_mode": "hybrid",
+      "description": "Smart early-pruning search (hybrid mode)."
     },
     "frontier_scout": {
       "canonical_algorithm": "frontier_scout",
       "implementation_status": "supported",
-      "execution_mode": "smart_backend",
-      "description": "Smart backend Pareto-frontier exploration."
+      "execution_mode": "hybrid",
+      "description": "Smart Pareto-frontier exploration (hybrid mode)."
     }
   },
   "definitions": {
@@ -81,8 +81,9 @@
     "OptimizationExecutionMode": {
       "type": "string",
       "enum": [
-        "local_default",
-        "smart_backend"
+        "edge_analytics",
+        "hybrid",
+        "hybrid_api"
       ]
     },
     "OptimizationCapability": {

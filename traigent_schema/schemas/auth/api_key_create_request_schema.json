@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_create_request_schema.json",
+  "title": "API Key Create Request",
+  "description": "Request body for POST /api/v1/keys — create a new API key for the authenticated user. Scopes must be user-requestable tokens from the canonical vocabulary; admin:all is reserved for privileged server-side flows.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Human-readable label for the key. Must be unique within the user account."
+    },
+    "project_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Optional project to scope the key to. When null the key is tenant-scoped."
+    },
+    "scopes": {
+      "$ref": "./api_key_authorization_vocabulary_schema.json#/definitions/UserRequestableApiKeyScopeList",
+      "description": "Space-delimited set of user-requestable scope tokens. admin:all is not allowed here."
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Optional expiry date-time (ISO 8601). When null the key does not expire."
+    }
+  },
+  "required": ["name"]
+}

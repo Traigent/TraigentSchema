@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "x_extensions_meta_schema",
+  "title": "Allowed x-* Extension Keywords",
+  "description": "Canonical vocabulary of all permitted x-* custom extension keywords used across Traigent contract schemas. This schema is documentation and governance only — it is not applied as a JSON Schema validator over other schemas. Any x-* key not listed here is disallowed; add it here (with a description) before using it in any schema file.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "x-admin-bypass-summary": {
+      "type": "string",
+      "description": "Human-readable summary of exactly which access-control checks are relaxed for platform admins on a given resource, and which are not. Security-audit surface; placed at the schema or path level."
+    },
+    "x-admin-disambiguation": {
+      "type": "object",
+      "description": "Glossary distinguishing the two admin roles in Traigent: 'platform' (is_admin=true on GET /auth/me, cross-tenant bypass) and 'project' (project_membership.role=admin, single-project scope). Guards against conflating the two in policy code.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "x-asserted-against-backend": {
+      "type": "boolean",
+      "description": "False when the contract file has NOT been asserted against current backend parity (e.g. pre-release or planned endpoints). True when backend parity tests cover the contract. Set at the top-level schema object for endpoint files."
+    },
+    "x-authoritative-signal": {
+      "type": "string",
+      "description": "Names the field that is the single authoritative gate for an access-control decision (e.g. 'is_admin'). Clients MUST consult this field; other fields (e.g. role strings) are non-authoritative. Set on the property that carries the signal."
+    },
+    "x-canonical-permission": {
+      "type": "string",
+      "description": "The canonical backend permission token for an API-key scope string or compatibility alias. Pattern: resource.action (dot-delimited, singular resource). Placed on the definition that declares the scope token."
+    },
+    "x-canonical-timing-metrics": {
+      "type": "object",
+      "description": "Map of canonical timing metric key names to their unit, multiplier, role (primary/accepted), aggregate kind, and scope. Placed on the vocabulary schema that governs timing metrics. Consumers use this map when normalising raw SDK-emitted metrics to canonical keys.",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "x-canonical-unit": {
+      "type": "string",
+      "description": "The canonical SI unit for all values in a metric-family vocabulary schema (e.g. 'millisecond'). Placed at the top-level schema object for vocabulary schemas."
+    },
+    "x-content": {
+      "type": "boolean",
+      "description": "True when a field carries user-authored or LLM-generated content (e.g. prompt text, completion output, evaluation scores). Fields marked x-content:true require a co-located x-privacy-classification annotation."
+    },
+    "x-deprecated": {
+      "type": "string",
+      "description": "Human-readable deprecation message for a field or definition, including the replacement field name and the removal milestone (e.g. 'Use dataset_id instead. eval_dataset_id will be removed after 2026-Q4.'). Set on the deprecated property."
+    },
+    "x-endpoint-modules": {
+      "type": "array",
+      "description": "Ordered list of sub-groupings of endpoint paths, each with a 'name', optional 'description', and a 'paths_file' relative path to the JSON file that declares those paths. Used on top-level endpoint-contract schemas to organise large path sets into named modules.",
+      "items": {
+        "type": "object",
+        "required": ["name", "paths_file"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "paths_file": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "x-equal-to": {
+      "description": "Asserts referential equality between this field and another field or $ref path. Value is a JSON-pointer/relative-ref string (single equal-to) or an array of such strings (multi-target). Used on identifier fields that must carry the same value as a sibling or external field.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "x-excludes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Lists scope tokens or values that are mutually exclusive with the annotated field or enum member. For example, a user-requestable scope set that must not include 'admin:all'."
+    },
+    "x-identifier": {
+      "type": "boolean",
+      "description": "True when a field is a primary or foreign-key identifier (UUID, numeric PK, or opaque ID). Used for cross-schema identity tracing and reference completeness checks."
+    },
+    "x-inert": {
+      "type": "boolean",
+      "description": "True when a field is accepted in the request payload but is silently ignored by the backend (advisory-only). Clients should omit inert fields; the contract may add constraints in a future version."
+    },
+    "x-naming-convention": {
+      "type": "object",
+      "description": "Documents the naming convention enforced for keys within a vocabulary schema (e.g. timing metrics must carry a '_ms' suffix). Placed at the top-level schema object. Contains 'description', 'canonical_suffix', and similar descriptor fields.",
+      "additionalProperties": true
+    },
+    "x-non-canonical-pending-migration": {
+      "type": "object",
+      "description": "Documents metric keys or field names that are currently emitted by SDKs but are not canonical. Each entry records the non-canonical key, its unit, the should_become canonical replacement, and a migration note. Tracked with a GitHub issue reference. New code MUST NOT introduce listed non-canonical keys.",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "x-one-time-field": {
+      "type": "boolean",
+      "description": "True when a field is returned ONLY in the creation (201) response and is absent from all subsequent reads. The client MUST store the value immediately; it cannot be retrieved again."
+    },
+    "x-permission-convention": {
+      "type": "object",
+      "description": "Documents the canonical format for backend permission tokens: delimiter ('.'), resource number (singular), and a regex pattern. Placed on the vocabulary schema that defines permission tokens.",
+      "additionalProperties": true
+    },
+    "x-privacy-classification": {
+      "type": "string",
+      "enum": [
+        "user_content",
+        "pii",
+        "auth_sensitive",
+        "billing_sensitive",
+        "secret",
+        "restricted",
+        "aggregate_safe",
+        "manifest_safe",
+        "tenant_admin_safe",
+        "sdk_runtime_metadata",
+        "system"
+      ],
+      "description": "Privacy sensitivity classification for a field. Required alongside x-content:true. Governs redaction in logs, telemetry, exports, and observability payloads. Values: 'user_content' (user-authored LLM input/output), 'pii' (personally identifiable), 'auth_sensitive' (auth tokens/credentials), 'billing_sensitive' (payment/subscription data), 'secret' (one-time secrets, never re-readable), 'restricted' (tightly access-controlled), 'aggregate_safe' (aggregated statistics safe to export), 'manifest_safe' (schema/manifest metadata safe to export), 'tenant_admin_safe' (visible to tenant admins only), 'sdk_runtime_metadata' (SDK execution metadata), 'system' (internal system data)."
+    },
+    "x-privacy-note": {
+      "type": "string",
+      "description": "Human-readable privacy handling instruction for a schema object that carries particularly sensitive data (e.g. one-time secrets). Supplements x-privacy-classification with specific handling rules."
+    },
+    "x-privilege-roles": {
+      "type": "object",
+      "description": "Defines the named privilege roles that apply to a resource (e.g. 'member', 'project_admin', 'platform_admin'), with a description and is_privileged flag for each. Placed on the vocabulary schema that governs RBAC roles.",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "x-privileged-scopes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Lists API-key scope tokens that are considered privileged and cannot be requested by end users (e.g. 'admin:all'). Placed on the authorization vocabulary schema alongside x-user-requestable-scopes."
+    },
+    "x-reference": {
+      "type": "string",
+      "description": "A $ref-style pointer (relative path or JSON Pointer) to the canonical definition of this concept elsewhere in the schema graph. Used for cross-schema identity tracing and documentation of canonical sources."
+    },
+    "x-references": {
+      "type": "object",
+      "description": "A named map of reference pointers providing cross-links to related schemas, backend evidence, or vocabulary files. Keys are short descriptive labels; values are relative paths or source references. Used at the schema level when multiple references are needed (contrast with singular x-reference).",
+      "additionalProperties": { "type": "string" }
+    },
+    "x-required-permission": {
+      "type": "string",
+      "description": "The backend permission token required to call an endpoint or perform an operation (e.g. 'project:membership:manage', 'write'). Placed on an endpoint path or operation object."
+    },
+    "x-required-permission-vocabulary": {
+      "type": "string",
+      "description": "A $ref-style pointer to the vocabulary schema definition that enumerates all allowed values for x-required-permission on this endpoint or schema. Used to link endpoint contracts to the canonical permission token enum."
+    },
+    "x-response-headers": {
+      "type": "object",
+      "description": "Documents HTTP response headers that a route or endpoint set is guaranteed to return in certain conditions (e.g. Retry-After and X-RateLimit-Limit on 429 responses). Placed on the endpoint schema or path object.",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "x-scope-convention": {
+      "type": "object",
+      "description": "Documents the canonical format for API-key scope tokens: delimiter (':'), resource number (plural), and a regex pattern. Placed on the authorization vocabulary schema that defines scope tokens.",
+      "additionalProperties": true
+    },
+    "x-scope-permission-map": {
+      "type": "object",
+      "description": "Maps API-key scope tokens to their backend permission equivalents and any compatibility aliases. Placed on the authorization vocabulary schema. Each entry contains 'permissions' (array of canonical permission tokens) and optionally 'compatibility_aliases'.",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "x-scoping-rules": {
+      "type": "object",
+      "description": "Documents the data-scoping rules for a resource: which filter is applied (owner, tenant, project), which principals are exempt (admins), and what the cross-tenant bypass rules are. Placed on the resource schema or endpoint contract. Each entry names a rule and lists the principals it applies_to.",
+      "additionalProperties": true
+    },
+    "x-source-of-truth": {
+      "type": "string",
+      "description": "Names the vocabulary schema file or object that is the authoritative source of truth for a set of allowed values (e.g. 'timing_metric_vocabulary', 'rbac_privilege_vocabulary'). Consumers must derive allowed values from that source rather than hard-coding them."
+    },
+    "x-stability": {
+      "type": "string",
+      "enum": ["stable", "pre-release", "experimental", "deprecated"],
+      "description": "Lifecycle stability of the annotated schema or endpoint contract. 'stable' = production GA; 'pre-release' = under active development, breaking changes expected; 'experimental' = exploratory, no guarantees; 'deprecated' = use the replacement indicated by x-deprecated."
+    },
+    "x-timing-metric-vocabulary": {
+      "type": "string",
+      "description": "A $ref-style relative path to the timing metric vocabulary schema that governs the keys allowed in a metric results map. Placed on a field that accepts arbitrary metric key/value pairs to link it to its vocabulary constraint."
+    },
+    "x-token-ref": {
+      "type": "string",
+      "description": "A $ref-style JSON Pointer to the token definition (within the same schema) that governs the allowed values for a scope or permission string field. Used on enum/pattern fields that are constrained by a named token type defined elsewhere in the same file."
+    },
+    "x-traigent-body": {
+      "type": "string",
+      "description": "Human-readable documentation of the HTTP request body expectation for an endpoint that has no body (e.g. cookie/session-based routes, action endpoints that operate on path parameters only). Value is a prose string explaining why no body is consumed."
+    },
+    "x-traigent-contract": {
+      "type": "object",
+      "description": "Top-level contract identity block for an endpoint schema file. Contains 'name' (unique contract identifier), 'status' ('canonical' | 'planned' | 'deprecated'), and 'description' (prose explaining the contract's purpose and scope). Required on all top-level endpoint contract files.",
+      "required": ["name", "status", "description"],
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["canonical", "planned", "deprecated"] },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "x-traigent-note": {
+      "type": "string",
+      "description": "A short prose annotation explaining a schema decision, quirk, or exception that is not captured by a standard JSON Schema keyword. Use sparingly; prefer description for normal documentation."
+    },
+    "x-traigent-optimization-capabilities": {
+      "type": "object",
+      "description": "Documents the optimization algorithms supported by a strategy, including each algorithm's canonical name, implementation status, and configuration parameters. Placed on optimization-strategy schemas.",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "x-user-requestable-scopes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Lists the API-key scope tokens that end users may request when creating API keys. Excludes privileged scopes (see x-privileged-scopes). Placed on the authorization vocabulary schema."
+    },
+    "x-wrap-map": {
+      "type": "object",
+      "description": "Documents the envelope-wrapping classification of route groups: which route sets are wrapped in the standard success envelope ('wrapped'), which are bare ('bare'), and which have not yet been classified ('unclassified'). Placed on the top-level endpoint contract schema.",
+      "additionalProperties": true
+    },
+    "x-wrap-status": {
+      "type": "string",
+      "description": "Per-route or per-schema annotation of its envelope-wrapping status. Values indicate whether the response is wrapped in the standard success envelope, bare, or unclassified pending a follow-up PR. Placed on individual route schemas or operation objects."
+    }
+  }
+}

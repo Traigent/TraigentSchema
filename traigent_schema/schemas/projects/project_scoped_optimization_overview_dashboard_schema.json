@@ -108,7 +108,7 @@
         "properties": {
           "experiment_id": { "type": "string", "minLength": 1 },
           "name": { "type": "string", "minLength": 1 },
-          "status": { "type": "string", "minLength": 1 },
+          "status": { "$ref": "../status_schema.json#/definitions/ExperimentRunStatus" },
           "experiment_run_count": { "type": "integer", "minimum": 0 },
           "configuration_run_count": { "type": "integer", "minimum": 0 },
           "priced_configuration_runs": { "type": "integer", "minimum": 0 },

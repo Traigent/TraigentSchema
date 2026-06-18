@@ -94,6 +94,28 @@
         "failing"
       ],
       "description": "Health status options for services and components"
+    },
+    "ObservabilityTraceStatus": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed",
+        "rejected"
+      ],
+      "description": "Execution status for observability traces and observations (lowercase arm). Canonical lowercase vocabulary: 'running' (default/in-progress), 'completed' (success), 'failed' (error exit), 'rejected' (policy or validation rejection). Served verbatim by /api/v1beta/observability/* (traces, observations, prompt_links). See TraigentSchema#175."
+    },
+    "ObservabilitySpanStatus": {
+      "type": "string",
+      "enum": [
+        "RUNNING",
+        "COMPLETED",
+        "FAILED",
+        "REJECTED",
+        "TIMEOUT",
+        "CANCELLED"
+      ],
+      "description": "Execution status for workflow trace spans (UPPER arm). Canonical UPPER vocabulary aligned to the backend SpanStatus native PG enum (spanstatus); values sourced from SpanStatus in status_enums.py. Served verbatim by /api/v1/traces workflow-span family. Non-colliding with ObservabilityTraceStatus — these two families ride separate URL prefixes. See TraigentSchema#175."
     }
   },
   "properties": {

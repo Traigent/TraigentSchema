@@ -105,9 +105,8 @@
         },
         "start_time": { "type": "string", "minLength": 1, "description": "ISO 8601 start timestamp." },
         "status": {
-          "type": "string",
-          "minLength": 1,
-          "description": "OTel-compatible status. Canonical SDK values (SpanStatus): RUNNING (default), COMPLETED, FAILED, REJECTED, TIMEOUT, CANCELLED."
+          "$ref": "../status_schema.json#/definitions/ObservabilitySpanStatus",
+          "description": "OTel-compatible span status. Canonical UPPER vocab aligned to backend SpanStatus native PG enum. See TraigentSchema#175."
         },
         "input_tokens": { "type": "integer", "minimum": 0 },
         "output_tokens": { "type": "integer", "minimum": 0 },

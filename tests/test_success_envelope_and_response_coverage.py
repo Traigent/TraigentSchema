@@ -1,5 +1,6 @@
 """#136 canonical success envelope + recorded wrap-map; #128 2xx response-schema
-coverage on stable detail GET ops."""
+coverage on stable detail GET ops; #170 run-results LIST + results GET +
+comparison/report read surfaces."""
 import json
 
 from traigent_schema import SchemaValidator
@@ -91,3 +92,120 @@ def test_response_schema_coverage_metric_on_detail_gets():
             if op["responses"].get("200", {}).get("content"):
                 covered += 1
     assert covered == total, f"detail-GET response coverage regressed: {covered}/{total}"
+
+
+# ---- #170 — run-results LIST + results GET + comparison/report read surfaces ----
+
+# Surfaces added by #170: the residual from the #128/#162 cliff.
+# experiment_run_routes is in the 'bare' wrap-map list — no envelope.
+# optimization_comparison_routes is in the 'wrapped' list — success envelope.
+# report_routes returns bare jsonify (not enveloped).
+LIST_AND_RESULTS_GETS = {
+    "execution/execution_endpoints.json": [
+        "/api/v1/experiment-runs/{experiment_id}/runs",   # LIST — bare {runs:[...]}
+        "/api/v1/experiment-runs/runs/{run_id}/results",  # results GET — bare paginated payload
+    ],
+    "results/results_endpoints.json": [
+        "/api/v1/optimization-comparisons/{comparison_id}",                              # detail GET — wrapped
+        "/api/v1/optimization-comparisons/{comparison_id}/examples",                    # list GET — wrapped
+        "/api/v1/optimization-comparisons/{comparison_id}/examples/{example_id}",       # detail GET — wrapped
+        "/api/v1/experiment-runs/runs/{run_id}/report-payload",                         # bare jsonify
+        "/api/v1/features/report-module-status",                                        # bare jsonify
+    ],
+}
+
+
+def test_run_results_and_comparison_read_surfaces_have_2xx_schemas():
+    """#170 — coverage gate: all run-results LIST/GET and comparison/report read GETs carry a schema."""
+    for cat, paths in LIST_AND_RESULTS_GETS.items():
+        spec = _load(cat)
+        for path in paths:
+            op = spec["paths"][path]["get"]
+            schema = op["responses"]["200"].get("content", {}).get("application/json", {}).get("schema", {})
+            assert schema.get("$ref"), (
+                f"#170: {path} GET 200 has no response schema in {cat}"
+            )
+
+
+def test_run_results_list_references_experiment_run_list_response_schema():
+    """The experiment-runs LIST endpoint must reference the list-response schema, not the item schema directly."""
+    spec = _load("execution/execution_endpoints.json")
+    ref = (
+        spec["paths"]["/api/v1/experiment-runs/{experiment_id}/runs"]["get"]
+        ["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    )
+    assert ref.endswith("experiment_run_list_response_schema.json"), ref
+
+
+def test_run_results_get_references_run_results_response_schema():
+    """The run-results GET endpoint must reference the run_results_response_schema."""
+    spec = _load("execution/execution_endpoints.json")
+    ref = (
+        spec["paths"]["/api/v1/experiment-runs/runs/{run_id}/results"]["get"]
+        ["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    )
+    assert ref.endswith("run_results_response_schema.json"), ref
+
+
+def test_comparison_read_surfaces_reference_correct_schemas():
+    """Each comparison/report read GET references its own dedicated schema file."""
+    spec = _load("results/results_endpoints.json")
+    expected = {
+        "/api/v1/optimization-comparisons/{comparison_id}": "comparison_response_schema.json",
+        "/api/v1/optimization-comparisons/{comparison_id}/examples": "comparison_examples_list_response_schema.json",
+        "/api/v1/optimization-comparisons/{comparison_id}/examples/{example_id}": "comparison_example_detail_response_schema.json",
+        "/api/v1/experiment-runs/runs/{run_id}/report-payload": "report_payload_response_schema.json",
+        "/api/v1/features/report-module-status": "report_module_status_response_schema.json",
+    }
+    for path, stem in expected.items():
+        ref = (
+            spec["paths"][path]["get"]
+            ["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        )
+        assert ref.endswith(stem), f"{path}: expected ref ending with {stem!r}, got {ref!r}"
+
+
+def test_run_results_response_schema_structure():
+    """run_results_response_schema.json has the expected top-level properties."""
+    schema = _load("execution/run_results_response_schema.json")
+    assert schema.get("type") == "object"
+    props = schema.get("properties", {})
+    assert "run_id" in props
+    assert "experiment_id" in props
+    assert "configurations" in props
+    assert props["configurations"]["type"] == "array"
+    assert "configurations_pagination" in props
+    required = schema.get("required", [])
+    assert "run_id" in required
+    assert "experiment_id" in required
+    assert "configurations" in required
+
+
+def test_experiment_run_list_response_schema_structure():
+    """experiment_run_list_response_schema.json has the expected shape."""
+    schema = _load("evaluation/experiment_run_list_response_schema.json")
+    assert schema.get("type") == "object"
+    props = schema.get("properties", {})
+    assert "runs" in props
+    assert props["runs"]["type"] == "array"
+    assert "runs" in schema.get("required", [])
+
+
+def test_comparison_response_schema_wraps_envelope():
+    """comparison_response_schema.json requires the success envelope structure."""
+    schema = _load("results/comparison_response_schema.json")
+    required = schema.get("required", [])
+    assert "success" in required
+    assert "message" in required
+    assert "data" in required
+    assert schema["properties"]["success"].get("const") is True
+
+
+def test_report_module_status_schema_enumerates_states():
+    """report_module_status_response_schema.json enumerates the valid rollout states."""
+    schema = _load("results/report_module_status_response_schema.json")
+    states = schema["properties"]["state"]["enum"]
+    assert "off" in states
+    assert "beta" in states
+    assert "ga" in states
+    assert "required" in schema and "state" in schema["required"]

@@ -116,7 +116,14 @@
         "summary": "List experiment runs for an experiment",
         "responses": {
           "200": {
-            "description": "Experiment runs retrieved successfully"
+            "description": "Experiment runs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_run_list_response_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -219,7 +226,14 @@
         "summary": "Get experiment run results",
         "responses": {
           "200": {
-            "description": "Experiment run results retrieved successfully"
+            "description": "Experiment run results retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_results_response_schema.json"
+                }
+              }
+            }
           }
         }
       }

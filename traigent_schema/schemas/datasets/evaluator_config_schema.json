@@ -56,8 +56,9 @@
     },
     "benchmark_id": {
       "type": "string",
-      "description": "Compatibility alias for the evaluation dataset identifier",
-      "x-reference": true
+      "description": "DEPRECATED: use dataset_id instead. Compatibility alias for the evaluation dataset identifier.",
+      "x-reference": true,
+      "x-deprecated": "Use dataset_id instead. benchmark_id will be removed after 2026-Q4."
     },
     "model_parameters_id": {
       "type": "string",

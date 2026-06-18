@@ -34,6 +34,7 @@
     "x-traigent-note": { "description": "Free-form contract authoring note." },
     "x-traigent-optimization-capabilities": { "description": "Declares optimization capabilities exposed by an operation." },
     "x-wrap-map": { "description": "Success-envelope wrapping map (which payload key wraps the resource)." },
-    "x-wrap-status": { "description": "Success-envelope status field convention." }
+    "x-wrap-status": { "description": "Success-envelope status field convention." },
+    "x-deprecated": { "description": "Marks a field as deprecated; value is a migration hint pointing to the canonical replacement." }
   }
 }

@@ -183,8 +183,9 @@
     },
     "benchmark_id": {
       "type": "string",
-      "description": "Compatibility alias for the evaluation dataset identifier",
-      "x-reference": true
+      "description": "DEPRECATED: use dataset_id instead. Compatibility alias for the evaluation dataset identifier.",
+      "x-reference": true,
+      "x-deprecated": "Use dataset_id instead. benchmark_id will be removed after 2026-Q4."
     },
     "agent_id": {
       "type": "string",
@@ -230,7 +231,8 @@
     },
     "benchmark": {
       "$ref": "../datasets/dataset_schema.json#",
-      "description": "Compatibility alias for the dataset configuration"
+      "description": "DEPRECATED: use dataset field instead. Compatibility alias for the dataset configuration.",
+      "x-deprecated": "Use dataset instead. benchmark will be removed after 2026-Q4."
     },
     "agent": {
       "$ref": "https://schemas.traigent.ai/agents/agent_schema.json#",

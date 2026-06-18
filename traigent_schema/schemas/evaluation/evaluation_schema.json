@@ -117,6 +117,7 @@
         },
         "responses": {
           "type": "array",
+          "maxItems": 10000,
           "items": {
             "$ref": "../agents/agent_response_schema.json",
             "description": "Agent execution responses that were evaluated"

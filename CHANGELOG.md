@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.3] - 2026-06-18
+
+### Fixed
+- Added `maxItems`/`maxProperties` bounds to eval-domain result/embed arrays that
+  were missing the bounding pattern already applied in `configuration_run.measures`
+  and observability ingest (#130). Closes #171.
+  - `evaluation/experiment_run_schema.json`: `results.metrics` → `maxProperties: 50`;
+    `results.artifacts[]` → `maxItems: 1000`; `results.logs[]` → `maxItems: 1000`.
+  - `evaluation/evaluation_results_schema.json`: `aggregate_metrics` / `detailed_metrics`
+    / `comparative_analysis.improvement_percentages` / `comparative_analysis.significance_tests`
+    → `maxProperties: 50`; `artifacts[]` → `maxItems: 1000`.
+  - `datasets/dataset_schema.json`: `examples[]` → `maxItems: 10000`; `files[]` → `maxItems: 1000`.
+
 ## [4.6.2] - 2026-06-18
 
 ### Deprecated

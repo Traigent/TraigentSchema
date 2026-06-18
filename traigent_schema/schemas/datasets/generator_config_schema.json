@@ -43,13 +43,15 @@
     },
     "eval_dataset_id": {
       "type": "string",
-      "description": "Legacy alias for the evaluation dataset identifier",
-      "x-reference": true
+      "description": "DEPRECATED: use dataset_id instead. Legacy alias for the evaluation dataset identifier.",
+      "x-reference": true,
+      "x-deprecated": "Use dataset_id instead. eval_dataset_id will be removed after 2026-Q4."
     },
     "evaluation_set_id": {
       "type": "string",
-      "description": "Legacy alias for the evaluation dataset identifier",
-      "x-reference": true
+      "description": "DEPRECATED: use dataset_id instead. Legacy alias for the evaluation dataset identifier.",
+      "x-reference": true,
+      "x-deprecated": "Use dataset_id instead. evaluation_set_id will be removed after 2026-Q4."
     },
     "benchmark_id": {
       "type": "string",

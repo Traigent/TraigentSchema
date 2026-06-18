@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.6.3] - 2026-06-18
 
+### Added
+- `GET /api/v1/experiments` 200 response schema in `execution/execution_endpoints.json`:
+  paginated envelope `{success, message, data: {items: [experiment_schema], pagination}}`.
+  Finishes the list-response coverage residual left by #128/#162 (#169).
+
 ### Fixed
 - Added `maxItems`/`maxProperties` bounds to eval-domain result/embed arrays that
   were missing the bounding pattern already applied in `configuration_run.measures`
@@ -17,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     / `comparative_analysis.improvement_percentages` / `comparative_analysis.significance_tests`
     → `maxProperties: 50`; `artifacts[]` → `maxItems: 1000`.
   - `datasets/dataset_schema.json`: `examples[]` → `maxItems: 10000`; `files[]` → `maxItems: 1000`.
+
+### Deprecated
+- `eval_dataset_id`, `evaluation_set_id` scalar-id aliases in `experiment_schema.json`,
+  `generator_config_schema.json`, and `evaluator_config_schema.json` marked `x-deprecated`
+  (canonical: `dataset_id`). Annotation-only; no fields removed (#169).
+- `eval_dataset`, `evaluation_set` object aliases in `experiment_schema.json` marked
+  `x-deprecated` (canonical: `dataset`). Annotation-only; no fields removed (#169).
+- `agent` and `model_parameters` heavy-object fields in `experiment_schema.json`
+  documented as hydrated-detail-only forms; canonical reference fields are `agent_id`
+  and `model_parameters_id` (#169).
 
 ## [4.6.2] - 2026-06-18
 

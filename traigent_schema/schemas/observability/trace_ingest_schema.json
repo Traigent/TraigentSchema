@@ -17,9 +17,7 @@
       "maxLength": 255
     },
     "status": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64
+      "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus"
     },
     "session_id": {
       "type": [

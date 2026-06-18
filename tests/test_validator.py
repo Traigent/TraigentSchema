@@ -739,7 +739,7 @@ class TestSchemaValidation:
                 {
                     "experiment_id": "exp_1",
                     "name": "Support Router",
-                    "status": "completed",
+                    "status": "COMPLETED",
                     "experiment_run_count": 3,
                     "configuration_run_count": 9,
                     "priced_configuration_runs": 7,

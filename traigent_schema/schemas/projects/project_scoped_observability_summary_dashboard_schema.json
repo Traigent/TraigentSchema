@@ -91,7 +91,7 @@
           "trace_id": { "type": "string", "minLength": 1 },
           "session_id": { "type": ["string", "null"] },
           "name": { "type": "string", "minLength": 1 },
-          "status": { "type": "string", "minLength": 1 },
+          "status": { "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus" },
           "observation_count": { "type": "integer", "minimum": 0 },
           "total_cost_usd": { "type": "number", "minimum": 0 },
           "total_tokens": { "type": "integer", "minimum": 0 },

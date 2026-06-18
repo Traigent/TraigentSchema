@@ -150,3 +150,73 @@ def test_session_ingest_forbids_read_only_rollup_fields():
     # trace_count is a read-only rollup, not an ingest field
     bad = {"id": "s1", "trace_count": 5}
     assert v.validate_json(_ingest(session_id="s1", session=bad), "observability_ingest_request_schema")
+
+
+# ---- #175: observability execution-status enum binding ----
+
+_CANONICAL_TRACE_STATUSES = ["running", "completed", "failed", "rejected"]
+
+
+def test_trace_status_accepts_canonical_lowercase_values_on_ingest():
+    """#175: trace/observation status is bound to ObservabilityTraceStatus enum (lowercase)."""
+    v = _v()
+    for status in _CANONICAL_TRACE_STATUSES:
+        payload = _ingest(status=status)
+        errors = v.validate_json(payload, "observability_ingest_request_schema")
+        assert errors == [], f"canonical trace status {status!r} should be accepted: {errors}"
+
+
+def test_trace_status_rejects_non_canonical_and_upper_on_ingest():
+    """#175: non-canonical and UPPER-case trace status values are rejected at ingest."""
+    v = _v()
+    for bad_status in ("RUNNING", "COMPLETED", "error", "unknown", "arbitrary_value"):
+        payload = _ingest(status=bad_status)
+        errors = v.validate_json(payload, "observability_ingest_request_schema")
+        assert errors, (
+            f"non-canonical trace status {bad_status!r} should be rejected (TraigentSchema#175)"
+        )
+
+
+def test_observation_status_accepts_canonical_lowercase_values_on_ingest():
+    """#175: observation status is bound to ObservabilityTraceStatus enum (lowercase)."""
+    v = _v()
+    for status in _CANONICAL_TRACE_STATUSES:
+        obs = {"id": "o", "type": "span", "name": "n", "status": status}
+        errors = v.validate_json(_ingest(observations=[obs]), "observability_ingest_request_schema")
+        assert errors == [], f"canonical observation status {status!r} should be accepted: {errors}"
+
+
+def test_observation_status_rejects_non_canonical_on_ingest():
+    """#175: non-canonical observation status is rejected at ingest."""
+    v = _v()
+    for bad_status in ("RUNNING", "error", "pending", ""):
+        if bad_status == "":
+            continue  # empty strings caught by minLength on id/name, not status
+        obs = {"id": "o", "type": "span", "name": "n", "status": bad_status}
+        errors = v.validate_json(_ingest(observations=[obs]), "observability_ingest_request_schema")
+        assert errors, (
+            f"non-canonical observation status {bad_status!r} should be rejected (TraigentSchema#175)"
+        )
+
+
+def test_observability_status_fields_are_enum_bound_not_free_strings():
+    """CI parity guard (#175): observability execution-status fields must not regress to bare
+    {type:string} — they must carry an enum reference. This test fails if a refactor drops
+    the enum binding from trace_ingest or observation_ingest status fields."""
+    import json as _json
+
+    def _has_enum_binding(spec_node: dict) -> bool:
+        """Return True if the node is enum-bound (has 'enum' key or '$ref' pointing at an enum)."""
+        return "$ref" in spec_node or "enum" in spec_node
+
+    trace_ingest = _load("trace_ingest_schema.json")
+    status_node = trace_ingest["properties"]["status"]
+    assert _has_enum_binding(status_node), (
+        "trace_ingest_schema.json status must be enum-bound, not a bare {type:string} (TraigentSchema#175)"
+    )
+
+    obs_ingest = _load("observation_ingest_schema.json")
+    d1_status = obs_ingest["definitions"]["Observation_d1"]["properties"]["status"]
+    assert _has_enum_binding(d1_status), (
+        "observation_ingest_schema.json Observation_d1.status must be enum-bound (TraigentSchema#175)"
+    )

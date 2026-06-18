@@ -101,6 +101,11 @@
       "name": "Security",
       "description": "Current backend security event routes.",
       "paths_file": "./security/security_endpoints.json"
+    },
+    {
+      "name": "API Keys",
+      "description": "Current backend API key lifecycle routes (POST /api/v1/keys).",
+      "paths_file": "./auth/keys_endpoints.json"
     }
   ]
 }

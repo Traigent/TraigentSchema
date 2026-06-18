@@ -55,7 +55,10 @@
           "record_id": { "type": "string" },
           "experiment_id": { "type": "string" },
           "experiment_run_id": { "type": "string" },
-          "configuration_run_id": { "type": "string" },
+          "configuration_run_id": {
+              "type": "string",
+              "x-deprecated": "Use trial_id instead. configuration_run_id is a backward-compatible alias maintained while the backend migrates to the trial_id naming convention."
+            },
           "input_hash": { "type": ["string", "null"] },
           "output_hash": { "type": ["string", "null"] },
           "input_ref": { "type": ["string", "null"] },

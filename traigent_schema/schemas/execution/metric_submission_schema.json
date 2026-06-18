@@ -57,7 +57,8 @@
     "configuration_run_id": {
       "$ref": "../common_types_schema.json#/definitions/ForeignKeyId",
       "description": "Reference to the configuration run these metrics belong to",
-      "x-reference": "../evaluation/configuration_run_schema.json#/properties/id"
+      "x-reference": "../evaluation/configuration_run_schema.json#/properties/id",
+      "x-deprecated": "Use trial_id instead. configuration_run_id is a backward-compatible alias maintained while the backend migrates to the trial_id naming convention."
     },
     "experiment_run_id": {
       "$ref": "../common_types_schema.json#/definitions/ForeignKeyId",

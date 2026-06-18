@@ -43,6 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     privilege roles and the three admin-only scoping relaxations (owner filter,
     canonical-tenant pin / `X-Tenant-Id` override, project-membership gate) (#144).
 
+## [4.6.1] - 2026-06-18
+
+### Deprecated
+- `benchmark_id` field in `evaluator_config_schema.json` — use `dataset_id` instead; annotated with `x-deprecated`.
+- `benchmark_id` field in `generator_config_schema.json` — use `dataset_id` instead; annotated with `x-deprecated`.
+- `benchmark_id` field in `experiment_schema.json` — use `dataset_id` instead; annotated with `x-deprecated`.
+- `benchmark` field in `experiment_schema.json` — use `dataset` instead; annotated with `x-deprecated`.
+
+All fields remain present (non-breaking); removal planned after 2026-Q4.
+
 ## [4.6.0] - 2026-06-14
 
 ### Added

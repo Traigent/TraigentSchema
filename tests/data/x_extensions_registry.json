@@ -37,6 +37,10 @@
     "x-deprecated": { "description": "Marks a field as deprecated; value is a migration hint pointing to the canonical replacement." },
     "x-authoritative-signal": { "description": "Names the authoritative field/signal for a semantic gate (e.g. is_admin for platform-admin checks). (#179)" },
     "x-inert": { "description": "Marks a field as advisory-only / deliberately ignored by the backend (e.g. register.role is always overridden server-side). (#179)" },
-    "x-admin-disambiguation": { "description": "Disambiguates overloaded admin tokens: platform-admin (is_admin on auth/me) vs project-admin (project_membership.role=admin). (#179)" }
+    "x-admin-disambiguation": { "description": "Disambiguates overloaded admin tokens: platform-admin (is_admin on auth/me) vs project-admin (project_membership.role=admin). (#179)" },
+    "x-stability": { "description": "Stability tier of an endpoint catalog or schema (e.g. 'pre-release'). Used to flag surfaces not yet asserted against backend parity. (#180)" },
+    "x-asserted-against-backend": { "description": "Boolean; false means the endpoint catalog is planned/experimental and NOT gate-checked against the running backend. (#180)" },
+    "x-one-time-field": { "description": "Marks a response field whose value is returned only once at creation time and cannot be retrieved again (e.g. API key secret). Clients must store it immediately. (#180)" },
+    "x-privacy-note": { "description": "Human-readable privacy guidance annotation on a schema or field; complements x-privacy-classification. (#180)" }
   }
 }

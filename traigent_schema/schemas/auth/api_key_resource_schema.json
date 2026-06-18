@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_resource_schema.json",
+  "title": "API Key Resource",
+  "description": "Canonical API key resource returned by POST /api/v1/keys (201 Created) and GET /api/v1/keys/{key_id}. The raw secret value is ONLY present in the create response (create_secret) and is never returned again; subsequent reads omit it. This schema models the create response shape that includes create_secret.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "restricted",
+  "x-privacy-note": "create_secret is a one-time secret; never log, cache, or re-transmit. prefix is safe to display and log.",
+  "properties": {
+    "key_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "x-identifier": true,
+      "description": "Stable server-assigned identifier for the key."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Human-readable label set at creation time."
+    },
+    "prefix": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 16,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "description": "Short public prefix of the key (safe to display and log; does not allow reconstruction of the secret)."
+    },
+    "project_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Project the key is scoped to, or null for tenant-wide keys."
+    },
+    "scopes": {
+      "type": ["string", "null"],
+      "$ref": "./api_key_authorization_vocabulary_schema.json#/definitions/UserRequestableApiKeyScopeList",
+      "description": "Space-delimited granted scope tokens. Matches the requested scopes after server validation."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of key creation."
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Expiry timestamp, or null if the key does not expire."
+    },
+    "create_secret": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 512,
+      "x-privacy-classification": "secret",
+      "x-one-time-field": true,
+      "description": "One-time plaintext secret returned ONLY in the create (201) response. Absent in all subsequent reads. The client MUST store this value immediately; it cannot be retrieved again."
+    }
+  },
+  "required": ["key_id", "name", "prefix"]
+}

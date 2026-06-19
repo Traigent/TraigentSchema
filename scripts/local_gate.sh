@@ -9,6 +9,7 @@
 # after a push + a full CI round-trip.
 #
 # Runs (fast → slow), mirroring .github/workflows/*:
+#   0. freshness preflight   (origin/develop + origin/main)
 #   1. ruff check            (CI: ci.yml "Run linting")
 #   2. mypy                  (CI: ci.yml "Run type checking")
 #   3. pytest (structural)   (CI: ci.yml "Run tests" — incl. structural_validity)
@@ -19,7 +20,8 @@
 # Usage:
 #   scripts/local_gate.sh            # auto: 1-5 always; sonar if main-bound
 #   LOCAL_GATE_SONAR=1 scripts/local_gate.sh      # force the sonar step
-#   LOCAL_GATE_SKIP=pytest,sonar scripts/local_gate.sh   # skip named steps
+#   LOCAL_GATE_SKIP=sonar scripts/local_gate.sh          # skip optional named steps
+#   LOCAL_GATE_STRICT_FRESHNESS=1 scripts/local_gate.sh   # fail on any remote drift
 # It is also installed as a git pre-push hook (see `make install-hooks`).
 #
 # This repo is a pure JSON-Schema / contracts library: there is NO policy-surface
@@ -47,6 +49,68 @@ skip() { [[ ",${LOCAL_GATE_SKIP:-}," == *",$1,"* ]]; }
 hr() { printf '─%.0s' {1..64}; echo; }
 section() { hr; echo "▶ $1"; }
 
+# release/hotfix branches target main; everything else targets develop.
+base_branch="develop"; [[ "$BRANCH" =~ ^(release|hotfix)/ ]] && base_branch="main"
+base_ref="origin/$base_branch"
+
+MAIN_BOUND=0
+[[ "$BRANCH" =~ ^(release|hotfix)/ ]] && MAIN_BOUND=1
+[[ "${LOCAL_GATE_SONAR:-0}" == "1" ]] && MAIN_BOUND=1
+
+freshness_preflight() {
+  section "remote freshness preflight (origin/develop + origin/main)"
+  local rc=0 strict=0 ref sha counts ahead behind
+  [[ "$MAIN_BOUND" == "1" || "${LOCAL_GATE_STRICT_FRESHNESS:-0}" == "1" ]] && strict=1
+
+  echo "  • branch=${BRANCH}; base=${base_branch}; strict_freshness=${strict}"
+  for remote_branch in develop main; do
+    ref="origin/${remote_branch}"
+    if ! git rev-parse --verify --quiet "$ref" >/dev/null; then
+      if [[ "$ref" == "$base_ref" || "$strict" == "1" ]]; then
+        echo "  ❌ required remote ref $ref is missing; fetch origin before trusting local gates"
+        rc=1
+      else
+        echo "  ⚠️  remote ref $ref is missing; not used for this ${base_branch}-bound gate"
+      fi
+      continue
+    fi
+
+    sha="$(git rev-parse --short=12 "$ref")"
+    if counts="$(git rev-list --left-right --count "HEAD...$ref" 2>/dev/null)"; then
+      read -r ahead behind <<< "$counts"
+      echo "  • $ref@$sha (HEAD ahead $ahead / behind $behind)"
+      if [[ "$behind" =~ ^[0-9]+$ && "$behind" -gt 0 ]]; then
+        if [[ "$strict" == "1" ]] || { [[ "$ref" == "origin/main" ]] && [[ "$MAIN_BOUND" == "1" ]]; }; then
+          echo "    ❌ HEAD is behind $ref; refresh/rebase before a main-bound gate"
+          rc=1
+        else
+          echo "    ⚠️  HEAD is behind $ref; develop-bound local results may differ from hosted CI"
+        fi
+      fi
+    else
+      if [[ "$strict" == "1" || "$ref" == "$base_ref" ]]; then
+        echo "  ❌ unable to compare HEAD with $ref; local gate freshness is untrusted"
+        rc=1
+      else
+        echo "  ⚠️  unable to compare HEAD with $ref"
+      fi
+    fi
+  done
+
+  return "$rc"
+}
+
+if ! freshness_preflight; then FAIL=1; fi
+
+for required_step in ruff mypy pytest; do
+  if skip "$required_step"; then
+    hr
+    echo "❌ LOCAL_GATE_SKIP cannot skip required CI mirror step: $required_step"
+    echo "   Run the tool directly for partial checks; the Schema local gate must mirror CI."
+    FAIL=1
+  fi
+done
+
 # ── 1. ruff check (lint) ──────────────────────────────────────────────────
 # Mirrors ci.yml exactly: `ruff check traigent_schema/`. NOTE: CI does NOT run
 # `ruff format --check`, and the tree is not format-clean, so we deliberately do
@@ -57,7 +121,8 @@ if ! skip ruff; then
     if ruff check traigent_schema/; then echo "  ✅ ruff check clean"
     else echo "  ❌ ruff check found issues — run 'ruff check --fix traigent_schema/'"; FAIL=1; fi
   else
-    echo "  ⚠️  ruff not installed (pip install -e '.[dev]'); skipping — CI will still run it"
+    echo "  ❌ ruff not installed (pip install -e '.[dev]'); required because this gate mirrors CI"
+    FAIL=1
   fi
 fi
 
@@ -68,21 +133,23 @@ if ! skip mypy; then
     if mypy traigent_schema/ --ignore-missing-imports; then echo "  ✅ mypy clean"
     else echo "  ❌ mypy found issues — fix the types above"; FAIL=1; fi
   else
-    echo "  ⚠️  mypy not installed (pip install -e '.[dev]'); skipping — CI will still run it"
+    echo "  ❌ mypy not installed (pip install -e '.[dev]'); required because this gate mirrors CI"
+    FAIL=1
   fi
 fi
 
 # ── 3. pytest — the structural / contract gate ────────────────────────────
 # The schema-integrity gate IS the pytest suite (test_structural_validity.py +
 # the per-contract tests). It is DB-free and runs in seconds, so it belongs in
-# the local gate. Skippable with LOCAL_GATE_SKIP=pytest for a lint-only pass.
+# the local gate.
 if ! skip pytest; then
   section "pytest — structural + contract gate (ci.yml: Run tests)"
   if command -v pytest >/dev/null 2>&1; then
     if pytest tests/ -q -p no:cacheprovider; then echo "  ✅ pytest clean"
     else echo "  ❌ pytest failed — fix the contract/structural breakage above"; FAIL=1; fi
   else
-    echo "  ⚠️  pytest not installed (pip install -e '.[dev]'); skipping — CI will still run it"
+    echo "  ❌ pytest not installed (pip install -e '.[dev]'); required because this gate mirrors CI"
+    FAIL=1
   fi
 fi
 
@@ -107,13 +174,7 @@ fi
 # branch gets a trail before `gh pr create`.
 if ! skip spine; then
   section "spine preflight (spine-trail-gate.yml — reminder)"
-  base="develop"; [[ "$BRANCH" =~ ^(release|hotfix)/ ]] && base="main"
-  # Prefer the remote-tracking ref; fall back to a local ref of the same name.
-  base_ref=""
-  for ref in "origin/${base}" "${base}"; do
-    git rev-parse --verify --quiet "$ref" >/dev/null && { base_ref="$ref"; break; }
-  done
-  range="HEAD"; [[ -n "$base_ref" ]] && range="${base_ref}..HEAD"
+  range="HEAD"; git rev-parse --verify --quiet "$base_ref" >/dev/null && range="${base_ref}..HEAD"
   if git log "$range" --format=%B 2>/dev/null | grep -Eqi '^[[:space:]]*Spine-Trail:[[:space:]]*st_[0-9a-f]{12}' \
      || git log "$range" --format=%B 2>/dev/null | grep -Eqi '^[[:space:]]*Spine:[[:space:]]*(cs_[0-9a-z]{6,}|none[[:space:]]*\(reason:)'; then
     echo "  ✅ a Spine-Trail/Spine mark is present in this branch's commits"
@@ -121,7 +182,7 @@ if ! skip spine; then
     echo "  ⚠️  no Spine-Trail detected on this branch (CI's spine-trail-gate reads the PR BODY)."
     echo "      Create one BEFORE 'gh pr create', then add its line to the PR body:"
     echo "        python3 <workspace>/tools/spine-trail/spine_trail.py get-or-create \\"
-    echo "          --repo TraigentSchema --branch ${BRANCH} --base-branch ${base} \\"
+    echo "          --repo TraigentSchema --branch ${BRANCH} --base-branch ${base_branch} \\"
     echo "          --kind <feature|bug_fix|change> --source-type <type> \\"
     echo "          --source-ref \"<ref>\" --changed-paths \"<files>\""
     echo "      Accepted PR-body markers: 'Spine-Trail: st_…', 'Spine: cs_…', 'Spine: none (reason: …)'."
@@ -131,9 +192,6 @@ fi
 # ── 6. SonarQube quality gate (main-bound only) ───────────────────────────
 # sonarqube-local.yml is REQUIRED on main, optional on develop. Run it locally
 # only for main-bound work so develop pushes stay fast.
-MAIN_BOUND=0
-[[ "$BRANCH" =~ ^(release|hotfix)/ ]] && MAIN_BOUND=1
-[[ "${LOCAL_GATE_SONAR:-0}" == "1" ]] && MAIN_BOUND=1
 if [[ "$MAIN_BOUND" == "1" ]] && ! skip sonar; then
   section "SonarQube quality gate (main-bound: $BRANCH)"
   have_creds=0

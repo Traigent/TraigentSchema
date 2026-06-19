@@ -5,18 +5,39 @@ on:
     branches: [main]
   pull_request:
     branches: [main, develop]
+  schedule:
+    - cron: '0 6 * * *'   # nightly: full Python matrix (3.9-3.12)
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  # Lint + type-check are version-independent: run ONCE instead of per matrix entry.
+  lint-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Run linting
+        run: ruff check traigent_schema/
+      - name: Run type checking
+        run: mypy traigent_schema/ --ignore-missing-imports
+
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        # develop PR -> newest only; main PR/push -> 2 newest; nightly schedule -> full matrix.
+        python-version: ${{ fromJSON( github.event_name == 'schedule' && '["3.9","3.10","3.11","3.12"]' || (github.event_name == 'pull_request' && github.base_ref == 'develop') && '["3.12"]' || '["3.11","3.12"]' ) }}
 
     steps:
       - uses: actions/checkout@v6
@@ -31,21 +52,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run linting
-        run: |
-          ruff check traigent_schema/
-
-      - name: Run type checking
-        run: |
-          mypy traigent_schema/ --ignore-missing-imports
-
       - name: Run tests
         run: |
           pytest tests/ -v --cov=traigent_schema --cov-report=xml
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == '3.12'
         with:
           files: ./coverage.xml
           fail_ci_if_error: false

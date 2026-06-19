@@ -1,7 +1,8 @@
 # Validation Spine — PR-time scope-mode run for TraigentSchema.
 #
-# Mirrors Traigent SDK's validation-spine-pr.yml. Advisory for the
-# initial calibration window.
+# Mirrors Traigent SDK's validation-spine-pr.yml. Findings are advisory during
+# calibration; infrastructure/configuration failures fail closed so a required
+# workflow cannot silently go green.
 #
 # Schema specializations:
 #   - Path filter targets the schema package (traigent_schema/) plus
@@ -35,7 +36,6 @@ jobs:
   spine-pr-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true  # advisory mode — promote after calibration
     env:
       SPINE_REF: 0dc2d057e7e33e71acc882388b546e5808e4002b  # pragma: allowlist secret
       SPINE_FILE_LIMIT: "5000"
@@ -47,7 +47,7 @@ jobs:
       - name: Checkout product repo
         uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           path: TraigentSchema
 
       - name: Checkout validation spine
@@ -62,12 +62,27 @@ jobs:
       - name: Note skipped spine scan
         if: env.SPINE_RO_TOKEN == ''
         run: |
-          echo "::warning::SPINE_RO_TOKEN is not configured; validation spine scan skipped."
+          echo "::error::SPINE_RO_TOKEN is not configured; validation spine scan cannot run."
           {
             echo "## Validation Spine — PR scan"
             echo
-            echo "Skipped: repository secret \`SPINE_RO_TOKEN\` is not configured."
+            echo "Failed closed: repository secret \`SPINE_RO_TOKEN\` is not configured."
           } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      - name: Capture PR changed files
+        if: env.SPINE_RO_TOKEN != '' && github.event_name == 'pull_request'
+        working-directory: TraigentSchema
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/.spine-health"
+          git diff --name-only --diff-filter=ACMRT \
+            "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
+            -- 'traigent_schema/**' 'tests/**' 'pyproject.toml' '.github/workflows/validation-spine-pr.yml' \
+            > "$GITHUB_WORKSPACE/.spine-health/pr-changed-files.txt"
+          count="$(wc -l < "$GITHUB_WORKSPACE/.spine-health/pr-changed-files.txt" | tr -d ' ')"
+          echo "Captured ${count} PR changed file(s) for scoped summary."
 
       - name: Set up Python 3.11
         if: env.SPINE_RO_TOKEN != ''
@@ -91,8 +106,10 @@ jobs:
         working-directory: .spine
         run: |
           mkdir -p "$GITHUB_WORKSPACE/.spine-health"
-          # Scans the full TraigentSchema repo on every PR; PR-incremental
-          # scope is a spine follow-up.
+          # The scanner still runs over the repository because the pinned
+          # security-ledger CLI has no safe changed-file include switch here.
+          # The summary below separates PR-touched findings from existing
+          # repository-wide noise.
           ./.venv/bin/validation security-ledger run \
             --workspace-root "$GITHUB_WORKSPACE" \
             --health-dir "$GITHUB_WORKSPACE/.spine-health" \
@@ -105,28 +122,63 @@ jobs:
           set -e
           GAPS="$GITHUB_WORKSPACE/.spine-health/latest-security-ledger-gaps.json"
           if [[ ! -f "$GAPS" ]]; then
-            echo "::warning::no gap report emitted (spine run failed?)"
-            exit 0
+            echo "::error::no gap report emitted by validation spine scan"
+            exit 1
           fi
           ./.venv/bin/python - <<'PY'
           import json, os, pathlib
           gaps_path = pathlib.Path(os.environ["GITHUB_WORKSPACE"]) / ".spine-health" / "latest-security-ledger-gaps.json"
+          changed_path = pathlib.Path(os.environ["GITHUB_WORKSPACE"]) / ".spine-health" / "pr-changed-files.txt"
           data = json.loads(gaps_path.read_text())
           by_severity = (data.get("summary") or {}).get("by_severity") or {}
           critical = by_severity.get("critical", 0)
           high     = by_severity.get("high", 0)
           medium   = by_severity.get("medium", 0)
+          changed = {line.strip() for line in changed_path.read_text().splitlines()} if changed_path.exists() else set()
+
+          def iter_gaps(payload):
+              for key in ("gaps", "items", "blockers", "records", "findings"):
+                  value = payload.get(key)
+                  if isinstance(value, list):
+                      return value
+              return []
+
+          def normalized_ref_path(gap):
+              ref = str(gap.get("source_ref") or gap.get("path") or gap.get("file") or "")
+              ref = ref.split("#", 1)[0]
+              if ref.startswith("TraigentSchema/"):
+                  ref = ref[len("TraigentSchema/"):]
+              if ":" in ref:
+                  ref = ref.rsplit(":", 1)[0]
+              return ref
+
+          scoped = {"critical": 0, "high": 0, "medium": 0}
+          gap_items = iter_gaps(data)
+          if changed and gap_items:
+              for gap in gap_items:
+                  ref = normalized_ref_path(gap)
+                  if ref in changed:
+                      severity = str(gap.get("severity") or "").lower()
+                      if severity in scoped:
+                          scoped[severity] += 1
           step_summary = pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
           with step_summary.open("a") as fh:
               fh.write("## Validation Spine — PR scan\n\n")
-              fh.write("| Severity | Count |\n| --- | ---: |\n")
-              fh.write(f"| critical | {critical} |\n| high | {high} |\n| medium | {medium} |\n\n")
+              fh.write("| Severity | Repo-wide count | PR-touched count |\n| --- | ---: | ---: |\n")
+              fh.write(f"| critical | {critical} | {scoped['critical']} |\n")
+              fh.write(f"| high | {high} | {scoped['high']} |\n")
+              fh.write(f"| medium | {medium} | {scoped['medium']} |\n\n")
+              if changed and not gap_items:
+                  fh.write("PR-scoped counts unavailable: scanner output did not expose a parseable finding list.\n\n")
               if critical:
-                  fh.write("**Critical findings — review before merge.** ")
+                  fh.write("**Critical repo-wide findings — review before merge.** ")
                   fh.write("Full detail in the `validation-spine-gaps` artifact below.\n")
               else:
                   fh.write("No critical findings.\n")
-          print(f"critical={critical} high={high} medium={medium}")
+          print(
+              f"critical={critical} high={high} medium={medium} "
+              f"pr_critical={scoped['critical']} pr_high={scoped['high']} pr_medium={scoped['medium']}"
+          )
           if critical:
               print(f"::warning::spine reported {critical} critical finding(s); see artifact")
           PY

@@ -4,6 +4,13 @@ The official contract package for the Traigent AI optimization platform. This
 repository is the shared source of truth for JSON Schema definitions, endpoint
 mappings, and validation utilities used across the backend, SDK, and frontend.
 
+> **Before you push:** run `make install-hooks` once per clone, then
+> `make local-gate` before every push. The local gate mirrors the cloud CI
+> gates (`ruff check`, `mypy`, the `pytest`/parity **structural** gates, the
+> spine-trail reminder, and — for main-bound branches — SonarQube) so avoidable
+> reds are caught in seconds instead of after a push. See
+> [docs/LOCAL_CI_GATE.md](docs/LOCAL_CI_GATE.md).
+
 ## Installation
 
 For published package consumers:

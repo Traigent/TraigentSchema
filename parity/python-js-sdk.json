@@ -349,9 +349,14 @@
     "enterpriseAdminClient": "JS 0.2.0 no longer exports an EnterpriseAdminClient migration stub. Python develop still root-exports EnterpriseAdminClient/EnterpriseAdminConfig, so they remain classified deferred-backlog (tracked in Traigent/traigent-js#30) but are intentionally absent from requiredRootExports and stubRootExports.",
     "observabilityWrappers": "Default-client helpers and the observe wrapper are deferred to 0.3.0 to avoid expanding the 0.2.0 parity release with new runtime semantics; track in Traigent/traigent-js#38.",
     "addAgentSpan": "Python root-exports add_agent_span (traigent.observability) on both develop and main; it is an observability-wrapper helper with no @traigent/sdk twin yet, so it is classified deferred-backlog alongside observe/get_default_observability_client and tracked with the other observability wrappers in Traigent/traigent-js#38 (resolves the js-public-parity manifest gap, TraigentSchema#117).",
-    "textDocument": "Python root-exports TextDocument (traigent.api.parameter_ranges) \u2014 a trainable single-text-document parameter type for skill training (Choices[str], trainable=True). It is a concrete tunable type with no @traigent/sdk twin yet, so it is classified deferred-backlog pending a JS skill-training surface (TraigentSchema#117).",
-    "pinRefresh": "Manifest Python pin advanced from c79bc47 to 4fe3cd37 (origin/develop) to cover the two root exports added since the previous pin \u2014 add_agent_span and TextDocument \u2014 that the live js-public-parity gate flagged (TraigentSchema#117).",
+    "textDocument": "Python root-exports TextDocument (traigent.api.parameter_ranges) — a trainable single-text-document parameter type for skill training (Choices[str], trainable=True). It is a concrete tunable type with no @traigent/sdk twin yet, so it is classified deferred-backlog pending a JS skill-training surface (TraigentSchema#117).",
+    "pinRefresh": "Manifest Python pin advanced from c79bc47 to 4fe3cd37 (origin/develop) to cover the two root exports added since the previous pin — add_agent_span and TextDocument — that the live js-public-parity gate flagged (TraigentSchema#117).",
     "advisorySelectionHelpers": "Python exposes advisory strategy-preset selection and recommendation-catalog helpers in the 0.12.0 release line. JS 0.2.0 defers root exports until the JS advisory-helper surface is designed; these helpers are not schema DTOs or required JS clients.",
     "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order."
+  },
+  "schemaRefresh": {
+    "lastSchemaFileSha": "159e2c4f43f3a9fd221316f96f9ac033d54c4f1fefd9eb49dfac9e7537d40480",
+    "schemaFileCount": 288,
+    "note": "Auto-stamped by scripts/refresh_parity.py. Do not hand-edit this block."
   }
 }

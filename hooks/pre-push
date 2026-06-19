@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#
+# pre-push hook — runs the local CI gate before any push so avoidable cloud reds
+# (ruff/mypy/pytest/parity/spine/sonar) are caught locally in seconds.
+#
+# Installed by `make install-hooks` (copies/symlinks this into .git/hooks/pre-push).
+# Bypass for a single push: git push --no-verify  (leaves a reflog trail).
+set -uo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+exec "$REPO_ROOT/scripts/local_gate.sh"

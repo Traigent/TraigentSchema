@@ -9,6 +9,12 @@
     }
   ],
   "x-traigent-optimization-capabilities": {
+    "auto": {
+      "canonical_algorithm": "auto",
+      "implementation_status": "supported",
+      "execution_mode": "hybrid",
+      "description": "Cloud-first automatic strategy selection with local fallback. execution_mode is legacy capability metadata and is superseded by algorithm/offline."
+    },
     "grid": {
       "canonical_algorithm": "grid",
       "implementation_status": "supported",
@@ -52,6 +58,7 @@
       "type": "string",
       "description": "All algorithm names that may appear in public capability metadata.",
       "enum": [
+        "auto",
         "grid",
         "random",
         "bayesian",
@@ -64,6 +71,7 @@
       "type": "string",
       "description": "Algorithm names accepted for new optimization_strategy requests.",
       "enum": [
+        "auto",
         "grid",
         "random",
         "bayesian",
@@ -80,6 +88,9 @@
     },
     "OptimizationExecutionMode": {
       "type": "string",
+      "deprecated": true,
+      "x-deprecated": "Use algorithm/offline and hybrid_api_options instead. execution_mode will be removed in a future major version.",
+      "description": "Deprecated legacy execution-mode capability metadata. Public clients should use algorithm/offline and hybrid_api_options.",
       "enum": [
         "edge_analytics",
         "hybrid",
@@ -101,7 +112,10 @@
           "$ref": "#/definitions/OptimizationImplementationStatus"
         },
         "execution_mode": {
-          "$ref": "#/definitions/OptimizationExecutionMode"
+          "$ref": "#/definitions/OptimizationExecutionMode",
+          "deprecated": true,
+          "x-deprecated": "Use algorithm/offline and hybrid_api_options instead. execution_mode will be removed in a future major version.",
+          "description": "Deprecated legacy execution-mode metadata for the algorithm capability."
         },
         "alias_for": {
           "type": "string",
@@ -131,7 +145,18 @@
           ],
           "properties": {
             "algorithm": {
-              "$ref": "#/definitions/SupportedOptimizationStrategyName"
+              "$ref": "#/definitions/SupportedOptimizationStrategyName",
+              "default": "auto",
+              "description": "Public SDK optimization algorithm selector. auto lets Traigent choose cloud-first automatic execution with local fallback."
+            },
+            "offline": {
+              "type": "boolean",
+              "default": false,
+              "description": "force fully-local execution with no backend egress."
+            },
+            "hybrid_api_options": {
+              "$ref": "https://schemas.traigent.ai/optimization/hybrid_api_options_schema.json",
+              "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."
             },
             "seed": {
               "type": "integer"
@@ -176,6 +201,15 @@
           "properties": {
             "type": {
               "$ref": "#/definitions/SupportedOptimizationStrategyName"
+            },
+            "offline": {
+              "type": "boolean",
+              "default": false,
+              "description": "force fully-local execution with no backend egress."
+            },
+            "hybrid_api_options": {
+              "$ref": "https://schemas.traigent.ai/optimization/hybrid_api_options_schema.json",
+              "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."
             },
             "seed": {
               "type": "integer"

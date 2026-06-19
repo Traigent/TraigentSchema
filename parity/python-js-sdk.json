@@ -355,8 +355,8 @@
     "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order."
   },
   "schemaRefresh": {
-    "lastSchemaFileSha": "159e2c4f43f3a9fd221316f96f9ac033d54c4f1fefd9eb49dfac9e7537d40480",
-    "schemaFileCount": 288,
+    "lastSchemaFileSha": "609820eafacc36a9826f220a1c3f0af773a1d83200f7b4cc48d78ee7879e8a1b",
+    "schemaFileCount": 289,
     "note": "Auto-stamped by scripts/refresh_parity.py. Do not hand-edit this block."
   }
 }

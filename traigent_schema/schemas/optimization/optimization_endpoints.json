@@ -178,11 +178,34 @@
                   "default_config": {
                     "type": "object"
                   },
+                  "algorithm": {
+                    "$ref": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json#/definitions/SupportedOptimizationStrategyName",
+                    "default": "auto",
+                    "description": "Public SDK optimization algorithm selector. auto lets Traigent choose cloud-first automatic execution with local fallback."
+                  },
+                  "offline": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "force fully-local execution with no backend egress."
+                  },
+                  "hybrid_api_options": {
+                    "$ref": "https://schemas.traigent.ai/optimization/hybrid_api_options_schema.json",
+                    "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."
+                  },
                   "promotion_policy": {
                     "$ref": "https://schemas.traigent.ai/optimization/promotion_policy_schema.json"
                   },
                   "optimization_strategy": {
-                    "type": "object"
+                    "description": "Optional strategy configuration. The typed vNext shape is optimization_strategy_schema; arbitrary legacy objects remain accepted for compatibility.",
+                    "anyOf": [
+                      {
+                        "$ref": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    ]
                   },
                   "user_id": {
                     "type": "string"

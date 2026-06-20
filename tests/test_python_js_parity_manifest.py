@@ -191,6 +191,18 @@ PYTHON_DEVELOP_ROOT_SYMBOLS = (
     PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS | PYTHON_DEVELOP_CONDITIONAL_ROOT_SYMBOLS
 )
 
+JS_REQUIRED_COMPATIBILITY_SYMBOLS = {
+    "ExternalServiceEvaluator",
+    "HybridAPIOptions",
+    "LocalOptimizationAlgorithm",
+    "NativeOptimizationAlgorithm",
+    "OptimizationAlgorithm",
+    "OptimizationPolicyIntent",
+    "OptimizationResultSource",
+    "ResolvedOptimizationPolicy",
+    "SmartOptimizationAlgorithm",
+}
+
 
 def load_manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
@@ -245,7 +257,7 @@ def test_every_python_root_symbol_has_one_classification() -> None:
             seen[symbol] = classification
 
     assert duplicates == {}
-    assert set(seen) == PYTHON_DEVELOP_ROOT_SYMBOLS
+    assert set(seen) == PYTHON_DEVELOP_ROOT_SYMBOLS | JS_REQUIRED_COMPATIBILITY_SYMBOLS
 
 
 def test_conditional_python_root_exports_are_modeled_explicitly() -> None:

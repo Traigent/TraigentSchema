@@ -13,10 +13,7 @@
       {
         "source": "traigent.cloud.agent_dtos",
         "condition": "Python runtime extends traigent.__all__ only when importing traigent.cloud.agent_dtos through the traigent.cloud package succeeds.",
-        "symbols": [
-          "AgentCostBreakdown",
-          "WorkflowCostSummary"
-        ],
+        "symbols": ["AgentCostBreakdown", "WorkflowCostSummary"],
         "runtime": {
           "python": "conditional",
           "js": "not-required"
@@ -26,9 +23,7 @@
       {
         "source": "traigent.cloud.dtos",
         "condition": "Python runtime extends traigent.__all__ only when importing traigent.cloud.dtos through the traigent.cloud package succeeds.",
-        "symbols": [
-          "MeasuresDict"
-        ],
+        "symbols": ["MeasuresDict"],
         "runtime": {
           "python": "conditional",
           "js": "required",
@@ -70,17 +65,24 @@
       "EvaluatorRunDTO",
       "EvaluatorRunListResponse",
       "EvaluatorRunStatus",
+      "ExternalServiceEvaluator",
+      "HybridAPIOptions",
       "IntRange",
       "JudgeConfigDTO",
+      "LocalOptimizationAlgorithm",
       "LogRange",
       "MeasuresDict",
       "MeasureValueType",
+      "NativeOptimizationAlgorithm",
       "ObservabilityClient",
       "ObservabilityConfig",
       "ObservationDTO",
       "ObservationRecord",
       "ObservationType",
+      "OptimizationAlgorithm",
+      "OptimizationPolicyIntent",
       "OptimizationResult",
+      "OptimizationResultSource",
       "PaginationInfo",
       "ProjectManagementClient",
       "ProjectManagementConfig",
@@ -95,6 +97,7 @@
       "PromptType",
       "PromptVersionRecord",
       "Range",
+      "ResolvedOptimizationPolicy",
       "ResolvedPrompt",
       "ScoreRecordDTO",
       "ScoreRecordListResponse",
@@ -102,6 +105,7 @@
       "SessionDTO",
       "SessionListResponse",
       "SessionRecord",
+      "SmartOptimizationAlgorithm",
       "ThumbRating",
       "TraceCollaborationState",
       "TraceCommentRecord",
@@ -151,6 +155,7 @@
   "classificationDefinitions": {
     "matched": "JS exports a production implementation or schema-backed type with the same public intent.",
     "additive-js-alias": "JS exports a compatibility alias over an existing camelCase JS type or helper.",
+    "not-parity": "JS exports the public type or option shape for compatibility, but runtime behavior intentionally fails closed and must not be presented as Python parity.",
     "deferred-schema": "Python exposes the symbol, but JS cannot implement production behavior until TraigentSchema has the contract; JS may expose a throwing migration stub.",
     "deferred-backlog": "Tracked for future JS production behavior or an open decision ticket; may be exported only as a throwing migration stub when also listed in stubRootExports.",
     "out-of-scope-permanent": "Python-only runtime, analysis, plotting, validation, or internal surface that is not part of the JS SDK parity contract."
@@ -175,12 +180,17 @@
       "EvaluatorRunListResponse",
       "EvaluatorRunStatus",
       "IntRange",
+      "LocalOptimizationAlgorithm",
       "LogRange",
       "MeasuresDict",
+      "NativeOptimizationAlgorithm",
       "ObservabilityClient",
       "ObservabilityConfig",
       "ObservationType",
+      "OptimizationAlgorithm",
+      "OptimizationPolicyIntent",
       "OptimizationResult",
+      "OptimizationResultSource",
       "ProjectManagementClient",
       "ProjectManagementConfig",
       "PromptDetail",
@@ -191,10 +201,12 @@
       "PromptSummary",
       "PromptType",
       "Range",
+      "ResolvedOptimizationPolicy",
       "ResolvedPrompt",
       "ScoreRecordListResponse",
       "SessionListResponse",
       "SessionRecord",
+      "SmartOptimizationAlgorithm",
       "ThumbRating",
       "TraceCollaborationState",
       "TraceCommentRecord",
@@ -210,6 +222,7 @@
       "require",
       "when"
     ],
+    "not-parity": ["ExternalServiceEvaluator", "HybridAPIOptions"],
     "additive-js-alias": [
       "AnnotationQueueDTO",
       "AnnotationQueueItemDTO",
@@ -232,10 +245,7 @@
       "TraceDTO",
       "TraceFeedbackRecord"
     ],
-    "deferred-schema": [
-      "BenchmarkClient",
-      "BenchmarkClientConfig"
-    ],
+    "deferred-schema": ["BenchmarkClient", "BenchmarkClientConfig"],
     "deferred-backlog": [
       "ADVISORY_SELECTION_NOTICE",
       "AgentCostBreakdown",
@@ -352,7 +362,9 @@
     "textDocument": "Python root-exports TextDocument (traigent.api.parameter_ranges) — a trainable single-text-document parameter type for skill training (Choices[str], trainable=True). It is a concrete tunable type with no @traigent/sdk twin yet, so it is classified deferred-backlog pending a JS skill-training surface (TraigentSchema#117).",
     "pinRefresh": "Manifest Python pin advanced from c79bc47 to 4fe3cd37 (origin/develop) to cover the two root exports added since the previous pin — add_agent_span and TextDocument — that the live js-public-parity gate flagged (TraigentSchema#117).",
     "advisorySelectionHelpers": "Python exposes advisory strategy-preset selection and recommendation-catalog helpers in the 0.12.0 release line. JS 0.2.0 defers root exports until the JS advisory-helper surface is designed; these helpers are not schema DTOs or required JS clients.",
-    "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order."
+    "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order.",
+    "executionModeConsolidation": "JS 0.2.0 exposes algorithm/offline policy and external evaluator option types to mirror Python execution-mode consolidation; legacy execution mode aliases remain compatibility-only and are not a new selector.",
+    "externalServiceEvaluatorRuntime": "NOTPARITY: JS 0.2.0 exports ExternalServiceEvaluator/HybridAPIOptions type shapes but does not implement Python HybridAPIEvaluator's local external-service transport; runtime calls fail closed and must not be backend-routed through /sessions."
   },
   "schemaRefresh": {
     "lastSchemaFileSha": "609820eafacc36a9826f220a1c3f0af773a1d83200f7b4cc48d78ee7879e8a1b",

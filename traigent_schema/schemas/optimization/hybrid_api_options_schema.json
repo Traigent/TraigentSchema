@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/hybrid_api_options_schema.json",
+  "title": "Hybrid API Options",
+  "description": "Optional external-service evaluator configuration for SDK optimize requests. This bundle replaces user-facing hybrid_api execution-mode selection and is meaningful only when an external evaluator is configured.",
+  "type": "object",
+  "x-privacy-classification": "sdk_runtime_metadata",
+  "properties": {
+    "endpoint": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048,
+      "description": "External evaluator endpoint URI."
+    },
+    "transport_type": {
+      "type": "string",
+      "enum": ["http", "mcp", "auto"],
+      "default": "auto",
+      "description": "Transport used to call the external evaluator. auto lets the SDK choose the available transport."
+    },
+    "batch_size": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Number of evaluations sent in one request."
+    },
+    "batch_parallelism": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Maximum number of evaluator batches in flight at once."
+    },
+    "keep_alive": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the SDK should keep the external evaluator connection warm."
+    },
+    "heartbeat_interval": {
+      "type": "number",
+      "minimum": 0,
+      "default": 30,
+      "description": "Seconds between external evaluator heartbeat checks."
+    },
+    "timeout": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "default": null,
+      "description": "Optional evaluator request timeout in seconds. null uses the SDK default."
+    },
+    "auth_header": {
+      "type": ["string", "null"],
+      "maxLength": 4096,
+      "default": null,
+      "x-privacy-classification": "auth_sensitive",
+      "description": "Optional authorization header value or secret reference used for evaluator calls."
+    },
+    "auto_discover_tvars": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the SDK should ask the external evaluator to discover tunable variables."
+    },
+    "tunable_id": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "default": null,
+      "description": "Optional external evaluator tunable identifier."
+    }
+  },
+  "additionalProperties": false
+}

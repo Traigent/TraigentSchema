@@ -23,9 +23,8 @@
       "minimum": -1
     },
     "api_calls": { "type": "integer", "minimum": -1 },
-    "agents": { "type": "integer", "minimum": -1 },
     "benchmarks": { "type": "integer", "minimum": -1 },
     "users": { "type": "integer", "minimum": -1 }
   },
-  "required": ["trials", "api_calls", "agents", "benchmarks", "users"]
+  "required": ["trials", "api_calls", "benchmarks", "users"]
 }

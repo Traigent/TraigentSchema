@@ -38,10 +38,10 @@ def test_quota_exceeded_error_stays_backward_compatible():
     errors = validator.validate_json(
         {
             "error_code": "quota_exceeded",
-            "resource_type": "agents",
-            "current_usage": 1,
-            "limit": 1,
-            "message": "Agent limit reached.",
+            "resource_type": "optimization_trials",
+            "current_usage": 50,
+            "limit": 50,
+            "message": "Optimization trials limit reached.",
         },
         "quota_exceeded_error_schema",
     )
@@ -56,7 +56,6 @@ def test_billing_limits_accepts_two_dimensional_optimization_keys():
             "optimization_trials": 50,
             "optimization_samples": 500,
             "api_calls": 1000,
-            "agents": 1,
             "benchmarks": 25,
             "users": 1,
         },

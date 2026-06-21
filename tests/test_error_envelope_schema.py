@@ -29,7 +29,7 @@ def test_error_envelope_accepts_optional_code_and_details():
             "message": "Subscription quota exceeded.",
             "error": "quota_exceeded",
             "error_code": "quota_exceeded",
-            "details": {"resource_type": "agents", "limit": 1},
+            "details": {"resource_type": "optimization_samples", "limit": 500},
         },
         "error_envelope_schema",
     )

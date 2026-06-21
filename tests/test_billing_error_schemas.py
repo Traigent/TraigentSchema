@@ -10,12 +10,12 @@ def test_quota_exceeded_error_schema_accepts_contract_shape():
     errors = validator.validate_json(
         {
             "error_code": "quota_exceeded",
-            "resource_type": "agents",
-            "current_usage": 1,
-            "limit": 1,
+            "resource_type": "optimization_samples",
+            "current_usage": 500,
+            "limit": 500,
             "reset_at": None,
             "upgrade_url": "/billing",
-            "message": "Agent limit reached. Upgrade your plan to add more agents.",
+            "message": "Optimization samples limit reached. Upgrade your plan to add more.",
         },
         "quota_exceeded_error_schema",
     )
@@ -80,7 +80,6 @@ def test_billing_plans_response_uses_opaque_checkout_options():
                     "limits": {
                         "trials": 500,
                         "api_calls": 100000,
-                        "agents": 3,
                         "benchmarks": 250,
                         "users": 5,
                     },
@@ -112,7 +111,6 @@ def test_billing_plans_response_rejects_paddle_price_ids():
                     "limits": {
                         "trials": 500,
                         "api_calls": 100000,
-                        "agents": 3,
                         "benchmarks": 250,
                         "users": 5,
                     },
@@ -148,7 +146,6 @@ def test_billing_plans_response_rejects_mismatched_checkout_cycle():
                     "limits": {
                         "trials": 500,
                         "api_calls": 100000,
-                        "agents": 3,
                         "benchmarks": 250,
                         "users": 5,
                     },
@@ -178,7 +175,6 @@ def test_billing_plans_response_rejects_paid_plan_missing_checkout_options():
                     "limits": {
                         "trials": 500,
                         "api_calls": 100000,
-                        "agents": 3,
                         "benchmarks": 250,
                         "users": 5,
                     },
@@ -217,7 +213,6 @@ def test_billing_plans_response_rejects_cross_plan_checkout_options():
                     "limits": {
                         "trials": 500,
                         "api_calls": 100000,
-                        "agents": 3,
                         "benchmarks": 250,
                         "users": 5,
                     },
@@ -253,7 +248,6 @@ def test_billing_plans_response_requires_new_record_limit_fields():
                 "limits": {
                     "trials": 500,
                     "api_calls": 100000,
-                    "agents": 3,
                     "users": 5,
                 },
             }
@@ -269,7 +263,6 @@ def test_billing_limits_reject_unknown_and_invalid_fields():
     valid_limits = {
         "trials": 500,
         "api_calls": 100000,
-        "agents": 3,
         "benchmarks": 250,
         "users": 5,
     }
@@ -293,7 +286,6 @@ def test_billing_enforcement_controls_accepts_effective_record_limits():
             "effective_limits": {
                 "trials": 500,
                 "api_calls": 100000,
-                "agents": 3,
                 "benchmarks": 250,
                 "users": 5,
             },
@@ -313,7 +305,6 @@ def test_billing_enforcement_controls_rejects_missing_or_invalid_record_limits()
             "effective_limits": {
                 "trials": 500,
                 "api_calls": 100000,
-                "agents": 3,
                 "users": 5,
             },
         },
@@ -328,7 +319,6 @@ def test_billing_enforcement_controls_rejects_missing_or_invalid_record_limits()
             "effective_limits": {
                 "trials": 500,
                 "api_calls": 100000,
-                "agents": 3,
                 "benchmarks": True,
                 "users": 5,
             }

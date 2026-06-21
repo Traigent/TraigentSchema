@@ -13,7 +13,10 @@
       {
         "source": "traigent.cloud.agent_dtos",
         "condition": "Python runtime extends traigent.__all__ only when importing traigent.cloud.agent_dtos through the traigent.cloud package succeeds.",
-        "symbols": ["AgentCostBreakdown", "WorkflowCostSummary"],
+        "symbols": [
+          "AgentCostBreakdown",
+          "WorkflowCostSummary"
+        ],
         "runtime": {
           "python": "conditional",
           "js": "not-required"
@@ -23,7 +26,9 @@
       {
         "source": "traigent.cloud.dtos",
         "condition": "Python runtime extends traigent.__all__ only when importing traigent.cloud.dtos through the traigent.cloud package succeeds.",
-        "symbols": ["MeasuresDict"],
+        "symbols": [
+          "MeasuresDict"
+        ],
         "runtime": {
           "python": "conditional",
           "js": "required",
@@ -222,7 +227,10 @@
       "require",
       "when"
     ],
-    "not-parity": ["ExternalServiceEvaluator", "HybridAPIOptions"],
+    "not-parity": [
+      "ExternalServiceEvaluator",
+      "HybridAPIOptions"
+    ],
     "additive-js-alias": [
       "AnnotationQueueDTO",
       "AnnotationQueueItemDTO",
@@ -245,7 +253,10 @@
       "TraceDTO",
       "TraceFeedbackRecord"
     ],
-    "deferred-schema": ["BenchmarkClient", "BenchmarkClientConfig"],
+    "deferred-schema": [
+      "BenchmarkClient",
+      "BenchmarkClientConfig"
+    ],
     "deferred-backlog": [
       "ADVISORY_SELECTION_NOTICE",
       "AgentCostBreakdown",
@@ -367,7 +378,7 @@
     "externalServiceEvaluatorRuntime": "NOTPARITY: JS 0.2.0 exports ExternalServiceEvaluator/HybridAPIOptions type shapes but does not implement Python HybridAPIEvaluator's local external-service transport; runtime calls fail closed and must not be backend-routed through /sessions."
   },
   "schemaRefresh": {
-    "lastSchemaFileSha": "609820eafacc36a9826f220a1c3f0af773a1d83200f7b4cc48d78ee7879e8a1b",
+    "lastSchemaFileSha": "760b2410fb0930ed9fcb919289346e4d9f482de9f3dddbe3f99f2ad6ec6317a2",
     "schemaFileCount": 289,
     "note": "Auto-stamped by scripts/refresh_parity.py. Do not hand-edit this block."
   }

@@ -195,6 +195,10 @@
                   "promotion_policy": {
                     "$ref": "https://schemas.traigent.ai/optimization/promotion_policy_schema.json"
                   },
+                  "smart_pruning": {
+                    "$ref": "https://schemas.traigent.ai/optimization/smart_pruning_schema.json",
+                    "description": "Optional cloud-derived smart pruning policy. The label selects a cloud profile; omitted parameters are derived server-side."
+                  },
                   "optimization_strategy": {
                     "description": "Optional strategy configuration. The typed vNext shape is optimization_strategy_schema; arbitrary legacy objects remain accepted for compatibility.",
                     "anyOf": [
@@ -325,6 +329,103 @@
               "application/json": {
                 "schema": {
                   "$ref": "https://schemas.traigent.ai/optimization/session_next_trial_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed body or parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this session/resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — session or resource does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/intermediate-report": {
+      "post": {
+        "summary": "Report intermediate trial progress",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./intermediate_report_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Intermediate report accepted and pruning decision returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./intermediate_report_schema.json#/definitions/IntermediateReportResponse"
                 }
               }
             }

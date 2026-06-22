@@ -48,6 +48,11 @@
       "paths_file": "./results/results_endpoints.json"
     },
     {
+      "name": "Optimization Plan",
+      "description": "Current backend allowlisted pre-run optimization plan route.",
+      "paths_file": "./optimization/optimization_plan_endpoints.json"
+    },
+    {
       "name": "Analytics",
       "description": "Current backend example-scoring analytics routes.",
       "paths_file": "./analytics/analytics_endpoints.json"

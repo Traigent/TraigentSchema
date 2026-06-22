@@ -98,6 +98,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `optimization/optimization_plan_request_schema.json` and
+  `optimization/optimization_plan_response_schema.json` for
+  `POST /api/v1/optimization/plan`, plus a dedicated
+  `optimization/optimization_plan_endpoints.json` module wired into both
+  backend and SDK tuning contract roots. The response contract is allowlist-only
+  for safe plan labels, model ids, knob value lists, command templates, coarse
+  evidence, and caveats.
+
 ### Changed
 - **BREAKING (status vocabulary): aligned run/config status enums to the canonical
   UPPER backend vocabulary** (#172, #173). The whole producer ecosystem (backend

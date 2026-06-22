@@ -16,6 +16,11 @@
       "name": "Direct Tuning",
       "description": "Session and hybrid tuning routes used by SDK clients.",
       "paths_file": "./optimization/optimization_endpoints.json"
+    },
+    {
+      "name": "Optimization Plan",
+      "description": "Pre-run optimization plan route used by SDK and skill clients.",
+      "paths_file": "./optimization/optimization_plan_endpoints.json"
     }
   ]
 }

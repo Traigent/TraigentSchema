@@ -269,7 +269,7 @@ def _objective_schema_payload():
                 "name": "latency",
                 "orientation": "minimize",
                 "weight": 0.5,
-                "normalization": "robust",
+                "normalization": "min_max",
                 "bounds": [0, 1000],
                 "unit": "ms",
             },

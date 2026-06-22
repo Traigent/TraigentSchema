@@ -1,0 +1,227 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/optimization_plan_response_schema.json",
+  "title": "Optimization Plan Response",
+  "description": "CLIENT-SAFE pre-run optimization plan response. This contract follows an allowlist discipline: it may expose only safe labels, value lists, ordered command templates, coarse phase/evidence labels, budget echoes, and caveats. Proprietary formulas, scores, ranking internals, IRT signals, and derived numeric thresholds are not response fields.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "phase",
+    "plan",
+    "steps",
+    "evidence_level",
+    "caveat",
+    "advisory"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "MetricName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+    },
+    "PlanPhase": {
+      "type": "string",
+      "enum": [
+        "P1_STATIC"
+      ],
+      "description": "Coarse pre-run planning phase label."
+    },
+    "ObjectiveOrientation": {
+      "type": "string",
+      "enum": [
+        "maximize",
+        "minimize"
+      ]
+    },
+    "OptimizationPlanAlgorithm": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "grid",
+        "random",
+        "bayesian",
+        "tpe",
+        "optuna"
+      ]
+    },
+    "EvidenceLevel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "PlanObjective": {
+      "type": "object",
+      "required": [
+        "name",
+        "weight",
+        "orientation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/MetricName"
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Relative objective weight selected for the client-facing plan."
+        },
+        "orientation": {
+          "$ref": "#/definitions/ObjectiveOrientation"
+        }
+      }
+    },
+    "PlanKnob": {
+      "type": "object",
+      "required": [
+        "name",
+        "values"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$",
+          "description": "Safe knob identifier."
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": "Allowlisted safe display or command values."
+        }
+      }
+    },
+    "OptimizationPlan": {
+      "type": "object",
+      "required": [
+        "objectives",
+        "models",
+        "knobs",
+        "algorithm",
+        "max_trials",
+        "cost_limit_usd",
+        "offline"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "objectives": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/definitions/PlanObjective"
+          }
+        },
+        "models": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": "Allowlisted model ids."
+        },
+        "knobs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/definitions/PlanKnob"
+          }
+        },
+        "algorithm": {
+          "$ref": "#/definitions/OptimizationPlanAlgorithm"
+        },
+        "max_trials": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cost_limit_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "offline": {
+          "type": "boolean"
+        }
+      }
+    },
+    "PlanStep": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "command_template"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "command_template": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Ordered safe command template to present before running optimization."
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this response contract."
+    },
+    "phase": {
+      "$ref": "#/definitions/PlanPhase"
+    },
+    "plan": {
+      "$ref": "#/definitions/OptimizationPlan"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/definitions/PlanStep"
+      },
+      "description": "Ordered user-presentable steps."
+    },
+    "evidence_level": {
+      "$ref": "#/definitions/EvidenceLevel"
+    },
+    "caveat": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "Client-facing caveat explaining plan limitations."
+    },
+    "advisory": {
+      "type": "boolean",
+      "const": true,
+      "description": "Plans are advisory until the caller explicitly starts a run."
+    }
+  }
+}

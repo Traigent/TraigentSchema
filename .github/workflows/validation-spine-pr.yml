@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SPINE_REF: 0dc2d057e7e33e71acc882388b546e5808e4002b  # pragma: allowlist secret
+      SPINE_REF: 7766f10589b24971696c63d0235763a743cd9cd3  # pragma: allowlist secret
       SPINE_FILE_LIMIT: "5000"
       # Prefer a dedicated read-only spine token; fall back to this repo's
       # existing validation-CI PAT (used by validation-g8-dispatch.yml) so the

@@ -1,0 +1,266 @@
+# Known auth-taxonomy drift allowlist  —  Traigent/TraigentSchema#219
+# =============================================================================
+# This manifest is the EXPLICIT, SHRINKING ledger of auth-taxonomy divergences
+# between the Schema JSON enums (the declared source of truth) and the BE / SDK /
+# FE surfaces snapshotted in tests/data/auth_taxonomy_surfaces.json.
+#
+# Contract enforced by tests/test_auth_taxonomy_parity.py:
+#   (b) DETECTOR PASSES  -> every drift the detector finds is covered by a row here.
+#   (c) SHRINK ASSERTION -> FAILS if drift GROWS beyond this list (an uncovered
+#       drift appears) OR if a listed row is STALE (the drift it names no longer
+#       exists). The manifest can therefore only SHRINK: you remove a row when the
+#       underlying repos converge, and you cannot silently add a row to paper over
+#       a brand-new divergence without it being a deliberate, reviewed edit.
+#   (d) SCHEMA_219_ENFORCE=1 -> ANY remaining row below fails the test. This is how
+#       a LATER issue (remove_by: "Schema#219-enforce") flips DETECT -> ENFORCE.
+#
+# This allowlist is intentionally NOT a permanent escape hatch:
+#   * every row has remove_by: "Schema#219-enforce" — the convergence milestone;
+#   * a stale row is a HARD FAILURE, so rows cannot outlive the drift they describe;
+#   * the env toggle makes the whole list fail-on-purpose once enforcement lands.
+#
+# Field reference (per row):
+#   id            stable slug (referenced by the detector for matching + messages)
+#   detector_key  the machine key the detector emits for this drift class+payload
+#                 (the test matches detected drift to rows by this key — DO NOT
+#                  hand-edit unless you also change the detector)
+#   symbol_or_value  the concrete symbol/value that diverges (human-facing)
+#   repo          the surface that diverges from Schema
+#   surfaces      all surfaces involved (for the human reader)
+#   owner         who owns the convergence (team/role)
+#   phase_issue   the issue/phase that will reconcile this drift
+#   remove_by     the milestone at which this row MUST be gone (enforcement gate)
+#   note          why it diverges / how it converges
+# =============================================================================
+
+version: 1
+remove_by_milestone: "Schema#219-enforce"
+
+drifts:
+  # ── Mismatch #2 — BE mints harness:* scopes Schema's regex rejects ──────────
+  - id: be-scope-harness-read
+    detector_key: "backend.user_allowed_scopes.extra::harness:read"
+    symbol_or_value: "harness:read"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (reconcile vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      USER_ALLOWED_SCOPES (api_key_routes.py) includes harness:read, absent from
+      the Schema UserRequestableApiKeyScopeToken enum; the ApiKeyScopeList regex
+      (`...s:(read|write)`) would also reject it ('harness' is not plural-'s').
+      Converge by adding harness:* to Schema OR dropping it from BE.
+
+  - id: be-scope-harness-write
+    detector_key: "backend.user_allowed_scopes.extra::harness:write"
+    symbol_or_value: "harness:write"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (reconcile vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      Companion to harness:read; same reconciliation.
+
+  # ── Mismatch #5 — datasets:write grants benchmark.* (BE) vs dataset.* (Schema)
+  - id: be-scope-perm-datasets-read
+    detector_key: "backend.scope_permission_map.mismatch::datasets:read"
+    symbol_or_value: "datasets:read -> benchmark.read (BE) vs dataset.read (Schema)"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (finish BE#1268 benchmark->dataset rename tail)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      _normalize_resource_scope pins resource_map['datasets']='benchmark', so
+      datasets:read expands to benchmark.read; Schema maps datasets:read ->
+      dataset.read. Unreconciled auth tail of the benchmark->dataset rename (BE#1268).
+
+  - id: be-scope-perm-datasets-write
+    detector_key: "backend.scope_permission_map.mismatch::datasets:write"
+    symbol_or_value: "datasets:write -> benchmark.write/read (BE) vs dataset.write/read (Schema)"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (finish BE#1268 benchmark->dataset rename tail)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      datasets:write expands to {benchmark.write, benchmark.read} in BE vs
+      {dataset.write, dataset.read} in Schema. Same root as datasets:read.
+
+  # ── Mismatch #6 — BE emits permission tokens absent from the Schema enum ────
+  - id: be-perm-extra-model-read
+    detector_key: "backend.emitted_permissions.extra::model.read"
+    symbol_or_value: "model.read"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      _expand_scopes_to_permissions emits model.* permissions on broad READ/WRITE
+      scopes; the Schema ApiKeyPermissionToken enum does not list them. Add to
+      Schema or stop emitting.
+
+  - id: be-perm-extra-model-write
+    detector_key: "backend.emitted_permissions.extra::model.write"
+    symbol_or_value: "model.write"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: "Companion to model.read."
+
+  - id: be-perm-extra-planner-read
+    detector_key: "backend.emitted_permissions.extra::planner.read"
+    symbol_or_value: "planner.read"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: "BE planner.* permissions absent from Schema enum."
+
+  - id: be-perm-extra-planner-write
+    detector_key: "backend.emitted_permissions.extra::planner.write"
+    symbol_or_value: "planner.write"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: "Companion to planner.read."
+
+  - id: be-perm-extra-harness-read
+    detector_key: "backend.emitted_permissions.extra::harness.read"
+    symbol_or_value: "harness.read"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      BE harness.* permissions (sibling of the harness:* scope drift) absent from
+      the Schema permission enum.
+
+  - id: be-perm-extra-harness-write
+    detector_key: "backend.emitted_permissions.extra::harness.write"
+    symbol_or_value: "harness.write"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: "Companion to harness.read."
+
+  - id: be-perm-extra-analytics-read
+    detector_key: "backend.emitted_permissions.extra::analytics.read"
+    symbol_or_value: "analytics.read"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: "BE analytics.* permissions absent from Schema enum."
+
+  - id: be-perm-extra-analytics-write
+    detector_key: "backend.emitted_permissions.extra::analytics.write"
+    symbol_or_value: "analytics.write"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: "Companion to analytics.read."
+
+  - id: be-perm-extra-cost-read
+    detector_key: "backend.emitted_permissions.extra::cost.read"
+    symbol_or_value: "cost.read"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: "BE cost.* permissions absent from Schema enum."
+
+  - id: be-perm-extra-cost-write
+    detector_key: "backend.emitted_permissions.extra::cost.write"
+    symbol_or_value: "cost.write"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (close the permission vocabulary)"
+    remove_by: "Schema#219-enforce"
+    note: "Companion to cost.read."
+
+  # ── Mismatch #12 — BE carries two divergent ResourceType enums ──────────────
+  - id: be-resourcetype-divergent-enums
+    detector_key: "backend.resource_types.divergent::unified_auth-vs-api_key_resource"
+    symbol_or_value: "ResourceType (unified_auth: 7 members) != ResourceType (api_key_resource: 4 members)"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-1 (collapse to one Schema-aligned ResourceType)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      unified_auth.ResourceType = {agent, experiment, benchmark, api_key, user,
+      measure, system}; api_key_resource.ResourceType = {agent, benchmark,
+      experiment, measure}. Same name, divergent membership, neither aligned to a
+      Schema resource list. Collapse into one module-owned enum.
+
+  # ── Mismatch #1 — five disagreeing API-key prefix sources ───────────────────
+  # The canonical live-issuer set is {uk_, sk_, ak_, tk_} (uk_=user, sk_=service,
+  # ak_=admin, tk_=temporary; sk_ also for device flow). Each row below names a
+  # prefix-source set that is NOT equal to that canonical set.
+  - id: prefix-be-middleware-set
+    detector_key: "prefix.set.mismatch::backend.middleware_accepted"
+    symbol_or_value: "BE middleware accepts {ak_, pk_, rk_, sk_, tg_, uk_}"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-2 (prefixes, additive)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      Accepts orphan tg_ (issued by nobody) and pk_/rk_ (accepted but issued/
+      validated by nobody); missing tk_. Converge on the canonical live-issuer
+      set after confirming non-issuance of the orphans.
+
+  - id: prefix-be-config-opt
+    detector_key: "prefix.set.mismatch::backend.config_default"
+    symbol_or_value: "BE config default prefix {opt_} (emits malformed opt__)"
+    repo: TraigentBackend
+    surfaces: [TraigentBackend, TraigentSchema]
+    owner: backend-auth
+    phase_issue: "Schema#219 phase-2 (delete the opt_ generator)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      auth_constants.API_KEY_CONFIG['prefix']='opt_'; api_key_manager._generate_raw_key
+      builds f'{prefix}_{random}' -> malformed 'opt__<random>'. Stale in-memory
+      generator; the live DB issuer uses uk_/sk_/ak_/tk_. Delete.
+
+  - id: prefix-sdk-validator-set
+    detector_key: "prefix.set.mismatch::sdk.validator_accepted"
+    symbol_or_value: "SDK validator accepts {ak_, sk_, tg_, tk_, uk_}"
+    repo: Traigent
+    surfaces: [Traigent, TraigentSchema]
+    owner: sdk-python
+    phase_issue: "Schema#219 phase-2 (prefixes, additive)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      SDK accepts orphan tg_ (issued by no backend) on top of the canonical set.
+      Drop tg_ acceptance after confirming non-issuance.
+
+  - id: prefix-schema-device-sk-only
+    detector_key: "prefix.set.mismatch::schema.device_flow"
+    symbol_or_value: "Schema device-flow pins only {sk_}"
+    repo: TraigentSchema
+    surfaces: [TraigentSchema]
+    owner: schema
+    phase_issue: "Schema#219 phase-2 (publish the canonical prefix vocabulary in Schema)"
+    remove_by: "Schema#219-enforce"
+    note: >-
+      device_token_success_schema.json pins '^sk_...'. Only the device-flow sk_
+      path is consistent end-to-end; Schema does not yet own the full
+      uk_/sk_/ak_/tk_ vocabulary. Publish it as the Schema source of truth.

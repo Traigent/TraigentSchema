@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,43 @@ from traigent_schema.utils import ContractName, get_contract_path, get_schemas_d
 
 logger = logging.getLogger(__name__)
 SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
+_RFC3339_DATE_TIME_RE = re.compile(
+    r"^(?P<date>\d{4}-\d{2}-\d{2})[Tt]"
+    r"(?P<time>\d{2}:\d{2}:\d{2})"
+    r"(?P<fraction>\.\d+)?"
+    r"(?P<tz>[Zz]|[+-]\d{2}:\d{2})$"
+)
+_FORMAT_CHECKER = FormatChecker()
+
+
+@_FORMAT_CHECKER.checks("date-time")
+def _is_rfc3339_date_time(value: object) -> bool:
+    """Enforce Traigent's RFC-3339 subset without optional jsonschema extras."""
+    if not isinstance(value, str):
+        return True
+
+    match = _RFC3339_DATE_TIME_RE.fullmatch(value)
+    if match is None:
+        return False
+
+    if match.group("time").endswith(":60"):
+        # Leap seconds stay out of contract until we add full RFC-3339 support.
+        return False
+
+    fraction = match.group("fraction") or ""
+    if fraction:
+        # datetime.fromisoformat accepts at most 6 fractional digits.
+        fraction = "." + fraction[1:7]
+
+    timezone = match.group("tz")
+    if timezone in {"Z", "z"}:
+        timezone = "+00:00"
+    normalized = f"{match.group('date')}T{match.group('time')}{fraction}{timezone}"
+    try:
+        datetime.fromisoformat(normalized)
+    except ValueError:
+        return False
+    return True
 
 
 class SchemaValidator:
@@ -285,7 +324,7 @@ class SchemaValidator:
             validator = Draft7Validator(
                 schema,
                 registry=self._registry,
-                format_checker=FormatChecker()
+                format_checker=_FORMAT_CHECKER,
             )
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
@@ -304,7 +343,7 @@ class SchemaValidator:
             validator = Draft7Validator(
                 schema,
                 registry=self._registry,
-                format_checker=FormatChecker(),
+                format_checker=_FORMAT_CHECKER,
             )
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]

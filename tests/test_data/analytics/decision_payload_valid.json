@@ -1,0 +1,23 @@
+{
+  "run_id": "trial_a3f4b2c8d1",
+  "project_id": "proj_77a1",
+  "intent": "deploy",
+  "headline": "Config c-12 reaches 0.91 quality at 38% lower cost than the baseline.",
+  "confidence": "high",
+  "recommended_action": {
+    "kind": "promote_config",
+    "config_id": "trial_0f12ab",
+    "why": "It sits at the frontier knee and clears the cost constraint with a comfortable margin."
+  },
+  "evidence": [
+    {"type": "pareto_frontier", "summary": "Config c-12 is the knee of a clear cost/quality frontier."},
+    {"type": "sample_size", "summary": "Ranking computed over 120 trials, above the reliability floor."}
+  ],
+  "drilldowns": [
+    {"label": "See the cost/quality frontier", "tool": "run_pareto"},
+    {"label": "See which knobs mattered", "tool": "run_parameter_insights"}
+  ],
+  "warnings": [
+    "Latency was not part of the objective; verify it before deploying."
+  ]
+}

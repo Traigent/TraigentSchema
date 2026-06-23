@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_correlations_schema.json",
+  "title": "RunCorrelations",
+  "description": "CLIENT-SAFE correlation analysis for one optimization run, used by the terminal-first analytics surface to explain which measures move together and which parameters move a measure. Reports the correlation method, the sample size it was computed over, measure-to-measure correlations (r, p_value, coarse strength), and parameter-to-measure effects (effect, coarse confidence). Statistics here are computed over the run's own measured aggregates; this contract carries no proprietary example-scoring signals or formulas.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "method",
+    "sample_size",
+    "measure_correlations",
+    "parameter_correlations",
+    "warnings"
+  ],
+  "properties": {
+    "run_id": {
+      "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+      "description": "Identifier of the optimization run this correlation analysis describes."
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "pearson",
+        "spearman"
+      ],
+      "description": "Correlation method used."
+    },
+    "sample_size": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of trials/observations the correlations were computed over (drives reliability)."
+    },
+    "measure_correlations": {
+      "type": "array",
+      "description": "Pairwise correlations between measures.",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "x",
+          "y",
+          "r",
+          "p_value",
+          "strength"
+        ],
+        "properties": {
+          "x": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name of the first measure in the pair."
+          },
+          "y": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name of the second measure in the pair."
+          },
+          "r": {
+            "type": "number",
+            "minimum": -1.0,
+            "maximum": 1.0,
+            "description": "Correlation coefficient in [-1, 1]."
+          },
+          "p_value": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Significance p-value in [0, 1]."
+          },
+          "strength": {
+            "type": "string",
+            "enum": [
+              "weak",
+              "moderate",
+              "strong"
+            ],
+            "description": "Coarse strength bucket for the correlation magnitude."
+          }
+        }
+      }
+    },
+    "parameter_correlations": {
+      "type": "array",
+      "description": "Effect of each tuned parameter on a measure.",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parameter",
+          "measure",
+          "effect",
+          "confidence"
+        ],
+        "properties": {
+          "parameter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Name of the tuned parameter."
+          },
+          "measure": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name of the affected measure."
+          },
+          "effect": {
+            "type": "number",
+            "description": "Signed effect size of the parameter on the measure."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "description": "Coarse confidence bucket for the reported effect."
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Client-safe caveats about the correlations (e.g. small sample, non-linear relationship).",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  }
+}

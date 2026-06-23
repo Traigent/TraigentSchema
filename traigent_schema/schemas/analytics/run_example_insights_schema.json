@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_example_insights_schema.json",
+  "title": "RunExampleInsights",
+  "description": "PRIVACY-BOUNDED example-level insights for one optimization run, used by the terminal-first analytics surface to answer 'which examples are weak/unstable and what should I do about my dataset?'. This contract follows the same IP/privacy allowlist discipline as next_steps and example_score: by default (`safe_agent_projection`) it exposes only coarse counts, dataset-quality buckets, cohort-level impact labels, safe example references, and templated recommendations — NEVER raw proprietary example-scoring signal values, formulas, or raw prompt/response text. The `redactions` block declares what was withheld. `elevated` mode is owner-gated and backend-honored; a payload is only elevated if it echoes `privacy_mode: elevated`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "privacy_mode",
+    "summary",
+    "cohorts",
+    "recommendations",
+    "redactions"
+  ],
+  "properties": {
+    "run_id": {
+      "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+      "description": "Identifier of the optimization run these example insights describe."
+    },
+    "privacy_mode": {
+      "$ref": "https://schemas.traigent.ai/analytics/privacy_mode_schema.json#/definitions/PrivacyMode",
+      "description": "Projection level applied to this payload. Defaults to safe_agent_projection (client-safe)."
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "example_count",
+        "weak_example_count",
+        "unstable_example_count",
+        "dataset_quality"
+      ],
+      "description": "Coarse, client-safe dataset-level rollup.",
+      "properties": {
+        "example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of examples evaluated in the run."
+        },
+        "weak_example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of examples flagged as weak (coarse count only)."
+        },
+        "unstable_example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of examples flagged as unstable across trials (coarse count only)."
+        },
+        "dataset_quality": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "description": "Coarse dataset-quality bucket. Bucket only; the underlying signal is proprietary."
+        }
+      }
+    },
+    "cohorts": {
+      "type": "array",
+      "description": "Groups of examples sharing a behavior, described at cohort level only.",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "count",
+          "impact",
+          "safe_example_refs",
+          "recommendation"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Cohort category label (e.g. 'weak', 'unstable', 'redundant')."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of examples in this cohort."
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Templated, client-safe description of this cohort's impact on the run."
+          },
+          "safe_example_refs": {
+            "type": "array",
+            "description": "Safe, opaque references to representative examples in this cohort. NOT raw prompt/response text.",
+            "maxItems": 50,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          },
+          "recommendation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Templated, client-safe recommended action for this cohort."
+          }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "description": "Run-level dataset recommendations. May be empty when no safe recommendation is available.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Recommended action label (e.g. 'remove_redundant', 'expand_coverage')."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Templated, client-safe rationale. MUST NOT carry proprietary signal values."
+          }
+        }
+      }
+    },
+    "redactions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_proprietary_signals_hidden",
+        "raw_prompt_text_hidden_by_default"
+      ],
+      "description": "Declares what this payload intentionally withholds, so consumers never assume omitted detail is absent rather than redacted.",
+      "properties": {
+        "raw_proprietary_signals_hidden": {
+          "type": "boolean",
+          "description": "True when raw proprietary example-scoring signal values were withheld from this payload."
+        },
+        "raw_prompt_text_hidden_by_default": {
+          "type": "boolean",
+          "description": "True when raw prompt/response text was withheld by default under the active privacy mode."
+        }
+      }
+    }
+  }
+}

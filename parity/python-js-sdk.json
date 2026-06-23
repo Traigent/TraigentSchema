@@ -378,8 +378,8 @@
     "externalServiceEvaluatorRuntime": "NOTPARITY: JS 0.2.0 exports ExternalServiceEvaluator/HybridAPIOptions type shapes but does not implement Python HybridAPIEvaluator's local external-service transport; runtime calls fail closed and must not be backend-routed through /sessions."
   },
   "schemaRefresh": {
-    "lastSchemaFileSha": "5c6030b496fb801e001d50cd7b202a7d210e08a84b1f27915e426eb55abfa578",
-    "schemaFileCount": 294,
+    "lastSchemaFileSha": "0059d69d1f0e4e13e675cfb56894c2cac85f24881760fd95956951ee9def761c",
+    "schemaFileCount": 308,
     "note": "Auto-stamped by scripts/refresh_parity.py. Do not hand-edit this block."
   }
 }

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_example_insights_response_schema.json",
+  "title": "Run Example Insights Success Response",
+  "description": "Platform success envelope for GET /api/v1/analytics/runs/{run_id}/example-insights. The run_example_insights DTO is nested under data.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "https://schemas.traigent.ai/analytics/run_example_insights_schema.json"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": ["success", "message", "data"]
+}

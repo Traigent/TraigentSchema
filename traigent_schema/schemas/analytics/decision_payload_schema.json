@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/decision_payload_schema.json",
+  "title": "DecisionPayload",
+  "description": "KEYSTONE terminal-first analytics contract. The single decision-oriented summary an agent (Claude Code skill -> traigent-analytics-mcp -> backend) returns for one optimization run so the operator can decide what to do next without opening the web portal. CLIENT-SAFE: carries only a headline, a coarse confidence bucket, one recommended action, evidence labels, and named drill-down tools. It MUST NOT carry raw proprietary signal values, raw prompt/response text, or formulas; those stay backend-side and are surfaced (if at all) only through bounded drill-down contracts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "project_id",
+    "intent",
+    "headline",
+    "confidence",
+    "recommended_action",
+    "evidence",
+    "drilldowns",
+    "warnings"
+  ],
+  "properties": {
+    "run_id": {
+      "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+      "description": "Identifier of the optimization run this decision summarizes."
+    },
+    "project_id": {
+      "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+      "description": "Identifier of the project the run belongs to (tenant/project scoping context)."
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "iterate",
+        "deploy",
+        "debug",
+        "report"
+      ],
+      "description": "What the operator most likely wants to do next given this run's posture."
+    },
+    "headline": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "One-line, client-safe summary of the run outcome and the recommended direction."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "description": "Coarse confidence bucket for the recommendation. Buckets only; no numeric scores."
+    },
+    "recommended_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "why"
+      ],
+      "description": "The single highest-value next action for this run.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Action category label (e.g. 'promote_config', 'rerun_larger_sample', 'expand_config_space')."
+        },
+        "config_id": {
+          "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+          "description": "Optional configuration this action targets (e.g. the config to promote)."
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Templated, client-safe rationale. MUST NOT carry proprietary signal values."
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Coarse evidence labels supporting the recommendation. May be empty when no safe evidence is available.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "summary"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Evidence category label (e.g. 'pareto_frontier', 'correlation', 'sample_size')."
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Templated, client-safe one-line description of the evidence."
+          }
+        }
+      }
+    },
+    "drilldowns": {
+      "type": "array",
+      "description": "Named follow-up analyses the operator can request, each mapped to an MCP/skill tool that returns a bounded analytics contract.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "tool"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Human-readable label for the drill-down (e.g. 'See the cost/quality frontier')."
+          },
+          "tool": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name of the analytics tool that produces this drill-down (e.g. 'run_pareto')."
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Client-safe caveats about reliability or scope of this decision (e.g. small sample, flat frontier).",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  }
+}

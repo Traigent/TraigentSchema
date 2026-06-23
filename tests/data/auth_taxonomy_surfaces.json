@@ -1,0 +1,245 @@
+{
+  "$comment": [
+    "CHECKED-IN SNAPSHOT of the auth-taxonomy constants declared by the OTHER surfaces",
+    "(TraigentBackend / Traigent Python SDK / TraigentFrontend). TraigentSchema CI cannot",
+    "import BE/SDK/FE Python or TypeScript at runtime, so the parity DETECTOR",
+    "(tests/test_auth_taxonomy_parity.py) diffs the Schema JSON enums against THIS fixture",
+    "instead of against live cross-repo code. The fixture is the cross-repo evidence; it is",
+    "the operator's job to keep it fresh when a surface changes (see _regeneration below).",
+    "Issue: Traigent/TraigentSchema#219. This is the DETECTOR (non-blocking) phase only;",
+    "enforcement is a later issue (Schema#219-enforce)."
+  ],
+  "_regeneration": {
+    "how": [
+      "Each entry below carries a source.repo + source.path + source.symbol + source.ref.",
+      "To refresh a value, read that file at the named ref in the sibling repo (read the ref,",
+      "not a working tree: `git -C <repo> show origin/develop:<path>`), then transcribe the",
+      "literal here. Keep this fixture sorted/stable so diffs are reviewable. The detector",
+      "asserts every Schema-vs-surface delta is covered by tests/data/auth_taxonomy_known_drift.yaml;",
+      "if you transcribe a NEW divergence you must also add (or remove) the matching allowlist row."
+    ],
+    "captured_at": "2026-06-23",
+    "captured_from": {
+      "TraigentBackend": "origin/develop @ 3c06021b",
+      "Traigent": "origin/develop @ 14820ca5",
+      "TraigentFrontend": "origin/develop @ 5c6b36f0"
+    },
+    "note": "SHAs are the develop tips at capture time; they are provenance, not a freshness gate."
+  },
+
+  "backend": {
+    "user_allowed_scopes": {
+      "source": {
+        "repo": "TraigentBackend",
+        "path": "src/routes/api_key_routes.py",
+        "symbol": "USER_ALLOWED_SCOPES",
+        "ref": "origin/develop:276-292"
+      },
+      "$comment": "frozenset literal the public/self-service key-create route accepts.",
+      "values": [
+        "agents:read",
+        "agents:write",
+        "benchmarks:read",
+        "benchmarks:write",
+        "datasets:read",
+        "datasets:write",
+        "experiments:read",
+        "experiments:write",
+        "harness:read",
+        "harness:write",
+        "measures:read",
+        "measures:write",
+        "traces:read",
+        "traces:write"
+      ]
+    },
+
+    "scope_permission_map": {
+      "source": {
+        "repo": "TraigentBackend",
+        "path": "src/security/unified_auth.py",
+        "symbol": "_expand_scopes_to_permissions / _normalize_resource_scope",
+        "ref": "origin/develop:170-330"
+      },
+      "$comment": [
+        "Canonical (Schema-shaped) dot-form permissions each resource scope expands to,",
+        "with the BE-only colon aliases (read:x / write:x) and broad-scope fanout dropped.",
+        "datasets:* deliberately maps to benchmark.* (the BE#1268 benchmark->dataset rename",
+        "tail): _normalize_resource_scope pins resource_map['datasets'] = 'benchmark', so",
+        "/datasets routes gate on ResourceType.BENCHMARK. This is the canonical-permission",
+        "view used by the detector; it is NOT the full alias set."
+      ],
+      "values": {
+        "agents:read": ["agent.read"],
+        "agents:write": ["agent.read", "agent.write"],
+        "benchmarks:read": ["benchmark.read"],
+        "benchmarks:write": ["benchmark.read", "benchmark.write"],
+        "datasets:read": ["benchmark.read"],
+        "datasets:write": ["benchmark.read", "benchmark.write"],
+        "experiments:read": ["experiment.read"],
+        "experiments:write": ["experiment.read", "experiment.write"],
+        "harness:read": ["harness.read"],
+        "harness:write": ["harness.read", "harness.write"],
+        "measures:read": ["measure.read"],
+        "measures:write": ["measure.read", "measure.write"],
+        "traces:read": ["trace.read"],
+        "traces:write": ["trace.read", "trace.write"]
+      }
+    },
+
+    "emitted_permissions": {
+      "source": {
+        "repo": "TraigentBackend",
+        "path": "src/security/unified_auth.py",
+        "symbol": "_expand_scopes_to_permissions",
+        "ref": "origin/develop:170-318"
+      },
+      "$comment": [
+        "Canonical dot-form permission TOKENS the BE scope-expansion can actually produce",
+        "(broad READ/WRITE/ADMIN fanout + resource scopes), normalized to the Schema",
+        "permission shape (colon aliases dropped). Used to assert the BE-emitted vocabulary",
+        "is a closed subset of the Schema ApiKeyPermissionToken enum. model.*/planner.*/",
+        "harness.*/analytics.*/cost.* are emitted by BE but absent from Schema (drift)."
+      ],
+      "values": [
+        "admin",
+        "agent.read",
+        "agent.write",
+        "analytics.read",
+        "analytics.write",
+        "benchmark.read",
+        "benchmark.write",
+        "cost.read",
+        "cost.write",
+        "experiment.read",
+        "experiment.write",
+        "harness.read",
+        "harness.write",
+        "measure.read",
+        "measure.write",
+        "model.read",
+        "model.write",
+        "planner.read",
+        "planner.write",
+        "read",
+        "trace.read",
+        "trace.write",
+        "write"
+      ]
+    },
+
+    "resource_types": {
+      "$comment": "Mismatch #12: TWO divergent ResourceType enums inside BE itself.",
+      "unified_auth": {
+        "source": {
+          "repo": "TraigentBackend",
+          "path": "src/security/unified_auth.py",
+          "symbol": "ResourceType",
+          "ref": "origin/develop:99-108"
+        },
+        "values": [
+          "agent",
+          "api_key",
+          "benchmark",
+          "experiment",
+          "measure",
+          "system",
+          "user"
+        ]
+      },
+      "api_key_resource": {
+        "source": {
+          "repo": "TraigentBackend",
+          "path": "src/models/utility_models/api_key_resource.py",
+          "symbol": "ResourceType",
+          "ref": "origin/develop:23-29"
+        },
+        "values": [
+          "agent",
+          "benchmark",
+          "experiment",
+          "measure"
+        ]
+      }
+    },
+
+    "key_prefixes": {
+      "middleware_accepted": {
+        "source": {
+          "repo": "TraigentBackend",
+          "path": "src/security/security_middleware.py",
+          "symbol": "api_key_prefixes",
+          "ref": "origin/develop:746,982"
+        },
+        "$comment": "Prefixes the request middleware treats as API-key (vs JWT) tokens.",
+        "values": ["ak_", "pk_", "rk_", "sk_", "tg_", "uk_"]
+      },
+      "config_default": {
+        "source": {
+          "repo": "TraigentBackend",
+          "path": "src/security/auth_constants.py",
+          "symbol": "API_KEY_CONFIG['prefix']",
+          "ref": "origin/develop:183"
+        },
+        "$comment": "Stale in-memory generator default. api_key_manager._generate_raw_key (origin/develop:685-697) builds f'{prefix}_{random}', so 'opt_' yields the MALFORMED 'opt__<random>' double-underscore key. The live DB issuer does not use this path.",
+        "values": ["opt_"]
+      }
+    }
+  },
+
+  "sdk": {
+    "key_prefixes": {
+      "validator_accepted": {
+        "source": {
+          "repo": "Traigent",
+          "path": "traigent/cloud/api_key_manager.py",
+          "symbol": "validate_format prefix_lengths",
+          "ref": "origin/develop:310-316"
+        },
+        "$comment": "Prefix->expected-length table the SDK client-side format validator accepts. tg_ is the SDK 'standard' key issued by NO backend.",
+        "values": ["ak_", "sk_", "tg_", "tk_", "uk_"]
+      }
+    }
+  },
+
+  "frontend": {
+    "key_types": {
+      "create_dialog": {
+        "source": {
+          "repo": "TraigentFrontend",
+          "path": "src/components/apiKeys/CreateApiKeyDialog.tsx",
+          "symbol": "KEY_TYPES",
+          "ref": "origin/develop:86-99"
+        },
+        "$comment": "key_type options offered on key creation (no 'integration').",
+        "values": ["admin", "service", "temporary", "user"]
+      },
+      "admin_tools_buckets": {
+        "source": {
+          "repo": "TraigentFrontend",
+          "path": "src/components/apiKeys/AdminTools.tsx",
+          "symbol": "by_type stats buckets",
+          "ref": "origin/develop:108-118"
+        },
+        "$comment": "key_type buckets shown in the admin stats (no 'temporary'/'admin'; adds 'integration'). Mismatch #11: create options and displayed buckets do not align.",
+        "values": ["integration", "service", "user"]
+      }
+    },
+    "admin_predicate": {
+      "source": {
+        "repo": "TraigentFrontend",
+        "path": "src/utils/isAdmin.ts",
+        "symbol": "isAdminUser",
+        "ref": "origin/develop:3-13"
+      },
+      "$comment": [
+        "The canonical FE platform-admin predicate. It collapses the BE 6-role UserRole model",
+        "to a single isAdmin bit (mismatch #9) and is re-implemented more narrowly in 4 places",
+        "(mismatch #10). Recorded here so the detector can assert which auth tokens the FE",
+        "predicate keys off (roles platform_admin/admin + scopes admin/admin:all)."
+      ],
+      "roles_checked": ["admin", "platform_admin"],
+      "scopes_checked": ["admin", "admin:all"]
+    }
+  }
+}

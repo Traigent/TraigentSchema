@@ -1,0 +1,34 @@
+{
+  "run_id": "trial_a3f4b2c8d1",
+  "project_id": "proj_77a1",
+  "measures": {
+    "quality": "accuracy",
+    "cost": "usd_per_1k",
+    "latency": "p95_ms"
+  },
+  "frontier": [
+    {
+      "config_id": "trial_0f12ab",
+      "rank_on_frontier": 1,
+      "metrics": {"accuracy": 0.91, "usd_per_1k": 0.42, "p95_ms": 820.0},
+      "is_knee": true,
+      "tradeoff_summary": "Best balance: near-top quality at low cost."
+    },
+    {
+      "config_id": "trial_9c81de",
+      "rank_on_frontier": 2,
+      "metrics": {"accuracy": 0.94, "usd_per_1k": 1.10, "p95_ms": 1300.0},
+      "is_knee": false,
+      "tradeoff_summary": "Highest quality but markedly more expensive and slower."
+    }
+  ],
+  "dominated": [
+    {
+      "config_id": "trial_44aa11",
+      "dominated_by": "trial_0f12ab",
+      "reason": "Lower quality and higher cost than the knee configuration."
+    }
+  ],
+  "shape": "clear_knee",
+  "warnings": []
+}

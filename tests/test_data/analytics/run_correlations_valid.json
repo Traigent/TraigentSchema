@@ -1,0 +1,16 @@
+{
+  "run_id": "trial_a3f4b2c8d1",
+  "method": "spearman",
+  "sample_size": 120,
+  "measure_correlations": [
+    {"x": "accuracy", "y": "usd_per_1k", "r": 0.62, "p_value": 0.001, "strength": "moderate"},
+    {"x": "accuracy", "y": "p95_ms", "r": 0.18, "p_value": 0.21, "strength": "weak"}
+  ],
+  "parameter_correlations": [
+    {"parameter": "model", "measure": "accuracy", "effect": 0.34, "confidence": "high"},
+    {"parameter": "temperature", "measure": "accuracy", "effect": -0.08, "confidence": "low"}
+  ],
+  "warnings": [
+    "Pearson was unavailable due to non-linear relationships; Spearman used instead."
+  ]
+}

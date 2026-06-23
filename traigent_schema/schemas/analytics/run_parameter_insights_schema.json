@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/analytics/run_parameter_insights.json",
+  "title": "RunParameterInsights",
+  "description": "CLIENT-SAFE parameter-importance analysis for one optimization run targeting a single measure, used by the terminal-first analytics surface to answer 'which knobs mattered and what should I do with the config space next?'. Reports the target measure, the minimum-trials reliability floor, the ranked drivers (importance score, confidence interval, best value, and an expand/freeze/narrow suggested action), and notable parameter interactions. Importance scores are derived from the run's measured aggregates; this contract carries no proprietary example-scoring signals or formulas.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "target_measure",
+    "min_trials",
+    "drivers",
+    "interactions",
+    "warnings"
+  ],
+  "properties": {
+    "run_id": {
+      "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+      "description": "Identifier of the optimization run this analysis describes."
+    },
+    "target_measure": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Name of the measure whose drivers are being explained."
+    },
+    "min_trials": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Minimum trial count a parameter needed before its importance is reported as reliable."
+    },
+    "drivers": {
+      "type": "array",
+      "description": "Tuned parameters ranked by how much they drive the target measure.",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parameter",
+          "importance_score",
+          "confidence_interval",
+          "best_value",
+          "suggested_action"
+        ],
+        "properties": {
+          "parameter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Name of the tuned parameter."
+          },
+          "importance_score": {
+            "type": "number",
+            "description": "Importance of this parameter for the target measure (higher = more influential)."
+          },
+          "confidence_interval": {
+            "type": "array",
+            "description": "Two-element [lower, upper] confidence interval for the importance score.",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "best_value": {
+            "description": "Best observed value for this parameter (type matches the parameter's domain: string, number, boolean, or null).",
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "suggested_action": {
+            "type": "string",
+            "enum": [
+              "expand",
+              "freeze",
+              "narrow"
+            ],
+            "description": "Coarse next action for this parameter's search range."
+          }
+        }
+      }
+    },
+    "interactions": {
+      "type": "array",
+      "description": "Notable interactions between pairs of parameters.",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parameters",
+          "effect",
+          "note"
+        ],
+        "properties": {
+          "parameters": {
+            "type": "array",
+            "description": "The two interacting parameter names.",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "effect": {
+            "type": "number",
+            "description": "Signed strength of the interaction effect."
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Templated, client-safe description of the interaction."
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Client-safe caveats about the analysis (e.g. too few trials, confounded parameters).",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  }
+}

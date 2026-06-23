@@ -1,0 +1,34 @@
+{
+  "run_id": "trial_a3f4b2c8d1",
+  "privacy_mode": "safe_agent_projection",
+  "summary": {
+    "example_count": 200,
+    "weak_example_count": 14,
+    "unstable_example_count": 6,
+    "dataset_quality": "medium"
+  },
+  "cohorts": [
+    {
+      "kind": "weak",
+      "count": 14,
+      "impact": "These examples cap measured accuracy; most models miss them the same way.",
+      "safe_example_refs": ["ex_a3f4b2c8_0", "ex_a3f4b2c8_5"],
+      "recommendation": "Review labels and consider adding similar coverage."
+    },
+    {
+      "kind": "unstable",
+      "count": 6,
+      "impact": "Scores flip across trials, inflating variance in the leaderboard.",
+      "safe_example_refs": ["ex_91c0aa12_3"],
+      "recommendation": "Increase repetitions or clarify the expected output."
+    }
+  ],
+  "recommendations": [
+    {"action": "expand_coverage", "reason": "Weak cohort suggests a thin region of the dataset."},
+    {"action": "rerun_larger_sample", "reason": "Unstable cohort indicates the sample is too small to rank reliably."}
+  ],
+  "redactions": {
+    "raw_proprietary_signals_hidden": true,
+    "raw_prompt_text_hidden_by_default": true
+  }
+}

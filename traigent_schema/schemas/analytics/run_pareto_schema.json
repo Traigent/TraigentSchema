@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/analytics/run_pareto.json",
+  "title": "RunPareto",
+  "description": "CLIENT-SAFE Pareto-frontier analysis for one optimization run, used by the terminal-first analytics surface to show the cost/quality/latency trade-off and the knee point. Exposes the measure mapping, the non-dominated frontier (with ranks, per-measure metric values, and a templated trade-off summary), the dominated configs (with why), and a coarse shape classification. Metric values here are the run's own measured aggregates; this contract carries no proprietary example-scoring signals or formulas.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "project_id",
+    "measures",
+    "frontier",
+    "dominated",
+    "shape",
+    "warnings"
+  ],
+  "properties": {
+    "run_id": {
+      "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+      "description": "Identifier of the optimization run this frontier describes."
+    },
+    "project_id": {
+      "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+      "description": "Identifier of the project the run belongs to."
+    },
+    "measures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quality",
+        "cost",
+        "latency"
+      ],
+      "description": "Mapping from the three trade-off axes to the run's measure names used for each axis.",
+      "properties": {
+        "quality": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Name of the measure used as the quality axis."
+        },
+        "cost": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Name of the measure used as the cost axis."
+        },
+        "latency": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Name of the measure used as the latency axis."
+        }
+      }
+    },
+    "frontier": {
+      "type": "array",
+      "description": "Non-dominated configurations on the Pareto frontier, ordered for display.",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "config_id",
+          "rank_on_frontier",
+          "metrics",
+          "is_knee",
+          "tradeoff_summary"
+        ],
+        "properties": {
+          "config_id": {
+            "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+            "description": "Identifier of the configuration at this frontier point."
+          },
+          "rank_on_frontier": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1-based ordering position of this point along the frontier."
+          },
+          "metrics": {
+            "type": "object",
+            "description": "Measured aggregate value per measure name for this configuration.",
+            "minProperties": 1,
+            "maxProperties": 50,
+            "patternProperties": {
+              "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "is_knee": {
+            "type": "boolean",
+            "description": "Whether this point is the knee (best balanced trade-off) of the frontier."
+          },
+          "tradeoff_summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Templated, client-safe description of the trade-off this point represents."
+          }
+        }
+      }
+    },
+    "dominated": {
+      "type": "array",
+      "description": "Configurations that are Pareto-dominated by at least one frontier point.",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "config_id",
+          "dominated_by",
+          "reason"
+        ],
+        "properties": {
+          "config_id": {
+            "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+            "description": "Identifier of the dominated configuration."
+          },
+          "dominated_by": {
+            "$ref": "https://schemas.traigent.ai/common_types_schema.json#/definitions/ForeignKeyId",
+            "description": "Identifier of a configuration that dominates this one."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Templated, client-safe explanation of why this configuration is dominated."
+          }
+        }
+      }
+    },
+    "shape": {
+      "type": "string",
+      "enum": [
+        "clear_knee",
+        "flat",
+        "linear",
+        "scattered"
+      ],
+      "description": "Coarse classification of the frontier shape, used to frame the recommendation."
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Client-safe caveats about the frontier (e.g. too few points, single measure varied).",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  }
+}

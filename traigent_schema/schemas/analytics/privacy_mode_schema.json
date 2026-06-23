@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/privacy_mode_schema.json",
+  "title": "PrivacyMode",
+  "description": "Canonical privacy-mode primitive for terminal-first analytics contracts. Reference `#/definitions/PrivacyMode` instead of re-declaring the enum per schema, to stop cross-schema drift. `safe_agent_projection` (the default) restricts a payload to client-safe, IP-allowlisted projections — coarse labels, counts, and safe example references only, never raw proprietary signal values or raw prompt/response text. `elevated` is an owner-gated mode that MAY surface additional, still-bounded detail; the backend decides whether to honor it and a payload requested as `elevated` is never assumed to be elevated unless the response echoes it.",
+  "definitions": {
+    "PrivacyMode": {
+      "type": "string",
+      "enum": [
+        "safe_agent_projection",
+        "elevated"
+      ],
+      "default": "safe_agent_projection",
+      "description": "Privacy projection level for an analytics payload. Defaults to `safe_agent_projection` (client-safe). `elevated` is owner-gated and backend-honored, never client-asserted."
+    }
+  }
+}

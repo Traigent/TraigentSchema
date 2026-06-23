@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/run_leaderboard.json",
+  "$id": "https://schemas.traigent.ai/analytics/run_leaderboard_schema.json",
   "title": "RunLeaderboard",
   "description": "CLIENT-SAFE ranked leaderboard of configurations for one optimization run, used by the terminal-first analytics surface to answer 'which config should I pick under this objective?'. Reports the ranking basis (objective, per-measure weights, constraints) and the ranked configs (composite score, per-measure values, coarse confidence, risk flags, and a winner/candidate/reject recommendation). Composite scores and measure values are the run's own measured aggregates; this contract carries no proprietary example-scoring signals or formulas.",
   "type": "object",

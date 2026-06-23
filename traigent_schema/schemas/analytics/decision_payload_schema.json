@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/decision_payload.json",
+  "$id": "https://schemas.traigent.ai/analytics/decision_payload_schema.json",
   "title": "DecisionPayload",
   "description": "KEYSTONE terminal-first analytics contract. The single decision-oriented summary an agent (Claude Code skill -> traigent-analytics-mcp -> backend) returns for one optimization run so the operator can decide what to do next without opening the web portal. CLIENT-SAFE: carries only a headline, a coarse confidence bucket, one recommended action, evidence labels, and named drill-down tools. It MUST NOT carry raw proprietary signal values, raw prompt/response text, or formulas; those stay backend-side and are surfaced (if at all) only through bounded drill-down contracts.",
   "type": "object",

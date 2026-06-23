@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/run_parameter_insights.json",
+  "$id": "https://schemas.traigent.ai/analytics/run_parameter_insights_schema.json",
   "title": "RunParameterInsights",
   "description": "CLIENT-SAFE parameter-importance analysis for one optimization run targeting a single measure, used by the terminal-first analytics surface to answer 'which knobs mattered and what should I do with the config space next?'. Reports the target measure, the minimum-trials reliability floor, the ranked drivers (importance score, confidence interval, best value, and an expand/freeze/narrow suggested action), and notable parameter interactions. Importance scores are derived from the run's measured aggregates; this contract carries no proprietary example-scoring signals or formulas.",
   "type": "object",

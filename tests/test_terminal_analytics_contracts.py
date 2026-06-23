@@ -7,11 +7,18 @@ the web portal and into the terminal (Claude Code skill -> traigent-analytics-mc
 -> backend analytics endpoints):
 
   * decision_payload_schema      (keystone)
+  * decision_payload_response_schema
   * run_pareto_schema
+  * run_pareto_response_schema
   * run_correlations_schema
+  * run_correlations_response_schema
   * run_leaderboard_schema
+  * run_leaderboard_response_schema
   * run_parameter_insights_schema
+  * run_parameter_insights_response_schema
   * run_example_insights_schema  (privacy-bounded)
+  * run_example_insights_response_schema
+  * run_report_response_schema
   * privacy_mode_schema          (shared PrivacyMode enum primitive)
 
 These tests validate the canonical happy-path fixtures, exercise the IP/privacy
@@ -29,24 +36,47 @@ from pathlib import Path
 import pytest
 
 from traigent_schema import SchemaValidator
-from traigent_schema.utils import load_schema
+from traigent_schema.utils import get_schemas_dir, load_schema
 
 # Schema names under test (also documents the reachability surface).
 DECISION_PAYLOAD_SCHEMA = "decision_payload_schema"
+DECISION_PAYLOAD_RESPONSE_SCHEMA = "decision_payload_response_schema"
 RUN_PARETO_SCHEMA = "run_pareto_schema"
+RUN_PARETO_RESPONSE_SCHEMA = "run_pareto_response_schema"
 RUN_CORRELATIONS_SCHEMA = "run_correlations_schema"
+RUN_CORRELATIONS_RESPONSE_SCHEMA = "run_correlations_response_schema"
 RUN_LEADERBOARD_SCHEMA = "run_leaderboard_schema"
+RUN_LEADERBOARD_RESPONSE_SCHEMA = "run_leaderboard_response_schema"
 RUN_PARAMETER_INSIGHTS_SCHEMA = "run_parameter_insights_schema"
+RUN_PARAMETER_INSIGHTS_RESPONSE_SCHEMA = "run_parameter_insights_response_schema"
 RUN_EXAMPLE_INSIGHTS_SCHEMA = "run_example_insights_schema"
+RUN_EXAMPLE_INSIGHTS_RESPONSE_SCHEMA = "run_example_insights_response_schema"
+RUN_REPORT_RESPONSE_SCHEMA = "run_report_response_schema"
 PRIVACY_MODE_SCHEMA = "privacy_mode_schema"
 
 ALL_CONTRACT_SCHEMAS = [
     DECISION_PAYLOAD_SCHEMA,
+    DECISION_PAYLOAD_RESPONSE_SCHEMA,
     RUN_PARETO_SCHEMA,
+    RUN_PARETO_RESPONSE_SCHEMA,
     RUN_CORRELATIONS_SCHEMA,
+    RUN_CORRELATIONS_RESPONSE_SCHEMA,
     RUN_LEADERBOARD_SCHEMA,
+    RUN_LEADERBOARD_RESPONSE_SCHEMA,
     RUN_PARAMETER_INSIGHTS_SCHEMA,
+    RUN_PARAMETER_INSIGHTS_RESPONSE_SCHEMA,
     RUN_EXAMPLE_INSIGHTS_SCHEMA,
+    RUN_EXAMPLE_INSIGHTS_RESPONSE_SCHEMA,
+    RUN_REPORT_RESPONSE_SCHEMA,
+]
+
+RESPONSE_CONTRACT_FIXTURES = [
+    ("decision_payload_valid.json", DECISION_PAYLOAD_RESPONSE_SCHEMA),
+    ("run_pareto_valid.json", RUN_PARETO_RESPONSE_SCHEMA),
+    ("run_correlations_valid.json", RUN_CORRELATIONS_RESPONSE_SCHEMA),
+    ("run_leaderboard_valid.json", RUN_LEADERBOARD_RESPONSE_SCHEMA),
+    ("run_parameter_insights_valid.json", RUN_PARAMETER_INSIGHTS_RESPONSE_SCHEMA),
+    ("run_example_insights_valid.json", RUN_EXAMPLE_INSIGHTS_RESPONSE_SCHEMA),
 ]
 
 
@@ -62,6 +92,15 @@ def data_dir() -> Path:
 
 def _load_fixture(data_dir: Path, name: str) -> dict:
     with open(data_dir / name, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _success_envelope(data: dict) -> dict:
+    return {"success": True, "message": "ok", "data": data}
+
+
+def _load_analytics_endpoints() -> dict:
+    with open(get_schemas_dir() / "analytics" / "analytics_endpoints.json", encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -106,6 +145,77 @@ class TestValidFixtures:
         data = _load_fixture(data_dir, fixture)
         errors = validator.validate_json(data, schema)
         assert errors == [], f"Unexpected errors for {fixture}: {errors}"
+
+    @pytest.mark.parametrize(("fixture", "schema"), RESPONSE_CONTRACT_FIXTURES)
+    def test_valid_fixture_passes_inside_success_envelope(
+        self, validator: SchemaValidator, data_dir: Path, fixture: str, schema: str
+    ) -> None:
+        data = _success_envelope(_load_fixture(data_dir, fixture))
+        errors = validator.validate_json(data, schema)
+        assert errors == [], f"Unexpected response-envelope errors for {fixture}: {errors}"
+
+    def test_run_report_response_wraps_report_payload(self, validator: SchemaValidator) -> None:
+        data = _success_envelope(
+            {
+                "report_id": "report_123",
+                "schema_version": "1.0",
+                "provenance": {"run_id": "run_123", "data_hash": "sha256:abc"},
+            }
+        )
+        errors = validator.validate_json(data, RUN_REPORT_RESPONSE_SCHEMA)
+        assert errors == [], f"Unexpected report response-envelope errors: {errors}"
+
+    def test_bare_decision_payload_fails_response_schema(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        data = _load_fixture(data_dir, "decision_payload_valid.json")
+        errors = validator.validate_json(data, DECISION_PAYLOAD_RESPONSE_SCHEMA)
+        assert errors
+
+
+class TestAnalyticsEndpoints:
+    def test_decision_endpoint_uses_decision_payload_path(self) -> None:
+        paths = _load_analytics_endpoints()["paths"]
+        assert "/api/v1/analytics/runs/{run_id}/decision" not in paths
+        assert "/api/v1/analytics/runs/{run_id}/decision-payload" in paths
+
+    @pytest.mark.parametrize(
+        ("path", "stem"),
+        [
+            (
+                "/api/v1/analytics/runs/{run_id}/decision-payload",
+                "decision_payload_response_schema.json",
+            ),
+            ("/api/v1/analytics/runs/{run_id}/report", "run_report_response_schema.json"),
+            ("/api/v1/analytics/runs/{run_id}/pareto", "run_pareto_response_schema.json"),
+            (
+                "/api/v1/analytics/runs/{run_id}/correlations",
+                "run_correlations_response_schema.json",
+            ),
+            (
+                "/api/v1/analytics/runs/{run_id}/leaderboard",
+                "run_leaderboard_response_schema.json",
+            ),
+            (
+                "/api/v1/analytics/runs/{run_id}/parameter-insights",
+                "run_parameter_insights_response_schema.json",
+            ),
+            (
+                "/api/v1/analytics/runs/{run_id}/example-insights",
+                "run_example_insights_response_schema.json",
+            ),
+        ],
+    )
+    def test_run_analytics_200s_reference_success_envelope_responses(
+        self, path: str, stem: str
+    ) -> None:
+        spec = _load_analytics_endpoints()
+        ref = (
+            spec["paths"][path]["get"]["responses"]["200"]["content"]["application/json"][
+                "schema"
+            ]["$ref"]
+        )
+        assert ref.endswith(stem), f"{path}: expected {stem}, got {ref}"
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/run_example_insights.json",
+  "$id": "https://schemas.traigent.ai/analytics/run_example_insights_schema.json",
   "title": "RunExampleInsights",
   "description": "PRIVACY-BOUNDED example-level insights for one optimization run, used by the terminal-first analytics surface to answer 'which examples are weak/unstable and what should I do about my dataset?'. This contract follows the same IP/privacy allowlist discipline as next_steps and example_score: by default (`safe_agent_projection`) it exposes only coarse counts, dataset-quality buckets, cohort-level impact labels, safe example references, and templated recommendations — NEVER raw proprietary example-scoring signal values, formulas, or raw prompt/response text. The `redactions` block declares what was withheld. `elevated` mode is owner-gated and backend-honored; a payload is only elevated if it echoes `privacy_mode: elevated`.",
   "type": "object",

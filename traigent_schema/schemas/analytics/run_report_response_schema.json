@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_report_response_schema.json",
+  "title": "Analytics Run Report Success Response",
+  "description": "Platform success envelope for GET /api/v1/analytics/runs/{run_id}/report. The analytics wrapper nests the report payload DTO under data.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "https://schemas.traigent.ai/results/report_payload_response_schema.json"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": ["success", "message", "data"]
+}

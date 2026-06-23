@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/run_correlations.json",
+  "$id": "https://schemas.traigent.ai/analytics/run_correlations_schema.json",
   "title": "RunCorrelations",
   "description": "CLIENT-SAFE correlation analysis for one optimization run, used by the terminal-first analytics surface to explain which measures move together and which parameters move a measure. Reports the correlation method, the sample size it was computed over, measure-to-measure correlations (r, p_value, coarse strength), and parameter-to-measure effects (effect, coarse confidence). Statistics here are computed over the run's own measured aggregates; this contract carries no proprietary example-scoring signals or formulas.",
   "type": "object",

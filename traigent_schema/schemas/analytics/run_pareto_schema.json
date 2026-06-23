@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/run_pareto.json",
+  "$id": "https://schemas.traigent.ai/analytics/run_pareto_schema.json",
   "title": "RunPareto",
   "description": "CLIENT-SAFE Pareto-frontier analysis for one optimization run, used by the terminal-first analytics surface to show the cost/quality/latency trade-off and the knee point. Exposes the measure mapping, the non-dominated frontier (with ranks, per-measure metric values, and a templated trade-off summary), the dominated configs (with why), and a coarse shape classification. Metric values here are the run's own measured aggregates; this contract carries no proprietary example-scoring signals or formulas.",
   "type": "object",

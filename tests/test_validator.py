@@ -106,6 +106,34 @@ class TestValidateJson:
         # Should either work or gracefully report not found
         assert isinstance(errors, list)
 
+    def test_enforces_date_time_format(self, validator):
+        for effective_date in (
+            "2026-06-23T00:00:00Z",
+            "2026-06-23T00:00:00z",
+            "2026-06-23t00:00:00Z",
+            "2026-06-23t00:00:00z",
+            "2026-06-23T00:00:00+00:00",
+        ):
+            valid = {
+                "success": True,
+                "message": "ok",
+                "data": {"effective_date": effective_date, "message": None},
+            }
+            assert (
+                validator.validate_json(valid, "subscription_cancel_response_schema")
+                == []
+            )
+
+        for effective_date in ("soon", "2026-06-30T23:59:60Z"):
+            invalid = {
+                "success": True,
+                "message": "ok",
+                "data": {"effective_date": effective_date, "message": None},
+            }
+            assert validator.validate_json(
+                invalid, "subscription_cancel_response_schema"
+            )
+
 
 class TestValidateRequest:
     """Tests for validate_request method."""

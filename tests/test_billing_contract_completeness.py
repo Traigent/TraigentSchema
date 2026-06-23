@@ -1,7 +1,6 @@
 """#129: the billing contract had placeholder responses, missing request bodies on
 mutating routes, and a dangling billing_endpoints.json pointer."""
 import json
-from pathlib import Path
 
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
@@ -29,16 +28,28 @@ def test_dangling_billing_endpoints_pointer_removed():
     assert not (B / "billing_endpoints.json").exists()
     for name in CATALOGS:
         text = (B / name).read_text(encoding="utf-8")
-        assert "billing/billing_endpoints.json" not in text, f"{name} references a non-existent file"
+        assert "billing/billing_endpoints.json" not in text, (
+            f"{name} references a non-existent file"
+        )
 
 
 def test_mutating_routes_declare_request_bodies():
     expected = {
-        ("paddle_endpoints.json", "/api/v1/billing/webhook", "post"): "paddle_webhook_request_schema",
-        ("wallet_endpoints.json", "/api/v1/billing/wallet/top-ups", "post"): "wallet_top_up_request_schema",
-        ("wallet_endpoints.json", "/api/v1/billing/wallet/admin-adjustments", "post"): "wallet_admin_adjustment_request_schema",
-        ("spend_controls_endpoints.json", "/api/v1/billing/spend-approvals", "post"): "spend_approval_request_schema",
-        ("spend_controls_endpoints.json", "/api/v1/billing/spend-policy", "patch"): "spend_policy_update_request_schema",
+        ("paddle_endpoints.json", "/api/v1/billing/webhook", "post"): (
+            "paddle_webhook_request_schema"
+        ),
+        ("wallet_endpoints.json", "/api/v1/billing/wallet/top-ups", "post"): (
+            "wallet_top_up_request_schema"
+        ),
+        ("wallet_endpoints.json", "/api/v1/billing/wallet/admin-adjustments", "post"): (
+            "wallet_admin_adjustment_request_schema"
+        ),
+        ("spend_controls_endpoints.json", "/api/v1/billing/spend-approvals", "post"): (
+            "spend_approval_request_schema"
+        ),
+        ("spend_controls_endpoints.json", "/api/v1/billing/spend-policy", "patch"): (
+            "spend_policy_update_request_schema"
+        ),
     }
     for (cat, path, method), schema_stem in expected.items():
         op = _load(cat)["paths"][path][method]
@@ -48,12 +59,23 @@ def test_mutating_routes_declare_request_bodies():
 
 def test_validator_resolves_billing_write_routes():
     v = SchemaValidator(contract="backend")
-    assert v._endpoint_schemas.get("POST:/api/v1/billing/webhook") == "paddle_webhook_request_schema"
+    assert (
+        v._endpoint_schemas.get("POST:/api/v1/billing/webhook")
+        == "paddle_webhook_request_schema"
+    )
     # top-ups requires pack_id (was fail-open before)
     assert v.validate_request("/api/v1/billing/wallet/top-ups", "POST", {})
-    assert v.validate_request("/api/v1/billing/wallet/top-ups", "POST", {"pack_id": "starter"}) == []
+    assert v.validate_request(
+        "/api/v1/billing/wallet/top-ups",
+        "POST",
+        {"pack_id": "starter"},
+    ) == []
     # the webhook is unauthenticated + provider-shaped: lenient, but contracted
-    assert v.validate_request("/api/v1/billing/webhook", "POST", {"event_type": "x", "data": {}}) == []
+    assert v.validate_request(
+        "/api/v1/billing/webhook",
+        "POST",
+        {"event_type": "x", "data": {}},
+    ) == []
 
 
 def test_placeholder_routes_now_reference_response_schemas():
@@ -97,3 +119,42 @@ def test_money_request_fields_accept_string_or_number():
         "/api/v1/billing/spend-approvals", "POST",
         {"operation_group_id": "g", "requested_estimate_usd": 12.5},
     ) == []
+
+
+def test_subscription_cancel_effective_date_uses_canonical_nullable_timestamp():
+    schema = _load("subscription_cancel_response_schema.json")
+    effective_date = schema["properties"]["data"]["properties"]["effective_date"]
+    assert effective_date["type"] == ["string", "null"]
+    assert effective_date["format"] == "date-time"
+
+
+def test_subscription_cancel_response_rejects_invalid_effective_date():
+    v = SchemaValidator(contract="backend")
+    valid = {
+        "success": True,
+        "message": "ok",
+        "data": {
+            "effective_date": "2026-06-23T00:00:00Z",
+            "message": None,
+        },
+    }
+    pending = {
+        "success": True,
+        "message": "ok",
+        "data": {
+            "effective_date": None,
+            "message": None,
+        },
+    }
+    invalid = {
+        "success": True,
+        "message": "ok",
+        "data": {
+            "effective_date": "soon",
+            "message": None,
+        },
+    }
+
+    assert v.validate_json(valid, "subscription_cancel_response_schema") == []
+    assert v.validate_json(pending, "subscription_cancel_response_schema") == []
+    assert v.validate_json(invalid, "subscription_cancel_response_schema")

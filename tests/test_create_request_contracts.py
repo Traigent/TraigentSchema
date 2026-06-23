@@ -67,6 +67,45 @@ def test_create_request_matches_backend_required_fields(path, valid, invalid):
 
 def test_comparison_run_ids_bounded_2_to_10():
     v = SchemaValidator(contract="backend")
-    assert v.validate_request("/api/v1/optimization-comparisons", "POST", {"run_ids": ["a", "b"]}) == []
+    assert v.validate_request(
+        "/api/v1/optimization-comparisons",
+        "POST",
+        {"run_ids": ["a", "b"]},
+    ) == []
     assert v.validate_request("/api/v1/optimization-comparisons", "POST", {"run_ids": ["a"]})
-    assert v.validate_request("/api/v1/optimization-comparisons", "POST", {"run_ids": [str(i) for i in range(11)]})
+    assert v.validate_request(
+        "/api/v1/optimization-comparisons",
+        "POST",
+        {"run_ids": [str(i) for i in range(11)]},
+    )
+
+
+def test_example_set_similarity_threshold_matches_backend_bounds():
+    v = SchemaValidator(contract="backend")
+    base = {"name": "set", "selection_method": "all"}
+
+    assert v.validate_request(
+        "/api/v1/agents/{agent_id}/example-sets",
+        "POST",
+        {**base, "similarity_threshold": 0.7},
+    ) == []
+    assert v.validate_request(
+        "/api/v1/agents/{agent_id}/example-sets",
+        "POST",
+        {**base, "similarity_threshold": 0},
+    ) == []
+    assert v.validate_request(
+        "/api/v1/agents/{agent_id}/example-sets",
+        "POST",
+        {**base, "similarity_threshold": 1},
+    ) == []
+    assert v.validate_request(
+        "/api/v1/agents/{agent_id}/example-sets",
+        "POST",
+        {**base, "similarity_threshold": -0.01},
+    )
+    assert v.validate_request(
+        "/api/v1/agents/{agent_id}/example-sets",
+        "POST",
+        {**base, "similarity_threshold": 1.01},
+    )

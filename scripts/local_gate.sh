@@ -167,6 +167,27 @@ if ! skip parity; then
   fi
 fi
 
+# ── 4b. auth-taxonomy parity detector (NON-BLOCKING) ──────────────────────
+# Mirrors auth-taxonomy-parity.yml (Schema#219). This is a DETECTOR that makes
+# cross-repo auth-taxonomy drift visible; it is intentionally NON-BLOCKING here
+# exactly as in CI (continue-on-error). It never sets FAIL — a red is surfaced
+# as a warning only. DETECT->ENFORCE (SCHEMA_219_ENFORCE) is a later issue.
+if ! skip authparity; then
+  section "auth-taxonomy parity detector (auth-taxonomy-parity.yml — NON-BLOCKING)"
+  if command -v pytest >/dev/null 2>&1 && [[ -f tests/test_auth_taxonomy_parity.py ]]; then
+    if pytest tests/test_auth_taxonomy_parity.py -q -p no:cacheprovider; then
+      echo "  ✅ auth-taxonomy parity detector clean (all drift covered by the allowlist)"
+    else
+      echo "  ⚠️  auth-taxonomy drift not covered by the allowlist (or a stale row)."
+      echo "      NON-BLOCKING (Schema#219 DETECT phase). Refresh"
+      echo "      tests/data/auth_taxonomy_surfaces.json + reconcile"
+      echo "      tests/data/auth_taxonomy_known_drift.yaml (shrink-only)."
+    fi
+  else
+    echo "  ℹ️  detector/test absent or pytest missing; skipping"
+  fi
+fi
+
 # ── 5. spine preflight (trail reminder) ───────────────────────────────────
 # This repo has no policy-surface globs / require-spine-session gate, so this is
 # a REMINDER, not a blocker: CI's spine-trail-gate.yml checks the PR BODY for a

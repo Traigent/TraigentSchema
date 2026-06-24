@@ -167,6 +167,9 @@ Content-bearing fields on the hybrid DTOs carry `x-content: true` +
 `ConfigurationParameters`. Adding these `x-` keywords is additive and ignored by
 standard JSON-Schema validators.
 
+Canonical `x-*` extension list and descriptions:
+`traigent_schema/schemas/x_extensions_meta_schema.json`.
+
 ### SchemaValidator
 
 ```python
@@ -217,7 +220,7 @@ mypy traigent_schema
 
 ## Version
 
-Current release line: **4.5.0**
+Current release line: **4.6.4** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
 
 Package metadata is derived from `traigent_schema/version.py` to keep runtime and published versions aligned.
 

@@ -67,6 +67,7 @@
     },
     "custom_validations": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "string",
         "maxLength": 1000
@@ -74,6 +75,7 @@
     },
     "custom_tools": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "string",
         "maxLength": 1000
@@ -81,6 +83,7 @@
     },
     "custom_responses": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "string",
         "maxLength": 1000
@@ -88,6 +91,7 @@
     },
     "tags": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "string",
         "maxLength": 1000
@@ -95,6 +99,7 @@
     },
     "example_sets": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "object",
         "additionalProperties": true
@@ -102,6 +107,7 @@
     },
     "retrieval_configs": {
       "type": "array",
+      "maxItems": 50,
       "items": {
         "type": "object",
         "additionalProperties": true
@@ -109,6 +115,7 @@
     },
     "model_parameters": {
       "type": "array",
+      "maxItems": 50,
       "items": {
         "type": "object",
         "additionalProperties": true
@@ -116,6 +123,7 @@
     },
     "measure_ids": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "string",
         "maxLength": 1000

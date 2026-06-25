@@ -58,11 +58,11 @@
       "description": "Files associated with this evaluation set for evaluation"
     },
     "generator_config": {
-      "$ref": "https://schemas.traigent.ai/datasets/generator_config_schema.json#",
+      "$ref": "https://schemas.traigent.ai/datasets/generator_config_create_request_schema.json#",
       "description": "Configuration for example generation"
     },
     "evaluator_config": {
-      "$ref": "https://schemas.traigent.ai/datasets/evaluator_config_schema.json#",
+      "$ref": "https://schemas.traigent.ai/datasets/evaluator_config_create_request_schema.json#",
       "description": "Configuration for example evaluation"
     },
     "examples": {

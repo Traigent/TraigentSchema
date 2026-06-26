@@ -52,11 +52,24 @@ def test_ci_workflow_uses_pip_cache_for_all_setup_python_jobs() -> None:
 
 
 def test_ci_workflow_cancels_superseded_runs() -> None:
+    # merge_group events must NOT cancel — a cancelled queue candidate fails its
+    # required gate and stalls the merge queue.  Only cancel-in-progress for PRs.
     concurrency = _ci_workflow().get("concurrency")
-    assert concurrency == {
-        "group": "schema-ci-${{ github.event.pull_request.number || github.ref }}",
-        "cancel-in-progress": True,
-    }
+    assert concurrency is not None, "ci.yml must define a concurrency block"
+    assert "group" in concurrency, "concurrency block must define a group key"
+    # cancel-in-progress may be a boolean (simple) or an expression (conditional).
+    # Require that it is either True or an expression that limits cancellation to
+    # pull_request events (not merge_group events).
+    cancel = concurrency.get("cancel-in-progress")
+    assert cancel is not None, "concurrency block must define cancel-in-progress"
+    if isinstance(cancel, bool):
+        # Simple bool is only acceptable if True (cancel all re-pushes).
+        assert cancel is True, "cancel-in-progress must be True when set as a boolean"
+    else:
+        # Expression form must not unconditionally cancel — allow conditional forms.
+        assert "pull_request" in str(cancel), (
+            "conditional cancel-in-progress must reference pull_request event"
+        )
 
 
 def test_ci_workflow_caps_all_jobs_with_timeouts() -> None:

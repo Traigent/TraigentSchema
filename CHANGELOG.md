@@ -142,6 +142,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evidence, and caveats.
 
 ### Changed
+- Tightened response-DTO email fields to match the canonical request-side constraint:
+  `auth/auth_me_response_schema.json` `data.email` and
+  `costs/cost_user_usage_response_schema.json` `data.email` now declare `format: email`
+  and `maxLength: 320` (the canonical cap already used by the request schemas and the
+  `project_member_candidate` response). Additive backwards-tightening — the backend
+  already emits real, bounded emails, so no realistic breakage (#223).
 - **BREAKING (status vocabulary): aligned run/config status enums to the canonical
   UPPER backend vocabulary** (#172, #173). The whole producer ecosystem (backend
   model + native Postgres enum + REST wire + SDK write path) emits UPPER; the schema

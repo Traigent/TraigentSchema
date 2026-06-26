@@ -74,6 +74,51 @@ def test_cost_user_usage_response_accepts_operation_summary():
     assert errors == []
 
 
+def _usage_payload(**overrides):
+    data = {
+        "user_id": "user_123",
+        "email": None,
+        "total_cost": 12.34,
+        "total_requests": 3,
+        "request_count": 3,
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "last_activity": None,
+        "summary": {},
+        "period": "30d",
+        "start_date": "2026-05-04T12:00:00+00:00",
+        "end_date": "2026-06-03T12:00:00+00:00",
+        "generated_at": "2026-06-03T12:00:01+00:00",
+    }
+    data.update(overrides)
+    return {"success": True, "message": "ok", "data": data}
+
+
+def test_cost_user_usage_email_rejects_invalid_format():
+    """#223 — cost_user_usage response email must carry format:email when non-null."""
+    v = SchemaValidator()
+    errors = v.validate_json(_usage_payload(email="not-an-email"), "cost_user_usage_response_schema")
+    assert errors, "expected format:email rejection for 'not-an-email'"
+
+
+def test_cost_user_usage_email_rejects_oversized():
+    """#223 — cost_user_usage response email must be capped at maxLength:320."""
+    v = SchemaValidator()
+    long_email = "a" * 316 + "@b.co"  # 321 chars — one over the 320 cap
+    errors = v.validate_json(_usage_payload(email=long_email), "cost_user_usage_response_schema")
+    assert errors, "expected maxLength:320 rejection"
+
+
+def test_cost_user_usage_email_field_has_format_and_maxlength():
+    """#223 — schema structural guard: format:email + maxLength:320 on data.email."""
+    with open(get_schemas_dir() / "costs" / "cost_user_usage_response_schema.json") as f:
+        schema = json.load(f)
+    email_field = schema["properties"]["data"]["properties"]["email"]
+    assert email_field.get("format") == "email", "data.email must carry format:email"
+    assert email_field.get("maxLength") == 320, "data.email must carry maxLength:320"
+
+
 def test_cost_endpoint_module_is_registered():
     with open(get_schemas_dir() / "mep_endpoints.json", encoding="utf-8") as fh:
         root = json.load(fh)

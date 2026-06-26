@@ -8,6 +8,7 @@ non-empty description, and the meta-schema must not accumulate dead entries.
 from __future__ import annotations
 
 import json
+from collections.abc import Generator
 from pathlib import Path
 
 from traigent_schema.utils import get_all_schema_files
@@ -30,26 +31,30 @@ def _allowed_x_extensions() -> dict[str, dict[str, object]]:
     return properties
 
 
+def _walk_x_keys(
+    node: object, file_name: str
+) -> Generator[tuple[str, str], None, None]:
+    """Yield ``(x_key, file_name)`` for every x-* key found recursively in *node*."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if isinstance(key, str) and key.startswith("x-"):
+                yield key, file_name
+            yield from _walk_x_keys(value, file_name)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_x_keys(item, file_name)
+
+
 def _used_x_extensions() -> dict[str, list[str]]:
     used: dict[str, list[str]] = {}
-
-    def walk(node: object, file_name: str) -> None:
-        if isinstance(node, dict):
-            for key, value in node.items():
-                if isinstance(key, str) and key.startswith("x-"):
-                    files = used.setdefault(key, [])
-                    if file_name not in files:
-                        files.append(file_name)
-                walk(value, file_name)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value, file_name)
-
     for path in get_all_schema_files():
         if path.resolve() == META_SCHEMA_PATH.resolve():
             continue
-        walk(json.loads(path.read_text(encoding="utf-8")), path.name)
-
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for key, file_name in _walk_x_keys(data, path.name):
+            files = used.setdefault(key, [])
+            if file_name not in files:
+                files.append(file_name)
     return used
 
 

@@ -15,20 +15,30 @@ on:
   pull_request:
     branches: [develop, main]
     types: [opened, edited, synchronize, reopened, ready_for_review]
+  merge_group: {}
 
 permissions:
   contents: read
 
 concurrency:
-  group: spine-trail-gate-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # PR events: collapse re-pushes (cancel stale). merge_group events: never
+  # cancel a queue candidate (it would fail its required gate and stall the
+  # queue). Key non-PR runs by run_id; only cancel-in-progress for pull_request.
+  group: spine-trail-gate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   spine-trail:
     name: spine-trail present
     runs-on: ubuntu-latest
     steps:
+      - name: Pass-through for merge queue
+        if: ${{ github.event_name == 'merge_group' }}
+        run: |
+          echo "Spine mark was validated at PR time; pass-through for the merge queue."
+
       - name: Check PR body for a spine mark
+        if: ${{ github.event_name == 'pull_request' }}
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |

@@ -33,6 +33,7 @@
         "array",
         "null"
       ],
+      "maxItems": 200,
       "items": {
         "$ref": "./chat_prompt_message_schema.json"
       }

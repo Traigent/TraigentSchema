@@ -320,6 +320,20 @@ class SchemaValidator:
         if not schema:
             return [f"Schema not found: {schema_name}"]
 
+        return self._run_validator(data, schema)
+
+    def _run_validator(
+        self,
+        data: dict[str, Any],
+        schema: dict[str, Any],
+    ) -> list[str]:
+        """Run a Draft7 validator over ``data`` against ``schema``.
+
+        Shared validation body for :meth:`validate_json` and
+        :meth:`_validate_inline_schema`: builds the registry/format-checker
+        aware validator, collects errors, and maps recursion / unexpected
+        failures to stable messages.
+        """
         try:
             validator = Draft7Validator(
                 schema,
@@ -339,18 +353,7 @@ class SchemaValidator:
         schema: dict[str, Any],
     ) -> list[str]:
         """Validate JSON data against an inline request schema."""
-        try:
-            validator = Draft7Validator(
-                schema,
-                registry=self._registry,
-                format_checker=_FORMAT_CHECKER,
-            )
-            errors = list(validator.iter_errors(data))
-            return [self._format_error(e) for e in errors]
-        except RecursionError:
-            return [self._RECURSION_ERROR_MESSAGE]
-        except Exception as e:
-            return [f"Validation error: {str(e)}"]
+        return self._run_validator(data, schema)
 
     def _format_error(self, error: ValidationError) -> str:
         """Format a validation error into a readable message."""

@@ -1,0 +1,357 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/analytics/artifact_lifecycle.json",
+  "title": "ArtifactLifecycle",
+  "description": "CLIENT-SAFE artifact lifecycle response for an experiment run. This contract exposes only coarse artifact states, trust labels, evidence labels, and operation templates. Internal decision details are not returned to clients.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "experiment_run_id",
+    "caveat",
+    "phase",
+    "smartopt_available",
+    "artifact_states",
+    "next_step",
+    "ranked_operations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this response contract."
+    },
+    "experiment_run_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "ID of the experiment run this lifecycle response belongs to.",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "caveat": {
+      "type": "string",
+      "description": "Client-facing caveat explaining lifecycle-response limitations."
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "LC_V1_DERIVED"
+      ],
+      "description": "Lifecycle derivation phase marker."
+    },
+    "smartopt_available": {
+      "type": "boolean",
+      "description": "Whether SmartOpt lifecycle guidance was available for this response."
+    },
+    "artifact_states": {
+      "type": "array",
+      "description": "Lifecycle states for optimization artifacts.",
+      "items": {
+        "$ref": "#/definitions/artifactState"
+      }
+    },
+    "next_step": {
+      "description": "Single recommended next operation, or null when no safe recommendation is available.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/operationRecommendation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ranked_operations": {
+      "type": "array",
+      "description": "Ranked operation candidates using the same client-safe shape as next_step.",
+      "items": {
+        "$ref": "#/definitions/operationRecommendation"
+      }
+    }
+  },
+  "definitions": {
+    "artifactKind": {
+      "type": "string",
+      "enum": [
+        "dataset",
+        "evaluator",
+        "agent"
+      ]
+    },
+    "trustLabel": {
+      "type": "string",
+      "enum": [
+        "trusted",
+        "not_trusted",
+        "unknown"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "evidenceLevel": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "datasetState": {
+      "type": "string",
+      "enum": [
+        "empty",
+        "populated",
+        "scored",
+        "trusted",
+        "degraded",
+        "broken"
+      ]
+    },
+    "evaluatorState": {
+      "type": "string",
+      "enum": [
+        "undefined",
+        "defined",
+        "audited",
+        "trusted",
+        "noisy",
+        "broken"
+      ]
+    },
+    "agentState": {
+      "type": "string",
+      "enum": [
+        "baseline",
+        "optimizing",
+        "optimized",
+        "validated_on_holdout",
+        "promotable",
+        "tied_with_baseline",
+        "regressed",
+        "blocked"
+      ]
+    },
+    "artifactStateValue": {
+      "type": "string",
+      "enum": [
+        "empty",
+        "populated",
+        "scored",
+        "trusted",
+        "degraded",
+        "broken",
+        "undefined",
+        "defined",
+        "audited",
+        "noisy",
+        "baseline",
+        "optimizing",
+        "optimized",
+        "validated_on_holdout",
+        "promotable",
+        "tied_with_baseline",
+        "regressed",
+        "blocked"
+      ]
+    },
+    "operationKind": {
+      "type": "string",
+      "enum": [
+        "score_examples",
+        "audit_evaluator",
+        "synth_harder_examples",
+        "run_optimization",
+        "run_holdout",
+        "compare_baseline",
+        "add_safety_gate",
+        "promote_winner",
+        "refine_metric",
+        "wait"
+      ]
+    },
+    "blockerCode": {
+      "type": "string",
+      "enum": [
+        "dataset_empty",
+        "dataset_unscored",
+        "dataset_quality_low",
+        "dataset_redundant",
+        "dataset_broken",
+        "evaluator_undefined",
+        "evaluator_unaudited",
+        "evaluator_noisy",
+        "evaluator_broken",
+        "agent_not_optimized",
+        "agent_not_validated_holdout",
+        "agent_no_safety_gate",
+        "agent_regressed",
+        "dependency_untrusted",
+        "smartopt_unavailable"
+      ]
+    },
+    "reasonCode": {
+      "type": "string",
+      "enum": [
+        "needs_scoring",
+        "needs_evaluator_audit",
+        "needs_harder_examples",
+        "needs_optimization",
+        "needs_holdout",
+        "needs_safety_gate",
+        "needs_baseline_comparison",
+        "needs_metric_refinement",
+        "ready_to_promote",
+        "awaiting_results",
+        "blocked_dependency",
+        "degraded_no_recommendation"
+      ]
+    },
+    "evidenceLabel": {
+      "type": "string",
+      "enum": [
+        "scoring_completed",
+        "quality_cleared",
+        "examples_present",
+        "evaluator_active",
+        "audit_completed",
+        "optimization_completed",
+        "winner_found",
+        "holdout_passed",
+        "safety_gate_present",
+        "frontier_certified",
+        "fallback_estimator",
+        "smartopt_unavailable"
+      ]
+    },
+    "artifactState": {
+      "type": "object",
+      "required": [
+        "artifact",
+        "state",
+        "trust_label",
+        "blockers",
+        "evidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "#/definitions/artifactKind"
+        },
+        "state": {
+          "$ref": "#/definitions/artifactStateValue"
+        },
+        "trust_label": {
+          "$ref": "#/definitions/trustLabel"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/blockerCode"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/evidenceLabel"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "artifact": {
+                "const": "dataset"
+              }
+            },
+            "required": [
+              "artifact"
+            ]
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "$ref": "#/definitions/datasetState"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "artifact": {
+                "const": "evaluator"
+              }
+            },
+            "required": [
+              "artifact"
+            ]
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "$ref": "#/definitions/evaluatorState"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "artifact": {
+                "const": "agent"
+              }
+            },
+            "required": [
+              "artifact"
+            ]
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "$ref": "#/definitions/agentState"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "operationRecommendation": {
+      "type": "object",
+      "required": [
+        "operation",
+        "target_artifact",
+        "priority",
+        "reason_code",
+        "command_template",
+        "evidence_level"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "$ref": "#/definitions/operationKind"
+        },
+        "target_artifact": {
+          "$ref": "#/definitions/artifactKind"
+        },
+        "priority": {
+          "$ref": "#/definitions/priority"
+        },
+        "reason_code": {
+          "$ref": "#/definitions/reasonCode"
+        },
+        "command_template": {
+          "type": "string",
+          "description": "Templated command or invocation for this operation."
+        },
+        "evidence_level": {
+          "$ref": "#/definitions/evidenceLevel"
+        }
+      }
+    }
+  }
+}

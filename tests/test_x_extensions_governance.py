@@ -1,103 +1,114 @@
-"""Enforce that only allowed x-* extension keywords appear in schema files.
+"""Governance for the canonical x-* extension vocabulary.
 
-This test loads the canonical x_extensions_meta_schema.json (which lists every
-permitted x-* key) and asserts that no schema file under traigent_schema/schemas/
-uses an x-* key that is not present in that allowlist.
-
-To add a new x-* key:
-  1. Add it to traigent_schema/schemas/x_extensions_meta_schema.json with a description.
-  2. Use it in your schema.
-
-Do NOT add keys to schema files without updating the meta-schema first.
+The shipped x_extensions_meta_schema.json file is the single source of truth for
+allowed x-* schema extensions. Every used x-* key must be declared there with a
+non-empty description, and the meta-schema must not accumulate dead entries.
 """
 
+from __future__ import annotations
+
 import json
-import re
+from collections.abc import Generator
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).parent.parent
-SCHEMA_DIR = REPO_ROOT / "traigent_schema" / "schemas"
+from traigent_schema.utils import get_all_schema_files
+
+TESTS_DIR = Path(__file__).resolve().parent
+SCHEMA_DIR = TESTS_DIR.parent / "traigent_schema" / "schemas"
 META_SCHEMA_PATH = SCHEMA_DIR / "x_extensions_meta_schema.json"
-
-# Pattern matching any JSON string key that starts with "x-"
-_X_KEY_RE = re.compile(r'"(x-[a-z][a-z0-9_-]*)"')
+LEGACY_REGISTRY_PATH = TESTS_DIR / "data" / "x_extensions_registry.json"
 
 
-def _load_allowed_keys() -> set:
-    """Return the set of x-* keys declared in the meta-schema."""
-    meta = json.loads(META_SCHEMA_PATH.read_text(encoding="utf-8"))
-    return set(meta.get("properties", {}).keys())
+def _meta_schema() -> dict[str, object]:
+    return json.loads(META_SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
-def _collect_x_keys_in_file(path: Path) -> set:
-    """Return all x-* keys referenced in a JSON schema file."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return set()
-    return set(_X_KEY_RE.findall(text))
+def _allowed_x_extensions() -> dict[str, dict[str, object]]:
+    properties = _meta_schema().get("properties")
+    assert isinstance(
+        properties, dict
+    ), "x_extensions_meta_schema.json must define a properties map"
+    return properties
 
 
-def test_meta_schema_itself_is_valid_json():
-    """The meta-schema file must be loadable as valid JSON."""
-    meta = json.loads(META_SCHEMA_PATH.read_text(encoding="utf-8"))
-    assert isinstance(meta, dict), "x_extensions_meta_schema.json must be a JSON object"
-    assert "properties" in meta, "x_extensions_meta_schema.json must have a 'properties' key"
+def _walk_x_keys(
+    node: object, file_name: str
+) -> Generator[tuple[str, str], None, None]:
+    """Yield ``(x_key, file_name)`` for every x-* key found recursively in *node*."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if isinstance(key, str) and key.startswith("x-"):
+                yield key, file_name
+            yield from _walk_x_keys(value, file_name)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_x_keys(item, file_name)
 
 
-def test_meta_schema_has_no_x_keys_outside_properties():
-    """The meta-schema may not self-reference undeclared x-* keys in its descriptions."""
-    allowed = _load_allowed_keys()
-    # The meta-schema file itself should only introduce x-* keys inside "properties"
-    assert len(allowed) > 0, "x_extensions_meta_schema.json defines no allowed x-* keys"
-
-
-def test_only_allowed_x_extension_keys_used():
-    """Every x-* key in every schema file must be declared in x_extensions_meta_schema.json.
-
-    When this test fails, it means a schema file is using an x-* extension keyword
-    that has not been registered in the canonical vocabulary. Fix: add the key to
-    traigent_schema/schemas/x_extensions_meta_schema.json before using it.
-    """
-    allowed = _load_allowed_keys()
-    violations: list[tuple[str, str]] = []
-
-    schema_files = sorted(SCHEMA_DIR.rglob("*.json"))
-    for path in schema_files:
-        # Skip the meta-schema itself — it declares, not uses, x-* keys
-        if path == META_SCHEMA_PATH:
+def _used_x_extensions() -> dict[str, list[str]]:
+    used: dict[str, list[str]] = {}
+    for path in get_all_schema_files():
+        if path.resolve() == META_SCHEMA_PATH.resolve():
             continue
-        for key in _collect_x_keys_in_file(path):
-            if key not in allowed:
-                violations.append((str(path.relative_to(SCHEMA_DIR)), key))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for key, file_name in _walk_x_keys(data, path.name):
+            files = used.setdefault(key, [])
+            if file_name not in files:
+                files.append(file_name)
+    return used
 
-    violations.sort()
-    assert not violations, (
-        f"Found {len(violations)} unknown x-* extension key(s) in schema files.\n"
-        "Add each key to traigent_schema/schemas/x_extensions_meta_schema.json "
-        "with a description before using it.\n\n"
-        "Unknown keys:\n"
-        + "\n".join(f"  {path}: {key}" for path, key in violations)
+
+def test_meta_schema_is_the_only_x_extension_registry() -> None:
+    assert not LEGACY_REGISTRY_PATH.exists(), (
+        "tests/data/x_extensions_registry.json re-introduces a second x-* registry. "
+        "Keep x_extensions_meta_schema.json as the single source of truth."
     )
 
 
-def test_all_meta_schema_keys_are_actually_used():
-    """Every key declared in the meta-schema must appear in at least one schema file.
+def test_meta_schema_itself_is_valid_json() -> None:
+    meta = _meta_schema()
+    assert isinstance(meta, dict), "x_extensions_meta_schema.json must be a JSON object"
 
-    This prevents the meta-schema from accumulating dead entries. When a key is
-    removed from all schemas, remove it from the meta-schema too.
-    """
-    allowed = _load_allowed_keys()
-    used: set[str] = set()
+    allowed = _allowed_x_extensions()
+    assert allowed, "x_extensions_meta_schema.json defines no allowed x-* keys"
+    assert all(key.startswith("x-") for key in allowed), (
+        "x_extensions_meta_schema.json may only declare x-* extension keys"
+    )
 
-    for path in SCHEMA_DIR.rglob("*.json"):
-        if path == META_SCHEMA_PATH:
-            continue
-        used |= _collect_x_keys_in_file(path)
 
-    declared_but_unused = allowed - used
-    assert not declared_but_unused, (
-        f"The following x-* keys are declared in x_extensions_meta_schema.json "
-        f"but are not used in any schema file. Remove unused entries to keep the "
-        f"meta-schema accurate.\n\nUnused keys: {sorted(declared_but_unused)}"
+def test_meta_schema_entries_have_descriptions() -> None:
+    missing = [
+        key
+        for key, schema in _allowed_x_extensions().items()
+        if not str(schema.get("description", "")).strip()
+    ]
+    assert not missing, (
+        "x-* entries missing descriptions in x_extensions_meta_schema.json: "
+        f"{missing}"
+    )
+
+
+def test_every_used_x_extension_is_declared_in_meta_schema() -> None:
+    allowed = set(_allowed_x_extensions())
+    used = _used_x_extensions()
+    violations = {key: files for key, files in used.items() if key not in allowed}
+
+    assert not violations, (
+        "x-* extension keyword(s) used in schemas but missing from "
+        "traigent_schema/schemas/x_extensions_meta_schema.json:\n"
+        + "\n".join(
+            f"  - {key}  (in: {', '.join(sorted(files))})"
+            for key, files in sorted(violations.items())
+        )
+    )
+
+
+def test_meta_schema_has_no_stale_unused_entries() -> None:
+    allowed = set(_allowed_x_extensions())
+    used = set(_used_x_extensions())
+    stale = sorted(allowed - used)
+
+    assert not stale, (
+        "x_extensions_meta_schema.json declares x-* keyword(s) that no schema uses:\n"
+        + "\n".join(f"  - {key}" for key in stale)
     )

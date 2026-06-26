@@ -10,6 +10,19 @@ import pytest
 from traigent_schema import AnalyticsValidator, SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
+LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS = {
+    "difficulty",
+    "informativeness",
+    "irt",
+    "fisher",
+    "expected_information_gain",
+    "threshold",
+    "formula",
+    "example_ids",
+    "task_ids",
+    "seed_signal",
+}
+
 
 @pytest.fixture
 def validator() -> SchemaValidator:
@@ -60,6 +73,66 @@ def valid_curation_advice_payload() -> dict[str, object]:
                 "affected_count": 12,
                 "rationale": "Add examples that cover underrepresented task variants.",
             }
+        ],
+    }
+
+
+@pytest.fixture
+def valid_artifact_lifecycle_payload() -> dict[str, object]:
+    return {
+        "schema_version": "1.0.0",
+        "experiment_run_id": "exp_123",
+        "caveat": "server-derived; internal decision details withheld",
+        "phase": "LC_V1_DERIVED",
+        "smartopt_available": True,
+        "artifact_states": [
+            {
+                "artifact": "dataset",
+                "state": "scored",
+                "trust_label": "trusted",
+                "blockers": [],
+                "evidence": ["scoring_completed", "quality_cleared"],
+            },
+            {
+                "artifact": "evaluator",
+                "state": "audited",
+                "trust_label": "trusted",
+                "blockers": [],
+                "evidence": ["evaluator_active", "audit_completed"],
+            },
+            {
+                "artifact": "agent",
+                "state": "baseline",
+                "trust_label": "unknown",
+                "blockers": ["agent_not_optimized"],
+                "evidence": [],
+            },
+        ],
+        "next_step": {
+            "operation": "run_optimization",
+            "target_artifact": "agent",
+            "priority": "high",
+            "reason_code": "needs_optimization",
+            "command_template": "traigent optimize --run {experiment_run_id}",
+            "evidence_level": "medium",
+        },
+        "ranked_operations": [
+            {
+                "operation": "run_optimization",
+                "target_artifact": "agent",
+                "priority": "high",
+                "reason_code": "needs_optimization",
+                "command_template": "traigent optimize --run {experiment_run_id}",
+                "evidence_level": "medium",
+            },
+            {
+                "operation": "run_holdout",
+                "target_artifact": "agent",
+                "priority": "medium",
+                "reason_code": "needs_holdout",
+                "command_template": "traigent holdout --run {experiment_run_id}",
+                "evidence_level": "low",
+            },
         ],
     }
 
@@ -191,6 +264,59 @@ def _schema_property_names(schema: object) -> set[str]:
     return names
 
 
+def _schema_enum_and_example_values(schema: object) -> set[str]:
+    values: set[str] = set()
+
+    def add_value(value: object) -> None:
+        if isinstance(value, str):
+            values.add(value)
+        elif isinstance(value, list):
+            for item in value:
+                add_value(item)
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in {"const", "enum", "example", "examples"}:
+                    add_value(value)
+                visit(value)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+
+    visit(schema)
+    return values
+
+
+def _json_string_values(document: object) -> set[str]:
+    values: set[str] = set()
+
+    def visit(node: object) -> None:
+        if isinstance(node, str):
+            values.add(node)
+        elif isinstance(node, dict):
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+
+    visit(document)
+    return values
+
+
+def _forbidden_substring_matches(
+    values: set[str],
+    forbidden_substrings: set[str],
+) -> list[tuple[str, str]]:
+    return sorted(
+        (value, forbidden)
+        for value in values
+        for forbidden in forbidden_substrings
+        if forbidden in value.lower()
+    )
+
+
 class TestNextStepsSchema:
     def test_valid_next_steps_payload(self, validator, valid_next_steps_payload):
         errors = validator.validate_json(valid_next_steps_payload, "next_steps_schema")
@@ -199,7 +325,9 @@ class TestNextStepsSchema:
     def test_analytics_validator_lists_next_steps_schema(self, analytics_validator):
         assert "next_steps_schema" in analytics_validator.available_schemas
 
-    def test_analytics_validator_validates_next_steps(self, analytics_validator, valid_next_steps_payload):
+    def test_analytics_validator_validates_next_steps(
+        self, analytics_validator, valid_next_steps_payload
+    ):
         errors = analytics_validator.validate_next_steps(valid_next_steps_payload)
         assert errors == [], f"Unexpected errors: {errors}"
 
@@ -232,6 +360,62 @@ class TestNextStepsSchema:
         payload["next_steps"][0]["action"]["unexpected"] = "not allowed"
 
         errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any("unexpected" in error or "Additional properties" in error for error in errors)
+
+
+class TestArtifactLifecycleSchema:
+    def test_valid_artifact_lifecycle_payload(self, validator, valid_artifact_lifecycle_payload):
+        errors = validator.validate_json(
+            valid_artifact_lifecycle_payload,
+            "artifact_lifecycle_schema",
+        )
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_analytics_validator_lists_artifact_lifecycle_schema(self, analytics_validator):
+        assert "artifact_lifecycle_schema" in analytics_validator.available_schemas
+
+    def test_analytics_validator_validates_artifact_lifecycle(
+        self,
+        analytics_validator,
+        valid_artifact_lifecycle_payload,
+    ):
+        errors = analytics_validator.validate_artifact_lifecycle(valid_artifact_lifecycle_payload)
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_artifact_lifecycle_rejects_bad_state_enum(
+        self,
+        validator,
+        valid_artifact_lifecycle_payload,
+    ):
+        payload = copy.deepcopy(valid_artifact_lifecycle_payload)
+        payload["artifact_states"][0]["state"] = "audited"
+
+        errors = validator.validate_json(payload, "artifact_lifecycle_schema")
+        assert errors
+        assert any("state" in error or "audited" in error or "enum" in error for error in errors)
+
+    def test_artifact_lifecycle_rejects_bad_operation_enum(
+        self,
+        validator,
+        valid_artifact_lifecycle_payload,
+    ):
+        payload = copy.deepcopy(valid_artifact_lifecycle_payload)
+        payload["next_step"]["operation"] = "custom_operation"
+
+        errors = validator.validate_json(payload, "artifact_lifecycle_schema")
+        assert errors
+        assert any("operation" in error or "enum" in error for error in errors)
+
+    def test_artifact_lifecycle_rejects_unknown_top_level_property(
+        self,
+        validator,
+        valid_artifact_lifecycle_payload,
+    ):
+        payload = copy.deepcopy(valid_artifact_lifecycle_payload)
+        payload["unexpected"] = "not allowed"
+
+        errors = validator.validate_json(payload, "artifact_lifecycle_schema")
         assert errors
         assert any("unexpected" in error or "Additional properties" in error for error in errors)
 
@@ -372,6 +556,14 @@ class TestLifecycleEndpointRegistration:
             == "./next_steps_schema.json"
         )
 
+        lifecycle_response = endpoints["paths"][
+            "/api/v1/analytics/experiments/{experiment_run_id}/lifecycle"
+        ]["get"]["responses"]["200"]
+        assert (
+            lifecycle_response["content"]["application/json"]["schema"]["$ref"]
+            == "./artifact_lifecycle_schema.json"
+        )
+
         curation_response = endpoints["paths"][
             "/api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice"
         ]["get"]["responses"]["200"]
@@ -384,20 +576,84 @@ class TestLifecycleEndpointRegistration:
 class TestClientFacingSchemaLeakGuard:
     @pytest.mark.parametrize(
         "schema_name",
-        ["next_steps_schema", "curation_advice_schema"],
+        [
+            "next_steps_schema",
+            "curation_advice_schema",
+            "artifact_lifecycle_schema",
+        ],
     )
     def test_client_safe_schema_property_names_do_not_expose_signals(self, validator, schema_name):
         schema = validator._schemas[schema_name]
         forbidden = {
-            "difficulty",
-            "informativeness",
+            *LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
             "ambiguity",
             "discriminative",
             "composite_score",
-            "example_ids",
         }
 
-        assert _schema_property_names(schema).isdisjoint(forbidden)
+        matches = _forbidden_substring_matches(_schema_property_names(schema), forbidden)
+        assert matches == []
+
+    @pytest.mark.parametrize(
+        "schema_name",
+        [
+            "next_steps_schema",
+            "curation_advice_schema",
+            "artifact_lifecycle_schema",
+        ],
+    )
+    def test_client_safe_schema_enum_and_example_values_do_not_expose_signals(
+        self,
+        validator,
+        schema_name,
+    ):
+        schema = validator._schemas[schema_name]
+
+        matches = _forbidden_substring_matches(
+            _schema_enum_and_example_values(schema),
+            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
+        )
+        assert matches == []
+
+    def test_artifact_lifecycle_schema_string_values_do_not_expose_signals(self, validator):
+        schema = validator._schemas["artifact_lifecycle_schema"]
+
+        matches = _forbidden_substring_matches(
+            _json_string_values(schema),
+            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
+        )
+        assert matches == []
+
+    def test_valid_artifact_lifecycle_fixture_does_not_expose_signals(
+        self,
+        valid_artifact_lifecycle_payload,
+    ):
+        matches = _forbidden_substring_matches(
+            _json_string_values(valid_artifact_lifecycle_payload),
+            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
+        )
+        assert matches == []
+
+    def test_artifact_lifecycle_ip_guard_scans_schema_descriptions_and_fixture_values(
+        self,
+        validator,
+        valid_artifact_lifecycle_payload,
+    ):
+        schema = copy.deepcopy(validator._schemas["artifact_lifecycle_schema"])
+        schema["description"] = "Do not expose fisher details."
+        schema_matches = _forbidden_substring_matches(
+            _json_string_values(schema),
+            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
+        )
+        assert ("Do not expose fisher details.", "fisher") in schema_matches
+
+        payload = copy.deepcopy(valid_artifact_lifecycle_payload)
+        payload["caveat"] = "Do not expose seed_signal values."
+        payload_matches = _forbidden_substring_matches(
+            _json_string_values(payload),
+            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
+        )
+        assert ("Do not expose seed_signal values.", "seed_signal") in payload_matches
 
 
 def test_dataset_schema_remains_superset_of_evaluation_set() -> None:
@@ -423,6 +679,6 @@ def test_dataset_schema_remains_superset_of_evaluation_set() -> None:
         "dataset_schema.json lost evaluation_set_schema properties: "
         f"{sorted(missing)} — re-sync the inlined copy."
     )
-    assert sorted(dataset.get("required", [])) == sorted(
-        evaluation_set.get("required", [])
-    ), "dataset_schema required set drifted from evaluation_set_schema"
+    assert sorted(dataset.get("required", [])) == sorted(evaluation_set.get("required", [])), (
+        "dataset_schema required set drifted from evaluation_set_schema"
+    )

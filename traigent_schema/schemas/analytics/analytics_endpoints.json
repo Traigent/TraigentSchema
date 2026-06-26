@@ -119,6 +119,23 @@
         }
       }
     },
+    "/api/v1/analytics/experiments/{experiment_run_id}/lifecycle": {
+      "get": {
+        "summary": "Get experiment artifact lifecycle recommendations",
+        "responses": {
+          "200": {
+            "description": "Artifact lifecycle recommendations retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./artifact_lifecycle_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice": {
       "get": {
         "summary": "Get dataset curation advice",

@@ -57,19 +57,24 @@ def test_ci_workflow_cancels_superseded_runs() -> None:
     concurrency = _ci_workflow().get("concurrency")
     assert concurrency is not None, "ci.yml must define a concurrency block"
     assert "group" in concurrency, "concurrency block must define a group key"
-    # cancel-in-progress may be a boolean (simple) or an expression (conditional).
-    # Require that it is either True or an expression that limits cancellation to
-    # pull_request events (not merge_group events).
     cancel = concurrency.get("cancel-in-progress")
     assert cancel is not None, "concurrency block must define cancel-in-progress"
-    if isinstance(cancel, bool):
-        # Simple bool is only acceptable if True (cancel all re-pushes).
-        assert cancel is True, "cancel-in-progress must be True when set as a boolean"
-    else:
-        # Expression form must not unconditionally cancel — allow conditional forms.
-        assert "pull_request" in str(cancel), (
-            "conditional cancel-in-progress must reference pull_request event"
-        )
+    # A bare boolean `true` cancels in-progress runs for EVERY event — including
+    # merge_group — which fails a queued candidate's required gate and stalls the
+    # merge queue. The only merge-queue-safe form is an expression that gates
+    # cancellation on pull_request events ONLY, so merge_group runs are never
+    # cancelled. Reject the bare boolean and any expression that does not tie
+    # cancellation to `github.event_name == 'pull_request'`.
+    assert not isinstance(cancel, bool), (
+        "cancel-in-progress must be a conditional expression, not a bare boolean: "
+        "`true` cancels merge_group runs and stalls the merge queue"
+    )
+    expr = str(cancel).replace(" ", "").replace('"', "'")
+    assert "github.event_name=='pull_request'" in expr, (
+        "cancel-in-progress must gate cancellation on "
+        "`github.event_name == 'pull_request'` so merge_group runs are never cancelled "
+        f"(got: {cancel!r})"
+    )
 
 
 def test_ci_workflow_caps_all_jobs_with_timeouts() -> None:

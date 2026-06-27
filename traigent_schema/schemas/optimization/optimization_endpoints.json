@@ -165,6 +165,66 @@
                   "dataset_metadata": {
                     "type": "object"
                   },
+                  "artifact_fingerprints": {
+                    "type": "object",
+                    "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",
+                    "properties": {
+                      "dataset": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Opaque content fingerprint for the example set provenance."
+                      },
+                      "agent": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Opaque content fingerprint for the decorated function provenance."
+                      },
+                      "evaluator": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Opaque content fingerprint for evaluator provenance."
+                      },
+                      "config_space": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Opaque content fingerprint for configuration-space provenance."
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "fingerprint_meta": {
+                    "type": "object",
+                    "description": "Optional metadata describing the opaque content fingerprint algorithm and SDK collection context.",
+                    "required": [
+                      "algorithm",
+                      "dataset_example_count",
+                      "source_available"
+                    ],
+                    "properties": {
+                      "algorithm": {
+                        "const": "fp1",
+                        "description": "Opaque content fingerprint algorithm identifier."
+                      },
+                      "dataset_example_count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Number of examples included in the dataset fingerprint input."
+                      },
+                      "source_available": {
+                        "type": "boolean",
+                        "description": "Whether SDK source text was available for function fingerprinting."
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "max_trials": {
                     "type": "integer",
                     "minimum": 1

@@ -53,6 +53,24 @@
         }
       }
     },
+    "posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary_text",
+        "generated_at"
+      ],
+      "properties": {
+        "summary_text": {
+          "type": "string",
+          "description": "Server-generated, redacted prose posture summary. Contains NO internal state vocabulary."
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "next_steps": {
       "type": "array",
       "description": "Recommended next actions. May be empty when no safe recommendation is available.",

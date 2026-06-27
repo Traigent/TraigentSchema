@@ -74,10 +74,6 @@ class AnalyticsValidator:
         """Validate NextSteps response data against schema."""
         return self._validator.validate_json(next_steps_data, "next_steps_schema")
 
-    def validate_artifact_lifecycle(self, lifecycle_data: dict[str, Any]) -> list[str]:
-        """Validate ArtifactLifecycle response data against schema."""
-        return self._validator.validate_json(lifecycle_data, "artifact_lifecycle_schema")
-
     def validate_curation_advice(self, advice_data: dict[str, Any]) -> list[str]:
         """Validate CurationAdvice response data against schema."""
         return self._validator.validate_json(advice_data, "curation_advice_schema")
@@ -229,6 +225,5 @@ class AnalyticsValidator:
             "dataset_quality_schema",
             "scoring_job_status_schema",
             "next_steps_schema",
-            "artifact_lifecycle_schema",
             "curation_advice_schema",
         ]

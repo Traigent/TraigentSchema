@@ -129,7 +129,6 @@ class TestAnalyticsValidatorHelpers:
             "dataset_quality_schema",
             "scoring_job_status_schema",
             "next_steps_schema",
-            "artifact_lifecycle_schema",
             "curation_advice_schema",
         ]
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+from typing import NamedTuple
 
 import pytest
 
@@ -21,6 +22,59 @@ LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS = {
     "example_ids",
     "task_ids",
     "seed_signal",
+}
+
+LIFECYCLE_STATE_SURFACE_TIER_1_RAW_FORBIDDEN_SUBSTRINGS = {
+    "artifact_states",
+    "ranked_operations",
+    "trust_label",
+    "blocker_codes",
+    "target_artifact",
+    "validated_on_holdout",
+    "tied_with_baseline",
+    "score_stale",
+    "unknown_freshness",
+    "scored_needs_tuning",
+    "smartopt_available",
+    "LC_V1_DERIVED",
+    "reason_code",
+}
+
+LIFECYCLE_STATE_SURFACE_TIER_2_STRUCTURED_FORBIDDEN_TOKENS = {
+    "empty",
+    "populated",
+    "scored",
+    "trusted",
+    "degraded",
+    "broken",
+    "undefined",
+    "defined",
+    "audited",
+    "noisy",
+    "baseline",
+    "optimizing",
+    "optimized",
+    "regressed",
+    "blocked",
+    "promotable",
+    "unaudited",
+}
+
+ALLOWED_NEXT_STEPS_ACTION_CATEGORIES = {
+    "expand_dataset",
+    "refine_metric",
+    "adjust_config_space",
+    "rerun_larger_sample",
+    "add_safety_gate",
+    "compare_with_baseline",
+    "promote_winner",
+}
+
+PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS = {
+    ("optimization/promotion_policy_schema.json", "reason_code"),
+    ("optimization/session_finalize_response_schema.json", "reason_code"),
+    ("optimization/tvar_catalog_entry_schema.json", "baseline"),
+    ("status_schema.json", "degraded"),
 }
 
 
@@ -73,66 +127,6 @@ def valid_curation_advice_payload() -> dict[str, object]:
                 "affected_count": 12,
                 "rationale": "Add examples that cover underrepresented task variants.",
             }
-        ],
-    }
-
-
-@pytest.fixture
-def valid_artifact_lifecycle_payload() -> dict[str, object]:
-    return {
-        "schema_version": "1.0.0",
-        "experiment_run_id": "exp_123",
-        "caveat": "server-derived; internal decision details withheld",
-        "phase": "LC_V1_DERIVED",
-        "smartopt_available": True,
-        "artifact_states": [
-            {
-                "artifact": "dataset",
-                "state": "scored",
-                "trust_label": "trusted",
-                "blockers": [],
-                "evidence": ["scoring_completed", "quality_cleared"],
-            },
-            {
-                "artifact": "evaluator",
-                "state": "audited",
-                "trust_label": "trusted",
-                "blockers": [],
-                "evidence": ["evaluator_active", "audit_completed"],
-            },
-            {
-                "artifact": "agent",
-                "state": "baseline",
-                "trust_label": "unknown",
-                "blockers": ["agent_not_optimized"],
-                "evidence": [],
-            },
-        ],
-        "next_step": {
-            "operation": "run_optimization",
-            "target_artifact": "agent",
-            "priority": "high",
-            "reason_code": "needs_optimization",
-            "command_template": "traigent optimize --run {experiment_run_id}",
-            "evidence_level": "medium",
-        },
-        "ranked_operations": [
-            {
-                "operation": "run_optimization",
-                "target_artifact": "agent",
-                "priority": "high",
-                "reason_code": "needs_optimization",
-                "command_template": "traigent optimize --run {experiment_run_id}",
-                "evidence_level": "medium",
-            },
-            {
-                "operation": "run_holdout",
-                "target_artifact": "agent",
-                "priority": "medium",
-                "reason_code": "needs_holdout",
-                "command_template": "traigent holdout --run {experiment_run_id}",
-                "evidence_level": "low",
-            },
         ],
     }
 
@@ -317,6 +311,188 @@ def _forbidden_substring_matches(
     )
 
 
+def _public_schema_documents() -> list[tuple[str, object]]:
+    schemas_dir = get_schemas_dir()
+    documents: list[tuple[str, object]] = []
+
+    for path in sorted(schemas_dir.rglob("*.json")):
+        with open(path, encoding="utf-8") as handle:
+            documents.append((path.relative_to(schemas_dir).as_posix(), json.load(handle)))
+
+    return documents
+
+
+def _public_endpoint_catalog_documents() -> list[tuple[str, object]]:
+    schemas_dir = get_schemas_dir()
+    documents: list[tuple[str, object]] = []
+
+    for path in sorted(schemas_dir.rglob("*_endpoints.json")):
+        with open(path, encoding="utf-8") as handle:
+            documents.append((path.relative_to(schemas_dir).as_posix(), json.load(handle)))
+
+    return documents
+
+
+class SchemaLeakFinding(NamedTuple):
+    relative_path: str
+    json_path: str
+    surface: str
+    value: str
+    tier: str
+    token: str
+
+
+def _iter_raw_public_surface_strings(
+    node: object,
+    json_path: tuple[str, ...] = (),
+) -> list[tuple[tuple[str, ...], str]]:
+    values: list[tuple[tuple[str, ...], str]] = []
+
+    def add_string(path: tuple[str, ...], value: object) -> None:
+        if isinstance(value, str):
+            values.append((path, value))
+
+    def add_nested_strings(path: tuple[str, ...], value: object) -> None:
+        if isinstance(value, str):
+            values.append((path, value))
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                add_nested_strings((*path, str(index)), item)
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                add_nested_strings((*path, str(key)), item)
+
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child_path = (*json_path, str(key))
+            add_string(child_path, key)
+            add_nested_strings(child_path, value)
+
+            values.extend(_iter_raw_public_surface_strings(value, child_path))
+    elif isinstance(node, list):
+        for index, child in enumerate(node):
+            values.extend(_iter_raw_public_surface_strings(child, (*json_path, str(index))))
+
+    return values
+
+
+def _iter_structured_public_surface_strings(
+    node: object,
+    json_path: tuple[str, ...] = (),
+) -> list[tuple[tuple[str, ...], str, str]]:
+    values: list[tuple[tuple[str, ...], str, str]] = []
+
+    def add_enum_or_const(
+        path: tuple[str, ...],
+        surface: str,
+        value: object,
+    ) -> None:
+        if isinstance(value, str):
+            values.append((path, surface, value))
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                add_enum_or_const((*path, str(index)), surface, item)
+
+    if isinstance(node, dict):
+        properties = node.get("properties")
+        if isinstance(properties, dict):
+            for property_name in properties:
+                values.append(
+                    ((*json_path, "properties", property_name), "property", property_name)
+                )
+
+        required = node.get("required")
+        if isinstance(required, list):
+            for index, property_name in enumerate(required):
+                if isinstance(property_name, str):
+                    values.append(
+                        ((*json_path, "required", str(index)), "property", property_name)
+                    )
+
+        for key, value in node.items():
+            child_path = (*json_path, str(key))
+            if key == "enum":
+                add_enum_or_const(child_path, "enum", value)
+            elif key == "const":
+                add_enum_or_const(child_path, "const", value)
+
+            values.extend(_iter_structured_public_surface_strings(value, child_path))
+    elif isinstance(node, list):
+        for index, child in enumerate(node):
+            values.extend(_iter_structured_public_surface_strings(child, (*json_path, str(index))))
+
+    return values
+
+
+def _is_allowed_next_steps_action_category(
+    relative_path: str,
+    json_path: tuple[str, ...],
+    value: str,
+) -> bool:
+    return (
+        relative_path == "analytics/next_steps_schema.json"
+        and value in ALLOWED_NEXT_STEPS_ACTION_CATEGORIES
+        and "category" in json_path
+        and "enum" in json_path
+    )
+
+
+def _is_pre_existing_non_lifecycle_public_term(relative_path: str, token: str) -> bool:
+    return (relative_path, token.lower()) in PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS
+
+
+def _find_public_schema_lifecycle_leaks(
+    relative_path: str,
+    document: object,
+) -> list[SchemaLeakFinding]:
+    findings: set[SchemaLeakFinding] = set()
+
+    for json_path, value in _iter_raw_public_surface_strings(document):
+        value_lower = value.lower()
+        for token in LIFECYCLE_STATE_SURFACE_TIER_1_RAW_FORBIDDEN_SUBSTRINGS:
+            if _is_pre_existing_non_lifecycle_public_term(relative_path, token):
+                continue
+            if token.lower() in value_lower:
+                findings.add(
+                    SchemaLeakFinding(
+                        relative_path,
+                        "/".join(json_path),
+                        "raw",
+                        value,
+                        "TIER-1",
+                        token,
+                    )
+                )
+
+    for json_path, surface, value in _iter_structured_public_surface_strings(document):
+        for token in LIFECYCLE_STATE_SURFACE_TIER_2_STRUCTURED_FORBIDDEN_TOKENS:
+            if _is_allowed_next_steps_action_category(relative_path, json_path, value):
+                continue
+            if _is_pre_existing_non_lifecycle_public_term(relative_path, token):
+                continue
+            if value.lower() == token:
+                findings.add(
+                    SchemaLeakFinding(
+                        relative_path,
+                        "/".join(json_path),
+                        surface,
+                        value,
+                        "TIER-2",
+                        token,
+                    )
+                )
+
+    return sorted(
+        findings,
+        key=lambda finding: (
+            finding.relative_path,
+            finding.json_path,
+            finding.tier,
+            finding.token.lower(),
+        )
+    )
+
+
 class TestNextStepsSchema:
     def test_valid_next_steps_payload(self, validator, valid_next_steps_payload):
         errors = validator.validate_json(valid_next_steps_payload, "next_steps_schema")
@@ -330,6 +506,58 @@ class TestNextStepsSchema:
     ):
         errors = analytics_validator.validate_next_steps(valid_next_steps_payload)
         assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_next_steps_without_posture_remains_valid(self, validator, valid_next_steps_payload):
+        assert "posture" not in valid_next_steps_payload
+
+        errors = validator.validate_json(valid_next_steps_payload, "next_steps_schema")
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_next_steps_accepts_valid_posture(self, validator, valid_next_steps_payload):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["posture"] = {
+            "summary_text": "Server summary redacted for client display.",
+            "generated_at": "2026-06-27T12:00:00Z",
+        }
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_next_steps_rejects_unknown_posture_property(
+        self,
+        validator,
+        valid_next_steps_payload,
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["posture"] = {
+            "summary_text": "Server summary redacted for client display.",
+            "generated_at": "2026-06-27T12:00:00Z",
+            "readiness_cues": [],
+        }
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any(
+            "readiness_cues" in error or "Additional properties" in error for error in errors
+        )
+
+    @pytest.mark.parametrize("missing_field", ["summary_text", "generated_at"])
+    def test_next_steps_rejects_incomplete_posture(
+        self,
+        validator,
+        valid_next_steps_payload,
+        missing_field,
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["posture"] = {
+            "summary_text": "Server summary redacted for client display.",
+            "generated_at": "2026-06-27T12:00:00Z",
+        }
+        del payload["posture"][missing_field]
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any(missing_field in error or "required" in error for error in errors)
 
     def test_next_steps_rejects_bad_category_enum(self, validator, valid_next_steps_payload):
         payload = copy.deepcopy(valid_next_steps_payload)
@@ -360,62 +588,6 @@ class TestNextStepsSchema:
         payload["next_steps"][0]["action"]["unexpected"] = "not allowed"
 
         errors = validator.validate_json(payload, "next_steps_schema")
-        assert errors
-        assert any("unexpected" in error or "Additional properties" in error for error in errors)
-
-
-class TestArtifactLifecycleSchema:
-    def test_valid_artifact_lifecycle_payload(self, validator, valid_artifact_lifecycle_payload):
-        errors = validator.validate_json(
-            valid_artifact_lifecycle_payload,
-            "artifact_lifecycle_schema",
-        )
-        assert errors == [], f"Unexpected errors: {errors}"
-
-    def test_analytics_validator_lists_artifact_lifecycle_schema(self, analytics_validator):
-        assert "artifact_lifecycle_schema" in analytics_validator.available_schemas
-
-    def test_analytics_validator_validates_artifact_lifecycle(
-        self,
-        analytics_validator,
-        valid_artifact_lifecycle_payload,
-    ):
-        errors = analytics_validator.validate_artifact_lifecycle(valid_artifact_lifecycle_payload)
-        assert errors == [], f"Unexpected errors: {errors}"
-
-    def test_artifact_lifecycle_rejects_bad_state_enum(
-        self,
-        validator,
-        valid_artifact_lifecycle_payload,
-    ):
-        payload = copy.deepcopy(valid_artifact_lifecycle_payload)
-        payload["artifact_states"][0]["state"] = "audited"
-
-        errors = validator.validate_json(payload, "artifact_lifecycle_schema")
-        assert errors
-        assert any("state" in error or "audited" in error or "enum" in error for error in errors)
-
-    def test_artifact_lifecycle_rejects_bad_operation_enum(
-        self,
-        validator,
-        valid_artifact_lifecycle_payload,
-    ):
-        payload = copy.deepcopy(valid_artifact_lifecycle_payload)
-        payload["next_step"]["operation"] = "custom_operation"
-
-        errors = validator.validate_json(payload, "artifact_lifecycle_schema")
-        assert errors
-        assert any("operation" in error or "enum" in error for error in errors)
-
-    def test_artifact_lifecycle_rejects_unknown_top_level_property(
-        self,
-        validator,
-        valid_artifact_lifecycle_payload,
-    ):
-        payload = copy.deepcopy(valid_artifact_lifecycle_payload)
-        payload["unexpected"] = "not allowed"
-
-        errors = validator.validate_json(payload, "artifact_lifecycle_schema")
         assert errors
         assert any("unexpected" in error or "Additional properties" in error for error in errors)
 
@@ -541,7 +713,7 @@ class TestDatasetVersioning:
 
 
 class TestLifecycleEndpointRegistration:
-    def test_analytics_endpoints_reference_lifecycle_response_schemas(self):
+    def test_analytics_endpoints_reference_remaining_response_schemas(self):
         with open(
             get_schemas_dir() / "analytics" / "analytics_endpoints.json",
             encoding="utf-8",
@@ -556,14 +728,6 @@ class TestLifecycleEndpointRegistration:
             == "./next_steps_schema.json"
         )
 
-        lifecycle_response = endpoints["paths"][
-            "/api/v1/analytics/experiments/{experiment_run_id}/lifecycle"
-        ]["get"]["responses"]["200"]
-        assert (
-            lifecycle_response["content"]["application/json"]["schema"]["$ref"]
-            == "./artifact_lifecycle_schema.json"
-        )
-
         curation_response = endpoints["paths"][
             "/api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice"
         ]["get"]["responses"]["200"]
@@ -572,6 +736,24 @@ class TestLifecycleEndpointRegistration:
             == "./curation_advice_schema.json"
         )
 
+    def test_public_artifact_lifecycle_schema_and_endpoint_are_not_exposed(self):
+        schemas_dir = get_schemas_dir()
+        assert not list(schemas_dir.rglob("*artifact_lifecycle_schema.json"))
+
+        lifecycle_paths: list[tuple[str, str]] = []
+        lifecycle_schema_refs: list[str] = []
+        for relative_path, endpoints in _public_endpoint_catalog_documents():
+            paths = endpoints.get("paths", {})
+            if isinstance(paths, dict):
+                lifecycle_paths.extend(
+                    (relative_path, path) for path in paths if "/lifecycle" in path
+                )
+            if "artifact_lifecycle_schema" in json.dumps(endpoints):
+                lifecycle_schema_refs.append(relative_path)
+
+        assert lifecycle_paths == []
+        assert lifecycle_schema_refs == []
+
 
 class TestClientFacingSchemaLeakGuard:
     @pytest.mark.parametrize(
@@ -579,7 +761,6 @@ class TestClientFacingSchemaLeakGuard:
         [
             "next_steps_schema",
             "curation_advice_schema",
-            "artifact_lifecycle_schema",
         ],
     )
     def test_client_safe_schema_property_names_do_not_expose_signals(self, validator, schema_name):
@@ -599,7 +780,6 @@ class TestClientFacingSchemaLeakGuard:
         [
             "next_steps_schema",
             "curation_advice_schema",
-            "artifact_lifecycle_schema",
         ],
     )
     def test_client_safe_schema_enum_and_example_values_do_not_expose_signals(
@@ -615,45 +795,80 @@ class TestClientFacingSchemaLeakGuard:
         )
         assert matches == []
 
-    def test_artifact_lifecycle_schema_string_values_do_not_expose_signals(self, validator):
-        schema = validator._schemas["artifact_lifecycle_schema"]
+    def test_public_schema_surface_does_not_expose_artifact_state_vocabulary(self):
+        findings: list[SchemaLeakFinding] = []
+        for relative_path, document in _public_schema_documents():
+            findings.extend(_find_public_schema_lifecycle_leaks(relative_path, document))
 
-        matches = _forbidden_substring_matches(
-            _json_string_values(schema),
-            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
-        )
-        assert matches == []
+        assert findings == []
 
-    def test_valid_artifact_lifecycle_fixture_does_not_expose_signals(
-        self,
-        valid_artifact_lifecycle_payload,
-    ):
-        matches = _forbidden_substring_matches(
-            _json_string_values(valid_artifact_lifecycle_payload),
-            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
-        )
-        assert matches == []
+    def test_artifact_state_canary_detects_tier_1_raw_lifecycle_leaks(self):
+        copied_public_schema = {
+            "type": "object",
+            "properties": {
+                "safe_summary": {
+                    "type": "string",
+                    "description": "Leaked raw artifact_states token from an internal copy.",
+                }
+            },
+        }
 
-    def test_artifact_lifecycle_ip_guard_scans_schema_descriptions_and_fixture_values(
-        self,
-        validator,
-        valid_artifact_lifecycle_payload,
-    ):
-        schema = copy.deepcopy(validator._schemas["artifact_lifecycle_schema"])
-        schema["description"] = "Do not expose fisher details."
-        schema_matches = _forbidden_substring_matches(
-            _json_string_values(schema),
-            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
+        findings = _find_public_schema_lifecycle_leaks(
+            "analytics/copied_schema.json",
+            copied_public_schema,
         )
-        assert ("Do not expose fisher details.", "fisher") in schema_matches
 
-        payload = copy.deepcopy(valid_artifact_lifecycle_payload)
-        payload["caveat"] = "Do not expose seed_signal values."
-        payload_matches = _forbidden_substring_matches(
-            _json_string_values(payload),
-            LIFECYCLE_IP_FORBIDDEN_SUBSTRINGS,
+        assert any(
+            finding.tier == "TIER-1"
+            and finding.token == "artifact_states"
+            and finding.value == "Leaked raw artifact_states token from an internal copy."
+            for finding in findings
         )
-        assert ("Do not expose seed_signal values.", "seed_signal") in payload_matches
+
+    def test_artifact_state_canary_detects_tier_2_enum_lifecycle_leaks(self):
+        copied_public_schema = {
+            "type": "object",
+            "properties": {
+                "safe_status": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": ["scored"],
+                    },
+                }
+            },
+        }
+
+        findings = _find_public_schema_lifecycle_leaks(
+            "analytics/copied_schema.json",
+            copied_public_schema,
+        )
+
+        assert any(
+            finding.tier == "TIER-2"
+            and finding.surface == "enum"
+            and finding.token == "scored"
+            and finding.value == "scored"
+            for finding in findings
+        )
+
+    def test_artifact_state_canary_allows_public_next_steps_action_categories(self):
+        next_steps_category_schema = {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "enum": sorted(ALLOWED_NEXT_STEPS_ACTION_CATEGORIES),
+                }
+            },
+        }
+
+        findings = _find_public_schema_lifecycle_leaks(
+            "analytics/next_steps_schema.json",
+            next_steps_category_schema,
+        )
+
+        assert findings == []
 
 
 def test_dataset_schema_remains_superset_of_evaluation_set() -> None:

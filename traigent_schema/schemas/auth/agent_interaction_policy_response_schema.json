@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/agent_interaction_policy_response_schema.json",
+  "title": "Agent Interaction Policy Response",
+  "description": "Resolved interaction-policy payload for the authenticated agent/persona contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "traigent.agent_interaction.response.v1",
+      "description": "Stable response-shape label for interaction-policy resolution."
+    },
+    "profile": {
+      "$ref": "./interaction_policy_schema.json",
+      "description": "Resolved persona profile after combining stored, session, and default signals."
+    },
+    "policy_text": {
+      "type": "string",
+      "description": "Canonical instruction text the agent should follow for this interaction."
+    },
+    "question_budget": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many clarifying questions the agent should ask before acting."
+    },
+    "options_max": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum number of explicit options the agent should present at once."
+    },
+    "jargon_level": {
+      "type": "string",
+      "enum": ["plain", "technical"],
+      "description": "Preferred terminology level for the user-facing explanation."
+    },
+    "next_skill_hint": {
+      "type": ["string", "null"],
+      "description": "Optional follow-on skill hint for the calling agent."
+    },
+    "fallback_policy": {
+      "const": "static_v1",
+      "description": "Static fallback family used when richer personalization is unavailable."
+    }
+  },
+  "required": ["schema_version", "profile", "policy_text", "fallback_policy"]
+}

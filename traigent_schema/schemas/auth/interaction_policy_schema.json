@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/interaction_policy_schema.json",
+  "title": "Interaction Policy",
+  "description": "Canonical persona interaction policy profile used to resolve agent behavior across stored, session, and default sources.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "control": {
+      "type": "string",
+      "enum": ["delegate", "guided", "inspect"],
+      "description": "Preferred control mode for the agent/user interaction."
+    },
+    "expertise": {
+      "type": "string",
+      "enum": ["se", "ds", "unknown"],
+      "description": "Best-known user expertise band for instruction tuning."
+    },
+    "pace": {
+      "type": "string",
+      "enum": ["execute", "balanced", "explore"],
+      "description": "Preferred delivery pace for the current interaction."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["stored", "session", "default"],
+      "description": "Where the resolved profile came from."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Resolver confidence in the returned profile, normalized to [0, 1]."
+    },
+    "schema_version": {
+      "const": "traigent.interaction_policy.v1",
+      "description": "Stable schema label for the interaction-policy profile."
+    }
+  },
+  "required": ["control", "expertise", "pace"]
+}

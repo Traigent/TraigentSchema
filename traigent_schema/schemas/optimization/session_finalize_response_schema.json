@@ -92,6 +92,9 @@
         "strategy_preset": {
           "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
           "description": "Optional advisory strategy preset metadata recorded for this session."
+        },
+        "warm_start_transfer": {
+          "$ref": "./warm_start_transfer_schema.json"
         }
       },
       "additionalProperties": true

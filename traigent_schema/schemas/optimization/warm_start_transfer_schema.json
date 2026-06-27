@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/warm_start_transfer_schema.json",
+  "title": "Warm Start Transfer Schema",
+  "description": "Content-free summary of a session warm-start transfer attempt. This contract records only transfer mode, coarse outcome labels, seed-count, and refusal reason.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "transfer_mode",
+    "final_warm_start_weight",
+    "search_space_overlap",
+    "n_seed_configs_applied",
+    "refused_reason"
+  ],
+  "properties": {
+    "transfer_mode": {
+      "type": "string",
+      "enum": [
+        "cold",
+        "replay_only",
+        "model_prior"
+      ]
+    },
+    "final_warm_start_weight": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "search_space_overlap": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "none",
+        "low",
+        "partial",
+        "high",
+        "exact"
+      ]
+    },
+    "n_seed_configs_applied": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "refused_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "not_requested",
+        "not_supported_for_tracking_mode",
+        "seed_retrieval_error",
+        "no_seed_configs",
+        "identity_unavailable",
+        "identity_changed",
+        "insufficient_search_space_overlap",
+        "no_projectable_seed_configs",
+        "model_prior_not_supported",
+        "guard_error"
+      ]
+    }
+  }
+}

@@ -238,6 +238,15 @@
                   "default_config": {
                     "type": "object"
                   },
+                  "warm_start_from": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "description": "Optional prior session reference from which the server may attempt warm-start transfer. Null means no warm-start source was requested."
+                  },
                   "algorithm": {
                     "$ref": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json#/definitions/SupportedOptimizationStrategyName",
                     "default": "auto",
@@ -295,7 +304,32 @@
         },
         "responses": {
           "201": {
-            "description": "Session created successfully"
+            "description": "Session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "warm_start_transfer": {
+                          "$ref": "./warm_start_transfer_schema.json"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request — malformed body or parameters.",
@@ -865,7 +899,32 @@
         "summary": "Get hybrid session status",
         "responses": {
           "200": {
-            "description": "Hybrid session status retrieved successfully"
+            "description": "Hybrid session status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "warm_start_transfer": {
+                          "$ref": "./warm_start_transfer_schema.json"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthenticated — missing or invalid credentials.",

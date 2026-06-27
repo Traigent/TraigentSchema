@@ -60,6 +60,24 @@ LIFECYCLE_STATE_SURFACE_TIER_2_STRUCTURED_FORBIDDEN_TOKENS = {
     "unaudited",
 }
 
+# Phase 4A (Backend) introduced a server-internal artifact registry, cross-experiment
+# rollups, and score provenance.  None of that vocabulary may appear in any PUBLIC
+# TraigentSchema JSON schema, endpoint catalog, or example.
+PHASE4_ROLLUP_REGISTRY_FORBIDDEN_SUBSTRINGS = {
+    "artifact_rollup",
+    "artifact_registry",
+    "artifact_fingerprint_version",
+    "score_provenance",
+    "scored_against",
+    "current_fingerprint",
+    "version_partition",
+    "config_space_fp",
+    "null_project_excluded",
+    "aggregate_only_run",
+    "rollup_mode",
+    "artifact_rollup_cache",
+}
+
 ALLOWED_NEXT_STEPS_ACTION_CATEGORIES = {
     "expand_dataset",
     "refine_metric",
@@ -405,9 +423,7 @@ def _iter_structured_public_surface_strings(
         if isinstance(required, list):
             for index, property_name in enumerate(required):
                 if isinstance(property_name, str):
-                    values.append(
-                        ((*json_path, "required", str(index)), "property", property_name)
-                    )
+                    values.append(((*json_path, "required", str(index)), "property", property_name))
 
         for key, value in node.items():
             child_path = (*json_path, str(key))
@@ -489,7 +505,7 @@ def _find_public_schema_lifecycle_leaks(
             finding.json_path,
             finding.tier,
             finding.token.lower(),
-        )
+        ),
     )
 
 
@@ -896,4 +912,33 @@ def test_dataset_schema_remains_superset_of_evaluation_set() -> None:
     )
     assert sorted(dataset.get("required", [])) == sorted(evaluation_set.get("required", [])), (
         "dataset_schema required set drifted from evaluation_set_schema"
+    )
+
+
+def test_no_phase4_rollup_registry_terms_in_public_schemas() -> None:
+    """Phase 4A (Backend) internal artifact registry / cross-experiment rollup vocabulary
+    must not appear in any public JSON schema, endpoint catalog, or example.
+
+    Scans the same public surface as
+    ``test_public_schema_surface_does_not_expose_artifact_state_vocabulary``:
+    every ``*.json`` file under the schemas directory (via ``_public_schema_documents``),
+    which already includes all ``*_endpoints.json`` endpoint catalogs.  All string values
+    at every depth are checked case-insensitively against
+    ``PHASE4_ROLLUP_REGISTRY_FORBIDDEN_SUBSTRINGS`` using
+    ``_iter_raw_public_surface_strings``.
+    """
+    leaks: list[tuple[str, str, str]] = []
+
+    for relative_path, document in _public_schema_documents():
+        for json_path, value in _iter_raw_public_surface_strings(document):
+            value_lower = value.lower()
+            for token in PHASE4_ROLLUP_REGISTRY_FORBIDDEN_SUBSTRINGS:
+                if token in value_lower:
+                    leaks.append((relative_path, "/".join(json_path), token))
+
+    assert leaks == [], (
+        "Phase 4A rollup/registry vocabulary found in public schema surface:\n"
+        + "\n".join(
+            f"  {path}  @  {json_path}  →  {token!r}" for path, json_path, token in sorted(leaks)
+        )
     )

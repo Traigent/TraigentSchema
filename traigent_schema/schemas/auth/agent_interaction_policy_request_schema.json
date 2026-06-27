@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/agent_interaction_policy_request_schema.json",
+  "title": "Agent Interaction Policy Request",
+  "description": "Resolve-hint body for the authenticated interaction-policy endpoint. additionalProperties:true — the resolver reads the documented keys and may ignore unknown top-level hints while keeping nested policy objects strict.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "const": "traigent.agent_interaction.request.v1",
+      "description": "Stable request-shape label for interaction-policy resolution."
+    },
+    "harness": {
+      "type": "string",
+      "enum": ["codex", "claude", "cursor", "copilot", "gemini", "windsurf", "unknown"],
+      "description": "Calling coding harness requesting the resolved policy."
+    },
+    "skill": {
+      "type": "string",
+      "description": "Optional skill or workflow identifier the agent plans to use."
+    },
+    "task_intent": {
+      "type": "string",
+      "enum": ["quickstart", "plan", "run", "analyze", "debug", "unknown"],
+      "description": "Optional task-intent hint for choosing the interaction policy."
+    },
+    "observed_signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "explicit_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "control": {
+              "$ref": "./interaction_policy_schema.json#/properties/control"
+            },
+            "expertise": {
+              "$ref": "./interaction_policy_schema.json#/properties/expertise"
+            }
+          },
+          "required": []
+        },
+        "pace_cues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional lexical or behavioral cues that imply a preferred pace."
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Optional resolver confidence for the observed signals bundle."
+        }
+      },
+      "required": []
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow_persist": {
+          "type": "boolean",
+          "description": "Whether the resolver may persist the inferred profile."
+        },
+        "allow_telemetry": {
+          "type": "boolean",
+          "description": "Whether the resolver may emit interaction-policy telemetry."
+        }
+      },
+      "required": ["allow_persist", "allow_telemetry"]
+    }
+  },
+  "required": ["schema_version"]
+}

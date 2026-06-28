@@ -9,6 +9,8 @@
     "run_id",
     "privacy_mode",
     "summary",
+    "quality_posture",
+    "example_rows",
     "cohorts",
     "recommendations",
     "redactions"
@@ -29,6 +31,9 @@
         "example_count",
         "weak_example_count",
         "unstable_example_count",
+        "suspicious_example_count",
+        "notable_example_count",
+        "stable_example_count",
         "dataset_quality"
       ],
       "description": "Coarse, client-safe dataset-level rollup.",
@@ -48,6 +53,21 @@
           "minimum": 0,
           "description": "Count of examples flagged as unstable across trials (coarse count only)."
         },
+        "suspicious_example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of examples with suspicious review flags (coarse count only)."
+        },
+        "notable_example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of notable examples selected for bounded client review (coarse count only)."
+        },
+        "stable_example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of examples without weak, unstable, suspicious, or redundant review flags (coarse count only)."
+        },
         "dataset_quality": {
           "type": "string",
           "enum": [
@@ -56,6 +76,111 @@
             "high"
           ],
           "description": "Coarse dataset-quality bucket. Bucket only; the underlying signal is proprietary."
+        }
+      }
+    },
+    "quality_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary_text",
+        "generated_at"
+      ],
+      "properties": {
+        "summary_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Server-generated, redacted prose posture summary for this dataset. Opaque; contains NO internal scoring vocabulary, formulas, or raw values. Mirrors next_steps.posture."
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "example_rows": {
+      "type": "array",
+      "maxItems": 100,
+      "description": "NOTABLE examples to review only (weak/unstable/suspicious/redundant) - NOT the full dataset and NOT a ranked ordering of all examples. Capped. Each row is cohort-of-one with safe, coarse, client-safe fields only; NEVER raw per-example scores.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "safe_example_ref",
+          "review_priority",
+          "difficulty_bucket",
+          "suspicious_flags",
+          "possible_cause",
+          "recommended_action",
+          "sample_count"
+        ],
+        "properties": {
+          "safe_example_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "Safe, opaque reference to one example (e.g. backend exref_ hash). NOT a raw id or prompt/response text."
+          },
+          "review_priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ],
+            "description": "Review urgency derived from flags+difficulty. NOT a quality score or rank."
+          },
+          "difficulty_bucket": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "unknown"
+            ],
+            "description": "Coarse difficulty bucket only; the underlying signal is proprietary."
+          },
+          "suspicious_flags": {
+            "type": "array",
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "low_agent_strength_correlation",
+                "anomalous_low_success",
+                "high_response_variance",
+                "possible_mislabel",
+                "redundant_pattern",
+                "low_sample_support"
+              ]
+            },
+            "description": "Coarse issue labels only - no weights, thresholds, or values."
+          },
+          "possible_cause": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "description": "Templated, client-safe explanation. MUST NOT carry proprietary signal values, formulas, or thresholds."
+          },
+          "recommended_action": {
+            "type": "string",
+            "enum": [
+              "review_label",
+              "clarify_expected_output",
+              "increase_repetitions",
+              "replace_or_rewrite",
+              "keep_as_hard_case",
+              "remove_redundant",
+              "inspect_evaluator"
+            ]
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       }
     },

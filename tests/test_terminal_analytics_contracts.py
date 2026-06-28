@@ -30,6 +30,7 @@ for the orphan-schema ratchet in test_schemas.py by referencing each by name.
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 from pathlib import Path
 
@@ -424,6 +425,36 @@ class TestRunParameterInsights:
 
 
 class TestRunExampleInsights:
+    def test_examples_to_review_projection_present(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        data = _load_fixture(data_dir, "run_example_insights_valid.json")
+        errors = validator.validate_json(data, RUN_EXAMPLE_INSIGHTS_SCHEMA)
+        assert errors == [], f"Unexpected errors: {errors}"
+
+        summary = data["summary"]
+        for key in (
+            "suspicious_example_count",
+            "notable_example_count",
+            "stable_example_count",
+        ):
+            assert isinstance(summary[key], int)
+            assert summary[key] >= 0
+
+        quality_posture = data["quality_posture"]
+        assert quality_posture["summary_text"]
+        datetime.fromisoformat(quality_posture["generated_at"].replace("Z", "+00:00"))
+
+        assert 1 <= len(data["example_rows"]) <= 100
+        for row in data["example_rows"]:
+            assert row["safe_example_ref"].startswith("ex_")
+            assert row["review_priority"] in {"critical", "high", "medium", "low"}
+            assert row["difficulty_bucket"] in {"low", "medium", "high", "unknown"}
+            assert len(row["suspicious_flags"]) == len(set(row["suspicious_flags"]))
+            assert row["possible_cause"]
+            assert isinstance(row["sample_count"], int)
+            assert row["sample_count"] >= 0
+
     def test_privacy_mode_defaults_to_safe_projection(self) -> None:
         # The shared PrivacyMode primitive declares the safe default.
         schema = load_schema(RUN_EXAMPLE_INSIGHTS_SCHEMA)
@@ -475,3 +506,30 @@ class TestRunExampleInsights:
         data["cohorts"][0]["raw_score"] = 0.91
         errors = validator.validate_json(data, RUN_EXAMPLE_INSIGHTS_SCHEMA)
         assert any("raw_score" in e or "Additional properties" in e for e in errors)
+
+    @pytest.mark.parametrize(
+        ("raw_field", "value"),
+        [
+            ("composite_score", 0.91),
+            ("informativeness", 0.8),
+            ("uniqueness", 0.72),
+            ("difficulty", 0.63),
+            ("exact_rank", 1),
+            ("score_metadata", {"source": "internal"}),
+        ],
+    )
+    def test_rejects_raw_signal_fields(
+        self, validator: SchemaValidator, data_dir: Path, raw_field: str, value: object
+    ) -> None:
+        data = _load_fixture(data_dir, "run_example_insights_valid.json")
+        data["example_rows"][0][raw_field] = value
+        errors = validator.validate_json(data, RUN_EXAMPLE_INSIGHTS_SCHEMA)
+        assert any(raw_field in e or "Additional properties" in e for e in errors)
+
+    def test_rejects_unknown_top_level_key(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        data = _load_fixture(data_dir, "run_example_insights_valid.json")
+        data["raw_signal_debug"] = {"composite_score": 0.91}
+        errors = validator.validate_json(data, RUN_EXAMPLE_INSIGHTS_SCHEMA)
+        assert any("raw_signal_debug" in e or "Additional properties" in e for e in errors)

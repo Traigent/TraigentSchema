@@ -5,8 +5,53 @@
     "example_count": 200,
     "weak_example_count": 14,
     "unstable_example_count": 6,
+    "suspicious_example_count": 4,
+    "notable_example_count": 18,
+    "stable_example_count": 182,
     "dataset_quality": "medium"
   },
+  "quality_posture": {
+    "summary_text": "Several examples should be reviewed before promoting this dataset. The review set is limited to notable cases and omits internal scoring details.",
+    "generated_at": "2026-06-29T08:15:00Z"
+  },
+  "example_rows": [
+    {
+      "safe_example_ref": "ex_a3f4b2c8_0",
+      "review_priority": "high",
+      "difficulty_bucket": "high",
+      "suspicious_flags": ["possible_mislabel", "anomalous_low_success"],
+      "possible_cause": "The expected output may not match the evaluator's accepted interpretation.",
+      "recommended_action": "review_label",
+      "sample_count": 12
+    },
+    {
+      "safe_example_ref": "ex_a3f4b2c8_5",
+      "review_priority": "medium",
+      "difficulty_bucket": "medium",
+      "suspicious_flags": ["low_sample_support"],
+      "possible_cause": "The observed behavior is based on limited repetitions and should be confirmed before acting.",
+      "recommended_action": "increase_repetitions",
+      "sample_count": 4
+    },
+    {
+      "safe_example_ref": "ex_91c0aa12_3",
+      "review_priority": "critical",
+      "difficulty_bucket": "unknown",
+      "suspicious_flags": ["high_response_variance", "low_agent_strength_correlation"],
+      "possible_cause": "Model responses vary enough that the example may need clearer expected-output guidance.",
+      "recommended_action": "clarify_expected_output",
+      "sample_count": 10
+    },
+    {
+      "safe_example_ref": "ex_42be9c00_7",
+      "review_priority": "low",
+      "difficulty_bucket": "low",
+      "suspicious_flags": ["redundant_pattern"],
+      "possible_cause": "This example appears to exercise the same behavior as other reviewed cases.",
+      "recommended_action": "remove_redundant",
+      "sample_count": 9
+    }
+  ],
   "cohorts": [
     {
       "kind": "weak",

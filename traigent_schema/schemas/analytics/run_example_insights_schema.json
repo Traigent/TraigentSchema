@@ -112,8 +112,7 @@
           "difficulty_bucket",
           "suspicious_flags",
           "possible_cause",
-          "recommended_action",
-          "sample_count"
+          "recommended_action"
         ],
         "properties": {
           "safe_example_ref": {
@@ -176,10 +175,6 @@
               "remove_redundant",
               "inspect_evaluator"
             ]
-          },
-          "sample_count": {
-            "type": "integer",
-            "minimum": 0
           }
         }
       }

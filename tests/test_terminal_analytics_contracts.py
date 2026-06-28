@@ -452,8 +452,7 @@ class TestRunExampleInsights:
             assert row["difficulty_bucket"] in {"low", "medium", "high", "unknown"}
             assert len(row["suspicious_flags"]) == len(set(row["suspicious_flags"]))
             assert row["possible_cause"]
-            assert isinstance(row["sample_count"], int)
-            assert row["sample_count"] >= 0
+            assert row["recommended_action"]
 
     def test_privacy_mode_defaults_to_safe_projection(self) -> None:
         # The shared PrivacyMode primitive declares the safe default.

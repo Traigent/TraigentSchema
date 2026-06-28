@@ -30,7 +30,6 @@ for the orphan-schema ratchet in test_schemas.py by referencing each by name.
 
 from __future__ import annotations
 
-from datetime import datetime
 import json
 from pathlib import Path
 
@@ -441,17 +440,12 @@ class TestRunExampleInsights:
             assert isinstance(summary[key], int)
             assert summary[key] >= 0
 
-        quality_posture = data["quality_posture"]
-        assert quality_posture["summary_text"]
-        datetime.fromisoformat(quality_posture["generated_at"].replace("Z", "+00:00"))
-
         assert 1 <= len(data["example_rows"]) <= 100
         for row in data["example_rows"]:
-            assert row["safe_example_ref"].startswith("ex_")
+            assert row["safe_example_ref"].startswith("exref_")
             assert row["review_priority"] in {"critical", "high", "medium", "low"}
             assert row["difficulty_bucket"] in {"low", "medium", "high", "unknown"}
             assert len(row["suspicious_flags"]) == len(set(row["suspicious_flags"]))
-            assert row["possible_cause"]
             assert row["recommended_action"]
 
     def test_privacy_mode_defaults_to_safe_projection(self) -> None:

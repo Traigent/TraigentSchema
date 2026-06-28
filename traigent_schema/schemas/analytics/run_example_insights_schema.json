@@ -9,7 +9,6 @@
     "run_id",
     "privacy_mode",
     "summary",
-    "quality_posture",
     "example_rows",
     "cohorts",
     "recommendations",
@@ -79,26 +78,6 @@
         }
       }
     },
-    "quality_posture": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "summary_text",
-        "generated_at"
-      ],
-      "properties": {
-        "summary_text": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1000,
-          "description": "Server-generated, redacted prose posture summary for this dataset. Opaque; contains NO internal scoring vocabulary, formulas, or raw values. Mirrors next_steps.posture."
-        },
-        "generated_at": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
     "example_rows": {
       "type": "array",
       "maxItems": 100,
@@ -111,15 +90,14 @@
           "review_priority",
           "difficulty_bucket",
           "suspicious_flags",
-          "possible_cause",
           "recommended_action"
         ],
         "properties": {
           "safe_example_ref": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 255,
-            "description": "Safe, opaque reference to one example (e.g. backend exref_ hash). NOT a raw id or prompt/response text."
+            "pattern": "^exref_[0-9a-f]{16}$",
+            "maxLength": 64,
+            "description": "Safe, opaque backend reference (exref_ + 16 hex). Fail-closed to opaque refs; NEVER a raw id or prompt/response text."
           },
           "review_priority": {
             "type": "string",
@@ -157,12 +135,6 @@
               ]
             },
             "description": "Coarse issue labels only - no weights, thresholds, or values."
-          },
-          "possible_cause": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 400,
-            "description": "Templated, client-safe explanation. MUST NOT carry proprietary signal values, formulas, or thresholds."
           },
           "recommended_action": {
             "type": "string",

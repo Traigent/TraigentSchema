@@ -294,6 +294,10 @@
       ],
       "description": "Latest experiment run summary when available"
     },
+    "has_hybrid_session": {
+      "type": "boolean",
+      "description": "True when this experiment has at least one linked backend-guided hybrid session."
+    },
     "metadata": {
       "type": "object",
       "description": "Additional metadata about the experiment",

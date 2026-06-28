@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `run_example_insights_schema.json` — PRIVACY-BOUNDED example-level cohorts and dataset
     recommendations; carries no raw proprietary signals or prompt text by default and
     declares its `redactions`.
+    Extends the contract with privacy-bounded quality posture prose, notable example rows,
+    suspicious/difficulty review labels, and coarse summary counts without exposing raw scores.
   - `privacy_mode_schema.json` — shared `PrivacyMode` enum primitive
     (`safe_agent_projection` default, owner-gated `elevated`) reused by
     `run_example_insights`.

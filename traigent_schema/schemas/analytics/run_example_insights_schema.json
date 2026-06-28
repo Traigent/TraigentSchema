@@ -9,6 +9,7 @@
     "run_id",
     "privacy_mode",
     "summary",
+    "example_rows",
     "cohorts",
     "recommendations",
     "redactions"
@@ -29,6 +30,9 @@
         "example_count",
         "weak_example_count",
         "unstable_example_count",
+        "suspicious_example_count",
+        "notable_example_count",
+        "stable_example_count",
         "dataset_quality"
       ],
       "description": "Coarse, client-safe dataset-level rollup.",
@@ -48,6 +52,21 @@
           "minimum": 0,
           "description": "Count of examples flagged as unstable across trials (coarse count only)."
         },
+        "suspicious_example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of examples with suspicious review flags (coarse count only)."
+        },
+        "notable_example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of notable examples selected for bounded client review (coarse count only)."
+        },
+        "stable_example_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of examples without weak, unstable, suspicious, or redundant review flags (coarse count only)."
+        },
         "dataset_quality": {
           "type": "string",
           "enum": [
@@ -56,6 +75,79 @@
             "high"
           ],
           "description": "Coarse dataset-quality bucket. Bucket only; the underlying signal is proprietary."
+        }
+      }
+    },
+    "example_rows": {
+      "type": "array",
+      "maxItems": 100,
+      "description": "NOTABLE examples to review only (weak/unstable/suspicious/redundant) - NOT the full dataset and NOT a ranked ordering of all examples. Capped. Each row is cohort-of-one with safe, coarse, client-safe fields only; NEVER raw per-example scores.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "safe_example_ref",
+          "review_priority",
+          "difficulty_bucket",
+          "suspicious_flags",
+          "recommended_action"
+        ],
+        "properties": {
+          "safe_example_ref": {
+            "type": "string",
+            "pattern": "^exref_[0-9a-f]{16}$",
+            "maxLength": 64,
+            "description": "Safe, opaque backend reference (exref_ + 16 hex). Fail-closed to opaque refs; NEVER a raw id or prompt/response text."
+          },
+          "review_priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ],
+            "description": "Review urgency derived from flags+difficulty. NOT a quality score or rank."
+          },
+          "difficulty_bucket": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "unknown"
+            ],
+            "description": "Coarse difficulty bucket only; the underlying signal is proprietary."
+          },
+          "suspicious_flags": {
+            "type": "array",
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "low_agent_strength_correlation",
+                "anomalous_low_success",
+                "high_response_variance",
+                "possible_mislabel",
+                "redundant_pattern",
+                "low_sample_support"
+              ]
+            },
+            "description": "Coarse issue labels only - no weights, thresholds, or values."
+          },
+          "recommended_action": {
+            "type": "string",
+            "enum": [
+              "review_label",
+              "clarify_expected_output",
+              "increase_repetitions",
+              "replace_or_rewrite",
+              "keep_as_hard_case",
+              "remove_redundant",
+              "inspect_evaluator"
+            ]
+          }
         }
       }
     },

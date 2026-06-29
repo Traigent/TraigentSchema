@@ -5,10 +5,10 @@
   "python": {
     "repo": "Traigent/Traigent",
     "targetRef": "origin/develop",
-    "targetSha": "4fe3cd370eb4f8945644543bce9f03ed12e4857c",
+    "targetSha": "4bf705a84528f3e984d0e5bbda9c92ff564bc01b",
     "releaseSurface": "next-release",
-    "publishedVersionAtPinTime": "0.11.4",
-    "note": "This manifest intentionally tracks Python develop, not the currently published Python package. JS 0.2.0 is forward-bound to the next Python 0.12.0 public surface unless Python 0.12.0 ships first.",
+    "publishedVersionAtPinTime": "0.17.0",
+    "note": "This manifest intentionally tracks Python develop, not the currently published Python package. JS 0.2.0 is forward-bound to the next Python stable surface (0.19.0) unless that release ships first.",
     "conditionalRootExports": [
       {
         "source": "traigent.cloud.agent_dtos",
@@ -148,8 +148,8 @@
     ]
   },
   "releasePolicy": {
-    "js020PythonReleaseOrder": "JS 0.2.0 may ship before Python 0.12.0. If it does, release notes must describe this as forward-compatible with the next Python public surface, not parity with the currently published Python package.",
-    "publishedPythonCompatibilityNote": "Python 0.11.4 at pin time does not expose BenchmarkClient, BenchmarkClientConfig, Dataset, or EvaluationExample. Those symbols are included because the manifest tracks Python develop at 4fe3cd37.",
+    "js020PythonReleaseOrder": "JS 0.2.0 may ship before Python 0.19.0. If it does, release notes must describe this as forward-compatible with the next Python public surface, not parity with the currently published Python package.",
+    "publishedPythonCompatibilityNote": "Python 0.17.0 at pin time exposes BenchmarkClient and BenchmarkClientConfig (deferred-schema, no JS twin) and already ships Dataset and EvaluationExample (matched in JS). The manifest tracks Python develop at 4bf705a8 and is forward-bound to the next Python stable surface.",
     "refreshCadence": [
       "Refresh the manifest on every Python public SDK release candidate or release branch.",
       "Refresh the manifest in the same PR family as any Python change to traigent.__all__.",
@@ -260,6 +260,8 @@
     "deferred-backlog": [
       "ADVISORY_SELECTION_NOTICE",
       "AgentCostBreakdown",
+      "AnnotationQueueItemCompleteResultDTO",
+      "AnnotationQueueItemCreateResultDTO",
       "EnterpriseAdminClient",
       "EnterpriseAdminConfig",
       "NormalizedStrategyPreset",
@@ -277,6 +279,7 @@
       "TenantSSOConfigDTO",
       "TextDocument",
       "TraceFeedbackSummary",
+      "TypedMeasureDTO",
       "UnknownStrategyPresetError",
       "VALID_PRESET_NAMES",
       "WorkflowCostSummary",
@@ -364,16 +367,18 @@
   "decisions": {
     "manifestLocation": "TraigentSchema/parity/python-js-sdk.json is authoritative; JS and Python CI read this file instead of maintaining repo-local ignore lists.",
     "pythonPinning": "Only the Python SHA is pinned. JS is validated as any build that satisfies the manifest-required exports.",
-    "js020PythonReleaseOrder": "JS 0.2.0 is allowed to ship before Python 0.12.0 as a forward-compatible parity release, provided release notes state that the manifest tracks next Python, not published Python 0.11.4.",
+    "js020PythonReleaseOrder": "JS 0.2.0 is allowed to ship before Python 0.19.0 as a forward-compatible parity release, provided release notes state that the manifest tracks next Python, not published Python 0.17.0.",
     "manifestRefresh": "TraigentSchema owns manifest refreshes for Python release candidates, Python __all__ changes, JS minor parity releases, and quarterly drift checks when release cadence is slow.",
     "benchmarkClient": "JS 0.2.0 no longer exports a BenchmarkClient stub. Python develop still root-exports BenchmarkClient/BenchmarkClientConfig, so they remain classified deferred-schema (no JS twin) until the benchmark dataset generation endpoint is schema-owned; they are intentionally absent from requiredRootExports and stubRootExports.",
     "enterpriseAdminClient": "JS 0.2.0 no longer exports an EnterpriseAdminClient migration stub. Python develop still root-exports EnterpriseAdminClient/EnterpriseAdminConfig, so they remain classified deferred-backlog (tracked in Traigent/traigent-js#30) but are intentionally absent from requiredRootExports and stubRootExports.",
     "observabilityWrappers": "Default-client helpers and the observe wrapper are deferred to 0.3.0 to avoid expanding the 0.2.0 parity release with new runtime semantics; track in Traigent/traigent-js#38.",
     "addAgentSpan": "Python root-exports add_agent_span (traigent.observability) on both develop and main; it is an observability-wrapper helper with no @traigent/sdk twin yet, so it is classified deferred-backlog alongside observe/get_default_observability_client and tracked with the other observability wrappers in Traigent/traigent-js#38 (resolves the js-public-parity manifest gap, TraigentSchema#117).",
     "textDocument": "Python root-exports TextDocument (traigent.api.parameter_ranges) — a trainable single-text-document parameter type for skill training (Choices[str], trainable=True). It is a concrete tunable type with no @traigent/sdk twin yet, so it is classified deferred-backlog pending a JS skill-training surface (TraigentSchema#117).",
-    "pinRefresh": "Manifest Python pin advanced from c79bc47 to 4fe3cd37 (origin/develop) to cover the two root exports added since the previous pin — add_agent_span and TextDocument — that the live js-public-parity gate flagged (TraigentSchema#117).",
+    "pinRefresh": "Manifest Python pin advanced from 4fe3cd37 to 4bf705a8 (origin/develop) to cover the three root exports added since the previous pin — AnnotationQueueItemCompleteResultDTO, AnnotationQueueItemCreateResultDTO, and TypedMeasureDTO — that the live js-public-parity gate flagged (TraigentSchema#251).",
     "advisorySelectionHelpers": "Python exposes advisory strategy-preset selection and recommendation-catalog helpers in the 0.12.0 release line. JS 0.2.0 defers root exports until the JS advisory-helper surface is designed; these helpers are not schema DTOs or required JS clients.",
     "frameworkDiscovery": "Future implicit framework discovery must be opt-in, avoid global patching, log activation, and be deterministic across import order.",
+    "annotationQueueItemResultDTOs": "AnnotationQueueItemCompleteResultDTO and AnnotationQueueItemCreateResultDTO are new Python root exports (traigent.annotation_queue) with a DTO suffix. JS already exports the non-DTO-suffixed equivalents AnnotationQueueItemCompleteResult and AnnotationQueueItemCreateResult in @traigent/sdk. Classified deferred-backlog to avoid forcing a new DTO-suffixed alias pair into the 0.2.0 JS release; the JS twins without the DTO suffix satisfy the contract.",
+    "typedMeasureDTO": "Python root-exports TypedMeasureDTO (traigent.evaluation) — a typed measure parameter type with no @traigent/sdk twin yet; classified deferred-backlog pending a JS typed-measure surface.",
     "executionModeConsolidation": "JS 0.2.0 exposes algorithm/offline policy and external evaluator option types to mirror Python execution-mode consolidation; legacy execution mode aliases remain compatibility-only and are not a new selector.",
     "externalServiceEvaluatorRuntime": "NOTPARITY: JS 0.2.0 exports ExternalServiceEvaluator/HybridAPIOptions type shapes but does not implement Python HybridAPIEvaluator's local external-service transport; runtime calls fail closed and must not be backend-routed through /sessions."
   },

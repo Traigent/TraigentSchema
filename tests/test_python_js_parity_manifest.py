@@ -6,12 +6,14 @@ import json
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
-PYTHON_DEVELOP_SHA = "4fe3cd370eb4f8945644543bce9f03ed12e4857c"
+PYTHON_DEVELOP_SHA = "4bf705a84528f3e984d0e5bbda9c92ff564bc01b"
 
 PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ADVISORY_SELECTION_NOTICE",
     "AndCondition",
     "AnnotationQueueDTO",
+    "AnnotationQueueItemCompleteResultDTO",
+    "AnnotationQueueItemCreateResultDTO",
     "AnnotationQueueItemDTO",
     "AnnotationQueueItemListResponse",
     "AnnotationQueueItemStatus",
@@ -137,6 +139,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "TraigentWarning",
     "TrialError",
     "TrialResult",
+    "TypedMeasureDTO",
     "UnknownStrategyPresetError",
     "VALID_PRESET_NAMES",
     "ValidationResult",
@@ -349,8 +352,8 @@ def test_release_policy_documents_forward_binding_and_refresh_cadence() -> None:
     manifest = load_manifest()
     release_policy = manifest["releasePolicy"]
 
-    assert "may ship before Python 0.12.0" in release_policy["js020PythonReleaseOrder"]
-    assert "Python 0.11.4" in release_policy["publishedPythonCompatibilityNote"]
+    assert "may ship before Python 0.19.0" in release_policy["js020PythonReleaseOrder"]
+    assert "Python 0.17.0" in release_policy["publishedPythonCompatibilityNote"]
     assert len(release_policy["refreshCadence"]) >= 4
     assert "manifestRefresh" in manifest["decisions"]
 

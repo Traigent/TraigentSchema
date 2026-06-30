@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.traigent.ai/optimization/session_list_response_schema.json",
-  "title": "SessionListResponseDTO",
+  "$id": "https://schemas.traigent.ai/optimization/optimization_session_list_response_schema.json",
+  "title": "OptimizationSessionListResponseDTO",
   "description": "Response of GET /api/v1/sessions (list optimization sessions). Returns the caller-visible sessions and a count. Each entry is a lightweight summary (identity + lifecycle state + progress) used by the SDK to enumerate sessions and clean up orphaned/zombie 'running' sessions from the client. Forward-compatible: each summary carries at least session_id and status; the server may add fields (additionalProperties allowed), so consumers must ignore unknown keys rather than fail. Optional query params on the request are pattern (match session ids) and status (lifecycle filter).",
   "type": "object",
   "additionalProperties": true,

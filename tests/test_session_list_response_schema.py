@@ -9,7 +9,7 @@ bump every time the server adds a field.
 
 from traigent_schema import SchemaValidator
 
-SCHEMA = "session_list_response_schema"
+SCHEMA = "optimization_session_list_response_schema"
 
 
 def _validator() -> SchemaValidator:

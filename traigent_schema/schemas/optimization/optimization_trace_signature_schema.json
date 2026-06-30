@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/optimization_trace_signature_schema.json",
+  "title": "Optimization Trace Signature",
+  "description": "SERVER-INTERNAL compact optimization trace signature. Not a client or SDK endpoint contract.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "covered_step_count"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "covered_step_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

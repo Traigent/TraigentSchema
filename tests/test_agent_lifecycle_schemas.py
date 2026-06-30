@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+from pathlib import Path
 from typing import NamedTuple
 
 import pytest
@@ -76,6 +77,23 @@ PHASE4_ROLLUP_REGISTRY_FORBIDDEN_SUBSTRINGS = {
     "aggregate_only_run",
     "rollup_mode",
     "artifact_rollup_cache",
+}
+
+OPTIMIZATION_TRACE_IP_FORBIDDEN_SUBSTRINGS = {
+    "optimization_trace",
+    "trace_step",
+    "trace_signature",
+    "step_signature",
+    "lessons_learned",
+    "inferred_optimization_rules",
+    "avoid_list",
+    "durable_rules",
+    "hard_examples",
+}
+
+OPTIMIZATION_TRACE_INTERNAL_SCHEMA_FILES = {
+    "optimization/optimization_trace_step_signature_schema.json",
+    "optimization/optimization_trace_signature_schema.json",
 }
 
 ALLOWED_NEXT_STEPS_ACTION_CATEGORIES = {
@@ -349,6 +367,97 @@ def _public_endpoint_catalog_documents() -> list[tuple[str, object]]:
             documents.append((path.relative_to(schemas_dir).as_posix(), json.load(handle)))
 
     return documents
+
+
+def _iter_schema_ref_values(document: object) -> list[str]:
+    refs: list[str] = []
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "$ref" and isinstance(value, str):
+                    refs.append(value)
+                else:
+                    visit(value)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+
+    visit(document)
+    return refs
+
+
+def _resolve_schema_ref(
+    relative_document_path: str,
+    ref: str,
+) -> str | None:
+    file_part = ref.partition("#")[0]
+    if not file_part:
+        return None
+
+    schemas_dir = get_schemas_dir()
+    if file_part.startswith("https://schemas.traigent.ai/"):
+        target = schemas_dir / file_part.removeprefix("https://schemas.traigent.ai/")
+    else:
+        target = schemas_dir / Path(relative_document_path).parent / file_part
+
+    schemas_root = schemas_dir.resolve()
+    resolved_target = target.resolve()
+    if not resolved_target.is_relative_to(schemas_root):
+        return None
+    if not resolved_target.exists() or not resolved_target.is_file():
+        return None
+
+    return resolved_target.relative_to(schemas_root).as_posix()
+
+
+def _public_endpoint_referenced_schema_documents() -> list[tuple[str, object]]:
+    schemas_dir = get_schemas_dir()
+    documents: dict[str, object] = {}
+    pending: list[str] = []
+
+    for relative_path, document in _public_endpoint_catalog_documents():
+        documents[relative_path] = document
+        pending.append(relative_path)
+
+    while pending:
+        relative_path = pending.pop()
+        document = documents[relative_path]
+        for ref in _iter_schema_ref_values(document):
+            resolved_relative_path = _resolve_schema_ref(relative_path, ref)
+            if resolved_relative_path is None or resolved_relative_path in documents:
+                continue
+            with open(schemas_dir / resolved_relative_path, encoding="utf-8") as handle:
+                documents[resolved_relative_path] = json.load(handle)
+            pending.append(resolved_relative_path)
+
+    return [(path, documents[path]) for path in sorted(documents)]
+
+
+def _empty_optimization_trace_signature_section() -> dict[str, object]:
+    return {
+        "coverage": "none",
+        "coverage_reason": "not_extracted",
+        "source_counts": {},
+        "source_refs": [],
+        "redaction_applied": False,
+        "items": [],
+    }
+
+
+def _valid_optimization_trace_step_signature_payload() -> dict[str, object]:
+    return {
+        "schema_version": "1.0.0",
+        "config_results": _empty_optimization_trace_signature_section(),
+        "insights": _empty_optimization_trace_signature_section(),
+        "lessons_learned": _empty_optimization_trace_signature_section(),
+        "inferred_optimization_rules": _empty_optimization_trace_signature_section(),
+        "benchmark_rules": _empty_optimization_trace_signature_section(),
+        "evaluator_rules": _empty_optimization_trace_signature_section(),
+        "stability": _empty_optimization_trace_signature_section(),
+        "hard_examples": _empty_optimization_trace_signature_section(),
+        "provenance": _empty_optimization_trace_signature_section(),
+    }
 
 
 class SchemaLeakFinding(NamedTuple):
@@ -885,6 +994,147 @@ class TestClientFacingSchemaLeakGuard:
         )
 
         assert findings == []
+
+
+class TestOptimizationTraceInternalSignatureSchemas:
+    def test_signature_schema_files_exist_but_are_not_public_endpoint_refs(self):
+        schemas_dir = get_schemas_dir()
+        missing = sorted(
+            relative_path
+            for relative_path in OPTIMIZATION_TRACE_INTERNAL_SCHEMA_FILES
+            if not (schemas_dir / relative_path).exists()
+        )
+        assert missing == []
+
+        endpoint_ref_hits: list[tuple[str, str, str]] = []
+        endpoint_string_hits: list[tuple[str, str, str]] = []
+
+        for catalog_relative_path, catalog in _public_endpoint_catalog_documents():
+            string_values = _json_string_values(catalog)
+            for ref in _iter_schema_ref_values(catalog):
+                resolved_relative_path = _resolve_schema_ref(catalog_relative_path, ref)
+                if resolved_relative_path in OPTIMIZATION_TRACE_INTERNAL_SCHEMA_FILES:
+                    endpoint_ref_hits.append(
+                        (catalog_relative_path, ref, resolved_relative_path)
+                    )
+
+            for internal_relative_path in OPTIMIZATION_TRACE_INTERNAL_SCHEMA_FILES:
+                internal_file_name = Path(internal_relative_path).name
+                for value in string_values:
+                    if internal_relative_path in value or internal_file_name in value:
+                        endpoint_string_hits.append(
+                            (catalog_relative_path, internal_relative_path, value)
+                        )
+
+        assert endpoint_ref_hits == []
+        assert endpoint_string_hits == []
+
+    def test_optimization_trace_ip_terms_do_not_appear_in_public_schema_string_values(self):
+        leaks: list[tuple[str, str, str]] = []
+
+        for relative_path, document in _public_endpoint_referenced_schema_documents():
+            matches = _forbidden_substring_matches(
+                _json_string_values(document),
+                OPTIMIZATION_TRACE_IP_FORBIDDEN_SUBSTRINGS,
+            )
+            leaks.extend((relative_path, value, token) for value, token in matches)
+
+        assert leaks == [], (
+            "Optimization trace internal vocabulary found in public schema surface:\n"
+            + "\n".join(
+                f"  {path}  value={value!r}  token={token!r}"
+                for path, value, token in sorted(leaks)
+            )
+        )
+
+    def test_minimal_valid_step_signature_instance_validates(self, validator):
+        errors = validator.validate_json(
+            _valid_optimization_trace_step_signature_payload(),
+            "optimization_trace_step_signature_schema",
+        )
+
+        assert errors == []
+
+    def test_step_signature_accepts_content_free_atoms(self, validator):
+        payload = _valid_optimization_trace_step_signature_payload()
+
+        lessons = payload["lessons_learned"]
+        rules = payload["inferred_optimization_rules"]
+        hard_examples = payload["hard_examples"]
+        assert isinstance(lessons, dict)
+        assert isinstance(rules, dict)
+        assert isinstance(hard_examples, dict)
+
+        lessons["items"] = [
+            {
+                "scope_enum": "configuration",
+                "subject_id": "param.temperature",
+                "value_bucket": "bucket_low",
+                "polarity_enum": "prefer",
+                "metric_id": "metric.accuracy",
+                "delta": 0.03,
+                "n": 4,
+                "confidence_enum": "medium",
+                "limitation_enum": ["small_n"],
+            }
+        ]
+        rules["items"] = [
+            {
+                "param_id": "param.temperature",
+                "value_bucket": "bucket_low",
+                "metric_id": "metric.latency_ms",
+                "direction_enum": "decrease",
+                "delta": -12.5,
+                "n": 4,
+                "polarity_enum": "prefer",
+                "confidence_enum": "medium",
+            }
+        ]
+        hard_examples["items"] = [
+            {
+                "example_id": "ex_opaque_1",
+                "failure_mode": "wrong_answer",
+            }
+        ]
+
+        errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
+
+        assert errors == []
+
+    @pytest.mark.parametrize("forbidden_key", ["statement", "evidence"])
+    def test_step_signature_rejects_free_text_atom_fields(self, validator, forbidden_key):
+        payload = _valid_optimization_trace_step_signature_payload()
+        lessons = payload["lessons_learned"]
+        assert isinstance(lessons, dict)
+        lessons["items"] = [
+            {
+                "scope_enum": "configuration",
+                "subject_id": "param.temperature",
+                "value_bucket": "bucket_low",
+                "polarity_enum": "prefer",
+                "metric_id": "metric.accuracy",
+                "delta": 0.03,
+                "n": 4,
+                "confidence_enum": "medium",
+                "limitation_enum": [],
+                forbidden_key: "raw prose must not fit the atom contract",
+            }
+        ]
+
+        errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
+
+        assert errors
+
+    def test_minimal_valid_trace_signature_instance_validates(self, validator):
+        errors = validator.validate_json(
+            {
+                "schema_version": "1.0.0",
+                "covered_step_count": 0,
+            },
+            "optimization_trace_signature_schema",
+        )
+
+        assert errors == []
 
 
 def test_dataset_schema_remains_superset_of_evaluation_set() -> None:

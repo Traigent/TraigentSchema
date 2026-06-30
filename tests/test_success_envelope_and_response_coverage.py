@@ -24,6 +24,7 @@ def test_canonical_success_envelope_exists():
     wm = env["x-wrap-map"]
     assert "benchmark_routes" in wm["wrapped"]      # datasets are wrapped
     assert "measure_routes" in wm["bare"]           # measures are bare
+    assert "experiment_group_routes" in wm["wrapped"]  # experiment groups are wrapped
     assert not (set(wm["wrapped"]) & set(wm["bare"]))
 
 
@@ -111,6 +112,14 @@ LIST_AND_RESULTS_GETS = {
         "/api/v1/optimization-comparisons/{comparison_id}/examples/{example_id}",       # detail GET — wrapped
         "/api/v1/experiment-runs/runs/{run_id}/report-payload",                         # bare jsonify
         "/api/v1/features/report-module-status",                                        # bare jsonify
+    ],
+}
+
+EXPERIMENT_GROUP_GETS = {
+    "execution/execution_endpoints.json": [
+        "/api/v1/experiment-groups",
+        "/api/v1/experiment-groups/{group_id}",
+        "/api/v1/experiment-groups/{group_id}/configuration-runs",
     ],
 }
 
@@ -209,3 +218,40 @@ def test_report_module_status_schema_enumerates_states():
     assert "beta" in states
     assert "ga" in states
     assert "required" in schema and "state" in schema["required"]
+
+
+# ---- Experiment group routes — wrapped success-envelope responses ----
+
+def test_experiment_group_read_surfaces_have_2xx_response_schemas():
+    """Experiment-group GETs must stay in the response-schema coverage set."""
+    for cat, paths in EXPERIMENT_GROUP_GETS.items():
+        spec = _load(cat)
+        for path in paths:
+            op = spec["paths"][path]["get"]
+            schema = op["responses"]["200"].get("content", {}).get("application/json", {}).get("schema", {})
+            assert schema.get("$ref"), (
+                f"experiment group response coverage regressed: {path} GET 200 has no schema"
+            )
+
+
+def test_experiment_group_response_schemas_wrap_payloads_in_data():
+    """Response definitions are success envelopes; the former bare bodies live under data."""
+    schema = _load("execution/experiment_group_schema.json")
+    expected_payload_refs = {
+        "ExperimentGroupListResponse": "ExperimentGroupListPayload",
+        "ExperimentGroupDetailResponse": "ExperimentGroupDetailPayload",
+        "GroupedConfigurationRunListResponse": "GroupedConfigurationRunListPayload",
+    }
+
+    for response_name, payload_name in expected_payload_refs.items():
+        definition = schema["definitions"][response_name]
+        payload_definition = schema["definitions"][payload_name]
+        properties = definition["properties"]
+
+        assert {"$ref": "../success_envelope_schema.json"} in definition.get("allOf", [])
+        assert {"success", "message", "data"} <= set(definition["required"])
+        assert properties["success"].get("const") is True
+        assert properties["data"]["$ref"] == f"#/definitions/{payload_name}"
+        assert payload_definition["additionalProperties"] is False
+        for bare_top_level_key in ("items", "group", "source_experiments", "pagination"):
+            assert bare_top_level_key not in properties

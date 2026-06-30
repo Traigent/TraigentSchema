@@ -111,6 +111,137 @@
         }
       }
     },
+    "/api/v1/experiment-groups": {
+      "get": {
+        "summary": "List additive experiment groups by shared agent and canonical dataset",
+        "description": "Returns read-time groups of visible experiments that share agent_id and canonical dataset_id. The grouping key is scoped by tenant/project/user visibility. Legacy dataset aliases are resolved to the canonical persisted dataset_id before grouping; dataset_id null represents the explicit no-dataset group and must not be confused with empty or unknown.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "query",
+            "required": false,
+            "description": "Canonical dataset id filter after legacy alias resolution. Omit for all groups; use the explicit no-dataset filter supported by backend query semantics rather than an empty string.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Experiment groups retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiment-groups/{group_id}": {
+      "get": {
+        "summary": "Get additive experiment group detail",
+        "description": "Fetches one visible read-time experiment group by opaque group_id. The group_id is a lookup token only; authorization remains tenant/project/user scoped.",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/OpaqueExperimentGroupId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Experiment group retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupDetailResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiment-groups/{group_id}/configuration-runs": {
+      "get": {
+        "summary": "List source configuration runs for an experiment group",
+        "description": "Returns source configuration-run rows for the visible group. Rows keep configuration_run_id, experiment_run_id, and experiment_id so consumers can trace provenance. Rows must not be deduplicated by tuned variables, objectives, config hash, display name, or status.",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/OpaqueExperimentGroupId"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Grouped configuration runs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/GroupedConfigurationRunListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/experiment-runs/{experiment_id}/runs": {
       "get": {
         "summary": "List experiment runs for an experiment",

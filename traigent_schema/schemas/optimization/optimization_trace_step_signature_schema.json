@@ -1,0 +1,348 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/optimization_trace_step_signature_schema.json",
+  "title": "Optimization Trace Step Signature",
+  "description": "SERVER-INTERNAL content-free optimization trace step signature. Not a client or SDK endpoint contract.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "config_results",
+    "insights",
+    "lessons_learned",
+    "inferred_optimization_rules",
+    "benchmark_rules",
+    "evaluator_rules",
+    "stability",
+    "hard_examples",
+    "provenance"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "OpaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "ValueBucket": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9_.:@+=,-]+$"
+    },
+    "Coverage": {
+      "type": "string",
+      "enum": [
+        "full",
+        "partial",
+        "none"
+      ]
+    },
+    "CoverageReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_:-]*$"
+    },
+    "SourceCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "ScopeEnum": {
+      "type": "string",
+      "enum": [
+        "global",
+        "trace",
+        "step",
+        "dataset",
+        "agent",
+        "configuration",
+        "metric",
+        "benchmark",
+        "evaluator",
+        "example"
+      ]
+    },
+    "PolarityEnum": {
+      "type": "string",
+      "enum": [
+        "avoid",
+        "prefer"
+      ]
+    },
+    "DirectionEnum": {
+      "type": "string",
+      "enum": [
+        "increase",
+        "decrease",
+        "mixed",
+        "flat"
+      ]
+    },
+    "ConfidenceEnum": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "LimitationEnum": {
+      "type": "string",
+      "enum": [
+        "small_n",
+        "partial_coverage",
+        "stale_source",
+        "metric_specific",
+        "no_holdout",
+        "mixed_effect",
+        "tenant_local"
+      ]
+    },
+    "FailureMode": {
+      "type": "string",
+      "enum": [
+        "wrong_answer",
+        "timeout",
+        "exception",
+        "policy_violation",
+        "low_confidence",
+        "metric_regression",
+        "nondeterministic",
+        "unknown"
+      ]
+    },
+    "LessonAtom": {
+      "type": "object",
+      "required": [
+        "scope_enum",
+        "subject_id",
+        "value_bucket",
+        "polarity_enum",
+        "metric_id",
+        "delta",
+        "n",
+        "confidence_enum",
+        "limitation_enum"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "scope_enum": {
+          "$ref": "#/definitions/ScopeEnum"
+        },
+        "subject_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "value_bucket": {
+          "$ref": "#/definitions/ValueBucket"
+        },
+        "polarity_enum": {
+          "$ref": "#/definitions/PolarityEnum"
+        },
+        "metric_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "delta": {
+          "type": "number"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confidence_enum": {
+          "$ref": "#/definitions/ConfidenceEnum"
+        },
+        "limitation_enum": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LimitationEnum"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "RuleAtom": {
+      "type": "object",
+      "required": [
+        "param_id",
+        "value_bucket",
+        "metric_id",
+        "direction_enum",
+        "delta",
+        "n",
+        "polarity_enum",
+        "confidence_enum"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "param_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "value_bucket": {
+          "$ref": "#/definitions/ValueBucket"
+        },
+        "metric_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "direction_enum": {
+          "$ref": "#/definitions/DirectionEnum"
+        },
+        "delta": {
+          "type": "number"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "polarity_enum": {
+          "$ref": "#/definitions/PolarityEnum"
+        },
+        "confidence_enum": {
+          "$ref": "#/definitions/ConfidenceEnum"
+        }
+      }
+    },
+    "HardExampleAtom": {
+      "type": "object",
+      "required": [
+        "example_id",
+        "failure_mode"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "example_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "failure_mode": {
+          "$ref": "#/definitions/FailureMode"
+        }
+      }
+    },
+    "SectionAtom": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/LessonAtom"
+        },
+        {
+          "$ref": "#/definitions/RuleAtom"
+        }
+      ]
+    },
+    "SignatureSection": {
+      "type": "object",
+      "required": [
+        "coverage",
+        "coverage_reason",
+        "source_counts",
+        "source_refs",
+        "redaction_applied",
+        "items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "$ref": "#/definitions/Coverage"
+        },
+        "coverage_reason": {
+          "$ref": "#/definitions/CoverageReason"
+        },
+        "source_counts": {
+          "$ref": "#/definitions/SourceCounts"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OpaqueId"
+          },
+          "uniqueItems": true
+        },
+        "redaction_applied": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SectionAtom"
+          }
+        }
+      }
+    },
+    "HardExamplesSection": {
+      "type": "object",
+      "required": [
+        "coverage",
+        "coverage_reason",
+        "source_counts",
+        "source_refs",
+        "redaction_applied",
+        "items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "$ref": "#/definitions/Coverage"
+        },
+        "coverage_reason": {
+          "$ref": "#/definitions/CoverageReason"
+        },
+        "source_counts": {
+          "$ref": "#/definitions/SourceCounts"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OpaqueId"
+          },
+          "uniqueItems": true
+        },
+        "redaction_applied": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HardExampleAtom"
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "config_results": {
+      "$ref": "#/definitions/SignatureSection"
+    },
+    "insights": {
+      "$ref": "#/definitions/SignatureSection"
+    },
+    "lessons_learned": {
+      "$ref": "#/definitions/SignatureSection"
+    },
+    "inferred_optimization_rules": {
+      "$ref": "#/definitions/SignatureSection"
+    },
+    "benchmark_rules": {
+      "$ref": "#/definitions/SignatureSection"
+    },
+    "evaluator_rules": {
+      "$ref": "#/definitions/SignatureSection"
+    },
+    "stability": {
+      "$ref": "#/definitions/SignatureSection"
+    },
+    "hard_examples": {
+      "$ref": "#/definitions/HardExamplesSection"
+    },
+    "provenance": {
+      "$ref": "#/definitions/SignatureSection"
+    }
+  }
+}

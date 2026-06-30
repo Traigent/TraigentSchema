@@ -16,6 +16,7 @@
       "analytics_runs_routes",
       "example_scoring_routes",
       "evaluation_routes",
+      "experiment_group_routes",
       "optimization_comparison_routes",
       "hybrid_routes"
     ],

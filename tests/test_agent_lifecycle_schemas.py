@@ -460,6 +460,100 @@ def _valid_optimization_trace_step_signature_payload() -> dict[str, object]:
     }
 
 
+def _valid_optimization_trace_config_result_atom() -> dict[str, object]:
+    return {
+        "config_ref": "config_7",
+        "params": [
+            {
+                "param_id": "param.temperature",
+                "value": "0.2",
+            },
+            {
+                "param_id": "param.model",
+                "value": "model:gpt-5.5",
+            },
+        ],
+        "metrics": [
+            {
+                "metric_id": "metric.accuracy",
+                "value": 0.91,
+                "n": 12,
+            }
+        ],
+        "rank": 1,
+    }
+
+
+def _valid_optimization_trace_lesson_atom() -> dict[str, object]:
+    return {
+        "scope_enum": "configuration",
+        "subject_id": "param.temperature",
+        "value_bucket": "bucket_low",
+        "polarity_enum": "prefer",
+        "metric_id": "metric.accuracy",
+        "delta": 0.03,
+        "n": 4,
+        "confidence_enum": "medium",
+        "limitation_enum": ["small_n"],
+    }
+
+
+def _valid_optimization_trace_rule_atom() -> dict[str, object]:
+    return {
+        "param_id": "param.temperature",
+        "value_bucket": "bucket_low",
+        "metric_id": "metric.latency_ms",
+        "direction_enum": "decrease",
+        "delta": -12.5,
+        "n": 4,
+        "polarity_enum": "prefer",
+        "confidence_enum": "medium",
+    }
+
+
+def _valid_optimization_trace_insight_atom() -> dict[str, object]:
+    return {
+        "rule_id": "winner_primary_metric",
+        "severity": "info",
+        "atom_type": "config_metric_winner",
+        "metric_id": "metric.accuracy",
+        "config_ref": "config_7",
+        "value": 0.91,
+        "related_config_refs": ["config_3"],
+        "n": 12,
+    }
+
+
+def _valid_optimization_trace_stability_atom() -> dict[str, object]:
+    return {
+        "metric_id": "metric.accuracy",
+        "mean": 0.88,
+        "stddev": 0.04,
+        "n": 12,
+        "coefficient_of_variation": 0.045,
+    }
+
+
+def _valid_optimization_trace_provenance_atom() -> dict[str, object]:
+    return {
+        "data_hash": "hash:abc123",
+        "extractor_version": "m2.0",
+        "report_id": "report:run_7",
+        "source_counts": {
+            "aggregated_results": 2,
+            "raw_example_results": 12,
+            "insights": 1,
+        },
+    }
+
+
+def _valid_optimization_trace_hard_example_atom() -> dict[str, object]:
+    return {
+        "example_id": "ex_opaque_1",
+        "failure_mode": "wrong_answer",
+    }
+
+
 class SchemaLeakFinding(NamedTuple):
     relative_path: str
     json_path: str
@@ -1058,68 +1152,116 @@ class TestOptimizationTraceInternalSignatureSchemas:
     def test_step_signature_accepts_content_free_atoms(self, validator):
         payload = _valid_optimization_trace_step_signature_payload()
 
+        insights = payload["insights"]
         lessons = payload["lessons_learned"]
         rules = payload["inferred_optimization_rules"]
+        benchmark_rules = payload["benchmark_rules"]
+        evaluator_rules = payload["evaluator_rules"]
+        stability = payload["stability"]
         hard_examples = payload["hard_examples"]
+        provenance = payload["provenance"]
+        assert isinstance(insights, dict)
         assert isinstance(lessons, dict)
         assert isinstance(rules, dict)
+        assert isinstance(benchmark_rules, dict)
+        assert isinstance(evaluator_rules, dict)
+        assert isinstance(stability, dict)
         assert isinstance(hard_examples, dict)
+        assert isinstance(provenance, dict)
 
-        lessons["items"] = [
-            {
-                "scope_enum": "configuration",
-                "subject_id": "param.temperature",
-                "value_bucket": "bucket_low",
-                "polarity_enum": "prefer",
-                "metric_id": "metric.accuracy",
-                "delta": 0.03,
-                "n": 4,
-                "confidence_enum": "medium",
-                "limitation_enum": ["small_n"],
-            }
-        ]
-        rules["items"] = [
-            {
-                "param_id": "param.temperature",
-                "value_bucket": "bucket_low",
-                "metric_id": "metric.latency_ms",
-                "direction_enum": "decrease",
-                "delta": -12.5,
-                "n": 4,
-                "polarity_enum": "prefer",
-                "confidence_enum": "medium",
-            }
-        ]
-        hard_examples["items"] = [
-            {
-                "example_id": "ex_opaque_1",
-                "failure_mode": "wrong_answer",
-            }
-        ]
+        insights["items"] = [_valid_optimization_trace_insight_atom()]
+        lessons["items"] = [_valid_optimization_trace_lesson_atom()]
+        rules["items"] = [_valid_optimization_trace_rule_atom()]
+        benchmark_rules["items"] = [_valid_optimization_trace_rule_atom()]
+        evaluator_rules["items"] = [_valid_optimization_trace_rule_atom()]
+        stability["items"] = [_valid_optimization_trace_stability_atom()]
+        hard_examples["items"] = [_valid_optimization_trace_hard_example_atom()]
+        provenance["items"] = [_valid_optimization_trace_provenance_atom()]
 
         errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
 
         assert errors == []
 
-    @pytest.mark.parametrize("forbidden_key", ["statement", "evidence"])
-    def test_step_signature_rejects_free_text_atom_fields(self, validator, forbidden_key):
+    @pytest.mark.parametrize(
+        "failure_mode",
+        ["difficult", "low_value", "redundant"],
+    )
+    def test_step_signature_accepts_extractor_hard_example_failure_modes(
+        self,
+        validator,
+        failure_mode,
+    ):
         payload = _valid_optimization_trace_step_signature_payload()
-        lessons = payload["lessons_learned"]
-        assert isinstance(lessons, dict)
-        lessons["items"] = [
-            {
-                "scope_enum": "configuration",
-                "subject_id": "param.temperature",
-                "value_bucket": "bucket_low",
-                "polarity_enum": "prefer",
-                "metric_id": "metric.accuracy",
-                "delta": 0.03,
-                "n": 4,
-                "confidence_enum": "medium",
-                "limitation_enum": [],
-                forbidden_key: "raw prose must not fit the atom contract",
-            }
-        ]
+        hard_examples = payload["hard_examples"]
+        assert isinstance(hard_examples, dict)
+
+        atom = _valid_optimization_trace_hard_example_atom()
+        atom["failure_mode"] = failure_mode
+        hard_examples["items"] = [atom]
+
+        errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
+
+        assert errors == []
+
+    def test_step_signature_accepts_config_result_atoms(self, validator):
+        payload = _valid_optimization_trace_step_signature_payload()
+        config_results = payload["config_results"]
+        assert isinstance(config_results, dict)
+
+        config_results["items"] = [_valid_optimization_trace_config_result_atom()]
+
+        errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
+
+        assert errors == []
+
+    def test_step_signature_rejects_config_result_values_with_spaces(self, validator):
+        payload = _valid_optimization_trace_step_signature_payload()
+        config_results = payload["config_results"]
+        assert isinstance(config_results, dict)
+
+        atom = _valid_optimization_trace_config_result_atom()
+        params = atom["params"]
+        assert isinstance(params, list)
+        first_param = params[0]
+        assert isinstance(first_param, dict)
+        first_param["value"] = "raw prompt value"
+        config_results["items"] = [atom]
+
+        errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
+
+        assert errors
+
+    @pytest.mark.parametrize("forbidden_key", ["statement", "evidence"])
+    @pytest.mark.parametrize(
+        ("section_name", "atom"),
+        [
+            ("config_results", _valid_optimization_trace_config_result_atom()),
+            ("insights", _valid_optimization_trace_insight_atom()),
+            ("lessons_learned", _valid_optimization_trace_lesson_atom()),
+            ("inferred_optimization_rules", _valid_optimization_trace_rule_atom()),
+            ("benchmark_rules", _valid_optimization_trace_rule_atom()),
+            ("evaluator_rules", _valid_optimization_trace_rule_atom()),
+            ("stability", _valid_optimization_trace_stability_atom()),
+            ("hard_examples", _valid_optimization_trace_hard_example_atom()),
+            ("provenance", _valid_optimization_trace_provenance_atom()),
+        ],
+    )
+    def test_step_signature_rejects_free_text_atom_fields_anywhere(
+        self,
+        validator,
+        section_name,
+        atom,
+        forbidden_key,
+    ):
+        payload = _valid_optimization_trace_step_signature_payload()
+        section = payload[section_name]
+        assert isinstance(section, dict)
+
+        atom_with_forbidden_field = copy.deepcopy(atom)
+        atom_with_forbidden_field[forbidden_key] = (
+            "raw prose must not fit the atom contract"
+        )
+        section["items"] = [atom_with_forbidden_field]
 
         errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
 

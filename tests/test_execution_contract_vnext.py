@@ -82,28 +82,95 @@ def test_offline_true_validates_on_sdk_requests() -> None:
     ) == []
 
 
-def test_legacy_execution_mode_hybrid_still_validates_and_is_deprecated() -> None:
+def test_legacy_execution_modes_still_validate_local_is_preferred() -> None:
     validator = SchemaValidator()
     execution_schema = _load_schema("execution/execution_mode_schema.json")
     strategy_schema = _load_schema("optimization/optimization_strategy_schema.json")
 
-    assert validator.validate_json(
-        {"execution_mode": "hybrid", "experiment_id": "experiment_123"},
-        "execution_mode_schema",
-    ) == []
+    for mode in ("local", "edge_analytics", "hybrid"):
+        assert validator.validate_json(
+            {"execution_mode": mode, "experiment_id": "experiment_123"},
+            "execution_mode_schema",
+        ) == []
+
     assert execution_schema["definitions"]["ExecutionMode"]["enum"] == [
+        "local",
         "edge_analytics",
         "hybrid",
         "hybrid_api",
     ]
     assert execution_schema["definitions"]["ExecutionMode"]["deprecated"] is True
+    assert (
+        execution_schema["definitions"]["ExecutionMode"]["x-preferred-values"]["local"]
+        == "Preferred name for client-side local orchestration (grid, random algorithms)."
+    )
+    assert "edge_analytics" in execution_schema["definitions"]["ExecutionMode"][
+        "x-deprecated-values"
+    ]
     assert execution_schema["properties"]["execution_mode"]["deprecated"] is True
     assert strategy_schema["definitions"]["OptimizationExecutionMode"]["enum"] == [
+        "local",
         "edge_analytics",
         "hybrid",
         "hybrid_api",
     ]
     assert strategy_schema["definitions"]["OptimizationExecutionMode"]["deprecated"] is True
+    assert strategy_schema["x-traigent-optimization-capabilities"]["grid"][
+        "execution_mode"
+    ] == "local"
+    assert strategy_schema["x-traigent-optimization-capabilities"]["random"][
+        "execution_mode"
+    ] == "local"
+    assert strategy_schema["x-traigent-optimization-capabilities"]["grid"][
+        "deprecated_execution_modes"
+    ] == ["edge_analytics"]
+    assert strategy_schema["x-traigent-optimization-capabilities"]["random"][
+        "deprecated_execution_modes"
+    ] == ["edge_analytics"]
+
+
+def test_sdk_session_create_accepts_local_and_edge_analytics_execution_modes() -> None:
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    for mode in ("local", "edge_analytics"):
+        assert validator.validate_request(
+            "/api/v1/sessions",
+            "POST",
+            _session_create_payload(
+                algorithm="grid",
+                offline=True,
+                execution_mode=mode,
+            ),
+        ) == []
+
+
+def test_native_local_grid_random_create_and_submit_validate() -> None:
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    for algorithm in ("grid", "random"):
+        assert validator.validate_request(
+            "/api/v1/sessions",
+            "POST",
+            _session_create_payload(
+                algorithm=algorithm,
+                offline=True,
+                execution_mode="local",
+                metadata={"tracking": "native-local"},
+            ),
+        ) == []
+
+    assert validator.validate_request(
+        "/api/v1/sessions/session_local_123/results",
+        "POST",
+        {
+            "trial_id": "trial-local-1",
+            "metrics": {"accuracy": 0.91},
+            "config": {"temperature": 0.2, "top_k": 3},
+            "duration": 0.25,
+            "status": "COMPLETED",
+            "metadata": {"tracking": "native-local"},
+        },
+    ) == []
 
 
 def test_hybrid_api_options_validate_on_schema_and_sdk_requests() -> None:

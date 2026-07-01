@@ -224,6 +224,72 @@
         }
       }
     },
+    "ConfigResultParam": {
+      "type": "object",
+      "required": [
+        "param_id",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "param_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "value": {
+          "$ref": "#/definitions/ValueBucket"
+        }
+      }
+    },
+    "ConfigResultMetric": {
+      "type": "object",
+      "required": [
+        "metric_id",
+        "value",
+        "n"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "metric_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "value": {
+          "type": "number"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "ConfigResultAtom": {
+      "type": "object",
+      "required": [
+        "config_ref",
+        "params",
+        "metrics"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "config_ref": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConfigResultParam"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConfigResultMetric"
+          }
+        },
+        "rank": {
+          "type": "integer"
+        }
+      }
+    },
     "SectionAtom": {
       "oneOf": [
         {
@@ -273,6 +339,45 @@
         }
       }
     },
+    "ConfigResultsSection": {
+      "type": "object",
+      "required": [
+        "coverage",
+        "coverage_reason",
+        "source_counts",
+        "source_refs",
+        "redaction_applied",
+        "items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "$ref": "#/definitions/Coverage"
+        },
+        "coverage_reason": {
+          "$ref": "#/definitions/CoverageReason"
+        },
+        "source_counts": {
+          "$ref": "#/definitions/SourceCounts"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OpaqueId"
+          },
+          "uniqueItems": true
+        },
+        "redaction_applied": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConfigResultAtom"
+          }
+        }
+      }
+    },
     "HardExamplesSection": {
       "type": "object",
       "required": [
@@ -318,7 +423,7 @@
       "type": "string"
     },
     "config_results": {
-      "$ref": "#/definitions/SignatureSection"
+      "$ref": "#/definitions/ConfigResultsSection"
     },
     "insights": {
       "$ref": "#/definitions/SignatureSection"

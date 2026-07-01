@@ -262,10 +262,10 @@
                     "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."
                   },
                   "execution_mode": {
-                    "$ref": "https://schemas.traigent.ai/execution/execution_mode_schema.json#/definitions/ExecutionMode",
+                    "type": "string",
                     "deprecated": true,
                     "x-deprecated": "Use algorithm/offline and hybrid_api_options instead. local is the preferred client-side value; edge_analytics remains accepted for deployed clients.",
-                    "description": "Deprecated legacy execution-mode selector for SDK session create. local is preferred for client-side grid/random execution; edge_analytics remains a deprecated accepted alias."
+                    "description": "Deprecated legacy execution-mode selector for SDK session create. Free-form string (kept back-compatible): the canonical values are local (preferred, client-side grid/random), hybrid, hybrid_api; edge_analytics remains a deprecated accepted alias, and the backend also accepts the wire aliases cloud/standard/privacy/native, which it validates and maps server-side. Not enum-constrained here so no deployed client sending a valid backend alias is rejected."
                   },
                   "promotion_policy": {
                     "$ref": "https://schemas.traigent.ai/optimization/promotion_policy_schema.json"

@@ -136,6 +136,11 @@
       "items": { "type": "string" },
       "description": "Lists API-key scope tokens that are considered privileged and cannot be requested by end users (e.g. 'admin:all'). Placed on the authorization vocabulary schema alongside x-user-requestable-scopes."
     },
+    "x-preferred-values": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Documents preferred enum values for compatibility migrations where deprecated aliases remain accepted. Keys are preferred enum values; values explain when clients should use them."
+    },
     "x-reference": {
       "type": "string",
       "description": "A $ref-style pointer (relative path or JSON Pointer) to the canonical definition of this concept elsewhere in the schema graph. Used for cross-schema identity tracing and documentation of canonical sources."
@@ -193,6 +198,11 @@
     "x-token-ref": {
       "type": "string",
       "description": "A $ref-style JSON Pointer to the token definition (within the same schema) that governs the allowed values for a scope or permission string field. Used on enum/pattern fields that are constrained by a named token type defined elsewhere in the same file."
+    },
+    "x-deprecated-values": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Documents deprecated enum values that remain accepted for backward compatibility. Keys are deprecated enum values; values explain the preferred replacement or migration note."
     },
     "x-traigent-body": {
       "type": "string",

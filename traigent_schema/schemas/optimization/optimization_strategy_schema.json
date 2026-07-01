@@ -18,14 +18,16 @@
     "grid": {
       "canonical_algorithm": "grid",
       "implementation_status": "supported",
-      "execution_mode": "edge_analytics",
-      "description": "Client-side exhaustive grid search (edge_analytics mode)."
+      "execution_mode": "local",
+      "deprecated_execution_modes": ["edge_analytics"],
+      "description": "Client-side exhaustive grid search (local mode; edge_analytics remains a deprecated accepted alias)."
     },
     "random": {
       "canonical_algorithm": "random",
       "implementation_status": "supported",
-      "execution_mode": "edge_analytics",
-      "description": "Client-side random search (edge_analytics mode)."
+      "execution_mode": "local",
+      "deprecated_execution_modes": ["edge_analytics"],
+      "description": "Client-side random search (local mode; edge_analytics remains a deprecated accepted alias)."
     },
     "bayesian": {
       "canonical_algorithm": "tpe",
@@ -90,8 +92,15 @@
       "type": "string",
       "deprecated": true,
       "x-deprecated": "Use algorithm/offline and hybrid_api_options instead. execution_mode will be removed in a future major version.",
-      "description": "Deprecated legacy execution-mode capability metadata. Public clients should use algorithm/offline and hybrid_api_options.",
+      "x-preferred-values": {
+        "local": "Preferred name for client-side local orchestration (grid, random algorithms)."
+      },
+      "x-deprecated-values": {
+        "edge_analytics": "Deprecated alias for local. Keep accepting edge_analytics for deployed clients."
+      },
+      "description": "Deprecated legacy execution-mode capability metadata. Public clients should use algorithm/offline and hybrid_api_options. local is the preferred client-side mode name; edge_analytics remains accepted as a deprecated alias.",
       "enum": [
+        "local",
         "edge_analytics",
         "hybrid",
         "hybrid_api"
@@ -125,6 +134,13 @@
         },
         "deprecated": {
           "type": "boolean"
+        },
+        "deprecated_execution_modes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OptimizationExecutionMode"
+          },
+          "description": "Deprecated execution-mode aliases still accepted for compatibility."
         },
         "description": {
           "type": "string"

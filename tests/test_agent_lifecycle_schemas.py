@@ -511,6 +511,42 @@ def _valid_optimization_trace_rule_atom() -> dict[str, object]:
     }
 
 
+def _valid_optimization_trace_insight_atom() -> dict[str, object]:
+    return {
+        "rule_id": "winner_primary_metric",
+        "severity": "info",
+        "atom_type": "config_metric_winner",
+        "metric_id": "metric.accuracy",
+        "config_ref": "config_7",
+        "value": 0.91,
+        "related_config_refs": ["config_3"],
+        "n": 12,
+    }
+
+
+def _valid_optimization_trace_stability_atom() -> dict[str, object]:
+    return {
+        "metric_id": "metric.accuracy",
+        "mean": 0.88,
+        "stddev": 0.04,
+        "n": 12,
+        "coefficient_of_variation": 0.045,
+    }
+
+
+def _valid_optimization_trace_provenance_atom() -> dict[str, object]:
+    return {
+        "data_hash": "hash:abc123",
+        "extractor_version": "m2.0",
+        "report_id": "report:run_7",
+        "source_counts": {
+            "aggregated_results": 2,
+            "raw_example_results": 12,
+            "insights": 1,
+        },
+    }
+
+
 def _valid_optimization_trace_hard_example_atom() -> dict[str, object]:
     return {
         "example_id": "ex_opaque_1",
@@ -1116,16 +1152,52 @@ class TestOptimizationTraceInternalSignatureSchemas:
     def test_step_signature_accepts_content_free_atoms(self, validator):
         payload = _valid_optimization_trace_step_signature_payload()
 
+        insights = payload["insights"]
         lessons = payload["lessons_learned"]
         rules = payload["inferred_optimization_rules"]
+        benchmark_rules = payload["benchmark_rules"]
+        evaluator_rules = payload["evaluator_rules"]
+        stability = payload["stability"]
         hard_examples = payload["hard_examples"]
+        provenance = payload["provenance"]
+        assert isinstance(insights, dict)
         assert isinstance(lessons, dict)
         assert isinstance(rules, dict)
+        assert isinstance(benchmark_rules, dict)
+        assert isinstance(evaluator_rules, dict)
+        assert isinstance(stability, dict)
         assert isinstance(hard_examples, dict)
+        assert isinstance(provenance, dict)
 
+        insights["items"] = [_valid_optimization_trace_insight_atom()]
         lessons["items"] = [_valid_optimization_trace_lesson_atom()]
         rules["items"] = [_valid_optimization_trace_rule_atom()]
+        benchmark_rules["items"] = [_valid_optimization_trace_rule_atom()]
+        evaluator_rules["items"] = [_valid_optimization_trace_rule_atom()]
+        stability["items"] = [_valid_optimization_trace_stability_atom()]
         hard_examples["items"] = [_valid_optimization_trace_hard_example_atom()]
+        provenance["items"] = [_valid_optimization_trace_provenance_atom()]
+
+        errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
+
+        assert errors == []
+
+    @pytest.mark.parametrize(
+        "failure_mode",
+        ["difficult", "low_value", "redundant"],
+    )
+    def test_step_signature_accepts_extractor_hard_example_failure_modes(
+        self,
+        validator,
+        failure_mode,
+    ):
+        payload = _valid_optimization_trace_step_signature_payload()
+        hard_examples = payload["hard_examples"]
+        assert isinstance(hard_examples, dict)
+
+        atom = _valid_optimization_trace_hard_example_atom()
+        atom["failure_mode"] = failure_mode
+        hard_examples["items"] = [atom]
 
         errors = validator.validate_json(payload, "optimization_trace_step_signature_schema")
 
@@ -1164,14 +1236,14 @@ class TestOptimizationTraceInternalSignatureSchemas:
         ("section_name", "atom"),
         [
             ("config_results", _valid_optimization_trace_config_result_atom()),
-            ("insights", _valid_optimization_trace_lesson_atom()),
+            ("insights", _valid_optimization_trace_insight_atom()),
             ("lessons_learned", _valid_optimization_trace_lesson_atom()),
             ("inferred_optimization_rules", _valid_optimization_trace_rule_atom()),
             ("benchmark_rules", _valid_optimization_trace_rule_atom()),
             ("evaluator_rules", _valid_optimization_trace_rule_atom()),
-            ("stability", _valid_optimization_trace_lesson_atom()),
+            ("stability", _valid_optimization_trace_stability_atom()),
             ("hard_examples", _valid_optimization_trace_hard_example_atom()),
-            ("provenance", _valid_optimization_trace_lesson_atom()),
+            ("provenance", _valid_optimization_trace_provenance_atom()),
         ],
     )
     def test_step_signature_rejects_free_text_atom_fields_anywhere(

@@ -15,6 +15,10 @@
       "type": "string",
       "maxLength": 255,
       "description": "Updated organization."
+    },
+    "interaction_policy": {
+      "$ref": "./interaction_policy_schema.json",
+      "description": "Optional stored persona interaction policy for future agent sessions."
     }
   },
   "required": []

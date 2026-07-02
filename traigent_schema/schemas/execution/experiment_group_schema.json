@@ -1,0 +1,436 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/experiment_group_schema.json",
+  "title": "Experiment Group Schemas",
+  "description": "Read-only experiment-run grouping by visibility-scoped agent_id and canonical dataset_id. Group ids are opaque URL-safe lookup tokens and are never an authorization boundary.",
+  "type": "object",
+  "definitions": {
+    "OpaqueExperimentGroupId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "description": "Opaque URL-safe experiment group lookup token. The backend must still authorize by tenant/project/user context and must not derive authorization from this token."
+    },
+    "CanonicalDatasetId": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Canonical persisted evaluation dataset id after resolving legacy aliases such as eval_dataset_id, evaluation_set_id, or benchmark_id. Null means this group is explicitly the no-dataset group; empty string and unknown alias values must not be emitted."
+    },
+    "ExperimentRunStatusCounts": {
+      "type": "object",
+      "description": "Counts by canonical ExperimentRunStatus values.",
+      "patternProperties": {
+        "^(NOT_STARTED|PENDING|PAUSED|RUNNING|FAILED|COMPLETED|CANCELLED|UNKNOWN|PARTIALLY_DELETED)$": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConfigurationRunStatusCounts": {
+      "type": "object",
+      "description": "Counts by canonical ConfigurationRunStatus values.",
+      "patternProperties": {
+        "^(NOT_STARTED|RUNNING|COMPLETED|FAILED|UNKNOWN|CANCELLED|PRUNED)$": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExperimentGroupStatusSummary": {
+      "type": "object",
+      "description": "Evidence-supported status counts for the runs contained in the group.",
+      "required": [
+        "experiment_run_status_counts",
+        "configuration_run_status_counts"
+      ],
+      "properties": {
+        "experiment_run_status_counts": {
+          "$ref": "#/definitions/ExperimentRunStatusCounts"
+        },
+        "configuration_run_status_counts": {
+          "$ref": "#/definitions/ConfigurationRunStatusCounts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExperimentGroupOverview": {
+      "type": "object",
+      "description": "Additive read-time group overview for experiments sharing the same visible agent_id and canonical dataset_id.",
+      "required": [
+        "group_id",
+        "agent_id",
+        "dataset_id",
+        "experiment_count",
+        "experiment_run_count",
+        "configuration_run_count",
+        "created_at",
+        "updated_at",
+        "first_experiment_created_at",
+        "last_experiment_updated_at",
+        "first_experiment_run_created_at",
+        "last_experiment_run_updated_at",
+        "status_summary"
+      ],
+      "properties": {
+        "group_id": {
+          "$ref": "#/definitions/OpaqueExperimentGroupId"
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Canonical agent id used for grouping within the caller's visible tenant/project/user scope."
+        },
+        "dataset_id": {
+          "$ref": "#/definitions/CanonicalDatasetId"
+        },
+        "experiment_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of source experiments in the group."
+        },
+        "experiment_run_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of source experiment runs in the group."
+        },
+        "configuration_run_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of source configuration runs in the group."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Group creation timestamp derived from the earliest source experiment timestamp."
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Group update timestamp derived from the latest source experiment or run timestamp."
+        },
+        "first_experiment_created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Earliest source experiment creation timestamp in the group."
+        },
+        "last_experiment_updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Latest source experiment update timestamp in the group."
+        },
+        "first_experiment_run_created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "Earliest source experiment-run creation timestamp, or null when no experiment runs exist."
+        },
+        "last_experiment_run_updated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "Latest source experiment-run update timestamp, or null when no experiment runs exist."
+        },
+        "status_summary": {
+          "$ref": "#/definitions/ExperimentGroupStatusSummary"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExperimentGroupSourceExperiment": {
+      "type": "object",
+      "description": "Source experiment identity included by the group detail endpoint.",
+      "required": [
+        "experiment_id",
+        "name",
+        "status",
+        "experiment_run_count",
+        "configuration_run_count",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "experiment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "../status_schema.json#/definitions/ExperimentRunStatus"
+        },
+        "experiment_run_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "configuration_run_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupedConfigurationRun": {
+      "type": "object",
+      "description": "One source configuration run row. Rows are grouped by source identity only and must not be deduplicated by tuned variables, objectives, config hashes, display names, or status.",
+      "required": [
+        "configuration_run_id",
+        "experiment_run_id",
+        "experiment_id",
+        "run_label",
+        "run_name",
+        "status",
+        "created_at",
+        "started_at",
+        "completed_at",
+        "updated_at",
+        "configuration",
+        "parameters"
+      ],
+      "properties": {
+        "configuration_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source configuration run id."
+        },
+        "experiment_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source experiment run id."
+        },
+        "experiment_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source experiment id."
+        },
+        "run_label": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Human label for the source run when available; null when not set."
+        },
+        "run_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Human name for the source run when available; null when not set."
+        },
+        "status": {
+          "$ref": "../status_schema.json#/definitions/ConfigurationRunStatus"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "configuration": {
+          "type": "object",
+          "description": "Full configuration object for this source configuration run.",
+          "additionalProperties": true
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Canonical display parameters for this source configuration run.",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExperimentGroupListPayload": {
+      "type": "object",
+      "description": "Route-specific payload for GET /api/v1/experiment-groups, nested under success-envelope data.",
+      "required": [
+        "items",
+        "pagination"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ExperimentGroupOverview"
+          }
+        },
+        "pagination": {
+          "$ref": "../pagination_schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExperimentGroupListResponse": {
+      "type": "object",
+      "description": "Success-envelope response for GET /api/v1/experiment-groups. experiment_group_routes uses response_handler.paginated_response, so the paginated group-list payload is nested under data.",
+      "allOf": [
+        {
+          "$ref": "../success_envelope_schema.json"
+        }
+      ],
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/definitions/ExperimentGroupListPayload"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExperimentGroupDetailPayload": {
+      "type": "object",
+      "description": "Route-specific payload for GET /api/v1/experiment-groups/{group_id}, nested under success-envelope data.",
+      "required": [
+        "group",
+        "source_experiments"
+      ],
+      "properties": {
+        "group": {
+          "$ref": "#/definitions/ExperimentGroupOverview"
+        },
+        "source_experiments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ExperimentGroupSourceExperiment"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExperimentGroupDetailResponse": {
+      "type": "object",
+      "description": "Success-envelope response for GET /api/v1/experiment-groups/{group_id}. experiment_group_routes uses response_handler.success_response, so the group detail payload is nested under data.",
+      "allOf": [
+        {
+          "$ref": "../success_envelope_schema.json"
+        }
+      ],
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/definitions/ExperimentGroupDetailPayload"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupedConfigurationRunListPayload": {
+      "type": "object",
+      "description": "Route-specific payload for GET /api/v1/experiment-groups/{group_id}/configuration-runs, nested under success-envelope data.",
+      "required": [
+        "items",
+        "pagination"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GroupedConfigurationRun"
+          }
+        },
+        "pagination": {
+          "$ref": "../pagination_schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupedConfigurationRunListResponse": {
+      "type": "object",
+      "description": "Success-envelope response for GET /api/v1/experiment-groups/{group_id}/configuration-runs. experiment_group_routes uses response_handler.paginated_response, so the paginated configuration-run payload is nested under data.",
+      "allOf": [
+        {
+          "$ref": "../success_envelope_schema.json"
+        }
+      ],
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/definitions/GroupedConfigurationRunListPayload"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "group": {
+      "$ref": "#/definitions/ExperimentGroupOverview"
+    }
+  },
+  "additionalProperties": false
+}

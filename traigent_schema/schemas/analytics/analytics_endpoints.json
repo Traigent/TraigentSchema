@@ -3,7 +3,7 @@
   "info": {
     "title": "Traigent Backend Analytics Routes",
     "version": "1.0.0",
-    "description": "Canonical backend routes for example-scoring analytics."
+    "description": "Canonical backend routes for example-scoring analytics and the terminal-first run-analytics surface (decision payload, Pareto, correlations, leaderboard, parameter insights, example insights)."
   },
   "paths": {
     "/api/v1/analytics/example-scoring/{experiment_run_id}/compute": {
@@ -142,6 +142,545 @@
         "responses": {
           "200": {
             "description": "Analytics summary retrieved successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/decision-payload": {
+      "get": {
+        "summary": "Get the decision payload for a run",
+        "responses": {
+          "200": {
+            "description": "Decision payload returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./decision_payload_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/report": {
+      "get": {
+        "summary": "Get the analytics report payload for a run",
+        "responses": {
+          "200": {
+            "description": "Run report payload returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_report_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/pareto": {
+      "get": {
+        "summary": "Get the Pareto-frontier analysis for a run",
+        "responses": {
+          "200": {
+            "description": "Run Pareto analysis returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_pareto_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/correlations": {
+      "get": {
+        "summary": "Get the correlation analysis for a run",
+        "responses": {
+          "200": {
+            "description": "Run correlation analysis returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_correlations_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/leaderboard": {
+      "get": {
+        "summary": "Get the ranked configuration leaderboard for a run",
+        "responses": {
+          "200": {
+            "description": "Run leaderboard returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_leaderboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/parameter-insights": {
+      "get": {
+        "summary": "Get parameter-importance insights for a run",
+        "responses": {
+          "200": {
+            "description": "Run parameter insights returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_parameter_insights_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/example-insights": {
+      "get": {
+        "summary": "Get privacy-bounded example-level insights for a run",
+        "responses": {
+          "200": {
+            "description": "Run example insights returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_example_insights_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

@@ -21,6 +21,7 @@
             "string",
             "null"
           ],
+          "format": "date-time",
           "description": "When the cancellation takes effect (null if not yet determined)."
         },
         "message": {

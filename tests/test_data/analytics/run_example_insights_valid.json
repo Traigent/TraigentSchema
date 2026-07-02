@@ -1,0 +1,88 @@
+{
+  "run_id": "trial_a3f4b2c8d1",
+  "privacy_mode": "safe_agent_projection",
+  "summary": {
+    "example_count": 200,
+    "weak_example_count": 14,
+    "unstable_example_count": 6,
+    "suspicious_example_count": 4,
+    "notable_example_count": 18,
+    "stable_example_count": 182,
+    "dataset_quality": "medium"
+  },
+  "example_rows": [
+    {
+      "safe_example_ref": "exref_0123456789abcdef",
+      "review_priority": "high",
+      "difficulty_bucket": "high",
+      "suspicious_flags": [
+        "possible_mislabel",
+        "anomalous_low_success"
+      ],
+      "recommended_action": "review_label"
+    },
+    {
+      "safe_example_ref": "exref_fedcba9876543210",
+      "review_priority": "medium",
+      "difficulty_bucket": "medium",
+      "suspicious_flags": [
+        "low_sample_support"
+      ],
+      "recommended_action": "increase_repetitions"
+    },
+    {
+      "safe_example_ref": "exref_abcdef0123456789",
+      "review_priority": "critical",
+      "difficulty_bucket": "unknown",
+      "suspicious_flags": [
+        "high_response_variance",
+        "low_agent_strength_correlation"
+      ],
+      "recommended_action": "clarify_expected_output"
+    },
+    {
+      "safe_example_ref": "exref_00112233445566aa",
+      "review_priority": "low",
+      "difficulty_bucket": "low",
+      "suspicious_flags": [
+        "redundant_pattern"
+      ],
+      "recommended_action": "remove_redundant"
+    }
+  ],
+  "cohorts": [
+    {
+      "kind": "weak",
+      "count": 14,
+      "impact": "These examples cap measured accuracy; most models miss them the same way.",
+      "safe_example_refs": [
+        "ex_a3f4b2c8_0",
+        "ex_a3f4b2c8_5"
+      ],
+      "recommendation": "Review labels and consider adding similar coverage."
+    },
+    {
+      "kind": "unstable",
+      "count": 6,
+      "impact": "Scores flip across trials, inflating variance in the leaderboard.",
+      "safe_example_refs": [
+        "ex_91c0aa12_3"
+      ],
+      "recommendation": "Increase repetitions or clarify the expected output."
+    }
+  ],
+  "recommendations": [
+    {
+      "action": "expand_coverage",
+      "reason": "Weak cohort suggests a thin region of the dataset."
+    },
+    {
+      "action": "rerun_larger_sample",
+      "reason": "Unstable cohort indicates the sample is too small to rank reliably."
+    }
+  ],
+  "redactions": {
+    "raw_proprietary_signals_hidden": true,
+    "raw_prompt_text_hidden_by_default": true
+  }
+}

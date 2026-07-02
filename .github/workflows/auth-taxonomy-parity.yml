@@ -1,0 +1,66 @@
+name: Auth-taxonomy parity detector (non-blocking)
+
+# Traigent/TraigentSchema#219 — cross-repo auth-taxonomy parity DETECTOR.
+#
+# Makes auth-taxonomy drift between the Schema JSON enums (the declared source of
+# truth) and the BE/SDK/FE surfaces MECHANICALLY VISIBLE and CONVERGING, without
+# blocking PRs. The detector diffs the Schema enums against a checked-in snapshot
+# of the other surfaces (tests/data/auth_taxonomy_surfaces.json) and asserts every
+# divergence is covered by a SHRINKING allowlist (tests/data/auth_taxonomy_known_
+# drift.yaml). DETECT mode is expected to PASS today (all real drift is allowlisted).
+#
+# THIS JOB IS INTENTIONALLY NON-BLOCKING:
+#   * it is a SEPARATE workflow/job, NOT part of the required `test` job in ci.yml;
+#   * `continue-on-error: true` means a red here never blocks the PR;
+#   * flipping DETECT -> ENFORCE (failing on remaining allowlist rows) is a LATER
+#     issue (Schema#219-enforce); it sets SCHEMA_219_ENFORCE and would make this
+#     gate required at that time.
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "traigent_schema/schemas/auth/**"
+      - "tests/test_auth_taxonomy_parity.py"
+      - "tests/data/auth_taxonomy_surfaces.json"
+      - "tests/data/auth_taxonomy_known_drift.yaml"
+      - ".github/workflows/auth-taxonomy-parity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-taxonomy-parity:
+    name: Auth-taxonomy parity (DETECT, non-blocking)
+    runs-on: ubuntu-latest
+    # Non-blocking: surface drift as a signal, never fail the PR on it.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package (needed for traigent_schema schema path + pyyaml)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run the auth-taxonomy parity detector (DETECT mode)
+        run: |
+          python -m pytest tests/test_auth_taxonomy_parity.py -v
+
+      - name: Explain on drift
+        if: failure()
+        run: |
+          echo "::warning title=Auth-taxonomy drift::The cross-repo auth-taxonomy parity detector found drift NOT covered by the allowlist, or a stale allowlist row (see Traigent/TraigentSchema#219). This job is NON-BLOCKING."
+          echo ""
+          echo "Fix paths:"
+          echo "  - NEW divergence: refresh tests/data/auth_taxonomy_surfaces.json from the named source repo/path/symbol/ref, then add a row to tests/data/auth_taxonomy_known_drift.yaml (owner + phase_issue + remove_by: 'Schema#219-enforce')."
+          echo "  - SURFACES CONVERGED: delete the now-stale row(s) so the allowlist shrinks."
+          echo ""
+          echo "DETECT -> ENFORCE is a later issue (Schema#219-enforce): set SCHEMA_219_ENFORCE=1 to make any remaining allowlist row fail."

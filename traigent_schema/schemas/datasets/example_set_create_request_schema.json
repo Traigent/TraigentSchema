@@ -35,7 +35,9 @@
       "minimum": 0
     },
     "similarity_threshold": {
-      "type": "number"
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
     },
     "tags": {
       "type": "array",

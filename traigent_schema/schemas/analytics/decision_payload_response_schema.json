@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/decision_payload_response_schema.json",
+  "title": "Decision Payload Success Response",
+  "description": "Platform success envelope for GET /api/v1/analytics/runs/{run_id}/decision-payload. The backend route uses response_handler.success_response, so the decision_payload DTO is nested under data.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "https://schemas.traigent.ai/analytics/decision_payload_schema.json"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": ["success", "message", "data"]
+}

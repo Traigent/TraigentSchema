@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/optimization_plan_request_schema.json",
+  "title": "Optimization Plan Request",
+  "description": "Strict POST /api/v1/optimization/plan request. The caller provides only enough task, dataset, objective, and budget context for the backend to return an allowlisted pre-run plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "MetricName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+      "description": "Objective metric name."
+    },
+    "DatasetSummary": {
+      "type": "object",
+      "required": [
+        "size",
+        "has_holdout"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of examples available for optimization planning."
+        },
+        "has_holdout": {
+          "type": "boolean",
+          "description": "Whether the dataset already has a holdout split."
+        }
+      }
+    },
+    "ObjectiveWeights": {
+      "type": "object",
+      "description": "Optional objective-name to relative-weight map. Keys must match entries in objectives; cross-field consistency is enforced by consumers.",
+      "propertyNames": {
+        "$ref": "#/definitions/MetricName"
+      },
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Budget": {
+      "type": "object",
+      "required": [
+        "max_trials",
+        "cost_limit_usd"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "max_trials": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum trial count requested for the planned run."
+        },
+        "cost_limit_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum user-approved spend for the planned run, in USD."
+        }
+      }
+    }
+  },
+  "required": [
+    "task_description",
+    "dataset",
+    "objectives",
+    "budget"
+  ],
+  "properties": {
+    "task_description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "description": "Short natural-language description of the optimization task."
+    },
+    "task_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Optional safe task category supplied by the SDK or skill."
+    },
+    "agent_shape": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Optional safe label for the agent shape being optimized."
+    },
+    "dataset": {
+      "$ref": "#/definitions/DatasetSummary"
+    },
+    "objectives": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "$ref": "#/definitions/MetricName"
+      },
+      "description": "Metric names to plan against."
+    },
+    "weights": {
+      "$ref": "#/definitions/ObjectiveWeights"
+    },
+    "budget": {
+      "$ref": "#/definitions/Budget"
+    },
+    "offline": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the caller requires a fully offline plan."
+    }
+  }
+}

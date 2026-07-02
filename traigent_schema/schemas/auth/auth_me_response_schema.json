@@ -14,7 +14,7 @@
       "required": ["id", "email"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "email": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "format": "email", "minLength": 1, "maxLength": 320 },
         "name": { "type": ["string", "null"] },
         "display_name": { "type": ["string", "null"] },
         "is_admin": {

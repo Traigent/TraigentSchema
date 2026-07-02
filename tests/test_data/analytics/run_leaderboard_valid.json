@@ -1,0 +1,30 @@
+{
+  "run_id": "trial_a3f4b2c8d1",
+  "ranking_basis": {
+    "objective": "weighted_accuracy_cost",
+    "weights": {"accuracy": 0.7, "usd_per_1k": 0.3},
+    "constraints": {"usd_per_1k": 1.0}
+  },
+  "configs": [
+    {
+      "rank": 1,
+      "config_id": "trial_0f12ab",
+      "label": "gpt-4o-mini / structured",
+      "composite_score": 0.88,
+      "measures": {"accuracy": 0.91, "usd_per_1k": 0.42},
+      "confidence": "high",
+      "risk_flags": [],
+      "recommendation": "winner"
+    },
+    {
+      "rank": 2,
+      "config_id": "trial_9c81de",
+      "label": "gpt-4o / structured",
+      "composite_score": 0.81,
+      "measures": {"accuracy": 0.94, "usd_per_1k": 1.10},
+      "confidence": "medium",
+      "risk_flags": ["exceeds_cost_constraint"],
+      "recommendation": "candidate"
+    }
+  ]
+}

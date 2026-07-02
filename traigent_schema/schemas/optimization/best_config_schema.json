@@ -45,11 +45,11 @@
         },
         "created_at": {
           "type": "string",
-          "maxLength": 512
+          "format": "date-time"
         },
         "exported_at": {
           "type": "string",
-          "maxLength": 512
+          "format": "date-time"
         },
         "optimization_id": {
           "type": "string",
@@ -57,7 +57,7 @@
         },
         "published_at": {
           "type": "string",
-          "maxLength": 512
+          "format": "date-time"
         },
         "source": {
           "type": "string",

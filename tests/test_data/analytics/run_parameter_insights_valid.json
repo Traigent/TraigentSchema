@@ -1,0 +1,36 @@
+{
+  "run_id": "trial_a3f4b2c8d1",
+  "target_measure": "accuracy",
+  "min_trials": 8,
+  "drivers": [
+    {
+      "parameter": "model",
+      "importance_score": 0.61,
+      "confidence_interval": [0.48, 0.74],
+      "best_value": "gpt-4o-mini",
+      "suggested_action": "freeze"
+    },
+    {
+      "parameter": "few_shot_k",
+      "importance_score": 0.22,
+      "confidence_interval": [0.05, 0.39],
+      "best_value": 4,
+      "suggested_action": "narrow"
+    },
+    {
+      "parameter": "use_self_consistency",
+      "importance_score": 0.11,
+      "confidence_interval": [-0.02, 0.24],
+      "best_value": true,
+      "suggested_action": "expand"
+    }
+  ],
+  "interactions": [
+    {
+      "parameters": ["model", "few_shot_k"],
+      "effect": 0.14,
+      "note": "Few-shot helps the cheaper model more than the larger one."
+    }
+  ],
+  "warnings": []
+}

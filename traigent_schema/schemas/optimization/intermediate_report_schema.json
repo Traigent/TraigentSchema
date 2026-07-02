@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/intermediate_report_schema.json",
+  "title": "Intermediate Report Schema",
+  "description": "Per-trial intermediate-report contract. The top-level schema validates the SDK request; IntermediateReportResponse carries the cloud pruning decision returned to the SDK.",
+  "allOf": [
+    {
+      "$ref": "#/definitions/IntermediateReportRequest"
+    }
+  ],
+  "definitions": {
+    "IntermediateReportRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "trial_id",
+        "running_score",
+        "examples_attempted"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "trial_id": {
+          "type": "string"
+        },
+        "running_score": {
+          "type": "number"
+        },
+        "examples_attempted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "objective_name": {
+          "type": "string"
+        }
+      }
+    },
+    "IntermediateReportResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prune",
+        "prune_reason"
+      ],
+      "properties": {
+        "prune": {
+          "type": "boolean"
+        },
+        "prune_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

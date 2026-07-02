@@ -29,9 +29,9 @@ class AnalyticsValidator:
     """
 
     # Pre-compiled regex patterns for validation
-    _EXAMPLE_ID_PATTERN = re.compile(r'^ex_[a-f0-9]{8,12}_\d+$')
-    _JOB_ID_PATTERN = re.compile(r'^score_[a-zA-Z0-9_-]+_\d+$')
-    _ALGORITHM_VERSION_PATTERN = re.compile(r'^\d+\.\d+\.\d+$')
+    _EXAMPLE_ID_PATTERN = re.compile(r"^ex_[a-f0-9]{8,12}_\d+$")
+    _JOB_ID_PATTERN = re.compile(r"^score_[a-zA-Z0-9_-]+_\d+$")
+    _ALGORITHM_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 
     def __init__(self) -> None:
         """Initialize the validator with schema validator."""
@@ -46,10 +46,7 @@ class AnalyticsValidator:
         Returns:
             List of validation error messages. Empty if valid.
         """
-        return self._validator.validate_json(
-            score_data,
-            "example_score_schema"
-        )
+        return self._validator.validate_json(score_data, "example_score_schema")
 
     def validate_dataset_quality(self, quality_data: dict[str, Any]) -> list[str]:
         """Validate DatasetQuality data against schema.
@@ -60,10 +57,7 @@ class AnalyticsValidator:
         Returns:
             List of validation error messages. Empty if valid.
         """
-        return self._validator.validate_json(
-            quality_data,
-            "dataset_quality_schema"
-        )
+        return self._validator.validate_json(quality_data, "dataset_quality_schema")
 
     def validate_scoring_job_status(self, status_data: dict[str, Any]) -> list[str]:
         """Validate ScoringJobStatus data against schema.
@@ -74,24 +68,15 @@ class AnalyticsValidator:
         Returns:
             List of validation error messages. Empty if valid.
         """
-        return self._validator.validate_json(
-            status_data,
-            "scoring_job_status_schema"
-        )
+        return self._validator.validate_json(status_data, "scoring_job_status_schema")
 
     def validate_next_steps(self, next_steps_data: dict[str, Any]) -> list[str]:
         """Validate NextSteps response data against schema."""
-        return self._validator.validate_json(
-            next_steps_data,
-            "next_steps_schema"
-        )
+        return self._validator.validate_json(next_steps_data, "next_steps_schema")
 
     def validate_curation_advice(self, advice_data: dict[str, Any]) -> list[str]:
         """Validate CurationAdvice response data against schema."""
-        return self._validator.validate_json(
-            advice_data,
-            "curation_advice_schema"
-        )
+        return self._validator.validate_json(advice_data, "curation_advice_schema")
 
     def validate_example_metrics(self, data: dict[str, Any]) -> list[str]:
         """Validate ExampleMetrics structure (nested example format).

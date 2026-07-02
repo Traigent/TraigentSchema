@@ -165,6 +165,66 @@
                   "dataset_metadata": {
                     "type": "object"
                   },
+                  "artifact_fingerprints": {
+                    "type": "object",
+                    "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",
+                    "properties": {
+                      "dataset": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Opaque content fingerprint for the example set provenance."
+                      },
+                      "agent": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Opaque content fingerprint for the decorated function provenance."
+                      },
+                      "evaluator": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Opaque content fingerprint for evaluator provenance."
+                      },
+                      "config_space": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Opaque content fingerprint for configuration-space provenance."
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "fingerprint_meta": {
+                    "type": "object",
+                    "description": "Optional metadata describing the opaque content fingerprint algorithm and SDK collection context.",
+                    "required": [
+                      "algorithm",
+                      "dataset_example_count",
+                      "source_available"
+                    ],
+                    "properties": {
+                      "algorithm": {
+                        "const": "fp1",
+                        "description": "Opaque content fingerprint algorithm identifier."
+                      },
+                      "dataset_example_count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Number of examples included in the dataset fingerprint input."
+                      },
+                      "source_available": {
+                        "type": "boolean",
+                        "description": "Whether SDK source text was available for function fingerprinting."
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "max_trials": {
                     "type": "integer",
                     "minimum": 1
@@ -177,6 +237,15 @@
                   },
                   "default_config": {
                     "type": "object"
+                  },
+                  "warm_start_from": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "description": "Optional prior session reference from which the server may attempt warm-start transfer. Null means no warm-start source was requested."
                   },
                   "algorithm": {
                     "$ref": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json#/definitions/SupportedOptimizationStrategyName",
@@ -192,8 +261,18 @@
                     "$ref": "https://schemas.traigent.ai/optimization/hybrid_api_options_schema.json",
                     "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."
                   },
+                  "execution_mode": {
+                    "type": "string",
+                    "deprecated": true,
+                    "x-deprecated": "Use algorithm/offline and hybrid_api_options instead. local is the preferred client-side value; edge_analytics remains accepted for deployed clients.",
+                    "description": "Deprecated legacy execution-mode selector for SDK session create. Free-form string (kept back-compatible): the canonical values are local (preferred, client-side grid/random), hybrid, hybrid_api; edge_analytics remains a deprecated accepted alias, and the backend also accepts the wire aliases cloud/standard/privacy/native, which it validates and maps server-side. Not enum-constrained here so no deployed client sending a valid backend alias is rejected."
+                  },
                   "promotion_policy": {
                     "$ref": "https://schemas.traigent.ai/optimization/promotion_policy_schema.json"
+                  },
+                  "smart_pruning": {
+                    "$ref": "https://schemas.traigent.ai/optimization/smart_pruning_schema.json",
+                    "description": "Optional cloud-derived smart pruning policy. The label selects a cloud profile; omitted parameters are derived server-side."
                   },
                   "optimization_strategy": {
                     "description": "Optional strategy configuration. The typed vNext shape is optimization_strategy_schema; arbitrary legacy objects remain accepted for compatibility.",
@@ -231,7 +310,32 @@
         },
         "responses": {
           "201": {
-            "description": "Session created successfully"
+            "description": "Session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "warm_start_transfer": {
+                          "$ref": "./warm_start_transfer_schema.json"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request — malformed body or parameters.",
@@ -325,6 +429,103 @@
               "application/json": {
                 "schema": {
                   "$ref": "https://schemas.traigent.ai/optimization/session_next_trial_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed body or parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this session/resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found — session or resource does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/intermediate-report": {
+      "post": {
+        "summary": "Report intermediate trial progress",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./intermediate_report_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Intermediate report accepted and pruning decision returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./intermediate_report_schema.json#/definitions/IntermediateReportResponse"
                 }
               }
             }
@@ -704,7 +905,32 @@
         "summary": "Get hybrid session status",
         "responses": {
           "200": {
-            "description": "Hybrid session status retrieved successfully"
+            "description": "Hybrid session status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "warm_start_transfer": {
+                          "$ref": "./warm_start_transfer_schema.json"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthenticated — missing or invalid credentials.",

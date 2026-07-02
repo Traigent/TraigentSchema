@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main, develop]
+  merge_group: {}
   schedule:
     - cron: '0 6 * * *'   # nightly: full Python matrix (3.9-3.12)
   workflow_dispatch:
@@ -12,16 +13,27 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # PR events: collapse re-pushes onto one in-flight run (cancel stale).
+  # merge_group events: NEVER cancel — a cancelled queue candidate fails its
+  # required gate and stalls the queue. Key non-PR runs by run_id; only
+  # cancel-in-progress for pull_request.
+  group: schema-ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Lint + type-check are version-independent: run ONCE instead of per matrix entry.
   lint-type:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -32,7 +44,10 @@ jobs:
         run: mypy traigent_schema/ --ignore-missing-imports
 
   test:
+    # Gate expensive matrix tests behind the cheap lint/type job.
+    needs: lint-type
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +61,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
         run: |
@@ -57,14 +74,17 @@ jobs:
           pytest tests/ -v --cov=traigent_schema --cov-report=xml
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         if: matrix.python-version == '3.12'
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
 
   package:
+    # Gate package build behind the cheap lint/type job.
+    needs: lint-type
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v6
@@ -73,6 +93,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
 
       - name: Install packaging tools
         run: |
@@ -101,3 +123,31 @@ jobs:
           print(f"Schemas loaded: {len(SchemaValidator().available_schemas)}")
           print(load_schema("experiment_schema")["$schema"])
           PY
+
+  ci-required:
+    name: ci-required
+    # Always run (even if a dep failed/was skipped) so the required context
+    # always posts — including on merge_group candidates. Fails closed: any dep
+    # that is neither success nor skipped (e.g. a lint failure that skipped the
+    # downstream test/package jobs surfaces as lint-type=failure here) fails the gate.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [lint-type, test, package]
+    steps:
+      - name: Verify required CI jobs
+        run: |
+          set -euo pipefail
+          for result in \
+            "${{ needs.lint-type.result }}" \
+            "${{ needs.test.result }}" \
+            "${{ needs.package.result }}"; do
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "::error::Required CI dependency finished with ${result}"
+                exit 1
+                ;;
+            esac
+          done
+          echo "ci-required passed"

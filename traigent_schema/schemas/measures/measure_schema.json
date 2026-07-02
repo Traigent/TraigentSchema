@@ -104,6 +104,20 @@
       "type": "string",
       "description": "High-level categorization of the measure (e.g., 'Safety', 'Response Quality', 'Performance')"
     },
+    "value_type": {
+      "type": "string",
+      "description": "Scoring value type, e.g. numeric or categorical.",
+      "maxLength": 255
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "maxItems": 1000,
+      "description": "Allowed category labels for categorical measures."
+    },
     "measure_type": {
       "$ref": "#/definitions/MeasureType",
       "description": "Specific type of measurement being performed"

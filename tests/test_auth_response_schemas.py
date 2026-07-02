@@ -129,6 +129,43 @@ def test_auth_me_rejects_unknown_top_level():
     assert v.validate_json(payload, "auth_me_response_schema")
 
 
+def test_auth_me_response_email_rejects_invalid_format():
+    """#223 — auth_me response email must carry format:email (enforced via FormatChecker)."""
+    v = SchemaValidator()
+    payload = {
+        "success": True,
+        "message": "Success",
+        "data": {"id": "user_1", "email": "not-an-email"},
+    }
+    errors = v.validate_json(payload, "auth_me_response_schema")
+    assert errors, "expected format:email rejection for 'not-an-email'"
+
+
+def test_auth_me_response_email_rejects_oversized():
+    """#223 — auth_me response email must be capped at maxLength:320."""
+    v = SchemaValidator()
+    long_email = "a" * 316 + "@b.co"  # 321 chars — one over the 320 cap
+    payload = {
+        "success": True,
+        "message": "Success",
+        "data": {"id": "user_1", "email": long_email},
+    }
+    errors = v.validate_json(payload, "auth_me_response_schema")
+    assert errors, "expected maxLength:320 rejection"
+
+
+def test_auth_me_response_email_field_has_format_and_maxlength():
+    """#223 — schema structural guard: format:email + maxLength:320 on data.email."""
+    from traigent_schema.utils import get_schemas_dir
+    import json
+
+    with open(get_schemas_dir() / "auth" / "auth_me_response_schema.json") as f:
+        schema = json.load(f)
+    email_field = schema["properties"]["data"]["properties"]["email"]
+    assert email_field.get("format") == "email", "data.email must carry format:email"
+    assert email_field.get("maxLength") == 320, "data.email must carry maxLength:320"
+
+
 # --- TokenRefreshResponseDTO ----------------------------------------------
 
 

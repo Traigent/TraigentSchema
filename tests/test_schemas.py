@@ -269,7 +269,7 @@ def _objective_schema_payload():
                 "name": "latency",
                 "orientation": "minimize",
                 "weight": 0.5,
-                "normalization": "robust",
+                "normalization": "min_max",
                 "bounds": [0, 1000],
                 "unit": "ms",
             },
@@ -529,6 +529,7 @@ class TestRequiredSchemas:
             if isinstance(module, dict)
         }
         assert "./optimization/optimization_endpoints.json" not in paths_files
+        assert "./optimization/optimization_plan_endpoints.json" in paths_files
         assert "./projects/projects_endpoints.json" not in paths_files
         assert "./datasets/datasets_endpoints.json" in paths_files
         assert "./observability/observability_endpoints.json" in paths_files

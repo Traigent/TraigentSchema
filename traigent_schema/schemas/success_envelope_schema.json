@@ -12,8 +12,11 @@
       "admin_routes",
       "benchmark_routes",
       "cost_routes",
+      "analytics_routes",
+      "analytics_runs_routes",
       "example_scoring_routes",
       "evaluation_routes",
+      "experiment_group_routes",
       "optimization_comparison_routes",
       "hybrid_routes"
     ],

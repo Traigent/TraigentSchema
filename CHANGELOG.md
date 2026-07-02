@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.1] - 2026-06-29
+
+### Changed
+- Documented report payload configuration identity fields on
+  `results/report_payload_response_schema.json`: aggregate rows now expose the
+  redacted `config_label`, `config_hash`, and `config_params` identity surface, while
+  raw example rows expose `config_label` and `config_hash` only. The contract also
+  documents the report insight rows used for example anti-correlation and high-variance
+  review flags.
+
+## [4.7.0] - 2026-06-23
+
+### Added
+- Terminal-first run-analytics v0 contracts under `traigent_schema/schemas/analytics/`,
+  the canonical shapes the backend computes, the `traigent-analytics-mcp` returns, and the
+  Claude Code analytics skill / both SDKs code against (moving optimization-results analysis
+  out of the web portal into the terminal):
+  - `decision_payload_schema.json` — KEYSTONE decision-oriented run summary
+    (`intent`, `headline`, `confidence`, `recommended_action`, `evidence`, `drilldowns`,
+    `warnings`).
+  - `run_pareto_schema.json` — cost/quality/latency Pareto frontier, knee, dominated set,
+    and coarse frontier `shape`.
+  - `run_correlations_schema.json` — measure-to-measure and parameter-to-measure
+    correlations with coarse strength/confidence buckets.
+  - `run_leaderboard_schema.json` — objective-ranked configurations with composite score,
+    risk flags, and a winner/candidate/reject recommendation.
+  - `run_parameter_insights_schema.json` — ranked parameter drivers (with confidence
+    intervals and expand/freeze/narrow actions) and parameter interactions.
+  - `run_example_insights_schema.json` — PRIVACY-BOUNDED example-level cohorts and dataset
+    recommendations; carries no raw proprietary signals or prompt text by default and
+    declares its `redactions`.
+    Extends the contract with privacy-bounded quality posture prose, notable example rows,
+    suspicious/difficulty review labels, and coarse summary counts without exposing raw scores.
+  - `privacy_mode_schema.json` — shared `PrivacyMode` enum primitive
+    (`safe_agent_projection` default, owner-gated `elevated`) reused by
+    `run_example_insights`.
+- Wired six `GET /api/v1/analytics/runs/{run_id}/...` operations into
+  `analytics/analytics_endpoints.json` binding each response to its new contract.
+- `tests/test_terminal_analytics_contracts.py` — happy-path fixtures plus enum / required /
+  closed-object / privacy / canonical-id (`ForeignKeyId`) constraint coverage, with
+  fixtures under `tests/test_data/analytics/`.
+- These contracts reuse the canonical `common_types_schema.json#/definitions/ForeignKeyId`
+  for `run_id` / `project_id` / `config_id`, so SDK-generated `trial_<hex>` ids validate.
+  Downstream BE Pydantic models, Python SDK DTOs, and FE/JS TS types regenerate in
+  merge-blocking follow-up PRs.
+
 ## [4.6.4] - 2026-06-18
 
 ### Added
@@ -98,7 +144,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `optimization/optimization_plan_request_schema.json` and
+  `optimization/optimization_plan_response_schema.json` for
+  `POST /api/v1/optimization/plan`, plus a dedicated
+  `optimization/optimization_plan_endpoints.json` module wired into both
+  backend and SDK tuning contract roots. The response contract is allowlist-only
+  for safe plan labels, model ids, knob value lists, command templates, coarse
+  evidence, and caveats.
+
 ### Changed
+- Tightened response-DTO email fields to match the canonical request-side constraint:
+  `auth/auth_me_response_schema.json` `data.email` and
+  `costs/cost_user_usage_response_schema.json` `data.email` now declare `format: email`
+  and `maxLength: 320` (the canonical cap already used by the request schemas and the
+  `project_member_candidate` response). Additive backwards-tightening — the backend
+  already emits real, bounded emails, so no realistic breakage (#223).
 - **BREAKING (status vocabulary): aligned run/config status enums to the canonical
   UPPER backend vocabulary** (#172, #173). The whole producer ecosystem (backend
   model + native Postgres enum + REST wire + SDK write path) emits UPPER; the schema

@@ -7,10 +7,16 @@
   "definitions": {
     "ExecutionMode": {
       "type": "string",
-      "enum": ["edge_analytics", "hybrid", "hybrid_api"],
+      "enum": ["local", "edge_analytics", "hybrid", "hybrid_api"],
       "deprecated": true,
       "x-deprecated": "Use algorithm/offline and hybrid_api_options instead. execution_mode remains accepted for compatibility and will be removed in a future major version.",
-      "description": "Deprecated execution mode for legacy optimization clients. Superseded by algorithm/offline and hybrid_api_options; the existing values remain valid for compatibility and this field will be removed in a future major version:\n- edge_analytics: Legacy client-side orchestration (grid, random algorithms).\n- hybrid: Legacy client-side execution with backend next-trial suggestions.\n- hybrid_api: Legacy external API-based optimization."
+      "x-preferred-values": {
+        "local": "Preferred name for client-side local orchestration (grid, random algorithms)."
+      },
+      "x-deprecated-values": {
+        "edge_analytics": "Deprecated alias for local. Keep accepting edge_analytics for deployed clients."
+      },
+      "description": "Deprecated execution mode for legacy optimization clients. Superseded by algorithm/offline and hybrid_api_options; the existing values remain valid for compatibility and this field will be removed in a future major version:\n- local: Preferred name for client-side local orchestration (grid, random algorithms).\n- edge_analytics: Deprecated alias for local; accepted for deployed clients.\n- hybrid: Legacy client-side execution with backend next-trial suggestions.\n- hybrid_api: Legacy external API-based optimization."
     },
     "HybridConfiguration": {
       "type": "object",

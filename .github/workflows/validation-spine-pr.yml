@@ -48,14 +48,14 @@ jobs:
       # Spine's hardcoded `_PYTHON_REPOS` expects Schema sources at
       # `<workspace>/TraigentSchema/`, so check out at that subpath.
       - name: Checkout product repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           path: TraigentSchema
 
       - name: Checkout validation spine
         if: env.SPINE_RO_TOKEN != ''
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Traigent/traigent-validation-spine
           ref: ${{ env.SPINE_REF }}

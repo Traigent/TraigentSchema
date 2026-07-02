@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/guidance/guidance_action_schema.json",
+  "title": "GuidanceEnums",
+  "description": "Shared enumerations for the GuidancePlan contract. These are user-facing intent verbs and opaque coarse buckets only. They carry no proprietary tuning-signal names, values, or formulas; the server-side selection policy that assigns them is intentionally not described here.",
+  "definitions": {
+    "Action": {
+      "type": "string",
+      "description": "What the client should do with the referenced seed. A user-facing generation verb, not a signal.",
+      "enum": [
+        "generate_similar",
+        "generate_harder",
+        "diversify_around",
+        "rewrite_prompt"
+      ]
+    },
+    "CoarsePriority": {
+      "type": "string",
+      "description": "Opaque coarse priority bucket assigned by the server. Three ordinal levels only; not client-interpretable and not derived-value-bearing.",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "PlanKind": {
+      "type": "string",
+      "description": "Which guided-generation capability this plan drives.",
+      "enum": [
+        "prompt_rewrite",
+        "benchmark_guide"
+      ]
+    },
+    "SeedScope": {
+      "type": "string",
+      "description": "How broadly the client is willing to let the server select seeds. 'auto' lets the private policy decide; the client never asks for a specific signal.",
+      "enum": [
+        "auto",
+        "frontier",
+        "all"
+      ]
+    }
+  }
+}

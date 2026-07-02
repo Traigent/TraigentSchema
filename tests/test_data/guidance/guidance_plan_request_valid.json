@@ -1,0 +1,8 @@
+{
+  "plan_kind": "prompt_rewrite",
+  "seed_scope": "auto",
+  "budget": {
+    "max_items": 10,
+    "max_total_generations": 50
+  }
+}

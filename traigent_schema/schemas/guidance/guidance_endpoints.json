@@ -1,0 +1,145 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Guided Generation Routes",
+    "version": "1.0.0",
+    "description": "Session-based routes that issue an opaque GuidancePlan and ingest content-free generation results. The plan conveys selection (seed, action, coarse priority) but no proprietary tuning signals."
+  },
+  "paths": {
+    "/api/v1/sessions/{session_id}/guidance-plan": {
+      "post": {
+        "summary": "Request a GuidancePlan for a session",
+        "description": "Returns a deterministic, opaque GuidancePlan derived server-side from proprietary tuning signals. The response carries selection only: no signal names, values, or formulas.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The optimization session id."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./guidance_plan_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GuidancePlan issued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./guidance_plan_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Insufficient permissions."
+          },
+          "404": {
+            "description": "Session not found for the canonical tenant context."
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded."
+          },
+          "501": {
+            "description": "Guided generation feature is disabled."
+          },
+          "503": {
+            "description": "Guided generation is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/guidance-results": {
+      "post": {
+        "summary": "Submit content-free generation results for a GuidancePlan",
+        "description": "Reports per-seed generation counts and deterministic new-example ids for a previously issued plan. Carries no prompt text or example content. The plan_token is echoed back for verification.",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The optimization session id."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./guidance_result_submission_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Results accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "accepted",
+                    "recorded"
+                  ],
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "recorded": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Insufficient permissions."
+          },
+          "404": {
+            "description": "Session not found for the canonical tenant context."
+          },
+          "409": {
+            "description": "plan_token invalid, expired, does not match the session, or results do not match the signed plan."
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded."
+          },
+          "501": {
+            "description": "Guided generation feature is disabled."
+          }
+        }
+      }
+    }
+  }
+}

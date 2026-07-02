@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/guidance/guidance_result_submission_schema.json",
+  "title": "GuidanceResultSubmission",
+  "description": "Optional client report of what it generated from a GuidancePlan. It is content-free: it carries the echoed plan_token, optional per-seed generation counts, and deterministic ids of any new examples so the backend can track and re-score them. It MUST NOT carry prompt text, example inputs/outputs, or any synthesized content. additionalProperties is false.",
+  "type": "object",
+  "required": [
+    "plan_id",
+    "plan_token"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The plan_id this submission corresponds to."
+    },
+    "plan_token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "The opaque plan_token from the GuidancePlan, echoed back unchanged for verification."
+    },
+    "results": {
+      "type": "array",
+      "description": "Per-seed generation outcomes. Counts and deterministic ids only; never content. Omitted results are treated by the backend model as an empty list.",
+      "default": [],
+      "items": {
+        "type": "object",
+        "required": [
+          "seed_ref",
+          "action",
+          "generated_count"
+        ],
+        "properties": {
+          "seed_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "The seed_ref from the plan item this result is for."
+          },
+          "action": {
+            "$ref": "./guidance_action_schema.json#/definitions/Action"
+          },
+          "generated_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "How many artifacts the client generated for this seed."
+          },
+          "new_example_refs": {
+            "type": "array",
+            "description": "Deterministic ids of newly synthesized examples. No content.",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 130,
+              "pattern": "^ex_[A-Za-z0-9][A-Za-z0-9_-]{0,126}$"
+            },
+            "default": []
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -53,6 +53,11 @@
       "paths_file": "./optimization/optimization_plan_endpoints.json"
     },
     {
+      "name": "Guidance",
+      "description": "Current backend guided-generation plan and content-free result routes.",
+      "paths_file": "./guidance/guidance_endpoints.json"
+    },
+    {
       "name": "Analytics",
       "description": "Current backend example-scoring analytics routes.",
       "paths_file": "./analytics/analytics_endpoints.json"

@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/guidance/guidance_plan_request_schema.json",
+  "title": "GuidancePlanRequest",
+  "description": "Client request for a GuidancePlan. The client states which capability it wants, an optional budget ceiling, and how broadly it lets the server select seeds. The client never asks for a specific signal; seed_scope='auto' lets the private policy decide. additionalProperties is false.",
+  "type": "object",
+  "required": [
+    "plan_kind"
+  ],
+  "properties": {
+    "plan_kind": {
+      "$ref": "./guidance_action_schema.json#/definitions/PlanKind"
+    },
+    "seed_scope": {
+      "allOf": [
+        {
+          "$ref": "./guidance_action_schema.json#/definitions/SeedScope"
+        }
+      ],
+      "default": "auto"
+    },
+    "budget": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Optional client-requested ceilings. The server may cap these further.",
+      "properties": {
+        "max_items": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Maximum number of seeds the client wants in the plan."
+        },
+        "max_total_generations": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 100000,
+          "description": "Maximum number of artifacts the client intends to generate in total."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

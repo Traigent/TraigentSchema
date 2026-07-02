@@ -1,0 +1,22 @@
+{
+  "plan_id": "plan_run123_v3",
+  "policy_version": "gp-2026.05",
+  "plan_kind": "benchmark_guide",
+  "items": [
+    {
+      "seed_ref": "ex_a1b2c3d4_0",
+      "action": "generate_harder",
+      "coarse_priority": "high"
+    },
+    {
+      "seed_ref": "ex_a1b2c3d4_5",
+      "action": "generate_similar",
+      "coarse_priority": "medium"
+    }
+  ],
+  "plan_budget": {
+    "total_generations": 20
+  },
+  "plan_token": "opaque-plan-token-test-placeholder",
+  "expires_at": "2026-05-30T00:00:00Z"
+}

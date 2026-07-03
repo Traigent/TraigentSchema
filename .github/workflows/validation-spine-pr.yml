@@ -65,6 +65,10 @@ jobs:
       - name: Note skipped spine scan
         if: env.SPINE_RO_TOKEN == ''
         run: |
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "::notice::SPINE_RO_TOKEN unavailable for dependabot PR (secrets blocked by design); spine scan skipped - dependabot bumps carry no policy surface."
+            exit 0
+          fi
           echo "::error::SPINE_RO_TOKEN is not configured; validation spine scan cannot run."
           {
             echo "## Validation Spine — PR scan"

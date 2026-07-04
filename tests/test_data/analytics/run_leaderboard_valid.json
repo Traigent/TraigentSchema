@@ -26,5 +26,6 @@
       "risk_flags": ["exceeds_cost_constraint"],
       "recommendation": "candidate"
     }
-  ]
+  ],
+  "warnings": []
 }

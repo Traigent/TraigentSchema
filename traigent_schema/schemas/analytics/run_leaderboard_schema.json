@@ -8,7 +8,8 @@
   "required": [
     "run_id",
     "ranking_basis",
-    "configs"
+    "configs",
+    "warnings"
   ],
   "properties": {
     "run_id": {
@@ -133,6 +134,16 @@
             "description": "Coarse recommendation for this configuration."
           }
         }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Client-safe caveats about the leaderboard (e.g. weighted objective requested with no weights, ranked by quality only).",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
       }
     }
   }

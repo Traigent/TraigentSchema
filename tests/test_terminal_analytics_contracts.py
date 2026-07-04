@@ -376,6 +376,27 @@ class TestRunLeaderboard:
         errors = validator.validate_json(data, RUN_LEADERBOARD_SCHEMA)
         assert len(errors) > 0
 
+    def test_warnings_field_required(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        """Regression test for Traigent#1726: run_leaderboard was the only
+        run-analytics contract with no warnings field, so a silent
+        objective='weighted' fallback (no weights provided) had nowhere
+        client-safe to surface. warnings is now required, matching
+        run_pareto/run_correlations/run_parameter_insights."""
+        data = _load_fixture(data_dir, "run_leaderboard_valid.json")
+        del data["warnings"]
+        errors = validator.validate_json(data, RUN_LEADERBOARD_SCHEMA)
+        assert any("warnings" in e for e in errors)
+
+    def test_warnings_must_be_string_array(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        data = _load_fixture(data_dir, "run_leaderboard_valid.json")
+        data["warnings"] = [123]
+        errors = validator.validate_json(data, RUN_LEADERBOARD_SCHEMA)
+        assert len(errors) > 0
+
 
 # ---------------------------------------------------------------------------
 # run_parameter_insights

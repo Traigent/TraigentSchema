@@ -34,6 +34,10 @@ def _transfer(**overrides: Any) -> dict[str, Any]:
         "final_warm_start_weight": "medium",
         "search_space_overlap": "partial",
         "n_seed_configs_applied": 3,
+        "n_seed_configs_candidate": 5,
+        "candidate_total": 5,
+        "truncated": False,
+        "drop_reason_histogram": {},
         "refused_reason": None,
     }
     payload.update(overrides)
@@ -58,16 +62,28 @@ def test_warm_start_transfer_schema_accepts_only_declared_fields() -> None:
         "final_warm_start_weight",
         "search_space_overlap",
         "n_seed_configs_applied",
+        "n_seed_configs_candidate",
+        "candidate_total",
+        "truncated",
+        "drop_reason_histogram",
         "refused_reason",
     }
     assert set(schema["required"]) == set(schema["properties"])
     assert _errors(schema, _transfer()) == []
     assert _errors(schema, _transfer(refused_reason="not_requested")) == []
     assert _errors(schema, _transfer(n_seed_configs_applied=0)) == []
+    assert _errors(
+        schema, _transfer(drop_reason_histogram={"out_of_space": 2, "empty_after_projection": 1})
+    ) == []
+    assert _errors(schema, _transfer(truncated=True, candidate_total=500)) == []
     assert _errors(schema, {k: v for k, v in _transfer().items() if k != "transfer_mode"})
     assert _errors(schema, _transfer(source_session_id="sess_prev"))
     assert _errors(schema, _transfer(confidence=0.8))
     assert _errors(schema, _transfer(metric_name="accuracy"))
+    assert _errors(schema, _transfer(n_seed_configs_candidate=-1))
+    assert _errors(schema, _transfer(candidate_total=-1))
+    assert _errors(schema, _transfer(truncated="yes"))
+    assert _errors(schema, _transfer(drop_reason_histogram={"out_of_space": -1}))
 
 
 def test_warm_start_transfer_schema_enforces_enums_and_count_bounds() -> None:

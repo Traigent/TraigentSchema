@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/session_aggregation_schema.json",
+  "title": "SessionAggregationDTO",
+  "description": "Session-level rollup for a finalized optimization run (Traigent#1720/#1724 g2:agg-summary). Folded into POST /sessions/{id}/finalize as a top-level field and echoed back in the finalize response so the SDK can confirm the backend actually persisted it (never a pseudo-trial, never a local-only shim). CONTENT-FREE CONTRACT: every field is numeric, a metric-name label, a config identity (a config dict or a config HASH), or an anchored version token. Example inputs, prompts, expected outputs, and LLM responses are NEVER carried here — the producer builds this by an explicit allowlist, not by forwarding an internal summary object, and the server rebuilds it by the same allowlist, dropping any unknown key.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "selection_mode": {
+      "type": "string",
+      "description": "How the session winner was selected (e.g. aggregated_mean)."
+    },
+    "primary_objective": {
+      "type": "string",
+      "description": "Name of the primary objective (a declared objective label, not content)."
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Sanitized session-level rollup metrics: metric-name label -> numeric value.",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "samples_per_config": {
+      "type": "object",
+      "description": "Per-configuration sample counts, keyed by config HASH (not content).",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "total_examples": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "trials_completed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "successful_trials": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "success_rate": {
+      "type": "number"
+    },
+    "best_weighted_config": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "The weighted-best configuration dict (config values are already on the optimization wire), or null."
+    },
+    "best_weighted_score": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "statistical_significance": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Numeric statistical-significance badges per objective; content-free."
+    },
+    "execution_time": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "sdk_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9+_.-]{0,63}$",
+      "description": "Anchored version token — never free text."
+    }
+  }
+}

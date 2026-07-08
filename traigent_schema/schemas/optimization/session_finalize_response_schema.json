@@ -65,6 +65,10 @@
     "tvl_governance": {
       "$ref": "https://schemas.traigent.ai/optimization/tvl_governance_schema.json"
     },
+    "session_aggregation": {
+      "$ref": "https://schemas.traigent.ai/optimization/session_aggregation_schema.json",
+      "description": "OPTIONAL session-level rollup, echoed back IFF the finalize request carried a session_aggregation the server persisted (Traigent#1720/#1724 g2:agg-summary). Its presence is the SDK's confirmation that the rollup was actually stored — absence means an older backend dropped it, and the SDK reports persistence as degraded rather than succeeded."
+    },
     "total_trials": {
       "type": "integer",
       "minimum": 0

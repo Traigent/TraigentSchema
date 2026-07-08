@@ -8,11 +8,13 @@
   "properties": {
     "selection_mode": {
       "type": "string",
-      "description": "How the session winner was selected (e.g. aggregated_mean)."
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
+      "description": "How the session winner was selected (e.g. aggregated_mean). A bounded label, never free text."
     },
     "primary_objective": {
       "type": "string",
-      "description": "Name of the primary objective (a declared objective label, not content)."
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
+      "description": "Name of the primary objective (a declared objective label, not content). Bounded label."
     },
     "metrics": {
       "type": "object",
@@ -55,7 +57,7 @@
         "object",
         "null"
       ],
-      "description": "The weighted-best configuration dict (config values are already on the optimization wire), or null."
+      "description": "The weighted-best configuration dict, or null. Config VALUES are already on the optimization wire — including, by the documented dataflow exception, prompt text a customer makes a tuned variable — so values are intentionally unconstrained here. Under SDK privacy mode this field is omitted (null) entirely, mirroring trial-config redaction; that is the control for customers who do not want config egress."
     },
     "best_weighted_score": {
       "type": [

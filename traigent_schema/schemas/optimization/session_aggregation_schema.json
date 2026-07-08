@@ -62,7 +62,39 @@
         "object",
         "null"
       ],
-      "description": "Numeric statistical-significance badges per objective; content-free."
+      "description": "Per-objective numeric statistical-significance badges; content-free. Keys are objective/metric labels; each value is a fixed badge object of integer trial-index lists, an anchored badge_name label, and an integer shared-example count. additionalProperties:false on the badge object rejects any nested content (prompts, outputs, LLM responses).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "winners": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "top_group": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "rest_group": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "badge_name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$"
+          },
+          "n_shared_examples": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
     },
     "execution_time": {
       "type": [

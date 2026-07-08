@@ -16,14 +16,20 @@
     },
     "metrics": {
       "type": "object",
-      "description": "Sanitized session-level rollup metrics: metric-name label -> numeric value.",
+      "description": "Sanitized session-level rollup metrics: metric-name label -> numeric value. Keys are bounded labels (propertyNames) so content cannot be smuggled into a key.",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
+      },
       "additionalProperties": {
         "type": "number"
       }
     },
     "samples_per_config": {
       "type": "object",
-      "description": "Per-configuration sample counts, keyed by config HASH (not content).",
+      "description": "Per-configuration sample counts, keyed by config HASH (not content). Keys are bounded labels (propertyNames).",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
+      },
       "additionalProperties": {
         "type": "integer",
         "minimum": 0
@@ -62,7 +68,10 @@
         "object",
         "null"
       ],
-      "description": "Per-objective numeric statistical-significance badges; content-free. Keys are objective/metric labels; each value is a fixed badge object of integer trial-index lists, an anchored badge_name label, and an integer shared-example count. additionalProperties:false on the badge object rejects any nested content (prompts, outputs, LLM responses).",
+      "description": "Per-objective numeric statistical-significance badges; content-free. Keys are bounded objective/metric labels (propertyNames — content cannot be smuggled into a key); each value is a fixed badge object of integer trial-index lists, an anchored badge_name label, and an integer shared-example count. additionalProperties:false on the badge object rejects any nested content (prompts, outputs, LLM responses).",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
+      },
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -87,7 +96,7 @@
           },
           "badge_name": {
             "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$"
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
           },
           "n_shared_examples": {
             "type": "integer",

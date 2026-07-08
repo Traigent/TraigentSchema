@@ -8,19 +8,19 @@
   "properties": {
     "selection_mode": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
+      "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
       "description": "How the session winner was selected (e.g. aggregated_mean). A bounded label, never free text."
     },
     "primary_objective": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
+      "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
       "description": "Name of the primary objective (a declared objective label, not content). Bounded label."
     },
     "metrics": {
       "type": "object",
       "description": "Sanitized session-level rollup metrics: metric-name label -> numeric value. Keys are bounded labels (propertyNames) so content cannot be smuggled into a key.",
       "propertyNames": {
-        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
+        "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
       },
       "additionalProperties": {
         "type": "number"
@@ -30,7 +30,7 @@
       "type": "object",
       "description": "Per-configuration sample counts, keyed by config HASH (not content). Keys are bounded labels (propertyNames).",
       "propertyNames": {
-        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
+        "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
       },
       "additionalProperties": {
         "type": "integer",
@@ -72,7 +72,7 @@
       ],
       "description": "Per-objective numeric statistical-significance badges; content-free. Keys are bounded objective/metric labels (propertyNames — content cannot be smuggled into a key); each value is a fixed badge object of integer trial-index lists, an anchored badge_name label, and an integer shared-example count. additionalProperties:false on the badge object rejects any nested content (prompts, outputs, LLM responses).",
       "propertyNames": {
-        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
+        "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
       },
       "additionalProperties": {
         "type": "object",
@@ -98,7 +98,7 @@
           },
           "badge_name": {
             "type": "string",
-            "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
+            "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
           },
           "n_shared_examples": {
             "type": "integer",
@@ -116,7 +116,7 @@
     },
     "sdk_version": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9+_.-]{0,63}$",
+      "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9][A-Za-z0-9+_.-]{0,63}$",
       "description": "Anchored version token — never free text."
     }
   }

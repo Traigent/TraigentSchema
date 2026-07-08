@@ -719,6 +719,10 @@
                   "certified_selection": {
                     "$ref": "https://schemas.traigent.ai/optimization/certified_selection_schema.json",
                     "description": "OPTIONAL client-attested, content-free certified-selection report (strict evidence mode only). Validated fail-closed: non-strict session + report, unknown/incomplete trial binding, or incomplete governed-CVAR coverage all reject. Accepted only at this top-level key; the envelope is open for legacy back-compat, so the SERVER additionally rejects reports tunneled under metadata (enforced server-side — the schema alone cannot close the open envelope)."
+                  },
+                  "session_aggregation": {
+                    "$ref": "https://schemas.traigent.ai/optimization/session_aggregation_schema.json",
+                    "description": "OPTIONAL content-free session-level rollup (Traigent#1720/#1724 g2:agg-summary). Accepted only at this top-level key; the SERVER additionally rejects rollups tunneled under metadata. Persisted into the run's results and echoed back in the finalize response so the SDK can confirm the rollup was stored (not silently dropped)."
                   }
                 },
                 "additionalProperties": true

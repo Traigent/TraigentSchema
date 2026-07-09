@@ -146,6 +146,55 @@
           }
         }
       }
+    },
+    "guidance_meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional provenance of the server-side guidance engine that produced lifecycle-derived steps. Present only when the deployment enables the lifecycle guidance lane (ENABLE_LIFECYCLE_POLICY_PLANNER). Echoes which engine actually served the request so clients and experiment harnesses can audit rules-vs-policy treatment.",
+      "required": [
+        "served_variant",
+        "engine"
+      ],
+      "properties": {
+        "served_variant": {
+          "type": "string",
+          "enum": [
+            "rules",
+            "policy"
+          ],
+          "description": "The variant the request resolved to (header-selected; default rules)."
+        },
+        "engine": {
+          "type": "string",
+          "enum": [
+            "rules",
+            "policy",
+            "none"
+          ],
+          "description": "The engine that actually computed the lane ('rules' when the policy path fell back; 'none' when the lane errored)."
+        },
+        "policy_table_sha": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Content hash of the deployed policy table, when available."
+        },
+        "smartopt_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Version of the traigent-smartopt package serving the guidance."
+        },
+        "fallback_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Why the policy path fell back to rules (e.g. drift, unmapped state, policy_unavailable), null when no fallback."
+        }
+      }
     }
   }
 }

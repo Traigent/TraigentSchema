@@ -63,6 +63,75 @@ def test_session_create_without_artifact_fingerprints_still_validates() -> None:
     assert errors == [], f"Expected clean validation, got: {errors}"
 
 
+def test_session_create_accepts_explicit_registered_evaluator_identity() -> None:
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    errors = validator.validate_request(
+        "/api/v1/sessions",
+        "POST",
+        _session_create_payload(
+            evaluator_definition_id="eval_registered_1",
+            artifact_fingerprints=_fingerprints(),
+            fingerprint_meta=_fingerprint_meta(),
+        ),
+    )
+
+    assert errors == [], f"Expected clean validation, got: {errors}"
+
+
+def test_session_create_accepts_legacy_evaluator_identity_alias() -> None:
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    errors = validator.validate_request(
+        "/api/v1/sessions",
+        "POST",
+        _session_create_payload(evaluator_id="eval_registered_1"),
+    )
+
+    assert errors == [], f"Expected clean validation, got: {errors}"
+
+
+def test_session_create_rejects_both_evaluator_identity_aliases() -> None:
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    errors = validator.validate_request(
+        "/api/v1/sessions",
+        "POST",
+        _session_create_payload(
+            evaluator_id="eval_registered_1",
+            evaluator_definition_id="eval_registered_1",
+        ),
+    )
+
+    assert errors
+
+
+def test_session_create_rejects_blank_evaluator_definition_identity() -> None:
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    errors = validator.validate_request(
+        "/api/v1/sessions",
+        "POST",
+        _session_create_payload(evaluator_definition_id=""),
+    )
+
+    assert errors
+    assert any("evaluator_definition_id" in error for error in errors)
+
+
+def test_session_create_rejects_overlong_evaluator_definition_identity() -> None:
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    errors = validator.validate_request(
+        "/api/v1/sessions",
+        "POST",
+        _session_create_payload(evaluator_definition_id="x" * 201),
+    )
+
+    assert errors
+    assert any("evaluator_definition_id" in error for error in errors)
+
+
 def test_session_create_rejects_unknown_artifact_fingerprint_property() -> None:
     validator = SchemaValidator(contract="sdk_tuning")
     fingerprints = _fingerprints()

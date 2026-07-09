@@ -165,6 +165,18 @@
                   "dataset_metadata": {
                     "type": "object"
                   },
+                  "evaluator_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Optional compatibility alias identifying an evaluator definition already registered with the backend. Unregistered callable evaluators omit this and remain content-addressed by artifact_fingerprints.evaluator."
+                  },
+                  "evaluator_definition_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Optional identity of an evaluator definition already registered with the backend. This is not synthesized from a callable fingerprint."
+                  },
                   "artifact_fingerprints": {
                     "type": "object",
                     "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",
@@ -302,6 +314,12 @@
                     },
                     "additionalProperties": true
                   }
+                },
+                "not": {
+                  "required": [
+                    "evaluator_id",
+                    "evaluator_definition_id"
+                  ]
                 },
                 "additionalProperties": true
               }

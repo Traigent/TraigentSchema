@@ -115,6 +115,45 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "VARIANT_ASSIGNMENT_CONFLICT — this experiment run is durably assigned to the opposite rules-vs-policy treatment"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt": {
+      "post": {
+        "summary": "Record an idempotent execution receipt for an authoritative next-step decision",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./next_steps_receipt_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Receipt stored or idempotently replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./next_steps_receipt_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed receipt or outcome incompatible with the decision category"
+          },
+          "404": {
+            "description": "Experiment run or project-scoped decision not found"
+          },
+          "409": {
+            "description": "Attempt identifier conflicts with a different stored receipt"
           }
         }
       }

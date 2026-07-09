@@ -104,6 +104,14 @@ ALLOWED_NEXT_STEPS_ACTION_CATEGORIES = {
     "add_safety_gate",
     "compare_with_baseline",
     "promote_winner",
+    "score_evaluation_set",
+    "curate_evaluation_set",
+    "audit_evaluator_quality",
+    "improve_evaluator",
+    "adjust_configuration_space",
+    "run_optimization",
+    "validate_holdout",
+    "wait",
 }
 
 PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS = {
@@ -742,6 +750,195 @@ class TestNextStepsSchema:
         errors = validator.validate_json(payload, "next_steps_schema")
         assert errors == [], f"Unexpected errors: {errors}"
 
+    def test_next_steps_accepts_authoritative_decision_and_guidance_joins(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["decision"] = {
+            "id": "decision_123",
+            "category": "audit_evaluator_quality",
+            "source_engine": "policy",
+            "evidence_snapshot_hash": "sha256:abc123",
+            "rationale": "Audit evaluation quality before another optimization.",
+            "action": {
+                "kind": "skill",
+                "command_template": "traigent-eval-audit",
+            },
+            "evidence_level": "high",
+        }
+        payload["guidance_meta"] = {
+            "requested_variant": "policy",
+            "served_variant": "policy",
+            "engine": "policy",
+            "policy_table_sha": "table-sha",
+            "smartopt_version": "1.0.0",
+            "fallback_reason": None,
+            "decision_id": "decision_123",
+            "evidence_snapshot_hash": "sha256:abc123",
+        }
+        payload["next_steps"] = []
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_next_steps_decision_rejects_internal_operation_vocabulary(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["decision"] = {
+            "id": "decision_123",
+            "category": "audit_evaluator",
+            "source_engine": "policy",
+            "evidence_snapshot_hash": "sha256:abc123",
+            "rationale": "Audit evaluation quality.",
+            "action": {
+                "kind": "skill",
+                "command_template": "traigent-eval-audit",
+            },
+            "evidence_level": "high",
+        }
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+
+        assert errors
+        assert any("decision.category" in error for error in errors)
+
+    def test_authoritative_decision_requires_empty_legacy_steps(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["decision"] = {
+            "id": "decision_123",
+            "category": "run_optimization",
+            "source_engine": "rules",
+            "evidence_snapshot_hash": "sha256:abc123",
+            "rationale": "Run optimization.",
+            "action": {
+                "kind": "skill",
+                "command_template": "traigent-optimize-run",
+            },
+            "evidence_level": "medium",
+        }
+        errors = validator.validate_json(payload, "next_steps_schema")
+
+        assert errors
+
+    def test_wait_decision_requires_empty_legacy_mirror(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["decision"] = {
+            "id": "decision_wait",
+            "category": "wait",
+            "source_engine": "rules",
+            "evidence_snapshot_hash": "sha256:abc123",
+            "rationale": "Wait for more evidence.",
+            "action": {
+                "kind": "none",
+                "command_template": "",
+            },
+            "evidence_level": "low",
+        }
+
+        payload["next_steps"] = []
+        assert validator.validate_json(payload, "next_steps_schema") == []
+
+    def test_wait_decision_rejects_executable_action(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["decision"] = {
+            "id": "decision_wait",
+            "category": "wait",
+            "source_engine": "rules",
+            "evidence_snapshot_hash": "sha256:abc123",
+            "rationale": "Wait for more evidence.",
+            "action": {
+                "kind": "skill",
+                "command_template": "traigent-analyze-guidance",
+            },
+            "evidence_level": "low",
+        }
+        payload["next_steps"] = []
+
+        assert validator.validate_json(payload, "next_steps_schema")
+
+    def test_non_wait_decision_rejects_none_action(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["decision"] = {
+            "id": "decision_run",
+            "category": "run_optimization",
+            "source_engine": "rules",
+            "evidence_snapshot_hash": "sha256:abc123",
+            "rationale": "Run optimization.",
+            "action": {"kind": "none", "command_template": ""},
+            "evidence_level": "medium",
+        }
+        payload["next_steps"] = []
+
+        assert validator.validate_json(payload, "next_steps_schema")
+
+    def test_non_wait_decision_rejects_empty_command(self, validator, valid_next_steps_payload):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["decision"] = {
+            "id": "decision_run",
+            "category": "run_optimization",
+            "source_engine": "rules",
+            "evidence_snapshot_hash": "sha256:abc123",
+            "rationale": "Run optimization.",
+            "action": {"kind": "skill", "command_template": ""},
+            "evidence_level": "medium",
+        }
+        payload["next_steps"] = []
+
+        assert validator.validate_json(payload, "next_steps_schema")
+
+
+class TestNextStepsReceiptSchema:
+    def test_valid_completed_receipt_with_allowlisted_outcomes(self, validator):
+        payload = {
+            "status": "completed",
+            "attempt_id": "attempt:123",
+            "successor_run_id": "run_456",
+            "outcomes": {
+                "holdout_status": "passed",
+                "safety_gate_status": "not_run",
+            },
+        }
+
+        errors = validator.validate_json(
+            payload, "next_steps_receipt_request_schema"
+        )
+
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_receipt_outcomes_require_completed_status(self, validator):
+        errors = validator.validate_json(
+            {
+                "status": "started",
+                "attempt_id": "attempt_123",
+                "outcomes": {"holdout_status": "passed"},
+            },
+            "next_steps_receipt_request_schema",
+        )
+
+        assert errors
+
+    def test_receipt_rejects_arbitrary_metrics_or_content(self, validator):
+        errors = validator.validate_json(
+            {
+                "status": "completed",
+                "attempt_id": "attempt_123",
+                "metrics": {"accuracy": 0.95},
+            },
+            "next_steps_receipt_request_schema",
+        )
+
+        assert errors
+
     def test_next_steps_rejects_unknown_posture_property(
         self,
         validator,
@@ -945,6 +1142,18 @@ class TestLifecycleEndpointRegistration:
         assert (
             next_steps_response["content"]["application/json"]["schema"]["$ref"]
             == "./next_steps_schema.json"
+        )
+
+        receipt = endpoints["paths"][
+            "/api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt"
+        ]["post"]
+        assert (
+            receipt["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+            == "./next_steps_receipt_request_schema.json"
+        )
+        assert (
+            receipt["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+            == "./next_steps_receipt_response_schema.json"
         )
 
         curation_response = endpoints["paths"][

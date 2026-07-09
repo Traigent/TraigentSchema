@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/issue_evidence_ref_schema.json",
+  "title": "Observability Issue Evidence Reference Schema",
+  "description": "Content-free pointer into immutable raw trace evidence. It carries structural coordinates and a closed signal taxonomy, never copied input, output, metadata, or error text.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "evidence_type": {
+      "type": "string",
+      "enum": ["explicit_error", "repeated_subsequence", "retry_sequence", "fallback_transition", "terminal_dead_end"]
+    },
+    "trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "observation_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "start_observation_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "end_observation_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "start_sequence_index": { "type": ["integer", "null"], "minimum": 0, "maximum": 1000000 },
+    "end_sequence_index": { "type": ["integer", "null"], "minimum": 0, "maximum": 1000000 },
+    "repeat_count": { "type": ["integer", "null"], "minimum": 2, "maximum": 1000000 },
+    "error_category": {
+      "type": ["string", "null"],
+      "enum": ["authentication", "authorization", "timeout", "rate_limit", "validation", "model", "tool", "dependency", "cancelled", "unknown", null]
+    }
+  },
+  "required": ["evidence_type", "trace_id", "observation_id", "start_observation_id", "end_observation_id", "start_sequence_index", "end_sequence_index", "repeat_count", "error_category"],
+  "allOf": [
+    {
+      "if": { "properties": { "evidence_type": { "enum": ["explicit_error", "terminal_dead_end"] } } },
+      "then": { "properties": { "observation_id": { "type": "string", "minLength": 1, "maxLength": 128 } } }
+    },
+    {
+      "if": { "properties": { "evidence_type": { "enum": ["repeated_subsequence", "retry_sequence", "fallback_transition"] } } },
+      "then": {
+        "properties": {
+          "start_observation_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "end_observation_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "start_sequence_index": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+          "end_sequence_index": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "evidence_type": { "const": "repeated_subsequence" } } },
+      "then": { "properties": { "repeat_count": { "type": "integer", "minimum": 2, "maximum": 1000000 } } }
+    }
+  ]
+}

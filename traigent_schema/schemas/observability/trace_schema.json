@@ -34,6 +34,7 @@
     "ended_at": { "type": ["string", "null"], "format": "date-time" },
     "correlation_ids": { "$ref": "./correlation_ids_schema.json" },
     "prompt_reference": { "$ref": "./prompt_reference_schema.json" },
+    "execution_context": { "$ref": "./execution_context_schema.json" },
     "session": { "$ref": "./session_schema.json" },
     "observations": {
       "type": "array",

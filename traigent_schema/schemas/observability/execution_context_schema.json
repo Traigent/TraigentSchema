@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/execution_context_schema.json",
+  "title": "Observability Execution Context Schema",
+  "description": "Versioned, content-free execution lineage captured at trace ingest. Opaque metadata is not accepted; each identifier names a platform lineage dimension used for release and intervention comparisons.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "sdk_runtime_metadata",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "agent_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "agent_version": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "release_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "deployment_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "code_revision": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "configuration_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "configuration_version": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "prompt_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "prompt_version": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "toolset_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "toolset_version": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "evaluator_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "evaluator_version": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "dataset_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "dataset_version": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "experiment_run_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "configuration_run_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "optimization_run_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "intervention_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 }
+  },
+  "required": ["schema_version"]
+}

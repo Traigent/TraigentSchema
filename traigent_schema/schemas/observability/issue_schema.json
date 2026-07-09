@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/issue_schema.json",
+  "title": "Observability Issue Schema",
+  "description": "Durable recurring-problem ledger entry. Identity is (project_id, detector_family, problem_signature, signature_spec_version); detector rule versions are intentionally excluded and recorded on occurrences.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "detector_family": {
+      "type": "string",
+      "enum": ["explicit_error", "loop", "retry", "fallback", "dead_end"]
+    },
+    "problem_signature": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Opaque digest of the detector family's normalized, content-free problem signature."
+    },
+    "signature_spec_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "state": { "type": "string", "enum": ["open", "acknowledged", "resolved", "ignored"] },
+    "severity": { "type": "string", "enum": ["info", "warning", "error", "critical"] },
+    "occurrence_count": { "type": "integer", "minimum": 1 },
+    "affected_trace_count": { "type": "integer", "minimum": 1 },
+    "reopen_count": { "type": "integer", "minimum": 0 },
+    "first_seen_at": { "type": "string", "format": "date-time" },
+    "last_seen_at": { "type": "string", "format": "date-time" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "state_changed_at": { "type": "string", "format": "date-time" },
+    "superseded_by_issue_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "version": { "type": "integer", "minimum": 1 }
+  },
+  "required": [
+    "id",
+    "project_id",
+    "detector_family",
+    "problem_signature",
+    "signature_spec_version",
+    "state",
+    "severity",
+    "occurrence_count",
+    "affected_trace_count",
+    "reopen_count",
+    "first_seen_at",
+    "last_seen_at",
+    "created_at",
+    "updated_at",
+    "state_changed_at",
+    "superseded_by_issue_id",
+    "version"
+  ]
+}

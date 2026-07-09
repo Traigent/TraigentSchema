@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/structural_fingerprint_schema.json",
+  "title": "Structural Fingerprint Schema",
+  "description": "Versioned exact structural identity derived from sanitized event kinds, normalized tool identifiers, statuses, parent/sequence structure, and repeat counts. Values may change when fingerprint_spec_version changes.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "algorithm": { "type": "string", "const": "sha256" },
+    "fingerprint_spec_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "canonical_event_count": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+    "root_count": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+  },
+  "required": [
+    "value",
+    "algorithm",
+    "fingerprint_spec_version",
+    "canonical_event_count",
+    "root_count"
+  ]
+}

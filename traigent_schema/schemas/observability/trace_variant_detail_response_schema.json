@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_variant_detail_response_schema.json",
+  "title": "Observability Trace Variant Detail Response Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "variant": { "$ref": "./trace_variant_schema.json" },
+    "traces": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "status": { "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus" },
+          "started_at": { "type": ["string", "null"], "format": "date-time" },
+          "is_representative": { "type": "boolean" },
+          "is_boundary": { "type": "boolean" }
+        },
+        "required": ["trace_id", "status", "started_at", "is_representative", "is_boundary"]
+      }
+    },
+    "trace_page": { "type": "integer", "minimum": 1 },
+    "traces_per_page": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "total_traces": { "type": "integer", "minimum": 0 },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["variant", "traces", "trace_page", "traces_per_page", "total_traces", "generated_at"]
+}

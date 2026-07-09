@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_variant_schema.json",
+  "title": "Observability Trace Variant Schema",
+  "description": "Regenerable exact structural trace grouping. Variant identity is scoped to one fingerprint specification version and is separate from durable issue identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "display_label": { "type": "string", "pattern": "^Variant [A-F0-9]{8}$" },
+    "fingerprint": { "$ref": "./structural_fingerprint_schema.json" },
+    "trace_count": { "type": "integer", "minimum": 1 },
+    "first_seen_at": { "type": "string", "format": "date-time" },
+    "last_seen_at": { "type": "string", "format": "date-time" },
+    "representative_trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "boundary_trace_ids": {
+      "type": "array",
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "status_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "running": { "type": "integer", "minimum": 0 },
+        "completed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "rejected": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["running", "completed", "failed", "rejected"]
+    },
+    "derivation": { "$ref": "./derivation_provenance_schema.json" }
+  },
+  "required": [
+    "id",
+    "project_id",
+    "display_label",
+    "fingerprint",
+    "trace_count",
+    "first_seen_at",
+    "last_seen_at",
+    "representative_trace_id",
+    "boundary_trace_ids",
+    "status_counts",
+    "derivation"
+  ]
+}

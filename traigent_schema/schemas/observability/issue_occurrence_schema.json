@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/issue_occurrence_schema.json",
+  "title": "Observability Issue Occurrence Schema",
+  "description": "Append-only detection record linking a durable issue to one raw trace and its content-free evidence. Detector rule and derivation versions belong here, not in issue identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "issue_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "variant_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "detector_rule_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "detected_at": { "type": "string", "format": "date-time" },
+    "fingerprint": { "$ref": "./structural_fingerprint_schema.json" },
+    "derivation": { "$ref": "./derivation_provenance_schema.json" },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "$ref": "./issue_evidence_ref_schema.json" }
+    }
+  },
+  "required": [
+    "id",
+    "issue_id",
+    "project_id",
+    "trace_id",
+    "variant_id",
+    "detector_rule_version",
+    "detected_at",
+    "fingerprint",
+    "derivation",
+    "evidence"
+  ]
+}

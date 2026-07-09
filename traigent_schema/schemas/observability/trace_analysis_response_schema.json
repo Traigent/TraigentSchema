@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_analysis_response_schema.json",
+  "title": "Observability Trace Analysis Response Schema",
+  "description": "Content-free structural analysis for one trace. Raw payloads and error text remain available only through the existing trace APIs and their privacy controls.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "analysis_status": { "type": "string", "enum": ["pending", "running", "completed", "failed", "stale"] },
+    "failure_code": {
+      "type": ["string", "null"],
+      "enum": ["trace_too_large", "invalid_structure", "derivation_timeout", "internal_error", null]
+    },
+    "fingerprint": {
+      "oneOf": [
+        { "$ref": "./structural_fingerprint_schema.json" },
+        { "type": "null" }
+      ]
+    },
+    "variant_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "critical_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "observation_ids": {
+          "type": "array",
+          "maxItems": 2000,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "observation_count": { "type": "integer", "minimum": 0, "maximum": 2000 }
+      },
+      "required": ["observation_ids", "duration_ms", "observation_count"]
+    },
+    "repeat_groups": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "parent_observation_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+          "start_sequence_index": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+          "end_sequence_index": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+          "sequence_fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "iteration_count": { "type": "integer", "minimum": 2, "maximum": 1000000 },
+          "observation_count_per_iteration": { "type": "integer", "minimum": 1, "maximum": 2000 },
+          "collapsed_observation_count": { "type": "integer", "minimum": 2, "maximum": 1000000 }
+        },
+        "required": ["id", "parent_observation_id", "start_sequence_index", "end_sequence_index", "sequence_fingerprint", "iteration_count", "observation_count_per_iteration", "collapsed_observation_count"]
+      }
+    },
+    "tool_summaries": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "normalized_tool_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "attempt_count": { "type": "integer", "minimum": 1 },
+          "success_count": { "type": "integer", "minimum": 0 },
+          "failure_count": { "type": "integer", "minimum": 0 },
+          "retry_count": { "type": "integer", "minimum": 0 },
+          "fallback_count": { "type": "integer", "minimum": 0 },
+          "total_latency_ms": { "type": "integer", "minimum": 0 },
+          "total_cost_usd": { "type": "number", "minimum": 0 }
+        },
+        "required": ["normalized_tool_id", "attempt_count", "success_count", "failure_count", "retry_count", "fallback_count", "total_latency_ms", "total_cost_usd"]
+      }
+    },
+    "issue_ids": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "derivation": {
+      "oneOf": [
+        { "$ref": "./derivation_provenance_schema.json" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "required": ["project_id", "trace_id", "analysis_status", "failure_code", "fingerprint", "variant_id", "critical_path", "repeat_groups", "tool_summaries", "issue_ids", "derivation"]
+}

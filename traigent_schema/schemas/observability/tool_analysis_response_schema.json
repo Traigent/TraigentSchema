@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/tool_analysis_response_schema.json",
+  "title": "Observability Tool Analysis Response Schema",
+  "description": "Bounded content-free tool execution aggregates. These statistics describe execution outcomes and do not claim that a selected tool was semantically correct.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "start_time": { "type": "string", "format": "date-time" },
+    "end_time": { "type": "string", "format": "date-time" },
+    "items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "normalized_tool_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "trace_count": { "type": "integer", "minimum": 1 },
+          "attempt_count": { "type": "integer", "minimum": 1 },
+          "success_count": { "type": "integer", "minimum": 0 },
+          "failure_count": { "type": "integer", "minimum": 0 },
+          "retry_count": { "type": "integer", "minimum": 0 },
+          "fallback_count": { "type": "integer", "minimum": 0 },
+          "failure_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+          "retry_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+          "fallback_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+          "p50_latency_ms": { "type": "number", "minimum": 0 },
+          "p95_latency_ms": { "type": "number", "minimum": 0 },
+          "total_cost_usd": { "type": "number", "minimum": 0 },
+          "issue_ids": {
+            "type": "array",
+            "maxItems": 100,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+          }
+        },
+        "required": ["normalized_tool_id", "trace_count", "attempt_count", "success_count", "failure_count", "retry_count", "fallback_count", "failure_rate", "retry_rate", "fallback_rate", "p50_latency_ms", "p95_latency_ms", "total_cost_usd", "issue_ids"]
+      }
+    },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["project_id", "start_time", "end_time", "items", "generated_at"]
+}

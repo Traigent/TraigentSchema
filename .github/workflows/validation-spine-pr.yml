@@ -33,7 +33,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  spine-token-preflight:
+    name: Spine token preflight (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has_token: ${{ steps.check.outputs.has_token }}
+    steps:
+      - name: Check validation spine token presence
+        id: check
+        env:
+          ACTOR: ${{ github.actor }}
+          SPINE_RO_TOKEN: ${{ secrets.SPINE_RO_TOKEN || secrets.VALIDATION_CI_PAT }}
+        run: |
+          set -uo pipefail
+          if [ -n "${SPINE_RO_TOKEN:-}" ]; then
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+            echo "Validation spine token is configured."
+            exit 0
+          fi
+
+          echo "has_token=false" >> "$GITHUB_OUTPUT"
+          if [ "$ACTOR" = "dependabot[bot]" ]; then
+            echo "::notice::SPINE_RO_TOKEN unavailable for dependabot PR (secrets blocked by design); spine scan skipped - dependabot bumps carry no policy surface."
+            echo "Dependabot secret exception applied; validation spine scan skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "::error::validation-spine-pr (missing-secret): SPINE_RO_TOKEN and VALIDATION_CI_PAT are not configured; validation spine scan cannot run."
+          {
+            echo "## Validation Spine - token preflight"
+            echo
+            echo "Failed closed: neither repository secret \`SPINE_RO_TOKEN\` nor \`VALIDATION_CI_PAT\` is configured."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
   spine-pr-scan:
+    needs: spine-token-preflight
+    if: ${{ always() && needs.spine-token-preflight.outputs.has_token == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -61,21 +98,6 @@ jobs:
           ref: ${{ env.SPINE_REF }}
           path: .spine
           token: ${{ env.SPINE_RO_TOKEN }}
-
-      - name: Note skipped spine scan
-        if: env.SPINE_RO_TOKEN == ''
-        run: |
-          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
-            echo "::notice::SPINE_RO_TOKEN unavailable for dependabot PR (secrets blocked by design); spine scan skipped - dependabot bumps carry no policy surface."
-            exit 0
-          fi
-          echo "::error::SPINE_RO_TOKEN is not configured; validation spine scan cannot run."
-          {
-            echo "## Validation Spine — PR scan"
-            echo
-            echo "Failed closed: repository secret \`SPINE_RO_TOKEN\` is not configured."
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit 1
 
       - name: Capture PR changed files
         if: env.SPINE_RO_TOKEN != '' && github.event_name == 'pull_request'

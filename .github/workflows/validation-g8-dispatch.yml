@@ -35,8 +35,8 @@ jobs:
             exit 0
           fi
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::warning::VALIDATION_CI_PAT is not configured; skipping validation-spine dispatch."
-            exit 0
+            echo "::error::VALIDATION_CI_PAT is not configured; validation-spine G8 dispatch cannot run."
+            exit 1
           fi
 
           source_sha="${SOURCE_HEAD_SHA:-$GITHUB_SHA}"

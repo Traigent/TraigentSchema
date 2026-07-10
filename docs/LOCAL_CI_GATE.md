@@ -24,7 +24,7 @@ would reject. Fix what it reports, then push.
 | `mypy traigent_schema/ --ignore-missing-imports` | `CI / test` → *Run type checking* (`ci.yml`) | Same flags as CI. |
 | `pytest tests/` | `CI / test` → *Run tests* (`ci.yml`) | **The structural / contract gate.** Includes `test_structural_validity.py` plus every per-contract test. DB-free, ~5s. |
 | `python3 scripts/refresh_parity.py --check` | `Parity manifest freshness` (`parity-check.yml`) | Fails if schema files changed without re-stamping `parity/python-js-sdk.json`. Fix with `make format` (re-stamp), then commit. |
-| spine preflight (reminder) | `spine-trail present` (`spine-trail-gate.yml`) | **Reminder only** — see below. |
+| spine preflight (reminder) | `spine-trail present`, `policy-surface session link (advisory)` | **Reminder only** — see below. |
 | SonarQube quality gate | `SonarQube Quality Gate` (`sonarqube-local.yml`) | **Only for `release/*` / `hotfix/*` branches** (or `LOCAL_GATE_SONAR=1`). Runs `sonar-scanner -Dsonar.qualitygate.wait=true`. |
 
 ### Why no `ruff format --check`?
@@ -34,12 +34,10 @@ the existing tree is not format-clean. Adding a format gate locally would block
 your push on pre-existing, unrelated drift — a false blocker. The gate
 deliberately mirrors what CI **enforces**, so it does not run `ruff format`.
 
-## The spine rule (trail reminder)
+## The spine rules (local reminder)
 
-This repo is a pure JSON-Schema / contracts library. It has **no policy-surface
-globs file** and **no `require-spine-session` gate** (unlike TraigentBackend), so
-the local gate does **not** demand a `Spine-Session`. What CI *does* enforce is
-`spine-trail-gate.yml`: every product PR's **body** must carry one of:
+The required `spine-trail-gate.yml` remains unchanged: every product PR's
+**body** must carry one of:
 
 ```
 Spine-Trail: st_xxxxxxxxxxxx     (a Tier-0 WorkIntent)
@@ -47,8 +45,17 @@ Spine: cs_xxxxxxxx               (a promoted ChangeSession)
 Spine: none (reason: <why>)      (an explicit, owner-visible waiver)
 ```
 
-That check reads the **PR body**, which doesn't exist before you push, so the
-gate surfaces it as a **reminder**. Create a trail *before* `gh pr create`:
+The additive, initially non-required `spine-session-link.yml` also examines
+changes to auth, MFA, billing/cost, audit, privacy, observability, project-policy,
+rate-limit, security, and hybrid-session schema surfaces. Those changes require
+either `Spine-Session: cs_<id>` or a promoted `Spine: cs_<id>`. The existing
+explicit waiver forms remain accepted: `Spine: none (reason: ...)` or the
+owner-applied `spine-exempt` label. A `Spine-Trail` alone still satisfies the
+trail gate, but not the additional policy-surface session-link check.
+
+These checks read the **PR body**, which doesn't exist before you push, so the
+local gate surfaces governance as a **reminder**. Create a trail *before*
+`gh pr create`:
 
 ```bash
 python3 <workspace>/tools/spine-trail/spine_trail.py get-or-create \
@@ -58,9 +65,9 @@ python3 <workspace>/tools/spine-trail/spine_trail.py get-or-create \
 # then add its  Spine-Trail: st_xxxx  line to the PR body.
 ```
 
-If a `require-spine-session` workflow + a `.github/spine-policy-surface-globs.txt`
-are ever added here, port TraigentBackend's `scripts/ci/spine_preflight.py` and
-wire it into `scripts/local_gate.sh` in place of this reminder.
+When the advisory session-link check is promoted to required, port
+TraigentBackend's `scripts/ci/spine_preflight.py` behavior into this repository's
+local gate so the same policy-surface decision fails before push.
 
 ## SonarQube locally before a main PR
 

@@ -256,6 +256,7 @@ def test_project_observability_endpoint_inventory_and_response_bindings() -> Non
         f"{base}/traces/{{trace_id}}/projection": "trace_projection_response_schema.json",
         f"{base}/traces/{{trace_id}}/lineage": "observability_lineage_response_schema.json",
         f"{base}/analysis/tools": "tool_analysis_response_schema.json",
+        f"{base}/analysis/insights": "analysis_insights_response_schema.json",
     }
     for path, schema_name in expected_gets.items():
         response_schema = paths[path]["get"]["responses"]["200"]["content"]["application/json"][
@@ -268,3 +269,90 @@ def test_project_observability_endpoint_inventory_and_response_bindings() -> Non
         for item in paths[f"{base}/traces/{{trace_id}}/projection"]["get"]["parameters"]
     }
     assert projection_parameters["limit"]["maximum"] == 500
+
+
+def test_analysis_insights_are_content_free_and_measurement_bounded() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = {
+        "project_id": "project-1",
+        "start_time": "2026-07-01T00:00:00Z",
+        "end_time": NOW,
+        "content_included": False,
+        "conformance": {
+            "baseline_type": "observed_dominant_variant",
+            "baseline_variant_id": "variant-1",
+            "analyzed_trace_count": 10,
+            "sampled_trace_count": 10,
+            "total_trace_count": 12,
+            "analysis_coverage": 10 / 12,
+            "sample_coverage": 1.0,
+            "conforming_trace_count": 8,
+            "conformance_rate": 0.8,
+            "alternate_trace_count": 2,
+            "alternate_rate": 0.2,
+            "alternate_variant_count": 1,
+            "deviations": [
+                {
+                    "variant_id": "variant-2",
+                    "trace_count": 2,
+                    "failed_trace_count": 1,
+                    "representative_trace_id": "trace-9",
+                    "evidence_trace_ids": ["trace-9", "trace-10"],
+                    "share": 0.2,
+                }
+            ],
+            "sample_truncated": False,
+            "interpretation": "Descriptive structural baseline; not an intended-workflow assertion.",
+        },
+        "recommendations": [
+            {
+                "id": "recommendation-1",
+                "category": "tool_reliability",
+                "priority": "high",
+                "confidence": 0.75,
+                "subject": "tool-search",
+                "evidence": {
+                    "normalized_tool_id": "tool-search",
+                    "trace_count": 5,
+                    "sampled_trace_count": 10,
+                    "attempt_count": 10,
+                    "issue_ids": ["issue-1"],
+                    "failure_count": 3,
+                    "failure_rate": 0.3,
+                },
+                "suggested_action": "Inspect representative failures and test a tool or routing change.",
+                "measurement": {
+                    "comparison": "before_after_cohorts",
+                    "metrics": ["error_rate", "latency_ms", "cost_usd"],
+                    "intervention_context_key": "intervention_id",
+                },
+            },
+            {
+                "id": "recommendation-2",
+                "category": "behavioral_variation",
+                "priority": "medium",
+                "confidence": 0.7,
+                "subject": "variant-1",
+                "evidence": {
+                    "baseline_variant_id": "variant-1",
+                    "sampled_trace_count": 10,
+                    "alternate_trace_count": 2,
+                    "alternate_rate": 0.2,
+                    "alternate_variant_count": 1,
+                },
+                "suggested_action": "Segment variants before classifying drift.",
+                "measurement": {
+                    "comparison": "before_after_cohorts",
+                    "metrics": ["error_rate", "latency_ms", "cost_usd"],
+                    "intervention_context_key": "intervention_id",
+                },
+            },
+        ],
+        "limitations": ["Recommendations are deterministic hypotheses, not causal claims."],
+        "generated_at": NOW,
+    }
+    assert validator.validate_json(payload, "analysis_insights_response_schema") == []
+
+    leaked = copy.deepcopy(payload)
+    leaked["recommendations"][0]["evidence"]["error_text"] = "private content"
+    assert validator.validate_json(leaked, "analysis_insights_response_schema")

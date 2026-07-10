@@ -288,6 +288,23 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/observability/analysis/insights": {
+      "get": {
+        "summary": "Get content-free structural conformance facts and validation recommendations",
+        "operationId": "getProjectObservabilityAnalysisInsights",
+        "parameters": [
+          { "name": "start_time", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "end_time", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analysis insights retrieved successfully",
+            "content": { "application/json": { "schema": { "$ref": "./analysis_insights_response_schema.json" } } }
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/observability/analysis/cohorts/compare": {
       "post": {
         "summary": "Compare two bounded observability cohorts without mutating state",

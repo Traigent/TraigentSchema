@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/smartops_v2_common_schema.json",
+  "title": "SmartOps Planner V2 common types",
+  "definitions": {
+    "OpaqueId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{2,31}_[A-Za-z0-9_-]{16,160}$",
+      "maxLength": 192,
+      "description": "Tenant-scoped opaque identifier. It contains no raw tenant, project, run, artifact, path, prompt, or example identifier."
+    },
+    "UtcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40,
+      "description": "RFC-3339 UTC timestamp emitted with a trailing Z."
+    },
+    "RunId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,100}$",
+      "maxLength": 100
+    },
+    "Profile": {
+      "type": "string",
+      "enum": ["quality_first", "balanced", "cost_first"]
+    },
+    "RequestedVariant": {
+      "type": "string",
+      "enum": ["rules_control", "policy_override"]
+    },
+    "DecisionMode": {
+      "type": "string",
+      "enum": [
+        "rules_control",
+        "policy_override",
+        "rules_parity",
+        "rules_fallback",
+        "pending_wait",
+        "safety_stop"
+      ]
+    },
+    "PublicCategory": {
+      "type": "string",
+      "enum": [
+        "score_evaluation_set",
+        "curate_evaluation_set",
+        "audit_evaluator_quality",
+        "improve_evaluator",
+        "adjust_configuration_space",
+        "run_optimization",
+        "validate_holdout",
+        "compare_with_baseline",
+        "add_safety_gate",
+        "promote_winner",
+        "wait",
+        "stop"
+      ]
+    },
+    "OperationKind": {
+      "type": "string",
+      "enum": [
+        "score_examples",
+        "audit_evaluator",
+        "synth_harder_examples",
+        "run_optimization",
+        "run_holdout",
+        "compare_baseline",
+        "add_safety_gate",
+        "promote_winner",
+        "refine_metric",
+        "adjust_configuration_space",
+        "wait",
+        "stop"
+      ]
+    },
+    "ActionVariant": {
+      "type": "string",
+      "enum": [
+        "score_probe_32",
+        "score_full",
+        "curate_invalid",
+        "deduplicate",
+        "expand_coverage",
+        "synthesize_hard",
+        "audit_probe_32",
+        "audit_full",
+        "fix_parser",
+        "calibrate_threshold",
+        "reduce_bias",
+        "stabilize",
+        "optimize_probe",
+        "optimize_standard",
+        "optimize_deep",
+        "config_expand",
+        "config_prune",
+        "config_fix_inactive",
+        "compare_probe_64",
+        "compare_full",
+        "holdout_full",
+        "safety_gate",
+        "promote",
+        "wait",
+        "stop"
+      ]
+    },
+    "PolicyVersions": {
+      "type": "object",
+      "required": ["rule", "policy", "calibration", "shield", "evidence_schema"],
+      "properties": {
+        "rule": {"type": "string", "minLength": 1, "maxLength": 128},
+        "policy": {"type": ["string", "null"], "maxLength": 128},
+        "calibration": {"type": ["string", "null"], "maxLength": 128},
+        "shield": {"type": "string", "minLength": 1, "maxLength": 128},
+        "evidence_schema": {"type": "string", "const": "2.0.0"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

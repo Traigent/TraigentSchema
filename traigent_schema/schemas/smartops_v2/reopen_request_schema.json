@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/reopen_request_schema.json",
+  "title": "SmartOps Planner V2 reopen request",
+  "type": "object",
+  "required": ["reason"],
+  "properties": {
+    "reason": {"type": "string", "enum": ["new_artifact", "budget", "operator"]},
+    "root_run_id": {
+      "oneOf": [
+        {"$ref": "./smartops_v2_common_schema.json#/definitions/RunId"},
+        {"type": "null"}
+      ]
+    }
+  },
+  "additionalProperties": false
+}

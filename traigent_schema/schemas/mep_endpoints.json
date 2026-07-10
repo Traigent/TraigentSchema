@@ -63,6 +63,11 @@
       "paths_file": "./analytics/analytics_endpoints.json"
     },
     {
+      "name": "SmartOps Planner V2",
+      "description": "Additive Planner V2 decision, receipt, lifecycle, private resolution, and service-only shadow routes.",
+      "paths_file": "./smartops_v2/smartops_v2_endpoints.json"
+    },
+    {
       "name": "Auth",
       "description": "Current backend authentication and account routes.",
       "paths_file": "./auth/auth_endpoints.json"

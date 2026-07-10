@@ -1,0 +1,184 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/next_decision_response_schema.json",
+  "title": "SmartOps Planner V2 next decision response",
+  "type": "object",
+  "required": ["schema_version", "lifecycle_id", "run_id", "decision", "meta"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "2.0.0"},
+    "lifecycle_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "run_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/RunId"},
+    "decision": {
+      "type": "object",
+      "required": [
+        "id",
+        "mode",
+        "category",
+        "source_engine",
+        "baseline_rule_category",
+        "utility_profile",
+        "certificate_ref",
+        "advantage_label",
+        "evidence_snapshot_hash",
+        "rationale",
+        "action",
+        "evidence_level"
+      ],
+      "properties": {
+        "id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+        "mode": {"$ref": "./smartops_v2_common_schema.json#/definitions/DecisionMode"},
+        "category": {"$ref": "./smartops_v2_common_schema.json#/definitions/PublicCategory"},
+        "source_engine": {"type": "string", "enum": ["rules", "policy", "safety"]},
+        "baseline_rule_category": {"$ref": "./smartops_v2_common_schema.json#/definitions/PublicCategory"},
+        "utility_profile": {"$ref": "./smartops_v2_common_schema.json#/definitions/Profile"},
+        "certificate_ref": {
+          "oneOf": [
+            {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+            {"type": "null"}
+          ],
+          "description": "Opaque tenant-scoped reference. Numeric certificate details are internal."
+        },
+        "advantage_label": {
+          "type": "string",
+          "enum": ["model_certified_positive", "parity", "unavailable", "not_applicable"]
+        },
+        "evidence_snapshot_hash": {
+          "type": "string",
+          "pattern": "^ev_[A-Za-z0-9_-]{32,96}$",
+          "maxLength": 99
+        },
+        "rationale": {
+          "type": "string",
+          "enum": [
+            "rules control selected the next safe lifecycle action",
+            "policy selected a model-certified improvement over rules",
+            "policy agreed with the safe rule action",
+            "policy or calibration was unavailable; safe rules were used",
+            "an operation is already active; wait for its authoritative result",
+            "no positive affordable safe action remains"
+          ]
+        },
+        "action": {
+          "type": "object",
+          "required": ["kind", "variant", "command_template"],
+          "properties": {
+            "kind": {"type": "string", "enum": ["cli", "none"]},
+            "variant": {"$ref": "./smartops_v2_common_schema.json#/definitions/ActionVariant"},
+            "command_template": {
+              "type": "string",
+              "pattern": "^(|traigent guidance execute --decision [A-Za-z0-9_-]{16,192})$",
+              "maxLength": 240,
+              "description": "Static launcher containing one opaque decision id; empty for WAIT/STOP."
+            }
+          },
+          "additionalProperties": false
+        },
+        "evidence_level": {"type": "string", "enum": ["high", "medium", "low"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"category": {"enum": ["wait", "stop"]}}, "required": ["category"]},
+          "then": {
+            "properties": {
+              "action": {
+                "properties": {"kind": {"const": "none"}, "command_template": {"const": ""}}
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "action": {
+                "properties": {
+                  "kind": {"const": "cli"},
+                  "command_template": {
+                    "pattern": "^traigent guidance execute --decision [A-Za-z0-9_-]{16,192}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"mode": {"const": "policy_override"}}, "required": ["mode"]},
+          "then": {"properties": {
+            "source_engine": {"const": "policy"},
+            "advantage_label": {"const": "model_certified_positive"},
+            "evidence_level": {"const": "high"},
+            "certificate_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}
+          }}
+        },
+        {
+          "if": {"properties": {"mode": {"const": "rules_parity"}}, "required": ["mode"]},
+          "then": {"properties": {
+            "source_engine": {"const": "rules"},
+            "advantage_label": {"const": "parity"},
+            "evidence_level": {"const": "medium"},
+            "certificate_ref": {"type": "null"}
+          }}
+        },
+        {
+          "if": {"properties": {"mode": {"const": "rules_fallback"}}, "required": ["mode"]},
+          "then": {"properties": {
+            "source_engine": {"const": "rules"},
+            "advantage_label": {"const": "unavailable"},
+            "evidence_level": {"const": "low"},
+            "certificate_ref": {"type": "null"}
+          }}
+        },
+        {
+          "if": {"properties": {"mode": {"const": "pending_wait"}}, "required": ["mode"]},
+          "then": {"properties": {
+            "category": {"const": "wait"},
+            "baseline_rule_category": {"const": "wait"},
+            "source_engine": {"const": "rules"},
+            "advantage_label": {"const": "not_applicable"},
+            "evidence_level": {"const": "low"},
+            "certificate_ref": {"type": "null"}
+          }}
+        },
+        {
+          "if": {"properties": {"mode": {"const": "safety_stop"}}, "required": ["mode"]},
+          "then": {"properties": {
+            "category": {"const": "stop"},
+            "baseline_rule_category": {"const": "stop"},
+            "source_engine": {"const": "safety"},
+            "advantage_label": {"const": "not_applicable"},
+            "evidence_level": {"const": "high"},
+            "certificate_ref": {"type": "null"}
+          }}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "requested_variant",
+        "served_variant",
+        "selector_engine",
+        "context_status",
+        "policy_version",
+        "rule_version",
+        "calibration_version",
+        "shield_version",
+        "fallback_reason"
+      ],
+      "properties": {
+        "requested_variant": {"$ref": "./smartops_v2_common_schema.json#/definitions/RequestedVariant"},
+        "served_variant": {"$ref": "./smartops_v2_common_schema.json#/definitions/RequestedVariant"},
+        "selector_engine": {"type": "string", "enum": ["rules", "policy", "safety"]},
+        "context_status": {"type": "string", "enum": ["complete", "incomplete"]},
+        "policy_version": {"type": ["string", "null"], "maxLength": 128},
+        "rule_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "calibration_version": {"type": ["string", "null"], "maxLength": 128},
+        "shield_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "fallback_reason": {
+          "type": ["string", "null"],
+          "enum": [null, "policy_unavailable", "calibration_unavailable"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

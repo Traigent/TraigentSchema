@@ -24,7 +24,13 @@
   "allOf": [
     {
       "if": {"properties": {"status": {"const": "submitted"}}, "required": ["status"]},
-      "then": {"required": ["result_ref"], "properties": {"result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}}}
+      "then": {"required": ["result_ref"], "properties": {"result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}}},
+      "else": {
+        "properties": {
+          "result_ref": {"type": "null"},
+          "successor_run_id": {"type": "null"}
+        }
+      }
     }
   ],
   "additionalProperties": false

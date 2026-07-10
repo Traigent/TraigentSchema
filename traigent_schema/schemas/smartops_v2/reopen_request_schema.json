@@ -5,13 +5,7 @@
   "type": "object",
   "required": ["reason"],
   "properties": {
-    "reason": {"type": "string", "enum": ["new_artifact", "budget", "operator"]},
-    "root_run_id": {
-      "oneOf": [
-        {"$ref": "./smartops_v2_common_schema.json#/definitions/RunId"},
-        {"type": "null"}
-      ]
-    }
+    "reason": {"type": "string", "enum": ["new_artifact", "budget", "operator"]}
   },
   "additionalProperties": false
 }

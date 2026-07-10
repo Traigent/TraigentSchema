@@ -46,6 +46,16 @@ def test_submitted_receipt_requires_result_ref() -> None:
         "POST",
         {**base, "result_ref": "result_0123456789abcdef"},
     )
+    for status in ("started", "failed", "skipped"):
+        assert validator.validate_request(
+            "/api/v2/lifecycles/lifecycle_0123456789abcdef/decisions/decision_0123456789abcdef/receipts",
+            "POST",
+            {
+                "attempt_id": "attempt_0123456789abcdef",
+                "status": status,
+                "result_ref": "result_0123456789abcdef",
+            },
+        )
 
 
 def test_public_command_and_private_argv_are_shell_free() -> None:
@@ -162,3 +172,68 @@ def test_policy_modes_cannot_masquerade_as_terminal_actions() -> None:
             action={"kind": "none", "variant": "wait", "command_template": ""},
         )
         assert validator.validate_json(payload, "next_decision_response_schema")
+
+
+def test_mode_and_meta_treatment_semantics_are_closed() -> None:
+    validator = SchemaValidator(contract="backend")
+    base = _decision_payload()
+    for meta_mutation in (
+        {"requested_variant": "policy_override"},
+        {"served_variant": "policy_override"},
+        {"selector_engine": "policy"},
+        {"fallback_reason": "policy_unavailable"},
+    ):
+        payload = json.loads(json.dumps(base))
+        payload["meta"].update(meta_mutation)
+        assert validator.validate_json(payload, "next_decision_response_schema")
+
+    parity = _decision_payload(
+        mode="rules_parity",
+        advantage_label="parity",
+        rationale="policy agreed with the safe rule action",
+    )
+    parity["meta"].update(
+        requested_variant="policy_override",
+        served_variant="policy_override",
+        selector_engine="policy",
+        policy_version="policy-v2",
+        calibration_version="calibration-v2",
+    )
+    assert not validator.validate_json(parity, "next_decision_response_schema")
+    for field, value in (
+        ("served_variant", "rules_control"),
+        ("selector_engine", "rules"),
+        ("policy_version", None),
+        ("calibration_version", None),
+        ("fallback_reason", "policy_unavailable"),
+    ):
+        payload = json.loads(json.dumps(parity))
+        payload["meta"][field] = value
+        assert validator.validate_json(payload, "next_decision_response_schema")
+
+    fallback = _decision_payload(
+        mode="rules_fallback",
+        advantage_label="unavailable",
+        evidence_level="low",
+        rationale="policy or calibration was unavailable; safe rules were used",
+    )
+    fallback["meta"].update(
+        requested_variant="policy_override",
+        served_variant="policy_override",
+        selector_engine="rules",
+        fallback_reason="policy_unavailable",
+    )
+    assert not validator.validate_json(fallback, "next_decision_response_schema")
+    fallback["meta"]["fallback_reason"] = None
+    assert validator.validate_json(fallback, "next_decision_response_schema")
+
+
+def test_reopen_is_reason_only_without_hidden_run_backdoor() -> None:
+    validator = SchemaValidator(contract="backend")
+    endpoint = "/api/v2/lifecycles/lifecycle_0123456789abcdef/reopen"
+    assert not validator.validate_request(endpoint, "POST", {"reason": "budget"})
+    assert validator.validate_request(
+        endpoint,
+        "POST",
+        {"reason": "budget", "root_run_id": "run_foreign"},
+    )

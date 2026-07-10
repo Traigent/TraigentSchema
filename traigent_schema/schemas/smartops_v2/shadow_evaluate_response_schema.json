@@ -45,7 +45,7 @@
               "cell_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
               "advantage_point": {"type": "number"},
               "advantage_lcb": {"type": "number", "exclusiveMinimum": 0},
-              "advantage_ucb": {"type": "number"},
+              "advantage_ucb": {"type": ["number", "null"]},
               "support_n": {"minimum": 30},
               "effective_support_n": {"minimum": 30}
             }

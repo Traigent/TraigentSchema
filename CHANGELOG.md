@@ -1,5 +1,7 @@
 # Changelog
 
+- Preserve an honest unknown `advantage_ucb` for exact certified SmartOps V2 shadows when the signed certificate provides a point estimate and simultaneous lower bound but no upper bound.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

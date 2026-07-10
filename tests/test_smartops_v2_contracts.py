@@ -373,6 +373,11 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
         cell_fingerprint="e" * 64,
     )
     assert not validator.validate_json(certified, "shadow_evaluate_response_schema")
+    honest_unknown_ucb = json.loads(json.dumps(certified))
+    honest_unknown_ucb["diagnostics"]["advantage_ucb"] = None
+    assert not validator.validate_json(
+        honest_unknown_ucb, "shadow_evaluate_response_schema"
+    )
 
     global_certified = json.loads(json.dumps(certified))
     global_certified["diagnostics"]["support_status"] = "global"

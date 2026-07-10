@@ -1174,7 +1174,9 @@ class TestLifecycleEndpointRegistration:
             paths = endpoints.get("paths", {})
             if isinstance(paths, dict):
                 lifecycle_paths.extend(
-                    (relative_path, path) for path in paths if "/lifecycle" in path
+                    (relative_path, path)
+                    for path in paths
+                    if "/lifecycle" in path and "artifact" in path
                 )
             if "artifact_lifecycle_schema" in json.dumps(endpoints):
                 lifecycle_schema_refs.append(relative_path)

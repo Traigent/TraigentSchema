@@ -82,6 +82,14 @@
       "type": "boolean",
       "description": "True when a field is accepted in the request payload but is silently ignored by the backend (advisory-only). Clients should omit inert fields; the contract may add constraints in a future version."
     },
+    "x-internal-only": {
+      "type": "boolean",
+      "description": "True when a schema is served only by an authenticated service-only endpoint and must not be exposed through public client surfaces."
+    },
+    "x-internal-sensitive": {
+      "type": "boolean",
+      "description": "True when a schema carries short-lived privileged execution metadata that may be returned only to an authenticated, authorized caller and must be redacted from logs and diagnostics."
+    },
     "x-naming-convention": {
       "type": "object",
       "description": "Documents the naming convention enforced for keys within a vocabulary schema (e.g. timing metrics must carry a '_ms' suffix). Placed at the top-level schema object. Contains 'description', 'canonical_suffix', and similar descriptor fields.",

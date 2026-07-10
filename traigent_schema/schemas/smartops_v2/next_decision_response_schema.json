@@ -165,6 +165,21 @@
             "certificate_ref": {"type": "null"},
             "rationale": {"const": "no positive affordable safe action remains"}
           }}
+        },
+        {
+          "if": {"properties": {"mode": {"enum": ["rules_control", "rules_parity", "rules_fallback"]}}, "required": ["mode"]},
+          "then": {"oneOf": [
+            {"properties": {"category": {"const": "score_evaluation_set"}, "baseline_rule_category": {"const": "score_evaluation_set"}}},
+            {"properties": {"category": {"const": "curate_evaluation_set"}, "baseline_rule_category": {"const": "curate_evaluation_set"}}},
+            {"properties": {"category": {"const": "audit_evaluator_quality"}, "baseline_rule_category": {"const": "audit_evaluator_quality"}}},
+            {"properties": {"category": {"const": "improve_evaluator"}, "baseline_rule_category": {"const": "improve_evaluator"}}},
+            {"properties": {"category": {"const": "adjust_configuration_space"}, "baseline_rule_category": {"const": "adjust_configuration_space"}}},
+            {"properties": {"category": {"const": "run_optimization"}, "baseline_rule_category": {"const": "run_optimization"}}},
+            {"properties": {"category": {"const": "validate_holdout"}, "baseline_rule_category": {"const": "validate_holdout"}}},
+            {"properties": {"category": {"const": "compare_with_baseline"}, "baseline_rule_category": {"const": "compare_with_baseline"}}},
+            {"properties": {"category": {"const": "add_safety_gate"}, "baseline_rule_category": {"const": "add_safety_gate"}}},
+            {"properties": {"category": {"const": "promote_winner"}, "baseline_rule_category": {"const": "promote_winner"}}}
+          ]}
         }
       ],
       "additionalProperties": false

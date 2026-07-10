@@ -130,6 +130,7 @@ def test_rules_control_semantics_and_rationale_are_closed() -> None:
         {"advantage_label": "parity"},
         {"evidence_level": "low"},
         {"rationale": "policy agreed with the safe rule action"},
+        {"baseline_rule_category": "audit_evaluator_quality"},
         {
             "category": "wait",
             "baseline_rule_category": "wait",

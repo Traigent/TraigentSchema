@@ -15,9 +15,9 @@
       "type": "object",
       "required": ["advantage_point", "advantage_lcb", "advantage_ucb", "support_n", "effective_support_n", "backoff_level", "certified"],
       "properties": {
-        "advantage_point": {"type": "number"},
-        "advantage_lcb": {"type": "number"},
-        "advantage_ucb": {"type": "number"},
+        "advantage_point": {"type": ["number", "null"]},
+        "advantage_lcb": {"type": ["number", "null"]},
+        "advantage_ucb": {"type": ["number", "null"]},
         "support_n": {"type": "integer", "minimum": 0},
         "effective_support_n": {"type": "number", "minimum": 0},
         "backoff_level": {"type": "string", "enum": ["exact", "factor", "global", "none"]},

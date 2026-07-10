@@ -1,0 +1,31 @@
+name: Spine core - TraigentSchema
+
+# Additive advisory rollout. Keep this workflow non-required until the
+# repository owners explicitly complete branch-protection cutover.
+on:
+  pull_request:
+    branches: [develop, main]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  merge_group:
+    branches: [develop, main]
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spine-core-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  spine-core:
+    uses: Traigent/traigent-validation-spine/.github/workflows/spine-core-reusable.yml@0144cdc8d6e3fb6a7a08d27e1b6caafbe87a28ca
+    with:
+      repo_id: TraigentSchema
+      base_ref: ${{ github.event.pull_request.base.ref || github.event.merge_group.base_ref }}
+      head_ref: ${{ github.event.pull_request.head.ref || github.event.merge_group.head_ref }}
+      head_sha: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      mode: advisory
+      spine_sha: 0144cdc8d6e3fb6a7a08d27e1b6caafbe87a28ca
+    secrets:
+      VALIDATION_CI_PAT: ${{ secrets.VALIDATION_CI_PAT }}

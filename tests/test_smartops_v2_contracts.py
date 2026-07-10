@@ -67,3 +67,98 @@ def test_internal_numeric_certificate_never_appears_in_public_decision() -> None
     assert "advantage_lcb" not in public
     assert "advantage_lcb" in internal
     assert "internal_confidential" in internal
+
+
+def _decision_payload(**overrides: object) -> dict:
+    decision = {
+        "id": "decision_0123456789abcdef",
+        "mode": "rules_control",
+        "category": "score_evaluation_set",
+        "source_engine": "rules",
+        "baseline_rule_category": "score_evaluation_set",
+        "utility_profile": "balanced",
+        "certificate_ref": None,
+        "advantage_label": "not_applicable",
+        "evidence_snapshot_hash": "ev_0123456789abcdefghijklmnopqrstuvwxyzAB",
+        "rationale": "rules control selected the next safe lifecycle action",
+        "action": {
+            "kind": "cli",
+            "variant": "score_probe_32",
+            "command_template": (
+                "traigent guidance execute --decision decision_0123456789abcdef"
+            ),
+        },
+        "evidence_level": "medium",
+    }
+    decision.update(overrides)
+    return {
+        "schema_version": "2.0.0",
+        "lifecycle_id": "lifecycle_0123456789abcdef",
+        "run_id": "run_123",
+        "decision": decision,
+        "meta": {
+            "requested_variant": "rules_control",
+            "served_variant": "rules_control",
+            "selector_engine": "rules",
+            "context_status": "complete",
+            "policy_version": None,
+            "rule_version": "rules-v2",
+            "calibration_version": None,
+            "shield_version": "shield-v2",
+            "fallback_reason": None,
+        },
+    }
+
+
+def test_rules_control_semantics_and_rationale_are_closed() -> None:
+    validator = SchemaValidator(contract="backend")
+    assert not validator.validate_json(
+        _decision_payload(), "next_decision_response_schema"
+    )
+    for mutation in (
+        {"source_engine": "policy"},
+        {"advantage_label": "parity"},
+        {"evidence_level": "low"},
+        {"rationale": "policy agreed with the safe rule action"},
+        {
+            "category": "wait",
+            "baseline_rule_category": "wait",
+            "action": {"kind": "none", "variant": "wait", "command_template": ""},
+        },
+    ):
+        assert validator.validate_json(
+            _decision_payload(**mutation), "next_decision_response_schema"
+        )
+
+
+def test_policy_modes_cannot_masquerade_as_terminal_actions() -> None:
+    validator = SchemaValidator(contract="backend")
+    for mode, label, level, rationale in (
+        (
+            "policy_override",
+            "model_certified_positive",
+            "high",
+            "policy selected a model-certified improvement over rules",
+        ),
+        ("rules_parity", "parity", "medium", "policy agreed with the safe rule action"),
+        (
+            "rules_fallback",
+            "unavailable",
+            "low",
+            "policy or calibration was unavailable; safe rules were used",
+        ),
+    ):
+        payload = _decision_payload(
+            mode=mode,
+            category="wait",
+            baseline_rule_category="wait",
+            source_engine="policy" if mode == "policy_override" else "rules",
+            advantage_label=label,
+            evidence_level=level,
+            certificate_ref=(
+                "certificate_0123456789abcdef" if mode == "policy_override" else None
+            ),
+            rationale=rationale,
+            action={"kind": "none", "variant": "wait", "command_template": ""},
+        )
+        assert validator.validate_json(payload, "next_decision_response_schema")

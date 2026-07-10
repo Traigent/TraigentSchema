@@ -99,30 +99,47 @@
           }
         },
         {
+          "if": {"properties": {"mode": {"const": "rules_control"}}, "required": ["mode"]},
+          "then": {"properties": {
+            "category": {"not": {"enum": ["wait", "stop"]}},
+            "source_engine": {"const": "rules"},
+            "advantage_label": {"const": "not_applicable"},
+            "evidence_level": {"const": "medium"},
+            "certificate_ref": {"type": "null"},
+            "rationale": {"const": "rules control selected the next safe lifecycle action"}
+          }}
+        },
+        {
           "if": {"properties": {"mode": {"const": "policy_override"}}, "required": ["mode"]},
           "then": {"properties": {
+            "category": {"not": {"enum": ["wait", "stop"]}},
             "source_engine": {"const": "policy"},
             "advantage_label": {"const": "model_certified_positive"},
             "evidence_level": {"const": "high"},
-            "certificate_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}
+            "certificate_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+            "rationale": {"const": "policy selected a model-certified improvement over rules"}
           }}
         },
         {
           "if": {"properties": {"mode": {"const": "rules_parity"}}, "required": ["mode"]},
           "then": {"properties": {
+            "category": {"not": {"enum": ["wait", "stop"]}},
             "source_engine": {"const": "rules"},
             "advantage_label": {"const": "parity"},
             "evidence_level": {"const": "medium"},
-            "certificate_ref": {"type": "null"}
+            "certificate_ref": {"type": "null"},
+            "rationale": {"const": "policy agreed with the safe rule action"}
           }}
         },
         {
           "if": {"properties": {"mode": {"const": "rules_fallback"}}, "required": ["mode"]},
           "then": {"properties": {
+            "category": {"not": {"enum": ["wait", "stop"]}},
             "source_engine": {"const": "rules"},
             "advantage_label": {"const": "unavailable"},
             "evidence_level": {"const": "low"},
-            "certificate_ref": {"type": "null"}
+            "certificate_ref": {"type": "null"},
+            "rationale": {"const": "policy or calibration was unavailable; safe rules were used"}
           }}
         },
         {
@@ -133,7 +150,8 @@
             "source_engine": {"const": "rules"},
             "advantage_label": {"const": "not_applicable"},
             "evidence_level": {"const": "low"},
-            "certificate_ref": {"type": "null"}
+            "certificate_ref": {"type": "null"},
+            "rationale": {"const": "an operation is already active; wait for its authoritative result"}
           }}
         },
         {
@@ -144,7 +162,8 @@
             "source_engine": {"const": "safety"},
             "advantage_label": {"const": "not_applicable"},
             "evidence_level": {"const": "high"},
-            "certificate_ref": {"type": "null"}
+            "certificate_ref": {"type": "null"},
+            "rationale": {"const": "no positive affordable safe action remains"}
           }}
         }
       ],

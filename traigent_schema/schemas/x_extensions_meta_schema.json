@@ -124,9 +124,10 @@
         "manifest_safe",
         "tenant_admin_safe",
         "sdk_runtime_metadata",
+        "internal_confidential",
         "system"
       ],
-      "description": "Privacy sensitivity classification for a field. Required alongside x-content:true. Governs redaction in logs, telemetry, exports, and observability payloads. Values: 'user_content' (user-authored LLM input/output), 'pii' (personally identifiable), 'auth_sensitive' (auth tokens/credentials), 'billing_sensitive' (payment/subscription data), 'secret' (one-time secrets, never re-readable), 'restricted' (tightly access-controlled), 'aggregate_safe' (aggregated statistics safe to export), 'manifest_safe' (schema/manifest metadata safe to export), 'tenant_admin_safe' (visible to tenant admins only), 'sdk_runtime_metadata' (SDK execution metadata), 'system' (internal system data)."
+      "description": "Privacy sensitivity classification for a field. Required alongside x-content:true. Governs redaction in logs, telemetry, exports, and observability payloads. Values: 'user_content' (user-authored LLM input/output), 'pii' (personally identifiable), 'auth_sensitive' (auth tokens/credentials), 'billing_sensitive' (payment/subscription data), 'secret' (one-time secrets, never re-readable), 'restricted' (tightly access-controlled), 'aggregate_safe' (aggregated statistics safe to export), 'manifest_safe' (schema/manifest metadata safe to export), 'tenant_admin_safe' (visible to tenant admins only), 'sdk_runtime_metadata' (SDK execution metadata), 'internal_confidential' (service-only policy, certificate, or short-lived execution metadata), 'system' (internal system data)."
     },
     "x-privacy-note": {
       "type": "string",

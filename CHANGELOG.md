@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lifecycle-reopen, private decision-resolution, and service-only shadow contracts.
 - Planner V1 routes and schemas remain unchanged.
 
+### Changed
+- Planner V2 now distinguishes certified session-utility advantage from product KPI
+  claims, describes rule parity as the absence of an applicable exact certificate,
+  and exposes truthful closed fallback categories.
+- Shadow and private execution contracts now bind exact Planner V2 actions,
+  economics, implementation pins, receipts, and certificate support semantics.
+
 ## [4.7.1] - 2026-06-29
 
 ### Changed

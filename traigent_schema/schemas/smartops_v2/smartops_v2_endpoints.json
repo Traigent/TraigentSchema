@@ -58,7 +58,7 @@
       "post": {
         "summary": "Resolve an executable decision to a signed private argv specification",
         "responses": {
-          "200": {"description": "Signed allowlisted execution specification", "content": {"application/json": {"schema": {"$ref": "./resolve_decision_response_schema.json"}}}},
+          "200": {"description": "Server-integrity-tagged allowlisted execution specification", "content": {"application/json": {"schema": {"$ref": "./resolve_decision_response_schema.json"}}}},
           "401": {"description": "Authentication required"},
           "403": {"description": "Insufficient experiment write permission"},
           "404": {"description": "Decision not found in canonical tenant/project scope"},

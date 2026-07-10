@@ -40,7 +40,7 @@
         },
         "advantage_label": {
           "type": "string",
-          "enum": ["model_certified_positive", "parity", "unavailable", "not_applicable"]
+          "enum": ["certified_session_utility_advantage_no_kpi_guarantee", "no_certified_override", "unavailable", "not_applicable"]
         },
         "evidence_snapshot_hash": {
           "type": "string",
@@ -51,9 +51,9 @@
           "type": "string",
           "enum": [
             "rules control selected the next safe lifecycle action",
-            "policy selected a model-certified improvement over rules",
-            "policy agreed with the safe rule action",
-            "policy or calibration was unavailable; safe rules were used",
+            "certified session-utility advantage selected; no product KPI guarantee",
+            "no certified override applies; safe rule action retained",
+            "policy artifact or certificate unavailable; safe rules were used",
             "an operation is already active; wait for its authoritative result",
             "no positive affordable safe action remains"
           ]
@@ -76,6 +76,22 @@
         "evidence_level": {"type": "string", "enum": ["high", "medium", "low"]}
       },
       "allOf": [
+        {
+          "oneOf": [
+            {"properties": {"category": {"const": "score_evaluation_set"}, "action": {"properties": {"variant": {"enum": ["score_probe_32", "score_full"]}}}}},
+            {"properties": {"category": {"const": "curate_evaluation_set"}, "action": {"properties": {"variant": {"enum": ["curate_invalid", "deduplicate", "expand_coverage", "synthesize_hard"]}}}}},
+            {"properties": {"category": {"const": "audit_evaluator_quality"}, "action": {"properties": {"variant": {"enum": ["audit_probe_32", "audit_full"]}}}}},
+            {"properties": {"category": {"const": "improve_evaluator"}, "action": {"properties": {"variant": {"enum": ["fix_parser", "calibrate_threshold", "reduce_bias", "stabilize"]}}}}},
+            {"properties": {"category": {"const": "adjust_configuration_space"}, "action": {"properties": {"variant": {"enum": ["config_expand", "config_prune", "config_fix_inactive"]}}}}},
+            {"properties": {"category": {"const": "run_optimization"}, "action": {"properties": {"variant": {"enum": ["optimize_probe", "optimize_standard", "optimize_deep"]}}}}},
+            {"properties": {"category": {"const": "validate_holdout"}, "action": {"properties": {"variant": {"const": "holdout_full"}}}}},
+            {"properties": {"category": {"const": "compare_with_baseline"}, "action": {"properties": {"variant": {"enum": ["compare_probe_64", "compare_full"]}}}}},
+            {"properties": {"category": {"const": "add_safety_gate"}, "action": {"properties": {"variant": {"const": "safety_gate"}}}}},
+            {"properties": {"category": {"const": "promote_winner"}, "action": {"properties": {"variant": {"const": "promote"}}}}},
+            {"properties": {"category": {"const": "wait"}, "action": {"properties": {"variant": {"const": "wait"}}}}},
+            {"properties": {"category": {"const": "stop"}, "action": {"properties": {"variant": {"const": "stop"}}}}}
+          ]
+        },
         {
           "if": {"properties": {"category": {"enum": ["wait", "stop"]}}, "required": ["category"]},
           "then": {
@@ -114,10 +130,10 @@
           "then": {"properties": {
             "category": {"not": {"enum": ["wait", "stop"]}},
             "source_engine": {"const": "policy"},
-            "advantage_label": {"const": "model_certified_positive"},
+            "advantage_label": {"const": "certified_session_utility_advantage_no_kpi_guarantee"},
             "evidence_level": {"const": "high"},
             "certificate_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
-            "rationale": {"const": "policy selected a model-certified improvement over rules"}
+            "rationale": {"const": "certified session-utility advantage selected; no product KPI guarantee"}
           }}
         },
         {
@@ -125,10 +141,10 @@
           "then": {"properties": {
             "category": {"not": {"enum": ["wait", "stop"]}},
             "source_engine": {"const": "rules"},
-            "advantage_label": {"const": "parity"},
+            "advantage_label": {"const": "no_certified_override"},
             "evidence_level": {"const": "medium"},
             "certificate_ref": {"type": "null"},
-            "rationale": {"const": "policy agreed with the safe rule action"}
+            "rationale": {"const": "no certified override applies; safe rule action retained"}
           }}
         },
         {
@@ -139,7 +155,7 @@
             "advantage_label": {"const": "unavailable"},
             "evidence_level": {"const": "low"},
             "certificate_ref": {"type": "null"},
-            "rationale": {"const": "policy or calibration was unavailable; safe rules were used"}
+            "rationale": {"const": "policy artifact or certificate unavailable; safe rules were used"}
           }}
         },
         {
@@ -208,7 +224,7 @@
         "shield_version": {"type": "string", "minLength": 1, "maxLength": 128},
         "fallback_reason": {
           "type": ["string", "null"],
-          "enum": [null, "policy_unavailable", "calibration_unavailable"]
+          "enum": [null, "policy_unavailable", "calibration_unavailable", "artifact_invalid", "certificate_drift", "exact_support_mismatch", "override_denied"]
         }
       },
       "allOf": [
@@ -251,7 +267,7 @@
         "requested_variant": {"const": "policy_override"},
         "served_variant": {"const": "policy_override"},
         "selector_engine": {"const": "rules"},
-        "fallback_reason": {"type": "string", "enum": ["policy_unavailable", "calibration_unavailable"]}
+        "fallback_reason": {"type": "string", "enum": ["policy_unavailable", "calibration_unavailable", "artifact_invalid", "certificate_drift", "exact_support_mismatch", "override_denied"]}
       }}}}
     },
     {

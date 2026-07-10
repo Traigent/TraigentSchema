@@ -27,5 +27,19 @@
     "idempotent_replay": {"type": "boolean"},
     "updated_at": {"$ref": "./smartops_v2_common_schema.json#/definitions/UtcTimestamp"}
   },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "started"}}, "required": ["status"]},
+      "then": {"properties": {"verification_status": {"const": "pending"}, "result_ref": {"type": "null"}, "successor_run_id": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "submitted"}}, "required": ["status"]},
+      "then": {"required": ["result_ref"], "properties": {"result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}, "verification_status": {"enum": ["pending", "verified", "rejected"]}}}
+    },
+    {
+      "if": {"properties": {"status": {"enum": ["failed", "skipped"]}}, "required": ["status"]},
+      "then": {"properties": {"verification_status": {"const": "rejected"}, "result_ref": {"type": "null"}, "successor_run_id": {"type": "null"}}}
+    }
+  ],
   "additionalProperties": false
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/smartops_v2/resolve_decision_response_schema.json",
-  "title": "Private signed SmartOps execution specification",
+  "title": "Private server-integrity-tagged SmartOps execution specification",
   "type": "object",
   "required": ["schema_version", "decision_id", "argv", "execution_spec", "signature", "expires_at"],
   "properties": {
@@ -12,30 +12,39 @@
       "items": [
         {"const": "traigent"},
         {"const": "guidance"},
-        {"const": "execute-resolved"}
+        {"const": "execute-resolved"},
+        {"const": "--attempt"},
+        {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}
       ],
-      "additionalItems": {"type": "string", "pattern": "^[A-Za-z0-9._:/=-]{1,192}$", "maxLength": 192},
-      "minItems": 3,
-      "maxItems": 12,
+      "additionalItems": false,
+      "minItems": 5,
+      "maxItems": 5,
       "description": "Allowlisted argv, not shell text. Consumers must execute without a shell."
     },
     "execution_spec": {
       "type": "object",
-      "required": ["operation_kind", "variant", "attempt_id", "receipt_url", "lease_expires_at"],
+      "required": ["operation_kind", "variant", "target", "cost_units", "reservation_units", "max_budget_fraction", "max_trials", "sample_limit", "action_signature", "economics_hash", "attempt_id", "receipt_url", "lease_expires_at"],
       "properties": {
         "operation_kind": {"$ref": "./smartops_v2_common_schema.json#/definitions/OperationKind"},
         "variant": {"$ref": "./smartops_v2_common_schema.json#/definitions/ActionVariant"},
+        "target": {"$ref": "./smartops_v2_common_schema.json#/definitions/ArtifactKind"},
+        "cost_units": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "reservation_units": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "max_budget_fraction": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1},
         "attempt_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
-        "receipt_url": {"type": "string", "pattern": "^/api/v2/lifecycles/[A-Za-z0-9_-]+/decisions/[A-Za-z0-9_-]+/receipts$", "maxLength": 512},
+        "receipt_url": {"type": "string", "pattern": "^/api/v2/lifecycles/[a-z][a-z0-9_]{2,31}_[A-Za-z0-9_-]{16,160}/decisions/[a-z][a-z0-9_]{2,31}_[A-Za-z0-9_-]{16,160}/receipts$", "maxLength": 512},
         "lease_expires_at": {"$ref": "./smartops_v2_common_schema.json#/definitions/UtcTimestamp"},
-        "sample_limit": {"type": ["integer", "null"], "minimum": 1, "maximum": 1000000},
         "max_trials": {"type": ["integer", "null"], "minimum": 1, "maximum": 1000},
+        "sample_limit": {"type": ["integer", "null"], "minimum": 1, "maximum": 1000000},
+        "action_signature": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,192}$", "maxLength": 192},
+        "economics_hash": {"type": "string", "const": "df7d6d7c95e61716a55eec42f829c7ca2bb66c285ce4013e66f5dc1cac956d02"},
         "reserved_cost_usd": {"type": ["string", "null"], "pattern": "^(0|[1-9][0-9]{0,8})(\\.[0-9]{1,6})?$", "maxLength": 16}
       },
+      "allOf": [{"$ref": "./smartops_v2_common_schema.json#/definitions/PlannerActionEconomics"}],
       "additionalProperties": false,
       "x-privacy-classification": "internal_confidential"
     },
-    "signature": {"type": "string", "pattern": "^sig_[A-Za-z0-9_-]{43,128}$", "maxLength": 132},
+    "signature": {"type": "string", "pattern": "^sig_[A-Za-z0-9_-]{43,128}$", "maxLength": 132, "description": "Opaque server-verifiable integrity tag. The public SDK validates shape and transport scope but does not possess the server verification key."},
     "expires_at": {"$ref": "./smartops_v2_common_schema.json#/definitions/UtcTimestamp"}
   },
   "additionalProperties": false,

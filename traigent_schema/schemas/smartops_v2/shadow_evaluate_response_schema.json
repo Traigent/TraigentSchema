@@ -1,39 +1,98 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/smartops_v2/shadow_evaluate_response_schema.json",
-  "title": "Internal SmartOps same-snapshot shadow evaluation response",
+  "title": "Internal exact-support SmartOps Planner V2 shadow evaluation response",
   "type": "object",
-  "required": ["schema_version", "evidence_snapshot_hash", "profile", "rules", "policy", "disagrees", "diagnostics", "evaluated_at"],
+  "required": ["schema_version", "evidence_snapshot_hash", "profile", "rules", "policy", "disagrees", "diagnostics", "pins", "evaluated_at"],
   "properties": {
     "schema_version": {"type": "string", "const": "2.0.0"},
     "evidence_snapshot_hash": {"type": "string", "pattern": "^ev_[A-Za-z0-9_-]{32,96}$", "maxLength": 99},
     "profile": {"$ref": "./smartops_v2_common_schema.json#/definitions/Profile"},
-    "rules": {"$ref": "./smartops_v2_common_schema.json#/definitions/OperationKind"},
-    "policy": {"$ref": "./smartops_v2_common_schema.json#/definitions/OperationKind"},
+    "rules": {"$ref": "./smartops_v2_common_schema.json#/definitions/PlannerAction"},
+    "policy": {"$ref": "./smartops_v2_common_schema.json#/definitions/PlannerAction"},
     "disagrees": {"type": "boolean"},
     "diagnostics": {
       "type": "object",
-      "required": ["advantage_point", "advantage_lcb", "advantage_ucb", "support_n", "effective_support_n", "backoff_level", "certified"],
+      "required": ["advantage_point", "advantage_lcb", "advantage_ucb", "support_n", "effective_support_n", "support_status", "certified", "certificate_ref", "cell_fingerprint"],
       "properties": {
         "advantage_point": {"type": ["number", "null"]},
         "advantage_lcb": {"type": ["number", "null"]},
         "advantage_ucb": {"type": ["number", "null"]},
         "support_n": {"type": "integer", "minimum": 0},
         "effective_support_n": {"type": "number", "minimum": 0},
-        "backoff_level": {"type": "string", "enum": ["exact", "factor", "global", "none"]},
+        "support_status": {"type": "string", "enum": ["exact", "global", "none"]},
         "certified": {"type": "boolean"},
         "certificate_ref": {
           "oneOf": [
             {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
             {"type": "null"}
           ]
+        },
+        "cell_fingerprint": {
+          "oneOf": [
+            {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            {"type": "null"}
+          ]
         }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"certified": {"const": true}}, "required": ["certified"]},
+          "then": {
+            "properties": {
+              "support_status": {"const": "exact"},
+              "certificate_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+              "cell_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+              "advantage_point": {"type": "number"},
+              "advantage_lcb": {"type": "number", "exclusiveMinimum": 0},
+              "advantage_ucb": {"type": "number"},
+              "support_n": {"minimum": 30},
+              "effective_support_n": {"minimum": 30}
+            }
+          },
+          "else": {
+            "properties": {
+              "support_status": {"enum": ["global", "none"]},
+              "certificate_ref": {"type": "null"}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false,
+      "x-privacy-classification": "internal_confidential"
+    },
+    "pins": {
+      "type": "object",
+      "required": ["rules_version", "rules_hash", "shield_version", "shield_hash", "economics_hash", "artifact_version", "artifact_hash", "claim_scope"],
+      "properties": {
+        "rules_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "rules_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "shield_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "shield_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "economics_hash": {"type": "string", "const": "df7d6d7c95e61716a55eec42f829c7ca2bb66c285ce4013e66f5dc1cac956d02"},
+        "artifact_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "artifact_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "claim_scope": {"type": "string", "const": "formal_safety_admissibility_accounting_lineage_only_no_kpi_proof"}
       },
       "additionalProperties": false,
       "x-privacy-classification": "internal_confidential"
     },
     "evaluated_at": {"$ref": "./smartops_v2_common_schema.json#/definitions/UtcTimestamp"}
   },
+  "allOf": [
+    {
+      "if": {"properties": {"diagnostics": {"properties": {"certified": {"const": true}}, "required": ["certified"]}}, "required": ["diagnostics"]},
+      "then": {"properties": {"disagrees": {"const": true}}}
+    },
+    {
+      "if": {"properties": {"diagnostics": {"properties": {"support_status": {"const": "exact"}}, "required": ["support_status"]}, "disagrees": {"const": true}}, "required": ["diagnostics", "disagrees"]},
+      "then": {"properties": {"diagnostics": {"properties": {"certified": {"const": true}}}}}
+    },
+    {
+      "if": {"properties": {"disagrees": {"const": false}}, "required": ["disagrees"]},
+      "then": {"properties": {"diagnostics": {"properties": {"certified": {"const": false}}}}}
+    }
+  ],
   "additionalProperties": false,
   "x-internal-only": true
 }

@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/register_authoritative_result_response_schema.json",
+  "title": "Service-only authoritative Planner V2 result registration response",
+  "type": "object",
+  "required": ["schema_version", "lifecycle_id", "result_ref", "result_type", "payload_sha256"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "2.0.0"},
+    "lifecycle_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "result_type": {
+      "type": "string",
+      "enum": ["dataset_quality_report", "evaluator_audit_report", "optimization_run", "optimization_result", "comparison_report", "holdout_report", "promotion_record", "deployment_record", "dataset_revision", "evaluator_revision", "agent_revision", "configuration_space_revision", "safety_policy_revision"]
+    },
+    "payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false,
+  "x-internal-only": true
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/consume_artifact_revision_response_schema.json",
+  "title": "Service-only Planner V2 artifact revision consumption response",
+  "type": "object",
+  "required": ["schema_version", "revision_ref", "successor_run_id", "verification_status"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "2.0.0"},
+    "revision_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "successor_run_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/RunId"},
+    "verification_status": {"type": "string", "const": "verified"}
+  },
+  "additionalProperties": false,
+  "x-internal-only": true
+}

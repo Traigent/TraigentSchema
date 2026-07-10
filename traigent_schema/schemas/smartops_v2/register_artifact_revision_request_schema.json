@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/register_artifact_revision_request_schema.json",
+  "title": "Service-only verified Planner V2 artifact revision registration request",
+  "type": "object",
+  "required": ["artifact_kind", "fingerprint", "source_result_ref"],
+  "properties": {
+    "artifact_kind": {"type": "string", "enum": ["dataset", "evaluator", "agent", "configuration_space", "safety_policy"]},
+    "fingerprint": {"type": "string", "minLength": 1, "maxLength": 512},
+    "source_result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "parent_revision_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}
+  },
+  "additionalProperties": false,
+  "x-internal-only": true
+}

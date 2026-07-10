@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/reopen_response_schema.json",
+  "title": "SmartOps Planner V2 reopen response",
+  "type": "object",
+  "required": ["schema_version", "lifecycle_id", "predecessor_lifecycle_id", "reason", "requested_variant", "utility_profile", "status", "idempotent_replay", "created_at"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "2.0.0"},
+    "lifecycle_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "predecessor_lifecycle_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "reason": {"type": "string", "enum": ["new_artifact", "budget", "operator"]},
+    "requested_variant": {"$ref": "./smartops_v2_common_schema.json#/definitions/RequestedVariant"},
+    "utility_profile": {"$ref": "./smartops_v2_common_schema.json#/definitions/Profile"},
+    "status": {"type": "string", "const": "active"},
+    "idempotent_replay": {"type": "boolean"},
+    "created_at": {"$ref": "./smartops_v2_common_schema.json#/definitions/UtcTimestamp"}
+  },
+  "additionalProperties": false
+}

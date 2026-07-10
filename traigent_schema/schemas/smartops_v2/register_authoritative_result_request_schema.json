@@ -28,6 +28,102 @@
     "source_run_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/RunId"},
     "result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result_type": {
+            "enum": ["dataset_revision", "evaluator_revision", "agent_revision", "configuration_space_revision", "safety_policy_revision"]
+          }
+        },
+        "required": ["result_type"]
+      },
+      "then": {
+        "required": ["source_run_id"],
+        "properties": {
+          "result_payload": {
+            "required": ["artifact_kind", "artifact_fingerprint_sha256"],
+            "properties": {
+              "artifact_fingerprint_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$",
+                "maxLength": 64
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result_type": {"const": "dataset_revision"}},
+        "required": ["result_type"]
+      },
+      "then": {
+        "properties": {
+          "result_payload": {
+            "properties": {"artifact_kind": {"const": "dataset"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result_type": {"const": "evaluator_revision"}},
+        "required": ["result_type"]
+      },
+      "then": {
+        "properties": {
+          "result_payload": {
+            "properties": {"artifact_kind": {"const": "evaluator"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result_type": {"const": "agent_revision"}},
+        "required": ["result_type"]
+      },
+      "then": {
+        "properties": {
+          "result_payload": {
+            "required": ["has_candidate"],
+            "properties": {
+              "artifact_kind": {"const": "agent"},
+              "has_candidate": {"const": true}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result_type": {"const": "configuration_space_revision"}},
+        "required": ["result_type"]
+      },
+      "then": {
+        "properties": {
+          "result_payload": {
+            "properties": {"artifact_kind": {"const": "configuration_space"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"result_type": {"const": "safety_policy_revision"}},
+        "required": ["result_type"]
+      },
+      "then": {
+        "properties": {
+          "result_payload": {
+            "properties": {"artifact_kind": {"const": "safety_policy"}}
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false,
   "x-internal-only": true
 }

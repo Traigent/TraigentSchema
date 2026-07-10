@@ -46,6 +46,9 @@ def test_authoritative_result_requires_exact_execution_binding() -> None:
     validator = SchemaValidator(contract="backend")
     path = f"/api/v2/internal/smartops/lifecycles/{LIFECYCLE_ID}/results"
     assert not validator.validate_request(path, "POST", _result_request())
+    ordinary_result = _result_request()
+    ordinary_result.pop("source_run_id")
+    assert not validator.validate_request(path, "POST", ordinary_result)
     for missing in (
         "decision_id",
         "attempt_id",
@@ -59,6 +62,86 @@ def test_authoritative_result_requires_exact_execution_binding() -> None:
             path, "POST", _result_request(result_payload=nested)
         )
     assert validator.validate_request(path, "POST", {**_result_request(), "extra": True})
+
+
+def test_revision_results_require_bound_artifact_provenance() -> None:
+    validator = SchemaValidator(contract="backend")
+    path = f"/api/v2/internal/smartops/lifecycles/{LIFECYCLE_ID}/results"
+    for result_type, artifact_kind in (
+        ("dataset_revision", "dataset"),
+        ("evaluator_revision", "evaluator"),
+        ("configuration_space_revision", "configuration_space"),
+        ("safety_policy_revision", "safety_policy"),
+    ):
+        payload = {
+            **dict(_result_request()["result_payload"]),
+            "artifact_kind": artifact_kind,
+            "artifact_fingerprint_sha256": "a" * 64,
+        }
+        request = _result_request(result_type=result_type, result_payload=payload)
+        assert not validator.validate_request(path, "POST", request)
+
+        request.pop("source_run_id")
+        assert validator.validate_request(path, "POST", request)
+
+        for missing in ("artifact_kind", "artifact_fingerprint_sha256"):
+            invalid_payload = dict(payload)
+            invalid_payload.pop(missing)
+            assert validator.validate_request(
+                path,
+                "POST",
+                _result_request(result_type=result_type, result_payload=invalid_payload),
+            )
+
+        for field, value in (
+            ("artifact_kind", "wrong_kind"),
+            ("artifact_fingerprint_sha256", "A" * 64),
+            ("artifact_fingerprint_sha256", "a" * 63),
+        ):
+            invalid_payload = {**payload, field: value}
+            assert validator.validate_request(
+                path,
+                "POST",
+                _result_request(result_type=result_type, result_payload=invalid_payload),
+            )
+
+
+def test_agent_revision_requires_a_candidate_agent_payload() -> None:
+    validator = SchemaValidator(contract="backend")
+    path = f"/api/v2/internal/smartops/lifecycles/{LIFECYCLE_ID}/results"
+    payload = {
+        **dict(_result_request()["result_payload"]),
+        "artifact_kind": "agent",
+        "artifact_fingerprint_sha256": "b" * 64,
+        "has_candidate": True,
+    }
+    request = _result_request(result_type="agent_revision", result_payload=payload)
+    assert not validator.validate_request(path, "POST", request)
+
+    without_source = dict(request)
+    without_source.pop("source_run_id")
+    assert validator.validate_request(path, "POST", without_source)
+
+    for missing in ("artifact_kind", "artifact_fingerprint_sha256", "has_candidate"):
+        invalid_payload = dict(payload)
+        invalid_payload.pop(missing)
+        assert validator.validate_request(
+            path,
+            "POST",
+            _result_request(result_type="agent_revision", result_payload=invalid_payload),
+        )
+
+    for field, value in (
+        ("artifact_kind", "dataset"),
+        ("artifact_fingerprint_sha256", "not-a-fingerprint"),
+        ("has_candidate", False),
+    ):
+        invalid_payload = {**payload, field: value}
+        assert validator.validate_request(
+            path,
+            "POST",
+            _result_request(result_type="agent_revision", result_payload=invalid_payload),
+        )
 
 
 def test_revision_registration_and_consumption_are_closed_objects() -> None:

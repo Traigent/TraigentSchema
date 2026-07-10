@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/register_authoritative_result_request_schema.json",
+  "title": "Service-only authoritative Planner V2 result registration request",
+  "type": "object",
+  "required": ["result_type", "result_payload"],
+  "properties": {
+    "result_type": {
+      "type": "string",
+      "enum": ["dataset_quality_report", "evaluator_audit_report", "optimization_run", "optimization_result", "comparison_report", "holdout_report", "promotion_record", "deployment_record", "dataset_revision", "evaluator_revision", "agent_revision", "configuration_space_revision", "safety_policy_revision"]
+    },
+    "result_payload": {
+      "type": "object",
+      "required": ["schema_version", "producer_version", "decision_id", "attempt_id", "action_signature", "evidence_snapshot_hash", "operation_kind"],
+      "properties": {
+        "schema_version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "producer_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "decision_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+        "attempt_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+        "action_signature": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,192}$", "maxLength": 192},
+        "evidence_snapshot_hash": {"type": "string", "pattern": "^ev_[A-Za-z0-9_-]{32,96}$", "maxLength": 99},
+        "operation_kind": {"$ref": "./smartops_v2_common_schema.json#/definitions/OperationKind"}
+      },
+      "additionalProperties": true,
+      "maxProperties": 128,
+      "x-privacy-classification": "internal_confidential"
+    },
+    "source_run_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/RunId"},
+    "result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}
+  },
+  "additionalProperties": false,
+  "x-internal-only": true
+}

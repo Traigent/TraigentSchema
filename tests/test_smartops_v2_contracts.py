@@ -33,6 +33,24 @@ def test_v2_routes_are_reachable_without_changing_v1() -> None:
     )
     assert (
         validator._endpoint_schemas[
+            "POST:/api/v2/internal/smartops/lifecycles/{lifecycle_id}/results"
+        ]
+        == "register_authoritative_result_request_schema"
+    )
+    assert (
+        validator._endpoint_schemas[
+            "POST:/api/v2/internal/smartops/lifecycles/{lifecycle_id}/revisions"
+        ]
+        == "register_artifact_revision_request_schema"
+    )
+    assert (
+        validator._endpoint_schemas[
+            "POST:/api/v2/internal/smartops/revisions/{revision_ref}/consume"
+        ]
+        == "consume_artifact_revision_request_schema"
+    )
+    assert (
+        validator._endpoint_schemas[
             "POST:/api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt"
         ]
         == "next_steps_receipt_request_schema"

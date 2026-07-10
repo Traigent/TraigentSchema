@@ -79,6 +79,48 @@
           "503": {"description": "Shield, rule, policy, or calibration evaluator unavailable"}
         }
       }
+    },
+    "/api/v2/internal/smartops/lifecycles/{lifecycle_id}/results": {
+      "post": {
+        "summary": "Register a service-produced result bound to one Planner V2 execution attempt",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./register_authoritative_result_request_schema.json"}}}},
+        "responses": {
+          "201": {"description": "Authoritative result registered or idempotently replayed", "content": {"application/json": {"schema": {"$ref": "./register_authoritative_result_response_schema.json"}}}},
+          "400": {"description": "Malformed, unbound, or unsupported result"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Service principal required"},
+          "404": {"description": "Lifecycle or source run not found in canonical tenant/project scope"},
+          "409": {"description": "Result reference, attempt binding, or lifecycle lineage conflict"}
+        }
+      }
+    },
+    "/api/v2/internal/smartops/lifecycles/{lifecycle_id}/revisions": {
+      "post": {
+        "summary": "Register a verified artifact revision from an execution-bound authoritative result",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./register_artifact_revision_request_schema.json"}}}},
+        "responses": {
+          "201": {"description": "Verified artifact revision registered", "content": {"application/json": {"schema": {"$ref": "./register_artifact_revision_response_schema.json"}}}},
+          "400": {"description": "Malformed artifact revision"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Service principal required"},
+          "404": {"description": "Lifecycle, parent, or source result not found"},
+          "409": {"description": "Artifact lineage, type, or source-result conflict"}
+        }
+      }
+    },
+    "/api/v2/internal/smartops/revisions/{revision_ref}/consume": {
+      "post": {
+        "summary": "Bind a verified artifact revision to its same-lifecycle successor run",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./consume_artifact_revision_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "Artifact revision consumption recorded", "content": {"application/json": {"schema": {"$ref": "./consume_artifact_revision_response_schema.json"}}}},
+          "400": {"description": "Malformed revision consumption"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Service principal required"},
+          "404": {"description": "Revision or successor run not found"},
+          "409": {"description": "Fingerprint, single-use, or lifecycle-lineage conflict"}
+        }
+      }
     }
   }
 }

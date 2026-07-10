@@ -46,8 +46,8 @@
               "advantage_point": {"type": "number"},
               "advantage_lcb": {"type": "number", "exclusiveMinimum": 0},
               "advantage_ucb": {"type": ["number", "null"]},
-              "support_n": {"minimum": 30},
-              "effective_support_n": {"minimum": 30}
+              "support_n": {"minimum": 128},
+              "effective_support_n": {"minimum": 128}
             }
           },
           "else": {

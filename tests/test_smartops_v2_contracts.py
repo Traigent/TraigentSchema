@@ -365,14 +365,22 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
         advantage_point=0.2,
         advantage_lcb=0.1,
         advantage_ucb=0.3,
-        support_n=64,
-        effective_support_n=64,
+        support_n=128,
+        effective_support_n=128,
         support_status="exact",
         certified=True,
         certificate_ref="certificate_0123456789abcdef",
         cell_fingerprint="e" * 64,
     )
     assert not validator.validate_json(certified, "shadow_evaluate_response_schema")
+    insufficient_support = json.loads(json.dumps(certified))
+    insufficient_support["diagnostics"].update(
+        support_n=127,
+        effective_support_n=127,
+    )
+    assert validator.validate_json(
+        insufficient_support, "shadow_evaluate_response_schema"
+    )
     honest_unknown_ucb = json.loads(json.dumps(certified))
     honest_unknown_ucb["diagnostics"]["advantage_ucb"] = None
     assert not validator.validate_json(

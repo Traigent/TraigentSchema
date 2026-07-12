@@ -6,11 +6,10 @@ name: SonarQube Local Gate
 # has the sonarqube-scaler Role), waits for status=UP, runs coverage on natively
 # installed postgres/redis (no dind), scans, then scales SonarQube back to 0.
 #
-# Policy: REQUIRED on `main`, OPTIONAL (informational) on `develop`.
+# Policy: trusted `main` commits only. PR analysis is enforced by SonarCloud;
+# this privileged self-hosted workflow must never execute pull-request code.
 
 on:
-  pull_request:
-    branches: [develop, main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -32,6 +31,10 @@ env:
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   SONAR_NS: sonarqube
   SONAR_STS: sonarqube-sonarqube
+  KUBECTL_VERSION: v1.36.2
+  KUBECTL_SHA256: c957eb8c4bea27a3bb35b269edd9082e27f027f7b76b20b5bf4afebc726c6d3e # pragma: allowlist secret
+  SONAR_SCANNER_VERSION: 6.2.1.4610
+  SONAR_SCANNER_SHA256: f67819e7a52ed4c28b541baa5bca0621446314de148f889d7d2d7ff239808f0c # pragma: allowlist secret
 
 jobs:
   sonarqube-quality-gate:
@@ -40,10 +43,12 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - name: Checkout repository
+      - name: Checkout trusted event ref
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
 
       - name: Install kubectl + sonar-scanner (arm64)
         run: |
@@ -53,14 +58,17 @@ jobs:
           SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO=sudo
           command -v unzip >/dev/null 2>&1 || { $SUDO apt-get update -qq && $SUDO apt-get install -y -qq unzip; }
           if ! command -v kubectl >/dev/null 2>&1; then
-            kver="$(curl -sL https://dl.k8s.io/release/stable.txt)"
-            $SUDO curl -sLo /usr/local/bin/kubectl "https://dl.k8s.io/release/${kver}/bin/linux/arm64/kubectl"
-            $SUDO chmod +x /usr/local/bin/kubectl
+            curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
+            echo "${KUBECTL_SHA256}  /tmp/kubectl" | sha256sum -c -
+            $SUDO install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
           fi
-          SC_VER=6.2.1.4610
-          curl -sLo /tmp/sc.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SC_VER}-linux-aarch64.zip"
-          (cd /tmp && unzip -q -o sc.zip)
-          echo "/tmp/sonar-scanner-${SC_VER}-linux-aarch64/bin" >> "$GITHUB_PATH"
+          if ! command -v sonar-scanner >/dev/null 2>&1; then
+            curl -fsSLo /tmp/sc.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-aarch64.zip"
+            echo "${SONAR_SCANNER_SHA256}  /tmp/sc.zip" | sha256sum -c -
+            rm -rf "/tmp/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-aarch64"
+            (cd /tmp && unzip -q -o sc.zip)
+          fi
+          echo "/tmp/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-aarch64/bin" >> "$GITHUB_PATH"
 
       - name: Scale SonarQube up (0 -> 1) and wait for UP
         run: |

@@ -1,25 +1,49 @@
 # Changelog
 
-- Preserve an honest unknown `advantage_ucb` for exact certified SmartOps V2 shadows when the signed certificate provides a point estimate and simultaneous lower bound but no upper bound.
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.8.0] - 2026-07-10
+## [4.8.0] - 2026-07-12
 
 ### Added
+- A content-free `session_aggregation` contract on session finalization requests, with
+  a response echo only when the server persisted the aggregation. Metric, objective,
+  configuration-hash, selection, version, and significance labels are bounded, and
+  unknown nested content is rejected outside the documented `best_weighted_config`
+  configuration-value dataflow exception (which can include a tuned prompt value and
+  is omitted in privacy mode).
+- Optional `guidance_meta` provenance on analytics next-steps responses, identifying
+  the served rules/policy variant, engine, policy-table revision, SmartOps version,
+  and fallback reason.
+- Authoritative lifecycle guidance contracts: one top-level decision, empty legacy
+  `next_steps` in the feature lane, and experiment-run/decision-scoped execution receipt
+  request and response schemas with allowlisted outcomes.
+- Project-scoped observability intelligence contracts for trace/session/user reads,
+  content-free trace analysis and projection, execution lineage, recurring issues and
+  their human disposition, exact structural variants, tool analysis, and cohort
+  comparison. Trace ingestion can bind execution context, while derived results carry
+  bounded structural fingerprints and derivation provenance.
+- A strict, content-free observability analysis-insights response and endpoint for
+  structural conformance findings and deterministic recommendations with bounded
+  measurement plans.
 - Authenticated, project-scoped SmartOps Planner V2 decision, receipt,
-  lifecycle-reopen, private decision-resolution, and service-only shadow contracts.
+  lifecycle-reopen, private decision-resolution, service-only shadow evaluation,
+  artifact-revision registration/consumption, and authoritative producer-result
+  contracts.
 - Planner V1 routes and schemas remain unchanged.
 
 ### Changed
+- Evaluator-registry aliases used by authoritative guidance are bounded and mutually
+  exclusive, and parity metadata is refreshed for the full 4.8.0 schema surface.
 - Planner V2 now distinguishes certified session-utility advantage from product KPI
   claims, describes rule parity as the absence of an applicable exact certificate,
   and exposes truthful closed fallback categories.
 - Shadow and private execution contracts now bind exact Planner V2 actions,
-  economics, implementation pins, receipts, and certificate support semantics.
+  economics, implementation pins, receipts, producer lineage, revision fingerprints,
+  successor runs, and certificate support semantics. Exact certified shadows preserve
+  an honest unknown `advantage_ucb` when the signed certificate supplies no upper bound.
 
 ## [4.7.1] - 2026-06-29
 

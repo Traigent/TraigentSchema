@@ -18,10 +18,51 @@ on:
         type: boolean
 
 jobs:
-  publish:
+  verify-release-ref:
+    name: Verify exact main release ref
+    if: inputs.confirm_publish == true
     runs-on: ubuntu-latest
-    if: github.event.inputs.confirm_publish == 'true'
-    environment: ${{ github.event.inputs.environment || 'testpypi' }}
+    permissions:
+      contents: read
+    outputs:
+      verified_sha: ${{ steps.verify.outputs.verified_sha }}
+
+    steps:
+      - name: Checkout dispatched commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify dispatch is the current main commit
+        id: verify
+        env:
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$DISPATCH_REF" != "refs/heads/main" ]; then
+            echo "::error::Publishing is allowed only from refs/heads/main (got $DISPATCH_REF)"
+            exit 1
+          fi
+
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          CURRENT_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
+          if [ "$CHECKED_OUT_SHA" != "$DISPATCH_SHA" ] || [ "$CURRENT_MAIN_SHA" != "$DISPATCH_SHA" ]; then
+            echo "::error::Dispatch SHA, checkout SHA, and current main SHA must match exactly"
+            echo "dispatch=$DISPATCH_SHA checkout=$CHECKED_OUT_SHA current_main=$CURRENT_MAIN_SHA"
+            exit 1
+          fi
+
+          echo "verified_sha=$DISPATCH_SHA" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: verify-release-ref
+    runs-on: ubuntu-latest
+    if: inputs.confirm_publish == true && needs.verify-release-ref.result == 'success'
+    environment: ${{ inputs.environment || 'testpypi' }}
     outputs:
       package_version: ${{ steps.package_version.outputs.package_version }}
     permissions:
@@ -29,12 +70,15 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout verified main commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.verify-release-ref.outputs.verified_sha }}
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.11"
 
@@ -100,15 +144,29 @@ jobs:
           print(load_schema("experiment_schema")["$schema"])
           PY
 
+      - name: Re-verify main has not moved before publishing
+        env:
+          VERIFIED_SHA: ${{ needs.verify-release-ref.outputs.verified_sha }}
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          CURRENT_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
+          if [ "$CHECKED_OUT_SHA" != "$VERIFIED_SHA" ] || [ "$CURRENT_MAIN_SHA" != "$VERIFIED_SHA" ]; then
+            echo "::error::Verified release SHA is no longer the exact current main commit"
+            echo "verified=$VERIFIED_SHA checkout=$CHECKED_OUT_SHA current_main=$CURRENT_MAIN_SHA"
+            exit 1
+          fi
+
       - name: Publish to Test PyPI
-        if: github.event.inputs.environment == 'testpypi'
+        if: inputs.environment == 'testpypi'
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
         with:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
 
       - name: Publish to PyPI
-        if: github.event.inputs.environment == 'pypi'
+        if: inputs.environment == 'pypi'
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
         with:
           verbose: true
@@ -117,14 +175,16 @@ jobs:
         if: always()
         env:
           PACKAGE_VERSION: ${{ steps.package_version.outputs.package_version }}
-          INPUT_ENVIRONMENT: ${{ github.event.inputs.environment }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
           JOB_STATUS: ${{ job.status }}
         run: |
-          echo "## Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Package**: traigent-schema" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Version**: $PACKAGE_VERSION" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Environment**: $INPUT_ENVIRONMENT" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Status**: $JOB_STATUS" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Deployment Summary"
+            echo "- **Package**: traigent-schema"
+            echo "- **Version**: $PACKAGE_VERSION"
+            echo "- **Environment**: $INPUT_ENVIRONMENT"
+            echo "- **Status**: $JOB_STATUS"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   verify-publication:
     needs: publish
@@ -138,14 +198,14 @@ jobs:
         run: sleep 60
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.11"
 
       - name: Test installation from package index
         env:
           EXPECTED_VERSION: ${{ needs.publish.outputs.package_version }}
-          INPUT_ENVIRONMENT: ${{ github.event.inputs.environment }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
         run: |
           if [ "$INPUT_ENVIRONMENT" = "testpypi" ]; then
             PACKAGE_LABEL="TestPyPI"

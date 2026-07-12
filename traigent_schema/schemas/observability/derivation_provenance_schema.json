@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/derivation_provenance_schema.json",
+  "title": "Observability Derivation Provenance Schema",
+  "description": "Replay provenance for a disposable derived artifact. The input digest identifies the immutable raw input snapshot without copying user content.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "system",
+  "properties": {
+    "derivation_run_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "deriver": {
+      "type": "string",
+      "enum": ["structural_analysis", "variant_assignment", "issue_detection", "lineage_projection", "cohort_analysis"]
+    },
+    "deriver_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "input_revision": { "type": "integer", "minimum": 1 },
+    "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "derived_at": { "type": "string", "format": "date-time" }
+  },
+  "required": [
+    "derivation_run_id",
+    "deriver",
+    "deriver_version",
+    "input_revision",
+    "input_digest",
+    "derived_at"
+  ]
+}

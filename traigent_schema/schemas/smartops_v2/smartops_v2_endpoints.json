@@ -1,0 +1,126 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SmartOps Planner V2 API",
+    "version": "2.0.0",
+    "description": "Additive, authenticated, project-scoped Planner V2 decisions, receipts, lifecycle reopening, private resolution, and service-only shadow evaluation. V1 remains unchanged."
+  },
+  "paths": {
+    "/api/v2/experiment-runs/{run_id}/next-decision": {
+      "post": {
+        "summary": "Create or replay one authoritative Planner V2 decision",
+        "parameters": [{"name": "Idempotency-Key", "in": "header", "required": false, "schema": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./next_decision_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "Decision replayed", "content": {"application/json": {"schema": {"$ref": "./next_decision_response_schema.json"}}}},
+          "201": {"description": "Decision created", "content": {"application/json": {"schema": {"$ref": "./next_decision_response_schema.json"}}}},
+          "400": {"description": "Malformed profile or idempotency key"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Insufficient experiment write permission"},
+          "404": {"description": "Run not found in the canonical tenant/project scope"},
+          "409": {"description": "Pinned profile, treatment, lineage, or active-decision conflict"},
+          "503": {"description": "Mandatory evidence or the live shield is missing/tampered; no executable decision is returned"}
+        }
+      }
+    },
+    "/api/v2/lifecycles/{lifecycle_id}/decisions/{decision_id}/receipts": {
+      "post": {
+        "summary": "Record an idempotent Planner V2 execution attempt receipt",
+        "parameters": [{"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./receipt_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "Receipt replayed", "content": {"application/json": {"schema": {"$ref": "./receipt_response_schema.json"}}}},
+          "201": {"description": "Receipt stored", "content": {"application/json": {"schema": {"$ref": "./receipt_response_schema.json"}}}},
+          "400": {"description": "Malformed receipt or submitted receipt lacks result_ref"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Insufficient experiment write permission"},
+          "404": {"description": "Lifecycle or decision not found in canonical tenant/project scope"},
+          "409": {"description": "Attempt/idempotency conflict, expired lease, or result does not belong to the lifecycle lineage"}
+        }
+      }
+    },
+    "/api/v2/lifecycles/{lifecycle_id}/reopen": {
+      "post": {
+        "summary": "Create an active successor for a terminal Planner V2 lifecycle",
+        "parameters": [{"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"}}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./reopen_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "Idempotent successor replay", "content": {"application/json": {"schema": {"$ref": "./reopen_response_schema.json"}}}},
+          "201": {"description": "Successor lifecycle created", "content": {"application/json": {"schema": {"$ref": "./reopen_response_schema.json"}}}},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Insufficient experiment write permission"},
+          "404": {"description": "Lifecycle not found in canonical tenant/project scope"},
+          "409": {"description": "Lifecycle is active, reason lacks authoritative evidence, or lineage/profile/treatment conflict"}
+        }
+      }
+    },
+    "/api/v2/guidance/decisions/{decision_id}/resolve": {
+      "post": {
+        "summary": "Resolve an executable decision to a signed private argv specification",
+        "responses": {
+          "200": {"description": "Server-integrity-tagged allowlisted execution specification", "content": {"application/json": {"schema": {"$ref": "./resolve_decision_response_schema.json"}}}},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Insufficient experiment write permission"},
+          "404": {"description": "Decision not found in canonical tenant/project scope"},
+          "409": {"description": "Decision is non-executable, terminal, already leased, or expired"},
+          "503": {"description": "Signing or budget-reservation dependency unavailable"}
+        }
+      }
+    },
+    "/api/v2/internal/smartops/shadow-evaluate": {
+      "post": {
+        "summary": "Service-only, read-only rules-versus-policy evaluation on one immutable snapshot",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./shadow_evaluate_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "Internal same-snapshot comparison", "content": {"application/json": {"schema": {"$ref": "./shadow_evaluate_response_schema.json"}}}},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Service principal required"},
+          "404": {"description": "Snapshot not found in canonical tenant/project scope"},
+          "503": {"description": "Shield, rule, policy, or calibration evaluator unavailable"}
+        }
+      }
+    },
+    "/api/v2/internal/smartops/lifecycles/{lifecycle_id}/results": {
+      "post": {
+        "summary": "Register a service-produced result bound to one Planner V2 execution attempt",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./register_authoritative_result_request_schema.json"}}}},
+        "responses": {
+          "201": {"description": "Authoritative result registered or idempotently replayed", "content": {"application/json": {"schema": {"$ref": "./register_authoritative_result_response_schema.json"}}}},
+          "400": {"description": "Malformed, unbound, or unsupported result"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Service principal required"},
+          "404": {"description": "Lifecycle or source run not found in canonical tenant/project scope"},
+          "409": {"description": "Result reference, attempt binding, or lifecycle lineage conflict"}
+        }
+      }
+    },
+    "/api/v2/internal/smartops/lifecycles/{lifecycle_id}/revisions": {
+      "post": {
+        "summary": "Register a verified artifact revision from an execution-bound authoritative result",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./register_artifact_revision_request_schema.json"}}}},
+        "responses": {
+          "201": {"description": "Verified artifact revision registered", "content": {"application/json": {"schema": {"$ref": "./register_artifact_revision_response_schema.json"}}}},
+          "400": {"description": "Malformed artifact revision"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Service principal required"},
+          "404": {"description": "Lifecycle, parent, or source result not found"},
+          "409": {"description": "Artifact lineage, type, or source-result conflict"}
+        }
+      }
+    },
+    "/api/v2/internal/smartops/revisions/{revision_ref}/consume": {
+      "post": {
+        "summary": "Bind a verified artifact revision to its same-lifecycle successor run",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./consume_artifact_revision_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "Artifact revision consumption recorded", "content": {"application/json": {"schema": {"$ref": "./consume_artifact_revision_response_schema.json"}}}},
+          "400": {"description": "Malformed revision consumption"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Service principal required"},
+          "404": {"description": "Revision or successor run not found"},
+          "409": {"description": "Fingerprint, single-use, or lifecycle-lineage conflict"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/issue_detail_response_schema.json",
+  "title": "Observability Issue Detail Response Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "issue": { "$ref": "./issue_schema.json" },
+    "occurrences": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "./issue_occurrence_schema.json" }
+    },
+    "occurrence_page": { "type": "integer", "minimum": 1 },
+    "occurrences_per_page": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "total_occurrences": { "type": "integer", "minimum": 0 },
+    "variant_ids": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": [
+    "issue",
+    "occurrences",
+    "occurrence_page",
+    "occurrences_per_page",
+    "total_occurrences",
+    "variant_ids",
+    "generated_at"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/cohort_comparison_response_schema.json",
+  "title": "Observability Cohort Comparison Response Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "definitions": {
+    "MetricName": {
+      "type": "string",
+      "enum": ["quality_score", "cost_usd", "latency_ms", "error_rate", "retry_rate", "fallback_rate", "input_tokens", "output_tokens"]
+    },
+    "CohortSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "trace_count": { "type": "integer", "minimum": 0 },
+        "metrics": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "metric": { "$ref": "#/definitions/MetricName" },
+              "sample_count": { "type": "integer", "minimum": 0 },
+              "mean": { "type": ["number", "null"] },
+              "median": { "type": ["number", "null"] },
+              "p95": { "type": ["number", "null"] }
+            },
+            "required": ["metric", "sample_count", "mean", "median", "p95"]
+          }
+        }
+      },
+      "required": ["trace_count", "metrics"]
+    }
+  },
+  "properties": {
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "reference": { "$ref": "#/definitions/CohortSummary" },
+    "comparison": { "$ref": "#/definitions/CohortSummary" },
+    "matched_pair_count": { "type": "integer", "minimum": 0 },
+    "deltas": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "metric": { "$ref": "#/definitions/MetricName" },
+          "absolute_delta": { "type": ["number", "null"] },
+          "relative_delta": { "type": ["number", "null"] },
+          "assessment": { "type": "string", "enum": ["improved", "worse", "unchanged", "inconclusive"] }
+        },
+        "required": ["metric", "absolute_delta", "relative_delta", "assessment"]
+      }
+    },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["project_id", "reference", "comparison", "matched_pair_count", "deltas", "generated_at"]
+}

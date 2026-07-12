@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://traigent.ai/schemas/analytics/next_steps_receipt_request.json",
+  "title": "NextStepsReceiptRequest",
+  "description": "CLIENT-SAFE idempotent execution receipt for one authoritative next-step decision. No arbitrary metrics, content, or proprietary lifecycle state may be submitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "attempt_id"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "started",
+        "completed",
+        "failed",
+        "skipped"
+      ]
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z0-9_.:-]+$",
+      "description": "Caller-generated idempotency identifier, unique per execution attempt."
+    },
+    "successor_run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "description": "Optional experiment run created as a result of executing the decision."
+    },
+    "outcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "holdout_status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "no_decision"
+          ]
+        },
+        "safety_gate_status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "not_run"
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "outcomes"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        }
+      }
+    }
+  ]
+}

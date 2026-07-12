@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/receipt_request_schema.json",
+  "title": "SmartOps Planner V2 execution receipt request",
+  "type": "object",
+  "required": ["attempt_id", "status"],
+  "properties": {
+    "attempt_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "status": {"type": "string", "enum": ["started", "submitted", "failed", "skipped"]},
+    "successor_run_id": {
+      "oneOf": [
+        {"$ref": "./smartops_v2_common_schema.json#/definitions/RunId"},
+        {"type": "null"}
+      ]
+    },
+    "result_ref": {
+      "oneOf": [
+        {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+        {"type": "null"}
+      ],
+      "description": "Opaque reference to a backend-owned result or a registered typed artifact revision."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "submitted"}}, "required": ["status"]},
+      "then": {"required": ["result_ref"], "properties": {"result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}}},
+      "else": {
+        "properties": {
+          "result_ref": {"type": "null"},
+          "successor_run_id": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

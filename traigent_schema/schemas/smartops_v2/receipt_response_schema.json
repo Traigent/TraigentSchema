@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/receipt_response_schema.json",
+  "title": "SmartOps Planner V2 execution receipt response",
+  "type": "object",
+  "required": ["schema_version", "receipt_id", "lifecycle_id", "decision_id", "attempt_id", "status", "verification_status", "idempotent_replay", "updated_at"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "2.0.0"},
+    "receipt_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "lifecycle_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "decision_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "attempt_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+    "status": {"type": "string", "enum": ["started", "submitted", "failed", "skipped"]},
+    "verification_status": {"type": "string", "enum": ["pending", "verified", "rejected"]},
+    "result_ref": {
+      "oneOf": [
+        {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+        {"type": "null"}
+      ]
+    },
+    "successor_run_id": {
+      "oneOf": [
+        {"$ref": "./smartops_v2_common_schema.json#/definitions/RunId"},
+        {"type": "null"}
+      ]
+    },
+    "idempotent_replay": {"type": "boolean"},
+    "updated_at": {"$ref": "./smartops_v2_common_schema.json#/definitions/UtcTimestamp"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "started"}}, "required": ["status"]},
+      "then": {"properties": {"verification_status": {"const": "pending"}, "result_ref": {"type": "null"}, "successor_run_id": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "submitted"}}, "required": ["status"]},
+      "then": {"required": ["result_ref"], "properties": {"result_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}, "verification_status": {"enum": ["pending", "verified", "rejected"]}}}
+    },
+    {
+      "if": {"properties": {"status": {"enum": ["failed", "skipped"]}}, "required": ["status"]},
+      "then": {"properties": {"verification_status": {"const": "rejected"}, "result_ref": {"type": "null"}, "successor_run_id": {"type": "null"}}}
+    }
+  ],
+  "additionalProperties": false
+}

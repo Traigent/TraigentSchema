@@ -97,6 +97,9 @@
     "prompt_reference": {
       "$ref": "./prompt_reference_schema.json"
     },
+    "execution_context": {
+      "$ref": "./execution_context_schema.json"
+    },
     "session": {
       "$ref": "./session_ingest_schema.json"
     },

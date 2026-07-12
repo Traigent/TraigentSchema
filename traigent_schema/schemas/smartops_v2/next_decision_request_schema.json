@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/next_decision_request_schema.json",
+  "title": "SmartOps Planner V2 next decision request",
+  "type": "object",
+  "required": ["requested_variant", "utility_profile"],
+  "properties": {
+    "requested_variant": {
+      "$ref": "./smartops_v2_common_schema.json#/definitions/RequestedVariant",
+      "description": "Precommitted treatment pinned on first lifecycle creation."
+    },
+    "utility_profile": {
+      "$ref": "./smartops_v2_common_schema.json#/definitions/Profile",
+      "description": "May be supplied only on the first lifecycle request; later conflicts return 409."
+    }
+  },
+  "additionalProperties": false
+}

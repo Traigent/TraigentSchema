@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/observability_lineage_response_schema.json",
+  "title": "Observability Lineage Response Schema",
+  "description": "Content-free lineage projection from a runtime trace to related platform artifacts and interventions.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "sdk_runtime_metadata",
+  "properties": {
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "execution_context": { "$ref": "./execution_context_schema.json" },
+    "links": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "enum": ["agent", "release", "deployment", "code_revision", "configuration", "prompt", "toolset", "evaluator", "dataset", "experiment_run", "configuration_run", "optimization_run", "intervention"]
+          },
+          "resource_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "resource_version": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+          "relationship": {
+            "type": "string",
+            "enum": ["executed_by", "released_as", "deployed_as", "built_from", "configured_by", "used_prompt", "used_toolset", "evaluated_by", "sourced_from", "measured_in", "optimized_in", "changed_by"]
+          }
+        },
+        "required": ["resource_type", "resource_id", "resource_version", "relationship"]
+      }
+    },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["project_id", "trace_id", "execution_context", "links", "generated_at"]
+}

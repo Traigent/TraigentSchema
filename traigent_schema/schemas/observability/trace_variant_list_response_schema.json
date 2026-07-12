@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/trace_variant_list_response_schema.json",
+  "title": "Observability Trace Variant List Response Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "./trace_variant_schema.json" }
+    },
+    "page": { "type": "integer", "minimum": 1 },
+    "per_page": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "total": { "type": "integer", "minimum": 0 },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["items", "page", "per_page", "total", "generated_at"]
+}

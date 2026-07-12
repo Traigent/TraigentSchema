@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/issue_state_update_request_schema.json",
+  "title": "Observability Issue State Update Request Schema",
+  "description": "Human issue disposition. Creation, occurrence attachment, and reopening are detector-owned and therefore absent from this request.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "state": { "type": "string", "enum": ["acknowledged", "resolved", "ignored"] },
+    "reason": {
+      "type": "string",
+      "enum": ["investigating", "triaged", "fixed", "no_longer_reproduces", "superseded", "expected_behavior", "duplicate", "false_positive", "low_impact"]
+    },
+    "expected_version": { "type": "integer", "minimum": 1 }
+  },
+  "required": ["state", "reason", "expected_version"],
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "acknowledged" } } },
+      "then": { "properties": { "reason": { "enum": ["investigating", "triaged"] } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "resolved" } } },
+      "then": { "properties": { "reason": { "enum": ["fixed", "no_longer_reproduces", "superseded"] } } }
+    },
+    {
+      "if": { "properties": { "state": { "const": "ignored" } } },
+      "then": { "properties": { "reason": { "enum": ["expected_behavior", "duplicate", "false_positive", "low_impact"] } } }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "ingest_id": "01JQ3A8T6CH3A7XVJQ1E2M8SNQ",
+  "protocol_version": "2.0",
+  "manifest_state": "DEAD_LETTERED",
+  "events": [
+    {
+      "event_id": "01JQ3A8V5JRZ0CN5Z2S9KYX6KB",
+      "state": "DEAD_LETTERED",
+      "event_hash": "00ffeeddccbbaa998877665544332211009f8e7d6c5b4a39281706f5e4d3c2b1",
+      "attempted_count": 5,
+      "capacity_disposition": "RELEASED",
+      "quota_disposition": "RELEASED"
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/observability_v2_ingest_status_response_schema.json",
+  "title": "Observability Ingest v2 Status Response",
+  "description": "Response for GET /api/v2/observability/ingests/{ingest_id} (14-observability-ingest-v2 §3.2). Returns the manifest state plus one record per event. Polling is authoritative; a webhook is optional. Reusing the same ingest_id returns the persisted manifest, so a client that times out without a response treats the outcome as UNKNOWN and reads status by ingest_id rather than minting a replacement.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ingest_id": {
+      "$ref": "./observability_v2_event_schema.json#/definitions/MonotonicId"
+    },
+    "protocol_version": {
+      "type": "string",
+      "enum": [
+        "2.0"
+      ]
+    },
+    "manifest_state": {
+      "$ref": "#/definitions/ManifestState"
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/definitions/EventStatusRecord"
+      }
+    }
+  },
+  "required": [
+    "ingest_id",
+    "manifest_state",
+    "events"
+  ],
+  "definitions": {
+    "ManifestState": {
+      "type": "string",
+      "enum": [
+        "ADMITTED",
+        "DISPATCHING",
+        "MATERIALIZING",
+        "COMPLETED",
+        "PARTIALLY_DEAD_LETTERED",
+        "DEAD_LETTERED"
+      ],
+      "description": "Request-level rollup derived from the per-event states. ADMITTED is the durable-queue acceptance point (the only state that returned 202). COMPLETED = every event reached a materialized/duplicate terminal; PARTIALLY_DEAD_LETTERED / DEAD_LETTERED = some / all events dead-lettered. NOTE: the design specifies the per-event admission state machine (§3.1) but does not enumerate an aggregate manifest vocabulary; this rollup set is a minimal faithful choice (see PR summary open question)."
+    },
+    "EventState": {
+      "type": "string",
+      "enum": [
+        "ADMITTED",
+        "DISPATCHING",
+        "MATERIALIZING",
+        "MATERIALIZED",
+        "DUPLICATE",
+        "PENDING_VERSION",
+        "DEAD_LETTERED"
+      ],
+      "description": "SDK-facing per-event status (§3.2). MATERIALIZED / DUPLICATE / DEAD_LETTERED are terminal; PENDING_VERSION is awaiting its per-emitter predecessor."
+    },
+    "ReservationDisposition": {
+      "type": "string",
+      "enum": [
+        "RESERVED",
+        "CONSUMED",
+        "RELEASED"
+      ],
+      "description": "Charge-on-persist lifecycle (§3.3, ratified). Reserved at ADMITTED, CONSUMED only in the materialization commit, RELEASED for every terminal dead-letter record."
+    },
+    "ReplayOwner": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "tenant",
+        "platform",
+        null
+      ],
+      "description": "Who owns replay/repair of a terminal event: tenant for malformed customer content, platform for infrastructure repair. Null until the event is terminal."
+    },
+    "EventStatusRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "$ref": "./observability_v2_event_schema.json#/definitions/MonotonicId"
+        },
+        "state": {
+          "$ref": "#/definitions/EventState"
+        },
+        "event_hash": {
+          "$ref": "./observability_v2_event_schema.json#/definitions/Sha256Hex"
+        },
+        "attempted_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of delivery/materialization attempts recorded for this event."
+        },
+        "capacity_disposition": {
+          "$ref": "#/definitions/ReservationDisposition"
+        },
+        "quota_disposition": {
+          "$ref": "#/definitions/ReservationDisposition"
+        },
+        "terminal_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512,
+          "description": "Sanitized, client-safe reason for a terminal outcome (no server internals). Null for non-terminal states."
+        },
+        "terminal_code": {
+          "oneOf": [
+            {
+              "$ref": "./observability_v2_error_schema.json#/definitions/ErrorCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stable terminal reason code (subset of the v2 error taxonomy) for DEAD_LETTERED / PENDING_VERSION events; null otherwise."
+        },
+        "replay_owner": {
+          "$ref": "#/definitions/ReplayOwner"
+        }
+      },
+      "required": [
+        "event_id",
+        "state",
+        "event_hash",
+        "attempted_count",
+        "capacity_disposition",
+        "quota_disposition"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "MATERIALIZED",
+                  "DUPLICATE",
+                  "DEAD_LETTERED"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "terminal_reason",
+              "replay_owner"
+            ],
+            "description": "Every terminal record (MATERIALIZED / DUPLICATE / DEAD_LETTERED) carries the immutable event hash (globally required), attempted count, capacity/quota disposition (globally required), a sanitized terminal_reason, and a replay_owner. The reason/owner keys must be present; they may be null where inapplicable (e.g. terminal_reason and replay_owner are null for a clean MATERIALIZED record). See §3.2."
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "DEAD_LETTERED"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "terminal_reason",
+              "replay_owner"
+            ],
+            "properties": {
+              "terminal_reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "replay_owner": {
+                "type": "string",
+                "enum": [
+                  "tenant",
+                  "platform"
+                ]
+              }
+            },
+            "description": "A terminal dead-letter record must carry a NON-NULL sanitized reason and a concrete replay owner."
+          }
+        }
+      ]
+    }
+  }
+}

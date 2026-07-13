@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "error": "ingest_id_reuse",
+  "error_code": "INGEST_ID_REUSE",
+  "message": "This ingest_id was already used for a different request. Read the existing manifest by ingest_id instead of reusing it for new content.",
+  "http_status": 409
+}

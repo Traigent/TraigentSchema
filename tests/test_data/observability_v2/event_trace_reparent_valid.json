@@ -1,0 +1,13 @@
+{
+  "event_id": "01JQ3AA05JRZ0CN5Z2S9KYX615",
+  "emitter_id": "01JQ3A7XW5K9J2N8M4P6R0T3V1",
+  "emitter_version": 6,
+  "occurred_at": "2026-07-12T10:15:31.000Z",
+  "kind": "trace.reparent",
+  "trace_id": "tr_123",
+  "entity_id": "tr_123",
+  "data": {
+    "from_session_id": "sess_a",
+    "to_session_id": "sess_b"
+  }
+}

@@ -371,6 +371,7 @@ def test_all_terminal_states_require_reason_and_owner_keys():
     ok = {
         "ingest_id": "01JQ3A8T6CH3A7XVJQ1E2M8SNQ",
         "manifest_state": "COMPLETED",
+        "events_detail_available": True,
         "events": [
             {
                 "event_id": "01JQ3A8V5JRZ0CN5Z2S9KYX6KA",
@@ -387,13 +388,36 @@ def test_all_terminal_states_require_reason_and_owner_keys():
     assert v.validate_json(ok, STATUS_SCHEMA) == []
 
 
-def test_status_response_requires_at_least_one_event_record():
+def test_status_response_requires_events_detail_available_field():
+    """`events_detail_available` is now REQUIRED (gate finding NEW-2): a
+    manifest whose per-event receipts have age-purged (14-observability-
+    ingest-v2.md §5.2) reports `events: []` honestly, distinguished from
+    "detail is available" by this field -- so the field itself can no longer
+    be omitted."""
     empty = {
         "ingest_id": "01JQ3A8T6CH3A7XVJQ1E2M8SNQ",
         "manifest_state": "ADMITTED",
         "events": [],
     }
     assert _v().validate_json(empty, STATUS_SCHEMA)
+
+
+def test_empty_events_is_valid_only_when_detail_is_reported_unavailable():
+    """Empty `events[]` is now a legitimate response shape (receipts purged
+    past their 7-day retention while the manifest survives, §5.2) -- but ONLY
+    paired with `events_detail_available: false`. Claiming detail is
+    available with zero events is incoherent and still rejected: every
+    admitted event gets exactly one receipt in the same admission
+    transaction (§3.1), so "detail available" + "zero events" cannot happen
+    honestly."""
+    v = _v()
+    base = {
+        "ingest_id": "01JQ3A8T6CH3A7XVJQ1E2M8SNQ",
+        "manifest_state": "ADMITTED",
+        "events": [],
+    }
+    assert v.validate_json({**base, "events_detail_available": False}, STATUS_SCHEMA) == []
+    assert v.validate_json({**base, "events_detail_available": True}, STATUS_SCHEMA)
 
 
 def test_get_status_declares_required_ingest_id_path_parameter():

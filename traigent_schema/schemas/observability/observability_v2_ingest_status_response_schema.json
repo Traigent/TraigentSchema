@@ -18,9 +18,13 @@
     "manifest_state": {
       "$ref": "#/definitions/ManifestState"
     },
+    "events_detail_available": {
+      "type": "boolean",
+      "description": "True when per-event records back `events[]` (the receipts/outbox rows are still live); false when they have been age-purged and `events` is reported empty rather than guessed (14-observability-ingest-v2.md §5.2: full receipts/ledger are retained 7 days, then dropped, while the manifest's own retention window is not yet ratified and the 30-day claim rows carry no per-event state to reconstruct from). Lets a client distinguish 'this ingest genuinely has zero events' (never happens in practice) from 'the per-event detail behind this ingest has aged out' -- both would otherwise look like an empty `events` array."
+    },
     "events": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "maxItems": 100,
       "items": {
         "$ref": "#/definitions/EventStatusRecord"
@@ -30,7 +34,30 @@
   "required": [
     "ingest_id",
     "manifest_state",
-    "events"
+    "events",
+    "events_detail_available"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "events_detail_available": {
+            "const": true
+          }
+        },
+        "required": [
+          "events_detail_available"
+        ]
+      },
+      "then": {
+        "properties": {
+          "events": {
+            "minItems": 1
+          }
+        }
+      },
+      "description": "When per-event detail IS available, events[] cannot be reported empty (every admitted event has exactly one receipt at admission time, §3.1) -- only the purged/unavailable case may report zero events."
+    }
   ],
   "definitions": {
     "ManifestState": {

@@ -419,6 +419,18 @@ def test_empty_events_is_valid_only_when_detail_is_reported_unavailable():
     assert v.validate_json({**base, "events_detail_available": False}, STATUS_SCHEMA) == []
     assert v.validate_json({**base, "events_detail_available": True}, STATUS_SCHEMA)
 
+    # CONVERSE guard: reporting detail UNAVAILABLE with a NON-EMPTY events[] is
+    # fabricated per-event detail and rejected. The record used is otherwise
+    # fully valid (taken from status_terminal_valid.json), so ONLY the
+    # false-with-events incoherence can be what fails -- and the same payload
+    # with events_detail_available: true is accepted.
+    record = _load_fixture("status_terminal_valid.json")["events"][0]
+    populated = {**base, "events": [record]}
+    assert v.validate_json({**populated, "events_detail_available": False}, STATUS_SCHEMA)
+    assert (
+        v.validate_json({**populated, "events_detail_available": True}, STATUS_SCHEMA) == []
+    )
+
 
 def test_get_status_declares_required_ingest_id_path_parameter():
     with open(OBS / "observability_endpoints.json", encoding="utf-8") as handle:

@@ -57,6 +57,26 @@
         }
       },
       "description": "When per-event detail IS available, events[] cannot be reported empty (every admitted event has exactly one receipt at admission time, §3.1) -- only the purged/unavailable case may report zero events."
+    },
+    {
+      "if": {
+        "properties": {
+          "events_detail_available": {
+            "const": false
+          }
+        },
+        "required": [
+          "events_detail_available"
+        ]
+      },
+      "then": {
+        "properties": {
+          "events": {
+            "maxItems": 0
+          }
+        }
+      },
+      "description": "CONVERSE guard: when per-event detail is NOT available (the receipts/outbox rows behind it have age-purged, §5.2), events[] MUST be reported empty -- a non-empty events array under events_detail_available:false would be fabricated per-event detail the server has just declared it no longer holds."
     }
   ],
   "definitions": {

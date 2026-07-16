@@ -44,7 +44,8 @@
         "required": [
           "target_id"
         ]
-      }
+      },
+      "maxItems": 1000
     }
   },
   "required": [

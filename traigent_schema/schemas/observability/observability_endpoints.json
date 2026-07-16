@@ -41,23 +41,115 @@
         "summary": "List project observability traces",
         "operationId": "listProjectObservabilityTraces",
         "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
-          { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 255 } },
-          { "name": "environment", "in": "query", "schema": { "type": "string", "maxLength": 64 } },
-          { "name": "user_id", "in": "query", "schema": { "type": "string", "maxLength": 255 } },
-          { "name": "session_id", "in": "query", "schema": { "type": "string", "maxLength": 128 } },
-          { "name": "status", "in": "query", "schema": { "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus" } },
-          { "name": "release", "in": "query", "schema": { "type": "string", "maxLength": 128 } },
-          { "name": "model", "in": "query", "schema": { "type": "string", "maxLength": 255 } },
-          { "name": "tags", "in": "query", "schema": { "type": "string", "maxLength": 4096 } },
-          { "name": "start_time_from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "start_time_to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus"
+            }
+          },
+          {
+            "name": "release",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "start_time_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "start_time_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Project traces retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./trace_list_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_list_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -69,7 +161,13 @@
         "responses": {
           "200": {
             "description": "Project trace retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./trace_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -81,7 +179,13 @@
         "responses": {
           "200": {
             "description": "Project trace observations retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./trace_observations_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_observations_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -93,7 +197,13 @@
         "responses": {
           "200": {
             "description": "Project observation score summary retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./trace_score_summary_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_score_summary_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -103,20 +213,92 @@
         "summary": "List project observability sessions",
         "operationId": "listProjectObservabilitySessions",
         "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
-          { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 255 } },
-          { "name": "environment", "in": "query", "schema": { "type": "string", "maxLength": 64 } },
-          { "name": "user_id", "in": "query", "schema": { "type": "string", "maxLength": 255 } },
-          { "name": "release", "in": "query", "schema": { "type": "string", "maxLength": 128 } },
-          { "name": "tags", "in": "query", "schema": { "type": "string", "maxLength": 4096 } },
-          { "name": "start_time_from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "start_time_to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "release",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "start_time_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "start_time_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Project sessions retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./session_list_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./session_list_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -128,7 +310,13 @@
         "responses": {
           "200": {
             "description": "Project session retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./session_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./session_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -140,7 +328,13 @@
         "responses": {
           "200": {
             "description": "Project user observability summary retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./user_summary_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./user_summary_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -152,7 +346,13 @@
         "responses": {
           "200": {
             "description": "Trace analysis retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./trace_analysis_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_analysis_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -162,13 +362,36 @@
         "summary": "Get bounded content-free trace projection",
         "operationId": "getProjectTraceProjection",
         "parameters": [
-          { "name": "cursor", "in": "query", "schema": { "type": "string", "minLength": 1, "maxLength": 512 } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 500, "default": 200 } }
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 200
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Content-free trace projection retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./trace_projection_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_projection_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -180,7 +403,13 @@
         "responses": {
           "200": {
             "description": "Trace lineage retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./observability_lineage_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./observability_lineage_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -190,18 +419,92 @@
         "summary": "List recurring observability issues",
         "operationId": "listProjectObservabilityIssues",
         "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
-          { "name": "state", "in": "query", "schema": { "type": "string", "enum": ["open", "acknowledged", "resolved", "ignored"] } },
-          { "name": "detector_family", "in": "query", "schema": { "type": "string", "enum": ["explicit_error", "loop", "retry", "fallback", "dead_end"] } },
-          { "name": "severity", "in": "query", "schema": { "type": "string", "enum": ["info", "warning", "error", "critical"] } },
-          { "name": "seen_from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "seen_to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "acknowledged",
+                "resolved",
+                "ignored"
+              ]
+            }
+          },
+          {
+            "name": "detector_family",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "explicit_error",
+                "loop",
+                "retry",
+                "fallback",
+                "dead_end"
+              ]
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "error",
+                "critical"
+              ]
+            }
+          },
+          {
+            "name": "seen_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "seen_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Recurring issues retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./issue_list_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./issue_list_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -211,13 +514,36 @@
         "summary": "Get recurring issue with occurrence evidence",
         "operationId": "getProjectObservabilityIssue",
         "parameters": [
-          { "name": "occurrence_page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
-          { "name": "occurrences_per_page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+          {
+            "name": "occurrence_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "occurrences_per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Recurring issue retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./issue_detail_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./issue_detail_response_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -226,12 +552,24 @@
         "operationId": "updateProjectObservabilityIssueState",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "./issue_state_update_request_schema.json" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./issue_state_update_request_schema.json"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
             "description": "Issue state updated successfully",
-            "content": { "application/json": { "schema": { "$ref": "./issue_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./issue_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -241,16 +579,61 @@
         "summary": "List exact structural trace variants",
         "operationId": "listProjectObservabilityVariants",
         "parameters": [
-          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
-          { "name": "fingerprint_spec_version", "in": "query", "schema": { "type": "string", "minLength": 1, "maxLength": 64 } },
-          { "name": "seen_from", "in": "query", "schema": { "type": "string", "format": "date-time" } },
-          { "name": "seen_to", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "fingerprint_spec_version",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "seen_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "seen_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Trace variants retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./trace_variant_list_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_variant_list_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -260,13 +643,36 @@
         "summary": "Get structural variant with bounded trace references",
         "operationId": "getProjectObservabilityVariant",
         "parameters": [
-          { "name": "trace_page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
-          { "name": "traces_per_page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+          {
+            "name": "trace_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "traces_per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Trace variant retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./trace_variant_detail_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./trace_variant_detail_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -276,14 +682,45 @@
         "summary": "Get content-free tool execution analysis",
         "operationId": "getProjectObservabilityToolAnalysis",
         "parameters": [
-          { "name": "start_time", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
-          { "name": "end_time", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } }
+          {
+            "name": "start_time",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Tool execution analysis retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./tool_analysis_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tool_analysis_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -293,14 +730,45 @@
         "summary": "Get content-free structural conformance facts and validation recommendations",
         "operationId": "getProjectObservabilityAnalysisInsights",
         "parameters": [
-          { "name": "start_time", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
-          { "name": "end_time", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+          {
+            "name": "start_time",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Analysis insights retrieved successfully",
-            "content": { "application/json": { "schema": { "$ref": "./analysis_insights_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./analysis_insights_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -311,12 +779,24 @@
         "operationId": "compareProjectObservabilityCohorts",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "./cohort_comparison_request_schema.json" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./cohort_comparison_request_schema.json"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
             "description": "Cohorts compared successfully",
-            "content": { "application/json": { "schema": { "$ref": "./cohort_comparison_response_schema.json" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./cohort_comparison_response_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1347,7 +1827,8 @@
                     "type": "array",
                     "items": {
                       "$ref": "./review_score_create_request_schema.json#/definitions/ScoreInput"
-                    }
+                    },
+                    "maxItems": 1000
                   },
                   "note": {
                     "type": [

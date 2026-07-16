@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.9.0] - 2026-07-16
+
+### Changed
+- **Request-contract tightening (annotation queues):** `items` on
+  `POST /api/v1beta/annotation-queues/{queue_id}/items` and the inline `scores`
+  array on `POST /api/v1beta/annotation-queues/items/{item_id}/complete` now
+  declare `maxItems: 1000`. Companion to TraigentBackend#2184 (DoS list caps,
+  #2177/#2178): the backend rejects larger lists (422), so the published
+  contract now says so. Requests within the cap are unaffected. The value
+  mirrors the established `MAX_EXAMPLES_BATCH = 1000` batch limit.
+
 ## [4.8.0] - 2026-07-12
 
 ### Added

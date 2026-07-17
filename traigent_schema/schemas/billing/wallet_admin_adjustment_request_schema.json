@@ -18,7 +18,10 @@
         "null"
       ],
       "maxLength": 64,
-      "description": "Adjustment amount in USD (number or decimal string)."
+      "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+      "minimum": -1000000,
+      "maximum": 1000000,
+      "description": "Adjustment amount in USD (number or decimal string). String branch must be a signed decimal with at most 6 fractional digits; number branch bounded to +/-1,000,000."
     },
     "balance_delta_usd": {
       "type": [
@@ -27,7 +30,10 @@
         "null"
       ],
       "maxLength": 64,
-      "description": "Direct balance delta in USD (number or decimal string)."
+      "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+      "minimum": -1000000,
+      "maximum": 1000000,
+      "description": "Direct balance delta in USD (number or decimal string). String branch must be a signed decimal with at most 6 fractional digits; number branch bounded to +/-1,000,000."
     },
     "debt_writeoff_usd": {
       "type": [
@@ -36,7 +42,10 @@
         "null"
       ],
       "maxLength": 64,
-      "description": "Debt write-off amount in USD (number or decimal string)."
+      "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+      "minimum": -1000000,
+      "maximum": 1000000,
+      "description": "Debt write-off amount in USD (number or decimal string). String branch must be a signed decimal with at most 6 fractional digits; number branch bounded to +/-1,000,000."
     },
     "write_off_debt": {
       "type": "boolean",
@@ -56,5 +65,15 @@
       "additionalProperties": true
     }
   },
-  "required": []
+  "required": [
+    "user_id",
+    "reason"
+  ],
+  "anyOf": [
+    { "required": ["amount_usd"] },
+    { "required": ["balance_delta_usd"] },
+    { "required": ["debt_writeoff_usd"] },
+    { "required": ["write_off_debt"] },
+    { "required": ["resolve_dispute"] }
+  ]
 }

@@ -9,12 +9,24 @@ Audit chronology (exact):
 2. `5ad6311` — companion commit re-stamped the parity provenance hash
    (`parity/python-js-sdk.json`) for the `d725fe0` schema edit, so parity was fresh
    at that point.
-3. **This commit** — second remediation pass against a fresh gpt-5.6-terra xhigh
-   review that still BLOCKED advancing to Backend. See "Second remediation pass"
-   below. Because it edits schema files again, the parity hash goes stale again and a
-   subsequent re-stamp is required — owned by the separate approved packet
-   `pkt_1c3f2ce482d11d82`, not stamped here (that file is outside this packet's
-   allowed set).
+3. `d319a9d` — second remediation pass against a fresh gpt-5.6-terra xhigh review
+   that still BLOCKED advancing to Backend (strict error subtype, malformed-id
+   `400`, exhaustive legacy/cursor modes, null-operand exclusion, error-state
+   coupling, manifest duplicate rejection). See "Second remediation pass" below.
+4. `00fa4e8` — companion commit re-stamped the parity provenance hash for the
+   `d319a9d` schema edit, so parity was fresh again going into this pass.
+5. **This pass (third remediation, two commits)** — a final narrow remediation after
+   an independent Codex Terra xhigh review, closing one residual redaction gap in the
+   strict error envelope. See "Third remediation pass" below.
+   - **Primary commit** (packet `pkt_c88286ff11fd2edf`): the schema fix + decisive
+     regression tests + this report + CHANGELOG.
+   - **Companion commit** (approved packet `pkt_1c3f2ce482d11d82`): re-stamps the
+     parity provenance hash (`parity/python-js-sdk.json`) for this schema edit, so
+     parity is fresh at the final HEAD. That file is outside the primary packet's
+     allowed set, so it is stamped only by the companion commit — not the primary one.
+
+   At the final HEAD (both commits applied) `python3 scripts/refresh_parity.py
+   --check` is `exit 0` (digest `0214a09c89ba…`, files=364).
 
 ## Scope
 
@@ -31,13 +43,24 @@ implementation changes stay browsable together; no cross-setup rankings or Wave 
 comparison signatures; legacy `GET` + `page`/`page_size` compatibility; the
 explicit no-dataset group; bounded deterministic queries and safe errors.
 
-Files changed (allowed set only):
-- `traigent_schema/schemas/execution/experiment_group_schema.json`
-- `traigent_schema/schemas/execution/execution_endpoints.json`
-- `tests/test_experiment_group_contract.py`
-- `tests/test_success_envelope_and_response_coverage.py`
+Files changed across the full remediation (primary packet `pkt_c88286ff11fd2edf`
+allowed set): `traigent_schema/schemas/execution/experiment_group_schema.json`,
+`traigent_schema/schemas/execution/execution_endpoints.json`,
+`tests/test_experiment_group_contract.py`,
+`tests/test_success_envelope_and_response_coverage.py`, `CHANGELOG.md`,
+`reports/agent-tuning-history-schema-result.md` (this file).
+
+This final (third) pass edits only:
+- `traigent_schema/schemas/execution/experiment_group_schema.json` (strict error
+  envelope `message`/`error_code` → finite enums)
+- `tests/test_experiment_group_contract.py` (three decisive regression tests)
 - `CHANGELOG.md`
 - `reports/agent-tuning-history-schema-result.md` (this file)
+- `parity/python-js-sdk.json` — companion packet `pkt_1c3f2ce482d11d82` only, in a
+  separate commit.
+
+`execution_endpoints.json` and `tests/test_success_envelope_and_response_coverage.py`
+are unchanged in this pass (their earlier-pass edits stand).
 
 ## Design decisions (per Terra finding)
 
@@ -153,30 +176,72 @@ gaps without widening the feature or changing group identity/compatibility.
    rejected by the backend manifest builder — recorded in the manifest prose and in
    the downstream handoff.
 
+## Third remediation pass (this pass)
+
+The independent Codex Terra xhigh review found one residual redaction gap: the
+strict `ExperimentGroupErrorEnvelope` bounded its public strings by *character set*
+(`message`) and *token grammar* (`error_code`) rather than by a closed vocabulary,
+so the same benign-looking lowercase opaque token — e.g. `grp_secretvalue`, which is
+a legal `OpaqueExperimentGroupId` — still validated as a `message` and as an
+`error_code` (and, being opaque, as a group id). A raw group id, query fragment, or
+secret-shaped token could therefore be echoed through those two fields. This pass
+closes that gap and nothing else:
+
+1. **`message` → finite fixed enum.** Replaced the display-safe character-set pattern
+   with a closed enum of four fixed, display-safe server strings (one coarse display
+   message per error class). No caller-supplied value — raw query text, group id,
+   column value, SQL, secret, markup, or an opaque token — is a member, so none can
+   validate. Finer client branching stays on `error_code`, never on request-derived
+   message text.
+2. **`error_code` → finite fixed enum.** Replaced the lowercase-token grammar with a
+   closed enum of six fixed server codes covering this surface's real conditions
+   (`validation.malformed_request`, `validation.malformed_group_id`,
+   `validation.limit_out_of_range`, `auth.required`, `group.not_found`,
+   `internal.unexpected`). Kept as an optional field (documented finer-branching
+   classification) rather than removed, so existing accepted contract behavior and
+   the field's shape are preserved; a closed enum is the only structurally safe
+   encoding for a public classification field. `error` was already a closed enum and
+   is unchanged.
+
+Preserved exactly: shape compatibility with the canonical generic error envelope
+(every value the strict subtype accepts still validates under
+`error_envelope_schema.json`); the required fields (`success`, `message`, `error`);
+the single indistinguishable `404`; and the absence of any group-scoped `403`.
+
+Tests (allowed set): added three decisive tests to
+`tests/test_experiment_group_contract.py` — (a) the public fields are finite fixed
+enums with no pattern/length escape hatch and the enums are exactly the intended
+vocabularies; (b) the opaque-id sentinel `grp_secretvalue` (proven group-id-shaped)
+is rejected in `message`, `error`, and `error_code`, alongside raw-group-id,
+raw-query, and secret-shaped sentinels — while the generic envelope would have
+accepted them, which is exactly the leak the subtype closes; (c) positive white-list
+coverage that every allowed `error` × `message` combination and every allowed
+`error_code` validates and stays shape-compatible with the generic envelope. The
+pre-existing negative tests (SQL/quotes/uppercase/`details` rejection,
+shape-compatibility) continue to pass unchanged under the enums.
+
 ## Exact command outcomes
 
 Run in the repo `.venv` (Python 3.11.15).
 
 | Check | Command | Result |
 |-------|---------|--------|
-| JSON parse | `json.load` on both changed schema files | OK (both) |
+| JSON parse | `json.load` on the changed schema file | OK |
 | Validator load | `SchemaValidator(contract="backend")` | `experiment_group_schema` present; loads clean |
-| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **77 passed** |
-| x-extension governance | `pytest tests/test_x_extensions_governance.py` | **5 passed** (`x-excludes` reuse needs no new registry entry) |
-| Full suite | `pytest tests/ -q -p no:cacheprovider` | **1138 passed, 1 skipped** (2 pre-existing deprecation warnings) |
+| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **80 passed** |
+| Full suite | `pytest tests/ -q -p no:cacheprovider` | **1141 passed, 1 skipped** (2 pre-existing deprecation warnings) |
 | Whitespace | `git diff --check` | clean |
 | Lint (repo gate) | `ruff check traigent_schema/` | All checks passed |
-| Lint (changed tests) | `ruff check --line-length 100 --select E,F,I,UP,B` | contract test 1→1, envelope test 20→20 (baseline == current; **zero new**); no added line exceeds 100 chars |
+| Lint (changed test) | `ruff check --line-length 100 --select E,F,I,UP,B tests/test_experiment_group_contract.py` | 1 error (pre-existing `I001` import ordering, predates this packet); **zero new**; no added line exceeds 100 chars (`--select E501` clean) |
 | Typecheck (repo gate) | `mypy traigent_schema/ --ignore-missing-imports` | Success, no issues (5 source files) |
-| Parity | `python3 scripts/refresh_parity.py --check` | **exit 1 (stale)** — expected after schema edits; re-stamp owned by `pkt_1c3f2ce482d11d82`, see risks |
+| Parity (companion re-stamp) | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `0214a09c89ba…`, files=364); `--check` **exit 0 (up-to-date)** at the final HEAD after the companion commit |
 
-Focused test count went 66 → 77 (11 new decisive-negative tests this pass:
-strict-error shape-compat + details/SQL/secret/raw-value rejection, group-routes
-point at the strict subtype, malformed-id `400` on every constrained-`group_id`
-route, complete legacy/cursor cross-mix matrix via `x-excludes`, predicate
-null-operand exclusion incl. validator path, predicate set uniqueness/bounds,
-error-state `has_error`/`error_code` coupling, and manifest duplicate-descriptor
-rejection).
+Focused test count went 77 → 80 (3 new decisive tests this pass: public fields are
+finite fixed enums with no escape hatch; the opaque-id sentinel `grp_secretvalue` is
+rejected in `message`/`error`/`error_code` while the generic envelope accepts it; and
+positive white-list coverage of every allowed `error` × `message` × `error_code`
+combination with shape-compatibility against the generic envelope). Full-suite count
+went 1138 → 1141 for the same three tests.
 
 ## Downstream runtime acceptance handoff (schema does NOT prove these)
 
@@ -212,19 +277,22 @@ as explicit handoff risks, not proven behavior:
 
 ## Remaining risks / follow-ups
 
-- **Parity manifest re-stamp is required again (`parity/python-js-sdk.json`).**
-  Chronology: commit `5ad6311` re-stamped the parity provenance hash after the
-  `d725fe0` schema edit, so parity was fresh going into this pass; this commit edits
-  the schema files again, so `python3 scripts/refresh_parity.py --check` is expected
-  to report `exit 1 (stale)` — verified. The manifest is **outside this packet's
-  allowed-file set** and its refresh is owned by the separate approved packet
-  `pkt_1c3f2ce482d11d82`, so it was intentionally **not** stamped here. That packet
-  runs `refresh_parity.py --update` (and the SDK/BE/FE propagation) after this schema
-  commit. Not relaxed, not bypassed — reported honestly and handed off.
-- **Pre-existing test-file lint** (contract test line 3 import ordering; ~20 E501 in
-  the envelope-coverage test) predates this packet and was left untouched per the
-  "do not edit unrelated baseline lint failures" instruction. The repo lint gate
-  (`ruff check traigent_schema/`) does not cover `tests/`.
+- **Parity manifest is fresh at the final HEAD (`parity/python-js-sdk.json`).**
+  This pass edits `experiment_group_schema.json`, which invalidates the parity
+  provenance hash. The companion approved packet `pkt_1c3f2ce482d11d82` re-stamps it
+  in its own commit: `python3 scripts/refresh_parity.py --update` produced digest
+  `0214a09c89ba…` (files=364) and `--check` then returns `exit 0 (up-to-date)`. The
+  manifest is **outside the primary packet's allowed-file set**, so it is stamped
+  only by the companion commit, preserving packet separation. Not relaxed, not
+  bypassed. (There is no residual stale-parity condition at the final HEAD — the
+  earlier draft of this report described the pre-re-stamp interim state and has been
+  corrected.)
+- **Pre-existing test-file lint** (contract test import ordering, `I001`) predates
+  this packet and was left untouched per the "do not edit unrelated baseline lint
+  failures" instruction; the three tests added this pass introduce **zero new** lint
+  (`--select E,F,I,UP,B` on the file is unchanged at the single pre-existing `I001`,
+  and `--select E501` is clean). The repo lint gate (`ruff check traigent_schema/`)
+  does not cover `tests/` and passes clean.
 - Cross-repo propagation (SDK DTOs, BE Pydantic, FE TS types) is downstream of this
   schema-first change and out of this packet's scope.
 

@@ -225,15 +225,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     browse-row top level and provenance carries only group/display context.
     Runtime one-row-per-execution and exact scope/agent/dataset partitioning remain
     downstream backend/E2E acceptance criteria, not proven by this schema.
-  - Second remediation pass (same Wave A surface): a strict
+  - Redacted error envelope (same Wave A surface): a strict
     `ExperimentGroupErrorEnvelope` subtype now backs every experiment-group
     `400`/`401`/`404`/`500` (rather than the generic envelope directly). It stays
-    shape-compatible with the canonical envelope but forbids `details` structurally,
-    bounds every public string, constrains `error` to a closed vocabulary and
-    `error_code` to a server-controlled token, so no raw query/group/SQL/secret value
-    can validate. `GET /experiment-groups/{group_id}` gained its previously-missing
-    malformed-id `400`, so every constrained-`group_id` route now has a safe
-    malformed-id response.
+    shape-compatible with the canonical envelope but forbids `details` structurally
+    and closes every public string field to a finite, fixed server-controlled enum —
+    `message` (display strings), `error`, and `error_code` are all enums — so no raw
+    query/group/SQL/secret value, and not even a benign-looking opaque token such as a
+    lowercase group id (`grp_...`), can validate in any public field. (An earlier draft
+    bounded `message` by a display-safe character set and `error_code` by a lowercase
+    token grammar, which still admitted such opaque tokens; the finite enums close that
+    gap.) `GET /experiment-groups/{group_id}` gained its previously-missing malformed-id
+    `400`, so every constrained-`group_id` route now has a safe malformed-id response.
   - Legacy `page`/`per_page` mode and `cursor`/`limit` mode are made exhaustive and
     mutually exclusive through the repository's established `x-excludes` extension on
     each pagination parameter; every cross-mix (cursor+page, cursor+per_page,

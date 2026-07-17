@@ -1123,7 +1123,7 @@
     },
     "ExperimentGroupErrorEnvelope": {
       "type": "object",
-      "description": "Strict, redacted error response for every experiment-group 400/401/404/500. Shape-compatible with the canonical generic error envelope (success:false + message + error, plus optional error_code) so existing generic-error consumers keep working, but tightened structurally for this browse surface. Three structural guarantees are added on top of the generic shape: (1) 'details' is forbidden outright - it is not a declared property and additionalProperties is false, so the generic envelope's free-form diagnostic sink cannot exist here; (2) every public string is bounded and 'message' is constrained to a display-safe character set so raw query text, SQL fragments, secrets, markup, or braces cannot be smuggled through it; (3) 'error' is a closed server-controlled vocabulary and 'error_code' is a bounded server-controlled token, so no caller-supplied query/group/input value can validate in either field. Together these mean no raw query text, group id, tuned-variable value, column value, SQL, stack trace, exception string, internal identifier, or secret can be echoed through this envelope. The single 'not_found' condition is used for the indistinguishable hidden-or-not-found case; there is deliberately no 'forbidden' token and no group-scoped 403.",
+      "description": "Strict, redacted error response for every experiment-group 400/401/404/500. Shape-compatible with the canonical generic error envelope (success:false + message + error, plus optional error_code) so existing generic-error consumers keep working, but tightened structurally for this browse surface. Three structural guarantees are added on top of the generic shape: (1) 'details' is forbidden outright - it is not a declared property and additionalProperties is false, so the generic envelope's free-form diagnostic sink cannot exist here; (2) 'message' is a finite, fixed enum of display-safe server-controlled strings, so no caller-supplied value - raw query text, SQL fragments, secrets, markup, or a benign-looking opaque token such as a lowercase group id - can be smuggled through it; (3) 'error' and 'error_code' are BOTH closed, fixed server-controlled enums, so no caller-supplied query/group/input value can validate in any public field. A prior draft bounded these three fields by character-set/token grammar instead of by enum, which still admitted a benign-looking opaque token (e.g. grp_secretvalue) as a message and as an error_code; closing each public field to a finite enum is the only structurally safe redaction. Together these mean no raw query text, group id, tuned-variable value, column value, SQL, stack trace, exception string, internal identifier, or secret can be echoed through this envelope. The single 'not_found' condition is used for the indistinguishable hidden-or-not-found case; there is deliberately no 'forbidden' token and no group-scoped 403.",
       "additionalProperties": false,
       "required": [
         "success",
@@ -1138,10 +1138,13 @@
         },
         "message": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 200,
-          "pattern": "^[^<>\"'`;{}\\\\]+$",
-          "description": "Display-safe, bounded human summary. The display-safe pattern forbids quotes, angle brackets, backticks, braces, semicolons, and backslashes, so a raw query, SQL fragment, secret, or markup snippet cannot be carried through the message. Never echoes the offending query, group id, column value, or any server internal.",
+          "enum": [
+            "The request could not be processed.",
+            "Authentication is required.",
+            "The experiment group could not be found.",
+            "An unexpected error occurred."
+          ],
+          "description": "Display-safe human summary drawn from a finite, fixed enum of server-controlled strings (one coarse display string per error class). Because it is a closed set of fixed display strings, no caller-supplied value can ever validate here: a raw query, SQL fragment, secret, markup snippet, or a benign-looking opaque token such as a lowercase group id (grp_...) is not a member of the enum and is rejected. This replaces the earlier display-safe character-set pattern, which still admitted such opaque tokens. Never echoes the offending query, group id, column value, or any server internal. Finer client branching is carried by error_code, not by varying this message with request-derived text.",
           "x-privacy-classification": "aggregate_safe"
         },
         "error": {
@@ -1157,10 +1160,15 @@
         },
         "error_code": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 64,
-          "pattern": "^[a-z][a-z0-9_.-]*$",
-          "description": "Optional finer server-controlled classification token. Bounded and token-shaped (lowercase start, then lowercase letters, digits, '_', '.', or '-'), drawn from a server-controlled vocabulary; never free-form text, user content, query text, identifiers, or secrets. The token grammar makes raw input structurally unable to validate.",
+          "enum": [
+            "validation.malformed_request",
+            "validation.malformed_group_id",
+            "validation.limit_out_of_range",
+            "auth.required",
+            "group.not_found",
+            "internal.unexpected"
+          ],
+          "description": "Optional finer client-branching classification drawn from a finite, fixed enum of server-controlled codes. Because it is a closed set, no caller-supplied value - query text, identifier, secret, or a benign-looking opaque token such as a lowercase group id (grp_...) - can validate here. This replaces the earlier lowercase-token grammar, which structurally admitted such opaque tokens; a closed enum is the only redaction-safe encoding for a public classification field. Never free-form text, user content, query text, identifiers, or secrets.",
           "x-privacy-classification": "aggregate_safe"
         }
       }

@@ -1082,6 +1082,121 @@ def test_strict_error_subtype_rejects_raw_query_group_sql_and_secret_content() -
     assert _errors("ExperimentGroupErrorEnvelope", _strict_error(success=True))
 
 
+# The opaque-token sentinel: a benign-looking lowercase token that is a legal
+# group id, and that the PRIOR draft (character-set 'message' + lowercase-token
+# 'error_code') wrongly accepted in every public string field. Every public
+# field of the strict envelope must now reject it.
+OPAQUE_ID_SENTINEL = "grp_secretvalue"
+
+
+def _strict_error_public_enums() -> dict[str, list[str]]:
+    schema = _load_schema("execution/experiment_group_schema.json")
+    props = schema["definitions"]["ExperimentGroupErrorEnvelope"]["properties"]
+    return {field: props[field]["enum"] for field in ("message", "error", "error_code")}
+
+
+def test_strict_error_public_fields_are_finite_fixed_enums() -> None:
+    """Redaction is structural: message, error, and error_code are each a finite,
+    fixed enum. No length/pattern escape hatch survives on any public string, so a
+    field can only carry a value the server itself enumerated."""
+    schema = _load_schema("execution/experiment_group_schema.json")
+    props = schema["definitions"]["ExperimentGroupErrorEnvelope"]["properties"]
+
+    for field in ("message", "error", "error_code"):
+        spec = props[field]
+        assert isinstance(spec.get("enum"), list) and spec["enum"], field
+        # A closed enum leaves no character-set / token-grammar escape hatch.
+        assert "pattern" not in spec, field
+        # Every enumerated value is a non-empty string (generic-envelope minLength 1).
+        for value in spec["enum"]:
+            assert isinstance(value, str) and value, (field, value)
+
+    # The enums are exactly the intended closed vocabularies.
+    assert set(props["error"]["enum"]) == {
+        "bad_request",
+        "unauthorized",
+        "not_found",
+        "internal_error",
+    }
+    assert set(props["message"]["enum"]) == {
+        "The request could not be processed.",
+        "Authentication is required.",
+        "The experiment group could not be found.",
+        "An unexpected error occurred.",
+    }
+    assert set(props["error_code"]["enum"]) == {
+        "validation.malformed_request",
+        "validation.malformed_group_id",
+        "validation.limit_out_of_range",
+        "auth.required",
+        "group.not_found",
+        "internal.unexpected",
+    }
+
+
+def test_strict_error_rejects_the_opaque_id_sentinel_in_every_public_field() -> None:
+    """Decisive regression for the redaction finding: the SAME opaque token
+    'grp_secretvalue' that is a legal group id must NOT validate as message,
+    error, or error_code. The prior character-set/token-grammar draft accepted it
+    in message and error_code; the finite enums now reject it everywhere."""
+    generic = _generic_error_validator()
+
+    for field in ("message", "error", "error_code"):
+        payload = _strict_error(**{field: OPAQUE_ID_SENTINEL})
+        assert _errors("ExperimentGroupErrorEnvelope", payload), field
+
+    # The sentinel is genuinely group-id-shaped: it validates as an
+    # OpaqueExperimentGroupId, proving the envelope is not just rejecting
+    # malformed junk but a real, benign-looking identifier.
+    assert _errors("OpaqueExperimentGroupId", OPAQUE_ID_SENTINEL) == []
+
+    # A raw group id, a raw query, and a secret-shaped token are all rejected in
+    # both free-text-capable fields (message and error_code).
+    for sentinel in (
+        OPAQUE_ID_SENTINEL,
+        "grp_agentA_dataset1",
+        "select_star_from_experiment_groups",
+        "sk_live_secretvalue",
+    ):
+        assert _errors("ExperimentGroupErrorEnvelope", _strict_error(message=sentinel)), sentinel
+        assert _errors(
+            "ExperimentGroupErrorEnvelope", _strict_error(error_code=sentinel)
+        ), sentinel
+        # The same token in 'error' is likewise rejected (closed vocabulary)...
+        assert _errors("ExperimentGroupErrorEnvelope", _strict_error(error=sentinel)), sentinel
+        # ...even though the GENERIC envelope (open strings) would have accepted it,
+        # which is exactly the leak the strict subtype closes.
+        assert list(generic.iter_errors(_strict_error(message=sentinel, error="not_found"))) == []
+
+
+def test_strict_error_positive_covers_every_backend_error_and_code_combination() -> None:
+    """Positive coverage: every allowed error, every allowed display message, and
+    every allowed error_code that Backend can emit validates against the strict
+    subtype AND stays shape-compatible with the canonical generic envelope. This
+    is the retained white-list the negative sentinel tests are the complement of."""
+    enums = _strict_error_public_enums()
+    generic = _generic_error_validator()
+
+    # Every closed error value, paired with every fixed display message, validates
+    # (message and error are intentionally decoupled: both are server-controlled).
+    for error in enums["error"]:
+        for message in enums["message"]:
+            payload = _strict_error(error=error, message=message)
+            assert _errors("ExperimentGroupErrorEnvelope", payload) == [], payload
+            assert list(generic.iter_errors(payload)) == [], payload
+
+    # Every fixed error_code is accepted (optional field) and shape-compatible.
+    for error_code in enums["error_code"]:
+        payload = _strict_error(error="bad_request", error_code=error_code)
+        assert _errors("ExperimentGroupErrorEnvelope", payload) == [], payload
+        assert list(generic.iter_errors(payload)) == [], payload
+
+    # error_code is optional: omitting it entirely stays valid.
+    minimal = _strict_error()
+    assert "error_code" not in minimal
+    assert _errors("ExperimentGroupErrorEnvelope", minimal) == []
+
+
 def test_group_scoped_error_routes_point_at_the_strict_subtype_not_the_generic() -> None:
     """Fix 1/2: every experiment-group 400/401/404/500 references the strict
     subtype, never the generic envelope directly."""

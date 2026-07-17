@@ -357,7 +357,7 @@ Run in the repo `.venv` (Python 3.11.15).
 | Lint (repo gate) | `ruff check traigent_schema/` | All checks passed |
 | Lint (changed test) | `ruff check --line-length 100 --select E,F,I,UP,B tests/test_experiment_group_contract.py` | 1 error (pre-existing `I001` import ordering, predates this packet); **zero new**; no added line exceeds 100 chars (`--select E501` clean) |
 | Typecheck (repo gate) | `mypy traigent_schema/ --ignore-missing-imports` | Success, no issues (5 source files) |
-| Parity (companion re-stamp) | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `570c2b4a5728…`, files=364); `--check` **exit 0 (up-to-date)** at the final HEAD after the companion commit |
+| Parity (companion re-stamp) | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `14f41916a777…`, files=364); `--check` **exit 0 (up-to-date)** at the final HEAD after the companion commit |
 
 Focused test count went 80 → 81 (1 new decisive tie-break regression test this pass:
 `group_id` is not the mandated sort/tie-break key; the canonical-identity tie
@@ -410,7 +410,7 @@ as explicit handoff risks, not proven behavior:
   This pass edits `experiment_group_schema.json`, which invalidates the parity
   provenance hash. The companion approved packet `pkt_1c3f2ce482d11d82` re-stamps it
   in its own commit: `python3 scripts/refresh_parity.py --update` produced digest
-  `570c2b4a5728…` (files=364) and `--check` then returns
+  `14f41916a777…` (files=364) and `--check` then returns
   `exit 0 (up-to-date)`. The manifest is **outside the primary packet's allowed-file
   set**, so it is stamped only by the companion commit, preserving packet separation.
   Not relaxed, not bypassed.
@@ -427,7 +427,16 @@ as explicit handoff risks, not proven behavior:
   (`--select E,F,I,UP,B` on the file is unchanged at the single pre-existing `I001`,
   and `--select E501` is clean). The repo lint gate (`ruff check traigent_schema/`)
   does not cover `tests/` and passes clean.
-- Cross-repo propagation (SDK DTOs, BE Pydantic, FE TS types) is downstream of this
-  schema-first change and out of this packet's scope.
+- **Cross-repo propagation — owning packets / acceptance handoff.** This schema-first
+  change hands off to owning packets under ChangeSession `cs_dbd17dd6bfabeed7`:
+  Backend (BE Pydantic) `pkt_be115fb8b4fd8ce1`, Frontend (FE TS types)
+  `pkt_7b3e4e6a28829e0b`, and spine/evidence `pkt_695b4242e304f655`. Schema-to-SDK DTO
+  propagation (Python `Traigent` and `traigent-js`) was inspected: the Wave A tie-break
+  and browse contract are **descriptive-only** (sort-ordering, mutual-exclusion, and
+  error-envelope descriptions — no new or reshaped request/response field), so **no
+  generated DTO or TS type change is required** while it stays descriptive-only. If any
+  later pass promotes the tie-break to a materialized field or otherwise reshapes a
+  browse DTO, that becomes an **explicit pending acceptance obligation** on the
+  Backend/Frontend packets named above — not silent scope.
 
 No release-readiness claim is made here.

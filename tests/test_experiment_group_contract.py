@@ -78,6 +78,86 @@ def _source_experiment(**overrides: Any) -> dict[str, Any]:
     return payload
 
 
+def _configuration_run(**overrides: Any) -> dict[str, Any]:
+    """A GroupedConfigurationRun carrying only the pre-existing (Wave-0) fields."""
+    payload: dict[str, Any] = {
+        "configuration_run_id": "config_run_1",
+        "experiment_run_id": "experiment_run_1",
+        "experiment_id": "experiment_1",
+        "run_label": "morning batch",
+        "run_name": None,
+        "status": "COMPLETED",
+        "created_at": "2026-06-30T08:10:00Z",
+        "started_at": "2026-06-30T08:11:00Z",
+        "completed_at": "2026-06-30T08:20:00Z",
+        "updated_at": "2026-06-30T08:20:00Z",
+        "configuration": {"model": "bedrock/nova", "temperature": 0.2},
+        "parameters": {"model": "bedrock/nova", "temperature": 0.2},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _provenance(**overrides: Any) -> dict[str, Any]:
+    # Provenance carries only group identity + display context. The canonical
+    # source-execution ids live once at the row top level (see _configuration_run),
+    # never duplicated here, because Draft 7 cannot assert sibling equality.
+    payload: dict[str, Any] = {
+        "agent_id": "agent_123",
+        "dataset_id": "dataset_456",
+        "experiment_name": "Prompt strategy sweep",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _browse_row(**overrides: Any) -> dict[str, Any]:
+    """A row complete for browsing: every additive Wave-A field populated."""
+    payload = _configuration_run(
+        measures={"accuracy": 0.91, "latency_ms": 812.0, "unrecorded": None},
+        summary_stats={"weighted_score": 0.88, "metrics": {"accuracy": 0.91}},
+        error_state={
+            "has_error": False,
+            "error_code": None,
+            "error_message_available": False,
+        },
+        provenance=_provenance(),
+        comparison_state=None,
+    )
+    payload.update(overrides)
+    return payload
+
+
+def _column(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "kind": "parameter",
+        "key": "temperature",
+        "value_type": "number",
+        "occurrence_count": 7,
+        "filterable": True,
+        "sortable": True,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _manifest(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "scope": "full_group",
+        "parameters": [_column()],
+        "measures": [_column(kind="measure", key="accuracy")],
+        "summary_stats": [_column(kind="summary_stat", key="weighted_score")],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _cursor_page(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {"next_cursor": "b3BhcXVl-cursor.1~", "has_more": True}
+    payload.update(overrides)
+    return payload
+
+
 def _validator_for(definition: str) -> Draft7Validator:
     schema = _load_schema("execution/experiment_group_schema.json")
     subschema = dict(schema)
@@ -235,3 +315,680 @@ def test_schema_validator_loads_group_schema_and_no_request_body_routes_fail_ope
 def test_new_contract_file_is_under_execution_scope() -> None:
     path = Path(get_schemas_dir()) / "execution" / "experiment_group_schema.json"
     assert path.is_file()
+
+
+# ---- Wave A: browse-row enrichment (measures / summary_stats / error / provenance) ----
+
+
+def test_wave_a_row_fields_are_optional_so_existing_producers_stay_valid() -> None:
+    """Back-compat: a pre-Wave-A row (no measures/provenance/...) must still validate."""
+    assert _errors("GroupedConfigurationRun", _configuration_run()) == []
+    assert _errors("GroupedConfigurationRun", _browse_row()) == []
+
+
+def test_browse_row_requires_the_full_additive_field_set() -> None:
+    """The query surface returns complete rows: each additive field is required there."""
+    assert _errors("GroupedConfigurationRunBrowseRow", _browse_row()) == []
+
+    for field in (
+        "measures",
+        "summary_stats",
+        "error_state",
+        "provenance",
+        "comparison_state",
+    ):
+        incomplete = _browse_row()
+        incomplete.pop(field)
+        assert _errors("GroupedConfigurationRunBrowseRow", incomplete), field
+
+
+def test_row_measures_follow_the_canonical_measuresdict_contract() -> None:
+    assert _errors("GroupedConfigurationRun", _browse_row(measures=None)) == []
+    assert _errors("GroupedConfigurationRun", _browse_row(measures={})) == []
+    # null is "not recorded" — a legal value, distinct from 0.
+    assert _errors("GroupedConfigurationRun", _browse_row(measures={"acc": None})) == []
+    # non-numeric values, non-identifier keys, and >50 keys are rejected.
+    assert _errors("GroupedConfigurationRun", _browse_row(measures={"acc": "high"}))
+    assert _errors("GroupedConfigurationRun", _browse_row(measures={"9bad": 1}))
+    assert _errors(
+        "GroupedConfigurationRun",
+        _browse_row(measures={f"m{i}": 1.0 for i in range(51)}),
+    )
+
+
+def test_row_summary_stats_reuse_canonical_definition_and_are_nullable() -> None:
+    assert _errors("GroupedConfigurationRun", _browse_row(summary_stats=None)) == []
+    assert (
+        _errors("GroupedConfigurationRun", _browse_row(summary_stats={"weighted_score": None}))
+        == []
+    )
+    assert _errors("GroupedConfigurationRun", _browse_row(summary_stats="0.9"))
+
+
+def test_error_state_is_safe_and_carries_no_raw_error_text() -> None:
+    failed = _browse_row(
+        status="FAILED",
+        error_state={
+            "has_error": True,
+            "error_code": "provider.timeout",
+            "error_message_available": True,
+        },
+    )
+    assert _errors("GroupedConfigurationRun", failed) == []
+
+    # Unclassified failure: code null is legal.
+    assert (
+        _errors(
+            "GroupedConfigurationRun",
+            _browse_row(error_state={"has_error": True, "error_code": None}),
+        )
+        == []
+    )
+    # has_error/error_code are required; raw message text is NOT part of the contract.
+    assert _errors("GroupedConfigurationRun", _browse_row(error_state={"has_error": True}))
+    assert _errors(
+        "GroupedConfigurationRun",
+        _browse_row(
+            error_state={
+                "has_error": True,
+                "error_code": "x.y",
+                "error_message": "prompt 'my secret' failed",
+            }
+        ),
+    )
+    # error_code stays a bounded machine token, never free-form text.
+    assert _errors(
+        "GroupedConfigurationRun",
+        _browse_row(error_state={"has_error": True, "error_code": "timed out: 'secret prompt'"}),
+    )
+    assert _errors(
+        "GroupedConfigurationRun",
+        _browse_row(error_state={"has_error": True, "error_code": "e" * 129}),
+    )
+
+
+def test_error_state_is_classified_aggregate_safe() -> None:
+    schema = _load_schema("execution/experiment_group_schema.json")
+    error_state = schema["definitions"]["GroupedConfigurationRunErrorState"]
+    assert error_state["x-privacy-classification"] == "aggregate_safe"
+    assert error_state["properties"]["error_code"]["x-privacy-classification"] == "aggregate_safe"
+    assert "error_message" not in error_state["properties"]
+
+
+def test_provenance_carries_group_context_not_duplicated_source_ids() -> None:
+    assert _errors("GroupedConfigurationRunProvenance", _provenance()) == []
+    # The no-dataset group is explicit; empty string still rejected.
+    assert _errors("GroupedConfigurationRunProvenance", _provenance(dataset_id=None)) == []
+    assert _errors("GroupedConfigurationRunProvenance", _provenance(dataset_id=""))
+    assert _errors("GroupedConfigurationRunProvenance", _provenance(experiment_name=None)) == []
+
+    # Only the group's own identity is required here.
+    for field in ("agent_id", "dataset_id"):
+        incomplete = _provenance()
+        incomplete.pop(field)
+        assert _errors("GroupedConfigurationRunProvenance", incomplete), field
+
+
+def test_provenance_never_duplicates_the_canonical_source_execution_ids() -> None:
+    """Draft 7 cannot compare siblings, so the source ids are NOT copied into
+    provenance where a prose-only 'must equal' claim would silently drift. They
+    stay canonical at the browse-row top level; provenance rejects them outright."""
+    schema = _load_schema("execution/experiment_group_schema.json")
+    provenance = schema["definitions"]["GroupedConfigurationRunProvenance"]
+    source_ids = {"experiment_id", "experiment_run_id", "configuration_run_id"}
+
+    # The redundant ids are absent from the provenance object entirely...
+    assert not (set(provenance["properties"]) & source_ids)
+    # ...and additionalProperties:false makes re-introducing them a hard error.
+    assert provenance["additionalProperties"] is False
+    for source_id in source_ids:
+        assert _errors(
+            "GroupedConfigurationRunProvenance", _provenance(**{source_id: "x"})
+        ), source_id
+
+    # The canonical ids remain required at the browse-row top level.
+    row_required = set(
+        schema["definitions"]["GroupedConfigurationRun"]["required"]
+    )
+    assert source_ids <= row_required
+    for source_id in source_ids:
+        incomplete = _browse_row()
+        incomplete.pop(source_id)
+        assert _errors("GroupedConfigurationRunBrowseRow", incomplete), source_id
+
+
+def test_comparison_state_admits_only_unknown_or_null_in_wave_a() -> None:
+    """Wave A makes no comparability claim; compare/rank is Wave B."""
+    assert _errors("GroupedConfigurationRun", _browse_row(comparison_state=None)) == []
+    assert _errors("GroupedConfigurationRun", _browse_row(comparison_state="unknown")) == []
+    for claim in ("comparable", "better", "winner", "best"):
+        assert _errors("GroupedConfigurationRun", _browse_row(comparison_state=claim)), claim
+
+
+def test_rows_carry_no_ranking_or_winner_claim() -> None:
+    schema = _load_schema("execution/experiment_group_schema.json")
+    row_properties = set(schema["definitions"]["GroupedConfigurationRun"]["properties"])
+    forbidden = {"rank", "ranking", "winner", "is_winner", "is_best", "best", "score_rank"}
+    assert not (row_properties & forbidden)
+
+
+def test_group_identity_never_leaks_tvars_kpis_or_fingerprints() -> None:
+    schema = _load_schema("execution/experiment_group_schema.json")
+    identity_properties = set(schema["definitions"]["ExperimentGroupOverview"]["properties"])
+    forbidden = {
+        "tvars",
+        "tuned_variables",
+        "kpis",
+        "objectives",
+        "config_hash",
+        "configuration_hash",
+        "fingerprint",
+        "name",
+    }
+    assert not (identity_properties & forbidden)
+    # Identity remains exactly agent_id + canonical dataset_id.
+    assert {"agent_id", "dataset_id"} <= identity_properties
+
+
+# ---- Wave A: full-group column manifest ----
+
+
+def test_column_manifest_describes_the_full_group_not_the_current_page() -> None:
+    assert _errors("GroupColumnManifest", _manifest()) == []
+    # scope is pinned: a page-scoped manifest is not representable.
+    assert _errors("GroupColumnManifest", _manifest(scope="page"))
+    for field in ("scope", "parameters", "measures", "summary_stats"):
+        incomplete = _manifest()
+        incomplete.pop(field)
+        assert _errors("GroupColumnManifest", incomplete), field
+
+
+def test_column_manifest_is_complete_with_no_truncation_escape_hatch() -> None:
+    """A truncated=true flag with no continuation is a dishonest completeness
+    claim; the manifest has no such field and additionalProperties:false rejects
+    it. The manifest is complete by construction or the response is invalid."""
+    schema = _load_schema("execution/experiment_group_schema.json")
+    manifest = schema["definitions"]["GroupColumnManifest"]
+    assert "truncated" not in manifest["properties"]
+    assert manifest["additionalProperties"] is False
+    assert _errors("GroupColumnManifest", _manifest(truncated=True))
+
+
+def test_column_manifest_namespaces_only_accept_their_own_kind() -> None:
+    """Each namespace array accepts only descriptors of its own kind: a measure
+    descriptor cannot masquerade as a parameter column, and vice versa."""
+    assert _errors(
+        "GroupColumnManifest", _manifest(parameters=[_column(kind="measure", key="accuracy")])
+    )
+    assert _errors(
+        "GroupColumnManifest", _manifest(measures=[_column(kind="parameter", key="temperature")])
+    )
+    assert _errors(
+        "GroupColumnManifest",
+        _manifest(summary_stats=[_column(kind="measure", key="accuracy")]),
+    )
+
+
+def test_column_manifest_covers_columns_beyond_the_first_row_or_page() -> None:
+    """The manifest is full-group: it legitimately lists a column whose
+    occurrence_count spans rows far beyond the first page, and a column that
+    appears on no early row at all - completeness is page-independent."""
+    late_only = _manifest(
+        parameters=[
+            _column(key="temperature", occurrence_count=7),
+            _column(key="top_p", occurrence_count=5000),
+        ]
+    )
+    assert _errors("GroupColumnManifest", late_only) == []
+
+
+def test_column_descriptor_occurrence_count_treats_missing_as_absence_never_zero() -> None:
+    assert _errors("ColumnDescriptor", _column(occurrence_count=1)) == []
+    # A descriptor exists only because the column occurs: 0 (and negatives) unrepresentable.
+    assert _errors("ColumnDescriptor", _column(occurrence_count=0))
+    assert _errors("ColumnDescriptor", _column(occurrence_count=-1))
+
+
+def test_column_descriptor_bounds_key_and_pins_value_type_vocabulary() -> None:
+    assert _errors("ColumnDescriptor", _column(key="k" * 128)) == []
+    assert _errors("ColumnDescriptor", _column(key="k" * 129))
+    assert _errors("ColumnDescriptor", _column(key=""))
+    assert _errors("ColumnDescriptor", _column(value_type="mixed")) == []
+    # "null" is not a value type — absence is absence, not a typed column.
+    assert _errors("ColumnDescriptor", _column(value_type="null"))
+    assert _errors("ColumnDescriptor", _column(kind="tvar"))
+
+
+def test_column_descriptor_declares_filterability_and_sortability() -> None:
+    for field in ("filterable", "sortable", "kind", "key", "value_type", "occurrence_count"):
+        incomplete = _column()
+        incomplete.pop(field)
+        assert _errors("ColumnDescriptor", incomplete), field
+    assert _errors("ColumnDescriptor", _column(filterable="yes"))
+
+
+# ---- Wave A: cursor mode alongside page/per_page ----
+
+
+def test_cursor_is_opaque_and_bounded() -> None:
+    assert _errors("OpaqueCursor", "abcDEF-123_x.~") == []
+    assert _errors("OpaqueCursor", "a" * 512) == []
+    assert _errors("OpaqueCursor", "a" * 513)
+    assert _errors("OpaqueCursor", "")
+    # Structured / traversal-shaped cursors are not accepted.
+    assert _errors("OpaqueCursor", '{"page":2}')
+    assert _errors("OpaqueCursor", "../tenant-a")
+
+
+def test_cursor_page_requires_next_cursor_and_has_more() -> None:
+    assert _errors("CursorPage", _cursor_page()) == []
+    assert _errors("CursorPage", _cursor_page(next_cursor=None, has_more=False)) == []
+    assert _errors("CursorPage", {"has_more": False})
+    assert _errors("CursorPage", {"next_cursor": None})
+    assert _errors("CursorPage", _cursor_page(next_cursor='{"page":2}'))
+
+
+def test_cursor_page_couples_has_more_with_cursor_nullness() -> None:
+    """has_more true REQUIRES a non-null cursor; has_more false REQUIRES null.
+    Neither ambiguous combination is representable."""
+    # Valid, coupled combinations.
+    assert _errors("CursorPage", {"has_more": True, "next_cursor": "cur.1~"}) == []
+    assert _errors("CursorPage", {"has_more": False, "next_cursor": None}) == []
+    # "More rows but no cursor to continue with" is rejected.
+    assert _errors("CursorPage", {"has_more": True, "next_cursor": None})
+    # "Walk complete yet here is a cursor" is rejected.
+    assert _errors("CursorPage", {"has_more": False, "next_cursor": "cur.1~"})
+
+
+def test_list_payloads_accept_cursor_mode_while_page_mode_stays_valid() -> None:
+    """Back-compat: page/per_page payloads unchanged; cursor payloads newly allowed."""
+    for definition, item in (
+        ("ExperimentGroupListPayload", _group()),
+        ("GroupedConfigurationRunListPayload", _configuration_run()),
+    ):
+        assert _errors(definition, {"items": [item], "pagination": _pagination()}) == []
+        assert _errors(definition, {"items": [item], "cursor": _cursor_page()}) == []
+        # Exactly one mode must drive the response: neither is invalid...
+        assert _errors(definition, {"items": [item]})
+        # ...and carrying BOTH pagination and cursor is equally invalid.
+        assert _errors(
+            definition,
+            {"items": [item], "pagination": _pagination(), "cursor": _cursor_page()},
+        )
+
+
+def test_configuration_run_list_payload_may_carry_the_full_group_manifest() -> None:
+    data = {
+        "items": [_configuration_run()],
+        "pagination": _pagination(),
+        "column_manifest": _manifest(),
+    }
+    assert _errors("GroupedConfigurationRunListPayload", data) == []
+    # Optional on this legacy surface, so existing producers stay valid.
+    assert _errors("GroupedConfigurationRunListPayload", {
+        "items": [_configuration_run()],
+        "pagination": _pagination(),
+    }) == []
+    assert _errors("GroupedConfigurationRunListPayload", {**data, "column_manifest": {}})
+
+
+# ---- Wave A: read-only configuration-run query surface ----
+
+
+def test_query_request_is_valid_when_empty_and_bounds_every_filter() -> None:
+    assert _errors("GroupedConfigurationRunQueryRequest", {}) == []
+
+    full = {
+        "source_experiment_ids": ["experiment_1", "experiment_2"],
+        "source_experiment_run_ids": ["experiment_run_1"],
+        "statuses": ["COMPLETED", "FAILED"],
+        "created_at_from": "2026-06-01T00:00:00Z",
+        "created_at_to": "2026-06-30T00:00:00Z",
+        "updated_at_from": "2026-06-01T00:00:00Z",
+        "updated_at_to": "2026-06-30T00:00:00Z",
+        "predicates": [
+            {"kind": "parameter", "key": "temperature", "op": "gte", "value": 0.5},
+            {"kind": "measure", "key": "accuracy", "op": "is_not_null"},
+            {"kind": "parameter", "key": "model", "op": "in", "value": ["a", "b"]},
+        ],
+        "sort": [{"kind": "measure", "key": "accuracy", "direction": "desc"}],
+        "cursor": "b3BhcXVl-1",
+        "limit": 50,
+    }
+    assert _errors("GroupedConfigurationRunQueryRequest", full) == []
+
+
+def test_query_request_rejects_unbounded_id_status_and_date_filters() -> None:
+    too_many = [f"experiment_{i}" for i in range(101)]
+    assert _errors(
+        "GroupedConfigurationRunQueryRequest", {"source_experiment_ids": too_many}
+    )
+    assert _errors(
+        "GroupedConfigurationRunQueryRequest", {"source_experiment_run_ids": too_many}
+    )
+    assert _errors(
+        "GroupedConfigurationRunQueryRequest", {"source_experiment_ids": ["a", "a"]}
+    )
+    assert _errors("GroupedConfigurationRunQueryRequest", {"source_experiment_ids": []})
+    assert _errors("GroupedConfigurationRunQueryRequest", {"statuses": ["succeeded"]})
+    assert _errors("GroupedConfigurationRunQueryRequest", {"limit": 0})
+    assert _errors("GroupedConfigurationRunQueryRequest", {"limit": 201})
+
+
+def test_query_request_cannot_mix_cursor_with_page_or_per_page() -> None:
+    """The query surface is cursor-only by construction."""
+    assert _errors("GroupedConfigurationRunQueryRequest", {"cursor": "c1", "page": 2})
+    assert _errors("GroupedConfigurationRunQueryRequest", {"page": 1})
+    assert _errors("GroupedConfigurationRunQueryRequest", {"per_page": 25})
+
+    schema = _load_schema("execution/experiment_group_schema.json")
+    request = schema["definitions"]["GroupedConfigurationRunQueryRequest"]
+    assert request["additionalProperties"] is False
+    assert "page" not in request["properties"]
+    assert "per_page" not in request["properties"]
+
+
+def test_query_predicates_and_sort_are_bounded_and_manifest_shaped() -> None:
+    predicate = {"kind": "parameter", "key": "temperature", "op": "eq", "value": 0.2}
+    assert _errors("ColumnPredicate", predicate) == []
+    assert _errors("ColumnPredicate", {"kind": "measure", "key": "acc", "op": "is_null"}) == []
+    assert _errors("ColumnPredicate", {**predicate, "op": "matches"})
+    assert _errors("ColumnPredicate", {**predicate, "kind": "tvar"})
+    assert _errors("ColumnPredicate", {**predicate, "key": "k" * 129})
+    assert _errors("ColumnPredicate", {**predicate, "value": [1] * 101})
+    assert _errors("ColumnPredicate", {**predicate, "value": {"nested": 1}})
+    assert _errors("ColumnPredicate", {"kind": "parameter", "key": "t"})
+
+    sort = {"kind": "measure", "key": "accuracy", "direction": "desc"}
+    assert _errors("ColumnSort", sort) == []
+    assert _errors("ColumnSort", {**sort, "direction": "ascending"})
+    assert _errors("ColumnSort", {"kind": "measure", "key": "accuracy"})
+
+    assert _errors(
+        "GroupedConfigurationRunQueryRequest", {"predicates": [predicate] * 21}
+    )
+    assert _errors("GroupedConfigurationRunQueryRequest", {"sort": [sort] * 6})
+
+
+def test_predicate_operator_and_operand_are_exclusive_variants() -> None:
+    """Scalar operators take a scalar operand; in/not_in take a bounded non-empty
+    scalar array; is_null/is_not_null take no operand at all."""
+    base = {"kind": "parameter", "key": "temperature"}
+
+    # Scalar operators: exactly one scalar operand.
+    for op in ("eq", "ne", "gt", "gte", "lt", "lte"):
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": 0.2}) == [], op
+        # A scalar operator with an ARRAY operand is rejected.
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": [0.2, 0.3]}), op
+        # A scalar operator with a MISSING operand is rejected (value required).
+        assert _errors("ColumnPredicate", {**base, "op": op}), op
+
+    # in/not_in: a bounded, non-empty scalar array.
+    for op in ("in", "not_in"):
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": ["a", "b"]}) == [], op
+        # A scalar operand where a set is required is rejected.
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": "a"}), op
+        # An empty set is rejected.
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": []}), op
+        # A missing operand is rejected.
+        assert _errors("ColumnPredicate", {**base, "op": op}), op
+
+    # is_null/is_not_null: no operand permitted.
+    for op in ("is_null", "is_not_null"):
+        assert _errors("ColumnPredicate", {**base, "op": op}) == [], op
+        # A null-check operator carrying a value is rejected.
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": 5}), op
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": None}), op
+
+
+def test_predicate_operator_operand_coupling_is_enforced_on_the_validator_path() -> None:
+    """The same op/operand coupling holds through the authoritative request
+    validator, not only against the bare ColumnPredicate definition."""
+    validator = SchemaValidator(contract="backend")
+    path = "/api/v1/experiment-groups/group_123/configuration-runs/query"
+
+    def _predicate(**over: Any) -> dict[str, Any]:
+        pred = {"kind": "parameter", "key": "temperature", "op": "eq", "value": 0.2}
+        pred.update(over)
+        return pred
+
+    # Well-formed predicates pass the route validator.
+    assert validator.validate_request(path, "POST", {"predicates": [_predicate()]}) == []
+    assert (
+        validator.validate_request(
+            path, "POST", {"predicates": [_predicate(op="in", value=["a", "b"])]}
+        )
+        == []
+    )
+    assert (
+        validator.validate_request(
+            path, "POST", {"predicates": [{"kind": "measure", "key": "acc", "op": "is_null"}]}
+        )
+        == []
+    )
+    # Scalar operator with an array operand is rejected on the validator path.
+    assert validator.validate_request(
+        path, "POST", {"predicates": [_predicate(value=[0.2, 0.3])]}
+    )
+    # Null-check operator carrying a value is rejected on the validator path.
+    assert validator.validate_request(
+        path,
+        "POST",
+        {"predicates": [{"kind": "measure", "key": "acc", "op": "is_null", "value": 1}]},
+    )
+    # Value-required operator with no operand is rejected on the validator path.
+    assert validator.validate_request(
+        path, "POST", {"predicates": [{"kind": "parameter", "key": "temperature", "op": "eq"}]}
+    )
+    # in with a scalar (non-array) operand is rejected on the validator path.
+    assert validator.validate_request(
+        path, "POST", {"predicates": [_predicate(op="in", value="a")]}
+    )
+
+
+def test_query_payload_returns_complete_rows_manifest_and_cursor() -> None:
+    data = {
+        "items": [_browse_row()],
+        "column_manifest": _manifest(),
+        "cursor": _cursor_page(),
+    }
+    assert _errors("GroupedConfigurationRunQueryPayload", data) == []
+    assert _errors("GroupedConfigurationRunQueryResponse", _success_envelope(data)) == []
+    assert _errors("GroupedConfigurationRunQueryResponse", data)
+
+    for field in ("items", "column_manifest", "cursor"):
+        incomplete = dict(data)
+        incomplete.pop(field)
+        assert _errors("GroupedConfigurationRunQueryPayload", incomplete), field
+
+    # Rows on this surface must be complete browse rows.
+    assert _errors(
+        "GroupedConfigurationRunQueryPayload", {**data, "items": [_configuration_run()]}
+    )
+    # Window size stays bounded.
+    assert _errors(
+        "GroupedConfigurationRunQueryPayload", {**data, "items": [_browse_row()] * 201}
+    )
+
+
+def test_query_payload_stays_complete_when_comparison_semantics_are_unknown() -> None:
+    """Browse rows must be fully usable before any Wave-B comparison signature exists."""
+    data = {
+        "items": [_browse_row(comparison_state="unknown"), _browse_row(comparison_state=None)],
+        "column_manifest": _manifest(),
+        "cursor": _cursor_page(next_cursor=None, has_more=False),
+    }
+    assert _errors("GroupedConfigurationRunQueryPayload", data) == []
+
+
+def test_openapi_wires_the_read_only_query_route() -> None:
+    spec = _load_schema("execution/execution_endpoints.json")
+    path = "/api/v1/experiment-groups/{group_id}/configuration-runs/query"
+    operation = spec["paths"][path]["post"]
+
+    ref = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    assert ref == (
+        "./experiment_group_schema.json#/definitions/GroupedConfigurationRunQueryResponse"
+    )
+    body_ref = operation["requestBody"]["content"]["application/json"]["schema"]["allOf"][0]["$ref"]
+    assert body_ref.endswith(
+        "experiment_group_schema.json#/definitions/GroupedConfigurationRunQueryRequest"
+    )
+    # POST is a read-only query carrier: the route must document no side effects.
+    description = operation["description"].lower()
+    assert "read-only" in description
+    assert "no side effects" in description
+    # Wave B stays out of this surface.
+    assert "query" in spec["paths"][path]["post"]["summary"].lower()
+
+
+def test_query_route_binds_its_request_schema_through_the_validator() -> None:
+    validator = SchemaValidator(contract="backend")
+    path = "/api/v1/experiment-groups/group_123/configuration-runs/query"
+
+    # An empty body is a valid unfiltered first window...
+    assert validator.validate_request(path, "POST", {}) == []
+    assert validator.validate_request(path, "POST", {"cursor": "c1", "limit": 25}) == []
+    # ...and the route no longer fails open on malformed queries.
+    assert validator.validate_request(path, "POST", {"limit": 500})
+    assert validator.validate_request(path, "POST", {"statuses": ["succeeded"]})
+    assert validator.validate_request(path, "POST", {"page": 2})
+    # Date bounds are enforced as RFC-3339 date-times on the authoritative
+    # validator path (SchemaValidator installs the repo's format checker).
+    assert validator.validate_request(path, "POST", {"created_at_from": "yesterday"})
+    assert validator.validate_request(path, "POST", {"updated_at_to": "2026-06-01 00:00:00"})
+    assert validator.validate_request(
+        path, "POST", {"created_at_from": "2026-06-01T00:00:00Z"}
+    ) == []
+
+
+def test_group_list_route_keeps_page_params_and_adds_search_filter_sort_cursor() -> None:
+    spec = _load_schema("execution/execution_endpoints.json")
+    parameters = spec["paths"]["/api/v1/experiment-groups"]["get"]["parameters"]
+    by_name = {parameter["name"]: parameter for parameter in parameters}
+
+    # Pre-existing params are preserved.
+    assert {"page", "per_page", "agent_id", "dataset_id"} <= set(by_name)
+    # Fixed search/filter/sort/cursor surface is added.
+    assert {"search", "dataset_scope", "sort_by", "sort_order", "cursor", "limit"} <= set(by_name)
+
+    assert by_name["sort_by"]["schema"]["$ref"].endswith(
+        "#/definitions/ExperimentGroupSortField"
+    )
+    assert by_name["sort_order"]["schema"]["$ref"].endswith("#/definitions/SortDirection")
+    assert by_name["cursor"]["schema"]["$ref"].endswith("#/definitions/OpaqueCursor")
+    assert by_name["dataset_scope"]["schema"]["$ref"].endswith(
+        "#/definitions/ExperimentGroupDatasetScope"
+    )
+    assert by_name["search"]["schema"]["maxLength"] == 200
+    # cursor/page mutual exclusion is documented on the cursor param.
+    assert "mutually exclusive with page" in by_name["cursor"]["description"].lower()
+
+
+def test_configuration_runs_route_keeps_page_params_and_adds_cursor_mode() -> None:
+    spec = _load_schema("execution/execution_endpoints.json")
+    path = "/api/v1/experiment-groups/{group_id}/configuration-runs"
+    parameters = spec["paths"][path]["get"]["parameters"]
+    by_name = {parameter["name"]: parameter for parameter in parameters}
+
+    assert {"group_id", "page", "per_page"} <= set(by_name)
+    assert {"cursor", "limit"} <= set(by_name)
+    assert "mutually exclusive with page" in by_name["cursor"]["description"].lower()
+
+
+def test_no_dataset_filtering_is_explicit_rather_than_an_empty_string() -> None:
+    assert _errors("ExperimentGroupDatasetScope", "without_dataset") == []
+    assert _errors("ExperimentGroupDatasetScope", "with_dataset") == []
+    assert _errors("ExperimentGroupDatasetScope", "all") == []
+    assert _errors("ExperimentGroupDatasetScope", "")
+    assert _errors("ExperimentGroupDatasetScope", "none")
+
+
+def test_dataset_scope_defaults_to_all() -> None:
+    schema = _load_schema("execution/experiment_group_schema.json")
+    dataset_scope = schema["definitions"]["ExperimentGroupDatasetScope"]
+    assert dataset_scope["default"] == "all"
+    assert "all" in dataset_scope["enum"]
+
+
+def test_read_surfaces_expose_redacted_error_envelopes_without_forbidden_leakage() -> None:
+    """Safe errors: malformed query and the single indistinguishable hidden/
+    not-found condition emit the canonical redacted error envelope. Group-scoped
+    resources expose 404 but never 403, so 'forbidden' is never distinguishable
+    from 'not found'. Tests inspect the actual response schemas, not prose."""
+    spec = _load_schema("execution/execution_endpoints.json")
+
+    def _responses(path: str, method: str) -> dict[str, Any]:
+        return spec["paths"][path][method]["responses"]
+
+    def _error_ref(response: dict[str, Any]) -> str:
+        return response["content"]["application/json"]["schema"]["$ref"]
+
+    group_scoped = {
+        ("/api/v1/experiment-groups/{group_id}", "get"),
+        ("/api/v1/experiment-groups/{group_id}/configuration-runs", "get"),
+        ("/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"),
+    }
+    for path, method in group_scoped:
+        responses = _responses(path, method)
+        # The single indistinguishable hidden/not-found condition is 404...
+        assert "404" in responses, (path, method)
+        # ...and there is deliberately NO 403 that would leak forbidden-vs-missing.
+        assert "403" not in responses, (path, method)
+        # 404 carries the canonical redacted envelope, and the prose says the two
+        # conditions are indistinguishable.
+        assert _error_ref(responses["404"]).endswith("error_envelope_schema.json")
+        assert "indistinguishable" in responses["404"]["description"].lower()
+        # Ordinary auth/server errors are present and also redacted.
+        assert _error_ref(responses["401"]).endswith("error_envelope_schema.json")
+        assert _error_ref(responses["500"]).endswith("error_envelope_schema.json")
+
+    # Malformed query returns the redacted envelope on the query surface.
+    query_responses = _responses(
+        "/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"
+    )
+    assert "400" in query_responses
+    assert _error_ref(query_responses["400"]).endswith("error_envelope_schema.json")
+    malformed_desc = query_responses["400"]["description"].lower()
+    assert "malformed query" in malformed_desc
+    # The malformed-query envelope must not promise to echo raw query text.
+    assert "never" in malformed_desc
+
+    # The bare list surface has no group to hide, so it carries no 404/403 but
+    # still redacts malformed-input and server errors.
+    list_responses = _responses("/api/v1/experiment-groups", "get")
+    assert "403" not in list_responses
+    assert _error_ref(list_responses["400"]).endswith("error_envelope_schema.json")
+    assert _error_ref(list_responses["500"]).endswith("error_envelope_schema.json")
+
+
+def test_group_list_sort_vocabulary_is_closed_and_identity_scoped() -> None:
+    for field in ("created_at", "updated_at", "agent_id", "experiment_count"):
+        assert _errors("ExperimentGroupSortField", field) == [], field
+    # Never sortable by comparison-flavoured or tuned-variable fields.
+    for field in ("weighted_score", "tvars", "config_hash", "rank", "name"):
+        assert _errors("ExperimentGroupSortField", field), field
+
+
+def test_contract_documents_auth_non_disclosure_and_pagination_invariants() -> None:
+    schema = _load_schema("execution/experiment_group_schema.json")
+    description = schema["description"].lower()
+
+    # Tokens are lookup/continuation only — never an authorization boundary.
+    assert "tokens are not an authorization boundary" in description
+    assert "never derive scope or identity from a token" in description
+    # Non-disclosure: forbidden must be indistinguishable from not-found.
+    assert "indistinguishable" in description
+    # Deterministic ordering.
+    assert "deterministic" in description and "tie-breaker" in description
+    # No auto cross-page column discovery.
+    assert "never by walking pages" in description
+
+    cursor_description = schema["definitions"]["OpaqueCursor"]["description"].lower()
+    assert "never an authorization boundary" in cursor_description
+    assert "insert-stable snapshot" in cursor_description
+    assert "eventually consistent" in cursor_description
+
+    manifest_description = schema["definitions"]["GroupColumnManifest"]["description"].lower()
+    assert "independent of the current page" in manifest_description
+    assert "never discover columns by walking pages" in manifest_description

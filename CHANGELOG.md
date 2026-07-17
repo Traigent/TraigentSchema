@@ -196,6 +196,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Agent tuning-history browse surface (experiment groups, Wave A).** Additive
+  read-only enrichment of `execution/experiment_group_schema.json` and the
+  `execution/execution_endpoints.json` experiment-group routes: complete browse
+  rows (measures/summary-stats/error-state/provenance), a page-independent
+  full-group column manifest, cursor pagination alongside legacy `page`/`per_page`,
+  a `dataset_scope` (default `all`) group filter, and a read-only
+  `POST /api/v1/experiment-groups/{group_id}/configuration-runs/query` surface.
+  Group identity stays exactly visibility-scoped `agent_id` + canonical
+  `dataset_id`; no cross-setup ranking or Wave B comparison signatures are added.
+  Contract invariants are now enforced structurally rather than only described in
+  prose:
+  - `CursorPage` couples the fields — `has_more: true` requires a non-null opaque
+    `next_cursor` and `has_more: false` requires `next_cursor: null`; the group-list
+    and configuration-run-list payloads accept exactly one of `pagination` or
+    `cursor` (never both, never neither).
+  - The full-group column manifest has no `truncated` escape hatch (a partial
+    manifest can no longer claim completeness), and each namespace array accepts
+    only descriptors of its own `kind`.
+  - Column predicates are exclusive by operator: scalar operators require a scalar
+    operand, `in`/`not_in` require a bounded non-empty scalar array, and
+    `is_null`/`is_not_null` forbid a value.
+  - Group read/query routes expose canonical **redacted** error envelopes; a hidden
+    group and a non-existent one are the single indistinguishable `404` (no `403`),
+    so forbidden-vs-not-found never leaks.
+  - `GroupedConfigurationRunProvenance` no longer duplicates the source-execution
+    ids (Draft 7 cannot assert sibling equality); those ids stay canonical at the
+    browse-row top level and provenance carries only group/display context.
+    Runtime one-row-per-execution and exact scope/agent/dataset partitioning remain
+    downstream backend/E2E acceptance criteria, not proven by this schema.
 - `optimization/optimization_plan_request_schema.json` and
   `optimization/optimization_plan_response_schema.json` for
   `POST /api/v1/optimization/plan`, plus a dedicated

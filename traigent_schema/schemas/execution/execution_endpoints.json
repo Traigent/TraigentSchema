@@ -147,10 +147,68 @@
             "name": "dataset_id",
             "in": "query",
             "required": false,
-            "description": "Canonical dataset id filter after legacy alias resolution. Omit for all groups; use the explicit no-dataset filter supported by backend query semantics rather than an empty string.",
+            "description": "Canonical dataset id filter after legacy alias resolution. Omit for all groups; use dataset_scope=without_dataset for the explicit no-dataset group rather than an empty string.",
             "schema": {
               "type": "string",
               "minLength": 1
+            }
+          },
+          {
+            "name": "dataset_scope",
+            "in": "query",
+            "required": false,
+            "description": "Explicit dataset-presence filter. Use without_dataset to select exactly the canonical no-dataset groups (dataset_id null); an empty-string dataset_id must be rejected rather than treated as no-dataset. Combining dataset_scope=without_dataset with a concrete dataset_id is contradictory and must be rejected.",
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupDatasetScope"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Bounded free-text search over group-identity display fields (agent_id and canonical dataset_id) only. Search never matches tuned variables, KPIs, measures, config hashes, or fingerprints, and never widens visibility: results stay restricted to the caller's authorized scope.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "description": "Fixed, closed vocabulary of sortable group-list fields. Ties are broken deterministically by group_id ascending.",
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupSortField"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/SortDirection"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque server-sealed continuation cursor. Mutually exclusive with page: a request supplying both cursor and page must be rejected rather than silently preferring one. Cursor mode returns the cursor payload field; page/per_page mode returns pagination. The cursor is bound to the filter and sort it was issued with and is never an authorization boundary.",
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/OpaqueCursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Window size for cursor mode. Mutually exclusive with per_page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
             }
           }
         ],
@@ -161,6 +219,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - malformed or contradictory query parameters (for example dataset_scope=without_dataset combined with a concrete dataset_id, an empty-string dataset_id, both cursor and page, or a limit above the maximum). The redacted canonical error envelope carries a machine-readable error name and a display-safe message only, never raw query text, internal identifiers, or server internals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. The canonical error envelope discloses no group, experiment, or dataset existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. The canonical error envelope is redacted: no stack traces, SQL, raw exception strings, or internal identifiers are ever returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -189,6 +277,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupDetailResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. The canonical error envelope discloses no group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found OR outside the caller's visible scope - these two conditions are deliberately indistinguishable. A group hidden from the caller returns exactly this response, with the same status, the same redacted canonical error envelope, and no field that would confirm existence or distinguish 'forbidden' from 'not found'. There is no 403 on this resource for that reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. The canonical error envelope is redacted: no stack traces, SQL, raw exception strings, or internal identifiers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -226,6 +344,27 @@
               "type": "integer",
               "minimum": 1
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque server-sealed continuation cursor. Mutually exclusive with page: a request supplying both cursor and page must be rejected rather than silently preferring one. Cursor mode returns the cursor payload field; page/per_page mode continues to return pagination unchanged.",
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/OpaqueCursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Window size for cursor mode. Mutually exclusive with per_page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
           }
         ],
         "responses": {
@@ -235,6 +374,128 @@
               "application/json": {
                 "schema": {
                   "$ref": "./experiment_group_schema.json#/definitions/GroupedConfigurationRunListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - malformed pagination parameters, both cursor and page supplied, or a limit above the maximum. Redacted canonical error envelope only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. The canonical error envelope discloses no group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found OR outside the caller's visible scope - deliberately indistinguishable, same status and redacted envelope, no 403, so a hidden group is never distinguished from a non-existent one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. Redacted canonical error envelope: no stack traces, SQL, raw exception strings, or internal identifiers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiment-groups/{group_id}/configuration-runs/query": {
+      "post": {
+        "summary": "Query source configuration runs for an experiment group (read-only)",
+        "description": "Read-only structured query over the visible group's source configuration runs. POST is used only to carry a bounded structured query body that does not fit query-string limits: the operation has no side effects, creates/mutates/deletes nothing, and is authorized exactly as the equivalent GET. Returns the existing canonical success envelope. Rows are complete browse rows and are never deduplicated by tuned variables, objectives, config hash, display name, or status; per-execution provenance is preserved. Predicates and sort terms are validated against the group's full-group column manifest and rejected with a 4xx when unknown or not filterable/sortable - never silently ignored. This surface is cursor-only: page/per_page are not accepted, so a request cannot mix cursor with page. Ranking, winner, and comparison-signature semantics are out of scope for this surface.",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/OpaqueExperimentGroupId"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "https://schemas.traigent.ai/execution/experiment_group_schema.json#/definitions/GroupedConfigurationRunQueryRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grouped configuration runs queried successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/GroupedConfigurationRunQueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query - an unknown or non-filterable/non-sortable predicate or sort column, an operator/operand mismatch (a scalar operator with an array operand, 'in'/'not_in' without a bounded non-empty array, or 'is_null'/'is_not_null' carrying a value), an out-of-range limit, a cursor replayed against a different filter/sort, or an unparseable date bound. The response is the redacted canonical error envelope: a machine-readable error name plus a display-safe message, never the offending query text, column values, internal identifiers, SQL, or server internals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. The canonical error envelope discloses no group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found OR outside the caller's visible scope - the single indistinguishable hidden/not-found condition. Same status, same redacted canonical error envelope, and no 403, so this read-only query never leaks whether a group exists but is forbidden versus simply does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. Redacted canonical error envelope: no stack traces, SQL, raw exception strings, or internal identifiers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }

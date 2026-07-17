@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/execution/experiment_group_schema.json",
   "title": "Experiment Group Schemas",
-  "description": "Read-only experiment-run grouping by visibility-scoped agent_id and canonical dataset_id. Group ids are opaque URL-safe lookup tokens and are never an authorization boundary.",
+  "description": "Read-only experiment-run grouping by visibility-scoped agent_id and canonical dataset_id. Contract invariants: (1) Group identity is exactly the visibility-scoped agent_id plus the canonical dataset_id, and never tuned variables, KPIs, measures, display names, status, config hashes, or fingerprints. (2) Tokens are not an authorization boundary: group ids and cursors are opaque lookup/continuation tokens only, and the backend must re-authorize every request by tenant/project/user context and never derive scope or identity from a token. (3) Auth non-disclosure: a group, experiment, run, or dataset outside the caller's visible scope must be indistinguishable from one that does not exist - responses must not confirm existence, leak counts, or distinguish 'forbidden' from 'not found' through status codes, messages, or timing. (4) Deterministic tie-breakers: every list and query order is stabilized by a deterministic server-side tie-breaker (group_id ascending for groups, configuration_run_id ascending for configuration runs) so that equal sort keys never yield nondeterministic order or overlapping/skipping cursor windows. (5) No auto cross-page column discovery: the browsable column set is read from the full-group column manifest, never by walking pages and unioning row keys. (6) Missing is absence: an absent or null parameter, measure, or summary stat is absence, never 0 or empty. (7) Browse together, compare selectively: this contract makes no ranking, winner, baseline, or better/worse claim; comparison signatures and compare/rank surfaces are out of scope here.",
   "type": "object",
   "definitions": {
     "OpaqueExperimentGroupId": {
@@ -24,6 +24,97 @@
         }
       ],
       "description": "Canonical persisted evaluation dataset id after resolving legacy aliases such as eval_dataset_id, evaluation_set_id, or benchmark_id. Null means this group is explicitly the no-dataset group; empty string and unknown alias values must not be emitted."
+    },
+    "OpaqueCursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9_.~-]+$",
+      "description": "Opaque, server-sealed pagination cursor. Clients must treat it as a blob: never construct, parse, decode, mutate, or persist it across contracts. It is a continuation token only and is never an authorization boundary - the backend must re-authorize every cursor request by tenant/project/user context and must not derive scope, identity, or visibility from cursor contents. A cursor is bound to the exact filter and sort it was issued with: replaying it against a different filter/sort must be rejected rather than silently reinterpreted. A cursor walk reads an insert-stable snapshot, so rows inserted after the walk began must not appear mid-walk and must not shift earlier pages; updates to already-emitted rows are eventually consistent and may be observed as stale within a walk. Cursors may expire; an expired or unrecognized cursor must be rejected, never silently restarted from the first page.",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "CursorPage": {
+      "type": "object",
+      "description": "Cursor-mode continuation metadata. Present only when the request used cursor mode; page/per_page mode continues to report pagination metadata instead. has_more false means the walk is complete for this snapshot, not that no further rows will ever exist. The two fields are strictly coupled and this coupling is enforced structurally: has_more true REQUIRES a non-null opaque next_cursor, and has_more false REQUIRES next_cursor null. A client can therefore never receive an ambiguous 'more rows but no cursor to continue' or 'walk complete yet here is a cursor' page.",
+      "required": [
+        "next_cursor",
+        "has_more"
+      ],
+      "properties": {
+        "next_cursor": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueCursor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Cursor for the next window, or null when has_more is false. Null must not be interpreted as an error or as a restart token."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "Whether a further window exists in this snapshot. Clients must drive continuation from this flag plus next_cursor, never by probing page numbers."
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "description": "has_more true: a non-null continuation cursor is required.",
+          "properties": {
+            "has_more": {
+              "const": true
+            },
+            "next_cursor": {
+              "$ref": "#/definitions/OpaqueCursor"
+            }
+          },
+          "required": [
+            "next_cursor"
+          ]
+        },
+        {
+          "description": "has_more false: the walk is complete and next_cursor must be null.",
+          "properties": {
+            "has_more": {
+              "const": false
+            },
+            "next_cursor": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
+    "SortDirection": {
+      "type": "string",
+      "enum": [
+        "asc",
+        "desc"
+      ],
+      "description": "Sort direction. Every sort is stabilized by a deterministic server-side tie-breaker so that equal sort keys never produce nondeterministic or overlapping cursor windows."
+    },
+    "ExperimentGroupSortField": {
+      "type": "string",
+      "enum": [
+        "created_at",
+        "updated_at",
+        "agent_id",
+        "experiment_count",
+        "experiment_run_count",
+        "configuration_run_count"
+      ],
+      "description": "Fixed, closed vocabulary of sortable group-list fields. Sorting is never accepted over tuned variables, KPIs, measures, config hashes, or fingerprints at the group level. Ties are broken deterministically by group_id ascending."
+    },
+    "ExperimentGroupDatasetScope": {
+      "type": "string",
+      "enum": [
+        "all",
+        "with_dataset",
+        "without_dataset"
+      ],
+      "default": "all",
+      "description": "Explicit dataset-presence filter for the group list. 'without_dataset' selects exactly the canonical no-dataset groups (dataset_id null) and is the only supported way to ask for them: an empty-string dataset_id must be rejected rather than treated as no-dataset. 'all' is the default (applied when the parameter is omitted) and applies no dataset-presence constraint. Combining dataset_scope=without_dataset with a concrete dataset_id filter is contradictory and must be rejected."
     },
     "ExperimentRunStatusCounts": {
       "type": "object",
@@ -195,9 +286,221 @@
       },
       "additionalProperties": false
     },
+    "ColumnKind": {
+      "type": "string",
+      "enum": [
+        "parameter",
+        "measure",
+        "summary_stat"
+      ],
+      "description": "Which row namespace a column is drawn from: 'parameter' from the row parameters object, 'measure' from the row measures object, 'summary_stat' from the row summary_stats object. Kind plus key identifies a column; the same key may legitimately appear under more than one kind and must not be collapsed."
+    },
+    "ColumnKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Bounded column key as it appears in the source row namespace. Keys are echoed verbatim from source data and are never reinterpreted, normalized, or merged across kinds."
+    },
+    "ColumnValueType": {
+      "type": "string",
+      "enum": [
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "object",
+        "array",
+        "mixed"
+      ],
+      "description": "Observed value type for a column across the full group. 'mixed' means the column carries more than one JSON type across source rows and consumers must not assume a single type. Null is deliberately not a value type: a key that is absent or null on a row contributes absence, not a 'null' typed column.",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "ColumnDescriptor": {
+      "type": "object",
+      "description": "Describes one browsable column across the FULL group, independent of any page or cursor window.",
+      "required": [
+        "kind",
+        "key",
+        "value_type",
+        "occurrence_count",
+        "filterable",
+        "sortable"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/ColumnKind"
+        },
+        "key": {
+          "$ref": "#/definitions/ColumnKey"
+        },
+        "value_type": {
+          "$ref": "#/definitions/ColumnValueType"
+        },
+        "occurrence_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of source configuration runs in the full group that carry this key with a present, non-null value. Always at least 1: a descriptor exists only because the column occurs somewhere in the group, so 0 is not representable by construction. Absence of a key on a row means absence/null and must never be coerced to 0, counted as 0, or rendered as 0.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "filterable": {
+          "type": "boolean",
+          "description": "Whether this column may be used as a query predicate column. False means the backend must reject predicates on it rather than silently ignoring them."
+        },
+        "sortable": {
+          "type": "boolean",
+          "description": "Whether this column may be used as a query sort column. False means the backend must reject sorts on it rather than silently falling back to a default order."
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupColumnManifest": {
+      "type": "object",
+      "description": "The full-group column manifest: every parameter, measure, and summary-stat column observed across ALL source configuration runs in the group, independent of the current page or cursor window. Consumers must read columns from this manifest and must never discover columns by walking pages and unioning row keys, which would yield a page-dependent and unstable column set. The manifest is a complete browsable-column set by construction: there is no truncation flag, each namespace is a bounded list of descriptors of exactly that namespace's kind, and additionalProperties is false, so a producer cannot emit a partial manifest that dishonestly claims completeness. The per-namespace bound is the maximum browsable column count; a group that would exceed it is rejected upstream rather than silently truncated here. The manifest describes column presence only; it makes no ranking, winner, better/worse, or comparability claim about any column or row.",
+      "required": [
+        "scope",
+        "parameters",
+        "measures",
+        "summary_stats"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "const": "full_group",
+          "description": "Asserts the manifest was computed over the full group rather than the returned window. Only 'full_group' is contractually valid; a page-scoped manifest must not be emitted."
+        },
+        "parameters": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/ColumnDescriptor"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "parameter"
+                  }
+                }
+              }
+            ]
+          },
+          "description": "Parameter columns across the full group. Each descriptor must have kind 'parameter'; a measure or summary-stat descriptor here is rejected rather than silently accepted."
+        },
+        "measures": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/ColumnDescriptor"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "measure"
+                  }
+                }
+              }
+            ]
+          },
+          "description": "Measure columns across the full group. Each descriptor must have kind 'measure'; a parameter or summary-stat descriptor here is rejected rather than silently accepted."
+        },
+        "summary_stats": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/ColumnDescriptor"
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "summary_stat"
+                  }
+                }
+              }
+            ]
+          },
+          "description": "Summary-stat columns across the full group. Each descriptor must have kind 'summary_stat'; a parameter or measure descriptor here is rejected rather than silently accepted."
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupedConfigurationRunErrorState": {
+      "type": "object",
+      "description": "Redaction-safe failure state for one source configuration run. This is a browse-surface projection: raw error text, stack traces, provider payloads, and any other user- or model-derived content are deliberately not part of this contract and must be fetched from the per-run detail surface under that surface's own authorization. Presence of an error state never implies a ranking, winner, or better/worse claim relative to other rows.",
+      "required": [
+        "has_error",
+        "error_code"
+      ],
+      "properties": {
+        "has_error": {
+          "type": "boolean",
+          "description": "Whether this source run recorded a failure. A row may have has_error false while status is FAILED (failure recorded without a classified error), so consumers must render status and error state independently rather than deriving one from the other."
+        },
+        "error_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "Bounded machine-readable error classification, or null when the failure is unclassified or there is no failure. Must be drawn from a server-controlled vocabulary and must never embed user content, model output, prompt text, identifiers, or free-form messages.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "error_message_available": {
+          "type": "boolean",
+          "description": "Whether a detailed error message exists on the per-run detail surface. This is an availability hint only and discloses no message content; false must not be read as proof that no failure occurred."
+        }
+      },
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "GroupedConfigurationRunProvenance": {
+      "type": "object",
+      "description": "Additional group/display context for one browse row. The canonical source-execution identifiers (experiment_id, experiment_run_id, configuration_run_id) are NOT duplicated here: they live once at the row top level and remain the single source of truth for provenance, because JSON Schema Draft 7 cannot assert sibling equality and duplicated ids that only claim equality in prose invite drift. This object carries only the owning group's identity (agent_id, canonical dataset_id) and optional display context (experiment_name) so an exported or flattened row keeps its group identity and a human-readable label without re-joining against the group. Experiment-per-execution provenance is preserved by the row itself: rows from different source experiments or experiment runs are never merged, even when their parameters, measures, or config hashes are identical. Runtime one-row-per-execution and exact scope/agent/dataset partitioning are downstream backend/E2E acceptance criteria, not proven by this schema.",
+      "required": [
+        "agent_id",
+        "dataset_id"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Canonical agent id of the owning group, echoed so exported rows retain group identity."
+        },
+        "dataset_id": {
+          "$ref": "#/definitions/CanonicalDatasetId"
+        },
+        "experiment_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Display name of the source experiment when available; null when not set. Display-only: never a grouping, dedup, or identity key."
+        }
+      },
+      "additionalProperties": false
+    },
+    "ComparisonState": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "unknown",
+        null
+      ],
+      "description": "Comparability of this row relative to other rows in the group. Wave A deliberately makes no comparability claim: the only non-null value is 'unknown', and null means not evaluated. The comparison signature and any compare/rank surface are Wave B and out of scope here. Consumers must render a complete, useful browse row while this is unknown or null, and must never infer ranking, winner, baseline, or better/worse semantics from it or from row order."
+    },
     "GroupedConfigurationRun": {
       "type": "object",
-      "description": "One source configuration run row. Rows are grouped by source identity only and must not be deduplicated by tuned variables, objectives, config hashes, display names, or status.",
+      "description": "One source configuration run row. Rows are grouped by source identity only and must not be deduplicated by tuned variables, objectives, config hashes, display names, or status. Rows carry no ranking, winner, baseline, or better/worse claim, and row order carries no such claim either.",
       "required": [
         "configuration_run_id",
         "experiment_run_id",
@@ -278,16 +581,76 @@
           "type": "object",
           "description": "Canonical display parameters for this source configuration run.",
           "additionalProperties": true
+        },
+        "measures": {
+          "oneOf": [
+            {
+              "$ref": "../evaluation/configuration_run_schema.json#/definitions/MeasureResults"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Flat aggregate measure values for this source run, keyed by measure name (canonical MeasuresDict: identifier keys, numeric-or-null values, max 50 keys). Null means measures are not available for this run; a key absent from the object means that measure was not recorded for this run. Neither null nor absence may be coerced to 0. Values are reported as recorded and carry no ranking, winner, or better/worse claim."
+        },
+        "summary_stats": {
+          "oneOf": [
+            {
+              "$ref": "../evaluation/configuration_run_schema.json#/definitions/SummaryStats"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Aggregated summary statistics for this source run as recorded by the source execution, or null when not available. Reused verbatim from the canonical configuration-run contract. Presence of a weighted_score is a recorded source value only and is never a ranking, winner, or comparability claim across rows."
+        },
+        "error_state": {
+          "$ref": "#/definitions/GroupedConfigurationRunErrorState"
+        },
+        "provenance": {
+          "$ref": "#/definitions/GroupedConfigurationRunProvenance"
+        },
+        "comparison_state": {
+          "$ref": "#/definitions/ComparisonState"
         }
       },
       "additionalProperties": false
     },
+    "GroupedConfigurationRunBrowseRow": {
+      "description": "A GroupedConfigurationRun that is complete for browsing: the additive measures, summary_stats, error_state, provenance, and comparison_state fields are all required rather than optional. The plain GroupedConfigurationRun keeps those fields optional so existing page/per_page GET producers stay valid; this stricter variant is what the query surface returns, so a browse row is never partially populated. comparison_state is required but may be null or 'unknown' - completeness of the row does not depend on comparison semantics being known.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/GroupedConfigurationRun"
+        },
+        {
+          "type": "object",
+          "required": [
+            "measures",
+            "summary_stats",
+            "error_state",
+            "provenance",
+            "comparison_state"
+          ]
+        }
+      ]
+    },
     "ExperimentGroupListPayload": {
       "type": "object",
-      "description": "Route-specific payload for GET /api/v1/experiment-groups, nested under success-envelope data.",
+      "description": "Route-specific payload for GET /api/v1/experiment-groups, nested under success-envelope data. Page/per_page mode returns pagination; cursor mode returns cursor. Exactly one mode drives a response - the oneOf below rejects a payload that carries both pagination and cursor as well as one that carries neither - but pagination remains the default so existing page/per_page consumers are unaffected.",
       "required": [
-        "items",
-        "pagination"
+        "items"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "pagination"
+          ]
+        },
+        {
+          "required": [
+            "cursor"
+          ]
+        }
       ],
       "properties": {
         "items": {
@@ -298,6 +661,9 @@
         },
         "pagination": {
           "$ref": "../pagination_schema.json"
+        },
+        "cursor": {
+          "$ref": "#/definitions/CursorPage"
         }
       },
       "additionalProperties": false
@@ -380,10 +746,21 @@
     },
     "GroupedConfigurationRunListPayload": {
       "type": "object",
-      "description": "Route-specific payload for GET /api/v1/experiment-groups/{group_id}/configuration-runs, nested under success-envelope data.",
+      "description": "Route-specific payload for GET /api/v1/experiment-groups/{group_id}/configuration-runs, nested under success-envelope data. Page/per_page mode returns pagination; cursor mode returns cursor. Exactly one mode drives a response - the oneOf below rejects a payload carrying both pagination and cursor as well as one carrying neither. column_manifest is optional here for backward compatibility with existing producers, and describes the full group rather than the returned window whenever present.",
       "required": [
-        "items",
-        "pagination"
+        "items"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "pagination"
+          ]
+        },
+        {
+          "required": [
+            "cursor"
+          ]
+        }
       ],
       "properties": {
         "items": {
@@ -394,6 +771,12 @@
         },
         "pagination": {
           "$ref": "../pagination_schema.json"
+        },
+        "cursor": {
+          "$ref": "#/definitions/CursorPage"
+        },
+        "column_manifest": {
+          "$ref": "#/definitions/GroupColumnManifest"
         }
       },
       "additionalProperties": false
@@ -422,6 +805,299 @@
         },
         "data": {
           "$ref": "#/definitions/GroupedConfigurationRunListPayload"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ColumnPredicate": {
+      "type": "object",
+      "description": "One manifest-validated filter predicate. kind+key MUST resolve to a ColumnDescriptor in the group's full-group column manifest with filterable true; an unknown or non-filterable column must be rejected with a 4xx and must never be silently dropped, coerced, or treated as matching everything. A predicate never expresses ranking or winner semantics.",
+      "required": [
+        "kind",
+        "key",
+        "op"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/ColumnKind"
+        },
+        "key": {
+          "$ref": "#/definitions/ColumnKey"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "not_in",
+            "is_null",
+            "is_not_null"
+          ],
+          "description": "Comparison operator. 'is_null' matches rows where the column is absent or null - absence and explicit null are the same condition and are never treated as 0 or empty string. 'is_null'/'is_not_null' take no value; all other operators require one."
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          ],
+          "description": "Scalar operand for scalar operators, or a bounded set operand for 'in'/'not_in'. Omitted for 'is_null'/'is_not_null'."
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "description": "Scalar operators require exactly one scalar operand; an array operand is rejected.",
+          "properties": {
+            "op": {
+              "enum": [
+                "eq",
+                "ne",
+                "gt",
+                "gte",
+                "lt",
+                "lte"
+              ]
+            },
+            "value": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "description": "'in'/'not_in' require a bounded, non-empty scalar array operand.",
+          "properties": {
+            "op": {
+              "enum": [
+                "in",
+                "not_in"
+              ]
+            },
+            "value": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          },
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "description": "'is_null'/'is_not_null' take no operand; value must be absent.",
+          "properties": {
+            "op": {
+              "enum": [
+                "is_null",
+                "is_not_null"
+              ]
+            }
+          },
+          "not": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
+    },
+    "ColumnSort": {
+      "type": "object",
+      "description": "One manifest-validated sort term. kind+key MUST resolve to a ColumnDescriptor in the group's full-group column manifest with sortable true; an unknown or non-sortable column must be rejected with a 4xx and must never silently fall back to a default order. Sorting orders rows for browsing only and asserts no ranking, winner, or better/worse claim.",
+      "required": [
+        "kind",
+        "key",
+        "direction"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/ColumnKind"
+        },
+        "key": {
+          "$ref": "#/definitions/ColumnKey"
+        },
+        "direction": {
+          "$ref": "#/definitions/SortDirection"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupedConfigurationRunQueryRequest": {
+      "type": "object",
+      "description": "Read-only request body for POST /api/v1/experiment-groups/{group_id}/configuration-runs/query. The POST verb is used only to carry a bounded structured query that does not fit query-string limits; the operation must have no side effects, must not create, mutate, or delete any resource, and must be authorized exactly as the equivalent GET. Every field is optional: an empty body is a valid unfiltered first-window request. This surface is cursor-only by construction - page and per_page are not properties and additionalProperties is false, so a request structurally cannot mix cursor with page/per_page. All filters are AND-combined; arrays within a single filter are OR-combined. A cursor is bound to the filter and sort it was issued with, so a request that supplies cursor together with a different filters/predicates/sort must be rejected rather than silently reinterpreted.",
+      "properties": {
+        "source_experiment_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": "Restrict rows to these source experiment ids. Bounded to keep the query cost predictable. Ids outside the caller's visible scope must be treated as non-matching and must not be disclosed, distinguished from non-existent ids, or reported as an authorization error."
+        },
+        "source_experiment_run_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": "Restrict rows to these source experiment run ids. Bounded, and subject to the same non-disclosure rule as source_experiment_ids."
+        },
+        "statuses": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "../status_schema.json#/definitions/ConfigurationRunStatus"
+          },
+          "description": "Restrict rows to these canonical configuration-run statuses. Uses the existing status vocabulary; unknown values must be rejected rather than ignored."
+        },
+        "created_at_from": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Inclusive lower bound on row created_at."
+        },
+        "created_at_to": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Inclusive upper bound on row created_at."
+        },
+        "updated_at_from": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Inclusive lower bound on row updated_at."
+        },
+        "updated_at_to": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Inclusive upper bound on row updated_at."
+        },
+        "predicates": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/definitions/ColumnPredicate"
+          },
+          "description": "Bounded, manifest-validated column predicates, AND-combined."
+        },
+        "sort": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/definitions/ColumnSort"
+          },
+          "description": "Bounded, manifest-validated sort terms applied in order. The server appends a deterministic tie-breaker on configuration_run_id ascending so that equal sort keys yield a stable total order and cursor windows never overlap or skip rows."
+        },
+        "cursor": {
+          "$ref": "#/definitions/OpaqueCursor"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50,
+          "description": "Maximum rows in the returned window. Bounded server-side; a limit above the maximum must be rejected rather than silently clamped."
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupedConfigurationRunQueryPayload": {
+      "type": "object",
+      "description": "Route-specific payload for POST /api/v1/experiment-groups/{group_id}/configuration-runs/query, nested under success-envelope data. Unlike the backward-compatible GET payload, this surface always returns complete browse rows, a full-group column manifest, and cursor metadata, so a client never needs to walk pages to learn the column set.",
+      "required": [
+        "items",
+        "column_manifest",
+        "cursor"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/definitions/GroupedConfigurationRunBrowseRow"
+          },
+          "description": "Matching source configuration-run rows for this window, in the requested (deterministically tie-broken) order. Order is presentational only and asserts no ranking or winner claim."
+        },
+        "column_manifest": {
+          "$ref": "#/definitions/GroupColumnManifest"
+        },
+        "cursor": {
+          "$ref": "#/definitions/CursorPage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupedConfigurationRunQueryResponse": {
+      "type": "object",
+      "description": "Success-envelope response for POST /api/v1/experiment-groups/{group_id}/configuration-runs/query. experiment_group_routes is in the wrapped set, so the query payload is nested under data using the existing canonical success envelope.",
+      "allOf": [
+        {
+          "$ref": "../success_envelope_schema.json"
+        }
+      ],
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/definitions/GroupedConfigurationRunQueryPayload"
         }
       },
       "additionalProperties": false

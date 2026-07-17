@@ -45,11 +45,12 @@ def test_measure_resource_declares_typed_scoring_fields() -> None:
     schema = _load_measure_schema()
 
     assert schema["additionalProperties"] is False
-    assert schema["properties"]["value_type"] == {
-        "type": "string",
-        "description": "Scoring value type, e.g. numeric or categorical.",
-        "maxLength": 255,
-    }
+    # value_type is deliberately a free-form label at the measure-definition level
+    # (#320): a bounded string, NOT a closed enum, so custom measures round-trip.
+    value_type = schema["properties"]["value_type"]
+    assert value_type["type"] == "string"
+    assert value_type["maxLength"] == 255
+    assert "enum" not in value_type
     assert schema["properties"]["categories"] == {
         "type": "array",
         "items": {

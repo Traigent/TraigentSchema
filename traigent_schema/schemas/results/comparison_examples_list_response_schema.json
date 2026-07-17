@@ -68,31 +68,7 @@
           }
         },
         "pagination": {
-          "type": "object",
-          "description": "Offset-based pagination metadata for this endpoint (uses limit/offset rather than page/per_page)",
-          "properties": {
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Maximum number of items per page"
-            },
-            "offset": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "Offset of the first returned item"
-            },
-            "total": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "Total number of matching examples (after filtering)"
-            },
-            "has_more": {
-              "type": "boolean",
-              "description": "Whether more items exist beyond the current page"
-            }
-          },
-          "required": ["limit", "offset", "total", "has_more"],
-          "additionalProperties": false
+          "$ref": "../offset_pagination_schema.json"
         }
       },
       "required": ["comparison_id", "items", "pagination"],

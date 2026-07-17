@@ -19,7 +19,16 @@
         "efficiency",
         "reliability"
       ],
-      "description": "Types of measurements that can be performed:\n- sanity_check: Basic validation of agent behavior\n- accuracy: Correctness of responses\n- quality: Overall response quality metrics\n- latency: Time-based performance metrics\n- safety: Safety and risk assessment metrics\n- efficiency: Resource utilization metrics\n- reliability: Consistency and stability metrics"
+      "description": "Standard library measurement categories:\n- sanity_check: Basic validation of agent behavior\n- accuracy: Correctness of responses\n- quality: Overall response quality metrics\n- latency: Time-based performance metrics\n- safety: Safety and risk assessment metrics\n- efficiency: Resource utilization metrics\n- reliability: Consistency and stability metrics\n\nThis is the standard-library vocabulary. Custom (is_custom=true) measures may carry a measure_type outside this set, so the resource-level measure_type property is a documented open string rather than a closed reference to this enum (see the measure_type property)."
+    },
+    "MeasureValueType": {
+      "type": "string",
+      "enum": [
+        "numeric",
+        "categorical",
+        "boolean"
+      ],
+      "description": "Canonical closed value-type discriminator for a measure's review score. Selects which typed score column carries the value (numeric_value / categorical_value / boolean_value). Referenced by the observability review-score and review-measure-summary read schemas. NOTE: the measure-definition value_type property is deliberately an open free-form label (a custom measure may describe its scoring differently); this closed enum applies only where a score value must be discriminated onto a typed column."
     },
     "EvaluationMethod": {
       "type": "string",
@@ -106,7 +115,7 @@
     },
     "value_type": {
       "type": "string",
-      "description": "Scoring value type, e.g. numeric or categorical.",
+      "description": "Scoring value type at the measure-definition level, e.g. numeric or categorical. Deliberately an open free-form label (not a closed enum) so custom measures can describe their scoring; the closed review-score discriminator (numeric|categorical|boolean) is #/definitions/MeasureValueType, applied only where a score value must be projected onto a typed column.",
       "maxLength": 255
     },
     "categories": {
@@ -119,8 +128,9 @@
       "description": "Allowed category labels for categorical measures."
     },
     "measure_type": {
-      "$ref": "#/definitions/MeasureType",
-      "description": "Specific type of measurement being performed"
+      "type": "string",
+      "maxLength": 255,
+      "description": "Specific type of measurement being performed. Standard-library vocabulary: #/definitions/MeasureType (sanity_check|accuracy|quality|latency|safety|efficiency|reliability). Open-vocabulary at the resource level: custom measures (is_custom=true) may set a label outside the standard set, so this is a free string rather than a closed enum reference — this keeps a custom measure_type round-tripping between the create request (also a free string) and this read schema (TraigentSchema#321)."
     },
     "evaluation_method": {
       "$ref": "#/definitions/EvaluationMethod",

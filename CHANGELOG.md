@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.10.0] - 2026-07-17
+
+### Changed
+- **Canonical timestamp on trace ingest (#316):** `workflow_trace_schema`
+  `start_time`/`end_time` now declare `format: date-time`, so the ISO-8601
+  promise on `POST /api/v1/traces/ingest` span timings is machine-enforced
+  instead of prose-only.
+- **Measure value-type discriminator (#320):** added a canonical
+  `MeasureValueType` enum (`numeric|categorical|boolean`) to `measure_schema`
+  and `$ref`'d it from the observability `review_score`/`review_measure_summary`
+  read schemas (previously duplicated inline). The measure-definition
+  `value_type` stays a documented open free-form label; the closed enum applies
+  only where a score value is projected onto a typed column.
+- **Custom measure_type round-trip (#321):** the canonical measure
+  `measure_type` is now a documented open string (standard-library vocabulary
+  still listed in `#/definitions/MeasureType`) so a custom (`is_custom=true`)
+  `measure_type` that validates on create also validates on read-back.
+- **Review-score source vocabulary (#318):** widened `review_score_schema`
+  `source` to the create-request's eight values
+  (`manual|evaluator|api|human|user|llm|model|sdk`) so a legitimately-POSTed
+  source round-trips through `validate_response`.
+- **Pagination canonicalization (#319):** added a canonical
+  `offset_pagination_schema` (`limit/offset/total/has_more`) and `$ref`'d it
+  from the comparison-examples list response (previously inlined). The flat
+  `{page, per_page, total}` observability/costs list responses
+  (session/trace/issue/trace_variant/cost_users) now also permit the optional
+  canonical `total_pages`/`has_next`/`has_prev` fields (kept optional to
+  preserve the verified flat backend shape).
+
 ## [4.9.0] - 2026-07-16
 
 ### Changed

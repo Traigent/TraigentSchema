@@ -3,6 +3,19 @@
 Packet `pkt_c88286ff11fd2edf`, ChangeSession `cs_dbd17dd6bfabeed7`.
 Remediates the gpt-5.6-terra xhigh review BLOCK of the prior uncommitted draft.
 
+Audit chronology (exact):
+1. `d725fe0` — Wave A schema draft made its browse/query invariants structurally
+   enforceable (first remediation pass). See "Design decisions" below.
+2. `5ad6311` — companion commit re-stamped the parity provenance hash
+   (`parity/python-js-sdk.json`) for the `d725fe0` schema edit, so parity was fresh
+   at that point.
+3. **This commit** — second remediation pass against a fresh gpt-5.6-terra xhigh
+   review that still BLOCKED advancing to Backend. See "Second remediation pass"
+   below. Because it edits schema files again, the parity hash goes stale again and a
+   subsequent re-stamp is required — owned by the separate approved packet
+   `pkt_1c3f2ce482d11d82`, not stamped here (that file is outside this packet's
+   allowed set).
+
 ## Scope
 
 Additive, read-only Wave A browse surface over experiment groups in
@@ -79,6 +92,67 @@ Files changed (allowed set only):
 
 7. **Lint.** No new lint introduced in changed test code (see below).
 
+## Second remediation pass (this commit)
+
+The fresh Terra review still blocked; this pass closes the remaining structural
+gaps without widening the feature or changing group identity/compatibility.
+
+1. **Strict error subtype.** New `ExperimentGroupErrorEnvelope` definition. It stays
+   shape-compatible with the canonical generic error envelope (any value it accepts
+   also validates against `error_envelope_schema.json`) but is tightened
+   structurally for this browse surface: `details` is not a property and
+   `additionalProperties` is `false` (the generic envelope's free-form diagnostic
+   sink cannot exist), every public string is bounded, `message` carries a
+   display-safe pattern (no quotes, angle brackets, backticks, braces, semicolons, or
+   backslashes), `error` is a closed vocabulary (`bad_request`/`unauthorized`/
+   `not_found`/`internal_error`), and `error_code` is a bounded server-controlled
+   token. So no raw query text, group id, tuned-variable value, SQL, or secret can
+   validate. Every experiment-group `400`/`401`/`404`/`500` now points at this
+   subtype rather than the generic envelope. The single indistinguishable `404` and
+   the absence of any group-scoped `403` are preserved. Tests inject sentinel
+   query/SQL/secret content and `details` objects and assert rejection, and assert
+   shape-compatibility against the generic envelope.
+
+2. **Malformed-id 400.** `GET /experiment-groups/{group_id}` gained its
+   previously-missing `400` for a malformed `group_id`. Every route whose `group_id`
+   is the constrained `OpaqueExperimentGroupId` now has a safe malformed-id response
+   (all pointing at the strict subtype). A well-formed but unknown/hidden group is
+   still the indistinguishable `404`, never this `400`.
+
+3. **Legacy vs cursor modes — exhaustive and unambiguous.** OpenAPI cannot express
+   cross-parameter mutual exclusion structurally, so the two modes — legacy page
+   mode (`page`/`per_page`) and cursor mode (`cursor`/`limit`) — are declared through
+   the repository's **established** machine-readable `x-excludes` extension on each
+   pagination parameter (each legacy param excludes the cursor set and vice versa).
+   `x-excludes` is used rather than a new `x-mutually-exclusive-parameter-sets` key
+   because a brand-new `x-*` keyword must be declared in the governed
+   `x_extensions_meta_schema.json` (enforced by `test_x_extensions_governance.py`),
+   which is outside this packet's allowed-file set; `x-excludes` is already the
+   repo's declared mutual-exclusion extension, so this stays in-scope. The exclusion
+   relation is symmetric and its induced rejected-pair set is the complete
+   cross-product (`cursor+page`, `cursor+per_page`, `limit+page`, `limit+per_page`);
+   the descriptions state that omitting all four defaults to legacy page mode. A
+   complete-matrix test derives the cross-product from `x-excludes` and asserts it.
+
+4. **Predicate operands exclude null.** Scalar (`eq/ne/gt/gte/lt/lte`) and set
+   (`in`/`not_in`) operands no longer admit `null`; absent-or-null matching is
+   reserved for `is_null`/`is_not_null`. Set operands are non-empty, bounded
+   (`maxItems: 100`), and `uniqueItems`. Negatives cover `eq`/`gt`/`in`/`not_in` with
+   null both against the bare definition and through the authoritative
+   `SchemaValidator` request path.
+
+5. **Error-state coupling.** `GroupedConfigurationRunErrorState` uses `if`/`then` so
+   `has_error: false` requires `error_code: null`; `has_error: true` may carry a
+   stable non-null code or null for an unclassified failure. Negative: `has_error:
+   false` with a non-null code is rejected.
+
+6. **Manifest duplicate descriptors.** Each manifest namespace array is now
+   `uniqueItems`, so exact-duplicate descriptors are rejected. Draft 7 cannot express
+   uniqueness by the `(kind, key)` subtuple, so same-kind/key descriptors that
+   disagree on `value_type`/`occurrence_count`/`filterable`/`sortable` must be
+   rejected by the backend manifest builder — recorded in the manifest prose and in
+   the downstream handoff.
+
 ## Exact command outcomes
 
 Run in the repo `.venv` (Python 3.11.15).
@@ -87,18 +161,22 @@ Run in the repo `.venv` (Python 3.11.15).
 |-------|---------|--------|
 | JSON parse | `json.load` on both changed schema files | OK (both) |
 | Validator load | `SchemaValidator(contract="backend")` | `experiment_group_schema` present; loads clean |
-| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **66 passed** |
-| Full suite | `pytest tests/ -q -p no:cacheprovider` | **1127 passed, 1 skipped** (2 pre-existing deprecation warnings) |
+| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **77 passed** |
+| x-extension governance | `pytest tests/test_x_extensions_governance.py` | **5 passed** (`x-excludes` reuse needs no new registry entry) |
+| Full suite | `pytest tests/ -q -p no:cacheprovider` | **1138 passed, 1 skipped** (2 pre-existing deprecation warnings) |
 | Whitespace | `git diff --check` | clean |
 | Lint (repo gate) | `ruff check traigent_schema/` | All checks passed |
 | Lint (changed tests) | `ruff check --line-length 100 --select E,F,I,UP,B` | contract test 1→1, envelope test 20→20 (baseline == current; **zero new**); no added line exceeds 100 chars |
 | Typecheck (repo gate) | `mypy traigent_schema/ --ignore-missing-imports` | Success, no issues (5 source files) |
-| Parity | `python3 scripts/refresh_parity.py --check` | **exit 1 (stale)** — see downstream/risks |
+| Parity | `python3 scripts/refresh_parity.py --check` | **exit 1 (stale)** — expected after schema edits; re-stamp owned by `pkt_1c3f2ce482d11d82`, see risks |
 
-Test count on this surface went from 57 → 66 focused (9 new decisive-negative
-tests: cursor coupling, both-modes payloads, manifest truncation/wrong-namespace/
-full-group coverage, predicate exclusive variants incl. validator path, provenance
-canonical-id location, dataset_scope default, safe-error envelopes).
+Focused test count went 66 → 77 (11 new decisive-negative tests this pass:
+strict-error shape-compat + details/SQL/secret/raw-value rejection, group-routes
+point at the strict subtype, malformed-id `400` on every constrained-`group_id`
+route, complete legacy/cursor cross-mix matrix via `x-excludes`, predicate
+null-operand exclusion incl. validator path, predicate set uniqueness/bounds,
+error-state `has_error`/`error_code` coupling, and manifest duplicate-descriptor
+rejection).
 
 ## Downstream runtime acceptance handoff (schema does NOT prove these)
 
@@ -117,6 +195,15 @@ as explicit handoff risks, not proven behavior:
 - **Manifest union completeness across all rows** and the browsable-column cap
   (`maxItems: 200` per namespace) — backend must reject groups whose true column
   union would exceed the cap rather than emit a partial manifest.
+- **Manifest descriptor uniqueness by subproperty** — `uniqueItems` catches exact
+  duplicate descriptors, but Draft 7 cannot assert uniqueness by the `(kind, key)`
+  subtuple, so two descriptors sharing a `(kind, key)` while disagreeing on
+  `value_type`/`occurrence_count`/`filterable`/`sortable` must be rejected by the
+  backend manifest builder.
+- **Cross-parameter pagination-mode exclusion** — `x-excludes` declares that legacy
+  `page`/`per_page` and cursor `cursor`/`limit` are mutually exclusive; OpenAPI
+  cannot enforce cross-parameter exclusion, so backend request validation must reject
+  every cross-mix and default an all-omitted request to legacy page mode.
 - **Non-disclosure timing/behavior** — the contract removes status/message leakage;
   the backend must also avoid timing side-channels between hidden and not-found.
 - **Token re-authorization** — group ids and cursors are opaque lookup/continuation
@@ -125,11 +212,15 @@ as explicit handoff risks, not proven behavior:
 
 ## Remaining risks / follow-ups
 
-- **Parity manifest is stale (`parity/python-js-sdk.json`, exit 1).** This is the
-  expected consequence of changing schema files; the manifest is **outside this
-  packet's allowed-file set**, so it was intentionally not stamped. Follow-up
-  (separate scope/owner): run `python scripts/refresh_parity.py --update` and commit
-  the manifest alongside SDK/BE/FE propagation. Not relaxed, not bypassed — recorded.
+- **Parity manifest re-stamp is required again (`parity/python-js-sdk.json`).**
+  Chronology: commit `5ad6311` re-stamped the parity provenance hash after the
+  `d725fe0` schema edit, so parity was fresh going into this pass; this commit edits
+  the schema files again, so `python3 scripts/refresh_parity.py --check` is expected
+  to report `exit 1 (stale)` — verified. The manifest is **outside this packet's
+  allowed-file set** and its refresh is owned by the separate approved packet
+  `pkt_1c3f2ce482d11d82`, so it was intentionally **not** stamped here. That packet
+  runs `refresh_parity.py --update` (and the SDK/BE/FE propagation) after this schema
+  commit. Not relaxed, not bypassed — reported honestly and handed off.
 - **Pre-existing test-file lint** (contract test line 3 import ordering; ~20 E501 in
   the envelope-coverage test) predates this packet and was left untouched per the
   "do not edit unrelated baseline lint failures" instruction. The repo lint gate

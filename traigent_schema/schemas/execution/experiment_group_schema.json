@@ -355,7 +355,7 @@
     },
     "GroupColumnManifest": {
       "type": "object",
-      "description": "The full-group column manifest: every parameter, measure, and summary-stat column observed across ALL source configuration runs in the group, independent of the current page or cursor window. Consumers must read columns from this manifest and must never discover columns by walking pages and unioning row keys, which would yield a page-dependent and unstable column set. The manifest is a complete browsable-column set by construction: there is no truncation flag, each namespace is a bounded list of descriptors of exactly that namespace's kind, and additionalProperties is false, so a producer cannot emit a partial manifest that dishonestly claims completeness. The per-namespace bound is the maximum browsable column count; a group that would exceed it is rejected upstream rather than silently truncated here. The manifest describes column presence only; it makes no ranking, winner, better/worse, or comparability claim about any column or row.",
+      "description": "The full-group column manifest: every parameter, measure, and summary-stat column observed across ALL source configuration runs in the group, independent of the current page or cursor window. Consumers must read columns from this manifest and must never discover columns by walking pages and unioning row keys, which would yield a page-dependent and unstable column set. The manifest is a complete browsable-column set by construction: there is no truncation flag, each namespace is a bounded list of descriptors of exactly that namespace's kind, and additionalProperties is false, so a producer cannot emit a partial manifest that dishonestly claims completeness. The per-namespace bound is the maximum browsable column count; a group that would exceed it is rejected upstream rather than silently truncated here. Each namespace array is uniqueItems, so exact-duplicate descriptors are rejected structurally. Draft 7 cannot assert uniqueness by a subproperty tuple, so two descriptors that share the same (kind, key) but disagree on value_type, occurrence_count, filterable, or sortable are NOT caught here and must be rejected by the backend manifest builder as a downstream acceptance criterion. The manifest describes column presence only; it makes no ranking, winner, better/worse, or comparability claim about any column or row.",
       "required": [
         "scope",
         "parameters",
@@ -371,6 +371,7 @@
         "parameters": {
           "type": "array",
           "maxItems": 200,
+          "uniqueItems": true,
           "items": {
             "allOf": [
               {
@@ -390,6 +391,7 @@
         "measures": {
           "type": "array",
           "maxItems": 200,
+          "uniqueItems": true,
           "items": {
             "allOf": [
               {
@@ -409,6 +411,7 @@
         "summary_stats": {
           "type": "array",
           "maxItems": 200,
+          "uniqueItems": true,
           "items": {
             "allOf": [
               {
@@ -457,6 +460,24 @@
         }
       },
       "additionalProperties": false,
+      "if": {
+        "properties": {
+          "has_error": {
+            "const": false
+          }
+        },
+        "required": [
+          "has_error"
+        ]
+      },
+      "then": {
+        "description": "No recorded failure: error_code must be null. A classified code without a failure is contradictory and is rejected. When has_error is true, error_code may carry a stable non-null server-controlled code or stay null for an unclassified failure.",
+        "properties": {
+          "error_code": {
+            "type": "null"
+          }
+        }
+      },
       "x-privacy-classification": "aggregate_safe"
     },
     "GroupedConfigurationRunProvenance": {
@@ -846,31 +867,30 @@
               "type": [
                 "string",
                 "number",
-                "boolean",
-                "null"
+                "boolean"
               ]
             },
             {
               "type": "array",
               "minItems": 1,
               "maxItems": 100,
+              "uniqueItems": true,
               "items": {
                 "type": [
                   "string",
                   "number",
-                  "boolean",
-                  "null"
+                  "boolean"
                 ]
               }
             }
           ],
-          "description": "Scalar operand for scalar operators, or a bounded set operand for 'in'/'not_in'. Omitted for 'is_null'/'is_not_null'."
+          "description": "Scalar operand for scalar operators, or a bounded, non-empty, unique set operand for 'in'/'not_in'. Null is deliberately excluded from every operand - both scalar and set - because absence and explicit null are matched only by 'is_null'/'is_not_null', never by an eq/ne/gt/gte/lt/lte comparison or by membership in an 'in'/'not_in' set. Omitted entirely for 'is_null'/'is_not_null'."
         }
       },
       "additionalProperties": false,
       "oneOf": [
         {
-          "description": "Scalar operators require exactly one scalar operand; an array operand is rejected.",
+          "description": "Scalar operators require exactly one non-null scalar operand; an array operand and a null operand are both rejected. Absent-or-null matching is expressed only through 'is_null'/'is_not_null'.",
           "properties": {
             "op": {
               "enum": [
@@ -886,8 +906,7 @@
               "type": [
                 "string",
                 "number",
-                "boolean",
-                "null"
+                "boolean"
               ]
             }
           },
@@ -896,7 +915,7 @@
           ]
         },
         {
-          "description": "'in'/'not_in' require a bounded, non-empty scalar array operand.",
+          "description": "'in'/'not_in' require a bounded, non-empty, unique scalar array operand. Null is not a permitted set member; use 'is_null'/'is_not_null' to match absent-or-null rows.",
           "properties": {
             "op": {
               "enum": [
@@ -908,12 +927,12 @@
               "type": "array",
               "minItems": 1,
               "maxItems": 100,
+              "uniqueItems": true,
               "items": {
                 "type": [
                   "string",
                   "number",
-                  "boolean",
-                  "null"
+                  "boolean"
                 ]
               }
             }
@@ -1101,6 +1120,50 @@
         }
       },
       "additionalProperties": false
+    },
+    "ExperimentGroupErrorEnvelope": {
+      "type": "object",
+      "description": "Strict, redacted error response for every experiment-group 400/401/404/500. Shape-compatible with the canonical generic error envelope (success:false + message + error, plus optional error_code) so existing generic-error consumers keep working, but tightened structurally for this browse surface. Three structural guarantees are added on top of the generic shape: (1) 'details' is forbidden outright - it is not a declared property and additionalProperties is false, so the generic envelope's free-form diagnostic sink cannot exist here; (2) every public string is bounded and 'message' is constrained to a display-safe character set so raw query text, SQL fragments, secrets, markup, or braces cannot be smuggled through it; (3) 'error' is a closed server-controlled vocabulary and 'error_code' is a bounded server-controlled token, so no caller-supplied query/group/input value can validate in either field. Together these mean no raw query text, group id, tuned-variable value, column value, SQL, stack trace, exception string, internal identifier, or secret can be echoed through this envelope. The single 'not_found' condition is used for the indistinguishable hidden-or-not-found case; there is deliberately no 'forbidden' token and no group-scoped 403.",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "error"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": false,
+          "description": "Error discriminator; always false, exactly as the canonical error envelope."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[^<>\"'`;{}\\\\]+$",
+          "description": "Display-safe, bounded human summary. The display-safe pattern forbids quotes, angle brackets, backticks, braces, semicolons, and backslashes, so a raw query, SQL fragment, secret, or markup snippet cannot be carried through the message. Never echoes the offending query, group id, column value, or any server internal.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "bad_request",
+            "unauthorized",
+            "not_found",
+            "internal_error"
+          ],
+          "description": "Closed, server-controlled error vocabulary the client branches on. Because it is a closed enum, no caller-supplied query/group/input value can ever validate here. 'not_found' is the single indistinguishable hidden-or-not-found token; there is no 'forbidden' token because this surface exposes no group-scoped 403.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_.-]*$",
+          "description": "Optional finer server-controlled classification token. Bounded and token-shaped (lowercase start, then lowercase letters, digits, '_', '.', or '-'), drawn from a server-controlled vocabulary; never free-form text, user content, query text, identifiers, or secrets. The token grammar makes raw input structurally unable to validate.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      }
     }
   },
   "properties": {

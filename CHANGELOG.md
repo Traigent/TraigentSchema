@@ -225,6 +225,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     browse-row top level and provenance carries only group/display context.
     Runtime one-row-per-execution and exact scope/agent/dataset partitioning remain
     downstream backend/E2E acceptance criteria, not proven by this schema.
+  - Second remediation pass (same Wave A surface): a strict
+    `ExperimentGroupErrorEnvelope` subtype now backs every experiment-group
+    `400`/`401`/`404`/`500` (rather than the generic envelope directly). It stays
+    shape-compatible with the canonical envelope but forbids `details` structurally,
+    bounds every public string, constrains `error` to a closed vocabulary and
+    `error_code` to a server-controlled token, so no raw query/group/SQL/secret value
+    can validate. `GET /experiment-groups/{group_id}` gained its previously-missing
+    malformed-id `400`, so every constrained-`group_id` route now has a safe
+    malformed-id response.
+  - Legacy `page`/`per_page` mode and `cursor`/`limit` mode are made exhaustive and
+    mutually exclusive through the repository's established `x-excludes` extension on
+    each pagination parameter; every cross-mix (cursor+page, cursor+per_page,
+    limit+page, limit+per_page) is rejected, and omitting all four defaults to legacy
+    page mode.
+  - Predicate operands exclude `null` for both scalar and `in`/`not_in` set operators
+    (absent-or-null matching is reserved for `is_null`/`is_not_null`); set operands
+    are non-empty, bounded, and unique.
+  - `GroupedConfigurationRunErrorState` couples `has_error: false` with
+    `error_code: null`; a classified code without a failure is rejected.
+  - Manifest namespace arrays are `uniqueItems` (exact-duplicate descriptors
+    rejected). Rejecting same-`(kind, key)` duplicates that disagree on metadata is
+    recorded as a backend acceptance criterion, since Draft 7 cannot express
+    uniqueness by a subproperty.
 - `optimization/optimization_plan_request_schema.json` and
   `optimization/optimization_plan_response_schema.json` for
   `POST /api/v1/optimization/plan`, plus a dedicated

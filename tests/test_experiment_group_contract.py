@@ -911,11 +911,16 @@ def test_dataset_scope_defaults_to_all() -> None:
     assert "all" in dataset_scope["enum"]
 
 
+STRICT_ERROR_REF = "#/definitions/ExperimentGroupErrorEnvelope"
+
+
 def test_read_surfaces_expose_redacted_error_envelopes_without_forbidden_leakage() -> None:
-    """Safe errors: malformed query and the single indistinguishable hidden/
-    not-found condition emit the canonical redacted error envelope. Group-scoped
-    resources expose 404 but never 403, so 'forbidden' is never distinguishable
-    from 'not found'. Tests inspect the actual response schemas, not prose."""
+    """Safe errors: malformed input and the single indistinguishable hidden/
+    not-found condition emit the STRICT redacted error subtype (not the generic
+    envelope directly). Group-scoped resources expose 404 but never 403, so
+    'forbidden' is never distinguishable from 'not found'. Every constrained
+    group_id route also carries a safe 400 for a malformed id. Tests inspect the
+    actual response schemas, not prose."""
     spec = _load_schema("execution/execution_endpoints.json")
 
     def _responses(path: str, method: str) -> dict[str, Any]:
@@ -935,31 +940,232 @@ def test_read_surfaces_expose_redacted_error_envelopes_without_forbidden_leakage
         assert "404" in responses, (path, method)
         # ...and there is deliberately NO 403 that would leak forbidden-vs-missing.
         assert "403" not in responses, (path, method)
-        # 404 carries the canonical redacted envelope, and the prose says the two
+        # 404 carries the strict redacted subtype, and the prose says the two
         # conditions are indistinguishable.
-        assert _error_ref(responses["404"]).endswith("error_envelope_schema.json")
+        assert _error_ref(responses["404"]).endswith(STRICT_ERROR_REF), (path, method)
         assert "indistinguishable" in responses["404"]["description"].lower()
-        # Ordinary auth/server errors are present and also redacted.
-        assert _error_ref(responses["401"]).endswith("error_envelope_schema.json")
-        assert _error_ref(responses["500"]).endswith("error_envelope_schema.json")
+        # Ordinary auth/server errors are present and also strict-redacted.
+        assert _error_ref(responses["401"]).endswith(STRICT_ERROR_REF), (path, method)
+        assert _error_ref(responses["500"]).endswith(STRICT_ERROR_REF), (path, method)
+        # Every constrained-group_id route has a safe malformed-id 400.
+        assert "400" in responses, (path, method)
+        assert _error_ref(responses["400"]).endswith(STRICT_ERROR_REF), (path, method)
 
-    # Malformed query returns the redacted envelope on the query surface.
+    # The detail GET specifically gained its previously-missing malformed-id 400.
+    detail_400 = _responses("/api/v1/experiment-groups/{group_id}", "get")["400"]
+    assert "group_id" in detail_400["description"]
+
+    # Malformed query returns the strict subtype on the query surface.
     query_responses = _responses(
         "/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"
     )
-    assert "400" in query_responses
-    assert _error_ref(query_responses["400"]).endswith("error_envelope_schema.json")
+    assert _error_ref(query_responses["400"]).endswith(STRICT_ERROR_REF)
     malformed_desc = query_responses["400"]["description"].lower()
     assert "malformed query" in malformed_desc
     # The malformed-query envelope must not promise to echo raw query text.
     assert "never" in malformed_desc
 
     # The bare list surface has no group to hide, so it carries no 404/403 but
-    # still redacts malformed-input and server errors.
+    # still redacts malformed-input and server errors via the strict subtype.
     list_responses = _responses("/api/v1/experiment-groups", "get")
     assert "403" not in list_responses
-    assert _error_ref(list_responses["400"]).endswith("error_envelope_schema.json")
-    assert _error_ref(list_responses["500"]).endswith("error_envelope_schema.json")
+    assert "404" not in list_responses
+    assert _error_ref(list_responses["400"]).endswith(STRICT_ERROR_REF)
+    assert _error_ref(list_responses["500"]).endswith(STRICT_ERROR_REF)
+
+
+def _strict_error(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "success": False,
+        "message": "The experiment group could not be found.",
+        "error": "not_found",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _generic_error_validator() -> Draft7Validator:
+    schema = _load_schema("error_envelope_schema.json")
+    return Draft7Validator(schema, format_checker=FormatChecker())
+
+
+def test_strict_error_subtype_is_shape_compatible_with_the_generic_envelope() -> None:
+    """Every value the strict subtype accepts is also valid under the canonical
+    generic error envelope, so existing generic-error consumers keep working."""
+    generic = _generic_error_validator()
+    for payload in (
+        _strict_error(),
+        _strict_error(error="bad_request", error_code="validation.limit_out_of_range"),
+        _strict_error(error="unauthorized", message="Authentication is required."),
+        _strict_error(error="internal_error", message="An unexpected error occurred."),
+    ):
+        assert _errors("ExperimentGroupErrorEnvelope", payload) == [], payload
+        assert list(generic.iter_errors(payload)) == [], payload
+
+
+def test_strict_error_subtype_forbids_details_and_open_error_vocabulary() -> None:
+    """The generic envelope's free-form 'details' sink and open 'error' string are
+    both removed: details is rejected outright and 'error' is a closed vocabulary,
+    even though the generic envelope accepts both."""
+    generic = _generic_error_validator()
+
+    # A details object is valid under the generic envelope...
+    with_details = _strict_error(details={"query": "SELECT * FROM experiment_groups"})
+    assert list(generic.iter_errors(with_details)) == []
+    # ...but the strict subtype forbids it structurally (no property + no additionalProperties).
+    assert _errors("ExperimentGroupErrorEnvelope", with_details)
+
+    schema = _load_schema("execution/experiment_group_schema.json")
+    strict = schema["definitions"]["ExperimentGroupErrorEnvelope"]
+    assert strict["additionalProperties"] is False
+    assert "details" not in strict["properties"]
+
+    # 'error' is a closed server-controlled vocabulary; an open string is rejected.
+    assert _errors("ExperimentGroupErrorEnvelope", _strict_error(error="something_new"))
+    assert set(strict["properties"]["error"]["enum"]) == {
+        "bad_request",
+        "unauthorized",
+        "not_found",
+        "internal_error",
+    }
+    # No 'forbidden' token exists — forbidden-vs-not-found never leaks.
+    assert "forbidden" not in strict["properties"]["error"]["enum"]
+
+
+def test_strict_error_subtype_rejects_raw_query_group_sql_and_secret_content() -> None:
+    """No raw query text, group id, SQL, or secret can validate: message is
+    display-safe/bounded, error is a closed enum, error_code is a server token,
+    and there is no details sink."""
+    # Sentinel raw/SQL/secret content dumped into 'error' (open string) — rejected.
+    for sentinel in (
+        "SELECT * FROM experiment_groups WHERE agent_id='a'",
+        "'; DROP TABLE experiment_groups; --",
+        "api_key=sk-live-SECRET",
+    ):
+        assert _errors("ExperimentGroupErrorEnvelope", _strict_error(error=sentinel)), sentinel
+
+    # The same content in 'error_code' fails the server-token grammar.
+    for sentinel in (
+        "SELECT * FROM t",
+        "'; DROP TABLE x; --",
+        "sk-live-SECRET value",
+        "UPPER_CASE",
+    ):
+        assert _errors(
+            "ExperimentGroupErrorEnvelope", _strict_error(error_code=sentinel)
+        ), sentinel
+
+    # The same content in 'message' fails the display-safe pattern (quotes,
+    # semicolons, angle brackets, braces, backticks, backslashes are forbidden).
+    for sentinel in (
+        "query was: SELECT * FROM t WHERE name='bob'",
+        "'; DROP TABLE experiment_groups; --",
+        "<script>steal()</script>",
+        "leaked {\"secret\": \"value\"}",
+    ):
+        assert _errors(
+            "ExperimentGroupErrorEnvelope", _strict_error(message=sentinel)
+        ), sentinel
+
+    # A raw details object is rejected regardless of its (redacted-looking) content.
+    assert _errors(
+        "ExperimentGroupErrorEnvelope",
+        _strict_error(details={"offending_value": "grp_../../etc/passwd"}),
+    )
+
+    # message and error_code stay bounded.
+    assert _errors("ExperimentGroupErrorEnvelope", _strict_error(message="x" * 201))
+    assert _errors(
+        "ExperimentGroupErrorEnvelope", _strict_error(error_code="a" + "b" * 64)
+    )
+    # success must be the false discriminator.
+    assert _errors("ExperimentGroupErrorEnvelope", _strict_error(success=True))
+
+
+def test_group_scoped_error_routes_point_at_the_strict_subtype_not_the_generic() -> None:
+    """Fix 1/2: every experiment-group 400/401/404/500 references the strict
+    subtype, never the generic envelope directly."""
+    spec = _load_schema("execution/execution_endpoints.json")
+    group_routes = (
+        ("/api/v1/experiment-groups", "get"),
+        ("/api/v1/experiment-groups/{group_id}", "get"),
+        ("/api/v1/experiment-groups/{group_id}/configuration-runs", "get"),
+        ("/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"),
+    )
+    for path, method in group_routes:
+        responses = spec["paths"][path][method]["responses"]
+        for code, response in responses.items():
+            if not code.startswith(("4", "5")):
+                continue
+            ref = response["content"]["application/json"]["schema"]["$ref"]
+            assert ref.endswith(STRICT_ERROR_REF), (path, method, code, ref)
+            # The strict subtype lives in the group schema, not the generic file.
+            assert not ref.endswith("../error_envelope_schema.json"), (path, method, code)
+
+
+def test_every_constrained_group_id_route_has_a_safe_malformed_id_400() -> None:
+    """Fix 2: routes whose group_id is the constrained OpaqueExperimentGroupId all
+    carry a redacted 400 for a malformed id."""
+    spec = _load_schema("execution/execution_endpoints.json")
+    constrained = (
+        ("/api/v1/experiment-groups/{group_id}", "get"),
+        ("/api/v1/experiment-groups/{group_id}/configuration-runs", "get"),
+        ("/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"),
+    )
+    for path, method in constrained:
+        operation = spec["paths"][path][method]
+        group_param = next(
+            p for p in operation["parameters"] if p["name"] == "group_id"
+        )
+        assert group_param["schema"]["$ref"].endswith("#/definitions/OpaqueExperimentGroupId")
+        assert "400" in operation["responses"], (path, method)
+
+
+def test_legacy_and_cursor_modes_are_mutually_exclusive_and_matrix_complete() -> None:
+    """Fix 3: both paginated GET routes make legacy page mode (page/per_page) and
+    cursor mode (cursor/limit) mutually exclusive via the repository's established
+    machine-readable x-excludes extension on each parameter. The exclusion is
+    symmetric and its induced rejected-pair set is the COMPLETE cross-product of the
+    two mode sets, so every cross-mix - cursor+page, cursor+per_page, limit+page,
+    limit+per_page - is covered and no ambiguous mixed state is left undocumented."""
+    spec = _load_schema("execution/execution_endpoints.json")
+    legacy_set = {"page", "per_page"}
+    cursor_set = {"cursor", "limit"}
+    paginated = (
+        "/api/v1/experiment-groups",
+        "/api/v1/experiment-groups/{group_id}/configuration-runs",
+    )
+    for path in paginated:
+        operation = spec["paths"][path]["get"]
+        by_name = {p["name"]: p for p in operation["parameters"]}
+
+        # All four mode parameters exist and each declares its x-excludes set.
+        assert (legacy_set | cursor_set) <= set(by_name), path
+        excludes = {name: set(by_name[name]["x-excludes"]) for name in legacy_set | cursor_set}
+
+        # Each legacy param excludes exactly the cursor set, and vice versa.
+        for name in legacy_set:
+            assert excludes[name] == cursor_set, (path, name, excludes[name])
+        for name in cursor_set:
+            assert excludes[name] == legacy_set, (path, name, excludes[name])
+
+        # The exclusion relation is symmetric: A excludes B <=> B excludes A.
+        for name, others in excludes.items():
+            for other in others:
+                assert name in excludes[other], (path, name, other)
+
+        # The induced set of rejected unordered pairs is the COMPLETE cross-product
+        # of the two modes (the full 2x2 matrix), with no legacy/legacy or
+        # cursor/cursor pair wrongly excluded.
+        induced = {
+            frozenset((name, other)) for name, others in excludes.items() for other in others
+        }
+        expected = {frozenset((legacy, cur)) for legacy in legacy_set for cur in cursor_set}
+        assert induced == expected, (path, induced, expected)
+        assert len(induced) == 4, path
+
+        # Ordinary omitted defaults are documented as legacy page mode.
+        assert "defaults to legacy page mode" in by_name["page"]["description"].lower()
 
 
 def test_group_list_sort_vocabulary_is_closed_and_identity_scoped() -> None:
@@ -992,3 +1198,133 @@ def test_contract_documents_auth_non_disclosure_and_pagination_invariants() -> N
     manifest_description = schema["definitions"]["GroupColumnManifest"]["description"].lower()
     assert "independent of the current page" in manifest_description
     assert "never discover columns by walking pages" in manifest_description
+
+
+# ---- Fix 4: predicate operands exclude null; sets are non-empty, bounded, unique ----
+
+
+def test_predicate_operands_exclude_null_for_scalar_and_set_operators() -> None:
+    """Null is not a scalar operand and not a set member. Absent-or-null matching
+    is reserved for is_null/is_not_null, so eq/gt/in/not_in with null are rejected."""
+    base = {"kind": "parameter", "key": "temperature"}
+
+    # Scalar operators reject a null operand.
+    for op in ("eq", "ne", "gt", "gte", "lt", "lte"):
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": None}), op
+        # A real scalar operand still validates.
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": 0.5}) == [], op
+
+    # Set operators reject null anywhere in the set.
+    for op in ("in", "not_in"):
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": [None]}), op
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": ["a", None]}), op
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": [1, 2]}) == [], op
+
+    # Absent-or-null matching remains available only through the null operators.
+    assert _errors("ColumnPredicate", {**base, "op": "is_null"}) == []
+    assert _errors("ColumnPredicate", {**base, "op": "is_not_null"}) == []
+
+
+def test_predicate_set_operands_must_be_unique_nonempty_and_bounded() -> None:
+    base = {"kind": "measure", "key": "accuracy"}
+    for op in ("in", "not_in"):
+        # Duplicate members are rejected (uniqueItems).
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": ["a", "a"]}), op
+        # Empty set rejected.
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": []}), op
+        # Over-bound set rejected.
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": list(range(101))}), op
+        # A bounded, unique, non-empty set validates.
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": ["a", "b", "c"]}) == [], op
+
+
+def test_predicate_null_operand_is_rejected_on_the_validator_path() -> None:
+    """The null-operand exclusion holds through the authoritative request
+    validator, not only against the bare ColumnPredicate definition."""
+    validator = SchemaValidator(contract="backend")
+    path = "/api/v1/experiment-groups/group_123/configuration-runs/query"
+
+    def _pred(**over: Any) -> dict[str, Any]:
+        pred = {"kind": "parameter", "key": "temperature", "op": "eq", "value": 0.2}
+        pred.update(over)
+        return pred
+
+    # Scalar eq/gt with a null operand are rejected on the validator path.
+    assert validator.validate_request(path, "POST", {"predicates": [_pred(op="eq", value=None)]})
+    assert validator.validate_request(path, "POST", {"predicates": [_pred(op="gt", value=None)]})
+    # in/not_in carrying null in the set are rejected on the validator path.
+    assert validator.validate_request(
+        path, "POST", {"predicates": [_pred(op="in", value=["a", None])]}
+    )
+    assert validator.validate_request(
+        path, "POST", {"predicates": [_pred(op="not_in", value=[None])]}
+    )
+    # A well-formed non-null predicate still passes.
+    assert (
+        validator.validate_request(path, "POST", {"predicates": [_pred(op="in", value=["a", "b"])]})
+        == []
+    )
+
+
+# ---- Fix 5: error-state has_error / error_code coupling ----
+
+
+def test_error_state_couples_has_error_false_with_null_error_code() -> None:
+    """has_error false REQUIRES error_code null; has_error true may carry a stable
+    non-null code or null for an unclassified failure."""
+    # No error, no code — valid.
+    assert (
+        _errors("GroupedConfigurationRun", _browse_row(
+            error_state={"has_error": False, "error_code": None})) == []
+    )
+    # has_error false with a non-null code is contradictory — rejected.
+    assert _errors(
+        "GroupedConfigurationRun",
+        _browse_row(error_state={"has_error": False, "error_code": "provider.timeout"}),
+    )
+    # has_error true with a stable code — valid.
+    assert (
+        _errors("GroupedConfigurationRun", _browse_row(
+            error_state={"has_error": True, "error_code": "provider.timeout"})) == []
+    )
+    # has_error true with a null (unclassified) code — valid.
+    assert (
+        _errors("GroupedConfigurationRun", _browse_row(
+            error_state={"has_error": True, "error_code": None})) == []
+    )
+
+
+# ---- Fix 6: manifest rejects exact-duplicate descriptors ----
+
+
+def test_manifest_rejects_exact_duplicate_descriptors() -> None:
+    """uniqueItems catches exact-duplicate descriptors in each namespace. Draft 7
+    cannot express uniqueness by the (kind, key) subtuple, so conflicting-metadata
+    duplicates are a documented backend acceptance criterion (see manifest prose)."""
+    dup = _column(key="temperature")
+    assert _errors("GroupColumnManifest", _manifest(parameters=[dup, dict(dup)]))
+    dup_measure = _column(kind="measure", key="accuracy")
+    assert _errors("GroupColumnManifest", _manifest(measures=[dup_measure, dict(dup_measure)]))
+    dup_stat = _column(kind="summary_stat", key="weighted_score")
+    assert _errors(
+        "GroupColumnManifest", _manifest(summary_stats=[dup_stat, dict(dup_stat)])
+    )
+
+    # Distinct descriptors in the same namespace still validate.
+    assert (
+        _errors("GroupColumnManifest", _manifest(
+            parameters=[_column(key="temperature"), _column(key="top_p")])) == []
+    )
+
+    # The prose records the backend handoff for subproperty-uniqueness.
+    schema = _load_schema("execution/experiment_group_schema.json")
+    manifest_desc = schema["definitions"]["GroupColumnManifest"]["description"].lower()
+    assert "uniqueitems" in manifest_desc
+    assert "backend" in manifest_desc
+    for array_name in ("parameters", "measures", "summary_stats"):
+        assert (
+            schema["definitions"]["GroupColumnManifest"]["properties"][array_name][
+                "uniqueItems"
+            ]
+            is True
+        ), array_name

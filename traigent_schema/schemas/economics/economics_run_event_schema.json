@@ -5,7 +5,23 @@
   "description": "The economics record of one run: what we believed about the client (characterization values, how each was obtained, and what their sharing policy let us see), what budget the backend recommended, what was actually spent, what evidence the run produced, whether the client followed the advice, and the labor proxies. This is the record that lets the value model be checked against reality instead of asserted.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["event_type", "event_id", "occurred_at", "project_ref", "run_id"],
+  "required": [
+    "event_type",
+    "event_id",
+    "occurred_at",
+    "project_ref",
+    "run_id",
+    "archetype",
+    "characterization",
+    "budget",
+    "actual_spend_usd",
+    "usage",
+    "model_prices",
+    "evidence_identity",
+    "advisory",
+    "labor_proxies"
+  ],
+  "x-traigent-note": "REQUIRED IS THE WHOLE RECORD, NOT JUST THE IDENTITY. This event is the SETTLED economics of one run: it is emitted once the run has finished and its effect has been measured. When only identity was required, an emitter could satisfy the contract with `{event_type, event_id, occurred_at, project_ref, run_id}` — a blank record that names a run and asserts nothing, yet counts as an economics observation. That is the cheapest possible way to look instrumented while producing no evidence, and it is exactly what this contract exists to prevent. A run that failed, was capped, or produced insufficient evidence is NOT reported as a blank run_economics event: it is a funnel exit carrying a closed exit_reason (run_failed, cost_cap_reached, insufficient_evidence, no_positive_lower_bound, ...), which is a more informative record than an empty settlement, not a less informative one.",
   "properties": {
     "event_type": {
       "type": "string",
@@ -55,11 +71,14 @@
     "CharacterizationFieldReport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["field", "provenance", "sharing_outcome"],
+      "required": ["field", "provenance", "confidence", "sharing_outcome"],
       "properties": {
         "field": {"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/CharacterizationFieldName"},
         "provenance": {"$ref": "./economics_common_schema.json#/definitions/Provenance"},
-        "confidence": {"$ref": "./economics_common_schema.json#/definitions/UnitInterval"},
+        "confidence": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UnitInterval"}],
+          "description": "How confident the emitter is in this field's value, in [0, 1]. REQUIRED on every report, not only on inferred ones. Optional confidence is silently self-serving: a low-confidence value reported without its confidence is read downstream as a certain one, and the fields most likely to be omitted are the guesses. An asked value reports 1.0; a defaulted value reports the confidence the platform default actually carries, which is honest information about how much of the characterization is real."
+        },
         "sharing_outcome": {"$ref": "./economics_common_schema.json#/definitions/SharingOutcome"},
         "evidence_status": {"$ref": "./economics_common_schema.json#/definitions/EvidenceStatus"},
         "evidence_pointer": {"$ref": "./economics_common_schema.json#/definitions/EvidencePointer"}
@@ -97,6 +116,17 @@
             "not": {"required": ["evidence_pointer"]},
             "description": "Egress rule: evidence withheld by the client's sharing policy cannot ride along in the pointer field."
           }
+        },
+        {
+          "if": {
+            "properties": {"sharing_outcome": {"const": "withheld_by_policy"}},
+            "required": ["sharing_outcome"]
+          },
+          "then": {
+            "properties": {"evidence_status": {"const": "withheld_by_policy"}},
+            "not": {"required": ["evidence_pointer"]},
+            "description": "Withheld means withheld: a field the sharing policy withheld cannot egress its evidence either. evidence_status=provided on a withheld field is a self-contradiction — the value never left, so nothing could have been provided to back it — and evidence_pointer is itself derived from the client's traces (x-privacy-classification: user_content), so shipping it would leak, in prose, precisely the thing the withholding promised to keep local ('incident ledger shows $4k median escalation' states the withheld magnitude). The two egress channels are closed together because closing only one is not a closed pipe."
+          }
         }
       ],
       "description": "Per-field provenance and sharing outcome for one allowlisted characterization field. Records HOW we know a thing and WHAT the client let us see — which is what tells us how much agents infer versus ask, and what clients withhold."
@@ -104,6 +134,7 @@
     "CharacterizationTelemetry": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["field_reports"],
       "properties": {
         "bands": {"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/CharacterizationBands"},
         "overrides": {"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/CharacterizationOverrides"},
@@ -113,7 +144,7 @@
           "maxItems": 10,
           "uniqueItems": true,
           "items": {"$ref": "#/definitions/CharacterizationFieldReport"},
-          "description": "One report per characterization field that was determined. At most one per allowlisted field name — but `uniqueItems` only stops a byte-identical repeat, because it compares WHOLE objects: two reports naming the same `field` with differing metadata are distinct objects and pass. Uniqueness of `field` is therefore a backend obligation (see x-backend-obligations), reported as duplicate_characterization_field."
+          "description": "One report per characterization field that was determined, and REQUIRED: every value transmitted in bands/overrides must have a report here naming it with sharing_outcome=shared (enforced per field in the allOf below), so no value arrives with unaccounted provenance. At most one report per allowlisted field name — but `uniqueItems` only stops a byte-identical repeat, because it compares WHOLE objects: two reports naming the same `field` with differing metadata are distinct objects and pass. Uniqueness of `field` is therefore a backend obligation (see x-backend-obligations), reported as duplicate_characterization_field."
         },
         "sharing_policy_version": {
           "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
@@ -164,10 +195,50 @@
         {
           "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_minutes_per_example"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
           "then": {"properties": {"overrides": {"not": {"required": ["human_minutes_per_example"]}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["value_channel"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_channel"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["daily_volume_band"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "daily_volume_band"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["error_cost_band"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "error_cost_band"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["lifecycle_stage"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "lifecycle_stage"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["human_cycle_hours_band"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_cycle_hours_band"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["value_per_task_usd"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_per_task_usd"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["loss_per_bad_output_usd"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "loss_per_bad_output_usd"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["observed_daily_volume"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "observed_daily_volume"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["forecast_daily_volume"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "forecast_daily_volume"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["human_minutes_per_example"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_minutes_per_example"}, "sharing_outcome": {"const": "shared"}}}}}}
         }
       ],
       "description": "Characterization telemetry: the values that reached us, plus per-field provenance/confidence/sharing outcomes. NOT the survey submission contract — it carries no recommendation, no sharing policy definition, and no agent-facing presentation payload. `agent_display_name` is deliberately absent: it is presentation-only, has no analytic use, and would be an unnecessary egress of the client's naming.",
-      "x-traigent-note": "A field withheld by the sharing policy appears in field_reports with sharing_outcome=withheld_by_policy and is absent from bands/overrides. That absence is data (we learn what clients withhold) rather than a gap. EGRESS RULE, ENFORCED HERE: the allOf carries one conditional per allowlisted field — if field_reports declares that field withheld_by_policy, its value MUST be absent from bands/overrides — so declaring a field withheld while shipping its value is unrepresentable, not merely forbidden in prose. This is a presence check keyed on a closed enum, not a comparison of two sibling values, which is why Draft-07 can enforce it and why it is not delegated to the backend: the egress promise the closed-pipe design makes to the client is worth more when the client's own machine can check it before the payload leaves. Expanded per field because Draft-07 cannot parameterize a subschema. The residual backend obligation is narrower: never log or persist a rejected payload's withheld value."
+      "x-traigent-note": "A field withheld by the sharing policy appears in field_reports with sharing_outcome=withheld_by_policy and is absent from bands/overrides. That absence is data (we learn what clients withhold) rather than a gap. TWO RULES ARE ENFORCED HERE, one per direction, expanded per field because Draft-07 cannot parameterize a subschema:\n(1) EGRESS: if field_reports declares a field withheld_by_policy, its value MUST be absent from bands/overrides. Declaring a field withheld while shipping its value is unrepresentable, not merely forbidden in prose.\n(2) COVERAGE: if a value IS present in bands/overrides, field_reports MUST contain a report naming that field with sharing_outcome=shared. Without (2), (1) is a rule an emitter opts into by staying silent: a value shipped with NO report for it is unreported provenance — nobody asked, nobody inferred, nothing was shared, yet the value is here — and the withholding rate, the asked-vs-inferred ratio, and the confidence distribution are all computed over reports, so an unreported value is silently excluded from every one of them while still feeding the recommendation. (2) also makes 'shared' the only sharing outcome under which a value may travel: transmitted-and-withheld is now rejected by (2) as well as by (1).\nBoth are presence checks keyed on a closed enum, not comparisons of two sibling values, which is why Draft-07 can enforce them and why they are not delegated to the backend: the egress promise the closed-pipe design makes to the client is worth more when the client's own machine can check it before the payload leaves.\nWHY BOTH, given (2) seems to subsume (1): they diverge on the duplicate-report payload. A value present with BOTH a shared report and a withheld report satisfies (2) — a shared report exists — and is caught only by (1). `uniqueItems` cannot stop that pair (it compares whole objects; see the duplicate_characterization_field obligation), so (1) is what denies a leaked value its second, contradictory alibi. The residual backend obligation is narrower than before: reject duplicate field names, and never log or persist a rejected payload's withheld value."
     },
     "BudgetRecord": {
       "type": "object",
@@ -292,11 +363,12 @@
     "AdvisoryBehavior": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["recommended_action", "client_action"],
+      "required": ["advice_id", "recommended_action", "client_action"],
       "properties": {
         "advice_id": {
           "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
-          "x-identifier": true
+          "x-identifier": true,
+          "description": "The specific recommendation this run answers. REQUIRED: adherence is a claim about ONE piece of advice, and without its id the settled run record cannot be joined back to the recommendation it followed or ignored, nor to the funnel events (advice_shown -> recommendation_accepted -> executed) that track the same advice. An unjoinable adherence record measures a rate over an unknown denominator, which is not a measurement. It also anchors adherence_probability: a prediction is only scoreable against the outcome of the advice it was made about."
         },
         "recommended_action": {
           "type": "string",

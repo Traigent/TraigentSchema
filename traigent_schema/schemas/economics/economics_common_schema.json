@@ -17,8 +17,9 @@
     "UtcTimestamp": {
       "type": "string",
       "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
       "maxLength": 40,
-      "description": "RFC-3339 UTC timestamp emitted with a trailing Z."
+      "description": "RFC-3339 timestamp in UTC, emitted with a trailing Z. The pattern enforces the stated form rather than describing it: `format: date-time` alone also admits a local offset (2026-07-17T13:00:00+03:00), and an offset-bearing timestamp that is read as UTC silently moves an event by hours — which reorders a funnel, moves a metering window, and backdates an attestation. This is a new contract with no emitters to break, so the honest choice is to enforce the form the prose promises; an emitter with a local clock normalizes to UTC before it emits, which it must do anyway to be comparable."
     },
     "Identifier": {
       "type": "string",

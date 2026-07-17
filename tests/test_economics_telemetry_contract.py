@@ -52,6 +52,27 @@ def _rejected(payload: dict, schema: str) -> bool:
 # --------------------------------------------------------------------------- #
 # fixtures
 # --------------------------------------------------------------------------- #
+#: The stages at which each join key becomes mandatory, mirrored from the contract.
+_ADVICE_STAGES = (
+    "advice_shown",
+    "budget_allocated",
+    "run_started",
+    "completed",
+    "recommendation_accepted",
+    "executed",
+    "promoted",
+    "production_retained",
+)
+_RUN_STAGES = (
+    "run_started",
+    "completed",
+    "recommendation_accepted",
+    "executed",
+    "promoted",
+    "production_retained",
+)
+
+
 def _funnel_event(**extra) -> dict:
     event = {
         "event_type": "funnel_event",
@@ -60,8 +81,19 @@ def _funnel_event(**extra) -> dict:
         "project_ref": "proj-1",
         "stage": "advice_shown",
         "outcome": "entered",
+        "advice_id": "advice-1",
     }
     event.update(extra)
+    return event
+
+
+def _funnel_at(stage: str, **extra) -> dict:
+    """A funnel event carrying exactly the join keys its stage requires."""
+    event = _funnel_event(stage=stage, **extra)
+    if stage not in _ADVICE_STAGES:
+        event.pop("advice_id", None)
+    if stage in _RUN_STAGES:
+        event.setdefault("run_id", "run-1")
     return event
 
 
@@ -77,6 +109,19 @@ def _interval(**extra) -> dict:
     return interval
 
 
+def _report(field: str, **extra) -> dict:
+    """A complete, honest field report. Defaults to the cheapest valid shape so a
+    test that overrides one key is exercising exactly that key."""
+    report = {
+        "field": field,
+        "provenance": "asked",
+        "confidence": 1.0,
+        "sharing_outcome": "shared",
+    }
+    report.update(extra)
+    return report
+
+
 def _run_event(**extra) -> dict:
     event = {
         "event_type": "run_economics",
@@ -85,6 +130,8 @@ def _run_event(**extra) -> dict:
         "project_ref": "proj-1",
         "run_id": "run-1",
         "archetype": "solo_coding_builder",
+        # Every transmitted value below is reported; the one withheld field is
+        # reported AND absent. The fixture is the worked example of the rule.
         "characterization": {
             "bands": {
                 "value_channel": "save_expert_time",
@@ -93,21 +140,27 @@ def _run_event(**extra) -> dict:
             },
             "overrides": {"observed_daily_volume": 3100},
             "field_reports": [
-                {
-                    "field": "value_channel",
-                    "provenance": "asked",
-                    "confidence": 1.0,
-                    "sharing_outcome": "shared",
-                },
-                {
-                    "field": "observed_daily_volume",
-                    "provenance": "inferred",
-                    "confidence": 0.8,
-                    "sharing_outcome": "shared",
-                    "evidence_status": "provided",
-                    "evidence_pointer": "traces show ~3.1k runs/day over 14 days",
-                },
+                _report("value_channel"),
+                _report("daily_volume_band", provenance="inferred", confidence=0.7,
+                        evidence_status="provided", evidence_pointer="14d of run counts"),
+                _report("error_cost_band", provenance="defaulted", confidence=0.4),
+                _report(
+                    "observed_daily_volume",
+                    provenance="inferred",
+                    confidence=0.8,
+                    evidence_status="provided",
+                    evidence_pointer="traces show ~3.1k runs/day over 14 days",
+                ),
+                # withheld: reported, and its value is nowhere in the payload
+                _report(
+                    "loss_per_bad_output_usd",
+                    provenance="inferred",
+                    confidence=0.5,
+                    sharing_outcome="withheld_by_policy",
+                    evidence_status="withheld_by_policy",
+                ),
             ],
+            "sharing_policy_version": "sharing-policy-v0",
             "asked_count": 2,
         },
         "budget": {
@@ -140,6 +193,7 @@ def _run_event(**extra) -> dict:
             "exclusions": [{"reason": "parse_failure", "count": 2}],
         },
         "advisory": {
+            "advice_id": "advice-1",
             "recommended_action": "run_optimization",
             "client_action": "followed",
             "adherence_probability": 0.6,
@@ -328,7 +382,64 @@ def test_every_funnel_stage_is_representable() -> None:
         "production_retained",
     ]
     for stage in stages:
-        assert _ok(_funnel_event(stage=stage), FUNNEL), stage
+        assert _ok(_funnel_at(stage), FUNNEL), stage
+
+
+def test_late_stages_must_name_the_advice_they_are_about() -> None:
+    """A stage past eligibility exists BECAUSE a specific piece of advice was shown.
+    Without advice_id it is an unjoinable count: 'someone was shown something, and
+    separately someone promoted something' is not evidence that the promotion
+    followed the advice, which is the entire claim the funnel exists to support."""
+    for stage in _ADVICE_STAGES:
+        event = _funnel_at(stage)
+        del event["advice_id"]
+        assert _rejected(event, FUNNEL), f"{stage}: unjoinable to the advice it is about"
+        assert _ok(_funnel_at(stage), FUNNEL), stage
+
+
+def test_late_stages_must_name_the_run_that_produced_them() -> None:
+    """From run_started onward a run exists by definition. Without run_id the stage
+    cannot be joined to the run_economics record holding the spend and the effect —
+    a promotion whose evidence sits in an unlinkable record."""
+    for stage in _RUN_STAGES:
+        event = _funnel_at(stage)
+        del event["run_id"]
+        assert _rejected(event, FUNNEL), f"{stage}: unjoinable to its run"
+        assert _ok(_funnel_at(stage), FUNNEL), stage
+
+
+def test_the_stages_before_a_run_do_not_have_to_invent_one() -> None:
+    """The boundaries of both rules, in the honest direction: requiring an id that
+    cannot exist yet would force emitters to fabricate one, which is worse than the
+    gap. eligible precedes any advice; nothing before run_started has a run."""
+    assert _ok(
+        {
+            "event_type": "funnel_event",
+            "event_id": "evt-funnel-0",
+            "occurred_at": "2026-07-17T10:00:00Z",
+            "project_ref": "proj-1",
+            "stage": "eligible",
+            "outcome": "entered",
+        },
+        FUNNEL,
+    ), "eligibility precedes advice: no advice_id to name"
+
+    for stage in ("advice_shown", "budget_allocated"):
+        event = _funnel_at(stage)
+        assert "run_id" not in event
+        assert _ok(event, FUNNEL), f"{stage}: no run exists yet"
+
+    # an id that legitimately exists early is still allowed to be named
+    assert _ok(_funnel_at("budget_allocated", run_id="run-1"), FUNNEL)
+
+
+def test_an_exit_still_has_to_name_its_stages_ids() -> None:
+    """The rules key on the stage, not the outcome: a drop at `executed` is exactly
+    where the join matters most — it is the advice that did not stick."""
+    event = _funnel_at("executed", outcome="exited", exit_reason="promotion_reverted")
+    assert _ok(event, FUNNEL)
+    del event["advice_id"]
+    assert _rejected(event, FUNNEL), "an exit must still say which advice it abandoned"
 
 
 def test_exit_requires_a_reason_and_entry_forbids_one() -> None:
@@ -365,79 +476,154 @@ def test_funnel_rejects_unknown_stage_and_unknown_field() -> None:
 # --------------------------------------------------------------------------- #
 # characterization provenance / sharing (telemetry only)
 # --------------------------------------------------------------------------- #
-def _with_reports(*reports) -> dict:
+def _with_reports(*reports, bands=None, overrides=None) -> dict:
+    """A run event whose characterization transmits ONLY the values passed here and
+    reports ONLY the reports passed here.
+
+    The full fixture's own bands/overrides are cleared deliberately. Leaving them in
+    would make every payload here fail the coverage rule as well as the rule under
+    test, and a test that passes for two reasons is not evidence about either.
+    """
     event = _run_event()
-    event["characterization"]["field_reports"] = list(reports)
+    event["characterization"]["bands"] = dict(bands or {})
+    event["characterization"]["overrides"] = dict(overrides or {})
+    event["characterization"]["field_reports"] = [deepcopy(r) for r in reports]
     return event
 
 
 def test_inferred_value_must_account_for_its_evidence() -> None:
     assert _rejected(
-        _with_reports(
-            {
-                "field": "observed_daily_volume",
-                "provenance": "inferred",
-                "sharing_outcome": "shared",
-            }
-        ),
+        _with_reports(_report("observed_daily_volume", provenance="inferred", confidence=0.8)),
         RUN,
     ), "an inferred value with no evidence status is an unsupported guess"
+
+
+def test_every_report_must_state_its_confidence() -> None:
+    """Confidence is required on EVERY report, not only inferred ones: an omitted
+    confidence reads downstream as a certain value, and the guesses are exactly the
+    ones an emitter is tempted to leave silent."""
+    for provenance in ("asked", "inferred", "defaulted"):
+        report = _report("value_channel", provenance=provenance)
+        if provenance == "inferred":
+            report["evidence_status"] = "withheld_by_policy"
+        del report["confidence"]
+        assert _rejected(_with_reports(report), RUN), provenance
+        report["confidence"] = 0.25
+        assert _ok(_with_reports(report), RUN), provenance
 
 
 def test_inferred_evidence_may_be_withheld_but_not_leaked() -> None:
     # the honest withholding case: evidence exists, policy kept it local
     assert _ok(
         _with_reports(
-            {
-                "field": "loss_per_bad_output_usd",
-                "provenance": "inferred",
-                "sharing_outcome": "withheld_by_policy",
-                "evidence_status": "withheld_by_policy",
-            }
+            _report(
+                "loss_per_bad_output_usd",
+                provenance="inferred",
+                confidence=0.5,
+                sharing_outcome="withheld_by_policy",
+                evidence_status="withheld_by_policy",
+            )
         ),
         RUN,
     )
     # withheld evidence must not ride along in the pointer field
     assert _rejected(
         _with_reports(
-            {
-                "field": "loss_per_bad_output_usd",
-                "provenance": "inferred",
-                "sharing_outcome": "withheld_by_policy",
-                "evidence_status": "withheld_by_policy",
-                "evidence_pointer": "incident ledger shows $4k median escalation",
-            }
+            _report(
+                "loss_per_bad_output_usd",
+                provenance="inferred",
+                confidence=0.5,
+                sharing_outcome="withheld_by_policy",
+                evidence_status="withheld_by_policy",
+                evidence_pointer="incident ledger shows $4k median escalation",
+            )
         ),
         RUN,
     )
     # claiming the evidence was provided while omitting it is also incoherent
     assert _rejected(
         _with_reports(
-            {
-                "field": "loss_per_bad_output_usd",
-                "provenance": "inferred",
-                "sharing_outcome": "shared",
-                "evidence_status": "provided",
-            }
+            _report(
+                "loss_per_bad_output_usd",
+                provenance="inferred",
+                confidence=0.5,
+                evidence_status="provided",
+            )
         ),
         RUN,
     )
+
+
+def test_a_withheld_field_cannot_claim_its_evidence_was_provided() -> None:
+    """`withheld_by_policy` is a promise about the whole field: neither the value nor
+    the pointer left the machine. A withheld field claiming evidence_status=provided
+    contradicts itself — nothing was provided, because nothing egressed — and the
+    pointer is prose derived from the client's own traces, so it leaks by describing
+    the very number the withholding kept back."""
+    leaked = _report(
+        "loss_per_bad_output_usd",
+        provenance="inferred",
+        confidence=0.5,
+        sharing_outcome="withheld_by_policy",
+        evidence_status="provided",
+        evidence_pointer="incident ledger shows $4k median escalation",
+    )
+    assert _rejected(_with_reports(leaked), RUN), "a withheld field must not ship a pointer"
+
+    # the contradiction is rejected even with the pointer stripped: `provided` is
+    # itself the false claim, not merely the field that carries it
+    del leaked["evidence_pointer"]
+    assert _rejected(_with_reports(leaked), RUN), (
+        "evidence_status=provided on a withheld field is a self-contradiction"
+    )
+
+    leaked["evidence_status"] = "withheld_by_policy"
+    assert _ok(_with_reports(leaked), RUN), "the honest withholding must still be reportable"
 
 
 def test_asked_and_defaulted_values_cannot_claim_inference_evidence() -> None:
     for provenance in ("asked", "defaulted"):
         assert _rejected(
             _with_reports(
-                {
-                    "field": "value_channel",
-                    "provenance": provenance,
-                    "sharing_outcome": "shared",
-                    "evidence_status": "provided",
-                    "evidence_pointer": "made this up",
-                }
+                _report(
+                    "value_channel",
+                    provenance=provenance,
+                    evidence_status="provided",
+                    evidence_pointer="made this up",
+                )
             ),
             RUN,
         ), provenance
+
+
+#: One transmittable value per allowlisted field, and the container it rides in.
+_SAMPLE_VALUES = {
+    "value_channel": "save_expert_time",
+    "daily_volume_band": "under_100",
+    "error_cost_band": "not_measured",
+    "lifecycle_stage": "full_production_we_pay",
+    "human_cycle_hours_band": "1_to_8h",
+    "value_per_task_usd": 2.5,
+    "loss_per_bad_output_usd": 40.0,
+    "observed_daily_volume": 3100,
+    "forecast_daily_volume": 9000,
+    "human_minutes_per_example": 5,
+}
+
+
+def _containers() -> tuple[set, set]:
+    vocab = _load("economics_characterization_vocabulary_schema.json")["definitions"]
+    return (
+        set(vocab["CharacterizationBands"]["properties"]),
+        set(vocab["CharacterizationOverrides"]["properties"]),
+    )
+
+
+def _transmitting(field: str, *reports) -> dict:
+    """A run event transmitting exactly one field's value, with the given reports."""
+    bands, _ = _containers()
+    container = "bands" if field in bands else "overrides"
+    return _with_reports(*reports, **{container: {field: _SAMPLE_VALUES[field]}})
 
 
 def test_a_field_declared_withheld_cannot_ship_its_value_anyway() -> None:
@@ -445,92 +631,110 @@ def test_a_field_declared_withheld_cannot_ship_its_value_anyway() -> None:
     leave the machine. Draft-07 CAN enforce this — it is a presence check keyed on
     a closed enum, not a comparison of two values — so it is enforced here rather
     than deferred to the backend, and this test is the proof that it bites."""
-    # a band declared withheld while its value rides along in `bands`
-    event = _run_event()
-    event["characterization"]["bands"]["lifecycle_stage"] = "full_production_we_pay"
-    event["characterization"]["field_reports"] = [
-        {
-            "field": "lifecycle_stage",
-            "provenance": "asked",
-            "sharing_outcome": "withheld_by_policy",
-        }
-    ]
-    assert _rejected(event, RUN), (
+    withheld = _report("lifecycle_stage", sharing_outcome="withheld_by_policy")
+    assert _rejected(_transmitting("lifecycle_stage", withheld), RUN), (
         "declaring a field withheld while shipping its value must be unrepresentable"
     )
-
     # the honest withholding: declared withheld, absent from bands
-    del event["characterization"]["bands"]["lifecycle_stage"]
-    assert _ok(event, RUN), "an honestly withheld field must still be reportable"
+    assert _ok(_with_reports(withheld), RUN), "an honestly withheld field must still be reportable"
 
     # the same rule for a typed override, not just a band
-    event = _run_event()
-    event["characterization"]["overrides"]["observed_daily_volume"] = 3100
-    event["characterization"]["field_reports"] = [
-        {
-            "field": "observed_daily_volume",
-            "provenance": "inferred",
-            "sharing_outcome": "withheld_by_policy",
-            "evidence_status": "withheld_by_policy",
-        }
-    ]
-    assert _rejected(event, RUN), "the egress rule must cover overrides, not only bands"
-    del event["characterization"]["overrides"]["observed_daily_volume"]
-    assert _ok(event, RUN)
+    withheld_override = _report(
+        "observed_daily_volume",
+        provenance="inferred",
+        confidence=0.8,
+        sharing_outcome="withheld_by_policy",
+        evidence_status="withheld_by_policy",
+    )
+    assert _rejected(_transmitting("observed_daily_volume", withheld_override), RUN), (
+        "the egress rule must cover overrides, not only bands"
+    )
+    assert _ok(_with_reports(withheld_override), RUN)
 
 
-def test_the_withheld_egress_rule_covers_every_allowlisted_field() -> None:
-    """A per-field conditional is only as good as its coverage: one field left out
-    of the expansion is a silent hole, and the hole is exactly a privacy leak."""
-    vocab = _load("economics_characterization_vocabulary_schema.json")["definitions"]
-    bands = set(vocab["CharacterizationBands"]["properties"])
-    overrides = set(vocab["CharacterizationOverrides"]["properties"])
-    sample = {
-        "value_channel": "save_expert_time",
-        "daily_volume_band": "under_100",
-        "error_cost_band": "not_measured",
-        "lifecycle_stage": "full_production_we_pay",
-        "human_cycle_hours_band": "1_to_8h",
-        "value_per_task_usd": 2.5,
-        "loss_per_bad_output_usd": 40.0,
-        "observed_daily_volume": 3100,
-        "forecast_daily_volume": 9000,
-        "human_minutes_per_example": 5,
+def test_a_second_shared_report_cannot_launder_a_withheld_value() -> None:
+    """The duplicate-alibi payload, and the reason the egress rule is kept alongside
+    the coverage rule rather than folded into it: `uniqueItems` compares whole
+    objects, so an emitter may ship BOTH a withheld report and a shared report for
+    the same field. That satisfies coverage — a shared report exists — and the
+    value would ride through on the second, contradictory story. The egress rule is
+    what denies it."""
+    event = _transmitting(
+        "lifecycle_stage",
+        _report("lifecycle_stage", sharing_outcome="withheld_by_policy"),
+        _report("lifecycle_stage", provenance="defaulted", confidence=0.9),
+    )
+    assert _rejected(event, RUN), "a withheld value must not egress behind a second shared report"
+
+
+def test_every_transmitted_value_must_carry_its_own_shared_report() -> None:
+    """Coverage, the other direction of the egress rule. Without it, provenance is
+    opt-in: a value shipped with no report for it is unaccounted — nobody asked,
+    nobody inferred — yet it still reaches the recommendation, while every rate we
+    compute (withholding, asked-vs-inferred, confidence) is computed over reports
+    and silently excludes it."""
+    bands, overrides = _containers()
+    assert set(_SAMPLE_VALUES) == bands | overrides, "sample must cover the whole allowlist"
+
+    for field in _SAMPLE_VALUES:
+        # a report for some OTHER field does not account for this one
+        decoy = _report("value_channel" if field != "value_channel" else "lifecycle_stage")
+        assert _rejected(_transmitting(field, decoy), RUN), f"{field}: value with no report"
+
+        # ... and the honest payload passes
+        assert _ok(_transmitting(field, _report(field)), RUN), f"{field}: reported value rejected"
+
+
+def test_a_transmitted_value_may_only_be_reported_as_shared() -> None:
+    """The coverage rule requires the matching report to say `shared`, not merely to
+    exist: 'here is the value, which I withheld' must not be sayable per field."""
+    for field in _SAMPLE_VALUES:
+        report = _report(field, sharing_outcome="withheld_by_policy")
+        assert _rejected(_transmitting(field, report), RUN), f"{field}: transmitted yet 'withheld'"
+
+
+def test_the_full_fixture_reports_every_field_it_transmits() -> None:
+    """The fixture is the worked example of the rule, so it must obey it. This is the
+    guard on the previous round's actual defect: the fixture transmitted five values
+    and reported two, and every positive assertion built on it inherited that hole."""
+    characterization = _run_event()["characterization"]
+    transmitted = set(characterization["bands"]) | set(characterization["overrides"])
+    shared = {
+        report["field"]
+        for report in characterization["field_reports"]
+        if report["sharing_outcome"] == "shared"
     }
-    assert set(sample) == bands | overrides, "sample must cover the whole allowlist"
-
-    for field, value in sample.items():
-        event = _run_event()
-        event["characterization"]["bands"] = {}
-        event["characterization"]["overrides"] = {}
-        container = "bands" if field in bands else "overrides"
-        event["characterization"][container][field] = value
-        report = {"field": field, "provenance": "asked", "sharing_outcome": "withheld_by_policy"}
-        event["characterization"]["field_reports"] = [report]
-        assert _rejected(event, RUN), f"{field}: withheld value can still egress"
-        # and the same payload passes once the value is actually withheld
-        del event["characterization"][container][field]
-        assert _ok(event, RUN), f"{field}: honest withholding must not be rejected"
+    assert transmitted <= shared, f"unreported values in the fixture: {transmitted - shared}"
+    assert all("confidence" in report for report in characterization["field_reports"])
+    withheld = {
+        report["field"]
+        for report in characterization["field_reports"]
+        if report["sharing_outcome"] == "withheld_by_policy"
+    }
+    assert withheld, "the fixture must exercise the withholding path, not only the happy one"
+    assert not (withheld & transmitted), "a withheld field must not appear in the payload"
 
 
 def test_shared_fields_are_unaffected_by_the_withheld_rule() -> None:
     """Guard against the rule passing for the wrong reason: it must key on the
     sharing outcome, not simply forbid bands that have a field report."""
+    assert _ok(
+        _transmitting("lifecycle_stage", _report("lifecycle_stage")), RUN
+    ), "a shared field must be able to carry its value"
+
+
+def test_characterization_must_report_something() -> None:
+    """An empty characterization is a blank alibi: it names no value, accounts for
+    nothing, and would satisfy the required `characterization` slot."""
     event = _run_event()
-    event["characterization"]["bands"]["lifecycle_stage"] = "full_production_we_pay"
-    event["characterization"]["field_reports"] = [
-        {"field": "lifecycle_stage", "provenance": "asked", "sharing_outcome": "shared"}
-    ]
-    assert _ok(event, RUN), "a shared field must be able to carry its value"
+    event["characterization"] = {}
+    assert _rejected(event, RUN), "characterization with no field reports is not telemetry"
+    event["characterization"] = {"field_reports": []}
+    assert _rejected(event, RUN), "an empty field_reports array reports nothing"
 
 
 def test_only_allowlisted_characterization_fields_can_egress() -> None:
-    assert _rejected(
-        _with_reports(
-            {"field": "customer_name", "provenance": "asked", "sharing_outcome": "shared"}
-        ),
-        RUN,
-    )
+    assert _rejected(_with_reports(_report("customer_name")), RUN)
     event = _run_event()
     event["characterization"]["bands"]["internal_revenue_forecast"] = "big"
     assert _rejected(event, RUN)
@@ -549,32 +753,91 @@ def test_allowlist_exactly_mirrors_the_band_and_override_properties() -> None:
 
 
 def test_provenance_and_sharing_vocabularies_are_closed() -> None:
-    assert _rejected(
-        _with_reports(
-            {"field": "value_channel", "provenance": "guessed", "sharing_outcome": "shared"}
-        ),
-        RUN,
-    )
-    assert _rejected(
-        _with_reports(
-            {"field": "value_channel", "provenance": "asked", "sharing_outcome": "sold"}
-        ),
-        RUN,
-    )
+    assert _rejected(_with_reports(_report("value_channel", provenance="guessed")), RUN)
+    assert _rejected(_with_reports(_report("value_channel", sharing_outcome="sold")), RUN)
 
 
 def test_characterization_overrides_are_typed_and_nonnegative() -> None:
-    event = _run_event()
-    event["characterization"]["overrides"] = {"observed_daily_volume": "about 3k"}
-    assert _rejected(event, RUN)
-    event = _run_event()
-    event["characterization"]["overrides"] = {"loss_per_bad_output_usd": -5}
-    assert _rejected(event, RUN)
+    # each payload is fully reported, so the ONLY thing left to reject is the value
+    assert _rejected(
+        _with_reports(
+            _report("observed_daily_volume", provenance="inferred", confidence=0.8,
+                    evidence_status="withheld_by_policy"),
+            overrides={"observed_daily_volume": "about 3k"},
+        ),
+        RUN,
+    )
+    assert _rejected(
+        _with_reports(
+            _report("loss_per_bad_output_usd"),
+            overrides={"loss_per_bad_output_usd": -5},
+        ),
+        RUN,
+    )
 
 
 # --------------------------------------------------------------------------- #
 # run economics: budget authorship, amounts, evidence identity, advisory, labor
 # --------------------------------------------------------------------------- #
+def test_a_settled_run_record_must_carry_the_whole_economics_record() -> None:
+    """run_economics is the SETTLED economics of a finished, measured run. When only
+    identity was required, `{event_type, event_id, occurred_at, project_ref, run_id}`
+    validated: a record that names a run and asserts nothing, while counting as an
+    economics observation. That is the cheapest way to look instrumented without
+    producing evidence — precisely what this contract exists to stop."""
+    minimal = {
+        "event_type": "run_economics",
+        "event_id": "evt-run-1",
+        "occurred_at": "2026-07-17T10:00:00Z",
+        "project_ref": "proj-1",
+        "run_id": "run-1",
+    }
+    assert _rejected(minimal, RUN), "a run economics event that asserts nothing is not a record"
+    assert _rejected(_batch(minimal), INGEST), "and it must not enter through the batch either"
+    # the discriminated union is oneOf, so a rejected run event matches NO branch
+    # rather than falling through to another one — check the route, not just the schema
+    assert (
+        _v().validate_request("/api/v1/economics/telemetry", "POST", _batch(minimal)) != []
+    ), "the blank record must be rejected at the endpoint, not only in isolation"
+    assert _v().validate_request("/api/v1/economics/telemetry", "POST", _batch(_run_event())) == []
+
+    for field in (
+        "archetype",
+        "characterization",
+        "budget",
+        "actual_spend_usd",
+        "usage",
+        "model_prices",
+        "evidence_identity",
+        "advisory",
+        "labor_proxies",
+    ):
+        event = _run_event()
+        del event[field]
+        assert _rejected(event, RUN), f"{field}: settlement is incomplete without it"
+
+
+def test_a_failed_run_is_a_funnel_exit_not_a_blank_settlement() -> None:
+    """The honest path for the case the blank record was standing in for. A run that
+    failed or produced no supported effect is reported as an exit carrying a closed
+    reason — strictly more informative than an empty settlement, which is why
+    requiring the full record costs no expressiveness."""
+    for reason in ("run_failed", "cost_cap_reached", "insufficient_evidence",
+                   "no_positive_lower_bound"):
+        assert _ok(
+            _funnel_at("completed", outcome="exited", exit_reason=reason), FUNNEL
+        ), reason
+
+
+def test_the_settled_run_must_join_to_the_advice_it_answers() -> None:
+    """Adherence is a claim about ONE recommendation. Without advice_id the record
+    cannot be joined to the advice it followed or to the funnel stages tracking the
+    same advice, and adherence_probability has no outcome to be scored against."""
+    event = _run_event()
+    del event["advisory"]["advice_id"]
+    assert _rejected(event, RUN), "an unjoinable adherence record measures nothing"
+
+
 def test_budget_recommendation_and_cap_are_backend_authored() -> None:
     agent_authored = {"authored_by": "agent", "recommended_daily_usd": 500.0, "cap_usd": 500.0}
     assert _rejected(_run_event(budget=agent_authored), RUN)
@@ -662,6 +925,52 @@ def test_model_prices_cannot_be_agent_asserted() -> None:
     event = _run_event()
     event["model_prices"][0]["price_source"] = "agent_estimate"
     assert _rejected(event, RUN)
+
+
+# --------------------------------------------------------------------------- #
+# timestamps: the prose and the contract must agree
+# --------------------------------------------------------------------------- #
+def test_timestamps_must_be_utc_with_a_trailing_z() -> None:
+    """`format: date-time` also admits a local offset, so the prose ('emitted with a
+    trailing Z') and the contract disagreed. An offset-bearing timestamp read as UTC
+    silently moves an event by hours: it reorders a funnel, shifts a metering window,
+    and backdates an attestation. New contract, no emitters to break — so the stated
+    form is enforced rather than described."""
+    for bad in (
+        "2026-07-17T13:00:00+03:00",  # the same instant, read three hours early
+        "2026-07-17T10:00:00-05:00",
+        "2026-07-17T10:00:00",  # no zone at all
+        "2026-07-17 10:00:00Z",  # not RFC-3339
+        "2026-07-17T10:00:00z",  # lowercase z is not the stated form
+        "2026-07-17",
+        "yesterday",
+        "",
+    ):
+        assert _rejected(_run_event(occurred_at=bad), RUN), bad
+
+    for good in ("2026-07-17T10:00:00Z", "2026-07-17T10:00:00.123Z", "2026-07-17T10:00:00.123456Z"):
+        assert _ok(_run_event(occurred_at=good), RUN), good
+
+
+def test_the_utc_rule_reaches_every_timestamp_not_just_the_event_time() -> None:
+    """One shared primitive, so the rule must hold wherever a time is recorded —
+    including the ones that gate money and attestation."""
+    event = _run_event()
+    event["model_prices"][0]["as_of"] = "2026-07-17T00:00:00+02:00"
+    assert _rejected(event, RUN), "a priced-at time with an offset misdates the price"
+
+    receipt = _winner_receipt()
+    receipt["attestation"]["verified_at"] = "2026-07-17T11:00:00+02:00"
+    assert _rejected(receipt, RECEIPT), "an attestation must not be backdatable by offset"
+
+    receipt = _savings_receipt()
+    receipt["savings"]["window"]["end"] = "2026-07-17T00:00:00+02:00"
+    assert _rejected(receipt, RECEIPT), "a metering window must be unambiguous"
+
+    body = _batch(sent_at="2026-07-17T12:00:00+02:00")
+    assert _rejected(body, INGEST)
+
+    assert _rejected(_response(received_at="2026-07-17T12:00:01+02:00"), RESPONSE)
 
 
 # --------------------------------------------------------------------------- #
@@ -912,22 +1221,21 @@ def test_boundary_duplicate_field_names_are_accepted_because_uniqueitems_compare
     """`uniqueItems` deduplicates whole objects, so one field reported twice with
     DIFFERENT metadata passes. Backend obligation: duplicate_characterization_field."""
     contradictory = [
-        {"field": "error_cost_band", "provenance": "asked", "sharing_outcome": "shared"},
-        {
-            "field": "error_cost_band",
-            "provenance": "inferred",
-            "confidence": 0.3,
-            "sharing_outcome": "shared",
-            "evidence_status": "provided",
-            "evidence_pointer": "a second, conflicting story about the same field",
-        },
+        _report("error_cost_band"),
+        _report(
+            "error_cost_band",
+            provenance="inferred",
+            confidence=0.3,
+            evidence_status="provided",
+            evidence_pointer="a second, conflicting story about the same field",
+        ),
     ]
     assert _ok(_with_reports(*contradictory), RUN), (
         "if this now REJECTS, the contract has closed the gap — rewrite this test as a "
         "rejection and drop the duplicate_characterization_field backend obligation"
     )
     # the byte-identical repeat IS caught, which is the narrow thing uniqueItems buys
-    same = {"field": "error_cost_band", "provenance": "asked", "sharing_outcome": "shared"}
+    same = _report("error_cost_band")
     assert _rejected(_with_reports(same, deepcopy(same)), RUN), (
         "uniqueItems must at least stop an identical repeat"
     )

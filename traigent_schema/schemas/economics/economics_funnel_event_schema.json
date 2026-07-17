@@ -24,12 +24,12 @@
     },
     "run_id": {
       "allOf": [{"$ref": "./economics_common_schema.json#/definitions/RunId"}],
-      "description": "The run this stage relates to, once a run exists (stages run_started and later)."
+      "description": "The run this stage relates to. REQUIRED from run_started onward, where a run exists by definition; forbidden nowhere, because a run can be named earlier (an id minted at budget_allocated is legitimate). See the stage conditionals below."
     },
     "advice_id": {
       "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
       "x-identifier": true,
-      "description": "The advice/recommendation this stage relates to, linking advice_shown through recommendation_accepted to executed."
+      "description": "The advice/recommendation this stage relates to. REQUIRED from advice_shown onward: every stage after eligibility exists BECAUSE a specific piece of advice was shown, and the funnel's whole purpose is to follow that advice through to production. See the stage conditionals below."
     },
     "stage": {
       "type": "string",
@@ -115,6 +115,50 @@
       },
       "then": {
         "required": ["exit_reason"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "advice_shown",
+              "budget_allocated",
+              "run_started",
+              "completed",
+              "recommendation_accepted",
+              "executed",
+              "promoted",
+              "production_retained"
+            ]
+          }
+        },
+        "required": ["stage"]
+      },
+      "then": {
+        "required": ["advice_id"],
+        "description": "Every stage from advice_shown onward is about a SPECIFIC piece of advice and must name it. Without advice_id the stage is an unjoinable count: 'someone was shown something, and separately someone promoted something' does not establish that the promotion followed the advice, which is the only claim the funnel exists to support. eligible is exempt — eligibility precedes advice, so there is no advice to name yet."
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "run_started",
+              "completed",
+              "recommendation_accepted",
+              "executed",
+              "promoted",
+              "production_retained"
+            ]
+          }
+        },
+        "required": ["stage"]
+      },
+      "then": {
+        "required": ["run_id"],
+        "description": "From run_started onward a run exists by definition, so the event must name it. Without run_id these stages cannot be joined to the run_economics record that carries the spend, the effect, and its interval — the funnel would report that something was promoted while the evidence for promoting it sits in an unlinkable record. eligible, advice_shown, and budget_allocated are exempt: no run exists yet at those stages, and requiring one would force an emitter to invent an id."
       }
     }
   ],

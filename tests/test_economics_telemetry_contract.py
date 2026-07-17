@@ -96,6 +96,9 @@ def _funnel_at(stage: str, **extra) -> dict:
         event.pop("advice_id", None)
     if stage in _RUN_STAGES:
         event.setdefault("run_id", "run-1")
+    if stage == "production_retained":
+        # a production-retention observation is only honest in production
+        event.setdefault("occurred_in_environment", "production")
     return event
 
 
@@ -408,6 +411,53 @@ def test_late_stages_must_name_the_run_that_produced_them() -> None:
         del event["run_id"]
         assert _rejected(event, FUNNEL), f"{stage}: unjoinable to its run"
         assert _ok(_funnel_at(stage), FUNNEL), stage
+
+
+def test_production_retention_is_only_claimable_in_production() -> None:
+    """production_retained is the numerator of the production-retention rate, and a
+    retention claim is only meaningful where production actually ran. Without this
+    conditional, occurred_in_environment could be omitted, `development`, or `staging`
+    at production_retained and still count as retention — inflating the numerator with
+    runs that never reached production."""
+    # the honest positive: retained, observed in production
+    assert _ok(_funnel_at("production_retained", occurred_in_environment="production"), FUNNEL)
+
+    # omitting the environment is not a production claim
+    missing = _funnel_at("production_retained")
+    missing.pop("occurred_in_environment", None)
+    assert _rejected(missing, FUNNEL), "production_retained without an environment is not a claim"
+
+    # naming a non-production environment is rejected decisively
+    for env in ("development", "staging"):
+        assert _rejected(
+            _funnel_at("production_retained", occurred_in_environment=env), FUNNEL
+        ), env
+
+    # the rule keys on the stage, not the outcome: an EXIT at production_retained is
+    # still a claim about production and must obey the same rule
+    assert _rejected(
+        _funnel_at(
+            "production_retained",
+            outcome="exited",
+            exit_reason="production_regression",
+            occurred_in_environment="staging",
+        ),
+        FUNNEL,
+    ), "an exit at production_retained must still be a production observation"
+    assert _ok(
+        _funnel_at(
+            "production_retained",
+            outcome="exited",
+            exit_reason="production_regression",
+            occurred_in_environment="production",
+        ),
+        FUNNEL,
+    )
+
+    # earlier stages are unconstrained: an event can be observed pre-production, or
+    # record no environment at all
+    assert _ok(_funnel_at("promoted", occurred_in_environment="staging"), FUNNEL)
+    assert _ok(_funnel_at("promoted"), FUNNEL), "environment is optional before production_retained"
 
 
 def test_the_stages_before_a_run_do_not_have_to_invent_one() -> None:

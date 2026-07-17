@@ -17,7 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `production_retained`). Every exit carries a CLOSED reason code: `exit_reason` is
     required when `outcome` is `exited` and forbidden otherwise, and there is no `other`
     member and no free-text note — an exit that fits no code is a versioned enum
-    addition, not a prose escape hatch.
+    addition, not a prose escape hatch. At the `production_retained` stage
+    `occurred_in_environment` is REQUIRED and must be `production` (keyed on the stage,
+    so an exit there obeys it too): production retention is the numerator of the
+    retention rate, so a retention observation that omits its environment or names
+    `development`/`staging` would inflate that numerator with runs that never reached
+    production. Earlier stages leave `occurred_in_environment` optional and
+    unconstrained.
   - **Run economics** is the SETTLED record of a run whose effect was measured (a
     failed/capped/insufficient-evidence run is a funnel exit, not a blank settlement),
     so the whole record is required, not just identity: characterization bands/overrides

@@ -145,6 +145,17 @@
         "required": ["run_id"],
         "description": "From run_started onward a run exists by definition, so the event must name it. Without run_id these stages cannot be joined to the run_economics record that carries the spend, the effect, and its interval — the funnel would report that something was promoted while the evidence for promoting it sits in an unlinkable record. eligible, advice_shown, and budget_allocated are exempt: no run exists yet at those stages, and requiring one would force an emitter to invent an id."
       }
+    },
+    {
+      "if": {
+        "properties": {"stage": {"const": "production_retained"}},
+        "required": ["stage"]
+      },
+      "then": {
+        "required": ["occurred_in_environment"],
+        "properties": {"occurred_in_environment": {"const": "production"}},
+        "description": "production_retained is the numerator of the production-retention rate, and a retention claim is only meaningful where production actually ran. So at this stage occurred_in_environment is REQUIRED and must be production: omitting it, or naming development or staging, would let a run that never reached production count as retained and inflate the numerator. The rule keys on the stage, not the outcome — an exit AT production_retained is still a claim about production and must name it. Earlier stages leave occurred_in_environment optional and unconstrained: an event can legitimately be observed in development or staging before anything reaches production."
+      }
     }
   ],
   "x-backend-obligations": [

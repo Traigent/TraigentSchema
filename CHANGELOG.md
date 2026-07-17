@@ -46,7 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     cannot be submitted as a savings receipt. A winner whose `promotion.status` is
     `promoted` or `reverted` MUST carry its `production_follow_up` (a pending one is
     truthful — `scheduled` with a `due_at`), so a promotion cannot stay silent about the
-    eval-to-production transfer it depends on.
+    eval-to-production transfer it depends on; and a `not_promoted` winner MUST NOT carry
+    one — nothing was deployed, so a scheduled or confirmed production check on a
+    configuration declared never deployed is production-transfer evidence for a transfer
+    that by definition never happened, and forbidding it (rather than merely not
+    requiring it) closes that hole.
   - **Field-level sharing rules, enforced by the contract.** `sharing_outcome` and a
     transmitted value form a biconditional, enforced per allowlisted field as presence
     checks keyed on a closed enum (which Draft-07 can express, so a client verifies them

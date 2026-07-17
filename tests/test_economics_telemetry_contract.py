@@ -1194,6 +1194,9 @@ def test_winner_promotion_status_and_timestamps_must_agree() -> None:
     }
     assert _ok(event, RECEIPT)
     event["winner"]["promotion"] = {"status": "not_promoted"}
+    # not_promoted forbids a production follow-up (see the dedicated test below), so
+    # drop the default fixture's follow-up to keep this case about promotion timestamps
+    del event["winner"]["production_follow_up"]
     assert _ok(event, RECEIPT), "a supported result the client declined is still a valid receipt"
 
 
@@ -1228,6 +1231,42 @@ def test_a_promoted_or_reverted_winner_must_carry_its_production_follow_up() -> 
     event["winner"]["promotion"] = {"status": "not_promoted"}
     del event["winner"]["production_follow_up"]
     assert _ok(event, RECEIPT), "a declined winner needs no production follow-up"
+
+
+def test_a_not_promoted_winner_must_not_carry_a_production_follow_up() -> None:
+    """The complement of the rule above, and the hole it closes: requiring the follow-up
+    only for promoted/reverted left `not_promoted` free to carry one anyway. A production
+    follow-up on a configuration the client declared never deployed is production-transfer
+    evidence for a transfer that by definition never happened — a never-deployed config
+    claiming production uptake. So a not_promoted receipt is valid ONLY without a
+    production follow-up; both the pending `scheduled` variant and a resolved `confirmed`
+    variant are rejected."""
+    # the honest not_promoted receipt carries no follow-up
+    event = _winner_receipt()
+    event["winner"]["promotion"] = {"status": "not_promoted"}
+    del event["winner"]["production_follow_up"]
+    assert _ok(event, RECEIPT), "a declined winner without a follow-up is the honest shape"
+
+    # a scheduled follow-up (the shape the default fixture and the old tests admitted)
+    # is now rejected: there is nothing scheduled to measure on a config never deployed
+    event["winner"]["production_follow_up"] = {
+        "status": "scheduled",
+        "due_at": "2026-07-24T12:00:00Z",
+    }
+    assert _rejected(event, RECEIPT), (
+        "a never-deployed config must not schedule a production check"
+    )
+
+    # a confirmed follow-up is rejected too: it claims production evidence for a
+    # transfer that never happened — the exact non-gameability hole this rule closes
+    event["winner"]["production_follow_up"] = {
+        "status": "confirmed",
+        "measured_at": "2026-07-24T12:00:00Z",
+        "production_delta": _interval(),
+    }
+    assert _rejected(event, RECEIPT), (
+        "a never-deployed config must not claim confirmed production-transfer evidence"
+    )
 
 
 def test_production_follow_up_can_report_a_contradiction_and_must_measure_it() -> None:

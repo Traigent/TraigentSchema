@@ -194,11 +194,21 @@
           },
           "then": {
             "required": ["production_follow_up"],
-            "description": "A promoted or reverted winner MUST carry its production follow-up. Promotion is the moment the eval claim is put into production, and eval-to-production transfer is a decision-sensitive assumption: a receipt that promotes (or reverts) while staying silent about production is the exact shape that can only report success. A follow-up that has not resolved yet is truthful, not absent — production_follow_up.status=scheduled with a due_at (enforced above) says 'promoted, measurement pending' rather than omitting the obligation. 'not_promoted' does not require it: nothing was put into production to follow up on, which is the uptake measurement, not a gap."
+            "description": "A promoted or reverted winner MUST carry its production follow-up. Promotion is the moment the eval claim is put into production, and eval-to-production transfer is a decision-sensitive assumption: a receipt that promotes (or reverts) while staying silent about production is the exact shape that can only report success. A follow-up that has not resolved yet is truthful, not absent — production_follow_up.status=scheduled with a due_at (enforced above) says 'promoted, measurement pending' rather than omitting the obligation. 'not_promoted' is handled by the complementary rule below: nothing was put into production, so it does not merely go unrequired — a production follow-up is FORBIDDEN there."
+          }
+        },
+        {
+          "if": {
+            "properties": {"promotion": {"properties": {"status": {"const": "not_promoted"}}, "required": ["status"]}},
+            "required": ["promotion"]
+          },
+          "then": {
+            "not": {"required": ["production_follow_up"]},
+            "description": "A not_promoted winner MUST NOT carry a production follow-up. Nothing was put into production, so there is nothing to follow up on: a scheduled or confirmed production check on a configuration the client declared never deployed is production-transfer evidence for a transfer that by definition never happened — the exact shape that lets a never-deployed config claim production uptake. Requiring the follow-up for promoted/reverted while merely not-requiring it here would leave that shape representable; forbidding it closes the hole. That the client declined a supported result is itself the uptake measurement, carried by promotion.status alone."
           }
         }
       ],
-      "description": "Winner receipt: immutable run identity, actual cost, paired delta with interval, selected configuration, promotion status, and the production follow-up (required once the winner is promoted or reverted)."
+      "description": "Winner receipt: immutable run identity, actual cost, paired delta with interval, selected configuration, promotion status, and the production follow-up (required once the winner is promoted or reverted, and forbidden when it was not_promoted)."
     },
     "DefectReceipt": {
       "type": "object",

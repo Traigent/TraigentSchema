@@ -1281,6 +1281,116 @@ def test_receipts_reject_unknown_fields() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# ShortLabel: an opaque identifier grammar, not a free-form egress channel
+#
+# ShortLabel is consumed by model_id, the emitting-surface name, evaluator_version,
+# objective, the metric name, and the policy-version fields. Left free-form (any
+# 1-128 char string), each of those is a channel through which sensitive prose or
+# PII could egress. These tests drive one label VALUE through EVERY consuming field
+# and assert the grammar bites the same way in each — a rule that guarded only
+# model_id would leave the other five open.
+# --------------------------------------------------------------------------- #
+def _through_every_short_label_field(value):
+    """(field-name, payload, schema) for every field that consumes a ShortLabel,
+    with just that field set to `value` and the rest of the payload left valid."""
+    model_id = _run_event()
+    model_id["model_prices"][0]["model_id"] = value
+
+    evaluator_version = _run_event()
+    evaluator_version["evidence_identity"]["evaluator_version"] = value
+
+    objective = _run_event()
+    objective["evidence_identity"]["objective_weights"][0]["objective"] = value
+
+    policy_version = _run_event()
+    policy_version["characterization"]["sharing_policy_version"] = value
+
+    metric = _defect_receipt()
+    metric["defect"]["downstream_metric_change"] = {
+        "metric": value,
+        "delta": -0.01,
+        "unit": "proportion",
+        "measured_at": "2026-07-18T12:00:00Z",
+    }
+
+    source_name = _batch()
+    source_name["source"]["name"] = value
+
+    return (
+        ("model_id", model_id, RUN),
+        ("evaluator_version", evaluator_version, RUN),
+        ("objective", objective, RUN),
+        ("sharing_policy_version", policy_version, RUN),
+        ("downstream_metric_change.metric", metric, RECEIPT),
+        ("source.name", source_name, INGEST),
+    )
+
+
+#: Content-shaped labels a free-form string would have leaked. Each is prose, PII,
+#: whitespace, a control character, a quote, or email text — never an identifier.
+_CONTENT_SHAPED_LABELS = (
+    "Alice Smith SSN 123-45-6789",  # Terra's example: a name + PII, carried as spaces + prose
+    "patient note: see chart",       # plain prose with a colon
+    "line one\nline two",            # embedded newline
+    "accuracy\n",                     # a valid id with a TRAILING newline — the `$`-only bypass
+    "col\tumn",                       # embedded tab (a control character)
+    "nul\x00byte",               # embedded NUL (a control character)
+    'he said "ship it"',             # quotes + spaces
+    "alice@example.com",             # at-sign / email text
+    "this is a free form note",      # prose
+    "-leading-hyphen",               # leading separator: not an identifier
+    "trailing-hyphen-",              # trailing separator: not an identifier
+    "___",                            # pure separators, no alphanumerics
+    "café-au-lait",             # non-ASCII letter
+)
+
+
+def test_short_label_rejects_content_shaped_values_through_every_consuming_field() -> None:
+    """Not free-form: a label carrying prose, PII, whitespace, control characters,
+    quotes, or email text is rejected wherever a ShortLabel is consumed — so none of
+    model_id, evaluator_version, objective, the sharing-policy version, the metric name,
+    or the source name is an egress channel for sensitive content. Terra's example
+    `Alice Smith SSN 123-45-6789` is rejected through all six."""
+    for label in _CONTENT_SHAPED_LABELS:
+        for field, payload, schema in _through_every_short_label_field(label):
+            assert _rejected(payload, schema), (
+                f"{field} must reject content-shaped label {label!r}"
+            )
+
+
+#: Representative real identifiers the grammar must NOT reject — it bought no safety
+#: if it also rejects honest model ids, versions, metric names, and objectives.
+_REAL_IDENTIFIERS = (
+    "gpt-4o-mini",
+    "anthropic/claude-3.5",
+    "accuracy_v2",
+    "1.0.0",
+    "exec-match-v2",
+    "claude-haiku-4-5",
+    "text:embedding-3",
+    "x",  # a single alphanumeric is a valid one-character identifier
+)
+
+
+def test_short_label_accepts_representative_real_identifiers() -> None:
+    """The grammar must not have bought its safety by rejecting honest identifiers:
+    real model ids, versions, metric names, and objective names still validate through
+    every consuming field."""
+    for label in _REAL_IDENTIFIERS:
+        for field, payload, schema in _through_every_short_label_field(label):
+            assert _ok(payload, schema), f"{field} must accept real identifier {label!r}"
+
+
+def test_short_label_is_pattern_constrained_not_merely_bounded() -> None:
+    """Pin the control itself: the prose says 'not free-form', so the type must carry a
+    pattern, not just length bounds. A future edit that drops the pattern (reverting to
+    any 1-128 char string) fails here rather than silently re-opening the egress."""
+    short_label = _load("economics_common_schema.json")["definitions"]["ShortLabel"]
+    assert "pattern" in short_label, "ShortLabel must be pattern-constrained, not free-form"
+    assert short_label["maxLength"] == 128 and short_label["minLength"] == 1
+
+
+# --------------------------------------------------------------------------- #
 # response
 # --------------------------------------------------------------------------- #
 def _response(**extra) -> dict:
@@ -1333,6 +1443,7 @@ def test_response_rejection_reasons_cover_the_backend_only_checks() -> None:
         "attestation_not_independent",
         "duplicate_event_id",
         "meter_reconciliation_failed",
+        "winner_receipt_reconciliation_failed",
     } <= reasons
 
 
@@ -1478,6 +1589,51 @@ def test_boundary_support_counts_are_not_related_to_each_other() -> None:
     )
 
 
+def test_boundary_a_contradictory_winner_receipt_is_schema_valid_and_pins_the_backend() -> None:
+    """A winner receipt's load-bearing fields — actual_cost_usd, paired_delta,
+    selected_config_hash, the immutable run identity, and the promotion evidence — are
+    only CLAIMS until reconciled, as a set, against the immutable stored run. Draft-07
+    validates one payload in isolation and has no stored run to compare against, so a
+    STRUCTURALLY valid winner receipt whose fields contradict the real run is
+    contract-valid. This receipt is internally well-formed but mutually incoherent as a
+    claim: a strongly positive paired delta on a run that cost almost nothing, against a
+    config/run hash that need correspond to nothing stored, promoted with a follow-up
+    already 'confirmed' in its favour. The contract accepts it; only cross-record
+    reconciliation can reject it.
+    Backend obligation: WINNER RECEIPT RECONCILIATION / winner_receipt_reconciliation_failed."""
+    contradictory = _winner_receipt()
+    contradictory["winner"]["actual_cost_usd"] = 0.01
+    contradictory["winner"]["paired_delta"] = _interval(estimate=0.95, lower=0.94, upper=0.96)
+    contradictory["winner"]["run_identity"] = {
+        "run_id": "run-that-need-not-exist",
+        "run_immutable_hash": "f" * 64,
+    }
+    contradictory["winner"]["selected_config_hash"] = "9" * 64
+    contradictory["winner"]["promotion"] = {
+        "status": "promoted",
+        "promoted_at": "2026-07-17T12:00:00Z",
+    }
+    contradictory["winner"]["production_follow_up"] = {
+        "status": "confirmed",
+        "measured_at": "2026-07-24T12:00:00Z",
+        "production_delta": _interval(estimate=0.95, lower=0.94, upper=0.96),
+    }
+    assert _ok(contradictory, RECEIPT), (
+        "if this now REJECTS, the contract has closed the gap — rewrite this test as a "
+        "rejection and drop the WINNER RECEIPT RECONCILIATION backend obligation"
+    )
+    # the gap is named precisely, not buried in schema_violation
+    reasons = set(
+        _load("economics_telemetry_ingest_response_schema.json")["properties"]["rejections"][
+            "items"
+        ]["properties"]["reason"]["enum"]
+    )
+    assert "winner_receipt_reconciliation_failed" in reasons
+    # and the obligation that must catch it is declared on the receipt contract
+    obligations = " ".join(_load("economics_receipt_event_schema.json")["x-backend-obligations"])
+    assert "WINNER RECEIPT RECONCILIATION" in obligations
+
+
 def test_boundary_gaps_each_have_a_named_closed_rejection_reason() -> None:
     """A gap the backend cannot NAME cannot be actioned by the emitter. Each
     boundary above must map to a specific code, not to schema_violation."""
@@ -1491,6 +1647,7 @@ def test_boundary_gaps_each_have_a_named_closed_rejection_reason() -> None:
         "interval_bounds_inconsistent",
         "support_counts_inconsistent",
         "withheld_field_value_present",
+        "winner_receipt_reconciliation_failed",
     } <= reasons
 
 
@@ -1506,6 +1663,7 @@ def test_unenforceable_invariants_are_declared_as_backend_obligations() -> None:
         ),
         "economics_receipt_event_schema.json": (
             "PROPOSER != VERIFIER", "IMMUTABLE PERSISTENCE", "INTERVAL ORDERING",
+            "WINNER RECEIPT RECONCILIATION",
         ),
         "economics_funnel_event_schema.json": ("Funnel ORDER", "TENANT OWNERSHIP"),
         "economics_run_event_schema.json": (

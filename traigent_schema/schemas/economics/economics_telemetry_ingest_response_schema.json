@@ -71,9 +71,10 @@
               "duplicate_characterization_field",
               "interval_bounds_inconsistent",
               "support_counts_inconsistent",
-              "withheld_field_value_present"
+              "withheld_field_value_present",
+              "winner_receipt_reconciliation_failed"
             ],
-            "description": "CLOSED rejection reason. Mirrors the backend obligations this contract cannot enforce: the checks a schema cannot make are the ones that must be reportable here. The last four name cross-field checks precisely rather than burying them in schema_violation — an emitter told 'schema_violation' cannot tell a typo from a sharing-policy bug that leaked a value the client meant to withhold. 'withheld_field_value_present' is the one code whose contract case is ALSO unrepresentable (CharacterizationTelemetry enforces withheld ⇒ absent); it stays because the backend must still make the check defensively at any layer that does not re-validate, and because the emitter deserves to be told which bug it has."
+            "description": "CLOSED rejection reason. Mirrors the backend obligations this contract cannot enforce: the checks a schema cannot make are the ones that must be reportable here. Several name cross-field checks precisely rather than burying them in schema_violation — an emitter told 'schema_violation' cannot tell a typo from a sharing-policy bug that leaked a value the client meant to withhold. 'withheld_field_value_present' is the one code whose contract case is ALSO unrepresentable (CharacterizationTelemetry enforces withheld ⇒ absent); it stays because the backend must still make the check defensively at any layer that does not re-validate, and because the emitter deserves to be told which bug it has. 'winner_receipt_reconciliation_failed' names the cross-RECORD check on a winner receipt (see the receipt schema's WINNER RECEIPT RECONCILIATION obligation): a structurally valid winner receipt whose cost, paired delta, selected config, run identity, or promotion evidence contradicts the immutable stored run is contract-valid and must be rejected here, because JSON Schema validates one payload in isolation and has no stored run to reconcile it against."
           },
           "detail": {
             "type": "string",

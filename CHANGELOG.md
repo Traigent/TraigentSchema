@@ -62,13 +62,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   proposer ≠ verifier, immutable/idempotent persistence, meter reconciliation, and the
   cross-field checks below). Declaring an obligation documents a gap; it is not evidence
   the gap is closed.
-- Closed rejection reasons naming the cross-field checks Draft-07 cannot make, so an
-  emitter is told which bug it has rather than a generic `schema_violation`:
-  `duplicate_characterization_field` (`uniqueItems` compares whole objects, so one field
-  reported twice with differing metadata passes), `interval_bounds_inconsistent`
-  (`lower <= estimate <= upper` cannot be expressed, and the economics model leads with
-  the lower bound), `support_counts_inconsistent` (`n_paired <= n_examples`), and
-  `withheld_field_value_present`.
+- Closed rejection reasons naming the cross-field and cross-record checks Draft-07
+  cannot make, so an emitter is told which bug it has rather than a generic
+  `schema_violation`: `duplicate_characterization_field` (`uniqueItems` compares whole
+  objects, so one field reported twice with differing metadata passes),
+  `interval_bounds_inconsistent` (`lower <= estimate <= upper` cannot be expressed, and
+  the economics model leads with the lower bound), `support_counts_inconsistent`
+  (`n_paired <= n_examples`), `withheld_field_value_present`, and
+  `winner_receipt_reconciliation_failed` (a winner receipt's cost, paired delta, selected
+  config, immutable run identity, and promotion evidence cannot be cross-record reconciled
+  against the stored run in Draft-07).
+- **`ShortLabel` is an opaque identifier grammar, not free-form text.** The shared
+  `ShortLabel` type (consumed by `model_id`, the emitting-surface name, `evaluator_version`,
+  `objective`, the metric name, and the policy-version fields) previously accepted any
+  1–128 character string, so sensitive prose or PII could egress through those fields
+  despite the "not free-form" prose. It now carries an identifier pattern: ASCII letters and
+  digits, with `.` `_` `:` `/` `+` `-` allowed only between alphanumerics, and a portable
+  end-of-input anchor (so a trailing newline cannot slip through Python's `$`). This admits
+  real identifiers (`gpt-4o-mini`, `anthropic/claude-3.5`, `accuracy_v2`, `1.0.0`) and
+  rejects content-shaped values such as `Alice Smith SSN 123-45-6789`, whitespace, control
+  characters, quotes, and email text. The length bounds are unchanged.
+- **`WINNER RECEIPT RECONCILIATION` backend obligation.** A winner receipt is structurally
+  self-consistent but its `actual_cost_usd`, `paired_delta`, `selected_config_hash`,
+  immutable run identity, and promotion evidence are only claims until reconciled, as a set,
+  against the immutable stored run, the authoritative cost meter, the selected/measured
+  config, the recorded baseline/candidate effect, and the recorded promotion evidence.
+  JSON Schema validates one payload in isolation and has no stored run to compare against, so
+  a structurally valid but contradictory winner receipt is contract-valid and must be
+  rejected at the backend boundary (`winner_receipt_reconciliation_failed`). Declaring the
+  obligation documents the gap; it does not close it.
 
 ## [4.9.0] - 2026-07-16
 

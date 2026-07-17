@@ -89,7 +89,8 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "description": "A bounded label (metric name, model id, version string). Not free-form content."
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9._:/+-]*[A-Za-z0-9])?(?![\\s\\S])",
+      "description": "A bounded, OPAQUE identifier: a metric name, model id, evaluator/policy version, objective name, or emitting-surface name/version. Constrained to an identifier grammar rather than left free-form, because this type is consumed by model_id, the price/source name, evaluator_version, objective, metric, and the policy-version fields — any of which would otherwise be an egress channel for sensitive prose or PII. Allowed: ASCII letters and digits, with period, underscore, colon, slash, plus, and hyphen permitted only BETWEEN alphanumerics (so a value both starts and ends with a letter or digit). Disallowed by construction: whitespace, control characters, quotes, the at-sign/email text, non-ASCII letters, and any other prose- or content-shaped value. The tail is anchored with a negative lookahead `(?![\\s\\S])` (a true end-of-input assertion in both Python `re` and ECMA-262) rather than `$`, because Python's `$` also matches immediately before a trailing newline — so `$` alone would admit a value like `accuracy\\n`, re-opening a control-character channel. This grammar admits real identifiers (`gpt-4o-mini`, `anthropic/claude-3.5`, `accuracy_v2`, `1.0.0`, `exec-match-v2`) and rejects free text such as `Alice Smith SSN 123-45-6789`. The length bounds are unchanged."
     },
     "Provenance": {
       "type": "string",

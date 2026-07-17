@@ -16,14 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Exposure funnel events** across the nine stages (`eligible` →
     `production_retained`). Every exit carries a CLOSED reason code: `exit_reason` is
     required when `outcome` is `exited` and forbidden otherwise, and there is no `other`
-    member.
-  - **Run economics**: characterization bands/overrides with per-field
-    `asked | inferred | defaulted` provenance, confidence, and sharing outcomes;
-    archetype; backend-authored budget recommendation/cap (`authored_by` is a `backend`
-    const, so an agent-authored budget is unrepresentable); actual spend; usage and
-    model prices with a closed price source; evidence identity (baseline/candidate,
-    dataset/holdout hashes, evaluator version, objective weights, effect estimate with a
-    required interval and level, support, closed exclusion reasons); advisory behavior
+    member and no free-text note — an exit that fits no code is a versioned enum
+    addition, not a prose escape hatch.
+  - **Run economics** is the SETTLED record of a run whose effect was measured (a
+    failed/capped/insufficient-evidence run is a funnel exit, not a blank settlement),
+    so the whole record is required, not just identity: characterization bands/overrides
+    with per-field `asked | inferred | defaulted` provenance, confidence, and sharing
+    outcomes; archetype; backend-authored budget recommendation/cap (`authored_by` is a
+    `backend` const, so an agent-authored budget is unrepresentable); actual spend;
+    explicitly-metered usage (`input_tokens`, `output_tokens`, `model_calls` required, so
+    a $0 run reports explicit zeros rather than an empty object that meters nothing);
+    model prices with a closed price source; evidence identity with the measured effect
+    REQUIRED (baseline/candidate and evaluator, objective weights, effect estimate with a
+    required interval and level, support, and explicit exclusions; `holdout_hash` stays
+    optional because measuring without a holdout is a real fact); advisory behavior
     (recommendation, client action, closed off-menu classes, adherence probability,
     planner-blind information); and labor proxies where claimed hours avoided require
     human confirmation.
@@ -31,16 +37,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     required evidence, discriminated so a receipt cannot carry another kind's block.
     Savings are metered-only: `measurement_method` is a `metered` const and
     `meter_source` is closed to authoritative meters, so an agent-authored estimate
-    cannot be submitted as a savings receipt.
-  - **Field-level sharing egress rule, enforced by the contract.** A characterization
-    field reported as `sharing_outcome: withheld_by_policy` must be ABSENT from
-    `bands`/`overrides`: declaring a field withheld while shipping its value is
-    unrepresentable, not merely discouraged in prose. Enforced per allowlisted field
-    (a presence check keyed on a closed enum, which Draft-07 can express), so a client
-    can verify the closed-pipe promise on its own machine before a payload egresses.
+    cannot be submitted as a savings receipt. A winner whose `promotion.status` is
+    `promoted` or `reverted` MUST carry its `production_follow_up` (a pending one is
+    truthful — `scheduled` with a `due_at`), so a promotion cannot stay silent about the
+    eval-to-production transfer it depends on.
+  - **Field-level sharing rules, enforced by the contract.** `sharing_outcome` and a
+    transmitted value form a biconditional, enforced per allowlisted field as presence
+    checks keyed on a closed enum (which Draft-07 can express, so a client verifies them
+    on its own machine before a payload egresses): a field reported
+    `withheld_by_policy` must be ABSENT from `bands`/`overrides` (egress); a value
+    present must carry a `shared` report (coverage); and a `shared` report must carry its
+    value (substance), so a report cannot be an empty alibi that names a sharing outcome
+    while transmitting nothing.
   - **Batch envelope** with stable contract/version identifiers, an idempotency key
-    (also accepted via the `Idempotency-Key` header), a 500-event cap, and a response
-    reporting submitted/accepted/duplicate/rejected counts with closed rejection reasons.
+    (also accepted via the `Idempotency-Key` header) and a 500-event cap. The response
+    reports submitted/accepted/duplicate/rejected counts with closed rejection reasons
+    and ALWAYS carries a `rejections` array (empty when none, so 'stored' is
+    distinguishable from 'silently dropped'). Per-status response schemas bind the replay
+    flag: HTTP 200 (replay) is `replayed: true`, HTTP 201 (initial ingest) is
+    `replayed: false`, so status and body cannot disagree about whether state was
+    written.
 - `x-backend-obligations`: a governance-declared extension enumerating the invariants a
   contract requires but JSON Schema cannot enforce (tenant ownership, funnel order,
   proposer ≠ verifier, immutable/idempotent persistence, meter reconciliation, and the

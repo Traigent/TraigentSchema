@@ -5,7 +5,7 @@
   "description": "The result of ingesting one batch: how many events were accepted, how many were already-seen duplicates, how many were rejected, and — per rejected event — a closed reason. Partial acceptance is explicit rather than implied: an emitter must be able to tell 'stored' from 'silently dropped' without diffing counts.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contract", "contract_version", "batch_id", "idempotency_key", "received_at", "replayed", "counts"],
+  "required": ["contract", "contract_version", "batch_id", "idempotency_key", "received_at", "replayed", "counts", "rejections"],
   "properties": {
     "contract": {"$ref": "./economics_common_schema.json#/definitions/ContractId"},
     "contract_version": {"$ref": "./economics_common_schema.json#/definitions/ContractVersion"},
@@ -84,9 +84,15 @@
           }
         }
       },
-      "description": "One entry per rejected event. Required to be present and non-empty when counts.rejected > 0 — a backend obligation, since JSON Schema cannot relate an array's length to a sibling integer."
+      "description": "One entry per rejected event. ALWAYS present: the field is required, an empty array when nothing was rejected. Requiring it makes 'stored' distinguishable from 'silently dropped' without the emitter diffing counts, and removes the ambiguous case where an absent `rejections` could mean either 'none rejected' or 'the reasons were omitted'. That the array's length equals counts.rejected, and that its entries are non-empty exactly when counts.rejected > 0, is a backend obligation: JSON Schema cannot relate an array's length to a sibling integer."
     }
   },
   "x-stability": "pre-release",
-  "x-asserted-against-backend": false
+  "x-asserted-against-backend": false,
+  "x-backend-obligations": [
+    "COUNT RECONCILIATION: accepted + duplicate + rejected == submitted must hold. The four counts are bounded independently; JSON Schema cannot relate them, so the identity is enforced at the boundary that emits the response.",
+    "REJECTIONS RECONCILE WITH COUNT: rejections is required and defaults to an empty array, but its length must equal counts.rejected and every entry's event_index must address a real event in the submitted batch. A response with counts.rejected > 0 and rejections == [] is contract-valid (length cannot be related to a sibling integer here) and MUST be rejected at the boundary; an empty rejections array is truthful only when counts.rejected == 0.",
+    "REPLAY PERSISTENCE: replayed = true means this exact response is a byte-for-byte replay of the first ingest under this idempotency key and that NO new state was written on this call; replayed = false means state was written now. The flag is a claim about persistence the backend must actually honor — a 200 replay must not mutate, and a 201 initial ingest must not silently coalesce with a prior batch.",
+    "STATUS/FLAG AGREEMENT: the HTTP status and replayed must agree — 200 is served only with the replay response schema (replayed const true) and 201 only with the initial response schema (replayed const false). The bound constant makes a disagreeing body unrepresentable per status, but the backend must still select the correct status for the persistence outcome it actually produced."
+  ]
 }

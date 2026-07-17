@@ -27,6 +27,8 @@ ECON = get_schemas_dir() / "economics"
 
 INGEST = "economics_telemetry_ingest_request_schema"
 RESPONSE = "economics_telemetry_ingest_response_schema"
+RESPONSE_REPLAY = "economics_telemetry_ingest_response_replay_schema"
+RESPONSE_INITIAL = "economics_telemetry_ingest_response_initial_schema"
 RECEIPT = "economics_receipt_event_schema"
 RUN = "economics_run_event_schema"
 FUNNEL = "economics_funnel_event_schema"
@@ -455,17 +457,25 @@ def test_exit_reason_vocabulary_is_closed() -> None:
         assert _rejected(_funnel_event(outcome="exited", exit_reason=reason), FUNNEL), reason
 
 
-def test_exit_detail_cannot_stand_in_for_a_reason_code() -> None:
+def test_exit_detail_free_text_is_not_representable() -> None:
+    """exit_detail was REMOVED from the ingest contract. A free-text note bypasses
+    field-level sharing (it may echo client context the sharing policy would withhold)
+    and analysis never reads it — the closed exit_reason code is the whole record. An
+    exit that fits no code is a versioned enum addition, not a prose escape hatch, so
+    exit_detail is now an unknown field rejected by additionalProperties:false — even
+    alongside a valid reason code, which is where the old contract still admitted it."""
+    assert _rejected(
+        _funnel_event(outcome="exited", exit_reason="user_declined", exit_detail="note"),
+        FUNNEL,
+    ), "exit_detail must not be representable even alongside a valid reason code"
     assert _rejected(
         _funnel_event(outcome="exited", exit_detail="they just did not want to"), FUNNEL
     )
-    assert _rejected(
-        _funnel_event(outcome="entered", exit_detail="a note"), FUNNEL
-    )
-    assert _ok(
-        _funnel_event(outcome="exited", exit_reason="user_declined", exit_detail="note"),
-        FUNNEL,
-    )
+    assert _rejected(_funnel_event(outcome="entered", exit_detail="a note"), FUNNEL)
+    # the closed reason code alone is the honest, complete exit record
+    assert _ok(_funnel_event(outcome="exited", exit_reason="user_declined"), FUNNEL)
+    # exit_detail is gone from the schema entirely, not merely constrained
+    assert "exit_detail" not in _load("economics_funnel_event_schema.json")["properties"]
 
 
 def test_funnel_rejects_unknown_stage_and_unknown_field() -> None:
@@ -507,9 +517,12 @@ def test_every_report_must_state_its_confidence() -> None:
         if provenance == "inferred":
             report["evidence_status"] = "withheld_by_policy"
         del report["confidence"]
-        assert _rejected(_with_reports(report), RUN), provenance
+        # transmit the value so the ONLY defect is the missing confidence (a shared
+        # report with no transmitted value is independently rejected — see the
+        # substance rule), keeping this test about confidence alone
+        assert _rejected(_transmitting("value_channel", report), RUN), provenance
         report["confidence"] = 0.25
-        assert _ok(_with_reports(report), RUN), provenance
+        assert _ok(_transmitting("value_channel", report), RUN), provenance
 
 
 def test_inferred_evidence_may_be_withheld_but_not_leaked() -> None:
@@ -693,6 +706,30 @@ def test_a_transmitted_value_may_only_be_reported_as_shared() -> None:
         assert _rejected(_transmitting(field, report), RUN), f"{field}: transmitted yet 'withheld'"
 
 
+def test_a_shared_report_with_no_transmitted_value_is_an_empty_alibi() -> None:
+    """The substance rule (3), the converse of coverage: a report claiming a field was
+    `shared` MUST transmit that field's value. Without it an emitter satisfies the
+    required, non-empty field_reports slot with a report that names a provenance and a
+    sharing outcome while carrying nothing the recommendation can read — the
+    characterization half of a blank settlement, which looks instrumented and asserts
+    no value. Every allowlisted field is probed."""
+    for field in _SAMPLE_VALUES:
+        # a shared report whose value is transmitted nowhere
+        assert _rejected(_with_reports(_report(field)), RUN), f"{field}: shared but no value"
+        # ... and transmitting the value makes the same report honest
+        assert _ok(_transmitting(field, _report(field)), RUN), f"{field}: reported value rejected"
+    # the honest all-withheld characterization stays representable: its reports are
+    # withheld_by_policy (not shared), so the substance rule does not fire
+    withheld = _report(
+        "loss_per_bad_output_usd",
+        provenance="inferred",
+        confidence=0.5,
+        sharing_outcome="withheld_by_policy",
+        evidence_status="withheld_by_policy",
+    )
+    assert _ok(_with_reports(withheld), RUN), "an all-withheld characterization is honest telemetry"
+
+
 def test_the_full_fixture_reports_every_field_it_transmits() -> None:
     """The fixture is the worked example of the rule, so it must obey it. This is the
     guard on the previous round's actual defect: the fixture transmitted five values
@@ -824,6 +861,63 @@ def test_a_failed_run_is_a_funnel_exit_not_a_blank_settlement() -> None:
     requiring the full record costs no expressiveness."""
     for reason in ("run_failed", "cost_cap_reached", "insufficient_evidence",
                    "no_positive_lower_bound"):
+        assert _ok(
+            _funnel_at("completed", outcome="exited", exit_reason=reason), FUNNEL
+        ), reason
+
+
+def test_a_settled_run_meters_its_usage_explicitly() -> None:
+    """Empty usage was the cost half of a blank settlement: `usage: {}` satisfied the
+    required slot while metering nothing. A settled run meters input/output tokens and
+    model calls explicitly; a genuinely free run reports explicit zeros — the spend-$0
+    case the model must always show — which is distinguishable from 'never measured'."""
+    assert _rejected(_run_event(usage={}), RUN), "an empty usage object meters nothing"
+    for field in ("input_tokens", "output_tokens", "model_calls"):
+        event = _run_event()
+        del event["usage"][field]
+        assert _rejected(event, RUN), field
+    assert _ok(
+        _run_event(usage={"input_tokens": 0, "output_tokens": 0, "model_calls": 0}), RUN
+    ), "the spend-$0 case reports explicit zeros, not an empty object"
+
+
+def test_a_settled_run_records_the_measured_effect_support_and_exclusions() -> None:
+    """run_economics is emitted only for a run whose effect WAS measured (a failure is a
+    funnel exit), so the measured evidence is not optional: without effect_estimate,
+    support, exclusions, and the objective weights in force, the record names an
+    evidence identity that measures nothing — the evidence half of a blank settlement."""
+    for field in ("effect_estimate", "support", "exclusions", "objective_weights"):
+        event = _run_event()
+        del event["evidence_identity"][field]
+        assert _rejected(event, RUN), f"{field}: a settled effect claim is incomplete without it"
+    # exclusions must be EXPLICIT, but an empty array is the honest 'nothing was dropped'
+    event = _run_event()
+    event["evidence_identity"]["exclusions"] = []
+    assert _ok(event, RUN), "an explicit empty exclusions array asserts nothing was excluded"
+    # holdout stays optional: an effect measured without a holdout is a real fact the
+    # transfer analysis needs, so requiring it would reject honest no-holdout telemetry
+    event = _run_event()
+    del event["evidence_identity"]["holdout_hash"]
+    assert _ok(event, RUN), "measuring without a holdout is a methodological fact, not a gap"
+
+
+def test_the_composed_blank_settlement_shell_is_rejected_and_the_honest_exit_is_not() -> None:
+    """Defect 1 in one payload: a run_economics event that combines every empty shell —
+    zero-metering usage, an evidence identity with no measured effect, and a
+    characterization whose only report is a `shared` alibi with no value — must be
+    rejected as a body, and its honest alternative (report the drop as a funnel exit
+    carrying a closed reason) must stay valid. The strictness costs no expressiveness."""
+    shell = _run_event()
+    shell["usage"] = {}
+    del shell["evidence_identity"]["effect_estimate"]
+    del shell["evidence_identity"]["support"]
+    shell["characterization"] = {"field_reports": [_report("value_channel")]}
+    assert _rejected(shell, RUN), "a blank settlement shell must not pass as a settled run"
+    assert _rejected(_batch(shell), INGEST), "and it must not enter through the batch either"
+    assert (
+        _v().validate_request("/api/v1/economics/telemetry", "POST", _batch(shell)) != []
+    ), "the shell must be rejected at the endpoint, not only in isolation"
+    for reason in ("run_failed", "cost_cap_reached", "insufficient_evidence"):
         assert _ok(
             _funnel_at("completed", outcome="exited", exit_reason=reason), FUNNEL
         ), reason
@@ -1053,6 +1147,39 @@ def test_winner_promotion_status_and_timestamps_must_agree() -> None:
     assert _ok(event, RECEIPT), "a supported result the client declined is still a valid receipt"
 
 
+def test_a_promoted_or_reverted_winner_must_carry_its_production_follow_up() -> None:
+    """Promotion puts the eval claim into production, and eval-to-production transfer is
+    a decision-sensitive assumption: a winner that promotes (or reverts) while omitting
+    its production follow-up is the exact shape that can only report success. A pending
+    follow-up is truthful, not absent — status=scheduled with a due_at."""
+    for status, extra in (
+        ("promoted", {"promoted_at": "2026-07-17T12:00:00Z"}),
+        (
+            "reverted",
+            {"promoted_at": "2026-07-17T12:00:00Z", "reverted_at": "2026-07-18T12:00:00Z"},
+        ),
+    ):
+        event = _winner_receipt()
+        event["winner"]["promotion"] = {"status": status, **extra}
+        del event["winner"]["production_follow_up"]
+        assert _rejected(event, RECEIPT), f"{status}: promotion without a production follow-up"
+        # a truthful pending follow-up satisfies it
+        event["winner"]["production_follow_up"] = {
+            "status": "scheduled",
+            "due_at": "2026-07-24T12:00:00Z",
+        }
+        assert _ok(event, RECEIPT), f"{status}: a scheduled follow-up is a truthful pending record"
+        # ... but a pending 'scheduled' follow-up must still say when it is due
+        del event["winner"]["production_follow_up"]["due_at"]
+        assert _rejected(event, RECEIPT), f"{status}: a scheduled follow-up must carry due_at"
+    # not_promoted needs no follow-up: nothing was put into production to follow up on,
+    # and that a supported result was declined is itself the uptake measurement
+    event = _winner_receipt()
+    event["winner"]["promotion"] = {"status": "not_promoted"}
+    del event["winner"]["production_follow_up"]
+    assert _ok(event, RECEIPT), "a declined winner needs no production follow-up"
+
+
 def test_production_follow_up_can_report_a_contradiction_and_must_measure_it() -> None:
     event = _winner_receipt()
     event["winner"]["production_follow_up"] = {"status": "contradicted"}
@@ -1209,6 +1336,84 @@ def test_response_rejection_reasons_cover_the_backend_only_checks() -> None:
     } <= reasons
 
 
+def test_response_always_carries_a_rejections_array() -> None:
+    """rejections is REQUIRED, defaulting to an empty array when nothing was rejected,
+    so an emitter tells 'none rejected' from 'the reasons were omitted' without diffing
+    counts. That the array's length equals counts.rejected is a backend obligation."""
+    body = _response()
+    del body["rejections"]
+    assert _rejected(body, RESPONSE), "a response that omits rejections is ambiguous"
+    # a clean batch still carries the (empty) array
+    assert _ok(
+        _response(
+            counts={"submitted": 2, "accepted": 2, "duplicate": 0, "rejected": 0},
+            rejections=[],
+        ),
+        RESPONSE,
+    )
+
+
+def test_per_status_response_schemas_bind_the_replay_flag() -> None:
+    """200 replay and 201 initial ingest are distinct persistence outcomes, so the body
+    binds replayed per status: the 200 schema rejects replayed=false and the 201 schema
+    rejects replayed=true. A status line and a body that disagree about whether state
+    was written would tell a retrying emitter the wrong thing on the replay path."""
+    assert _ok(_response(replayed=True), RESPONSE_REPLAY)
+    assert _rejected(
+        _response(replayed=False), RESPONSE_REPLAY
+    ), "a 200 replay response cannot claim replayed=false"
+    assert _ok(_response(replayed=False), RESPONSE_INITIAL)
+    assert _rejected(
+        _response(replayed=True), RESPONSE_INITIAL
+    ), "a 201 initial-ingest response cannot claim replayed=true"
+    # the per-status schemas still inherit every base constraint
+    body = _response(replayed=True)
+    body["counts"]["accepted"] = -1
+    assert _rejected(body, RESPONSE_REPLAY), "a per-status schema must inherit the base counts rule"
+    body = _response(replayed=True)
+    del body["rejections"]
+    assert _rejected(body, RESPONSE_REPLAY), "a per-status schema must inherit required rejections"
+
+
+def test_the_endpoint_binds_each_status_to_its_replay_schema() -> None:
+    """The contract-native replay binding is only real if the route serves each status
+    with the matching per-status schema."""
+    responses = _load("economics_endpoints.json")["paths"]["/api/v1/economics/telemetry"][
+        "post"
+    ]["responses"]
+    assert responses["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "economics_telemetry_ingest_response_replay_schema.json"
+    )
+    assert responses["201"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "economics_telemetry_ingest_response_initial_schema.json"
+    )
+
+
+def test_boundary_rejections_length_is_not_related_to_the_rejected_count() -> None:
+    """counts.rejected is an integer and rejections is an array; Draft-07 cannot relate
+    an array's length to a sibling integer, so a response claiming rejected>0 while
+    carrying an empty rejections array is contract-valid and must be caught at the
+    backend boundary. Backend obligation: REJECTIONS RECONCILE WITH COUNT."""
+    lying = _response(
+        counts={"submitted": 3, "accepted": 2, "duplicate": 0, "rejected": 1},
+        rejections=[],
+    )
+    assert _ok(lying, RESPONSE), (
+        "if this now REJECTS, the contract has closed the gap — rewrite this test as a "
+        "rejection and drop the REJECTIONS RECONCILE WITH COUNT backend obligation"
+    )
+    obligations = " ".join(
+        _load("economics_telemetry_ingest_response_schema.json")["x-backend-obligations"]
+    )
+    for marker in (
+        "COUNT RECONCILIATION",
+        "REJECTIONS RECONCILE WITH COUNT",
+        "REPLAY PERSISTENCE",
+        "STATUS/FLAG AGREEMENT",
+    ):
+        assert marker in obligations, marker
+
+
 # --------------------------------------------------------------------------- #
 # the schema boundary: cross-field checks Draft-07 cannot make
 #
@@ -1230,13 +1435,15 @@ def test_boundary_duplicate_field_names_are_accepted_because_uniqueitems_compare
             evidence_pointer="a second, conflicting story about the same field",
         ),
     ]
-    assert _ok(_with_reports(*contradictory), RUN), (
+    # transmit the value so the substance rule is satisfied and the ONLY thing left
+    # for the contract to catch is the duplicate field name — which it cannot
+    assert _ok(_transmitting("error_cost_band", *contradictory), RUN), (
         "if this now REJECTS, the contract has closed the gap — rewrite this test as a "
         "rejection and drop the duplicate_characterization_field backend obligation"
     )
     # the byte-identical repeat IS caught, which is the narrow thing uniqueItems buys
     same = _report("error_cost_band")
-    assert _rejected(_with_reports(same, deepcopy(same)), RUN), (
+    assert _rejected(_transmitting("error_cost_band", same, deepcopy(same)), RUN), (
         "uniqueItems must at least stop an identical repeat"
     )
 
@@ -1308,6 +1515,12 @@ def test_unenforceable_invariants_are_declared_as_backend_obligations() -> None:
             "INTERVAL ORDERING",
             "SUPPORT COUNTS",
             "WITHHELD VALUES ARE NOT LOGGED",
+        ),
+        "economics_telemetry_ingest_response_schema.json": (
+            "COUNT RECONCILIATION",
+            "REJECTIONS RECONCILE WITH COUNT",
+            "REPLAY PERSISTENCE",
+            "STATUS/FLAG AGREEMENT",
         ),
     }
     for file_name, required in obligations.items():

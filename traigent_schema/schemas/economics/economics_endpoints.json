@@ -31,18 +31,18 @@
         },
         "responses": {
           "200": {
-            "description": "Batch replayed — this idempotency key was already ingested; no new state was written.",
+            "description": "Batch replayed — this idempotency key was already ingested; no new state was written. The body binds replayed=true (replay response schema), so status and flag cannot disagree.",
             "content": {
               "application/json": {
-                "schema": {"$ref": "./economics_telemetry_ingest_response_schema.json"}
+                "schema": {"$ref": "./economics_telemetry_ingest_response_replay_schema.json"}
               }
             }
           },
           "201": {
-            "description": "Batch ingested. Individual events may still have been rejected; read counts and rejections.",
+            "description": "Batch ingested — state written now. Individual events may still have been rejected; read counts and rejections. The body binds replayed=false (initial response schema).",
             "content": {
               "application/json": {
-                "schema": {"$ref": "./economics_telemetry_ingest_response_schema.json"}
+                "schema": {"$ref": "./economics_telemetry_ingest_response_initial_schema.json"}
               }
             }
           },

@@ -65,7 +65,8 @@
     "UNIQUE CHARACTERIZATION FIELDS: reject a payload whose characterization.field_reports names the same `field` twice (reason duplicate_characterization_field). `uniqueItems` compares WHOLE objects, so two reports for one field with differing provenance/confidence/sharing_outcome are distinct objects and pass the contract. Left unchecked, an emitter could report one field as both `asked` and `inferred`, or as both `shared` and `withheld_by_policy` — which makes provenance and withholding rates unreadable and gives a leaked value a second, contradictory alibi. JSON Schema cannot express uniqueness on an object property.",
     "INTERVAL ORDERING: reject any ConfidenceInterval where NOT (lower <= estimate <= upper), and any interval whose level is implausible for the claim (reason interval_bounds_inconsistent). The contract bounds each of the three numbers independently but cannot relate them, so `lower: 0.9, estimate: 0.1, upper: 0.2` is contract-valid today. This matters more here than in a typical schema: the economics model LEADS WITH THE LOWER BOUND, so an inverted interval does not merely look odd — it manufactures a favourable lower bound out of an unfavourable result.",
     "SUPPORT COUNTS: reject evidence_identity.support where n_paired > n_examples (reason support_counts_inconsistent). More paired observations than observations is impossible, and pairing is the control the winner receipt rests on; both counts are independently bounded but the contract cannot relate them.",
-    "WITHHELD VALUES ARE NOT LOGGED: the contract makes `withheld_by_policy` + a present value unrepresentable (see CharacterizationTelemetry), so such a payload is REJECTED — but rejection paths are exactly where full request bodies get written to error logs and dead-letter queues. The withheld value must never be logged, persisted, echoed in the rejection `detail`, or otherwise retained. Reject and drop, with reason withheld_field_value_present."
+    "WITHHELD VALUES ARE NOT LOGGED: the contract makes `withheld_by_policy` + a present value unrepresentable (see CharacterizationTelemetry), so such a payload is REJECTED — but rejection paths are exactly where full request bodies get written to error logs and dead-letter queues. The withheld value must never be logged, persisted, echoed in the rejection `detail`, or otherwise retained. Reject and drop, with reason withheld_field_value_present.",
+    "HOLDOUT REQUIRED BY STAKES: evidence_identity.holdout_hash is contract-optional because an effect measured without a frozen holdout is a real methodological fact the transfer analysis needs to know. WHETHER a holdout was required for this run — a function of archetype, error-cost band, and whether the winner is being promoted — is a design/backend judgement the contract cannot make (it cannot read the promotion decision or the stakes table from a single settled event). A high-stakes promotion whose effect rests on no holdout is a finding to raise, not a contract-valid record to trust silently."
   ],
   "definitions": {
     "CharacterizationFieldReport": {
@@ -235,10 +236,50 @@
         {
           "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["human_minutes_per_example"]}}},
           "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_minutes_per_example"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_channel"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["value_channel"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "daily_volume_band"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["daily_volume_band"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "error_cost_band"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["error_cost_band"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "lifecycle_stage"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["lifecycle_stage"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_cycle_hours_band"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["human_cycle_hours_band"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_per_task_usd"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["value_per_task_usd"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "loss_per_bad_output_usd"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["loss_per_bad_output_usd"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "observed_daily_volume"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["observed_daily_volume"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "forecast_daily_volume"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["forecast_daily_volume"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_minutes_per_example"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["human_minutes_per_example"]}}}
         }
       ],
       "description": "Characterization telemetry: the values that reached us, plus per-field provenance/confidence/sharing outcomes. NOT the survey submission contract — it carries no recommendation, no sharing policy definition, and no agent-facing presentation payload. `agent_display_name` is deliberately absent: it is presentation-only, has no analytic use, and would be an unnecessary egress of the client's naming.",
-      "x-traigent-note": "A field withheld by the sharing policy appears in field_reports with sharing_outcome=withheld_by_policy and is absent from bands/overrides. That absence is data (we learn what clients withhold) rather than a gap. TWO RULES ARE ENFORCED HERE, one per direction, expanded per field because Draft-07 cannot parameterize a subschema:\n(1) EGRESS: if field_reports declares a field withheld_by_policy, its value MUST be absent from bands/overrides. Declaring a field withheld while shipping its value is unrepresentable, not merely forbidden in prose.\n(2) COVERAGE: if a value IS present in bands/overrides, field_reports MUST contain a report naming that field with sharing_outcome=shared. Without (2), (1) is a rule an emitter opts into by staying silent: a value shipped with NO report for it is unreported provenance — nobody asked, nobody inferred, nothing was shared, yet the value is here — and the withholding rate, the asked-vs-inferred ratio, and the confidence distribution are all computed over reports, so an unreported value is silently excluded from every one of them while still feeding the recommendation. (2) also makes 'shared' the only sharing outcome under which a value may travel: transmitted-and-withheld is now rejected by (2) as well as by (1).\nBoth are presence checks keyed on a closed enum, not comparisons of two sibling values, which is why Draft-07 can enforce them and why they are not delegated to the backend: the egress promise the closed-pipe design makes to the client is worth more when the client's own machine can check it before the payload leaves.\nWHY BOTH, given (2) seems to subsume (1): they diverge on the duplicate-report payload. A value present with BOTH a shared report and a withheld report satisfies (2) — a shared report exists — and is caught only by (1). `uniqueItems` cannot stop that pair (it compares whole objects; see the duplicate_characterization_field obligation), so (1) is what denies a leaked value its second, contradictory alibi. The residual backend obligation is narrower than before: reject duplicate field names, and never log or persist a rejected payload's withheld value."
+      "x-traigent-note": "A field withheld by the sharing policy appears in field_reports with sharing_outcome=withheld_by_policy and is absent from bands/overrides. That absence is data (we learn what clients withhold) rather than a gap. THREE RULES ARE ENFORCED HERE, expanded per field because Draft-07 cannot parameterize a subschema:\n(1) EGRESS: if field_reports declares a field withheld_by_policy, its value MUST be absent from bands/overrides. Declaring a field withheld while shipping its value is unrepresentable, not merely forbidden in prose.\n(2) COVERAGE: if a value IS present in bands/overrides, field_reports MUST contain a report naming that field with sharing_outcome=shared. Without (2), (1) is a rule an emitter opts into by staying silent: a value shipped with NO report for it is unreported provenance — nobody asked, nobody inferred, nothing was shared, yet the value is here — and the withholding rate, the asked-vs-inferred ratio, and the confidence distribution are all computed over reports, so an unreported value is silently excluded from every one of them while still feeding the recommendation. (2) also makes 'shared' the only sharing outcome under which a value may travel: transmitted-and-withheld is now rejected by (2) as well as by (1).\n(3) SUBSTANCE: if field_reports declares a field sharing_outcome=shared, its value MUST be present in bands/overrides. (3) is the converse of (2), and together they make present <=> shared-report a biconditional. Without (3) a 'shared' report is an empty alibi: an emitter satisfies the required, non-empty field_reports slot with a report that claims a field was shared, transmits no value for it, and thereby produces a characterization that names a provenance and a sharing outcome while carrying nothing the recommendation can read. That is the characterization half of a blank settlement — it looks instrumented and asserts no value — which is exactly the shell this contract exists to reject. The honest all-withheld characterization is still representable (its reports are withheld_by_policy, not shared, so (3) does not fire), so (3) costs no expressiveness: it forbids only 'shared, but nothing here'.\nAll three are presence checks keyed on a closed enum, not comparisons of two sibling values, which is why Draft-07 can enforce them and why they are not delegated to the backend: the egress promise the closed-pipe design makes to the client is worth more when the client's own machine can check it before the payload leaves.\nWHY (1) SURVIVES (2)+(3): they diverge on the duplicate-report payload. A value present with BOTH a shared report and a withheld report satisfies (2) and (3) — a shared report exists and the value is present — and is caught only by (1). `uniqueItems` cannot stop that pair (it compares whole objects; see the duplicate_characterization_field obligation), so (1) is what denies a leaked value its second, contradictory alibi. The residual backend obligation is narrower than before: reject duplicate field names, and never log or persist a rejected payload's withheld value."
     },
     "BudgetRecord": {
       "type": "object",
@@ -270,6 +311,7 @@
     "UsageRecord": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["input_tokens", "output_tokens", "model_calls"],
       "properties": {
         "input_tokens": {"$ref": "./economics_common_schema.json#/definitions/Count"},
         "output_tokens": {"$ref": "./economics_common_schema.json#/definitions/Count"},
@@ -279,12 +321,22 @@
         "latency_p50_ms": {"$ref": "./economics_common_schema.json#/definitions/DurationMs"},
         "latency_p95_ms": {"$ref": "./economics_common_schema.json#/definitions/DurationMs"}
       },
-      "description": "Metered usage for this run. total_tokens is deliberately absent: it is derivable from input+output, and a submitted total is a second source of truth that can disagree with its own parts."
+      "description": "Metered usage for this run. input_tokens, output_tokens, and model_calls are REQUIRED so a settled run meters its spend EXPLICITLY: an empty usage object satisfied the required `usage` slot while metering nothing, which is the cost half of a blank settlement. A genuinely free run reports explicit zeros ({input_tokens:0, output_tokens:0, model_calls:0}) — the spend-$0 case the economics model must always be able to show — not an empty object that is indistinguishable from 'never measured'. total_tokens is deliberately absent: it is derivable from input+output, and a submitted total is a second source of truth that can disagree with its own parts."
     },
     "EvidenceIdentity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["baseline_run_id", "candidate_run_id", "dataset_hash", "evaluator_version"],
+      "required": [
+        "baseline_run_id",
+        "candidate_run_id",
+        "dataset_hash",
+        "evaluator_version",
+        "objective_weights",
+        "effect_estimate",
+        "support",
+        "exclusions"
+      ],
+      "x-traigent-note": "A run_economics event is the SETTLED economics of a run whose effect WAS measured (see the top-level note): a run that failed, was capped, or produced no supported effect is a funnel exit, not this record. So the measured evidence is not optional here — effect_estimate (with its interval and level), support, and objective_weights are always present for a legitimate settlement, and exclusions is required to be EXPLICIT: an empty array asserts nothing was dropped, whereas absence left it unrecorded and let a favourable result stay silent about what it excluded. holdout_hash is the one frozen-evidence field kept optional: an effect measured without a holdout is a real methodological fact the transfer analysis needs, so whether a holdout was REQUIRED for this run's stakes/archetype is a design/backend obligation (holdout_required_for_stakes), not a blanket contract requirement that would reject honest no-holdout telemetry.",
       "properties": {
         "baseline_run_id": {"$ref": "./economics_common_schema.json#/definitions/RunId"},
         "candidate_run_id": {"$ref": "./economics_common_schema.json#/definitions/RunId"},

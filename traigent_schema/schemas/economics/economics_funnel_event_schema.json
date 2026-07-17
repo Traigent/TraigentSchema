@@ -83,13 +83,6 @@
       ],
       "description": "CLOSED reason code for an exit. Required when outcome = exited and FORBIDDEN when outcome = entered. Deliberately closed with no 'other' member: an 'other' bucket is where the interesting drop reasons go to die, and it silently reopens the enum. An exit that fits no code is a contract gap to be fixed by adding a code in a versioned change, not by free text. 'technical_error' and 'user_no_response' cover the genuinely-unattributable residual."
     },
-    "exit_detail": {
-      "type": "string",
-      "maxLength": 280,
-      "x-content": true,
-      "x-privacy-classification": "user_content",
-      "description": "Optional bounded human-readable note accompanying an exit_reason. Never a substitute for the code (analysis reads the code, never this field) and permitted only alongside one. May echo client context, so it is treated as user content."
-    },
     "occurred_in_environment": {
       "type": "string",
       "enum": ["development", "staging", "production"],
@@ -106,15 +99,7 @@
         "required": ["exit_reason"]
       },
       "else": {
-        "not": {"anyOf": [{"required": ["exit_reason"]}, {"required": ["exit_detail"]}]}
-      }
-    },
-    {
-      "if": {
-        "required": ["exit_detail"]
-      },
-      "then": {
-        "required": ["exit_reason"]
+        "not": {"required": ["exit_reason"]}
       }
     },
     {

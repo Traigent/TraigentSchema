@@ -185,7 +185,19 @@
           "description": "The delayed production confirmation. A measured eval uplift may disappear or reverse in production; this is where that is recorded rather than assumed."
         }
       },
-      "description": "Winner receipt: immutable run identity, actual cost, paired delta with interval, selected configuration, promotion status, and the production follow-up."
+      "allOf": [
+        {
+          "if": {
+            "properties": {"promotion": {"properties": {"status": {"enum": ["promoted", "reverted"]}}, "required": ["status"]}},
+            "required": ["promotion"]
+          },
+          "then": {
+            "required": ["production_follow_up"],
+            "description": "A promoted or reverted winner MUST carry its production follow-up. Promotion is the moment the eval claim is put into production, and eval-to-production transfer is a decision-sensitive assumption: a receipt that promotes (or reverts) while staying silent about production is the exact shape that can only report success. A follow-up that has not resolved yet is truthful, not absent — production_follow_up.status=scheduled with a due_at (enforced above) says 'promoted, measurement pending' rather than omitting the obligation. 'not_promoted' does not require it: nothing was put into production to follow up on, which is the uptake measurement, not a gap."
+          }
+        }
+      ],
+      "description": "Winner receipt: immutable run identity, actual cost, paired delta with interval, selected configuration, promotion status, and the production follow-up (required once the winner is promoted or reverted)."
     },
     "DefectReceipt": {
       "type": "object",

@@ -1291,6 +1291,57 @@ def test_group_list_sort_vocabulary_is_closed_and_identity_scoped() -> None:
         assert _errors("ExperimentGroupSortField", field), field
 
 
+def test_group_list_tie_break_is_canonical_identity_not_opaque_group_id() -> None:
+    """The group-list deterministic tie-break is the group's canonical visible
+    identity - agent_id ascending, then canonical dataset_id ascending with nulls
+    first - applied after the requested primary sort and fixed independent of the
+    primary field, its direction, and dataset_id nullness. The opaque group_id is
+    NOT the mandated sort/tie-break key: it is a non-reversible SHA-derived token
+    that cannot back exact SQL-bounded cursor pagination. This regression pins the
+    amended contract so a reversion to 'group_id ascending' fails."""
+    schema = _load_schema("execution/experiment_group_schema.json")
+
+    # (1) group_id is not, and never becomes, a sortable group-list field.
+    assert _errors("ExperimentGroupSortField", "group_id")
+    assert "group_id" not in schema["definitions"]["ExperimentGroupSortField"]["enum"]
+
+    sort_field_desc = schema["definitions"]["ExperimentGroupSortField"]["description"].lower()
+    top_desc = schema["description"].lower()
+
+    for haystack in (sort_field_desc, top_desc):
+        # (2) The canonical-identity tie-break is spelled out for Backend/Frontend.
+        assert "agent_id ascending" in haystack
+        assert "canonical dataset_id ascending" in haystack
+        # (3) Explicit, deterministic null placement (NULLS FIRST).
+        assert "nulls ordered first" in haystack
+        # (4) The tie-break is a secondary tie after the primary sort, and is
+        #     fixed independent of the requested primary direction.
+        assert "independent of" in haystack and "direction" in haystack
+        # (5) group_id is explicitly rejected as the tie-break key, with the
+        #     load-bearing reason (non-reversible / not range-bounded).
+        assert "group_id is" in haystack and "not the" in haystack
+        assert "range-bounded" in haystack or "range-orderable" in haystack
+
+    # (6) The old mandate 'group_id ascending' as the tie-break must be gone.
+    assert "group_id ascending" not in sort_field_desc
+    assert "group_id ascending for groups" not in top_desc
+
+    # (7) The row-level configuration-run tie-break is untouched: still
+    #     configuration_run_id ascending, and the group amendment did not bleed
+    #     into it.
+    query_sort_desc = (
+        schema["definitions"]["GroupedConfigurationRunQueryRequest"]["properties"]["sort"][
+            "description"
+        ].lower()
+    )
+    assert "configuration_run_id ascending" in query_sort_desc
+
+    # (8) Identity remains exactly scope + agent_id + canonical dataset_id: the
+    #     tie-break change added no new identity field and dropped none.
+    identity_properties = set(schema["definitions"]["ExperimentGroupOverview"]["properties"])
+    assert {"agent_id", "dataset_id"} <= identity_properties
+
+
 def test_contract_documents_auth_non_disclosure_and_pagination_invariants() -> None:
     schema = _load_schema("execution/experiment_group_schema.json")
     description = schema["description"].lower()

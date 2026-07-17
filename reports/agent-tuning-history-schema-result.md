@@ -25,8 +25,28 @@ Audit chronology (exact):
      parity is fresh at the final HEAD. That file is outside the primary packet's
      allowed set, so it is stamped only by the companion commit — not the primary one.
 
-   At the final HEAD (both commits applied) `python3 scripts/refresh_parity.py
-   --check` is `exit 0` (digest `0214a09c89ba…`, files=364).
+   At that pass's HEAD `python3 scripts/refresh_parity.py --check` was `exit 0`
+   (digest `0214a09c89ba…`, files=364).
+6. `fdbf599` / `f35d85d` — Wave A pass 3 (execution-group error envelope closed to
+   finite enums) plus its companion parity re-stamp; this was the HEAD that then went
+   to a fresh Terra Backend gate.
+7. **This pass (fourth remediation, two commits)** — a fresh gpt-5.6-terra xhigh
+   *Backend* review **BLOCKED** advancing to Backend continuation. The load-bearing
+   reason: the frozen group-list ordering mandated `group_id` ascending as the
+   group-list tie-breaker, but `group_id` is an opaque, non-reversible SHA-derived
+   token, so exact SQL-bounded cursor pagination cannot portably sort by it without
+   persistence/crypto-extension machinery. A first Backend band algorithm still
+   materialized **all** groups in the all-primary-tied case, and Terra BLOCKED it.
+   The tie-break carries no user-facing semantic value; deterministic, exact,
+   visible-identity order does. This pass amends the unreleased tie-break to the
+   group's canonical visible identity and nothing else. See "Fourth remediation pass"
+   below.
+   - **Primary commit** (packet `pkt_c88286ff11fd2edf`): the schema tie-break
+     amendment + the decisive regression test + this report + CHANGELOG.
+   - **Companion commit** (approved packet `pkt_1c3f2ce482d11d82`): re-stamps the
+     parity provenance hash (`parity/python-js-sdk.json`) for this schema edit, in
+     its own commit, so parity is fresh at the final HEAD. That file is outside the
+     primary packet's allowed set.
 
 ## Scope
 
@@ -50,7 +70,7 @@ allowed set): `traigent_schema/schemas/execution/experiment_group_schema.json`,
 `tests/test_success_envelope_and_response_coverage.py`, `CHANGELOG.md`,
 `reports/agent-tuning-history-schema-result.md` (this file).
 
-This final (third) pass edits only:
+The third pass edited only:
 - `traigent_schema/schemas/execution/experiment_group_schema.json` (strict error
   envelope `message`/`error_code` → finite enums)
 - `tests/test_experiment_group_contract.py` (three decisive regression tests)
@@ -59,8 +79,10 @@ This final (third) pass edits only:
 - `parity/python-js-sdk.json` — companion packet `pkt_1c3f2ce482d11d82` only, in a
   separate commit.
 
-`execution_endpoints.json` and `tests/test_success_envelope_and_response_coverage.py`
-are unchanged in this pass (their earlier-pass edits stand).
+The **fourth** pass (this pass, the group-list tie-break correction) edits the same
+allowed set minus `execution_endpoints.json`; see "Fourth remediation pass" below for
+its exact file list.  `tests/test_success_envelope_and_response_coverage.py` is
+unchanged in this pass (its earlier-pass edits stand).
 
 ## Design decisions (per Terra finding)
 
@@ -220,6 +242,73 @@ coverage that every allowed `error` × `message` combination and every allowed
 pre-existing negative tests (SQL/quotes/uppercase/`details` rejection,
 shape-compatibility) continue to pass unchanged under the enums.
 
+## Fourth remediation pass (this pass) — group-list tie-break
+
+A fresh gpt-5.6-terra xhigh **Backend** review BLOCKED advancing to Backend
+continuation. The frozen group-list ordering mandated `group_id` **ascending** as the
+group-list tie-breaker. `group_id` is an opaque, non-reversible SHA-derived token, so
+exact SQL-bounded cursor pagination cannot portably ORDER BY / range-bound it without
+persistence or a crypto extension. A first Backend band algorithm, unable to
+keyset-paginate on the opaque token, still **materialized all groups** in the
+all-primary-tied case, and Terra BLOCKED it. The tie-break has no user-facing semantic
+value; deterministic, exact, visible-identity order does. This pass amends only the
+unreleased tie-break contract and nothing else (no feature widening, no identity
+change, no configuration-run row-tie-break change).
+
+**Amendment.** The group-list deterministic tie-breaker is now the group's canonical
+visible identity, applied **after** the requested primary sort and **independent of**
+the primary field, the primary direction, and `dataset_id` nullness:
+
+1. `agent_id` ascending, then
+2. canonical `dataset_id` ascending with an explicit deterministic null position —
+   **NULLS FIRST**: the explicit no-dataset group (`dataset_id` null) sorts before any
+   concrete dataset id.
+
+`(agent_id, canonical dataset_id)` is exactly the group identity, is a real,
+range-orderable column pair, and gives the same deterministic total order over groups
+that `group_id` ascending was meant to give — but is exactly SQL keyset-paginable.
+**NULLS FIRST** was chosen as the documented default; this Schema repo carries no
+existing backend null-ordering convention that would require NULLS LAST, so the
+instructed default stands (a backend that must use NULLS LAST would be a follow-up
+contract note, not a silent divergence). The opaque `group_id` is now explicitly
+documented as **not** the tie-break/sort key. `configuration_run_id` ascending remains
+the configuration-run row tie-breaker, unchanged, because `configuration_run_id` is a
+real range-orderable source id.
+
+Edited (allowed set) this pass:
+- `traigent_schema/schemas/execution/experiment_group_schema.json` — top-level
+  invariant (4), `ExperimentGroupSortField` description, `SortDirection` description
+  (direction-independence of the tie-break), and the configuration-run query `sort`
+  description (adds direction-independence, keeps `configuration_run_id` ascending).
+- `tests/test_experiment_group_contract.py` — one decisive regression test
+  (`test_group_list_tie_break_is_canonical_identity_not_opaque_group_id`) asserting
+  `group_id` is not the mandated sort/tie-break key, the canonical-identity tie
+  (`agent_id` asc, then `dataset_id` asc, NULLS FIRST) is documented for both the sort
+  field and the top-level invariant, the tie is fixed independent of primary
+  direction/null, the old `group_id ascending` mandate is gone, the configuration-run
+  row tie-break is untouched, and identity stays exactly `agent_id` + canonical
+  `dataset_id`.
+- `CHANGELOG.md` — a narrow Unreleased bullet under the Wave A entry.
+- `reports/agent-tuning-history-schema-result.md` — this file.
+- `parity/python-js-sdk.json` — companion packet `pkt_1c3f2ce482d11d82` only, in a
+  separate commit.
+
+**Out-of-scope residual (flagged, not silently shipped):**
+`traigent_schema/schemas/execution/execution_endpoints.json` carries an *inline*
+`sort_by` parameter description that still reads "Ties are broken deterministically by
+group_id ascending." That parameter `$ref`s the amended `ExperimentGroupSortField`
+(whose own description is authoritative and now correct), but the inline copy is
+drift. `execution_endpoints.json` is **outside this packet's allowed-file set**, so it
+is deliberately not edited here. No test asserts that inline string, so nothing is
+red on it — but a fresh Terra review of the final HEAD may flag the inline drift. It
+should be swept either by widening this packet's allowed set or in an immediate
+follow-up packet. This is a documented handoff, not a silent contradiction.
+
+Preserved exactly: group identity = visibility scope + `agent_id` + canonical
+`dataset_id`; opaque `group_id`/cursors remain non-authorization lookup/continuation
+tokens; the configuration-run row tie-break (`configuration_run_id` ascending); all
+Wave A structural invariants from passes 1–3; and legacy/cursor compatibility.
+
 ## Exact command outcomes
 
 Run in the repo `.venv` (Python 3.11.15).
@@ -228,20 +317,21 @@ Run in the repo `.venv` (Python 3.11.15).
 |-------|---------|--------|
 | JSON parse | `json.load` on the changed schema file | OK |
 | Validator load | `SchemaValidator(contract="backend")` | `experiment_group_schema` present; loads clean |
-| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **80 passed** |
-| Full suite | `pytest tests/ -q -p no:cacheprovider` | **1141 passed, 1 skipped** (2 pre-existing deprecation warnings) |
+| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **81 passed** |
+| Full suite | `pytest tests/ -q -p no:cacheprovider` | **1142 passed, 1 skipped** (2 pre-existing deprecation warnings) |
 | Whitespace | `git diff --check` | clean |
 | Lint (repo gate) | `ruff check traigent_schema/` | All checks passed |
 | Lint (changed test) | `ruff check --line-length 100 --select E,F,I,UP,B tests/test_experiment_group_contract.py` | 1 error (pre-existing `I001` import ordering, predates this packet); **zero new**; no added line exceeds 100 chars (`--select E501` clean) |
 | Typecheck (repo gate) | `mypy traigent_schema/ --ignore-missing-imports` | Success, no issues (5 source files) |
-| Parity (companion re-stamp) | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `0214a09c89ba…`, files=364); `--check` **exit 0 (up-to-date)** at the final HEAD after the companion commit |
+| Parity (companion re-stamp) | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `570c2b4a5728…`, files=364); `--check` **exit 0 (up-to-date)** at the final HEAD after the companion commit |
 
-Focused test count went 77 → 80 (3 new decisive tests this pass: public fields are
-finite fixed enums with no escape hatch; the opaque-id sentinel `grp_secretvalue` is
-rejected in `message`/`error`/`error_code` while the generic envelope accepts it; and
-positive white-list coverage of every allowed `error` × `message` × `error_code`
-combination with shape-compatibility against the generic envelope). Full-suite count
-went 1138 → 1141 for the same three tests.
+Focused test count went 80 → 81 (1 new decisive tie-break regression test this pass:
+`group_id` is not the mandated sort/tie-break key; the canonical-identity tie
+(`agent_id` asc, then canonical `dataset_id` asc, NULLS FIRST) is documented on both
+the sort field and the top-level invariant; the tie is fixed independent of primary
+direction/null; the old `group_id ascending` mandate is gone; the configuration-run
+row tie-break stays `configuration_run_id` ascending; identity stays exactly
+`agent_id` + canonical `dataset_id`). Full-suite count went 1141 → 1142 for that test.
 
 ## Downstream runtime acceptance handoff (schema does NOT prove these)
 
@@ -254,8 +344,13 @@ as explicit handoff risks, not proven behavior:
   are canonical; backend must ensure they trace to the exact execution (no sibling
   equality check exists in the contract).
 - **Cursor snapshot semantics** (insert-stable walk, filter/sort binding, expiry
-  rejection) and **deterministic tie-breakers** (`group_id` / `configuration_run_id`
-  ascending) — runtime guarantees.
+  rejection) and **deterministic tie-breakers** — runtime guarantees. The group list
+  tie-breaks on canonical visible identity (`agent_id` ascending, then canonical
+  `dataset_id` ascending **NULLS FIRST**), applied after and independent of the
+  requested primary sort/direction; configuration-run rows tie-break on
+  `configuration_run_id` ascending. Backend keyset pagination must ORDER BY the
+  requested primary key then this exact identity tie-break (not the opaque
+  `group_id`, which cannot be portably range-bounded).
 - **Date-bound ordering** (`*_from ≤ *_to`) — runtime validation.
 - **Manifest union completeness across all rows** and the browsable-column cap
   (`maxItems: 200` per namespace) — backend must reject groups whose true column
@@ -281,12 +376,17 @@ as explicit handoff risks, not proven behavior:
   This pass edits `experiment_group_schema.json`, which invalidates the parity
   provenance hash. The companion approved packet `pkt_1c3f2ce482d11d82` re-stamps it
   in its own commit: `python3 scripts/refresh_parity.py --update` produced digest
-  `0214a09c89ba…` (files=364) and `--check` then returns `exit 0 (up-to-date)`. The
-  manifest is **outside the primary packet's allowed-file set**, so it is stamped
-  only by the companion commit, preserving packet separation. Not relaxed, not
-  bypassed. (There is no residual stale-parity condition at the final HEAD — the
-  earlier draft of this report described the pre-re-stamp interim state and has been
-  corrected.)
+  `570c2b4a5728…` (files=364) and `--check` then returns
+  `exit 0 (up-to-date)`. The manifest is **outside the primary packet's allowed-file
+  set**, so it is stamped only by the companion commit, preserving packet separation.
+  Not relaxed, not bypassed.
+- **`execution_endpoints.json` inline `sort_by` drift (out of scope, flagged).** Its
+  inline `sort_by` parameter description still reads "Ties are broken deterministically
+  by group_id ascending", now inconsistent with the amended authoritative
+  `ExperimentGroupSortField` it `$ref`s. The file is outside this packet's allowed set
+  and no test asserts the inline string, so nothing is red — but a fresh Terra review
+  of the final HEAD may flag it. Sweep by widening the allowed set or in an immediate
+  follow-up packet.
 - **Pre-existing test-file lint** (contract test import ordering, `I001`) predates
   this packet and was left untouched per the "do not edit unrelated baseline lint
   failures" instruction; the three tests added this pass introduce **zero new** lint

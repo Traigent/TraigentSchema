@@ -225,6 +225,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     browse-row top level and provenance carries only group/display context.
     Runtime one-row-per-execution and exact scope/agent/dataset partitioning remain
     downstream backend/E2E acceptance criteria, not proven by this schema.
+  - Group-list deterministic tie-break (unreleased correction): the group-list
+    tie-breaker is the group's canonical visible identity — `agent_id` ascending,
+    then canonical `dataset_id` ascending with nulls ordered first (the explicit
+    no-dataset group sorts before any concrete dataset id) — applied after the
+    requested primary sort and fixed independent of the primary field, its
+    direction, and `dataset_id` nullness. This replaces the earlier `group_id`
+    ascending tie-break: `group_id` is a non-reversible SHA-derived lookup token
+    that cannot be portably range-bounded, so it cannot back exact SQL-bounded
+    cursor pagination, whereas `(agent_id, canonical dataset_id)` is the exact
+    group identity, is fully range-orderable, and yields the same deterministic
+    total order. The tie-break has no user-facing semantic value; deterministic,
+    exact, visible-identity order does. The configuration-run row tie-break
+    (`configuration_run_id` ascending) is unchanged.
   - Redacted error envelope (same Wave A surface): a strict
     `ExperimentGroupErrorEnvelope` subtype now backs every experiment-group
     `400`/`401`/`404`/`500` (rather than the generic envelope directly). It stays

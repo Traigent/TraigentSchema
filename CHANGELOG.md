@@ -237,7 +237,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     group identity, is fully range-orderable, and yields the same deterministic
     total order. The tie-break has no user-facing semantic value; deterministic,
     exact, visible-identity order does. The configuration-run row tie-break
-    (`configuration_run_id` ascending) is unchanged.
+    (`configuration_run_id` ascending) is unchanged. The `GET /api/v1/experiment-groups`
+    inline `sort_by` parameter description in `execution/execution_endpoints.json` now
+    mirrors this authoritative `ExperimentGroupSortField` language byte-for-byte, so the
+    endpoint copy can no longer contradict the field (it previously still read
+    "group_id ascending").
   - Redacted error envelope (same Wave A surface): a strict
     `ExperimentGroupErrorEnvelope` subtype now backs every experiment-group
     `400`/`401`/`404`/`500` (rather than the generic envelope directly). It stays

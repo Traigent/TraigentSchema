@@ -293,21 +293,55 @@ Edited (allowed set) this pass:
 - `parity/python-js-sdk.json` — companion packet `pkt_1c3f2ce482d11d82` only, in a
   separate commit.
 
-**Out-of-scope residual (flagged, not silently shipped):**
-`traigent_schema/schemas/execution/execution_endpoints.json` carries an *inline*
-`sort_by` parameter description that still reads "Ties are broken deterministically by
+**Out-of-scope residual (flagged, not silently shipped) — RESOLVED in the fifth pass
+below.** At the time of the fourth pass,
+`traigent_schema/schemas/execution/execution_endpoints.json` carried an *inline*
+`sort_by` parameter description that still read "Ties are broken deterministically by
 group_id ascending." That parameter `$ref`s the amended `ExperimentGroupSortField`
-(whose own description is authoritative and now correct), but the inline copy is
-drift. `execution_endpoints.json` is **outside this packet's allowed-file set**, so it
-is deliberately not edited here. No test asserts that inline string, so nothing is
-red on it — but a fresh Terra review of the final HEAD may flag the inline drift. It
-should be swept either by widening this packet's allowed set or in an immediate
-follow-up packet. This is a documented handoff, not a silent contradiction.
+(whose own description is authoritative and now correct), but the inline copy was
+drift. `execution_endpoints.json` was **outside the fourth packet's allowed-file set**,
+so it was deliberately not edited there and was documented as a follow-up handoff
+rather than a silent contradiction. The fifth pass (below) closes it.
 
 Preserved exactly: group identity = visibility scope + `agent_id` + canonical
 `dataset_id`; opaque `group_id`/cursors remain non-authorization lookup/continuation
 tokens; the configuration-run row tie-break (`configuration_run_id` ascending); all
 Wave A structural invariants from passes 1–3; and legacy/cursor compatibility.
+
+## Fifth remediation pass (this pass) — endpoint inline-mirror drift resolved
+
+The smallest safe follow-up to the fourth pass: it closes the flagged
+`execution_endpoints.json` inline `sort_by` drift and nothing else (no schema-field
+change, no identity change, no configuration-run row tie-break change, no feature
+widening).
+
+**Change.** The OpenAPI endpoint's inline `sort_by` parameter description on
+`GET /api/v1/experiment-groups` — previously "Fixed, closed vocabulary of sortable
+group-list fields. Ties are broken deterministically by group_id ascending." — is now
+**byte-identical to the authoritative `ExperimentGroupSortField` description**. It
+therefore carries the canonical-identity tie-break (`agent_id` ascending, then canonical
+`dataset_id` ascending **NULLS FIRST**, after the requested primary sort and independent
+of the primary direction) and no residual `group_id ascending` mandate. Making the
+inline mirror exactly equal to the field it `$ref`s is the strongest anti-drift form:
+the two can no longer diverge without failing the regression.
+
+Edited (primary commit) this pass:
+- `traigent_schema/schemas/execution/execution_endpoints.json` — inline `sort_by`
+  parameter description replaced with the authoritative `ExperimentGroupSortField`
+  language; `configuration_run_id` ascending row tie-break untouched.
+- `tests/test_experiment_group_contract.py` — the existing decisive regression test
+  `test_group_list_tie_break_is_canonical_identity_not_opaque_group_id` is extended
+  (block `(6b)`) to load `execution_endpoints.json`, assert the inline `sort_by`
+  description is **exactly** the authoritative field description, and assert it contains
+  the canonical-identity tie-break and **no** `group_id ascending` mandate.
+- `reports/agent-tuning-history-schema-result.md` — this file.
+- `parity/python-js-sdk.json` — companion re-stamp only, in a separate commit
+  (packet separation preserved). `execution_endpoints.json` is a schema surface, so its
+  edit invalidates the parity provenance hash; the companion commit refreshes it.
+
+Commit SHAs: primary `<PRIMARY_SHA>`; parity companion `<PARITY_SHA>` (recorded in the
+captain handoff; the report is inside the primary commit and so cannot embed its own
+SHA).
 
 ## Exact command outcomes
 
@@ -380,13 +414,13 @@ as explicit handoff risks, not proven behavior:
   `exit 0 (up-to-date)`. The manifest is **outside the primary packet's allowed-file
   set**, so it is stamped only by the companion commit, preserving packet separation.
   Not relaxed, not bypassed.
-- **`execution_endpoints.json` inline `sort_by` drift (out of scope, flagged).** Its
-  inline `sort_by` parameter description still reads "Ties are broken deterministically
-  by group_id ascending", now inconsistent with the amended authoritative
-  `ExperimentGroupSortField` it `$ref`s. The file is outside this packet's allowed set
-  and no test asserts the inline string, so nothing is red — but a fresh Terra review
-  of the final HEAD may flag it. Sweep by widening the allowed set or in an immediate
-  follow-up packet.
+- **`execution_endpoints.json` inline `sort_by` drift — RESOLVED (fifth pass).** The
+  inline `sort_by` parameter description is now byte-identical to the authoritative
+  `ExperimentGroupSortField` description it `$ref`s (canonical-identity tie-break, no
+  `group_id ascending` mandate), and the regression test
+  `test_group_list_tie_break_is_canonical_identity_not_opaque_group_id` now asserts that
+  exact equality (block `(6b)`), so the mirror can no longer drift without going red.
+  See the *Fifth remediation pass* section above.
 - **Pre-existing test-file lint** (contract test import ordering, `I001`) predates
   this packet and was left untouched per the "do not edit unrelated baseline lint
   failures" instruction; the three tests added this pass introduce **zero new** lint

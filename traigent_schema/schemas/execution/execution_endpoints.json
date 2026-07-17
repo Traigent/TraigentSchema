@@ -187,7 +187,7 @@
             "name": "sort_by",
             "in": "query",
             "required": false,
-            "description": "Fixed, closed vocabulary of sortable group-list fields. Ties are broken deterministically by group_id ascending.",
+            "description": "Fixed, closed vocabulary of sortable group-list fields. Sorting is never accepted over tuned variables, KPIs, measures, config hashes, or fingerprints at the group level, and group_id itself is deliberately not a member of this sort vocabulary. Ties on the requested primary sort are broken deterministically - after that primary sort and independent of its direction - by the group's canonical visible identity: agent_id ascending, then canonical dataset_id ascending with nulls ordered first (the explicit no-dataset group sorts before any concrete dataset id). The opaque group_id is not the tie-break key: it is a non-reversible SHA-derived token that cannot be portably range-bounded for exact SQL cursor pagination, whereas (agent_id, canonical dataset_id) is the exact group identity, gives the same deterministic total order, and is exactly range-orderable. The tie-break carries no user-facing semantic value; only deterministic, exact, visible-identity order does.",
             "schema": {
               "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupSortField"
             }

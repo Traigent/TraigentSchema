@@ -1326,6 +1326,26 @@ def test_group_list_tie_break_is_canonical_identity_not_opaque_group_id() -> Non
     assert "group_id ascending" not in sort_field_desc
     assert "group_id ascending for groups" not in top_desc
 
+    # (6b) The OpenAPI endpoint's inline sort_by mirror must not drift from the
+    #     authoritative field: it carries the exact authoritative language and no
+    #     residual 'group_id ascending' tie-break mandate. This closes the inline
+    #     contradiction where the endpoint parameter still said the tie-break was
+    #     group_id ascending while the field schema had moved to canonical identity.
+    spec = _load_schema("execution/execution_endpoints.json")
+    inline_sort_by = next(
+        parameter
+        for parameter in spec["paths"]["/api/v1/experiment-groups"]["get"]["parameters"]
+        if parameter["name"] == "sort_by"
+    )
+    inline_desc = inline_sort_by["description"]
+    # The inline mirror is byte-identical to the authoritative field description...
+    assert inline_desc == schema["definitions"]["ExperimentGroupSortField"]["description"]
+    # ...and therefore carries the canonical-identity tie-break, not group_id ascending.
+    assert "agent_id ascending" in inline_desc.lower()
+    assert "canonical dataset_id ascending" in inline_desc.lower()
+    assert "nulls ordered first" in inline_desc.lower()
+    assert "group_id ascending" not in inline_desc.lower()
+
     # (7) The row-level configuration-run tie-break is untouched: still
     #     configuration_run_id ascending, and the group amendment did not bleed
     #     into it.

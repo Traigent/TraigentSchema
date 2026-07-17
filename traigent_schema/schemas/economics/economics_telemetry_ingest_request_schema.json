@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_telemetry_ingest_request_schema.json",
+  "title": "Economics telemetry ingest request",
+  "description": "One idempotent batch of economics telemetry events (funnel, run economics, receipts) submitted to POST /api/v1/economics/telemetry. The batch names the contract and its version explicitly, so an ingestion service never has to guess the shape it received, and carries an idempotency key so a retried batch is replayed rather than double-counted — double-counting a funnel is indistinguishable from uptake, which is the one thing this telemetry exists to measure.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "contract_version", "batch_id", "idempotency_key", "sent_at", "source", "events"],
+  "properties": {
+    "contract": {"$ref": "./economics_common_schema.json#/definitions/ContractId"},
+    "contract_version": {"$ref": "./economics_common_schema.json#/definitions/ContractVersion"},
+    "batch_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "Emitter-generated id for this batch, echoed in the response."
+    },
+    "idempotency_key": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/IdempotencyKey"}],
+      "description": "Idempotency key for the batch. Also accepted via the Idempotency-Key header, matching the Planner V2 convention; when both are present they must agree (backend obligation). Re-submitting the same key must replay the original result."
+    },
+    "sent_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+    "source": {"$ref": "./economics_common_schema.json#/definitions/Source"},
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {"$ref": "./economics_telemetry_event_schema.json"},
+      "description": "The events in this batch. Bounded at 500 so a single request cannot be used as an unbounded-work lever; larger emissions page through multiple idempotent batches."
+    }
+  },
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
+  "x-backend-obligations": [
+    "IDEMPOTENT PERSISTENCE: the same idempotency_key must replay the first result and never re-apply the batch. The same event_id inside a later batch is a duplicate, counted as duplicate, never stored twice.",
+    "IMMUTABILITY: stored events are append-only. A differing body under an already-seen event_id/idempotency_key is a conflict, not an update.",
+    "TENANT OWNERSHIP: project_ref/run_id/advice_id in every event must be resolved against the canonical authenticated request context — never from a client-supplied X-Tenant-Id header or body field. A reference belonging to another tenant is rejected (tenant_scope_violation), not stored.",
+    "FUNNEL ORDER: stage sequencing per project/advice cannot be checked by a single event; the backend reconciles order and reports funnel_order_violation.",
+    "PROPOSER != VERIFIER: receipt attestation independence must be enforced at ingestion.",
+    "HEADER/BODY AGREEMENT: when the Idempotency-Key header and body idempotency_key are both present they must match.",
+    "SHARING POLICY: the client is the enforcement point for field-level sharing. The backend must not infer or reconstruct a withheld value from other fields; a withheld field is absent by design, not missing data to be filled in."
+  ],
+  "x-traigent-note": "Contract-first per the workspace cross-repo rule: this schema lands before backend ingestion and SDK emission. It is registered under the planned (non-canonical) contract root and is NOT asserted against backend parity — no backend route serves it yet."
+}

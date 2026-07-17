@@ -3,12 +3,12 @@
   "info": {
     "title": "Traigent Planned Project Contracts",
     "version": "1.0.0",
-    "description": "Planned and experimental project-scoped contract surfaces preserved outside canonical backend parity."
+    "description": "Planned and experimental contract surfaces preserved outside canonical backend parity."
   },
   "x-traigent-contract": {
     "name": "planned_projects",
     "status": "planned",
-    "description": "Project-scoped v1beta routes used by beta SDK surfaces but not asserted against current backend parity."
+    "description": "Planned routes that are not asserted against current backend parity: project-scoped v1beta routes used by beta SDK surfaces, plus contract-first surfaces published ahead of their backend implementation (economics telemetry). Routes move to the canonical `backend` root once the backend serves them."
   },
   "x-stability": "pre-release",
   "x-asserted-against-backend": false,
@@ -20,6 +20,11 @@
     {
       "name": "observability",
       "paths_file": "./observability/observability_endpoints.json"
+    },
+    {
+      "name": "economics_telemetry",
+      "description": "Contract-first economics telemetry ingestion (exposure funnel, run economics, receipts). Published ahead of backend ingestion and SDK emission.",
+      "paths_file": "./economics/economics_endpoints.json"
     }
   ],
   "paths": {

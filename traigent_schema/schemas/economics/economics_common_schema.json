@@ -1,0 +1,204 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_common_schema.json",
+  "title": "Economics telemetry common types",
+  "description": "Shared primitives for the economics telemetry contract (funnel events, run economics, receipts). Reference these definitions instead of re-declaring them per schema, to stop cross-schema drift. Every monetary and count primitive here is typed, nonnegative where the quantity cannot be negative, and bounded above, so a malformed or hostile payload is rejected by the contract rather than by downstream arithmetic.",
+  "definitions": {
+    "ContractId": {
+      "type": "string",
+      "const": "economics_telemetry",
+      "description": "Stable identifier of this contract family. A payload that does not name this contract is not economics telemetry and is rejected."
+    },
+    "ContractVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Stable version of the economics telemetry contract. Ingestion rejects unknown versions rather than best-effort parsing them; a breaking change ships a new const value."
+    },
+    "UtcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 40,
+      "description": "RFC-3339 UTC timestamp emitted with a trailing Z."
+    },
+    "Identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "description": "Opaque caller-generated identifier. Carries no raw prompt, example, or customer content."
+    },
+    "IdempotencyKey": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]{8,128}$",
+      "description": "Caller-generated idempotency key, unique per submitted batch. Mirrors the Idempotency-Key header convention used by the Planner V2 routes."
+    },
+    "RunId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "x-identifier": true,
+      "description": "Experiment run identifier, aligned with the platform-wide RunId shape."
+    },
+    "Sha256Hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "maxLength": 64,
+      "description": "Lowercase hex SHA-256 digest. Used for dataset/holdout/config/example identity so evidence can be re-checked without shipping the underlying content."
+    },
+    "UsdAmount": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100000000,
+      "description": "A nonnegative United States dollar amount. Bounded above at $100,000,000 so no unbounded or non-finite value enters budget arithmetic (JSON has no Infinity/NaN literal; the bound closes the remaining overflow case)."
+    },
+    "SignedUsdAmount": {
+      "type": "number",
+      "minimum": -100000000,
+      "maximum": 100000000,
+      "description": "A United States dollar amount that may legitimately be negative (a delta, a loss, a net value). Bounded on both sides."
+    },
+    "Count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000,
+      "description": "A nonnegative bounded count (tokens, calls, examples, interventions)."
+    },
+    "DurationMs": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 86400000,
+      "description": "A nonnegative duration in milliseconds, bounded at 24 hours."
+    },
+    "Minutes": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100000,
+      "description": "A nonnegative duration in minutes, bounded so reviewer-time claims cannot be inflated without bound."
+    },
+    "UnitInterval": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "A probability or confidence in [0, 1]."
+    },
+    "ShortLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "A bounded label (metric name, model id, version string). Not free-form content."
+    },
+    "Provenance": {
+      "type": "string",
+      "enum": ["asked", "inferred", "defaulted"],
+      "description": "How a characterization field's value was obtained. 'asked' = the end user answered it; 'inferred' = the coding agent derived it from artifacts and MUST carry evidence provenance (see EvidenceStatus); 'defaulted' = neither, the platform default was used."
+    },
+    "SharingOutcome": {
+      "type": "string",
+      "enum": ["shared", "withheld_by_policy"],
+      "description": "What the client's sharing policy did with this field. 'withheld_by_policy' means the value never left the client machine; the telemetry records the withholding, not the value."
+    },
+    "EvidenceStatus": {
+      "type": "string",
+      "enum": ["provided", "withheld_by_policy"],
+      "description": "Whether the evidence pointer backing an inferred value was shared. An inferred value always HAS evidence on the client; the client's sharing policy decides whether the pointer egresses. 'withheld_by_policy' asserts the evidence exists and was deliberately kept local."
+    },
+    "EvidencePointer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280,
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "One-line human-readable justification for an inferred value (e.g. 'traces show ~3.1k runs/day over 14 days'). Derived from the client's own traces/artifacts, so it is treated as user content: redact in logs and exports, and never emit it when the sharing policy withheld the evidence.",
+      "x-traigent-note": "Present only when evidence_status = provided. The contract forbids this field when evidence_status = withheld_by_policy, so a policy-withheld pointer cannot egress through this field."
+    },
+    "Archetype": {
+      "type": "string",
+      "enum": [
+        "solo_coding_builder",
+        "internal_copilot",
+        "support_automation",
+        "extraction_pipeline",
+        "research_assistant",
+        "high_stakes_agent",
+        "agent_platform",
+        "undetermined"
+      ],
+      "description": "Agent archetype driving budget floors/caps and promotion sentinels. 'undetermined' is an honest value: it records that classification failed rather than forcing a wrong archetype."
+    },
+    "MeasurementUnit": {
+      "type": "string",
+      "enum": ["proportion", "score", "usd", "seconds", "milliseconds", "tokens", "calls", "ratio", "count"],
+      "description": "Unit of a measured effect or metric change. Closed so a consumer never has to guess what a delta means."
+    },
+    "ConfidenceInterval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["estimate", "lower", "upper", "level", "unit"],
+      "properties": {
+        "estimate": {
+          "type": "number",
+          "minimum": -100000000,
+          "maximum": 100000000,
+          "description": "Point estimate of the effect."
+        },
+        "lower": {
+          "type": "number",
+          "minimum": -100000000,
+          "maximum": 100000000,
+          "description": "Lower bound of the interval. Ordering (lower <= estimate <= upper) is a backend obligation, reported as interval_bounds_inconsistent; JSON Schema cannot compare two sibling values. Not a cosmetic check: the economics model leads with the lower bound, so an inverted interval turns an unfavourable result into a favourable claim."
+        },
+        "upper": {
+          "type": "number",
+          "minimum": -100000000,
+          "maximum": 100000000,
+          "description": "Upper bound of the interval."
+        },
+        "level": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1,
+          "description": "Interval coverage level (e.g. 0.95). Required: an interval without its level cannot be read as a lower bound."
+        },
+        "unit": {"$ref": "#/definitions/MeasurementUnit"}
+      },
+      "description": "An effect estimate with an explicit interval and level. Required wherever the economics model leads with a lower bound, so a point estimate can never be mistaken for evidence."
+    },
+    "PriceSource": {
+      "type": "string",
+      "enum": ["provider_published", "tenant_contract", "measured_invoice"],
+      "description": "Where a model price came from. Closed: an agent-asserted price is not a price source."
+    },
+    "ModelPrice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_id", "input_usd_per_mtok", "output_usd_per_mtok", "price_source", "as_of"],
+      "properties": {
+        "model_id": {"$ref": "#/definitions/ShortLabel"},
+        "input_usd_per_mtok": {"$ref": "#/definitions/UsdAmount"},
+        "output_usd_per_mtok": {"$ref": "#/definitions/UsdAmount"},
+        "price_source": {"$ref": "#/definitions/PriceSource"},
+        "as_of": {"$ref": "#/definitions/UtcTimestamp"}
+      },
+      "description": "The price actually used to dollarize this run's token usage, with its source and as-of time, so a cost claim is reproducible after provider prices change."
+    },
+    "SourceKind": {
+      "type": "string",
+      "enum": ["python_sdk", "js_sdk", "coding_agent", "portal", "backend_internal"],
+      "description": "Which surface emitted the batch."
+    },
+    "Source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "version"],
+      "properties": {
+        "kind": {"$ref": "#/definitions/SourceKind"},
+        "name": {"$ref": "#/definitions/ShortLabel"},
+        "version": {"$ref": "#/definitions/ShortLabel"}
+      },
+      "description": "Identity of the emitting surface. Required on every batch so funnel counts can be attributed to a surface and version."
+    }
+  }
+}

@@ -300,10 +300,6 @@
         "policy_version": {
           "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
           "description": "Version of the budget policy/formula that produced these numbers, so a recommendation can be reproduced and audited."
-        },
-        "credit_backed": {
-          "type": "boolean",
-          "description": "True when this budget is covered by platform credit rather than customer-paid spend."
         }
       },
       "description": "The backend-authored budget recommendation and cap in force for this run."

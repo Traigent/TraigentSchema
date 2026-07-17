@@ -173,7 +173,6 @@ def _run_event(**extra) -> dict:
             "recommended_daily_usd": 5.0,
             "cap_usd": 50.0,
             "policy_version": "budget-policy-v0",
-            "credit_backed": True,
         },
         "actual_spend_usd": 4.25,
         "usage": {"input_tokens": 120000, "output_tokens": 8000, "model_calls": 240},
@@ -988,6 +987,25 @@ def test_budget_recommendation_and_cap_are_backend_authored() -> None:
     event = _run_event()
     del event["budget"]["cap_usd"]
     assert _rejected(event, RUN), "a budget without a cap is not a bounded investment"
+
+
+def test_credit_and_incentive_fields_are_not_representable_in_the_budget() -> None:
+    """Platform-credit / incentive state is a WI-D owner-gated pricing decision, not a
+    WI-B telemetry fact. The budget contract carries the backend-authored recommendation
+    and cap only; it must not open a credit/incentive channel ahead of that decision.
+    BudgetRecord is additionalProperties:false, so any such field is rejected — even
+    alongside an otherwise-valid budget — and no credit vocabulary is declared here."""
+    budget = _run_event()["budget"]
+    for field in ("credit_backed", "credit_usd", "incentive", "incentive_credit_usd"):
+        event = _run_event()
+        event["budget"] = {**budget, field: True}
+        assert _rejected(event, RUN), f"{field} must not be representable in the budget"
+    # the field is absent from the contract entirely, not merely constrained
+    budget_props = _load("economics_run_event_schema.json")["definitions"]["BudgetRecord"][
+        "properties"
+    ]
+    assert "credit_backed" not in budget_props
+    assert not any("credit" in name or "incentive" in name for name in budget_props)
 
 
 def test_monetary_and_count_fields_are_typed_nonnegative_and_bounded() -> None:

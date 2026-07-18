@@ -1,7 +1,13 @@
 # Agent tuning-history browse contract — remediation result
 
-Packet `pkt_c88286ff11fd2edf`, ChangeSession `cs_dbd17dd6bfabeed7`.
-Remediates the gpt-5.6-terra xhigh review BLOCK of the prior uncommitted draft.
+Current release governance authority: unified ChangeSession
+`cs_85af3e2677c82db1`, Schema packet `pkt_8b55a584db589f67`, release trail
+`st_7a0086093bb2`.
+
+This result remediates the gpt-5.6-terra xhigh review BLOCK of the prior
+uncommitted draft. Earlier session, packet, and trail identifiers retained in the
+chronology are superseded historical provenance only; they do not authorize the
+current cross-repo release.
 
 Audit chronology (exact):
 1. `d725fe0` — Wave A schema draft made its browse/query invariants structurally
@@ -71,8 +77,9 @@ comparison signatures; legacy `GET` + `page`/`page_size` compatibility; the
 explicit no-dataset group; bounded deterministic queries and safe errors, including
 the fail-closed authentication-backend `503`.
 
-Files changed across the full remediation (primary packet `pkt_c88286ff11fd2edf`
-allowed set): `traigent_schema/schemas/execution/experiment_group_schema.json`,
+Files changed across the full remediation (the allowed set originally recorded by
+historical packet `pkt_c88286ff11fd2edf`):
+`traigent_schema/schemas/execution/experiment_group_schema.json`,
 `traigent_schema/schemas/execution/execution_endpoints.json`,
 `tests/test_experiment_group_contract.py`,
 `tests/test_success_envelope_and_response_coverage.py`, `CHANGELOG.md`,
@@ -402,6 +409,19 @@ post-rebase feature tree before the sixth pass, the combined parity digest was
 combined digest is `6afe9738c670…` across the same 364 schema files, and
 `python scripts/refresh_parity.py --check` passes.
 
+## Current governance metadata
+
+The authority for release coordination is the unified ChangeSession
+`cs_85af3e2677c82db1`. This Schema evidence and implementation belongs to packet
+`pkt_8b55a584db589f67` and release trail `st_7a0086093bb2`. Commit trailers on the
+final governance metadata commit carry that session and trail.
+
+The older ChangeSession `cs_dbd17dd6bfabeed7`, packet identifiers beginning with
+`pkt_c88286ff11fd2edf` / `pkt_1c3f2ce482d11d82`, and their associated trails remain
+only as an audit of how the contract reached its current state. They are superseded
+for release authority and must not be copied into a new PR body, receipt, gate, or
+cross-repo readiness claim.
+
 ## Exact command outcomes
 
 Run in the repo `.venv` (Python 3.11.15).
@@ -488,11 +508,12 @@ as explicit handoff risks, not proven behavior:
   (`--select E,F,I,UP,B` on the file is unchanged at the single pre-existing `I001`,
   and `--select E501` is clean). The repo lint gate (`ruff check traigent_schema/`)
   does not cover `tests/` and passes clean.
-- **Cross-repo propagation — owning packets / acceptance handoff.** This schema-first
-  change hands off to owning packets under ChangeSession `cs_dbd17dd6bfabeed7`:
-  Backend (BE Pydantic) `pkt_be115fb8b4fd8ce1`, Frontend (FE TS types)
-  `pkt_7b3e4e6a28829e0b`, and spine/evidence `pkt_695b4242e304f655`. Schema-to-SDK DTO
-  propagation (Python `Traigent` and `traigent-js`) was inspected: the Wave A tie-break
+- **Cross-repo propagation — acceptance handoff.** Current release coordination is
+  owned by unified ChangeSession `cs_85af3e2677c82db1`; this Schema work is packet
+  `pkt_8b55a584db589f67`. The older Backend, Frontend, and spine/evidence packet
+  assignments recorded under `cs_dbd17dd6bfabeed7` are superseded historical
+  routing, not current authority. Schema-to-SDK DTO propagation (Python `Traigent`
+  and `traigent-js`) was inspected: the Wave A tie-break
   and browse contract add no success DTO field, and this sixth pass adds an HTTP error
   response variant rather than a generated success DTO. No generated SDK DTO/TS type
   change is required. The Backend packet must emit one of the two exact documented

@@ -343,6 +343,22 @@ Commit SHAs: primary `<PRIMARY_SHA>`; parity companion `<PARITY_SHA>` (recorded 
 captain handoff; the report is inside the primary commit and so cannot embed its own
 SHA).
 
+## Develop integration rebase (2026-07-18)
+
+The accepted feature branch was rebased onto `origin/develop` at
+`67a9016f4540017561aae1c8676a4afb9397d4fc`. The only textual conflicts were the
+mechanically generated `schemaRefresh.lastSchemaFileSha` value in
+`parity/python-js-sdk.json` at each historical parity companion commit. Each conflict
+was resolved by running `python scripts/refresh_parity.py --update` against the
+combined develop-plus-feature schema tree, never by selecting either stale side.
+There were no contract, test, changelog, or report-content conflicts.
+
+The pre-rebase SHAs in the audit chronology above remain historical evidence
+identifiers; the rebased commits supersede them for develop integration. At the
+post-rebase feature tree, the combined parity digest is `66cc2fcc1982…` across 364
+schema files, and `python scripts/refresh_parity.py --check` passes. This report-only
+truth correction does not change the contract or the parity digest.
+
 ## Exact command outcomes
 
 Run in the repo `.venv` (Python 3.11.15).
@@ -357,7 +373,7 @@ Run in the repo `.venv` (Python 3.11.15).
 | Lint (repo gate) | `ruff check traigent_schema/` | All checks passed |
 | Lint (changed test) | `ruff check --line-length 100 --select E,F,I,UP,B tests/test_experiment_group_contract.py` | 1 error (pre-existing `I001` import ordering, predates this packet); **zero new**; no added line exceeds 100 chars (`--select E501` clean) |
 | Typecheck (repo gate) | `mypy traigent_schema/ --ignore-missing-imports` | Success, no issues (5 source files) |
-| Parity (companion re-stamp) | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `14f41916a777…`, files=364); `--check` **exit 0 (up-to-date)** at the final HEAD after the companion commit |
+| Parity (companion re-stamp) | `python3 scripts/refresh_parity.py --update` then `--check` | post-rebase combined-tree `--update` exit 0 (digest `66cc2fcc1982…`, files=364); `--check` **exit 0 (up-to-date)** at the final HEAD after the companion commit and report-only integration correction |
 
 Focused test count went 80 → 81 (1 new decisive tie-break regression test this pass:
 `group_id` is not the mandated sort/tie-break key; the canonical-identity tie
@@ -410,7 +426,7 @@ as explicit handoff risks, not proven behavior:
   This pass edits `experiment_group_schema.json`, which invalidates the parity
   provenance hash. The companion approved packet `pkt_1c3f2ce482d11d82` re-stamps it
   in its own commit: `python3 scripts/refresh_parity.py --update` produced digest
-  `14f41916a777…` (files=364) and `--check` then returns
+  `66cc2fcc1982…` (files=364) on the develop-integrated tree and `--check` then returns
   `exit 0 (up-to-date)`. The manifest is **outside the primary packet's allowed-file
   set**, so it is stamped only by the companion commit, preserving packet separation.
   Not relaxed, not bypassed.

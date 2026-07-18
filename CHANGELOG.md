@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.12.0] - 2026-07-19
+
+### Changed
+- **Bound `requested_estimate_usd` in spend-approval requests (#330):**
+  `spend_approval_request_schema` now constrains `requested_estimate_usd` to a
+  non-negative, bounded money value — the string branch must match
+  `^\d+(\.\d{1,6})?$` (non-negative decimal, ≤6 fractional digits) and the
+  number branch is bounded to `[0, 1,000,000]` — rejecting negative, non-numeric,
+  and absurdly large estimates at the schema layer (mirrors the
+  `wallet_admin_adjustment_request` money-bounds pattern). Authoritative
+  policy-threshold enforcement remains backend-side.
+- **Require the canonical optimization meter pair in `billing_limits` (#329):**
+  `billing_limits_schema` now requires `optimization_trials` and
+  `optimization_samples` (alongside `api_calls`, `benchmarks`, `users`) instead
+  of the deprecated `trials` alias, so the admission-critical canonical meter
+  pair must be present. RESIDUAL: TraigentBackend must emit
+  `optimization_trials`/`optimization_samples` in billing-limits payloads for
+  canonical read-back to pass.
+
 ## [4.11.0] - 2026-07-19
 
 ### Changed

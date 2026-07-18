@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.9.0] - 2026-07-16
+
+### Changed
+- **Request-contract tightening (annotation queues):** `items` on
+  `POST /api/v1beta/annotation-queues/{queue_id}/items` and the inline `scores`
+  array on `POST /api/v1beta/annotation-queues/items/{item_id}/complete` now
+  declare `maxItems: 1000`. Companion to TraigentBackend#2184 (DoS list caps,
+  #2177/#2178): the backend rejects larger lists (422), so the published
+  contract now says so. Requests within the cap are unaffected. The value
+  mirrors the established `MAX_EXAMPLES_BATCH = 1000` batch limit.
+
 ## [4.8.0] - 2026-07-12
 
 ### Added
@@ -185,6 +196,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Agent tuning-history browse surface (experiment groups, Wave A).** Additive
+  read-only enrichment of `execution/experiment_group_schema.json` and the
+  `execution/execution_endpoints.json` experiment-group routes: complete browse
+  rows (measures/summary-stats/error-state/provenance), a page-independent
+  full-group column manifest, cursor pagination alongside legacy `page`/`per_page`,
+  a `dataset_scope` (default `all`) group filter, and a read-only
+  `POST /api/v1/experiment-groups/{group_id}/configuration-runs/query` surface.
+  Group identity stays exactly visibility-scoped `agent_id` + canonical
+  `dataset_id`; no cross-setup ranking or Wave B comparison signatures are added.
+  Contract invariants are now enforced structurally rather than only described in
+  prose:
+  - `CursorPage` couples the fields — `has_more: true` requires a non-null opaque
+    `next_cursor` and `has_more: false` requires `next_cursor: null`; the group-list
+    and configuration-run-list payloads accept exactly one of `pagination` or
+    `cursor` (never both, never neither).
+  - The full-group column manifest has no `truncated` escape hatch (a partial
+    manifest can no longer claim completeness), and each namespace array accepts
+    only descriptors of its own `kind`.
+  - Column predicates are exclusive by operator: scalar operators require a scalar
+    operand, `in`/`not_in` require a bounded non-empty scalar array, and
+    `is_null`/`is_not_null` forbid a value.
+  - Group read/query routes expose canonical **redacted** error envelopes; a hidden
+    group and a non-existent one are the single indistinguishable `404` (no `403`),
+    so forbidden-vs-not-found never leaks.
+  - `GroupedConfigurationRunProvenance` no longer duplicates the source-execution
+    ids (Draft 7 cannot assert sibling equality); those ids stay canonical at the
+    browse-row top level and provenance carries only group/display context.
+    Runtime one-row-per-execution and exact scope/agent/dataset partitioning remain
+    downstream backend/E2E acceptance criteria, not proven by this schema.
+  - Group-list deterministic tie-break (unreleased correction): the group-list
+    tie-breaker is the group's canonical visible identity — `agent_id` ascending,
+    then canonical `dataset_id` ascending with nulls ordered first (the explicit
+    no-dataset group sorts before any concrete dataset id) — applied after the
+    requested primary sort and fixed independent of the primary field, its
+    direction, and `dataset_id` nullness. This replaces the earlier `group_id`
+    ascending tie-break: `group_id` is a non-reversible SHA-derived lookup token
+    that cannot be portably range-bounded, so it cannot back exact SQL-bounded
+    cursor pagination, whereas `(agent_id, canonical dataset_id)` is the exact
+    group identity, is fully range-orderable, and yields the same deterministic
+    total order. The tie-break has no user-facing semantic value; deterministic,
+    exact, visible-identity order does. The configuration-run row tie-break
+    (`configuration_run_id` ascending) is unchanged. The `GET /api/v1/experiment-groups`
+    inline `sort_by` parameter description in `execution/execution_endpoints.json` now
+    mirrors this authoritative `ExperimentGroupSortField` language byte-for-byte, so the
+    endpoint copy can no longer contradict the field (it previously still read
+    "group_id ascending").
+  - Redacted error envelope (same Wave A surface): a strict
+    `ExperimentGroupErrorEnvelope` subtype now backs every experiment-group
+    `400`/`401`/`404`/`500` (rather than the generic envelope directly). It stays
+    shape-compatible with the canonical envelope but forbids `details` structurally
+    and closes every public string field to a finite, fixed server-controlled enum —
+    `message` (display strings), `error`, and `error_code` are all enums — so no raw
+    query/group/SQL/secret value, and not even a benign-looking opaque token such as a
+    lowercase group id (`grp_...`), can validate in any public field. (An earlier draft
+    bounded `message` by a display-safe character set and `error_code` by a lowercase
+    token grammar, which still admitted such opaque tokens; the finite enums close that
+    gap.) `GET /experiment-groups/{group_id}` gained its previously-missing malformed-id
+    `400`, so every constrained-`group_id` route now has a safe malformed-id response.
+  - Legacy `page`/`per_page` mode and `cursor`/`limit` mode are made exhaustive and
+    mutually exclusive through the repository's established `x-excludes` extension on
+    each pagination parameter; every cross-mix (cursor+page, cursor+per_page,
+    limit+page, limit+per_page) is rejected, and omitting all four defaults to legacy
+    page mode.
+  - Predicate operands exclude `null` for both scalar and `in`/`not_in` set operators
+    (absent-or-null matching is reserved for `is_null`/`is_not_null`); set operands
+    are non-empty, bounded, and unique. String operands and every string set member
+    have a shared `maxLength: 255` cap, aligned with Backend request validation.
+  - `GroupedConfigurationRunErrorState` couples `has_error: false` with
+    `error_code: null`; a classified code without a failure is rejected.
+  - Manifest namespace arrays are `uniqueItems` (exact-duplicate descriptors
+    rejected). Rejecting same-`(kind, key)` duplicates that disagree on metadata is
+    recorded as a backend acceptance criterion, since Draft 7 cannot express
+    uniqueness by a subproperty.
+- **Experiment-group outage contract:** all four experiment-group browse/query
+  operations now document the fail-closed authentication-backend `503` response.
+  A dedicated strict envelope admits only the two fixed, redacted middleware
+  representations of `AUTH_BACKEND_UNAVAILABLE`; it rejects diagnostic details,
+  request-derived content, and additional properties. Existing `400`, `401`,
+  `404`, and `500` response contracts are unchanged.
 - `optimization/optimization_plan_request_schema.json` and
   `optimization/optimization_plan_response_schema.json` for
   `POST /api/v1/optimization/plan`, plus a dedicated

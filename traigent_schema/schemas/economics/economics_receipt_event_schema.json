@@ -1,0 +1,398 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_receipt_event_schema.json",
+  "title": "Economics receipt record",
+  "description": "A machine-verifiable receipt: the evidence that a claimed unit of value actually happened. Receipt kinds are CLOSED — winner | defect | savings — and each kind requires its own evidence, so a receipt cannot be satisfied by narrative. The discriminator makes cross-kind contamination unrepresentable: a savings receipt carrying a winner block is rejected, as is a receipt of any kind carrying the blocks of another. Distinct from the SmartOps Planner V2 `receipt_request_schema` (an execution ATTEMPT receipt: started/submitted/failed/skipped) — that records that an action ran; this records that value was verified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_type", "event_id", "occurred_at", "project_ref", "receipt_kind", "attestation"],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "const": "receipt"
+    },
+    "event_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "Emitter-generated unique id for this event; the ingestion de-duplication key."
+    },
+    "occurred_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+    "project_ref": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true
+    },
+    "receipt_kind": {
+      "type": "string",
+      "enum": ["winner", "defect", "savings"],
+      "description": "CLOSED receipt kind. Each kind binds a different required evidence block; there is no generic receipt."
+    },
+    "attestation": {"$ref": "#/definitions/Attestation"},
+    "winner": {"$ref": "#/definitions/WinnerReceipt"},
+    "defect": {"$ref": "#/definitions/DefectReceipt"},
+    "savings": {"$ref": "#/definitions/SavingsReceipt"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"receipt_kind": {"const": "winner"}}, "required": ["receipt_kind"]},
+      "then": {
+        "required": ["winner"],
+        "not": {"anyOf": [{"required": ["defect"]}, {"required": ["savings"]}]}
+      }
+    },
+    {
+      "if": {"properties": {"receipt_kind": {"const": "defect"}}, "required": ["receipt_kind"]},
+      "then": {
+        "required": ["defect"],
+        "not": {"anyOf": [{"required": ["winner"]}, {"required": ["savings"]}]}
+      }
+    },
+    {
+      "if": {"properties": {"receipt_kind": {"const": "savings"}}, "required": ["receipt_kind"]},
+      "then": {
+        "required": ["savings"],
+        "not": {"anyOf": [{"required": ["winner"]}, {"required": ["defect"]}]}
+      }
+    }
+  ],
+  "x-backend-obligations": [
+    "PROPOSER != VERIFIER: reject a receipt whose attestation.verifier_id equals attestation.proposer_id, or whose verifier is controlled by the proposing agent. JSON Schema cannot compare two sibling values; this is THE non-gameability rule and it is not proven by this contract.",
+    "IMMUTABLE PERSISTENCE: a stored receipt is append-only. Re-submitting the same event_id must replay the stored receipt, never overwrite it; a differing body under the same event_id is a conflict (409), not an update.",
+    "TENANT OWNERSHIP: every id in the receipt must be verified against the canonical request context before the receipt unlocks any budget.",
+    "METER AUTHORITY: savings.meter_source names an authoritative meter, but the backend must reconcile the claimed amounts against that meter's own records — a client naming 'provider_invoice' has not thereby produced one.",
+    "RUN IMMUTABILITY: winner.run_identity.run_immutable_hash must match the backend's stored hash for that run; a winner receipt against a mutated run is void.",
+    "WINNER RECEIPT RECONCILIATION: a winner receipt is only a claim until every load-bearing field is reconciled, as a set, against authoritative stored state — none of which a single self-consistent payload can carry. Before the receipt unlocks any budget the backend MUST reconcile: (1) winner.run_identity (run_id + run_immutable_hash) against the IMMUTABLE stored run, rejecting a receipt that names no such run or a run whose stored hash differs; (2) winner.actual_cost_usd against the authoritative cost METER for that run, not the number the receipt asserts; (3) winner.selected_config_hash against the configuration actually selected and measured for that run, so 'what won' cannot drift from what was evaluated; (4) winner.paired_delta against the recorded baseline/candidate paired effect for that run (a paired delta is only meaningful against the two arms the backend actually stored); and (5) winner.promotion / winner.production_follow_up against the recorded promotion evidence (promoted/reverted/production timestamps and any measured production delta). JSON Schema validates each field in isolation and has no second record to compare against, so a STRUCTURALLY valid winner receipt whose cost, delta, config, run identity, or promotion contradicts the stored run is contract-valid and MUST be rejected here (reason winner_receipt_reconciliation_failed). This is a cross-record reconciliation, distinct from the per-field RUN IMMUTABILITY / METER AUTHORITY / INTERVAL ORDERING checks it subsumes for the winner path.",
+    "BUDGET UNLOCK: future budget unlocks only from receipts that passed the above checks. An unverified claim unlocks $0.",
+    "INTERVAL ORDERING: reject any ConfidenceInterval — winner.paired_delta, production_follow_up.production_delta — where NOT (lower <= estimate <= upper) (reason interval_bounds_inconsistent). The contract bounds the three numbers independently but cannot relate them, so an inverted interval is contract-valid today. On a receipt this is a non-gameability hole, not a typo: budget unlocks on the LOWER bound, so `lower: 0.9, estimate: 0.01, upper: 0.02` submits a losing result as a strongly positive one.",
+    "WINDOW ORDERING: reject savings.window where NOT (start < end), and production_follow_up timestamps that precede the promotion they follow. Same limitation, same reason code."
+  ],
+  "definitions": {
+    "Attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposer_id", "verifier_id", "verifier_kind", "verified_at"],
+      "properties": {
+        "proposer_id": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+          "x-identifier": true,
+          "description": "Identity of the agent/surface that proposed the spend this receipt justifies."
+        },
+        "verifier_id": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+          "x-identifier": true,
+          "description": "Identity of the party that verified it. MUST NOT be the proposer — enforced by the backend, not by this contract (see x-backend-obligations)."
+        },
+        "verifier_kind": {
+          "type": "string",
+          "enum": ["human_reviewer", "platform_meter", "platform_statistics", "third_party"],
+          "description": "CLOSED set of who may verify. The proposing agent is not a member: an agent cannot validate its own receipt."
+        },
+        "verified_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"}
+      },
+      "description": "Who proposed the spend and who independently verified the result. Required on every receipt kind."
+    },
+    "WinnerReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_identity", "actual_cost_usd", "paired_delta", "paired", "selected_config_hash", "promotion"],
+      "properties": {
+        "run_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["run_id", "run_immutable_hash"],
+          "properties": {
+            "run_id": {"$ref": "./economics_common_schema.json#/definitions/RunId"},
+            "run_immutable_hash": {
+              "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Sha256Hex"}],
+              "description": "Hash pinning the run's inputs and results. Makes the winner claim checkable against an immutable run rather than a mutable label."
+            }
+          },
+          "description": "Immutable identity of the run that produced the winner."
+        },
+        "actual_cost_usd": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UsdAmount"}],
+          "description": "Dollars actually spent producing this winner — metered, not estimated."
+        },
+        "paired_delta": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ConfidenceInterval"}],
+          "description": "The PAIRED delta between candidate and baseline, with its interval and level. Both the pairing and the interval are required: an unpaired or interval-free 'improvement' is the exact shape of a false promotion."
+        },
+        "paired": {
+          "type": "boolean",
+          "const": true,
+          "description": "Explicit assertion that the delta is paired (same examples, both arms). A required const rather than an optional free boolean: `false` is unrepresentable AND the field cannot be omitted, so an unpaired winner receipt cannot be submitted either by declaring it or by staying silent about it."
+        },
+        "selected_config_hash": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Sha256Hex"}],
+          "description": "Hash of the configuration actually selected, so 'what won' cannot drift from what was measured."
+        },
+        "promotion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["promoted", "not_promoted", "reverted"],
+              "description": "CLOSED promotion status. 'not_promoted' is a legitimate winner receipt: the run produced a supported result the client chose not to deploy, and that distinction is the uptake measurement."
+            },
+            "promoted_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+            "reverted_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"}
+          },
+          "allOf": [
+            {
+              "if": {"properties": {"status": {"const": "promoted"}}, "required": ["status"]},
+              "then": {"required": ["promoted_at"], "not": {"required": ["reverted_at"]}}
+            },
+            {
+              "if": {"properties": {"status": {"const": "reverted"}}, "required": ["status"]},
+              "then": {"required": ["promoted_at", "reverted_at"]}
+            },
+            {
+              "if": {"properties": {"status": {"const": "not_promoted"}}, "required": ["status"]},
+              "then": {"not": {"anyOf": [{"required": ["promoted_at"]}, {"required": ["reverted_at"]}]}}
+            }
+          ]
+        },
+        "production_follow_up": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["scheduled", "confirmed", "not_confirmed", "contradicted", "not_measurable"],
+              "description": "CLOSED status of the delayed production check. 'contradicted' (production reversed the eval result) must be reportable: eval-to-production transfer is a decision-sensitive assumption, and a receipt scheme that can only report success cannot measure it."
+            },
+            "due_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+            "measured_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+            "production_delta": {"$ref": "./economics_common_schema.json#/definitions/ConfidenceInterval"}
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {"status": {"enum": ["confirmed", "contradicted"]}},
+                "required": ["status"]
+              },
+              "then": {
+                "required": ["measured_at", "production_delta"],
+                "description": "A confirmed or contradicted production result must carry the measurement that says so."
+              }
+            },
+            {
+              "if": {"properties": {"status": {"const": "scheduled"}}, "required": ["status"]},
+              "then": {"required": ["due_at"]}
+            }
+          ],
+          "description": "The delayed production confirmation. A measured eval uplift may disappear or reverse in production; this is where that is recorded rather than assumed."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"promotion": {"properties": {"status": {"enum": ["promoted", "reverted"]}}, "required": ["status"]}},
+            "required": ["promotion"]
+          },
+          "then": {
+            "required": ["production_follow_up"],
+            "description": "A promoted or reverted winner MUST carry its production follow-up. Promotion is the moment the eval claim is put into production, and eval-to-production transfer is a decision-sensitive assumption: a receipt that promotes (or reverts) while staying silent about production is the exact shape that can only report success. A follow-up that has not resolved yet is truthful, not absent — production_follow_up.status=scheduled with a due_at (enforced above) says 'promoted, measurement pending' rather than omitting the obligation. 'not_promoted' is handled by the complementary rule below: nothing was put into production, so it does not merely go unrequired — a production follow-up is FORBIDDEN there."
+          }
+        },
+        {
+          "if": {
+            "properties": {"promotion": {"properties": {"status": {"const": "not_promoted"}}, "required": ["status"]}},
+            "required": ["promotion"]
+          },
+          "then": {
+            "not": {"required": ["production_follow_up"]},
+            "description": "A not_promoted winner MUST NOT carry a production follow-up. Nothing was put into production, so there is nothing to follow up on: a scheduled or confirmed production check on a configuration the client declared never deployed is production-transfer evidence for a transfer that by definition never happened — the exact shape that lets a never-deployed config claim production uptake. Requiring the follow-up for promoted/reverted while merely not-requiring it here would leave that shape representable; forbidding it closes the hole. That the client declined a supported result is itself the uptake measurement, carried by promotion.status alone."
+          }
+        }
+      ],
+      "description": "Winner receipt: immutable run identity, actual cost, paired delta with interval, selected configuration, promotion status, and the production follow-up (required once the winner is promoted or reverted, and forbidden when it was not_promoted)."
+    },
+    "DefectReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["example_hash", "defect_class", "disposition", "reviewer_minutes", "duplicate_check"],
+      "properties": {
+        "example_hash": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Sha256Hex"}],
+          "description": "Hash of the offending example. A hash, not the example: the defect is identified and de-duplicated without the content leaving the client."
+        },
+        "defect_class": {
+          "type": "string",
+          "enum": [
+            "wrong_label",
+            "ambiguous_label",
+            "duplicate_example",
+            "malformed_example",
+            "leaked_holdout",
+            "evaluator_parse_failure",
+            "evaluator_miscalibration",
+            "evaluator_bias",
+            "unreachable_expected_output"
+          ],
+          "description": "CLOSED defect class."
+        },
+        "disposition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["verdict", "disposed_by", "disposed_at"],
+          "properties": {
+            "verdict": {
+              "type": "string",
+              "enum": ["confirmed_defect", "not_a_defect", "duplicate", "needs_more_info"],
+              "description": "CLOSED independent verdict. Only 'confirmed_defect' may count toward value; the other three must be reportable or the confirmation rate is unmeasurable and the paid-discovery break-even cannot be checked."
+            },
+            "disposed_by": {
+              "type": "string",
+              "enum": ["human_reviewer", "third_party"],
+              "description": "The disposition is INDEPENDENT by construction: the flagging agent is not a member of this enum."
+            },
+            "disposed_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"}
+          },
+          "description": "The independent disposition of the flagged example."
+        },
+        "reviewer_minutes": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Minutes"}],
+          "description": "Minutes the independent reviewer actually spent. Feeds the cost-per-confirmed-issue break-even; a discovery claim without review cost is not comparable to human QA."
+        },
+        "correction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "reference"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["corrected_example", "removed_example", "corrected_evaluator", "validating_test"],
+              "description": "CLOSED remedy kind: what was actually changed or what test now pins the defect."
+            },
+            "reference": {
+              "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+              "description": "Opaque reference to the correction or the validating test."
+            }
+          },
+          "description": "The correction or the validating test. Required when the verdict is confirmed_defect: a confirmed defect with nothing fixed and no test pinning it has produced no value."
+        },
+        "duplicate_check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["performed", "result"],
+          "properties": {
+            "performed": {
+              "type": "boolean",
+              "const": true,
+              "description": "The duplicate check is mandatory, so the field cannot say 'false' — it exists to force the check to have happened before the claim counts. Whether the check was real is a backend obligation."
+            },
+            "result": {
+              "type": "string",
+              "enum": ["unique", "duplicate_of_known_defect"],
+              "description": "CLOSED outcome. Without this, the same defect can be re-sold N times."
+            },
+            "duplicate_of": {
+              "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+              "description": "The already-known defect this duplicates."
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {"result": {"const": "duplicate_of_known_defect"}},
+                "required": ["result"]
+              },
+              "then": {"required": ["duplicate_of"]},
+              "else": {"not": {"required": ["duplicate_of"]}}
+            }
+          ]
+        },
+        "downstream_metric_change": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metric", "delta", "unit", "measured_at"],
+          "properties": {
+            "metric": {"$ref": "./economics_common_schema.json#/definitions/ShortLabel"},
+            "delta": {
+              "type": "number",
+              "minimum": -100000000,
+              "maximum": 100000000
+            },
+            "unit": {"$ref": "./economics_common_schema.json#/definitions/MeasurementUnit"},
+            "measured_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"}
+          },
+          "description": "The measured downstream effect of fixing the defect. Signed: fixing a defect can move a metric the wrong way, and that must be reportable."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"disposition": {"properties": {"verdict": {"const": "confirmed_defect"}}, "required": ["verdict"]}},
+            "required": ["disposition"]
+          },
+          "then": {"required": ["correction"]}
+        }
+      ],
+      "description": "Defect receipt: example hash, defect class, independent disposition and verifier, reviewer minutes, the correction or validating test, the duplicate check, and the downstream metric change."
+    },
+    "SavingsReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measurement_method", "meter_source", "measured_at", "window"],
+      "properties": {
+        "measurement_method": {
+          "type": "string",
+          "const": "metered",
+          "description": "Savings are METERED, full stop. The const exists to make an agent-authored estimate unrepresentable: there is no 'estimated' member to select, so an estimate cannot be submitted as a savings receipt at all."
+        },
+        "meter_source": {
+          "type": "string",
+          "enum": ["provider_invoice", "gateway_meter", "platform_meter"],
+          "description": "CLOSED set of AUTHORITATIVE meters. An agent, an SDK-side calculation, and a user assertion are all deliberately absent: they are not meters. Naming a meter is not the same as producing its records — reconciliation is a backend obligation."
+        },
+        "measured_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+            "end": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"}
+          },
+          "description": "The metering window. start < end is a backend obligation. Required: a savings figure with no window is not comparable to anything."
+        },
+        "tokens_saved": {
+          "type": "integer",
+          "minimum": -1000000000,
+          "maximum": 1000000000,
+          "description": "Signed: a change can cost more tokens than it saves, and a meter that can only report savings is not a meter."
+        },
+        "calls_saved": {
+          "type": "integer",
+          "minimum": -1000000000,
+          "maximum": 1000000000,
+          "description": "Signed, for the same reason as tokens_saved."
+        },
+        "latency_saved_ms": {
+          "type": "number",
+          "minimum": -86400000,
+          "maximum": 86400000,
+          "description": "Signed change in latency, per metered observation."
+        },
+        "usd_saved": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/SignedUsdAmount"}],
+          "description": "Signed dollars saved over the window, per the named meter."
+        },
+        "baseline_reference": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+          "description": "Opaque reference to the metered baseline the saving is measured against."
+        }
+      },
+      "anyOf": [
+        {"required": ["tokens_saved"]},
+        {"required": ["calls_saved"]},
+        {"required": ["latency_saved_ms"]},
+        {"required": ["usd_saved"]}
+      ],
+      "description": "Savings receipt: metered tokens, calls, latency, or dollars from an authoritative meter. At least one metered quantity is required — a savings receipt that meters nothing is empty."
+    }
+  }
+}

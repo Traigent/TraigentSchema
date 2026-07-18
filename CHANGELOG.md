@@ -5,6 +5,103 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.10.0] - 2026-07-17
+
+### Added
+- **Economics telemetry contract (contract-first, pre-release).** A strict, versioned
+  shared contract for `POST /api/v1/economics/telemetry`, published ahead of backend
+  ingestion and SDK emission per the cross-repo rule that request/response shapes start
+  in TraigentSchema. Registered under the `planned_projects` (non-canonical) contract
+  root and marked `x-asserted-against-backend: false` — no backend serves it yet.
+  - **Exposure funnel events** across the nine stages (`eligible` →
+    `production_retained`). Every exit carries a CLOSED reason code: `exit_reason` is
+    required when `outcome` is `exited` and forbidden otherwise, and there is no `other`
+    member and no free-text note — an exit that fits no code is a versioned enum
+    addition, not a prose escape hatch. At the `production_retained` stage
+    `occurred_in_environment` is REQUIRED and must be `production` (keyed on the stage,
+    so an exit there obeys it too): production retention is the numerator of the
+    retention rate, so a retention observation that omits its environment or names
+    `development`/`staging` would inflate that numerator with runs that never reached
+    production. Earlier stages leave `occurred_in_environment` optional and
+    unconstrained.
+  - **Run economics** is the SETTLED record of a run whose effect was measured (a
+    failed/capped/insufficient-evidence run is a funnel exit, not a blank settlement),
+    so the whole record is required, not just identity: characterization bands/overrides
+    with per-field `asked | inferred | defaulted` provenance, confidence, and sharing
+    outcomes; archetype; backend-authored budget recommendation/cap (`authored_by` is a
+    `backend` const, so an agent-authored budget is unrepresentable); actual spend;
+    explicitly-metered usage (`input_tokens`, `output_tokens`, `model_calls` required, so
+    a $0 run reports explicit zeros rather than an empty object that meters nothing);
+    model prices with a closed price source; evidence identity with the measured effect
+    REQUIRED (baseline/candidate and evaluator, objective weights, effect estimate with a
+    required interval and level, support, and explicit exclusions; `holdout_hash` stays
+    optional because measuring without a holdout is a real fact); advisory behavior
+    (recommendation, client action, closed off-menu classes, adherence probability,
+    planner-blind information); and labor proxies where claimed hours avoided require
+    human confirmation.
+  - **Receipts** with closed kinds `winner | defect | savings` and kind-specific
+    required evidence, discriminated so a receipt cannot carry another kind's block.
+    Savings are metered-only: `measurement_method` is a `metered` const and
+    `meter_source` is closed to authoritative meters, so an agent-authored estimate
+    cannot be submitted as a savings receipt. A winner whose `promotion.status` is
+    `promoted` or `reverted` MUST carry its `production_follow_up` (a pending one is
+    truthful — `scheduled` with a `due_at`), so a promotion cannot stay silent about the
+    eval-to-production transfer it depends on; and a `not_promoted` winner MUST NOT carry
+    one — nothing was deployed, so a scheduled or confirmed production check on a
+    configuration declared never deployed is production-transfer evidence for a transfer
+    that by definition never happened, and forbidding it (rather than merely not
+    requiring it) closes that hole.
+  - **Field-level sharing rules, enforced by the contract.** `sharing_outcome` and a
+    transmitted value form a biconditional, enforced per allowlisted field as presence
+    checks keyed on a closed enum (which Draft-07 can express, so a client verifies them
+    on its own machine before a payload egresses): a field reported
+    `withheld_by_policy` must be ABSENT from `bands`/`overrides` (egress); a value
+    present must carry a `shared` report (coverage); and a `shared` report must carry its
+    value (substance), so a report cannot be an empty alibi that names a sharing outcome
+    while transmitting nothing.
+  - **Batch envelope** with stable contract/version identifiers, an idempotency key
+    (also accepted via the `Idempotency-Key` header) and a 500-event cap. The response
+    reports submitted/accepted/duplicate/rejected counts with closed rejection reasons
+    and ALWAYS carries a `rejections` array (empty when none, so 'stored' is
+    distinguishable from 'silently dropped'). Per-status response schemas bind the replay
+    flag: HTTP 200 (replay) is `replayed: true`, HTTP 201 (initial ingest) is
+    `replayed: false`, so status and body cannot disagree about whether state was
+    written.
+- `x-backend-obligations`: a governance-declared extension enumerating the invariants a
+  contract requires but JSON Schema cannot enforce (tenant ownership, funnel order,
+  proposer ≠ verifier, immutable/idempotent persistence, meter reconciliation, and the
+  cross-field checks below). Declaring an obligation documents a gap; it is not evidence
+  the gap is closed.
+- Closed rejection reasons naming the cross-field and cross-record checks Draft-07
+  cannot make, so an emitter is told which bug it has rather than a generic
+  `schema_violation`: `duplicate_characterization_field` (`uniqueItems` compares whole
+  objects, so one field reported twice with differing metadata passes),
+  `interval_bounds_inconsistent` (`lower <= estimate <= upper` cannot be expressed, and
+  the economics model leads with the lower bound), `support_counts_inconsistent`
+  (`n_paired <= n_examples`), `withheld_field_value_present`, and
+  `winner_receipt_reconciliation_failed` (a winner receipt's cost, paired delta, selected
+  config, immutable run identity, and promotion evidence cannot be cross-record reconciled
+  against the stored run in Draft-07).
+- **`ShortLabel` is an opaque identifier grammar, not free-form text.** The shared
+  `ShortLabel` type (consumed by `model_id`, the emitting-surface name, `evaluator_version`,
+  `objective`, the metric name, and the policy-version fields) previously accepted any
+  1–128 character string, so sensitive prose or PII could egress through those fields
+  despite the "not free-form" prose. It now carries an identifier pattern: ASCII letters and
+  digits, with `.` `_` `:` `/` `+` `-` allowed only between alphanumerics, and a portable
+  end-of-input anchor (so a trailing newline cannot slip through Python's `$`). This admits
+  real identifiers (`gpt-4o-mini`, `anthropic/claude-3.5`, `accuracy_v2`, `1.0.0`) and
+  rejects content-shaped values such as `Alice Smith SSN 123-45-6789`, whitespace, control
+  characters, quotes, and email text. The length bounds are unchanged.
+- **`WINNER RECEIPT RECONCILIATION` backend obligation.** A winner receipt is structurally
+  self-consistent but its `actual_cost_usd`, `paired_delta`, `selected_config_hash`,
+  immutable run identity, and promotion evidence are only claims until reconciled, as a set,
+  against the immutable stored run, the authoritative cost meter, the selected/measured
+  config, the recorded baseline/candidate effect, and the recorded promotion evidence.
+  JSON Schema validates one payload in isolation and has no stored run to compare against, so
+  a structurally valid but contradictory winner receipt is contract-valid and must be
+  rejected at the backend boundary (`winner_receipt_reconciliation_failed`). Declaring the
+  obligation documents the gap; it does not close it.
+
 ## [4.9.0] - 2026-07-16
 
 ### Changed

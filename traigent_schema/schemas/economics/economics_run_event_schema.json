@@ -1,0 +1,523 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_run_event_schema.json",
+  "title": "Economics run telemetry event",
+  "description": "The economics record of one run: what we believed about the client (characterization values, how each was obtained, and what their sharing policy let us see), what budget the backend recommended, what was actually spent, what evidence the run produced, whether the client followed the advice, and the labor proxies. This is the record that lets the value model be checked against reality instead of asserted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_type",
+    "event_id",
+    "occurred_at",
+    "project_ref",
+    "run_id",
+    "archetype",
+    "characterization",
+    "budget",
+    "actual_spend_usd",
+    "usage",
+    "model_prices",
+    "evidence_identity",
+    "advisory",
+    "labor_proxies"
+  ],
+  "x-traigent-note": "REQUIRED IS THE WHOLE RECORD, NOT JUST THE IDENTITY. This event is the SETTLED economics of one run: it is emitted once the run has finished and its effect has been measured. When only identity was required, an emitter could satisfy the contract with `{event_type, event_id, occurred_at, project_ref, run_id}` — a blank record that names a run and asserts nothing, yet counts as an economics observation. That is the cheapest possible way to look instrumented while producing no evidence, and it is exactly what this contract exists to prevent. A run that failed, was capped, or produced insufficient evidence is NOT reported as a blank run_economics event: it is a funnel exit carrying a closed exit_reason (run_failed, cost_cap_reached, insufficient_evidence, no_positive_lower_bound, ...), which is a more informative record than an empty settlement, not a less informative one.",
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "const": "run_economics"
+    },
+    "event_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "Emitter-generated unique id for this event; the ingestion de-duplication key."
+    },
+    "occurred_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+    "project_ref": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true
+    },
+    "run_id": {"$ref": "./economics_common_schema.json#/definitions/RunId"},
+    "archetype": {"$ref": "./economics_common_schema.json#/definitions/Archetype"},
+    "characterization": {"$ref": "#/definitions/CharacterizationTelemetry"},
+    "budget": {"$ref": "#/definitions/BudgetRecord"},
+    "actual_spend_usd": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UsdAmount"}],
+      "description": "Dollars actually spent by this run. Whether actual_spend_usd <= budget.cap_usd held is a backend obligation (a contract cannot compare two sibling values), and a breach is a finding, not a rejection."
+    },
+    "usage": {"$ref": "#/definitions/UsageRecord"},
+    "model_prices": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {"$ref": "./economics_common_schema.json#/definitions/ModelPrice"},
+      "description": "Prices used to dollarize this run's usage, so the cost claim survives a provider price change."
+    },
+    "evidence_identity": {"$ref": "#/definitions/EvidenceIdentity"},
+    "advisory": {"$ref": "#/definitions/AdvisoryBehavior"},
+    "labor_proxies": {"$ref": "#/definitions/LaborProxies"}
+  },
+  "x-backend-obligations": [
+    "TENANT OWNERSHIP: project_ref and run_id must be verified against the canonical request context.",
+    "BUDGET AUTHORSHIP: budget.authored_by is a client-submitted claim of backend authorship. The backend must verify the recommendation/cap against its own issued record for this run and reject a mismatch; the const only stops a client from openly declaring itself the author.",
+    "SPEND vs CAP: check actual_spend_usd against the issued cap and against the metered spend ledger.",
+    "PRICE PLAUSIBILITY: cross-check model_prices against the platform price table for the as_of time.",
+    "UNIQUE CHARACTERIZATION FIELDS: reject a payload whose characterization.field_reports names the same `field` twice (reason duplicate_characterization_field). `uniqueItems` compares WHOLE objects, so two reports for one field with differing provenance/confidence/sharing_outcome are distinct objects and pass the contract. Left unchecked, an emitter could report one field as both `asked` and `inferred`, or as both `shared` and `withheld_by_policy` — which makes provenance and withholding rates unreadable and gives a leaked value a second, contradictory alibi. JSON Schema cannot express uniqueness on an object property.",
+    "INTERVAL ORDERING: reject any ConfidenceInterval where NOT (lower <= estimate <= upper), and any interval whose level is implausible for the claim (reason interval_bounds_inconsistent). The contract bounds each of the three numbers independently but cannot relate them, so `lower: 0.9, estimate: 0.1, upper: 0.2` is contract-valid today. This matters more here than in a typical schema: the economics model LEADS WITH THE LOWER BOUND, so an inverted interval does not merely look odd — it manufactures a favourable lower bound out of an unfavourable result.",
+    "SUPPORT COUNTS: reject evidence_identity.support where n_paired > n_examples (reason support_counts_inconsistent). More paired observations than observations is impossible, and pairing is the control the winner receipt rests on; both counts are independently bounded but the contract cannot relate them.",
+    "WITHHELD VALUES ARE NOT LOGGED: the contract makes `withheld_by_policy` + a present value unrepresentable (see CharacterizationTelemetry), so such a payload is REJECTED — but rejection paths are exactly where full request bodies get written to error logs and dead-letter queues. The withheld value must never be logged, persisted, echoed in the rejection `detail`, or otherwise retained. Reject and drop, with reason withheld_field_value_present.",
+    "HOLDOUT REQUIRED BY STAKES: evidence_identity.holdout_hash is contract-optional because an effect measured without a frozen holdout is a real methodological fact the transfer analysis needs to know. WHETHER a holdout was required for this run — a function of archetype, error-cost band, and whether the winner is being promoted — is a design/backend judgement the contract cannot make (it cannot read the promotion decision or the stakes table from a single settled event). A high-stakes promotion whose effect rests on no holdout is a finding to raise, not a contract-valid record to trust silently."
+  ],
+  "definitions": {
+    "CharacterizationFieldReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "provenance", "confidence", "sharing_outcome"],
+      "properties": {
+        "field": {"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/CharacterizationFieldName"},
+        "provenance": {"$ref": "./economics_common_schema.json#/definitions/Provenance"},
+        "confidence": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UnitInterval"}],
+          "description": "How confident the emitter is in this field's value, in [0, 1]. REQUIRED on every report, not only on inferred ones. Optional confidence is silently self-serving: a low-confidence value reported without its confidence is read downstream as a certain one, and the fields most likely to be omitted are the guesses. An asked value reports 1.0; a defaulted value reports the confidence the platform default actually carries, which is honest information about how much of the characterization is real."
+        },
+        "sharing_outcome": {"$ref": "./economics_common_schema.json#/definitions/SharingOutcome"},
+        "evidence_status": {"$ref": "./economics_common_schema.json#/definitions/EvidenceStatus"},
+        "evidence_pointer": {"$ref": "./economics_common_schema.json#/definitions/EvidencePointer"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"provenance": {"const": "inferred"}},
+            "required": ["provenance"]
+          },
+          "then": {
+            "required": ["evidence_status"],
+            "description": "An inferred value MUST account for its evidence. The client may withhold the pointer, but not the fact that evidence exists."
+          },
+          "else": {
+            "not": {"anyOf": [{"required": ["evidence_status"]}, {"required": ["evidence_pointer"]}]},
+            "description": "Asked and defaulted values have no inference evidence to account for; claiming evidence for them is a contract violation."
+          }
+        },
+        {
+          "if": {
+            "properties": {"evidence_status": {"const": "provided"}},
+            "required": ["evidence_status"]
+          },
+          "then": {
+            "required": ["evidence_pointer"]
+          }
+        },
+        {
+          "if": {
+            "properties": {"evidence_status": {"const": "withheld_by_policy"}},
+            "required": ["evidence_status"]
+          },
+          "then": {
+            "not": {"required": ["evidence_pointer"]},
+            "description": "Egress rule: evidence withheld by the client's sharing policy cannot ride along in the pointer field."
+          }
+        },
+        {
+          "if": {
+            "properties": {"sharing_outcome": {"const": "withheld_by_policy"}},
+            "required": ["sharing_outcome"]
+          },
+          "then": {
+            "properties": {"evidence_status": {"const": "withheld_by_policy"}},
+            "not": {"required": ["evidence_pointer"]},
+            "description": "Withheld means withheld: a field the sharing policy withheld cannot egress its evidence either. evidence_status=provided on a withheld field is a self-contradiction — the value never left, so nothing could have been provided to back it — and evidence_pointer is itself derived from the client's traces (x-privacy-classification: user_content), so shipping it would leak, in prose, precisely the thing the withholding promised to keep local ('incident ledger shows $4k median escalation' states the withheld magnitude). The two egress channels are closed together because closing only one is not a closed pipe."
+          }
+        }
+      ],
+      "description": "Per-field provenance and sharing outcome for one allowlisted characterization field. Records HOW we know a thing and WHAT the client let us see — which is what tells us how much agents infer versus ask, and what clients withhold."
+    },
+    "CharacterizationTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_reports"],
+      "properties": {
+        "bands": {"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/CharacterizationBands"},
+        "overrides": {"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/CharacterizationOverrides"},
+        "field_reports": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/CharacterizationFieldReport"},
+          "description": "One report per characterization field that was determined, and REQUIRED: every value transmitted in bands/overrides must have a report here naming it with sharing_outcome=shared (enforced per field in the allOf below), so no value arrives with unaccounted provenance. At most one report per allowlisted field name — but `uniqueItems` only stops a byte-identical repeat, because it compares WHOLE objects: two reports naming the same `field` with differing metadata are distinct objects and pass. Uniqueness of `field` is therefore a backend obligation (see x-backend-obligations), reported as duplicate_characterization_field."
+        },
+        "sharing_policy_version": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
+          "description": "Version of the client-side sharing policy that produced these sharing outcomes."
+        },
+        "asked_count": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Count"}],
+          "description": "How many questions were actually put to the end user. The design targets 2; this measures it."
+        }
+      },
+      "allOf": [
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_channel"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"bands": {"not": {"required": ["value_channel"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "daily_volume_band"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"bands": {"not": {"required": ["daily_volume_band"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "error_cost_band"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"bands": {"not": {"required": ["error_cost_band"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "lifecycle_stage"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"bands": {"not": {"required": ["lifecycle_stage"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_cycle_hours_band"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"bands": {"not": {"required": ["human_cycle_hours_band"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_per_task_usd"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"overrides": {"not": {"required": ["value_per_task_usd"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "loss_per_bad_output_usd"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"overrides": {"not": {"required": ["loss_per_bad_output_usd"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "observed_daily_volume"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"overrides": {"not": {"required": ["observed_daily_volume"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "forecast_daily_volume"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"overrides": {"not": {"required": ["forecast_daily_volume"]}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_minutes_per_example"}, "sharing_outcome": {"const": "withheld_by_policy"}}}}}},
+          "then": {"properties": {"overrides": {"not": {"required": ["human_minutes_per_example"]}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["value_channel"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_channel"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["daily_volume_band"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "daily_volume_band"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["error_cost_band"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "error_cost_band"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["lifecycle_stage"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "lifecycle_stage"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["bands"], "properties": {"bands": {"required": ["human_cycle_hours_band"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_cycle_hours_band"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["value_per_task_usd"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_per_task_usd"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["loss_per_bad_output_usd"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "loss_per_bad_output_usd"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["observed_daily_volume"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "observed_daily_volume"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["forecast_daily_volume"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "forecast_daily_volume"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["overrides"], "properties": {"overrides": {"required": ["human_minutes_per_example"]}}},
+          "then": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_minutes_per_example"}, "sharing_outcome": {"const": "shared"}}}}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_channel"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["value_channel"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "daily_volume_band"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["daily_volume_band"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "error_cost_band"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["error_cost_band"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "lifecycle_stage"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["lifecycle_stage"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_cycle_hours_band"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["bands"], "properties": {"bands": {"required": ["human_cycle_hours_band"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "value_per_task_usd"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["value_per_task_usd"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "loss_per_bad_output_usd"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["loss_per_bad_output_usd"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "observed_daily_volume"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["observed_daily_volume"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "forecast_daily_volume"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["forecast_daily_volume"]}}}
+        },
+        {
+          "if": {"required": ["field_reports"], "properties": {"field_reports": {"contains": {"type": "object", "required": ["field", "sharing_outcome"], "properties": {"field": {"const": "human_minutes_per_example"}, "sharing_outcome": {"const": "shared"}}}}}},
+          "then": {"required": ["overrides"], "properties": {"overrides": {"required": ["human_minutes_per_example"]}}}
+        }
+      ],
+      "description": "Characterization telemetry: the values that reached us, plus per-field provenance/confidence/sharing outcomes. NOT the survey submission contract — it carries no recommendation, no sharing policy definition, and no agent-facing presentation payload. `agent_display_name` is deliberately absent: it is presentation-only, has no analytic use, and would be an unnecessary egress of the client's naming.",
+      "x-traigent-note": "A field withheld by the sharing policy appears in field_reports with sharing_outcome=withheld_by_policy and is absent from bands/overrides. That absence is data (we learn what clients withhold) rather than a gap. THREE RULES ARE ENFORCED HERE, expanded per field because Draft-07 cannot parameterize a subschema:\n(1) EGRESS: if field_reports declares a field withheld_by_policy, its value MUST be absent from bands/overrides. Declaring a field withheld while shipping its value is unrepresentable, not merely forbidden in prose.\n(2) COVERAGE: if a value IS present in bands/overrides, field_reports MUST contain a report naming that field with sharing_outcome=shared. Without (2), (1) is a rule an emitter opts into by staying silent: a value shipped with NO report for it is unreported provenance — nobody asked, nobody inferred, nothing was shared, yet the value is here — and the withholding rate, the asked-vs-inferred ratio, and the confidence distribution are all computed over reports, so an unreported value is silently excluded from every one of them while still feeding the recommendation. (2) also makes 'shared' the only sharing outcome under which a value may travel: transmitted-and-withheld is now rejected by (2) as well as by (1).\n(3) SUBSTANCE: if field_reports declares a field sharing_outcome=shared, its value MUST be present in bands/overrides. (3) is the converse of (2), and together they make present <=> shared-report a biconditional. Without (3) a 'shared' report is an empty alibi: an emitter satisfies the required, non-empty field_reports slot with a report that claims a field was shared, transmits no value for it, and thereby produces a characterization that names a provenance and a sharing outcome while carrying nothing the recommendation can read. That is the characterization half of a blank settlement — it looks instrumented and asserts no value — which is exactly the shell this contract exists to reject. The honest all-withheld characterization is still representable (its reports are withheld_by_policy, not shared, so (3) does not fire), so (3) costs no expressiveness: it forbids only 'shared, but nothing here'.\nAll three are presence checks keyed on a closed enum, not comparisons of two sibling values, which is why Draft-07 can enforce them and why they are not delegated to the backend: the egress promise the closed-pipe design makes to the client is worth more when the client's own machine can check it before the payload leaves.\nWHY (1) SURVIVES (2)+(3): they diverge on the duplicate-report payload. A value present with BOTH a shared report and a withheld report satisfies (2) and (3) — a shared report exists and the value is present — and is caught only by (1). `uniqueItems` cannot stop that pair (it compares whole objects; see the duplicate_characterization_field obligation), so (1) is what denies a leaked value its second, contradictory alibi. The residual backend obligation is narrower than before: reject duplicate field names, and never log or persist a rejected payload's withheld value."
+    },
+    "BudgetRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authored_by", "recommended_daily_usd", "cap_usd"],
+      "properties": {
+        "authored_by": {
+          "type": "string",
+          "const": "backend",
+          "description": "The budget recommendation and cap are backend-authored. The const makes agent-authored budgets unrepresentable in this contract: narrative cannot raise a cap. See x-backend-obligations — the value still needs verification against the issued record."
+        },
+        "recommended_daily_usd": {"$ref": "./economics_common_schema.json#/definitions/UsdAmount"},
+        "cap_usd": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UsdAmount"}],
+          "description": "The hard spend cap issued for this run."
+        },
+        "floor_usd": {"$ref": "./economics_common_schema.json#/definitions/UsdAmount"},
+        "policy_version": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
+          "description": "Version of the budget policy/formula that produced these numbers, so a recommendation can be reproduced and audited."
+        }
+      },
+      "description": "The backend-authored budget recommendation and cap in force for this run."
+    },
+    "UsageRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_tokens", "output_tokens", "model_calls"],
+      "properties": {
+        "input_tokens": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "output_tokens": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "model_calls": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "tool_calls": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "latency_total_ms": {"$ref": "./economics_common_schema.json#/definitions/DurationMs"},
+        "latency_p50_ms": {"$ref": "./economics_common_schema.json#/definitions/DurationMs"},
+        "latency_p95_ms": {"$ref": "./economics_common_schema.json#/definitions/DurationMs"}
+      },
+      "description": "Metered usage for this run. input_tokens, output_tokens, and model_calls are REQUIRED so a settled run meters its spend EXPLICITLY: an empty usage object satisfied the required `usage` slot while metering nothing, which is the cost half of a blank settlement. A genuinely free run reports explicit zeros ({input_tokens:0, output_tokens:0, model_calls:0}) — the spend-$0 case the economics model must always be able to show — not an empty object that is indistinguishable from 'never measured'. total_tokens is deliberately absent: it is derivable from input+output, and a submitted total is a second source of truth that can disagree with its own parts."
+    },
+    "EvidenceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_run_id",
+        "candidate_run_id",
+        "dataset_hash",
+        "evaluator_version",
+        "objective_weights",
+        "effect_estimate",
+        "support",
+        "exclusions"
+      ],
+      "x-traigent-note": "A run_economics event is the SETTLED economics of a run whose effect WAS measured (see the top-level note): a run that failed, was capped, or produced no supported effect is a funnel exit, not this record. So the measured evidence is not optional here — effect_estimate (with its interval and level), support, and objective_weights are always present for a legitimate settlement, and exclusions is required to be EXPLICIT: an empty array asserts nothing was dropped, whereas absence left it unrecorded and let a favourable result stay silent about what it excluded. holdout_hash is the one frozen-evidence field kept optional: an effect measured without a holdout is a real methodological fact the transfer analysis needs, so whether a holdout was REQUIRED for this run's stakes/archetype is a design/backend obligation (holdout_required_for_stakes), not a blanket contract requirement that would reject honest no-holdout telemetry.",
+      "properties": {
+        "baseline_run_id": {"$ref": "./economics_common_schema.json#/definitions/RunId"},
+        "candidate_run_id": {"$ref": "./economics_common_schema.json#/definitions/RunId"},
+        "dataset_hash": {"$ref": "./economics_common_schema.json#/definitions/Sha256Hex"},
+        "holdout_hash": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Sha256Hex"}],
+          "description": "Hash of the frozen holdout. Absent when the effect was measured without a holdout — which is itself a fact the transfer analysis needs."
+        },
+        "evaluator_version": {"$ref": "./economics_common_schema.json#/definitions/ShortLabel"},
+        "objective_weights": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["objective", "weight"],
+            "properties": {
+              "objective": {"$ref": "./economics_common_schema.json#/definitions/ShortLabel"},
+              "weight": {
+                "type": "number",
+                "minimum": -1000,
+                "maximum": 1000
+              }
+            }
+          },
+          "description": "The objective weights in force. Recorded as an ordered list of named weights rather than an open map so no unbounded key set can enter the contract."
+        },
+        "effect_estimate": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ConfidenceInterval"}],
+          "description": "The measured effect WITH its interval and level. The interval is not optional: the economics model leads with the lower bound, so a point estimate alone is not evidence."
+        },
+        "support": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["n_examples"],
+          "properties": {
+            "n_examples": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+            "n_paired": {
+              "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Count"}],
+              "description": "Paired observations backing the effect. Both counts are independently bounded, but n_paired <= n_examples is a backend obligation: JSON Schema cannot relate two sibling values, so 'more pairs than examples' is contract-valid and must be rejected downstream (support_counts_inconsistent)."
+            }
+          },
+          "description": "How much data the effect rests on."
+        },
+        "exclusions": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "count"],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "parse_failure",
+                  "evaluator_error",
+                  "timeout",
+                  "cost_limit",
+                  "filtered_by_policy",
+                  "duplicate_example",
+                  "missing_baseline_result",
+                  "missing_candidate_result"
+                ],
+                "description": "CLOSED reason an example was excluded from the effect. Closed because 'which examples did you drop, and why' is exactly the question a favourable-looking result must answer."
+              },
+              "count": {"$ref": "./economics_common_schema.json#/definitions/Count"}
+            }
+          },
+          "description": "Examples excluded from the effect estimate, by reason. An empty array asserts nothing was excluded; absence asserts nothing was recorded."
+        }
+      },
+      "description": "The identity of the evidence behind this run's effect claim: what was compared, on what data, with which evaluator, under which weights, with what support and exclusions. Enough for a third party to re-check the claim."
+    },
+    "AdvisoryBehavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["advice_id", "recommended_action", "client_action"],
+      "properties": {
+        "advice_id": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+          "x-identifier": true,
+          "description": "The specific recommendation this run answers. REQUIRED: adherence is a claim about ONE piece of advice, and without its id the settled run record cannot be joined back to the recommendation it followed or ignored, nor to the funnel events (advice_shown -> recommendation_accepted -> executed) that track the same advice. An unjoinable adherence record measures a rate over an unknown denominator, which is not a measurement. It also anchors adherence_probability: a prediction is only scoreable against the outcome of the advice it was made about."
+        },
+        "recommended_action": {
+          "type": "string",
+          "enum": [
+            "run_optimization",
+            "run_holdout",
+            "compare_baseline",
+            "promote_winner",
+            "curate_dataset",
+            "audit_evaluator",
+            "adjust_configuration_space",
+            "add_safety_gate",
+            "wait",
+            "stop"
+          ],
+          "description": "What the planner recommended. Closed vocabulary aligned with the Planner V2 public action categories."
+        },
+        "client_action": {
+          "type": "string",
+          "enum": [
+            "followed",
+            "partially_followed",
+            "off_menu",
+            "ignored",
+            "deferred"
+          ],
+          "description": "What the client actually did. The gap between recommended_action and this field IS the adherence measurement."
+        },
+        "off_menu_action_class": {
+          "type": "string",
+          "enum": [
+            "different_platform_action",
+            "manual_change_outside_platform",
+            "reverted_previous_change",
+            "escalated_to_human",
+            "unknown_to_planner"
+          ],
+          "description": "CLOSED class of an off-menu action. Required when client_action = off_menu and forbidden otherwise: an 'off_menu' with no class is an unexplained hole in the adherence model."
+        },
+        "adherence_probability": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UnitInterval"}],
+          "description": "The planner's predicted probability that the client would follow the advice, recorded BEFORE the outcome so prediction can be scored against client_action rather than rationalized after it."
+        },
+        "planner_blind_information": {
+          "type": "string",
+          "enum": [
+            "none_known",
+            "client_reports_business_context",
+            "client_reports_production_signal",
+            "client_reports_cost_constraint",
+            "client_reports_policy_constraint",
+            "client_reports_other_constraint"
+          ],
+          "description": "Client-visible information that was unavailable to the planner. Closed: this is the honest record of why the client may rationally deviate, and it caps how much of a deviation we may attribute to bad advice."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"client_action": {"const": "off_menu"}},
+            "required": ["client_action"]
+          },
+          "then": {"required": ["off_menu_action_class"]},
+          "else": {"not": {"required": ["off_menu_action_class"]}}
+        }
+      ],
+      "description": "Advisory behavior: what was recommended, what the client did, and what the planner could not see. Uptake x deployment is the single most decision-sensitive assumption in the value model; this is where it gets measured."
+    },
+    "LaborProxies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minutes_to_trusted_decision": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Minutes"}],
+          "description": "Observed time from integration to a decision the client trusted."
+        },
+        "manual_interventions": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "tuning_cycles": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "user_confirmed_hours_avoided": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Hours the USER confirmed were avoided. Optional, and never platform-asserted: an hour spent by Traigent is not automatically an hour saved. Requires hours_confirmed_by."
+        },
+        "hours_confirmed_by": {
+          "type": "string",
+          "enum": ["end_user_confirmation", "owner_confirmation"],
+          "description": "Who confirmed the avoided hours. Required alongside user_confirmed_hours_avoided and closed to human confirmation: an agent cannot confirm its own labor savings."
+        }
+      },
+      "allOf": [
+        {
+          "if": {"required": ["user_confirmed_hours_avoided"]},
+          "then": {"required": ["hours_confirmed_by"]}
+        },
+        {
+          "if": {"required": ["hours_confirmed_by"]},
+          "then": {"required": ["user_confirmed_hours_avoided"]}
+        }
+      ],
+      "description": "Labor proxies. Observed proxies (cycle time, interventions, cycles) are measured; claimed hours avoided are user-confirmed only."
+    }
+  }
+}

@@ -41,6 +41,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "DTOSerializationError",
     "DataIntegrityError",
     "Dataset",
+    "EconomicsTelemetryClient",
     "EnterpriseAdminClient",
     "EnterpriseAdminConfig",
     "EvaluationClient",

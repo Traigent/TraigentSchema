@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_telemetry_ingest_response_replay_schema.json",
+  "title": "Economics telemetry ingest response — replay (HTTP 200)",
+  "description": "The HTTP 200 response: a batch REPLAYED under an already-seen idempotency key, with no new state written. Identical to the base ingest response in every field, and additionally binds replayed = true. The binding is not cosmetic: a 200 that carried replayed:false would tell a retrying emitter 'this was a fresh ingest' on the exact path where it was not, so it might re-emit or double-count. Making the flag a per-status const closes the disagreement in the contract rather than trusting the backend to keep body and status aligned by convention.",
+  "type": "object",
+  "allOf": [{"$ref": "./economics_telemetry_ingest_response_schema.json"}],
+  "required": ["replayed"],
+  "properties": {
+    "replayed": {
+      "const": true,
+      "description": "Bound true on the 200 replay path: this response is a replay of a previously-ingested batch and wrote no new state."
+    }
+  },
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false
+}

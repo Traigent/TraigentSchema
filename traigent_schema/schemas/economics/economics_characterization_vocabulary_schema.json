@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_characterization_vocabulary_schema.json",
+  "title": "Economics characterization vocabulary",
+  "description": "The single closed vocabulary for agent-economics characterization: the five band fields, the optional typed overrides, and the allowlist of field names that may ever be named in telemetry. This file is the source of truth for the vocabulary ONLY. It is deliberately NOT a survey submission contract and NOT a calculator contract: it declares no request/response shape, no sharing policy, and no recommendation payload. The closed survey submission and its response are a separate, later contract, which must reference these definitions rather than restate them.",
+  "x-source-of-truth": "economics_characterization_vocabulary",
+  "x-references": {
+    "telemetry_use": "./economics_run_event_schema.json",
+    "common_primitives": "./economics_common_schema.json"
+  },
+  "x-traigent-note": "Egress rule: CharacterizationFieldName is an allowlist. Telemetry can only ever name a field that appears in this enum, so no field outside this vocabulary can be reported — with or without a value — through the economics telemetry contract.",
+  "definitions": {
+    "ValueChannel": {
+      "type": "string",
+      "enum": [
+        "save_expert_time",
+        "replace_manual_operations",
+        "process_volume_cheaper",
+        "increase_revenue",
+        "prevent_costly_mistakes"
+      ],
+      "description": "Dominant result the agent is meant to produce (characterization Q1). Identifies the dominant value channel and the initial archetype."
+    },
+    "DailyVolumeBand": {
+      "type": "string",
+      "enum": [
+        "under_100",
+        "100_to_999",
+        "1k_to_99k",
+        "100k_to_999k",
+        "1m_or_more"
+      ],
+      "description": "Completed tasks on a normal day (characterization Q2). Identifies N, scale economics, and whether quality or unit cost dominates."
+    },
+    "ErrorCostBand": {
+      "type": "string",
+      "enum": [
+        "cheap_retry_under_1_usd",
+        "human_correction_1_to_50_usd",
+        "escalation_50_to_5k_usd",
+        "severe_harm_above_5k_usd",
+        "not_measured"
+      ],
+      "description": "What usually happens when one output is wrong (characterization Q3). Identifies loss per bad output, error asymmetry, and required evidence strength. 'not_measured' is a real answer, not a missing value."
+    },
+    "LifecycleStage": {
+      "type": "string",
+      "enum": [
+        "building_without_trusted_eval",
+        "building_with_trusted_eval",
+        "limited_production_we_pay",
+        "full_production_we_pay",
+        "production_customer_pays"
+      ],
+      "description": "What best describes the agent today (characterization Q4). Identifies build/run phase, cost bearer, evidence maturity, and the appropriate payback horizon."
+    },
+    "HumanCycleHoursBand": {
+      "type": "string",
+      "enum": [
+        "automated_under_1h",
+        "1_to_8h",
+        "8_to_40h",
+        "over_40h_or_specialist",
+        "not_measured"
+      ],
+      "description": "Human work required by one evaluation or tuning cycle (characterization Q5). Identifies developer, labeling, QA, and eval-issue-discovery value."
+    },
+    "CharacterizationBands": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value_channel": {"$ref": "#/definitions/ValueChannel"},
+        "daily_volume_band": {"$ref": "#/definitions/DailyVolumeBand"},
+        "error_cost_band": {"$ref": "#/definitions/ErrorCostBand"},
+        "lifecycle_stage": {"$ref": "#/definitions/LifecycleStage"},
+        "human_cycle_hours_band": {"$ref": "#/definitions/HumanCycleHoursBand"}
+      },
+      "description": "The five closed band fields. All are optional in telemetry: a field withheld by the client's sharing policy is absent here and its withholding is recorded in the field reports. Which bands a recommendation requires is the calculator contract's business, not telemetry's."
+    },
+    "CharacterizationOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value_per_task_usd": {"$ref": "./economics_common_schema.json#/definitions/UsdAmount"},
+        "loss_per_bad_output_usd": {"$ref": "./economics_common_schema.json#/definitions/UsdAmount"},
+        "observed_daily_volume": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "forecast_daily_volume": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "human_minutes_per_example": {"$ref": "./economics_common_schema.json#/definitions/Minutes"}
+      },
+      "description": "Optional typed overrides that replace a band with a precise value when the client has one. Typed and bounded: an override is a number, never free text."
+    },
+    "CharacterizationFieldName": {
+      "type": "string",
+      "enum": [
+        "value_channel",
+        "daily_volume_band",
+        "error_cost_band",
+        "lifecycle_stage",
+        "human_cycle_hours_band",
+        "value_per_task_usd",
+        "loss_per_bad_output_usd",
+        "observed_daily_volume",
+        "forecast_daily_volume",
+        "human_minutes_per_example"
+      ],
+      "description": "ALLOWLIST of every characterization field that may be named in telemetry — the five bands plus the five typed overrides. Nothing outside this enum can be reported. Exactly mirrors the property names of CharacterizationBands and CharacterizationOverrides."
+    }
+  }
+}

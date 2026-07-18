@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_telemetry_ingest_response_initial_schema.json",
+  "title": "Economics telemetry ingest response — initial ingest (HTTP 201)",
+  "description": "The HTTP 201 response: the first ingest of a batch under its idempotency key, where state was written now. Identical to the base ingest response in every field, and additionally binds replayed = false. Individual events may still have been rejected — read counts and rejections — but the batch itself was not a replay. Making the flag a per-status const closes the disagreement in the contract: a 201 that carried replayed:true would claim 'nothing was written' on the exact path where state was.",
+  "type": "object",
+  "allOf": [{"$ref": "./economics_telemetry_ingest_response_schema.json"}],
+  "required": ["replayed"],
+  "properties": {
+    "replayed": {
+      "const": false,
+      "description": "Bound false on the 201 initial-ingest path: this response reflects state written now, not a replay."
+    }
+  },
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false
+}

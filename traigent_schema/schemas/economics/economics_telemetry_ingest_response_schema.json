@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_telemetry_ingest_response_schema.json",
+  "title": "Economics telemetry ingest response",
+  "description": "The result of ingesting one batch: how many events were accepted, how many were already-seen duplicates, how many were rejected, and — per rejected event — a closed reason. Partial acceptance is explicit rather than implied: an emitter must be able to tell 'stored' from 'silently dropped' without diffing counts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "contract_version", "batch_id", "idempotency_key", "received_at", "replayed", "counts", "rejections"],
+  "properties": {
+    "contract": {"$ref": "./economics_common_schema.json#/definitions/ContractId"},
+    "contract_version": {"$ref": "./economics_common_schema.json#/definitions/ContractVersion"},
+    "batch_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "Echo of the submitted batch_id."
+    },
+    "idempotency_key": {"$ref": "./economics_common_schema.json#/definitions/IdempotencyKey"},
+    "received_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+    "replayed": {
+      "type": "boolean",
+      "description": "True when this response replays a previously-ingested batch with the same idempotency key (no new state was written). Lets the emitter distinguish a successful retry from a fresh ingest."
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["submitted", "accepted", "duplicate", "rejected"],
+      "properties": {
+        "submitted": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Count"}],
+          "description": "Events in the submitted batch. Present so the emitter can assert accepted + duplicate + rejected == submitted; that the identity actually holds is a backend obligation."
+        },
+        "accepted": {"$ref": "./economics_common_schema.json#/definitions/Count"},
+        "duplicate": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Count"}],
+          "description": "Events whose event_id was already stored. Duplicates are reported, not silently absorbed: a rising duplicate count is how a double-emitting client is caught before it corrupts the funnel."
+        },
+        "rejected": {"$ref": "./economics_common_schema.json#/definitions/Count"}
+      },
+      "description": "Per-batch disposition counts."
+    },
+    "rejections": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_index", "reason"],
+        "properties": {
+          "event_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 499,
+            "description": "Zero-based index of the rejected event in the submitted events array."
+          },
+          "event_id": {"$ref": "./economics_common_schema.json#/definitions/Identifier"},
+          "reason": {
+            "type": "string",
+            "enum": [
+              "schema_violation",
+              "unknown_event_type",
+              "unsupported_contract_version",
+              "duplicate_event_id",
+              "tenant_scope_violation",
+              "unknown_reference",
+              "funnel_order_violation",
+              "receipt_verification_failed",
+              "attestation_not_independent",
+              "meter_reconciliation_failed",
+              "budget_authorship_mismatch",
+              "batch_limit_exceeded",
+              "duplicate_characterization_field",
+              "interval_bounds_inconsistent",
+              "support_counts_inconsistent",
+              "withheld_field_value_present",
+              "winner_receipt_reconciliation_failed"
+            ],
+            "description": "CLOSED rejection reason. Mirrors the backend obligations this contract cannot enforce: the checks a schema cannot make are the ones that must be reportable here. Several name cross-field checks precisely rather than burying them in schema_violation — an emitter told 'schema_violation' cannot tell a typo from a sharing-policy bug that leaked a value the client meant to withhold. 'withheld_field_value_present' is the one code whose contract case is ALSO unrepresentable (CharacterizationTelemetry enforces withheld ⇒ absent); it stays because the backend must still make the check defensively at any layer that does not re-validate, and because the emitter deserves to be told which bug it has. 'winner_receipt_reconciliation_failed' names the cross-RECORD check on a winner receipt (see the receipt schema's WINNER RECEIPT RECONCILIATION obligation): a structurally valid winner receipt whose cost, paired delta, selected config, run identity, or promotion evidence contradicts the immutable stored run is contract-valid and must be rejected here, because JSON Schema validates one payload in isolation and has no stored run to reconcile it against."
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 500,
+            "x-content": true,
+            "x-privacy-classification": "user_content",
+            "description": "Bounded diagnostic detail. Advisory for humans; never the machine-readable reason. MUST NOT echo the rejected payload's values — a detail string that quotes the offending value would hand back exactly the field the client's sharing policy withheld, turning the rejection into the leak it prevented."
+          }
+        }
+      },
+      "description": "One entry per rejected event. ALWAYS present: the field is required, an empty array when nothing was rejected. Requiring it makes 'stored' distinguishable from 'silently dropped' without the emitter diffing counts, and removes the ambiguous case where an absent `rejections` could mean either 'none rejected' or 'the reasons were omitted'. That the array's length equals counts.rejected, and that its entries are non-empty exactly when counts.rejected > 0, is a backend obligation: JSON Schema cannot relate an array's length to a sibling integer."
+    }
+  },
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
+  "x-backend-obligations": [
+    "COUNT RECONCILIATION: accepted + duplicate + rejected == submitted must hold. The four counts are bounded independently; JSON Schema cannot relate them, so the identity is enforced at the boundary that emits the response.",
+    "REJECTIONS RECONCILE WITH COUNT: rejections is required and defaults to an empty array, but its length must equal counts.rejected and every entry's event_index must address a real event in the submitted batch. A response with counts.rejected > 0 and rejections == [] is contract-valid (length cannot be related to a sibling integer here) and MUST be rejected at the boundary; an empty rejections array is truthful only when counts.rejected == 0.",
+    "REPLAY PERSISTENCE: replayed = true means this exact response is a byte-for-byte replay of the first ingest under this idempotency key and that NO new state was written on this call; replayed = false means state was written now. The flag is a claim about persistence the backend must actually honor — a 200 replay must not mutate, and a 201 initial ingest must not silently coalesce with a prior batch.",
+    "STATUS/FLAG AGREEMENT: the HTTP status and replayed must agree — 200 is served only with the replay response schema (replayed const true) and 201 only with the initial response schema (replayed const false). The bound constant makes a disagreeing body unrepresentable per status, but the backend must still select the correct status for the persistence outcome it actually produced."
+  ]
+}

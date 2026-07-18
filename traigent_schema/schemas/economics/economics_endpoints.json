@@ -1,0 +1,61 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Economics Telemetry Routes",
+    "version": "1.0.0",
+    "description": "Planned tenant-scoped economics telemetry ingestion. Contract-first: this route is published here before TraigentBackend ingestion and SDK emission exist, per the workspace rule that request/response shapes start in TraigentSchema. It is NOT asserted against backend parity."
+  },
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
+  "paths": {
+    "/api/v1/economics/telemetry": {
+      "post": {
+        "summary": "Ingest a batch of economics telemetry events",
+        "description": "Accepts one idempotent batch of exposure-funnel events, run-economics records, and machine-verifiable receipts. Idempotent: replaying a batch with the same Idempotency-Key returns the original result (200) instead of re-applying it; a first ingest returns 201.",
+        "operationId": "ingestEconomicsTelemetry",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$", "maxLength": 128}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "./economics_telemetry_ingest_request_schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch replayed — this idempotency key was already ingested; no new state was written. The body binds replayed=true (replay response schema), so status and flag cannot disagree.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "./economics_telemetry_ingest_response_replay_schema.json"}
+              }
+            }
+          },
+          "201": {
+            "description": "Batch ingested — state written now. Individual events may still have been rejected; read counts and rejections. The body binds replayed=false (initial response schema).",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "./economics_telemetry_ingest_response_initial_schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Malformed batch, unknown contract/version, or malformed idempotency key."},
+          "401": {"description": "Authentication required."},
+          "403": {"description": "Insufficient permission to submit economics telemetry for this scope."},
+          "409": {"description": "Idempotency conflict — the same key was submitted with a different body. Stored events are immutable and are never overwritten."},
+          "413": {"description": "Batch exceeds the 500-event limit."},
+          "422": {"description": "Every event in the batch was rejected."}
+        },
+        "x-wrap-status": "unclassified — economics telemetry is not in the #136 wrap-map; the documented response is the bare ingest-result shape. Reconcile envelope status when backend ingestion lands.",
+        "x-traigent-note": "Tenant scoping is resolved from the authenticated request context. The contract carries no tenant field precisely so a client cannot assert one."
+      }
+    }
+  }
+}

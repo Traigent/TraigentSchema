@@ -133,6 +133,49 @@ def test_put_measure_standard_still_accepts_canonical_measure_type() -> None:
     assert errors == []
 
 
+def test_put_measure_custom_label_rejects_invisible_and_bidi_controls() -> None:
+    """The custom escape hatch bans C1 controls, bidi/format controls, and
+    whitespace-only labels — not just C0/DEL (terra round-2).
+
+    Strings are built with chr() so this file stays pure ASCII.
+    """
+    v = SchemaValidator(contract="backend")
+    rejected = {
+        "C1 NEL": "x" + chr(0x0085) + "y",
+        "bidi RLO override": "x" + chr(0x202E) + "y",
+        "single space": " ",
+        "zero-width space": "x" + chr(0x200B) + "y",
+        "bidi LRI isolate": "x" + chr(0x2066) + "y",
+        "BOM only": chr(0xFEFF),
+    }
+    for label, bad in rejected.items():
+        errors = v.validate_request(
+            "/api/v1/measures/measure-1",
+            "PUT",
+            _backend_measure(measure_type=bad, is_custom=True),
+        )
+        assert errors != [], f"custom measure_type accepted a {label} label: {bad!r}"
+
+
+def test_put_measure_custom_label_accepts_international_text() -> None:
+    """Prove the control-char ban does not over-ban ordinary unicode labels."""
+    v = SchemaValidator(contract="backend")
+    # Hebrew, accented Latin, CJK, and an inner-space label (chr()-built ASCII source).
+    hebrew = (
+        chr(0x05DE) + chr(0x05D3) + chr(0x05D3) + "_"
+        + chr(0x05DE) + chr(0x05D5) + chr(0x05EA) + chr(0x05D0) + chr(0x05DD)
+    )
+    accented = "qualit" + chr(0x00E9) + "_sp" + chr(0x00E9) + "ciale"
+    cjk = chr(0x6E2C) + chr(0x5B9A) + chr(0x5024)
+    for good in (hebrew, accented, cjk, "a b"):
+        errors = v.validate_request(
+            "/api/v1/measures/measure-1",
+            "PUT",
+            _backend_measure(measure_type=good, is_custom=True),
+        )
+        assert errors == [], f"custom measure_type over-banned {good!r}: {errors}"
+
+
 def test_create_then_read_back_round_trip_for_custom_measure() -> None:
     """#321 end-to-end: the create-request tolerates a declared-custom novel
     label (mirroring the backend's extra=allow create DTO), and the canonical

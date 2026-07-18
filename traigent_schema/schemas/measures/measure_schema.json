@@ -131,8 +131,8 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 255,
-      "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
-      "description": "Specific type of measurement being performed. CONDITIONAL vocabulary (see the top-level allOf): when is_custom=false this MUST be one of the standard-library #/definitions/MeasureType values (sanity_check|accuracy|quality|latency|safety|efficiency|reliability); when is_custom=true it is an open — but bounded and non-blank — label, so a custom measure_type round-trips between the create request and this schema (TraigentSchema#321) without opening the standard-measure write path (PUT /api/v1/measures/{measure_id} consumes this schema) to typos or blank labels."
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2069\\ufeff]+$",
+      "description": "Specific type of measurement being performed. CONDITIONAL vocabulary (see the top-level allOf): when is_custom=false this MUST be one of the standard-library #/definitions/MeasureType values (sanity_check|accuracy|quality|latency|safety|efficiency|reliability); when is_custom=true it is an open — but bounded — label: at least one non-whitespace character, and no C0/C1 controls, DEL, zero-width/bidi format controls (U+200B-U+200F, U+2028-U+202E line/para separators + embeddings/overrides, U+2060-U+2069 word-joiner/invisible-operators/bidi-isolates), or BOM. This keeps a custom measure_type round-tripping between the create request and this schema (TraigentSchema#321) without opening the standard-measure write path (PUT /api/v1/measures/{measure_id} consumes this schema) to blank, spoofed-direction, or invisibly-distinct labels."
     },
     "evaluation_method": {
       "$ref": "#/definitions/EvaluationMethod",
@@ -266,8 +266,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 255,
-            "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
-            "description": "Custom (is_custom=true) measure: open-vocabulary label — bounded, non-blank, no control characters (TraigentSchema#321 escape hatch)."
+            "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2069\\ufeff]+$",
+            "description": "Custom (is_custom=true) measure: open-vocabulary label — bounded, requires a non-whitespace character, and bans C0/C1 controls, DEL, zero-width/bidi format controls, and BOM (TraigentSchema#321 escape hatch)."
           }
         }
       },

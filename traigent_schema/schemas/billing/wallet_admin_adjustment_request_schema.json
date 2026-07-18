@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/billing/wallet_admin_adjustment_request_schema.json",
   "title": "Wallet Admin Adjustment Request",
-  "description": "POST /api/v1/billing/wallet/admin-adjustments — privileged manual wallet correction. additionalProperties:true (admin payload varies by adjustment kind).",
+  "description": "POST /api/v1/billing/wallet/admin-adjustments \u2014 privileged manual wallet correction. additionalProperties:true (admin payload varies by adjustment kind).",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -18,16 +18,10 @@
         "null"
       ],
       "maxLength": 64,
-      "description": "Adjustment amount in USD (number or decimal string)."
-    },
-    "balance_delta_usd": {
-      "type": [
-        "number",
-        "string",
-        "null"
-      ],
-      "maxLength": 64,
-      "description": "Direct balance delta in USD (number or decimal string)."
+      "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+      "minimum": -1000,
+      "maximum": 1000,
+      "description": "Adjustment amount in USD (number or decimal string). String branch must be a signed decimal with at most 6 fractional digits; number branch bounded to +/-1,000. Bounded to +/-1,000 USD per request (owner-set 2026-07-18); backend-side enforcement tracked separately."
     },
     "debt_writeoff_usd": {
       "type": [
@@ -36,7 +30,10 @@
         "null"
       ],
       "maxLength": 64,
-      "description": "Debt write-off amount in USD (number or decimal string)."
+      "pattern": "^-?\\d+(\\.\\d{1,6})?$",
+      "minimum": -1000,
+      "maximum": 1000,
+      "description": "Debt write-off amount in USD (number or decimal string). String branch must be a signed decimal with at most 6 fractional digits; number branch bounded to +/-1,000. Bounded to +/-1,000 USD per request (owner-set 2026-07-18); backend-side enforcement tracked separately."
     },
     "write_off_debt": {
       "type": "boolean",
@@ -56,5 +53,29 @@
       "additionalProperties": true
     }
   },
-  "required": []
+  "required": [
+    "reason"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "amount_usd"
+      ]
+    },
+    {
+      "required": [
+        "debt_writeoff_usd"
+      ]
+    },
+    {
+      "required": [
+        "write_off_debt"
+      ]
+    },
+    {
+      "required": [
+        "resolve_dispute"
+      ]
+    }
+  ]
 }

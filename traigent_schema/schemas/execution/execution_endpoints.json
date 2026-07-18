@@ -270,6 +270,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Authentication backend temporarily unavailable. The request fails closed before any experiment-group lookup or aggregation. The dedicated service-unavailable envelope is finite and redacted: it exposes only the stable AUTH_BACKEND_UNAVAILABLE classification and one of the two fixed middleware-safe public messages, never database errors, exception text, credentials, request values, internal identifiers, or group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -335,6 +345,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication backend temporarily unavailable. The request fails closed before any experiment-group lookup or aggregation. The dedicated service-unavailable envelope is finite and redacted: it exposes only the stable AUTH_BACKEND_UNAVAILABLE classification and one of the two fixed middleware-safe public messages, never database errors, exception text, credentials, request values, internal identifiers, or group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
                 }
               }
             }
@@ -463,6 +483,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Authentication backend temporarily unavailable. The request fails closed before any experiment-group lookup or aggregation. The dedicated service-unavailable envelope is finite and redacted: it exposes only the stable AUTH_BACKEND_UNAVAILABLE classification and one of the two fixed middleware-safe public messages, never database errors, exception text, credentials, request values, internal identifiers, or group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -542,6 +572,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication backend temporarily unavailable. The request fails closed before any experiment-group lookup or aggregation. The dedicated service-unavailable envelope is finite and redacted: it exposes only the stable AUTH_BACKEND_UNAVAILABLE classification and one of the two fixed middleware-safe public messages, never database errors, exception text, credentials, request values, internal identifiers, or group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
                 }
               }
             }

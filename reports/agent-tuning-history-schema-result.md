@@ -47,6 +47,13 @@ Audit chronology (exact):
      parity provenance hash (`parity/python-js-sdk.json`) for this schema edit, in
      its own commit, so parity is fresh at the final HEAD. That file is outside the
      primary packet's allowed set.
+8. **Develop-release remediation (sixth pass)** — the Backend authentication
+   middleware can fail closed with HTTP `503` before an experiment-group operation
+   executes, but the frozen experiment-group OpenAPI surface did not declare that
+   response. A regression test was added first and failed because all four operations
+   lacked `503`; this pass adds one dedicated finite/redacted service-unavailable
+   subtype, wires it to all four operations, and refreshes parity. See "Sixth
+   remediation pass" below.
 
 ## Scope
 
@@ -61,7 +68,8 @@ Preserved exactly (unchanged intent): group identity = authenticated visibility
 scope + `agent_id` + canonical `dataset_id`; configuration/content/KPI/tvar/
 implementation changes stay browsable together; no cross-setup rankings or Wave B
 comparison signatures; legacy `GET` + `page`/`page_size` compatibility; the
-explicit no-dataset group; bounded deterministic queries and safe errors.
+explicit no-dataset group; bounded deterministic queries and safe errors, including
+the fail-closed authentication-backend `503`.
 
 Files changed across the full remediation (primary packet `pkt_c88286ff11fd2edf`
 allowed set): `traigent_schema/schemas/execution/experiment_group_schema.json`,
@@ -83,6 +91,11 @@ The **fourth** pass (this pass, the group-list tie-break correction) edits the s
 allowed set minus `execution_endpoints.json`; see "Fourth remediation pass" below for
 its exact file list.  `tests/test_success_envelope_and_response_coverage.py` is
 unchanged in this pass (its earlier-pass edits stand).
+
+The **sixth** develop-release pass edits the two execution schemas, the focused
+experiment-group contract test, CHANGELOG, this report, and the mechanically
+generated parity manifest. It remains within the admitted seven-path set;
+`tests/test_success_envelope_and_response_coverage.py` is unchanged.
 
 ## Design decisions (per Terra finding)
 
@@ -343,6 +356,35 @@ Commit SHAs: primary `<PRIMARY_SHA>`; parity companion `<PARITY_SHA>` (recorded 
 captain handoff; the report is inside the primary commit and so cannot embed its own
 SHA).
 
+## Sixth remediation pass — finite redacted authentication-backend 503
+
+The develop-release review found a contract/runtime gap rather than a change to the
+aggregation model: authentication middleware can return HTTP `503` before any
+experiment-group lookup, but none of the four frozen experiment-group operations
+declared it. The regression was written and run before the schema edit; it failed at
+the first route because `responses` contained no `503`.
+
+The Backend currently has two public representations of this one condition:
+
+1. async middleware: `message = "Authentication temporarily unavailable"`,
+   `error = "AUTH_BACKEND_UNAVAILABLE"`, and
+   `error_code = "AUTH_BACKEND_UNAVAILABLE"`;
+2. synchronous 5xx sanitization: fixed `message`/`error = "Internal server error"`
+   while preserving `error_code = "AUTH_BACKEND_UNAVAILABLE"`.
+
+`ExperimentGroupServiceUnavailableErrorEnvelope` admits exactly those two paired
+shapes. It requires `success: false`, forbids additional properties and `details`,
+and uses constants/enums plus `oneOf` to prevent mixed pairs or request-, exception-,
+database-, credential-, tenant-, or group-derived content. It is referenced by HTTP
+`503` on the group collection, group detail, configuration-run browse, and
+configuration-run query operations. This is infrastructure unavailability, not an
+authentication denial: the existing strict `400`/`401`/`404`/`500` response subtype
+and hidden-versus-missing `404` behavior are unchanged.
+
+The decisive test validates both permitted public shapes against the dedicated and
+generic envelopes, rejects diagnostic details and secret substitutions in every
+public string, and asserts complete route coverage and redaction descriptions.
+
 ## Develop integration rebase (2026-07-18)
 
 The accepted feature branch was rebased onto `origin/develop` at
@@ -355,9 +397,10 @@ There were no contract, test, changelog, or report-content conflicts.
 
 The pre-rebase SHAs in the audit chronology above remain historical evidence
 identifiers; the rebased commits supersede them for develop integration. At the
-post-rebase feature tree, the combined parity digest is `66cc2fcc1982…` across 364
-schema files, and `python scripts/refresh_parity.py --check` passes. This report-only
-truth correction does not change the contract or the parity digest.
+post-rebase feature tree before the sixth pass, the combined parity digest was
+`66cc2fcc1982…` across 364 schema files. After the sixth-pass contract edit, the
+combined digest is `6afe9738c670…` across the same 364 schema files, and
+`python scripts/refresh_parity.py --check` passes.
 
 ## Exact command outcomes
 
@@ -365,15 +408,15 @@ Run in the repo `.venv` (Python 3.11.15).
 
 | Check | Command | Result |
 |-------|---------|--------|
-| JSON parse | `json.load` on the changed schema file | OK |
+| JSON parse | `json.load` on both changed schema files | OK |
 | Validator load | `SchemaValidator(contract="backend")` | `experiment_group_schema` present; loads clean |
-| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **81 passed** |
-| Full suite | `pytest tests/ -q -p no:cacheprovider` | **1142 passed, 1 skipped** (2 pre-existing deprecation warnings) |
+| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **82 passed** |
+| Full suite (historical, before sixth pass) | `pytest tests/ -q -p no:cacheprovider` | **1142 passed, 1 skipped** (2 pre-existing deprecation warnings); not rerun for this narrow remediation |
 | Whitespace | `git diff --check` | clean |
 | Lint (repo gate) | `ruff check traigent_schema/` | All checks passed |
 | Lint (changed test) | `ruff check --line-length 100 --select E,F,I,UP,B tests/test_experiment_group_contract.py` | 1 error (pre-existing `I001` import ordering, predates this packet); **zero new**; no added line exceeds 100 chars (`--select E501` clean) |
 | Typecheck (repo gate) | `mypy traigent_schema/ --ignore-missing-imports` | Success, no issues (5 source files) |
-| Parity (companion re-stamp) | `python3 scripts/refresh_parity.py --update` then `--check` | post-rebase combined-tree `--update` exit 0 (digest `66cc2fcc1982…`, files=364); `--check` **exit 0 (up-to-date)** at the final HEAD after the companion commit and report-only integration correction |
+| Parity refresh | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `6afe9738c670…`, files=364); `--check` **exit 0 (up-to-date)** |
 
 Focused test count went 80 → 81 (1 new decisive tie-break regression test this pass:
 `group_id` is not the mandated sort/tie-break key; the canonical-identity tie
@@ -382,6 +425,10 @@ the sort field and the top-level invariant; the tie is fixed independent of prim
 direction/null; the old `group_id ascending` mandate is gone; the configuration-run
 row tie-break stays `configuration_run_id` ascending; identity stays exactly
 `agent_id` + canonical `dataset_id`). Full-suite count went 1141 → 1142 for that test.
+The sixth pass adds one more decisive `503` regression, taking the focused count
+81 → 82. The full suite was not rerun for the sixth pass; the focused contract tests,
+JSON parsing, validator load, parity, lint, typecheck, and diff checks are the current
+evidence.
 
 ## Downstream runtime acceptance handoff (schema does NOT prove these)
 
@@ -423,13 +470,11 @@ as explicit handoff risks, not proven behavior:
 ## Remaining risks / follow-ups
 
 - **Parity manifest is fresh at the final HEAD (`parity/python-js-sdk.json`).**
-  This pass edits `experiment_group_schema.json`, which invalidates the parity
-  provenance hash. The companion approved packet `pkt_1c3f2ce482d11d82` re-stamps it
-  in its own commit: `python3 scripts/refresh_parity.py --update` produced digest
-  `66cc2fcc1982…` (files=364) on the develop-integrated tree and `--check` then returns
-  `exit 0 (up-to-date)`. The manifest is **outside the primary packet's allowed-file
-  set**, so it is stamped only by the companion commit, preserving packet separation.
-  Not relaxed, not bypassed.
+  The sixth pass edits both execution schema files, which invalidates the parity
+  provenance hash. `python3 scripts/refresh_parity.py --update` produced digest
+  `6afe9738c670…` (files=364) on the develop-integrated tree and `--check` then returns
+  `exit 0 (up-to-date)`. The manifest is within this remediation's admitted seven-path
+  set. Not relaxed, not bypassed.
 - **`execution_endpoints.json` inline `sort_by` drift — RESOLVED (fifth pass).** The
   inline `sort_by` parameter description is now byte-identical to the authoritative
   `ExperimentGroupSortField` description it `$ref`s (canonical-identity tie-break, no
@@ -448,11 +493,10 @@ as explicit handoff risks, not proven behavior:
   Backend (BE Pydantic) `pkt_be115fb8b4fd8ce1`, Frontend (FE TS types)
   `pkt_7b3e4e6a28829e0b`, and spine/evidence `pkt_695b4242e304f655`. Schema-to-SDK DTO
   propagation (Python `Traigent` and `traigent-js`) was inspected: the Wave A tie-break
-  and browse contract are **descriptive-only** (sort-ordering, mutual-exclusion, and
-  error-envelope descriptions — no new or reshaped request/response field), so **no
-  generated DTO or TS type change is required** while it stays descriptive-only. If any
-  later pass promotes the tie-break to a materialized field or otherwise reshapes a
-  browse DTO, that becomes an **explicit pending acceptance obligation** on the
-  Backend/Frontend packets named above — not silent scope.
+  and browse contract add no success DTO field, and this sixth pass adds an HTTP error
+  response variant rather than a generated success DTO. No generated SDK DTO/TS type
+  change is required. The Backend packet must emit one of the two exact documented
+  redacted `503` shapes on these routes; any future materialized browse field remains
+  an explicit Backend/Frontend acceptance obligation, not silent scope.
 
 No release-readiness claim is made here.

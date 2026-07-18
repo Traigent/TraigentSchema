@@ -912,6 +912,9 @@ def test_dataset_scope_defaults_to_all() -> None:
 
 
 STRICT_ERROR_REF = "#/definitions/ExperimentGroupErrorEnvelope"
+SERVICE_UNAVAILABLE_ERROR_REF = (
+    "#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
+)
 
 
 def test_read_surfaces_expose_redacted_error_envelopes_without_forbidden_leakage() -> None:
@@ -1212,10 +1215,63 @@ def test_group_scoped_error_routes_point_at_the_strict_subtype_not_the_generic()
         for code, response in responses.items():
             if not code.startswith(("4", "5")):
                 continue
+            if code == "503":
+                # The dedicated finite service-unavailable subtype is asserted
+                # separately below; the pre-existing 400/401/404/500 contract
+                # stays on ExperimentGroupErrorEnvelope.
+                continue
             ref = response["content"]["application/json"]["schema"]["$ref"]
             assert ref.endswith(STRICT_ERROR_REF), (path, method, code, ref)
             # The strict subtype lives in the group schema, not the generic file.
             assert not ref.endswith("../error_envelope_schema.json"), (path, method, code)
+
+
+def test_auth_backend_unavailable_503_is_finite_redacted_and_route_complete() -> None:
+    """Every experiment-group operation exposes the fail-closed authentication-
+    backend 503 as a dedicated finite envelope. Both supported middleware shapes
+    are exact server-controlled constants, and neither accepts details or request-
+    derived content."""
+    spec = _load_schema("execution/execution_endpoints.json")
+    group_routes = (
+        ("/api/v1/experiment-groups", "get"),
+        ("/api/v1/experiment-groups/{group_id}", "get"),
+        ("/api/v1/experiment-groups/{group_id}/configuration-runs", "get"),
+        ("/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"),
+    )
+    for path, method in group_routes:
+        responses = spec["paths"][path][method]["responses"]
+        assert "503" in responses, (path, method)
+        ref = responses["503"]["content"]["application/json"]["schema"]["$ref"]
+        assert ref.endswith(SERVICE_UNAVAILABLE_ERROR_REF), (path, method, ref)
+        description = responses["503"]["description"].lower()
+        assert "authentication backend" in description
+        assert "redacted" in description
+
+    public_shapes = (
+        {
+            "success": False,
+            "message": "Authentication temporarily unavailable",
+            "error": "AUTH_BACKEND_UNAVAILABLE",
+            "error_code": "AUTH_BACKEND_UNAVAILABLE",
+        },
+        {
+            "success": False,
+            "message": "Internal server error",
+            "error": "Internal server error",
+            "error_code": "AUTH_BACKEND_UNAVAILABLE",
+        },
+    )
+    generic = _generic_error_validator()
+    for payload in public_shapes:
+        assert _errors("ExperimentGroupServiceUnavailableErrorEnvelope", payload) == []
+        assert list(generic.iter_errors(payload)) == []
+
+        with_details = {**payload, "details": {"database": "secret-host"}}
+        assert _errors("ExperimentGroupServiceUnavailableErrorEnvelope", with_details)
+
+        for field in ("message", "error", "error_code"):
+            leaked = {**payload, field: "db-password=super-secret"}
+            assert _errors("ExperimentGroupServiceUnavailableErrorEnvelope", leaked), field
 
 
 def test_every_constrained_group_id_route_has_a_safe_malformed_id_400() -> None:

@@ -1172,6 +1172,72 @@
           "x-privacy-classification": "aggregate_safe"
         }
       }
+    },
+    "ExperimentGroupServiceUnavailableErrorEnvelope": {
+      "type": "object",
+      "description": "Dedicated strict HTTP 503 response for a fail-closed authentication-backend outage before an experiment-group operation executes. The backend has two deployment-path representations of the same condition: the async middleware emits the fixed AUTH_BACKEND_UNAVAILABLE error and 'Authentication temporarily unavailable' message, while the synchronous response sanitizer emits the fixed generic 'Internal server error' pair but preserves error_code AUTH_BACKEND_UNAVAILABLE. This schema admits exactly those two finite server-controlled shapes and no others. It forbids details and additional properties, so database errors, exception text, credentials, request values, group identifiers, tenant/project scope, and hidden-versus-missing existence signals cannot be returned. This is infrastructure unavailability, not an authentication denial: existing 401 behavior remains unchanged, and retry semantics are conveyed by HTTP 503 rather than by any request-derived text.",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": false,
+          "description": "Error discriminator; always false."
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Authentication temporarily unavailable",
+            "Internal server error"
+          ],
+          "description": "Finite redacted message emitted by the async auth middleware or the synchronous 5xx sanitizer. Never request-derived or exception-derived.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "AUTH_BACKEND_UNAVAILABLE",
+            "Internal server error"
+          ],
+          "description": "Finite redacted error label paired with the matching message by the oneOf below.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "error_code": {
+          "type": "string",
+          "const": "AUTH_BACKEND_UNAVAILABLE",
+          "description": "Stable server-controlled classification for transient authentication-backend unavailability. It contains no provider, database, tenant, user, token, or group detail.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      },
+      "oneOf": [
+        {
+          "description": "Async middleware's exact redacted public shape.",
+          "properties": {
+            "message": {
+              "const": "Authentication temporarily unavailable"
+            },
+            "error": {
+              "const": "AUTH_BACKEND_UNAVAILABLE"
+            }
+          }
+        },
+        {
+          "description": "Synchronous 5xx sanitizer's exact redacted public shape.",
+          "properties": {
+            "message": {
+              "const": "Internal server error"
+            },
+            "error": {
+              "const": "Internal server error"
+            }
+          }
+        }
+      ]
     }
   },
   "properties": {

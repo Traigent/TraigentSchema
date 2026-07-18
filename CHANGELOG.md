@@ -8,12 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [4.9.0] - 2026-07-16
 
 ### Changed
-- **Experiment-group outage contract:** all four experiment-group browse/query
-  operations now document the fail-closed authentication-backend `503` response.
-  A dedicated strict envelope admits only the two fixed, redacted middleware
-  representations of `AUTH_BACKEND_UNAVAILABLE`; it rejects diagnostic details,
-  request-derived content, and additional properties. Existing `400`, `401`,
-  `404`, and `500` response contracts are unchanged.
 - **Request-contract tightening (annotation queues):** `items` on
   `POST /api/v1beta/annotation-queues/{queue_id}/items` and the inline `scores`
   array on `POST /api/v1beta/annotation-queues/items/{item_id}/complete` now
@@ -267,13 +261,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     page mode.
   - Predicate operands exclude `null` for both scalar and `in`/`not_in` set operators
     (absent-or-null matching is reserved for `is_null`/`is_not_null`); set operands
-    are non-empty, bounded, and unique.
+    are non-empty, bounded, and unique. String operands and every string set member
+    have a shared `maxLength: 255` cap, aligned with Backend request validation.
   - `GroupedConfigurationRunErrorState` couples `has_error: false` with
     `error_code: null`; a classified code without a failure is rejected.
   - Manifest namespace arrays are `uniqueItems` (exact-duplicate descriptors
     rejected). Rejecting same-`(kind, key)` duplicates that disagree on metadata is
     recorded as a backend acceptance criterion, since Draft 7 cannot express
     uniqueness by a subproperty.
+- **Experiment-group outage contract:** all four experiment-group browse/query
+  operations now document the fail-closed authentication-backend `503` response.
+  A dedicated strict envelope admits only the two fixed, redacted middleware
+  representations of `AUTH_BACKEND_UNAVAILABLE`; it rejects diagnostic details,
+  request-derived content, and additional properties. Existing `400`, `401`,
+  `404`, and `500` response contracts are unchanged.
 - `optimization/optimization_plan_request_schema.json` and
   `optimization/optimization_plan_response_schema.json` for
   `POST /api/v1/optimization/plan`, plus a dedicated

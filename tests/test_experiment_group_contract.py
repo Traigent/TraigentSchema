@@ -1445,6 +1445,66 @@ def test_contract_documents_auth_non_disclosure_and_pagination_invariants() -> N
 # ---- Fix 4: predicate operands exclude null; sets are non-empty, bounded, unique ----
 
 
+PREDICATE_STRING_MAX_LENGTH = 255
+
+
+def test_predicate_string_operands_are_consistently_bounded() -> None:
+    """Scalar strings and every in/not_in string member share one finite cap.
+
+    The duplicated value schemas are intentional Draft 7 operator coupling, so
+    assert all four locations to prevent an outer/variant branch from drifting.
+    """
+    schema = _load_schema("execution/experiment_group_schema.json")
+    predicate = schema["definitions"]["ColumnPredicate"]
+
+    outer_scalar = predicate["properties"]["value"]["oneOf"][0]
+    outer_set_member = predicate["properties"]["value"]["oneOf"][1]["items"]
+    scalar_variant = predicate["oneOf"][0]["properties"]["value"]
+    set_variant_member = predicate["oneOf"][1]["properties"]["value"]["items"]
+
+    for branch in (outer_scalar, outer_set_member, scalar_variant, set_variant_member):
+        assert branch["maxLength"] == PREDICATE_STRING_MAX_LENGTH
+
+    base = {"kind": "parameter", "key": "prompt"}
+    at_cap = "x" * PREDICATE_STRING_MAX_LENGTH
+    over_cap = "x" * (PREDICATE_STRING_MAX_LENGTH + 1)
+
+    assert _errors("ColumnPredicate", {**base, "op": "eq", "value": at_cap}) == []
+    assert _errors("ColumnPredicate", {**base, "op": "eq", "value": over_cap})
+    for op in ("in", "not_in"):
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": [at_cap]}) == [], op
+        assert _errors("ColumnPredicate", {**base, "op": op, "value": [over_cap]}), op
+
+
+def test_predicate_string_operand_cap_is_enforced_on_the_validator_path() -> None:
+    """The authoritative request validator rejects over-cap scalar and set strings."""
+    validator = SchemaValidator(contract="backend")
+    path = "/api/v1/experiment-groups/group_123/configuration-runs/query"
+    base = {"kind": "parameter", "key": "prompt"}
+    at_cap = "x" * PREDICATE_STRING_MAX_LENGTH
+    over_cap = "x" * (PREDICATE_STRING_MAX_LENGTH + 1)
+
+    assert (
+        validator.validate_request(
+            path, "POST", {"predicates": [{**base, "op": "eq", "value": at_cap}]}
+        )
+        == []
+    )
+    assert validator.validate_request(
+        path, "POST", {"predicates": [{**base, "op": "eq", "value": over_cap}]}
+    )
+    for op in ("in", "not_in"):
+        assert (
+            validator.validate_request(
+                path, "POST", {"predicates": [{**base, "op": op, "value": [at_cap]}]}
+            )
+            == []
+        )
+        assert validator.validate_request(
+            path, "POST", {"predicates": [{**base, "op": op, "value": [over_cap]}]}
+        )
+
+
 def test_predicate_operands_exclude_null_for_scalar_and_set_operators() -> None:
     """Null is not a scalar operand and not a set member. Absent-or-null matching
     is reserved for is_null/is_not_null, so eq/gt/in/not_in with null are rejected."""

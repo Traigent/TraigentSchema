@@ -1,8 +1,11 @@
 # Agent tuning-history browse contract — remediation result
 
-Current release governance authority: unified ChangeSession
-`cs_85af3e2677c82db1`, Schema packet `pkt_8b55a584db589f67`, release trail
-`st_7a0086093bb2`.
+Current release governance: unified ChangeSession `cs_85af3e2677c82db1`
+admitted Schema packet `pkt_8b55a584db589f67` under release trail
+`st_7a0086093bb2` to remediate this candidate. Work under the admitted packet will
+verify the exact combined release diff before release. Admission occurred after the
+earlier candidate history and does not retroactively pre-authorize its historical
+commits.
 
 This result remediates the gpt-5.6-terra xhigh review BLOCK of the prior
 uncommitted draft. Earlier session, packet, and trail identifiers retained in the
@@ -60,6 +63,13 @@ Audit chronology (exact):
    lacked `503`; this pass adds one dedicated finite/redacted service-unavailable
    subtype, wires it to all four operations, and refreshes parity. See "Sixth
    remediation pass" below.
+9. **Terra exact-head BLOCK remediation (seventh pass)** — Terra BLOCKED Schema
+   candidate `34aa89d` on two release defects: predicate string operands were
+   effectively unbounded, and the July 18 `503` note had been inserted into the
+   already released `4.9.0` section dated July 16. The seventh pass caps every
+   scalar/set-member predicate string at 255, moves the `503` note to Unreleased,
+   adds fail-first direct and authoritative-validator regressions, refreshes parity,
+   and reruns the full repository gate. See "Seventh remediation pass" below.
 
 ## Scope
 
@@ -103,6 +113,12 @@ The **sixth** develop-release pass edits the two execution schemas, the focused
 experiment-group contract test, CHANGELOG, this report, and the mechanically
 generated parity manifest. It remains within the admitted seven-path set;
 `tests/test_success_envelope_and_response_coverage.py` is unchanged.
+
+The **seventh** Terra remediation edits only
+`experiment_group_schema.json`, the focused contract test, CHANGELOG, this report,
+and the generated parity manifest. It is contained within current packet
+`pkt_8b55a584db589f67`; no endpoint, success DTO, group identity, or aggregation
+spine object changes.
 
 ## Design decisions (per Terra finding)
 
@@ -392,6 +408,32 @@ The decisive test validates both permitted public shapes against the dedicated a
 generic envelopes, rejects diagnostic details and secret substitutions in every
 public string, and asserts complete route coverage and redaction descriptions.
 
+## Seventh remediation pass — bounded predicate strings and release-note hygiene
+
+Terra's exact-head review **BLOCKED** candidate `34aa89d` for two release defects.
+
+1. **P1 — finite predicate strings.** `ColumnPredicate` bounded set cardinality but
+   admitted a 100,000-character string as either a scalar operand or an
+   `in`/`not_in` member. The new cap is **255 characters**, coordinated with the
+   Backend owner and aligned with the Backend's established `Field` /
+   `StringConstraints(max_length=255)` request convention. `maxLength: 255` appears
+   consistently at all four Draft 7 locations: the public scalar value branch, the
+   public array-member branch, the scalar-operator variant, and the set-operator
+   member variant. Because `maxLength` applies only to strings, number and boolean
+   operands are unchanged. Direct-definition and authoritative `SchemaValidator`
+   tests accept the 255-character boundary and reject 256 characters for `eq`, `in`,
+   and `not_in`. Both tests were run before the schema edit and failed: one on the
+   missing `maxLength`, the other because the request validator returned no error.
+   They pass after the schema edit.
+2. **P2 — do not reopen a released changelog.** The July 18 experiment-group `503`
+   entry was removed from `[4.9.0] - 2026-07-16` and placed in the existing
+   Unreleased `Added` section alongside the Wave A surface. The released 4.9.0
+   section is restored to its prior contents; the 503 contract itself is unchanged.
+
+The aggregation spine remains intact: group identity is still visibility scope +
+`agent_id` + canonical `dataset_id`, and predicates remain browse filters rather than
+comparison/ranking authority.
+
 ## Develop integration rebase (2026-07-18)
 
 The accepted feature branch was rebased onto `origin/develop` at
@@ -406,15 +448,19 @@ The pre-rebase SHAs in the audit chronology above remain historical evidence
 identifiers; the rebased commits supersede them for develop integration. At the
 post-rebase feature tree before the sixth pass, the combined parity digest was
 `66cc2fcc1982…` across 364 schema files. After the sixth-pass contract edit, the
-combined digest is `6afe9738c670…` across the same 364 schema files, and
+combined digest was `6afe9738c670…`. After the seventh-pass predicate bound, the
+combined digest is `00691d268772…` across the same 364 schema files, and
 `python scripts/refresh_parity.py --check` passes.
 
 ## Current governance metadata
 
-The authority for release coordination is the unified ChangeSession
-`cs_85af3e2677c82db1`. This Schema evidence and implementation belongs to packet
-`pkt_8b55a584db589f67` and release trail `st_7a0086093bb2`. Commit trailers on the
-final governance metadata commit carry that session and trail.
+The unified ChangeSession `cs_85af3e2677c82db1` admitted current Schema remediation
+packet `pkt_8b55a584db589f67` under release trail `st_7a0086093bb2` after the earlier
+candidate history. It authorizes this bounded remediation; work under the admitted
+packet will verify the exact combined release diff before release. It does **not**
+retroactively pre-authorize the historical commits that produced the earlier
+candidate. Current remediation commits carry the unified session and trail in their
+trailers.
 
 The older ChangeSession `cs_dbd17dd6bfabeed7`, packet identifiers beginning with
 `pkt_c88286ff11fd2edf` / `pkt_1c3f2ce482d11d82`, and their associated trails remain
@@ -428,15 +474,17 @@ Run in the repo `.venv` (Python 3.11.15).
 
 | Check | Command | Result |
 |-------|---------|--------|
-| JSON parse | `json.load` on both changed schema files | OK |
+| JSON parse | `python -m json.tool traigent_schema/schemas/execution/experiment_group_schema.json` | OK |
 | Validator load | `SchemaValidator(contract="backend")` | `experiment_group_schema` present; loads clean |
-| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **82 passed** |
-| Full suite (historical, before sixth pass) | `pytest tests/ -q -p no:cacheprovider` | **1142 passed, 1 skipped** (2 pre-existing deprecation warnings); not rerun for this narrow remediation |
+| Fail-first regressions | `pytest ...::test_predicate_string_operands_are_consistently_bounded ...::test_predicate_string_operand_cap_is_enforced_on_the_validator_path` before schema edit | **2 failed as expected**: missing `maxLength`; 256-character request accepted |
+| Focused tests | `pytest tests/test_experiment_group_contract.py tests/test_success_envelope_and_response_coverage.py` | **84 passed** |
+| Full suite | `pytest tests/ -q -p no:cacheprovider` (through `scripts/local_gate.sh`) | **1145 passed, 1 skipped** (2 pre-existing deprecation warnings) |
 | Whitespace | `git diff --check` | clean |
 | Lint (repo gate) | `ruff check traigent_schema/` | All checks passed |
 | Lint (changed test) | `ruff check --line-length 100 --select E,F,I,UP,B tests/test_experiment_group_contract.py` | 1 error (pre-existing `I001` import ordering, predates this packet); **zero new**; no added line exceeds 100 chars (`--select E501` clean) |
 | Typecheck (repo gate) | `mypy traigent_schema/ --ignore-missing-imports` | Success, no issues (5 source files) |
-| Parity refresh | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `6afe9738c670…`, files=364); `--check` **exit 0 (up-to-date)** |
+| Parity refresh | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `00691d268772…`, files=364); `--check` **exit 0 (up-to-date)** |
+| Repository local gate | `scripts/local_gate.sh` | **PASS**: develop freshness, ruff, mypy, full pytest, parity, and auth-taxonomy detector clean; the non-blocking spine reminder emitted its known PR-body warning, so the exact current trail/session markers are also checked directly before commit |
 
 Focused test count went 80 → 81 (1 new decisive tie-break regression test this pass:
 `group_id` is not the mandated sort/tie-break key; the canonical-identity tie
@@ -446,9 +494,9 @@ direction/null; the old `group_id ascending` mandate is gone; the configuration-
 row tie-break stays `configuration_run_id` ascending; identity stays exactly
 `agent_id` + canonical `dataset_id`). Full-suite count went 1141 → 1142 for that test.
 The sixth pass adds one more decisive `503` regression, taking the focused count
-81 → 82. The full suite was not rerun for the sixth pass; the focused contract tests,
-JSON parsing, validator load, parity, lint, typecheck, and diff checks are the current
-evidence.
+81 → 82. The seventh pass adds two predicate-string cap regressions, taking the
+focused count 82 → 84 and the full-suite count to 1145 passed / 1 skipped. The full
+repository gate was rerun after the cap and changelog correction.
 
 ## Downstream runtime acceptance handoff (schema does NOT prove these)
 
@@ -481,6 +529,10 @@ as explicit handoff risks, not proven behavior:
   `page`/`per_page` and cursor `cursor`/`limit` are mutually exclusive; OpenAPI
   cannot enforce cross-parameter exclusion, so backend request validation must reject
   every cross-mix and default an all-omitted request to legacy page mode.
+- **Predicate string bound parity** — Backend request validation must enforce the
+  same 255-character limit before cursor or query execution for scalar string
+  operands and each `in`/`not_in` string member. The cap was coordinated with the
+  Backend owner; cross-repo tests remain the release evidence for producer parity.
 - **Non-disclosure timing/behavior** — the contract removes status/message leakage;
   the backend must also avoid timing side-channels between hidden and not-found.
 - **Token re-authorization** — group ids and cursors are opaque lookup/continuation
@@ -490,9 +542,9 @@ as explicit handoff risks, not proven behavior:
 ## Remaining risks / follow-ups
 
 - **Parity manifest is fresh at the final HEAD (`parity/python-js-sdk.json`).**
-  The sixth pass edits both execution schema files, which invalidates the parity
+  The seventh pass edits `experiment_group_schema.json`, which invalidates the parity
   provenance hash. `python3 scripts/refresh_parity.py --update` produced digest
-  `6afe9738c670…` (files=364) on the develop-integrated tree and `--check` then returns
+  `00691d268772…` (files=364) on the develop-integrated tree and `--check` then returns
   `exit 0 (up-to-date)`. The manifest is within this remediation's admitted seven-path
   set. Not relaxed, not bypassed.
 - **`execution_endpoints.json` inline `sort_by` drift — RESOLVED (fifth pass).** The

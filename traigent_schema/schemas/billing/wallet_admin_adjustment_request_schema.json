@@ -23,18 +23,6 @@
       "maximum": 1000,
       "description": "Adjustment amount in USD (number or decimal string). String branch must be a signed decimal with at most 6 fractional digits; number branch bounded to +/-1,000. Bounded to +/-1,000 USD per request (owner-set 2026-07-18); backend-side enforcement tracked separately."
     },
-    "balance_delta_usd": {
-      "type": [
-        "number",
-        "string",
-        "null"
-      ],
-      "maxLength": 64,
-      "pattern": "^-?\\d+(\\.\\d{1,6})?$",
-      "minimum": -1000,
-      "maximum": 1000,
-      "description": "Direct balance delta in USD (number or decimal string). String branch must be a signed decimal with at most 6 fractional digits; number branch bounded to +/-1,000. Bounded to +/-1,000 USD per request (owner-set 2026-07-18); backend-side enforcement tracked separately."
-    },
     "debt_writeoff_usd": {
       "type": [
         "number",
@@ -72,11 +60,6 @@
     {
       "required": [
         "amount_usd"
-      ]
-    },
-    {
-      "required": [
-        "balance_delta_usd"
       ]
     },
     {

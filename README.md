@@ -220,7 +220,7 @@ mypy traigent_schema
 
 ## Version
 
-Current release line: **4.12.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
+Current release line: **4.13.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
 
 Package metadata is derived from `traigent_schema/version.py` to keep runtime and published versions aligned.
 

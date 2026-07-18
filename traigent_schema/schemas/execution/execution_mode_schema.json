@@ -134,7 +134,7 @@
       "description": "ISO 8601 timestamp of the last modification"
     }
   },
-  "required": ["execution_mode", "experiment_id"],
+  "required": ["experiment_id"],
   "additionalProperties": false,
   "if": {
     "properties": {"execution_mode": {"const": "hybrid_api"}}

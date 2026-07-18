@@ -44,7 +44,8 @@ def test_evaluator_execute_backfill_are_202():
 def test_evaluator_create_omits_server_managed_fields():
     v = SchemaValidator(contract="backend")
     assert v._endpoint_schemas["POST:/api/v1beta/evaluators"] == "evaluator_definition_create_request_schema"
-    body = {"name": "e", "measure_id": "m", "target_type": "observability_trace", "judge_config": {}}
+    judge = {"instructions": "score it", "model_id": "gpt-4o", "context_type": "output"}
+    body = {"name": "e", "measure_id": "m", "target_type": "observability_trace", "judge_config": judge}
     assert v.validate_request("/api/v1beta/evaluators", "POST", body) == []
     # server-managed id is forbidden (extra=forbid)
     assert v.validate_request("/api/v1beta/evaluators", "POST", {**body, "id": "x"})
@@ -52,6 +53,12 @@ def test_evaluator_create_omits_server_managed_fields():
     assert v.validate_request("/api/v1beta/evaluators", "POST", {"name": "e"})
     # target_type is the canonical EvaluationTargetType enum (not any string)
     assert v.validate_request("/api/v1beta/evaluators", "POST", {**body, "target_type": "not-a-target"})
+    # #335: judge_config now uses the same strict JudgeConfig contract as update —
+    # an incomplete config (missing model_id/context_type) is rejected on create too
+    assert v.validate_request("/api/v1beta/evaluators", "POST", {**body, "judge_config": {}})
+    assert v.validate_request(
+        "/api/v1beta/evaluators", "POST", {**body, "judge_config": {"instructions": "x"}}
+    )
 
 
 def test_annotation_patch_status_accepts_null_with_another_field():

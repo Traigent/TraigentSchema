@@ -19,7 +19,7 @@
         "efficiency",
         "reliability"
       ],
-      "description": "Standard library measurement categories:\n- sanity_check: Basic validation of agent behavior\n- accuracy: Correctness of responses\n- quality: Overall response quality metrics\n- latency: Time-based performance metrics\n- safety: Safety and risk assessment metrics\n- efficiency: Resource utilization metrics\n- reliability: Consistency and stability metrics\n\nThis is the standard-library vocabulary. Custom (is_custom=true) measures may carry a measure_type outside this set, so the resource-level measure_type property is a documented open string rather than a closed reference to this enum (see the measure_type property)."
+      "description": "Standard library measurement categories:\n- sanity_check: Basic validation of agent behavior\n- accuracy: Correctness of responses\n- quality: Overall response quality metrics\n- latency: Time-based performance metrics\n- safety: Safety and risk assessment metrics\n- efficiency: Resource utilization metrics\n- reliability: Consistency and stability metrics\n\nThis is the standard-library vocabulary and it remains ENFORCED for standard (is_custom=false) measures via the top-level allOf conditional. Only custom (is_custom=true) measures may carry a measure_type outside this set (see the measure_type property)."
     },
     "MeasureValueType": {
       "type": "string",
@@ -129,8 +129,10 @@
     },
     "measure_type": {
       "type": "string",
+      "minLength": 1,
       "maxLength": 255,
-      "description": "Specific type of measurement being performed. Standard-library vocabulary: #/definitions/MeasureType (sanity_check|accuracy|quality|latency|safety|efficiency|reliability). Open-vocabulary at the resource level: custom measures (is_custom=true) may set a label outside the standard set, so this is a free string rather than a closed enum reference — this keeps a custom measure_type round-tripping between the create request (also a free string) and this read schema (TraigentSchema#321)."
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
+      "description": "Specific type of measurement being performed. CONDITIONAL vocabulary (see the top-level allOf): when is_custom=false this MUST be one of the standard-library #/definitions/MeasureType values (sanity_check|accuracy|quality|latency|safety|efficiency|reliability); when is_custom=true it is an open — but bounded and non-blank — label, so a custom measure_type round-trips between the create request and this schema (TraigentSchema#321) without opening the standard-measure write path (PUT /api/v1/measures/{measure_id} consumes this schema) to typos or blank labels."
     },
     "evaluation_method": {
       "$ref": "#/definitions/EvaluationMethod",
@@ -252,6 +254,32 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "is_custom": { "const": true } },
+        "required": ["is_custom"]
+      },
+      "then": {
+        "properties": {
+          "measure_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$",
+            "description": "Custom (is_custom=true) measure: open-vocabulary label — bounded, non-blank, no control characters (TraigentSchema#321 escape hatch)."
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "measure_type": {
+            "$ref": "#/definitions/MeasureType"
+          }
+        }
+      }
+    }
+  ],
   "required": [
     "id",
     "version",

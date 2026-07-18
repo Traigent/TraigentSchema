@@ -80,3 +80,73 @@ def test_legacy_backend_measure_without_typed_scoring_fields_still_validates() -
     )
 
     assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# #321 conditional measure_type vocabulary, exercised through the ACTUAL
+# endpoint request mappings (PUT /api/v1/measures/{measure_id} consumes
+# measure_schema.json; POST /api/v1/measures consumes
+# measure_create_request_schema.json — see measures_endpoints.json).
+# ---------------------------------------------------------------------------
+
+
+def test_put_measure_custom_round_trips_novel_measure_type() -> None:
+    """#321 escape hatch: a custom measure keeps its novel label on the write path."""
+    errors = SchemaValidator(contract="backend").validate_request(
+        "/api/v1/measures/measure-1",
+        "PUT",
+        _backend_measure(measure_type="my_novel_metric", is_custom=True),
+    )
+
+    assert errors == []
+
+
+def test_put_measure_standard_rejects_non_standard_measure_type() -> None:
+    """is_custom=false keeps the closed MeasureType vocabulary on PUT."""
+    errors = SchemaValidator(contract="backend").validate_request(
+        "/api/v1/measures/measure-1",
+        "PUT",
+        _backend_measure(measure_type="my_novel_metric", is_custom=False),
+    )
+
+    assert errors != []
+
+
+def test_put_measure_rejects_blank_measure_type_even_when_custom() -> None:
+    """The custom escape hatch is bounded: blank labels never validate."""
+    errors = SchemaValidator(contract="backend").validate_request(
+        "/api/v1/measures/measure-1",
+        "PUT",
+        _backend_measure(measure_type="", is_custom=True),
+    )
+
+    assert errors != []
+
+
+def test_put_measure_standard_still_accepts_canonical_measure_type() -> None:
+    errors = SchemaValidator(contract="backend").validate_request(
+        "/api/v1/measures/measure-1",
+        "PUT",
+        _backend_measure(measure_type="latency", is_custom=False),
+    )
+
+    assert errors == []
+
+
+def test_create_then_read_back_round_trip_for_custom_measure() -> None:
+    """#321 end-to-end: the create-request tolerates a declared-custom novel
+    label (mirroring the backend's extra=allow create DTO), and the canonical
+    read-back schema accepts the stored result via the is_custom conditional.
+
+    NOTE the create request deliberately stays backend-modeled (free string —
+    see test_create_request_contracts.py); server-side enforcement of the
+    conditional vocabulary on create is a TraigentBackend follow-up, not a
+    schema-side tightening.
+    """
+    v = SchemaValidator(contract="backend")
+
+    create_body = {"label": "L", "measure_type": "my_novel_metric", "is_custom": True}
+    assert v.validate_request("/api/v1/measures", "POST", create_body) == []
+
+    stored = _backend_measure(measure_type="my_novel_metric", is_custom=True)
+    assert v.validate_json(stored, SCHEMA_NAME) == []

@@ -1270,7 +1270,7 @@ def test_auth_backend_unavailable_503_is_finite_redacted_and_route_complete() ->
         assert _errors("ExperimentGroupServiceUnavailableErrorEnvelope", with_details)
 
         for field in ("message", "error", "error_code"):
-            leaked = {**payload, field: "db-password=super-secret"}
+            leaked = {**payload, field: "request-derived-sensitive-value"}
             assert _errors("ExperimentGroupServiceUnavailableErrorEnvelope", leaked), field
 
 

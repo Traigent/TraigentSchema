@@ -70,6 +70,14 @@ Audit chronology (exact):
    scalar/set-member predicate string at 255, moves the `503` note to Unreleased,
    adds fail-first direct and authoritative-validator regressions, refreshes parity,
    and reruns the full repository gate. See "Seventh remediation pass" below.
+10. **Hosted SonarCloud remediation (eighth pass)** — PR #327's exact-head analysis
+    passed CodeQL, parity, lint/type, package, tests, and spine checks but failed the
+    new-code Security Rating (`C`, required `A`). The SonarCloud GitHub check attached
+    one annotation: `tests/test_experiment_group_contract.py:1273`, issue
+    `AZ92PjFLjoH1FwVl8pHy`, where the redaction negative used a credential-shaped
+    literal. This pass replaces only that test sentinel with a neutral
+    request-derived-sensitive-value sentinel, preserving the same strict-envelope
+    rejection assertion. See "Eighth remediation pass" below.
 
 ## Scope
 
@@ -119,6 +127,10 @@ The **seventh** Terra remediation edits only
 and the generated parity manifest. It is contained within current packet
 `pkt_8b55a584db589f67`; no endpoint, success DTO, group identity, or aggregation
 spine object changes.
+
+The **eighth** hosted-analysis remediation edits only the focused contract test and
+this report. No schema, endpoint, changelog, parity, group identity, or aggregation
+logic changes.
 
 ## Design decisions (per Terra finding)
 
@@ -434,6 +446,34 @@ The aggregation spine remains intact: group identity is still visibility scope +
 `agent_id` + canonical `dataset_id`, and predicates remain browse filters rather than
 comparison/ranking authority.
 
+## Eighth remediation pass — SonarCloud credential-shaped test sentinel
+
+The hosted SonarCloud check for PR #327 at `50a980b7…` supplied one GitHub check-run
+annotation, which makes the failure exact rather than inferred:
+
+- path/line: `tests/test_experiment_group_contract.py:1273`
+- message: Sonar hard-coded-credential warning (credential keyword detected)
+- Sonar issue: `AZ92PjFLjoH1FwVl8pHy`
+- quality-gate effect: Security Rating on New Code `C` (required `A`)
+
+The annotated negative-test literal combined a database prefix, a credential keyword,
+and a placeholder secret value. Its exact bytes remain available in the hosted
+annotation and are deliberately not repeated in this new-code report. Although it was
+not an application credential, retaining a credential-shaped literal is unnecessary
+and correctly trips the security analyzer. A deterministic pre-fix scan reproduced
+its exact presence. The smallest correction changes only the sentinel to
+`request-derived-sensitive-value`; the test still substitutes that value into each
+public `message`, `error`, and `error_code` field and proves the strict finite `503`
+envelope rejects it. The same scan is clean after the edit, and the targeted redaction
+test passes.
+
+Anonymous SonarCloud issue APIs did not expose the private project detail, and no local
+`SONAR_TOKEN` / Sonar configuration is available. Therefore this report does **not**
+claim the hosted quality gate is green before its next authorized PR-head analysis.
+The GitHub check annotation is the authoritative accessible finding; no rule was
+guessed, suppressed, marked false-positive, or excluded, and no quality threshold was
+changed.
+
 ## Develop integration rebase (2026-07-18)
 
 The accepted feature branch was rebased onto `origin/develop` at
@@ -474,6 +514,9 @@ Run in the repo `.venv` (Python 3.11.15).
 
 | Check | Command | Result |
 |-------|---------|--------|
+| Hosted SonarCloud finding (pre-fix PR head `50a980b7…`) | GitHub check-run annotation for PR #327 | **FAIL**: new-code Security Rating `C`; sole annotation at `tests/test_experiment_group_contract.py:1273`, issue `AZ92PjFLjoH1FwVl8pHy` |
+| Deterministic Sonar-finding reproduction | Exact annotated-literal `rg` scan against `tests/test_experiment_group_contract.py` before / after edit | **Pre-fix present at line 1273; post-fix absent** |
+| Targeted Sonar remediation | `pytest tests/test_experiment_group_contract.py::test_auth_backend_unavailable_503_is_finite_redacted_and_route_complete -q -p no:cacheprovider` | **1 passed**; neutral request-derived sentinel remains rejected in all three public fields |
 | JSON parse | `python -m json.tool traigent_schema/schemas/execution/experiment_group_schema.json` | OK |
 | Validator load | `SchemaValidator(contract="backend")` | `experiment_group_schema` present; loads clean |
 | Fail-first regressions | `pytest ...::test_predicate_string_operands_are_consistently_bounded ...::test_predicate_string_operand_cap_is_enforced_on_the_validator_path` before schema edit | **2 failed as expected**: missing `maxLength`; 256-character request accepted |
@@ -484,7 +527,7 @@ Run in the repo `.venv` (Python 3.11.15).
 | Lint (changed test) | `ruff check --line-length 100 --select E,F,I,UP,B tests/test_experiment_group_contract.py` | 1 error (pre-existing `I001` import ordering, predates this packet); **zero new**; no added line exceeds 100 chars (`--select E501` clean) |
 | Typecheck (repo gate) | `mypy traigent_schema/ --ignore-missing-imports` | Success, no issues (5 source files) |
 | Parity refresh | `python3 scripts/refresh_parity.py --update` then `--check` | `--update` exit 0 (digest `00691d268772…`, files=364); `--check` **exit 0 (up-to-date)** |
-| Repository local gate | `scripts/local_gate.sh` | **PASS**: develop freshness, ruff, mypy, full pytest, parity, and auth-taxonomy detector clean; the non-blocking spine reminder emitted its known PR-body warning, so the exact current trail/session markers are also checked directly before commit |
+| Repository local gate | `scripts/local_gate.sh` | **PASS**: develop freshness, ruff, mypy, full pytest, parity, auth-taxonomy detector, and spine marker clean; hosted Sonar step skipped because this is a develop-bound local branch with no Sonar credentials |
 
 Focused test count went 80 → 81 (1 new decisive tie-break regression test this pass:
 `group_id` is not the mandated sort/tie-break key; the canonical-identity tie
@@ -547,6 +590,13 @@ as explicit handoff risks, not proven behavior:
   `00691d268772…` (files=364) on the develop-integrated tree and `--check` then returns
   `exit 0 (up-to-date)`. The manifest is within this remediation's admitted seven-path
   set. Not relaxed, not bypassed.
+- **Hosted SonarCloud rerun remains pending.** This local-only packet cannot update the
+  PR head or trigger a hosted reanalysis, and the private Sonar issue API was not
+  accessible without credentials. The exact check-run annotation named one
+  credential-shaped test literal; it is absent in this candidate and the redaction
+  regression remains green. Release still requires the authorized next hosted
+  SonarCloud analysis to restore Security Rating on New Code to `A`; this report does
+  not substitute local evidence for that hosted gate.
 - **`execution_endpoints.json` inline `sort_by` drift — RESOLVED (fifth pass).** The
   inline `sort_by` parameter description is now byte-identical to the authoritative
   `ExperimentGroupSortField` description it `$ref`s (canonical-identity tie-break, no

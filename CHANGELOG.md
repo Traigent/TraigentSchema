@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.14.0] - 2026-07-19
+
+### Changed
+- **`measure_ids` create/update parity in annotation queues (#340):**
+  `annotation_queue_update_request_schema.measure_ids` now enforces
+  `minItems: 1`, matching `annotation_queue_create_request_schema` (which
+  already required a non-empty array). An update can no longer clear the
+  measure set to an empty array through this field, closing the create/update
+  contract asymmetry.
+
 ## [4.13.0] - 2026-07-19
 
 ### Changed

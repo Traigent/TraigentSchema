@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
-PYTHON_DEVELOP_SHA = "4bf705a84528f3e984d0e5bbda9c92ff564bc01b"
+PYTHON_DEVELOP_SHA = "e2de19c1d8c680edf58167853134b46c5c83afd6"
 
 PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ADVISORY_SELECTION_NOTICE",

@@ -131,7 +131,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 255,
-      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2069\\ufeff]+(?![\\s\\S])",
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890-\\u0891\\u08e2\\u115f-\\u1160\\u17b4-\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\U000110bd\\U000110cd\\U00013430-\\U0001343f\\U0001bca0-\\U0001bca3\\U0001d173-\\U0001d17a\\U000e0000-\\U000e0fff]+(?![\\s\\S])",
       "description": "Specific type of measurement being performed. CONDITIONAL vocabulary (see the top-level allOf): when is_custom=false this MUST be one of the standard-library #/definitions/MeasureType values (sanity_check|accuracy|quality|latency|safety|efficiency|reliability); when is_custom=true it is an open — but bounded — label: at least one non-whitespace character, and no C0/C1 controls, DEL, zero-width/bidi format controls (U+200B-U+200F, U+2028-U+202E line/para separators + embeddings/overrides, U+2060-U+2069 word-joiner/invisible-operators/bidi-isolates), or BOM. This keeps a custom measure_type round-tripping between the create request and this schema (TraigentSchema#321) without opening the standard-measure write path (PUT /api/v1/measures/{measure_id} consumes this schema) to blank, spoofed-direction, or invisibly-distinct labels."
     },
     "evaluation_method": {
@@ -266,7 +266,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 255,
-            "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2069\\ufeff]+(?![\\s\\S])",
+            "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890-\\u0891\\u08e2\\u115f-\\u1160\\u17b4-\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\U000110bd\\U000110cd\\U00013430-\\U0001343f\\U0001bca0-\\U0001bca3\\U0001d173-\\U0001d17a\\U000e0000-\\U000e0fff]+(?![\\s\\S])",
             "description": "Custom (is_custom=true) measure: open-vocabulary label — bounded, requires a non-whitespace character, and bans C0/C1 controls, DEL, zero-width/bidi format controls, and BOM (TraigentSchema#321 escape hatch)."
           }
         }

@@ -143,6 +143,7 @@ def test_put_measure_custom_label_rejects_invisible_and_bidi_controls() -> None:
     rejected = {
         "C1 NEL": "x" + chr(0x0085) + "y",
         "bidi RLO override": "x" + chr(0x202E) + "y",
+        "trailing newline": "x" + chr(0x000A),
         "single space": " ",
         "zero-width space": "x" + chr(0x200B) + "y",
         "bidi LRI isolate": "x" + chr(0x2066) + "y",

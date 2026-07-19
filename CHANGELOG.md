@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.11.0] - 2026-07-19
+
+### Changed
+- **Custom measure_type round-trip, conditionally (#321):** `measure_schema`
+  now validates `measure_type` with an `is_custom`-keyed conditional:
+  standard measures (`is_custom=false`, or absent) MUST use the closed
+  `#/definitions/MeasureType` vocabulary, while custom (`is_custom=true`)
+  measures may use any bounded, non-blank, control-char-free label
+  (minLength 1, maxLength 255). A custom `measure_type` now round-trips
+  create → read-back, WITHOUT opening `PUT /api/v1/measures/{measure_id}`
+  (which consumes this schema as its request body) to blanks, typos, or
+  arbitrary labels on standard measures. The create request
+  (`measure_create_request_schema`) deliberately stays backend-modeled
+  (free string, extra=allow — see `tests/test_create_request_contracts.py`);
+  RESIDUAL: server-side enforcement of the conditional vocabulary on
+  `POST /api/v1/measures` is a TraigentBackend follow-up — until then a
+  standard-measure create with a junk `measure_type` is accepted by the
+  backend but will (correctly) fail canonical read-back validation.
+- **Measure value-type discriminator (#320):** added a canonical
+  `MeasureValueType` enum (`numeric|categorical|boolean`) to `measure_schema`
+  and `$ref`'d it from the observability `review_score`/`review_measure_summary`
+  read schemas (previously duplicated inline). The measure-definition
+  `value_type` stays a documented open free-form label; the closed enum applies
+  only where a score value is projected onto a typed column.
+- **Review-score source vocabulary (#318):** widened `review_score_schema`
+  `source` to the create-request's eight values
+  (`manual|evaluator|api|human|user|llm|model|sdk`) so a legitimately-POSTed
+  source round-trips through `validate_response`.
+- **Pagination canonicalization (#319):** added a canonical
+  `offset_pagination_schema` (`limit/offset/total/has_more`) and `$ref`'d it
+  from the comparison-examples list response (previously inlined). The flat
+  `{page, per_page, total}` observability/costs list responses
+  (session/trace/issue/trace_variant/cost_users) now also permit the optional
+  canonical `total_pages`/`has_next`/`has_prev` fields.
+  **Compatibility note:** `cost_users`, `issue_list`, and
+  `trace_variant_list` responses were CLOSED schemas
+  (`additionalProperties: false`) through 4.10.0 — a client validating
+  responses against ≤4.10.0 will REJECT a server that starts emitting the
+  new fields. Backend emission of `total_pages`/`has_next`/`has_prev` on
+  those three endpoints is therefore gated on consumers regenerating to
+  ≥4.11.0 first (additive-with-regeneration-gate, not zero-impact).
+  `session_list`/`trace_list` were already open schemas; for them the fields
+  are plainly additive.
+
+### Deferred
+- **Trace-ingest timestamp enforcement (#316 residual):** `workflow_trace_schema`
+  span `start_time`/`end_time` keep their prose-only ISO-8601 promise; the
+  planned `format: date-time` assertion is NOT applied. The repo validator
+  enforces `format` (RFC 3339 via `FormatChecker`), and the Python SDK's
+  ingest producer (`traigent/integrations/observability/workflow_traces.py`,
+  `add_span` path, lines ~1383-1423 at time of writing) accepts
+  `datetime | str`, emitting offset-less `.isoformat()` for naive datetimes
+  and passing caller strings through verbatim — so machine-enforcement would
+  reject payloads today's producers legitimately emit. Normalize the SDK
+  producer (require tz-aware, normalize strings) first; then apply the
+  format assertion in a follow-up schema release.
+
 ## [4.10.0] - 2026-07-17
 
 ### Added

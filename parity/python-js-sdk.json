@@ -386,7 +386,7 @@
     "economicsTelemetryClientForwardBinding": "EconomicsTelemetryClient is classified matched and JS-required ahead of the pinned python.targetSha: the Python root lazy export lands in the sibling Traigent PR (feature/econ-model-python-sdk) that merges immediately after this Schema PR, per the WI-B landing order Schema -> Backend -> SDKs. Until that merge, the symbol does not exist at python.targetSha by design (forward-compatible parity, same pattern as js020PythonReleaseOrder); restamp python.targetSha once the SDK lands on develop."
   },
   "schemaRefresh": {
-    "lastSchemaFileSha": "bcc40a6289bb06302964e004348b7932094192afe6e1ee47803c8e240d100efb",
+    "lastSchemaFileSha": "70a3b6cca384399ef67b982b4a2b05cec4841e24d69791a3f2ca4fe2171dd004",
     "schemaFileCount": 376,
     "note": "Auto-stamped by scripts/refresh_parity.py. Do not hand-edit this block."
   }

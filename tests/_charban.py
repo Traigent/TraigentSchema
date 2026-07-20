@@ -38,6 +38,10 @@ for _lo, _hi in [
     (0xFE00, 0xFE0F),   # VARIATION SELECTOR-1..16 (Mn)
     (0xFFA0, 0xFFA0),   # HALFWIDTH HANGUL FILLER (Lo)
     (0xFFF0, 0xFFF8),   # reserved default-ignorable (Cn)
+    (0x13439, 0x1343F),  # EGYPTIAN HIEROGLYPH format controls added in Unicode 15
+                         # (Cf on Py>=3.12; Cn/unassigned on Py3.11's Unicode 14 tables).
+                         # Pinned so a downlevel host still bans them and pattern()
+                         # is stable across supported Pythons (3.11 CI vs 3.12 dev).
     (0x1BCA0, 0x1BCA3),  # SHORTHAND FORMAT CONTROLS (Cf)
     (0x1D173, 0x1D17A),  # MUSICAL SYMBOL BEGIN/END … (Cf)
     (0xE0000, 0xE0FFF),  # TAGS + VARIATION SELECTORS SUPPLEMENT + reserved (Cf/Mn/Cn)

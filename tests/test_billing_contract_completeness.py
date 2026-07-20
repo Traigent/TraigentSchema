@@ -121,6 +121,49 @@ def test_money_request_fields_accept_string_or_number():
     ) == []
 
 
+def test_spend_approval_estimate_rejects_unbounded_or_non_numeric():
+    # requested_estimate_usd must be a bounded, non-negative money value (issue #330).
+    v = SchemaValidator(contract="backend")
+    # negative number
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": -1000000000},
+    )
+    # non-numeric string
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "not-a-number"},
+    )
+    # absurdly large number beyond the sanity ceiling
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": 1e12},
+    )
+    # the string branch must be capped too — a numeric string above the ceiling
+    # is rejected by the pattern (minimum/maximum only bind the number branch).
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "9999999999999999"},
+    )
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "1000001"},
+    )
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "1000000.000001"},
+    )
+    # exactly at the ceiling and just under it (with max fractional precision) are ok
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "1000000"},
+    ) == []
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "999999.999999"},
+    ) == []
+
+
 def test_subscription_cancel_effective_date_uses_canonical_nullable_timestamp():
     schema = _load("subscription_cancel_response_schema.json")
     effective_date = schema["properties"]["data"]["properties"]["effective_date"]

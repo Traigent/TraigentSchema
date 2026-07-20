@@ -79,6 +79,8 @@ def test_billing_plans_response_uses_opaque_checkout_options():
                     "features": ["Email support"],
                     "limits": {
                         "trials": 500,
+                        "optimization_trials": 500,
+                        "optimization_samples": 5000,
                         "api_calls": 100000,
                         "benchmarks": 250,
                         "users": 5,
@@ -110,6 +112,8 @@ def test_billing_plans_response_rejects_paddle_price_ids():
                     "features": ["Email support"],
                     "limits": {
                         "trials": 500,
+                        "optimization_trials": 500,
+                        "optimization_samples": 5000,
                         "api_calls": 100000,
                         "benchmarks": 250,
                         "users": 5,
@@ -145,6 +149,8 @@ def test_billing_plans_response_rejects_mismatched_checkout_cycle():
                     "features": ["Email support"],
                     "limits": {
                         "trials": 500,
+                        "optimization_trials": 500,
+                        "optimization_samples": 5000,
                         "api_calls": 100000,
                         "benchmarks": 250,
                         "users": 5,
@@ -174,6 +180,8 @@ def test_billing_plans_response_rejects_paid_plan_missing_checkout_options():
                     "features": ["Email support"],
                     "limits": {
                         "trials": 500,
+                        "optimization_trials": 500,
+                        "optimization_samples": 5000,
                         "api_calls": 100000,
                         "benchmarks": 250,
                         "users": 5,
@@ -212,6 +220,8 @@ def test_billing_plans_response_rejects_cross_plan_checkout_options():
                     "features": ["Email support"],
                     "limits": {
                         "trials": 500,
+                        "optimization_trials": 500,
+                        "optimization_samples": 5000,
                         "api_calls": 100000,
                         "benchmarks": 250,
                         "users": 5,
@@ -247,6 +257,8 @@ def test_billing_plans_response_requires_new_record_limit_fields():
                 "features": ["Email support"],
                 "limits": {
                     "trials": 500,
+                    "optimization_trials": 500,
+                    "optimization_samples": 5000,
                     "api_calls": 100000,
                     "users": 5,
                 },
@@ -262,6 +274,8 @@ def test_billing_limits_reject_unknown_and_invalid_fields():
 
     valid_limits = {
         "trials": 500,
+        "optimization_trials": 500,
+        "optimization_samples": 5000,
         "api_calls": 100000,
         "benchmarks": 250,
         "users": 5,
@@ -285,6 +299,8 @@ def test_billing_enforcement_controls_accepts_effective_record_limits():
             "enforcement_mode": "enforce",
             "effective_limits": {
                 "trials": 500,
+                "optimization_trials": 500,
+                "optimization_samples": 5000,
                 "api_calls": 100000,
                 "benchmarks": 250,
                 "users": 5,
@@ -304,6 +320,8 @@ def test_billing_enforcement_controls_rejects_missing_or_invalid_record_limits()
         "data": {
             "effective_limits": {
                 "trials": 500,
+                "optimization_trials": 500,
+                "optimization_samples": 5000,
                 "api_calls": 100000,
                 "users": 5,
             },
@@ -318,6 +336,8 @@ def test_billing_enforcement_controls_rejects_missing_or_invalid_record_limits()
         "data": {
             "effective_limits": {
                 "trials": 500,
+                "optimization_trials": 500,
+                "optimization_samples": 5000,
                 "api_calls": 100000,
                 "benchmarks": True,
                 "users": 5,

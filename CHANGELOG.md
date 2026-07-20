@@ -11,8 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bound `requested_estimate_usd` in spend-approval requests (#330):**
   `spend_approval_request_schema` now constrains `requested_estimate_usd` to a
   non-negative, bounded money value — the string branch must match
-  `^\d+(\.\d{1,6})?$` (non-negative decimal, ≤6 fractional digits) and the
-  number branch is bounded to `[0, 1,000,000]` — rejecting negative, non-numeric,
+  `^(?:\d{1,6}(?:\.\d{1,6})?|1000000(?:\.0{1,6})?)$` (non-negative decimal in
+  `[0, 1,000,000]`, ≤6 fractional digits; the pattern itself caps the string
+  value since JSON-Schema `minimum`/`maximum` bind only the number branch) and
+  the number branch is bounded to `[0, 1,000,000]` — rejecting negative, non-numeric,
   and absurdly large estimates at the schema layer (mirrors the
   `wallet_admin_adjustment_request` money-bounds pattern). Authoritative
   policy-threshold enforcement remains backend-side.

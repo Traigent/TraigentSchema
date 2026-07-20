@@ -137,6 +137,7 @@
   "required": ["experiment_id"],
   "additionalProperties": false,
   "if": {
+    "required": ["execution_mode"],
     "properties": {"execution_mode": {"const": "hybrid_api"}}
   },
   "then": {

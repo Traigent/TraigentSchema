@@ -139,6 +139,29 @@ def test_spend_approval_estimate_rejects_unbounded_or_non_numeric():
         "/api/v1/billing/spend-approvals", "POST",
         {"operation_group_id": "g", "requested_estimate_usd": 1e12},
     )
+    # the string branch must be capped too — a numeric string above the ceiling
+    # is rejected by the pattern (minimum/maximum only bind the number branch).
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "9999999999999999"},
+    )
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "1000001"},
+    )
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "1000000.000001"},
+    )
+    # exactly at the ceiling and just under it (with max fractional precision) are ok
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "1000000"},
+    ) == []
+    assert v.validate_request(
+        "/api/v1/billing/spend-approvals", "POST",
+        {"operation_group_id": "g", "requested_estimate_usd": "999999.999999"},
+    ) == []
 
 
 def test_subscription_cancel_effective_date_uses_canonical_nullable_timestamp():

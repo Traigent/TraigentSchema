@@ -33,10 +33,10 @@
         "null"
       ],
       "maxLength": 64,
-      "pattern": "^\\d+(\\.\\d{1,6})?$",
+      "pattern": "^(?:\\d{1,6}(?:\\.\\d{1,6})?|1000000(?:\\.0{1,6})?)$",
       "minimum": 0,
       "maximum": 1000000,
-      "description": "Estimated spend in USD (number or decimal string). String branch must be a non-negative decimal with at most 6 fractional digits; number branch bounded to [0, 1,000,000]. Schema-level sanity bound to reject negative/non-numeric/absurd estimates (mirrors wallet_admin_adjustment_request money-bounds pattern); authoritative policy-threshold enforcement is backend-side."
+      "description": "Estimated spend in USD (number or decimal string). String branch must be a non-negative decimal in [0, 1,000,000] with at most 6 fractional digits (the pattern itself caps the string value at 1,000,000, since JSON-Schema minimum/maximum bind only the number branch); number branch bounded to [0, 1,000,000]. Schema-level sanity bound to reject negative/non-numeric/absurd estimates (mirrors wallet_admin_adjustment_request money-bounds pattern); authoritative policy-threshold enforcement is backend-side."
     }
   },
   "required": [

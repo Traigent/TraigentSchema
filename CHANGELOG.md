@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.13.0] - 2026-07-19
+
+### Changed
+- **`execution_mode` optional in `execution_mode_schema` (#334):** the schema's
+  `required` set is now just `["experiment_id"]` (was
+  `["execution_mode", "experiment_id"]`). `execution_mode` is a canonical
+  selector that the backend defaults, so it need not be supplied by the client;
+  the existing `if/then` conditional (hybrid_api → require api binding) is
+  unchanged and still applies when `execution_mode` is present.
+- **`judge_config` create/update parity in evaluator definitions (#335):**
+  `evaluator_definition_create_request_schema.judge_config` now `$ref`s
+  `evaluator_definition_schema.json#/definitions/JudgeConfig` — the same strict
+  contract used by the update request (required: `instructions`, `model_id`,
+  `context_type`; `additionalProperties: false`) — instead of an open
+  `{type: object, additionalProperties: true}`. An incomplete judge config is
+  now rejected on create as well as update. RESIDUAL: needs BE-owner
+  confirmation (#335) that the backend accepts/emits the strict JudgeConfig on
+  the create path.
+
 ## [4.12.0] - 2026-07-19
 
 ### Changed

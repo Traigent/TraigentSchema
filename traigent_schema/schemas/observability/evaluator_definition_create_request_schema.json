@@ -40,9 +40,8 @@
       "description": "Evaluation target type."
     },
     "judge_config": {
-      "type": "object",
-      "additionalProperties": true,
-      "description": "Judge configuration."
+      "$ref": "./evaluator_definition_schema.json#/definitions/JudgeConfig",
+      "description": "Judge configuration. Validated with the same JudgeConfig contract as the update request (required: instructions, model_id, context_type; additionalProperties: false)."
     },
     "sampling_rate": {
       "type": "number",

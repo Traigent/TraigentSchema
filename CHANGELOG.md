@@ -5,6 +5,93 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-07-24
+
+### Breaking
+
+The 4.9.0 -> 4.14.0 develop-line aggregate contained public, intentional
+contract tightenings (workspace no-silent-legacy policy) that were shipped
+as `fix(contract)` PATCH/MINOR bumps. SemVer requires a MAJOR bump for any
+of these; none was taken at the time. This release corrects the version
+number only — no further schema behavior changes. Every item below was
+verified against the actual schema diff (`git diff origin/main..origin/develop`
+on the pre-5.0.0 tree); each is a strict narrowing of a previously-valid
+request shape.
+
+- **`billing_limits_schema.json` no longer accepts the formerly-required
+  trials-only shape (#333, `57b4069`).** `required` changed from
+  `["trials", "api_calls", "benchmarks", "users"]` to
+  `["optimization_trials", "optimization_samples", "api_calls", "benchmarks",
+  "users"]`. A payload that supplies only the deprecated `trials` alias
+  (previously sufficient) is now rejected: `optimization_trials` and
+  `optimization_samples` are both required.
+- **`evaluator_definition_create_request_schema.json` no longer accepts an
+  open/free-form `judge_config` on create (#337, `abee0b1`).** `judge_config`
+  changed from `{"type": "object", "additionalProperties": true}` to
+  `$ref: evaluator_definition_schema.json#/definitions/JudgeConfig` — the
+  same strict contract as update (`additionalProperties: false`; requires
+  `instructions`, `model_id`, `context_type`). A previously-valid partial or
+  additional-property-bearing `judge_config` on create is now rejected.
+- **`annotation_queue_update_request_schema.json` no longer accepts
+  `measure_ids: []` (#341, `05e6afb`).** `measure_ids` gained `minItems: 1`,
+  matching create. An update can no longer clear a queue's measure set to an
+  empty array through this field.
+- **`spend_approval_request_schema.json` no longer accepts unbounded or
+  non-numeric `requested_estimate_usd` (#333, `57b4069`).** Previously
+  `type: ["number", "string", "null"]` with only `maxLength: 64` and no
+  `pattern`/`minimum`/`maximum` — any non-numeric string under 64 characters,
+  any negative number, and any arbitrarily large number all validated. Now
+  bounded to `[0, 1,000,000]` with a pattern constraining the string branch
+  to the same range. This is a fourth breaking change found while auditing
+  this range; it was not part of the original three-item report that
+  triggered this release.
+
+Only these four changes are breaking. Every other schema delta in the
+4.9.0 -> 4.14.0 range (economics telemetry contracts — entirely new;
+`execution_mode` becoming optional; `judge_config` parity note above;
+pagination/enum/response-field widenings; the `measure_type` conditional
+open-vocabulary escape hatch for `is_custom=true` records) is additive or
+loosening, not breaking.
+
+### Added
+
+- **Economics telemetry endpoint contract completeness (`economics/economics_endpoints.json`).**
+  The `POST /api/v1/economics/telemetry` OpenAPI entry documented `400`,
+  `401`, `403`, `409`, `413`, and `422` with bare text descriptions and no
+  response body schema. TraigentBackend (`origin/develop`,
+  `src/routes/economics_routes.py` +
+  `src/services/economics/telemetry_ingest_service.py`) already serves this
+  route for real and validates its own responses against these exact
+  `traigent_schema` files (`src/services/economics/schema_contract.py`
+  loads `traigent_schema/schemas/economics/*` directly). Verified against
+  that implementation:
+  - `422` is not a generic error — the service builds it with
+    `_build_response(..., replayed=False)` and validates it with
+    `_validate_response(response, replayed=False)`, i.e. the exact same
+    `economics_telemetry_ingest_response_initial_schema.json` shape as
+    `201`, distinguished only by status code (all events rejected). The
+    endpoint contract now `$ref`s that schema for `422` instead of leaving
+    it bodyless.
+  - `400`/`401`/`403`/`409`/`413` are all produced by the backend's
+    `error_response()` helper, which emits exactly the
+    `{success, message, error, error_code}` shape of
+    `error_envelope_schema.json`. The endpoint contract now `$ref`s
+    `../error_envelope_schema.json` for each, matching the convention used
+    by canonical modules (e.g. `billing/spend_controls_endpoints.json`).
+  - Added previously-undocumented `500` (unhandled ingestion failure /
+    internal response-contract invariant breach) and `503`
+    (`EconomicsSchemaUnavailable` — contract unavailable, fails closed),
+    both also `error_envelope_schema.json`.
+  - Left `x-stability: pre-release` / `x-asserted-against-backend: false`
+    and the `planned_projects` catalog placement unchanged: an existing test
+    (`tests/test_economics_telemetry_contract.py::test_route_is_not_claimed_as_canonical_backend_truth`)
+    locks that classification in as an intentional, tested decision, and
+    flipping it is a cross-repo release-posture call for the owner, not a
+    schema-correctness fix. See the accompanying report for detail — the
+    docstring backing that test ("no backend serves this yet") is now
+    factually stale given the live TraigentBackend implementation, which is
+    flagged separately rather than changed unilaterally here.
+
 ## [4.14.0] - 2026-07-19
 
 ### Changed

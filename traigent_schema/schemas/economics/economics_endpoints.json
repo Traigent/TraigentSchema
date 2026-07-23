@@ -46,12 +46,70 @@
               }
             }
           },
-          "400": {"description": "Malformed batch, unknown contract/version, or malformed idempotency key."},
-          "401": {"description": "Authentication required."},
-          "403": {"description": "Insufficient permission to submit economics telemetry for this scope."},
-          "409": {"description": "Idempotency conflict — the same key was submitted with a different body. Stored events are immutable and are never overwritten."},
-          "413": {"description": "Batch exceeds the 500-event limit."},
-          "422": {"description": "Every event in the batch was rejected."}
+          "400": {
+            "description": "Malformed batch, unknown contract/version, or malformed idempotency key.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission to submit economics telemetry for this scope.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict — the same key was submitted with a different body. Stored events are immutable and are never overwritten.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "413": {
+            "description": "Batch exceeds the 500-event limit.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "422": {
+            "description": "Every event in the batch was rejected. NOT a generic error envelope: the body binds replayed=false and carries the full counts/rejections detail — the exact same shape as 201 (initial response schema), distinguished only by the status code.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "./economics_telemetry_ingest_response_initial_schema.json"}
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error — either an unhandled ingestion failure, or an internal invariant breach where the service would have emitted a response that fails the response contract (never shipped; mapped to a stable, client-safe 500 instead).",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "503": {
+            "description": "The authoritative economics telemetry contract is unavailable (schema directory or a required schema file missing). Fails closed rather than validating against an absent or partial contract.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          }
         },
         "x-wrap-status": "unclassified — economics telemetry is not in the #136 wrap-map; the documented response is the bare ingest-result shape. Reconcile envelope status when backend ingestion lands.",
         "x-traigent-note": "Tenant scoping is resolved from the authenticated request context. The contract carries no tenant field precisely so a client cannot assert one."

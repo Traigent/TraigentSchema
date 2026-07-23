@@ -1605,6 +1605,59 @@ def test_the_endpoint_binds_each_status_to_its_replay_schema() -> None:
     assert responses["201"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "economics_telemetry_ingest_response_initial_schema.json"
     )
+    # 422 (every event in the batch rejected) is NOT a generic error: the backend
+    # service builds it with replayed=False and validates it against the identical
+    # schema used for 201 (src/services/economics/telemetry_ingest_service.py
+    # `_build_response(..., replayed=False)` / `_validate_response(response,
+    # replayed=False)`) — distinguished from 201 only by status code.
+    assert responses["422"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "economics_telemetry_ingest_response_initial_schema.json"
+    )
+
+
+def test_the_endpoint_binds_every_error_status_to_the_shared_error_envelope() -> None:
+    """400/401/403/409/413/500/503 are all produced by the backend's error_response()
+    helper (src/utils/response_handler.py), which emits exactly the
+    {success, message, error, error_code} shape of error_envelope_schema.json — never
+    a bespoke body. Pin the exact $ref for each so a wrong or missing target is caught
+    here instead of by a client at runtime."""
+    responses = _load("economics_endpoints.json")["paths"]["/api/v1/economics/telemetry"][
+        "post"
+    ]["responses"]
+    for status in ("400", "401", "403", "409", "413", "500", "503"):
+        ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
+        assert ref == "../error_envelope_schema.json", (
+            f"{status} must $ref ../error_envelope_schema.json exactly, got {ref!r}"
+        )
+
+
+def test_the_endpoint_documents_exactly_the_expected_status_set() -> None:
+    """Pin the full status-code surface: every status the route can actually return
+    must be documented with a response body schema, and no undocumented status may be
+    silently added later without updating this test."""
+    responses = _load("economics_endpoints.json")["paths"]["/api/v1/economics/telemetry"][
+        "post"
+    ]["responses"]
+    assert set(responses.keys()) == {
+        "200",
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "413",
+        "422",
+        "500",
+        "503",
+    }
+    for status, response in responses.items():
+        ref = (
+            response.get("content", {})
+            .get("application/json", {})
+            .get("schema", {})
+            .get("$ref")
+        )
+        assert ref, f"{status} response is missing a body schema $ref"
 
 
 def test_boundary_rejections_length_is_not_related_to_the_rejected_count() -> None:

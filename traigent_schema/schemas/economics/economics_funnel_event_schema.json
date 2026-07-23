@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_funnel_event_schema.json",
+  "title": "Economics exposure funnel event",
+  "description": "One observation of one project at one stage of the exposure funnel: eligible -> advice_shown -> budget_allocated -> run_started -> completed -> recommendation_accepted -> executed -> promoted -> production_retained. Every exit carries a closed reason code, so a drop is never an unexplained absence in the counts. This is the data that validates (or refutes) the uptake x deployment assumption; without a reason on every exit, the funnel measures where users stop but not why, which is the only actionable part.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_type", "event_id", "occurred_at", "project_ref", "stage", "outcome"],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "const": "funnel_event"
+    },
+    "event_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "Emitter-generated unique id for this event. The ingestion de-duplication key: re-submitting the same event_id is a duplicate, not a second observation."
+    },
+    "occurred_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+    "project_ref": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "Opaque reference to the project this funnel observation belongs to. Ownership of this reference by the authenticated tenant is a backend obligation; the contract cannot verify it."
+    },
+    "run_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/RunId"}],
+      "description": "The run this stage relates to. REQUIRED from run_started onward, where a run exists by definition; forbidden nowhere, because a run can be named earlier (an id minted at budget_allocated is legitimate). See the stage conditionals below."
+    },
+    "advice_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "The advice/recommendation this stage relates to. REQUIRED from advice_shown onward: every stage after eligibility exists BECAUSE a specific piece of advice was shown, and the funnel's whole purpose is to follow that advice through to production. See the stage conditionals below."
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "eligible",
+        "advice_shown",
+        "budget_allocated",
+        "run_started",
+        "completed",
+        "recommendation_accepted",
+        "executed",
+        "promoted",
+        "production_retained"
+      ],
+      "description": "The funnel stage observed. The enum is listed in funnel order, but ORDER IS NOT ENFORCED HERE: a single event cannot know its predecessors. Rejecting out-of-order or skipped stages is a backend obligation."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["entered", "exited"],
+      "description": "'entered' = the project reached this stage. 'exited' = the project stopped here and did not advance; an exit MUST carry an exit_reason."
+    },
+    "exit_reason": {
+      "type": "string",
+      "enum": [
+        "user_declined",
+        "user_no_response",
+        "agent_declined",
+        "ineligible_no_dataset",
+        "ineligible_no_evaluator",
+        "ineligible_no_baseline",
+        "budget_denied",
+        "budget_exhausted",
+        "quota_exhausted",
+        "cost_cap_reached",
+        "no_positive_lower_bound",
+        "insufficient_evidence",
+        "stop_rule_triggered",
+        "evaluator_defect_found",
+        "dataset_defect_found",
+        "no_measurable_gain",
+        "recommendation_rejected",
+        "off_menu_action_taken",
+        "superseded_by_newer_run",
+        "deployment_blocked",
+        "promotion_reverted",
+        "production_regression",
+        "client_policy_block",
+        "run_failed",
+        "run_cancelled",
+        "technical_error"
+      ],
+      "description": "CLOSED reason code for an exit. Required when outcome = exited and FORBIDDEN when outcome = entered. Deliberately closed with no 'other' member: an 'other' bucket is where the interesting drop reasons go to die, and it silently reopens the enum. An exit that fits no code is a contract gap to be fixed by adding a code in a versioned change, not by free text. 'technical_error' and 'user_no_response' cover the genuinely-unattributable residual."
+    },
+    "occurred_in_environment": {
+      "type": "string",
+      "enum": ["development", "staging", "production"],
+      "description": "Where the observation happened. Production retention claims are only meaningful in production."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"outcome": {"const": "exited"}},
+        "required": ["outcome"]
+      },
+      "then": {
+        "required": ["exit_reason"]
+      },
+      "else": {
+        "not": {"required": ["exit_reason"]}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "advice_shown",
+              "budget_allocated",
+              "run_started",
+              "completed",
+              "recommendation_accepted",
+              "executed",
+              "promoted",
+              "production_retained"
+            ]
+          }
+        },
+        "required": ["stage"]
+      },
+      "then": {
+        "required": ["advice_id"],
+        "description": "Every stage from advice_shown onward is about a SPECIFIC piece of advice and must name it. Without advice_id the stage is an unjoinable count: 'someone was shown something, and separately someone promoted something' does not establish that the promotion followed the advice, which is the only claim the funnel exists to support. eligible is exempt — eligibility precedes advice, so there is no advice to name yet."
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "run_started",
+              "completed",
+              "recommendation_accepted",
+              "executed",
+              "promoted",
+              "production_retained"
+            ]
+          }
+        },
+        "required": ["stage"]
+      },
+      "then": {
+        "required": ["run_id"],
+        "description": "From run_started onward a run exists by definition, so the event must name it. Without run_id these stages cannot be joined to the run_economics record that carries the spend, the effect, and its interval — the funnel would report that something was promoted while the evidence for promoting it sits in an unlinkable record. eligible, advice_shown, and budget_allocated are exempt: no run exists yet at those stages, and requiring one would force an emitter to invent an id."
+      }
+    },
+    {
+      "if": {
+        "properties": {"stage": {"const": "production_retained"}},
+        "required": ["stage"]
+      },
+      "then": {
+        "required": ["occurred_in_environment"],
+        "properties": {"occurred_in_environment": {"const": "production"}},
+        "description": "production_retained is the numerator of the production-retention rate, and a retention claim is only meaningful where production actually ran. So at this stage occurred_in_environment is REQUIRED and must be production: omitting it, or naming development or staging, would let a run that never reached production count as retained and inflate the numerator. The rule keys on the stage, not the outcome — an exit AT production_retained is still a claim about production and must name it. Earlier stages leave occurred_in_environment optional and unconstrained: an event can legitimately be observed in development or staging before anything reaches production."
+      }
+    }
+  ],
+  "x-backend-obligations": [
+    "Funnel ORDER: reject or flag an event whose stage is unreachable from the project's recorded history (e.g. promoted before run_started). A single event cannot self-verify order.",
+    "TENANT OWNERSHIP: verify project_ref/run_id/advice_id belong to the authenticated tenant, drawn from the canonical request context — never from a client-supplied header or body field.",
+    "MONOTONIC EXIT: once a project exits at a stage, a later 'entered' at a further stage for the same advice_id must be reconciled (re-entry) rather than silently double-counted."
+  ]
+}

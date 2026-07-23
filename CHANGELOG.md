@@ -5,6 +5,297 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-07-24
+
+### Breaking
+
+The 4.9.0 -> 4.14.0 develop-line aggregate contained public, intentional
+contract tightenings (workspace no-silent-legacy policy) that were shipped
+as `fix(contract)` PATCH/MINOR bumps. SemVer requires a MAJOR bump for any
+of these; none was taken at the time. This release corrects the version
+number only — no further schema behavior changes. Every item below was
+verified against the actual schema diff (`git diff origin/main..origin/develop`
+on the pre-5.0.0 tree); each is a strict narrowing of a previously-valid
+request shape.
+
+- **`billing_limits_schema.json` no longer accepts the formerly-required
+  trials-only shape (#333, `57b4069`).** `required` changed from
+  `["trials", "api_calls", "benchmarks", "users"]` to
+  `["optimization_trials", "optimization_samples", "api_calls", "benchmarks",
+  "users"]`. A payload that supplies only the deprecated `trials` alias
+  (previously sufficient) is now rejected: `optimization_trials` and
+  `optimization_samples` are both required.
+- **`evaluator_definition_create_request_schema.json` no longer accepts an
+  open/free-form `judge_config` on create (#337, `abee0b1`).** `judge_config`
+  changed from `{"type": "object", "additionalProperties": true}` to
+  `$ref: evaluator_definition_schema.json#/definitions/JudgeConfig` — the
+  same strict contract as update (`additionalProperties: false`; requires
+  `instructions`, `model_id`, `context_type`). A previously-valid partial or
+  additional-property-bearing `judge_config` on create is now rejected.
+- **`annotation_queue_update_request_schema.json` no longer accepts
+  `measure_ids: []` (#341, `05e6afb`).** `measure_ids` gained `minItems: 1`,
+  matching create. An update can no longer clear a queue's measure set to an
+  empty array through this field.
+- **`spend_approval_request_schema.json` no longer accepts unbounded or
+  non-numeric `requested_estimate_usd` (#333, `57b4069`).** Previously
+  `type: ["number", "string", "null"]` with only `maxLength: 64` and no
+  `pattern`/`minimum`/`maximum` — any non-numeric string under 64 characters,
+  any negative number, and any arbitrarily large number all validated. Now
+  bounded to `[0, 1,000,000]` with a pattern constraining the string branch
+  to the same range. This is a fourth breaking change found while auditing
+  this range; it was not part of the original three-item report that
+  triggered this release.
+
+Only these four changes are breaking. Every other schema delta in the
+4.9.0 -> 4.14.0 range (economics telemetry contracts — entirely new;
+`execution_mode` becoming optional; `judge_config` parity note above;
+pagination/enum/response-field widenings; the `measure_type` conditional
+open-vocabulary escape hatch for `is_custom=true` records) is additive or
+loosening, not breaking.
+
+### Added
+
+- **Economics telemetry endpoint contract completeness (`economics/economics_endpoints.json`).**
+  The `POST /api/v1/economics/telemetry` OpenAPI entry documented `400`,
+  `401`, `403`, `409`, `413`, and `422` with bare text descriptions and no
+  response body schema. TraigentBackend (`origin/develop`,
+  `src/routes/economics_routes.py` +
+  `src/services/economics/telemetry_ingest_service.py`) already serves this
+  route for real and validates its own responses against these exact
+  `traigent_schema` files (`src/services/economics/schema_contract.py`
+  loads `traigent_schema/schemas/economics/*` directly). Verified against
+  that implementation:
+  - `422` is not a generic error — the service builds it with
+    `_build_response(..., replayed=False)` and validates it with
+    `_validate_response(response, replayed=False)`, i.e. the exact same
+    `economics_telemetry_ingest_response_initial_schema.json` shape as
+    `201`, distinguished only by status code (all events rejected). The
+    endpoint contract now `$ref`s that schema for `422` instead of leaving
+    it bodyless.
+  - `400`/`401`/`403`/`409`/`413` are all produced by the backend's
+    `error_response()` helper, which emits exactly the
+    `{success, message, error, error_code}` shape of
+    `error_envelope_schema.json`. The endpoint contract now `$ref`s
+    `../error_envelope_schema.json` for each, matching the convention used
+    by canonical modules (e.g. `billing/spend_controls_endpoints.json`).
+  - Added previously-undocumented `500` (unhandled ingestion failure /
+    internal response-contract invariant breach) and `503`
+    (`EconomicsSchemaUnavailable` — contract unavailable, fails closed),
+    both also `error_envelope_schema.json`.
+  - Left `x-stability: pre-release` / `x-asserted-against-backend: false`
+    and the `planned_projects` catalog placement unchanged: an existing test
+    (`tests/test_economics_telemetry_contract.py::test_route_is_not_claimed_as_canonical_backend_truth`)
+    locks that classification in as an intentional, tested decision, and
+    flipping it is a cross-repo release-posture call for the owner, not a
+    schema-correctness fix. See the accompanying report for detail — the
+    docstring backing that test ("no backend serves this yet") is now
+    factually stale given the live TraigentBackend implementation, which is
+    flagged separately rather than changed unilaterally here.
+
+## [4.14.0] - 2026-07-19
+
+### Changed
+- **`measure_ids` create/update parity in annotation queues (#340):**
+  `annotation_queue_update_request_schema.measure_ids` now enforces
+  `minItems: 1`, matching `annotation_queue_create_request_schema` (which
+  already required a non-empty array). An update can no longer clear the
+  measure set to an empty array through this field, closing the create/update
+  contract asymmetry.
+
+## [4.13.0] - 2026-07-19
+
+### Changed
+- **`execution_mode` optional in `execution_mode_schema` (#334):** the schema's
+  `required` set is now just `["experiment_id"]` (was
+  `["execution_mode", "experiment_id"]`). `execution_mode` is a canonical
+  selector that the backend defaults, so it need not be supplied by the client;
+  the existing `if/then` conditional (hybrid_api → require api binding) is
+  unchanged and still applies when `execution_mode` is present.
+- **`judge_config` create/update parity in evaluator definitions (#335):**
+  `evaluator_definition_create_request_schema.judge_config` now `$ref`s
+  `evaluator_definition_schema.json#/definitions/JudgeConfig` — the same strict
+  contract used by the update request (required: `instructions`, `model_id`,
+  `context_type`; `additionalProperties: false`) — instead of an open
+  `{type: object, additionalProperties: true}`. An incomplete judge config is
+  now rejected on create as well as update. RESIDUAL: needs BE-owner
+  confirmation (#335) that the backend accepts/emits the strict JudgeConfig on
+  the create path.
+
+## [4.12.0] - 2026-07-19
+
+### Changed
+- **Bound `requested_estimate_usd` in spend-approval requests (#330):**
+  `spend_approval_request_schema` now constrains `requested_estimate_usd` to a
+  non-negative, bounded money value — the string branch must match
+  `^(?:\d{1,6}(?:\.\d{1,6})?|1000000(?:\.0{1,6})?)$` (non-negative decimal in
+  `[0, 1,000,000]`, ≤6 fractional digits; the pattern itself caps the string
+  value since JSON-Schema `minimum`/`maximum` bind only the number branch) and
+  the number branch is bounded to `[0, 1,000,000]` — rejecting negative, non-numeric,
+  and absurdly large estimates at the schema layer (mirrors the
+  `wallet_admin_adjustment_request` money-bounds pattern). Authoritative
+  policy-threshold enforcement remains backend-side.
+- **Require the canonical optimization meter pair in `billing_limits` (#329):**
+  `billing_limits_schema` now requires `optimization_trials` and
+  `optimization_samples` (alongside `api_calls`, `benchmarks`, `users`) instead
+  of the deprecated `trials` alias, so the admission-critical canonical meter
+  pair must be present. RESIDUAL: TraigentBackend must emit
+  `optimization_trials`/`optimization_samples` in billing-limits payloads for
+  canonical read-back to pass.
+
+## [4.11.0] - 2026-07-19
+
+### Changed
+- **Custom measure_type round-trip, conditionally (#321):** `measure_schema`
+  now validates `measure_type` with an `is_custom`-keyed conditional:
+  standard measures (`is_custom=false`, or absent) MUST use the closed
+  `#/definitions/MeasureType` vocabulary, while custom (`is_custom=true`)
+  measures may use any bounded, non-blank, control-char-free label
+  (minLength 1, maxLength 255). A custom `measure_type` now round-trips
+  create → read-back, WITHOUT opening `PUT /api/v1/measures/{measure_id}`
+  (which consumes this schema as its request body) to blanks, typos, or
+  arbitrary labels on standard measures. The create request
+  (`measure_create_request_schema`) deliberately stays backend-modeled
+  (free string, extra=allow — see `tests/test_create_request_contracts.py`);
+  RESIDUAL: server-side enforcement of the conditional vocabulary on
+  `POST /api/v1/measures` is a TraigentBackend follow-up — until then a
+  standard-measure create with a junk `measure_type` is accepted by the
+  backend but will (correctly) fail canonical read-back validation.
+- **Measure value-type discriminator (#320):** added a canonical
+  `MeasureValueType` enum (`numeric|categorical|boolean`) to `measure_schema`
+  and `$ref`'d it from the observability `review_score`/`review_measure_summary`
+  read schemas (previously duplicated inline). The measure-definition
+  `value_type` stays a documented open free-form label; the closed enum applies
+  only where a score value is projected onto a typed column.
+- **Review-score source vocabulary (#318):** widened `review_score_schema`
+  `source` to the create-request's eight values
+  (`manual|evaluator|api|human|user|llm|model|sdk`) so a legitimately-POSTed
+  source round-trips through `validate_response`.
+- **Pagination canonicalization (#319):** added a canonical
+  `offset_pagination_schema` (`limit/offset/total/has_more`) and `$ref`'d it
+  from the comparison-examples list response (previously inlined). The flat
+  `{page, per_page, total}` observability/costs list responses
+  (session/trace/issue/trace_variant/cost_users) now also permit the optional
+  canonical `total_pages`/`has_next`/`has_prev` fields.
+  **Compatibility note:** `cost_users`, `issue_list`, and
+  `trace_variant_list` responses were CLOSED schemas
+  (`additionalProperties: false`) through 4.10.0 — a client validating
+  responses against ≤4.10.0 will REJECT a server that starts emitting the
+  new fields. Backend emission of `total_pages`/`has_next`/`has_prev` on
+  those three endpoints is therefore gated on consumers regenerating to
+  ≥4.11.0 first (additive-with-regeneration-gate, not zero-impact).
+  `session_list`/`trace_list` were already open schemas; for them the fields
+  are plainly additive.
+
+### Deferred
+- **Trace-ingest timestamp enforcement (#316 residual):** `workflow_trace_schema`
+  span `start_time`/`end_time` keep their prose-only ISO-8601 promise; the
+  planned `format: date-time` assertion is NOT applied. The repo validator
+  enforces `format` (RFC 3339 via `FormatChecker`), and the Python SDK's
+  ingest producer (`traigent/integrations/observability/workflow_traces.py`,
+  `add_span` path, lines ~1383-1423 at time of writing) accepts
+  `datetime | str`, emitting offset-less `.isoformat()` for naive datetimes
+  and passing caller strings through verbatim — so machine-enforcement would
+  reject payloads today's producers legitimately emit. Normalize the SDK
+  producer (require tz-aware, normalize strings) first; then apply the
+  format assertion in a follow-up schema release.
+
+## [4.10.0] - 2026-07-17
+
+### Added
+- **Economics telemetry contract (contract-first, pre-release).** A strict, versioned
+  shared contract for `POST /api/v1/economics/telemetry`, published ahead of backend
+  ingestion and SDK emission per the cross-repo rule that request/response shapes start
+  in TraigentSchema. Registered under the `planned_projects` (non-canonical) contract
+  root and marked `x-asserted-against-backend: false` — no backend serves it yet.
+  - **Exposure funnel events** across the nine stages (`eligible` →
+    `production_retained`). Every exit carries a CLOSED reason code: `exit_reason` is
+    required when `outcome` is `exited` and forbidden otherwise, and there is no `other`
+    member and no free-text note — an exit that fits no code is a versioned enum
+    addition, not a prose escape hatch. At the `production_retained` stage
+    `occurred_in_environment` is REQUIRED and must be `production` (keyed on the stage,
+    so an exit there obeys it too): production retention is the numerator of the
+    retention rate, so a retention observation that omits its environment or names
+    `development`/`staging` would inflate that numerator with runs that never reached
+    production. Earlier stages leave `occurred_in_environment` optional and
+    unconstrained.
+  - **Run economics** is the SETTLED record of a run whose effect was measured (a
+    failed/capped/insufficient-evidence run is a funnel exit, not a blank settlement),
+    so the whole record is required, not just identity: characterization bands/overrides
+    with per-field `asked | inferred | defaulted` provenance, confidence, and sharing
+    outcomes; archetype; backend-authored budget recommendation/cap (`authored_by` is a
+    `backend` const, so an agent-authored budget is unrepresentable); actual spend;
+    explicitly-metered usage (`input_tokens`, `output_tokens`, `model_calls` required, so
+    a $0 run reports explicit zeros rather than an empty object that meters nothing);
+    model prices with a closed price source; evidence identity with the measured effect
+    REQUIRED (baseline/candidate and evaluator, objective weights, effect estimate with a
+    required interval and level, support, and explicit exclusions; `holdout_hash` stays
+    optional because measuring without a holdout is a real fact); advisory behavior
+    (recommendation, client action, closed off-menu classes, adherence probability,
+    planner-blind information); and labor proxies where claimed hours avoided require
+    human confirmation.
+  - **Receipts** with closed kinds `winner | defect | savings` and kind-specific
+    required evidence, discriminated so a receipt cannot carry another kind's block.
+    Savings are metered-only: `measurement_method` is a `metered` const and
+    `meter_source` is closed to authoritative meters, so an agent-authored estimate
+    cannot be submitted as a savings receipt. A winner whose `promotion.status` is
+    `promoted` or `reverted` MUST carry its `production_follow_up` (a pending one is
+    truthful — `scheduled` with a `due_at`), so a promotion cannot stay silent about the
+    eval-to-production transfer it depends on; and a `not_promoted` winner MUST NOT carry
+    one — nothing was deployed, so a scheduled or confirmed production check on a
+    configuration declared never deployed is production-transfer evidence for a transfer
+    that by definition never happened, and forbidding it (rather than merely not
+    requiring it) closes that hole.
+  - **Field-level sharing rules, enforced by the contract.** `sharing_outcome` and a
+    transmitted value form a biconditional, enforced per allowlisted field as presence
+    checks keyed on a closed enum (which Draft-07 can express, so a client verifies them
+    on its own machine before a payload egresses): a field reported
+    `withheld_by_policy` must be ABSENT from `bands`/`overrides` (egress); a value
+    present must carry a `shared` report (coverage); and a `shared` report must carry its
+    value (substance), so a report cannot be an empty alibi that names a sharing outcome
+    while transmitting nothing.
+  - **Batch envelope** with stable contract/version identifiers, an idempotency key
+    (also accepted via the `Idempotency-Key` header) and a 500-event cap. The response
+    reports submitted/accepted/duplicate/rejected counts with closed rejection reasons
+    and ALWAYS carries a `rejections` array (empty when none, so 'stored' is
+    distinguishable from 'silently dropped'). Per-status response schemas bind the replay
+    flag: HTTP 200 (replay) is `replayed: true`, HTTP 201 (initial ingest) is
+    `replayed: false`, so status and body cannot disagree about whether state was
+    written.
+- `x-backend-obligations`: a governance-declared extension enumerating the invariants a
+  contract requires but JSON Schema cannot enforce (tenant ownership, funnel order,
+  proposer ≠ verifier, immutable/idempotent persistence, meter reconciliation, and the
+  cross-field checks below). Declaring an obligation documents a gap; it is not evidence
+  the gap is closed.
+- Closed rejection reasons naming the cross-field and cross-record checks Draft-07
+  cannot make, so an emitter is told which bug it has rather than a generic
+  `schema_violation`: `duplicate_characterization_field` (`uniqueItems` compares whole
+  objects, so one field reported twice with differing metadata passes),
+  `interval_bounds_inconsistent` (`lower <= estimate <= upper` cannot be expressed, and
+  the economics model leads with the lower bound), `support_counts_inconsistent`
+  (`n_paired <= n_examples`), `withheld_field_value_present`, and
+  `winner_receipt_reconciliation_failed` (a winner receipt's cost, paired delta, selected
+  config, immutable run identity, and promotion evidence cannot be cross-record reconciled
+  against the stored run in Draft-07).
+- **`ShortLabel` is an opaque identifier grammar, not free-form text.** The shared
+  `ShortLabel` type (consumed by `model_id`, the emitting-surface name, `evaluator_version`,
+  `objective`, the metric name, and the policy-version fields) previously accepted any
+  1–128 character string, so sensitive prose or PII could egress through those fields
+  despite the "not free-form" prose. It now carries an identifier pattern: ASCII letters and
+  digits, with `.` `_` `:` `/` `+` `-` allowed only between alphanumerics, and a portable
+  end-of-input anchor (so a trailing newline cannot slip through Python's `$`). This admits
+  real identifiers (`gpt-4o-mini`, `anthropic/claude-3.5`, `accuracy_v2`, `1.0.0`) and
+  rejects content-shaped values such as `Alice Smith SSN 123-45-6789`, whitespace, control
+  characters, quotes, and email text. The length bounds are unchanged.
+- **`WINNER RECEIPT RECONCILIATION` backend obligation.** A winner receipt is structurally
+  self-consistent but its `actual_cost_usd`, `paired_delta`, `selected_config_hash`,
+  immutable run identity, and promotion evidence are only claims until reconciled, as a set,
+  against the immutable stored run, the authoritative cost meter, the selected/measured
+  config, the recorded baseline/candidate effect, and the recorded promotion evidence.
+  JSON Schema validates one payload in isolation and has no stored run to compare against, so
+  a structurally valid but contradictory winner receipt is contract-valid and must be
+  rejected at the backend boundary (`winner_receipt_reconciliation_failed`). Declaring the
+  obligation documents the gap; it does not close it.
+
 ## [4.9.0] - 2026-07-16
 
 ### Changed

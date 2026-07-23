@@ -29,6 +29,12 @@
       "type": "string",
       "description": "The canonical backend permission token for an API-key scope string or compatibility alias. Pattern: resource.action (dot-delimited, singular resource). Placed on the definition that declares the scope token."
     },
+    "x-backend-obligations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Invariants that the contract REQUIRES but JSON Schema cannot enforce, enumerated so they are visible rather than assumed proven. Each entry states one obligation the consuming backend must implement (e.g. tenant ownership of a referenced id, ordering across separate events, inequality between two sibling values, append-only/idempotent persistence). Placed at the top level of a schema or on an operation. Declaring an obligation here is documentation of a gap, never evidence that it is satisfied.",
+      "minItems": 1
+    },
     "x-canonical-timing-metrics": {
       "type": "object",
       "description": "Map of canonical timing metric key names to their unit, multiplier, role (primary/accepted), aggregate kind, and scope. Placed on the vocabulary schema that governs timing metrics. Consumers use this map when normalising raw SDK-emitted metrics to canonical keys.",

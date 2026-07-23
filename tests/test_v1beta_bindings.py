@@ -44,7 +44,8 @@ def test_evaluator_execute_backfill_are_202():
 def test_evaluator_create_omits_server_managed_fields():
     v = SchemaValidator(contract="backend")
     assert v._endpoint_schemas["POST:/api/v1beta/evaluators"] == "evaluator_definition_create_request_schema"
-    body = {"name": "e", "measure_id": "m", "target_type": "observability_trace", "judge_config": {}}
+    judge = {"instructions": "score it", "model_id": "gpt-4o", "context_type": "output"}
+    body = {"name": "e", "measure_id": "m", "target_type": "observability_trace", "judge_config": judge}
     assert v.validate_request("/api/v1beta/evaluators", "POST", body) == []
     # server-managed id is forbidden (extra=forbid)
     assert v.validate_request("/api/v1beta/evaluators", "POST", {**body, "id": "x"})
@@ -52,6 +53,12 @@ def test_evaluator_create_omits_server_managed_fields():
     assert v.validate_request("/api/v1beta/evaluators", "POST", {"name": "e"})
     # target_type is the canonical EvaluationTargetType enum (not any string)
     assert v.validate_request("/api/v1beta/evaluators", "POST", {**body, "target_type": "not-a-target"})
+    # #335: judge_config now uses the same strict JudgeConfig contract as update —
+    # an incomplete config (missing model_id/context_type) is rejected on create too
+    assert v.validate_request("/api/v1beta/evaluators", "POST", {**body, "judge_config": {}})
+    assert v.validate_request(
+        "/api/v1beta/evaluators", "POST", {**body, "judge_config": {"instructions": "x"}}
+    )
 
 
 def test_annotation_patch_status_accepts_null_with_another_field():
@@ -64,3 +71,32 @@ def test_annotation_patch_status_accepts_null_with_another_field():
 def test_evaluator_create_stays_201():
     cat = _cat("observability/observability_endpoints.json")
     assert "201" in cat["paths"]["/api/v1beta/evaluators"]["post"]["responses"]
+
+
+def test_execution_mode_hybrid_conditional_only_fires_when_present():
+    """#334: the hybrid_api binding requirement must not fire when execution_mode
+    is absent. The `if` uses `properties` alone, which does not require the key,
+    so a migrated client on canonical selectors (algorithm/offline) with no
+    execution_mode must validate — the `if.required` guard makes the `then`
+    conditional on execution_mode being present AND equal to hybrid_api."""
+    v = SchemaValidator()
+    # (a) canonical selectors, NO execution_mode key -> valid (regression: this
+    # was rejected before the `if.required` fix because the vacuous `if` fired).
+    assert v.validate_json(
+        {"experiment_id": "exp1", "algorithm": "grid", "offline": True},
+        "execution_mode_schema",
+    ) == []
+    # (b) execution_mode: hybrid_api WITHOUT a hybrid binding -> still rejected.
+    assert v.validate_json(
+        {"experiment_id": "exp1", "execution_mode": "hybrid_api"},
+        "execution_mode_schema",
+    )
+    # (c) execution_mode: hybrid_api WITH the binding -> valid.
+    assert v.validate_json(
+        {
+            "experiment_id": "exp1",
+            "execution_mode": "hybrid_api",
+            "hybrid_api_config": {"endpoint": "https://eval.example.com/score"},
+        },
+        "execution_mode_schema",
+    ) == []

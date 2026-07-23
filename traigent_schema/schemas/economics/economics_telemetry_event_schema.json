@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_telemetry_event_schema.json",
+  "title": "Economics telemetry event",
+  "description": "One economics telemetry event, discriminated by `event_type`. The union is CLOSED: an unknown event_type matches no branch and is rejected, rather than being stored as an untyped blob. Each branch declares additionalProperties:false, so exactly one branch can match a well-formed event and a payload that mixes branches matches none.",
+  "oneOf": [
+    {"$ref": "./economics_funnel_event_schema.json"},
+    {"$ref": "./economics_run_event_schema.json"},
+    {"$ref": "./economics_receipt_event_schema.json"}
+  ],
+  "x-traigent-note": "Discriminator values: funnel_event -> economics_funnel_event_schema, run_economics -> economics_run_event_schema, receipt -> economics_receipt_event_schema."
+}

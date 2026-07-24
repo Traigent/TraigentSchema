@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
-PYTHON_DEVELOP_SHA = "e2de19c1d8c680edf58167853134b46c5c83afd6"
+PYTHON_DEVELOP_SHA = "21e65c41abbdf29d850938dfedce86bb9def6f72"
 
 PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ADVISORY_SELECTION_NOTICE",
@@ -35,17 +35,21 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ConstraintValidationResult",
     "ConstraintValidator",
     "ConstraintViolation",
+    "ContractCode",
+    "ContractFinding",
     "CoreMetricsClient",
     "CoreMetricsConfig",
     "CorrelationIds",
     "DTOSerializationError",
     "DataIntegrityError",
     "Dataset",
+    "EVALUATION_CONTRACT_VERSION",
     "EconomicsTelemetryClient",
     "EnterpriseAdminClient",
     "EnterpriseAdminConfig",
     "EvaluationClient",
     "EvaluationConfig",
+    "EvaluationContractReport",
     "EvaluationExample",
     "EvaluationTargetRefDTO",
     "EvaluationTargetType",
@@ -54,6 +58,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "EvaluatorRunDTO",
     "EvaluatorRunListResponse",
     "EvaluatorRunStatus",
+    "ExecutionBudget",
     "IntRange",
     "JudgeConfigDTO",
     "LogRange",
@@ -181,6 +186,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "set_strategy",
     "temperature_constraint",
     "validate_and_suggest",
+    "validate_evaluation_contract",
     "when",
     "with_usage",
 }

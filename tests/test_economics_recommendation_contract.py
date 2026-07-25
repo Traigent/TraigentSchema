@@ -439,39 +439,143 @@ def test_the_request_carries_no_presentation_string_at_all() -> None:
     assert "NO PRESENTATION CHANNEL" in obligations
 
 
-def test_no_request_property_can_carry_free_text() -> None:
-    """Generalizes the removal by SHAPE, not by annotation. An earlier version of this
-    test only looked for `x-content: true`, which a new prose field could simply omit
-    — it would have called itself a general guard while catching nothing. Instead:
-    every top-level string property must be constrained by a const, an enum, or a
-    pattern (directly or through its $ref chain). An unconstrained string of any name
-    fails here."""
-    schema = _load(f"{REQUEST}.json")
+# Object/array-shaping keywords: a node carrying one of these is a container to
+# descend into, never a string leaf.
+_STRUCTURAL_KEYWORDS = (
+    "properties", "items", "additionalProperties", "patternProperties",
+    "required", "if", "then", "else", "propertyNames", "not", "contains",
+    "dependencies", "minItems", "maxItems", "uniqueItems", "minProperties",
+    "maxProperties",
+)
 
-    def _constrains_strings(node: dict, depth: int = 0) -> bool:
-        if depth > 6:
-            return False
-        if any(k in node for k in ("const", "enum", "pattern")):
-            return True
+# Every string this request can carry, and what bounds it. The free-text scan below
+# must reproduce exactly this set; a new entry means a new string channel and demands
+# a deliberate decision, not a silently passing test.
+EXPECTED_FREE_TEXT_RESIDUALS = {
+    # Bounded by an allOf overlay in the request rather than by its own definition
+    # (the shared WI-B definition it comes from is prose-shaped). The overlay and its
+    # residual are covered by the two evidence-pointer tests above.
+    "characterization.field_reports[].evidence_pointer",
+}
+
+
+def _free_text_paths(schema: dict) -> set[str]:
+    """Every path under `schema` at which an arbitrary string can be sent.
+
+    Deliberately structural, not annotation-driven: an earlier version of this guard
+    only looked for `x-content: true`, which any new prose field could simply omit —
+    it called itself general while catching nothing.
+
+    A node counts as admitting a string when it has no `const`/`enum`, no pattern
+    beyond a trivially permissive one, and a type that includes `string` (a type LIST
+    containing "string" counts). `allOf` intersects, so one constraining branch is
+    enough; `anyOf`/`oneOf` unite, so EVERY branch must constrain. Traversal covers
+    `properties`, `items`, `additionalProperties`, and the combinators, at any depth
+    and across files.
+
+    Three limits, stated rather than implied, because this test's whole purpose is to
+    not overclaim:
+    1. It does NOT compose intersections across sibling overlays. A field constrained
+       only by an allOf overlay elsewhere in the document is still reported here —
+       which is exactly why `EXPECTED_FREE_TEXT_RESIDUALS` is an explicit set rather
+       than an assertion of emptiness.
+    2. Object/array applicator keywords (`required`, `not`, `contains`, `minItems`, …)
+       are treated as evidence that a node shapes a container rather than a string.
+       JSON Schema technically ignores them for string instances, so this is a
+       heuristic; it holds here because every object boundary in this contract is
+       `additionalProperties: false`.
+    3. `$ref` cycles stop at the first repeat and fail CLOSED — an unresolvable ref is
+       reported as free text rather than skipped. `format` and `maxLength` are not
+       treated as content constraints, because neither bounds which characters may be
+       sent.
+    """
+    trivial_patterns = {"", ".*", "^.*$", "^.*", ".*$", "[\\s\\S]*", "^[\\s\\S]*$"}
+
+    def deref(node: dict, doc: dict, seen: frozenset) -> tuple[dict, dict, frozenset] | None:
+        """Resolve a $ref against the document it appears IN — a local `#/definitions/X`
+        inside a referenced file must resolve in that file, not in the request."""
+        ref = node["$ref"]
+        file_part, _, frag = ref.partition("#")
+        key = (doc.get("$id", ""), ref) if not file_part else ref
+        if key in seen:
+            return None
+        target_doc = doc if not file_part else _load(file_part.lstrip("./"))
+        target = target_doc
+        for part in [p for p in frag.split("/") if p]:
+            target = target[part]
+        return target, target_doc, seen | {key}
+
+    def admits_string(node: dict, doc: dict, seen: frozenset) -> bool:
+        """True if an arbitrary string can satisfy this node."""
         if "$ref" in node:
-            ref = node["$ref"]
-            if ref.startswith("#/definitions/"):
-                return _constrains_strings(schema["definitions"][ref.split("/")[-1]], depth + 1)
-            file_part, _, frag = ref.partition("#")
-            target = _load(file_part.lstrip("./"))
-            for part in [p for p in frag.split("/") if p]:
-                target = target[part]
-            return _constrains_strings(target, depth + 1)
-        for key in ("allOf", "anyOf", "oneOf"):
-            if any(_constrains_strings(sub, depth + 1) for sub in node.get(key, [])):
-                return True
-        # A non-string leaf (object/number/array) is not a free-text channel.
-        return node.get("type") not in (None, "string")
+            resolved = deref(node, doc, seen)
+            return True if resolved is None else admits_string(*resolved)
+        if any(k in node for k in ("const", "enum")):
+            return False
+        if node.get("pattern") not in (None, *trivial_patterns):
+            return False
+        types = node.get("type")
+        types = [types] if isinstance(types, str) else types
+        if types is not None:
+            # A type LIST including "string" still admits a string (the
+            # ["string", "null"] case that slipped past the first version).
+            if "string" not in types:
+                return False
+        elif any(k in node for k in _STRUCTURAL_KEYWORDS):
+            # An untyped node that shapes an object/array is a container to descend
+            # into, not a string leaf. (An untyped node with nothing at all DOES
+            # admit a string, and is reported.)
+            return False
+        # allOf intersects: constrained if ANY branch constrains.
+        if any(not admits_string(sub, doc, seen) for sub in node.get("allOf", [])):
+            return False
+        # anyOf/oneOf unions: one free-text branch is enough to admit free text,
+        # so this is only constrained when EVERY branch is.
+        for key in ("anyOf", "oneOf"):
+            branches = node.get(key)
+            if branches and all(not admits_string(sub, doc, seen) for sub in branches):
+                return False
+        return True
 
-    unconstrained = [
-        name for name, prop in schema["properties"].items() if not _constrains_strings(prop)
-    ]
-    assert unconstrained == [], f"unconstrained free-text properties: {unconstrained}"
+    found: set[str] = set()
+
+    def walk(node: dict, doc: dict, path: str, seen: frozenset) -> None:
+        if "$ref" in node:
+            resolved = deref(node, doc, seen)
+            if resolved is None:
+                found.add(path)  # unresolvable cycle: fail closed
+                return
+            walk(resolved[0], resolved[1], path, resolved[2])
+            return
+        if admits_string(node, doc, seen):
+            found.add(path)
+            return
+        for sub in (s for key in ("allOf", "anyOf", "oneOf") for s in node.get(key, [])):
+            walk(sub, doc, path, seen)
+        for key in ("if", "then", "else"):
+            if isinstance(node.get(key), dict):
+                walk(node[key], doc, path, seen)
+        for name, prop in (node.get("properties") or {}).items():
+            walk(prop, doc, f"{path}.{name}" if path else name, seen)
+        extra = node.get("additionalProperties")
+        if isinstance(extra, dict):
+            walk(extra, doc, f"{path}.*", seen)
+        items = node.get("items")
+        if isinstance(items, dict):
+            walk(items, doc, f"{path}[]", seen)
+
+    walk(schema, schema, "", frozenset())
+    return found
+
+
+def test_no_request_property_can_carry_free_text() -> None:
+    """The request's string surface must be exactly the one known, documented
+    residual — nothing else, at any depth. Catches a re-added prose field whatever
+    it is named, including the shapes that slipped past the first version of this
+    guard: `["string", "null"]`, `pattern: ".*"`, an anyOf with one free branch, a
+    nested object or array of unconstrained strings, and an additionalProperties
+    string map."""
+    assert _free_text_paths(_load(f"{REQUEST}.json")) == EXPECTED_FREE_TEXT_RESIDUALS
 
 
 def _pointer_request(pointer: str) -> dict:

@@ -43,8 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     terms from structured tokens, on its own machine, so the name never needs to be transmitted.
   - **Evidence pointers are narrowed to an opaque grammar in this request.** The shared WI-B
     `EvidencePointer` admits 280 characters of free text; inside this request it is intersected
-    with the repo's opaque-identifier grammar, so prose, whitespace, quotes, and email- or
-    sentence-shaped values are unrepresentable. The shared definition is deliberately NOT changed
+    with the repo's opaque-identifier grammar, which rejects whitespace, quotes, at-signs,
+    non-ASCII, and control characters — so a copied sentence or an email address is
+    unrepresentable. It does NOT make PII or values unrepresentable: the grammar permits
+    separators between alphanumerics, so `Alice_Smith_SSN_123-45-6789` remains a valid token.
+    This bounds the channel and blocks the copy-a-sentence case; it is not a privacy boundary,
+    and a test pins that residual so the wording cannot drift ahead of it. The shared definition
+    is deliberately NOT changed
     here — narrowing a shipped contract is a breaking change owed a coordinated MAJOR release —
     and the narrowing is documented as BOUNDING the channel, not sealing it: a token can still
     encode a number, so treating pointers as user content (redact, never parse, never join to a

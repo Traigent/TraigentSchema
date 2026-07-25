@@ -14,7 +14,7 @@ All under `traigent_schema/schemas/observability/`:
 | `observability_v2_ingest_request_schema.json` | Request envelope (§2.1): `protocol_version` "2.0", `ingest_id` (ULID/UUIDv7), `source`, `events[]` (1–100). `additionalProperties:false` — **scope is never a client field**. `x-max-request-bytes: 5242880` (5 MiB, edge-enforced). |
 | `observability_v2_event_schema.json` | Canonical event unit + shared defs (`MonotonicId`, `Sha256Hex`, `EventKind`, `DecimalString`, `InlineContent`, `ObservationType`). Common envelope fields + `kind`-discriminated `data` for all **6 kinds** (`trace.upsert`, `trace.patch`, `observation.upsert`, `prompt_link.upsert`, `prompt_link.delete`, `trace.reparent`). `x-max-event-bytes: 65536`. **Small input/output inline (`input`/`output`, bounded); large content uses `input_ref`/`output_ref` object references.** Trace-scoped kinds declare `entity_id` `x-equal-to` `trace_id`. |
 | `observability_v2_object_reference_schema.json` | Authenticated content-addressed reference: `key`, `byte_count`, `content_type`, `sha256`. |
-| `observability_v2_ingest_status_response_schema.json` | GET status (§3.2): manifest state + `events` (**minItems 1**) with the 7 states, immutable `event_hash`, `attempted_count`, capacity/quota disposition, sanitized `terminal_reason`/`terminal_code`, `replay_owner ∈ {tenant, platform}`. **All terminal states (MATERIALIZED/DUPLICATE/DEAD_LETTERED) require reason+owner keys** (may be null; DEAD_LETTERED requires them non-null). |
+| `observability_v2_ingest_status_response_schema.json` | GET status (§3.2): manifest state + `events` (**non-empty iff `events_detail_available` is true**, and **required empty when it is false** — the day-7 receipt-purge case, §5.2) with the 7 states, immutable `event_hash`, `attempted_count`, capacity/quota disposition, sanitized `terminal_reason`/`terminal_code`, `replay_owner ∈ {tenant, platform}`. **All terminal states (MATERIALIZED/DUPLICATE/DEAD_LETTERED) require reason+owner keys** (may be null; DEAD_LETTERED requires them non-null). |
 | `observability_v2_error_schema.json` | Stable 13-code taxonomy + error envelope. Binds each HTTP-surfaced code to its ratified status via `if/then` (INGEST_ID_REUSE/EVENT_ID_REUSE→409, POSTGRES_ADMISSION_*/BULKHEAD→503, QUEUE_CAPACITY_EXHAUSTED→429, SNAPSHOT_PROTOCOL_RETIRED→410; 503/429 require `retry_after`). `x-error-catalog` maps every code → {phase, http_status, retryable}. |
 
 ## Files modified
@@ -29,7 +29,36 @@ All under `traigent_schema/schemas/observability/`:
 3. **Terminal fields for all terminal states** — MATERIALIZED/DUPLICATE/DEAD_LETTERED now require `terminal_reason`+`replay_owner` keys (nullable; DEAD_LETTERED requires non-null); `event_hash` was already globally required. `events` now `minItems: 1`. Added `status_materialized_missing_terminal_fields_invalid.json`.
 4. **GET path parameter** — declared `ingest_id` as a required `in: path` parameter typed by the MonotonicId (ULID/UUIDv7) schema.
 
-Non-blocking (done): error codes with no HTTP binding (`ENTITY_VERSION_COLLISION`, `PENDING_VERSION_LIMIT`, `VERSION_GAP`, `VERSION_GAP_EXPIRED`, `EVENT_ID_EXPIRED`, `OUTBOX_FULL`) now forbid `http_status`/`retry_after` via `if/then`.
+Non-blocking (done): error codes with no HTTP binding (`PENDING_VERSION_LIMIT`, `VERSION_GAP`, `VERSION_GAP_EXPIRED`, `EVENT_ID_EXPIRED`, `OUTBOX_FULL`) now forbid `http_status`/`retry_after` via `if/then`. `ENTITY_VERSION_COLLISION` was subsequently **moved out** of that group and bound to **409** (see below).
+
+## Backend fix-contract correction — `ENTITY_VERSION_COLLISION` → 409
+
+The owner-decided option-d claim gate detects this code **synchronously at admission**
+(the global claim table's revision UNIQUE constraint), so it is a client-integrity error
+at the admission edge — same family/status as `INGEST_ID_REUSE` / `EVENT_ID_REUSE` — not a
+materializer-terminal, no-HTTP-binding code as originally classified. It has its own
+409-requiring `allOf` block, and its `x-error-catalog` entry is
+`{phase: admission-http, http_status: 409, retryable: false}`.
+
+## Closed taxonomy — a deliberate, frozen boundary
+
+`error_code` is a **closed enum** covering only the admission-error taxonomy, and
+`http_status` has **no 404**. The backend's generic refusals — `PAYLOAD_TOO_LARGE` (413),
+`VALIDATION_ERROR` (422) and the status route's `NOT_FOUND` (404) — therefore do **not**
+validate against this schema, by design: they come from the repo-wide `error_response()` /
+`not_found_response()` helpers, not from the v2 admission taxonomy. Both repos freeze that
+fact (`tests/test_observability_v2_backend_wire_conformance.py` here;
+`test_generic_request_shape_error_codes_are_not_in_the_v2_error_taxonomy` in
+TraigentBackend), so widening either enum is a visible cross-repo decision rather than a
+silently-reintroduced false green.
+
+## Envelope boundary (owner-decided "option c")
+
+The status schema describes the **`data` member** of the repo's `{success, message, data}`
+envelope, not the whole envelope: the backend returns `success_response(data=status.to_dict())`
+and validates `response.get_json()["data"]`. The error schema is the opposite — the typed
+refusal body built by `_admission_error_response()` is **flat** (no `data` member), so the
+error schema describes the whole body.
 
 ## Fixtures (§9) — 29 files under `tests/test_data/observability_v2/`
 
@@ -41,9 +70,21 @@ Non-blocking (done): error codes with no HTTP binding (`ENTITY_VERSION_COLLISION
 
 ## Verification
 
-- New module: **66 passing** (`tests/test_observability_v2_contract.py`).
-- Full suite: **1152 passed, 1 skipped** (baseline 1086+1; +66). Includes orphan-reachability, endpoint-catalog, request-string-maxLength lint, and x-extension governance guards.
-- `ruff 0.15.20 check` + `ruff format --check` clean on the new test file. (Repo has 58 pre-existing ruff errors in untouched test files — not introduced here.)
+Re-verified on `origin/develop` @ 277ed95 (2026-07-25):
+
+- `tests/test_observability_v2_contract.py` — **71 passing**.
+- `tests/test_observability_v2_backend_wire_conformance.py` — **19 passing**: the exact
+  wire bodies TraigentBackend emits (`IngestStatus.to_dict()` / `_admission_error_response()`),
+  plus the frozen negatives above.
+- Full suite: **1343 passed, 1 skipped**. Includes orphan-reachability, endpoint-catalog,
+  request-string-maxLength lint, and x-extension governance guards.
+- `ruff 0.15.17` (the repo pin) `check` clean; `mypy traigent_schema/` clean; parity
+  manifest re-stamped (`scripts/refresh_parity.py --check` OK).
+- **Cross-repo (T3, executed):** TraigentBackend's own anti-drift guard
+  `tests/unit/routes/test_observability_ingest_v2_contract_conformance.py`
+  (`obs/ingest-v2-integration` @ d9c437b9) run against this schema directory via
+  `TRAIGENT_SCHEMAS_DIR` — **13 passed** (it reports 9 skipped / 4 passed against
+  `origin/develop`, which has no v2 schemas).
 - The literal §2.1 envelope example validates verbatim (provenance-anchored test).
 
 ## Downstream pin note (NOT performed — captain/owner)

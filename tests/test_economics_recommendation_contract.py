@@ -21,6 +21,7 @@ the backend packet inherits a visible list rather than an assumption.
 from __future__ import annotations
 
 import json
+import re
 from copy import deepcopy
 
 from traigent_schema import SchemaValidator, load_schema
@@ -254,8 +255,9 @@ def test_request_rejects_unknown_and_tenant_asserting_fields() -> None:
 
 def test_request_carries_no_free_form_content_channel() -> None:
     """No free-text note field may ride along: characterization values are closed
-    enums or typed numbers, and the request carries no user-authored string at all —
-    the presentation-only display name an earlier draft had was removed."""
+    enums or typed numbers, and the only client-authored string is the evidence pointer,
+    which the request holds to identifier shape. The presentation-only display name an
+    earlier draft carried was removed outright."""
     assert _rejected(_request(notes="please give me a big budget"), REQUEST)
     body = _request()
     body["characterization"]["free_text"] = "context the sharing policy would withhold"
@@ -448,13 +450,17 @@ _STRUCTURAL_KEYWORDS = (
     "maxProperties",
 )
 
-# Every string this request can carry, and what bounds it. The free-text scan below
-# must reproduce exactly this set; a new entry means a new string channel and demands
-# a deliberate decision, not a silently passing test.
-EXPECTED_FREE_TEXT_RESIDUALS = {
-    # Bounded by an allOf overlay in the request rather than by its own definition
-    # (the shared WI-B definition it comes from is prose-shaped). The overlay and its
-    # residual are covered by the two evidence-pointer tests above.
+# NOT "every string in the request" — the request has many strings, nearly all of
+# them closed enums, consts, or identifier-patterned. This is the scanner's residual:
+# the paths whose OWN definition does not constrain their content. A new entry means
+# a new unconstrained string channel and demands a deliberate decision, not a
+# silently passing test.
+EXPECTED_UNCONSTRAINED_STRING_PATHS = {
+    # False positive by construction, kept visible rather than special-cased away:
+    # the pointer IS constrained, but by the request's allOf overlay rather than by
+    # the shared WI-B definition it comes from, and the scanner deliberately does not
+    # compose intersections across siblings. The two evidence-pointer tests above
+    # cover what the overlay does and does not achieve.
     "characterization.field_reports[].evidence_pointer",
 }
 
@@ -477,19 +483,38 @@ def _free_text_paths(schema: dict) -> set[str]:
     not overclaim:
     1. It does NOT compose intersections across sibling overlays. A field constrained
        only by an allOf overlay elsewhere in the document is still reported here —
-       which is exactly why `EXPECTED_FREE_TEXT_RESIDUALS` is an explicit set rather
-       than an assertion of emptiness.
-    2. Object/array applicator keywords (`required`, `not`, `contains`, `minItems`, …)
-       are treated as evidence that a node shapes a container rather than a string.
-       JSON Schema technically ignores them for string instances, so this is a
-       heuristic; it holds here because every object boundary in this contract is
-       `additionalProperties: false`.
+       which is exactly why `EXPECTED_UNCONSTRAINED_STRING_PATHS` is an explicit set
+       rather than an assertion of emptiness.
+    2. Object/array applicator keywords (`required`, `minItems`, …) are treated as
+       evidence that a node shapes a container rather than a string. JSON Schema
+       technically ignores them for string instances, so this is a heuristic; it
+       holds here because every declared object in this contract is closed, which
+       the scan itself now checks (an `additionalProperties`-less declared object is
+       reported as an open channel).
     3. `$ref` cycles stop at the first repeat and fail CLOSED — an unresolvable ref is
        reported as free text rather than skipped. `format` and `maxLength` are not
        treated as content constraints, because neither bounds which characters may be
        sent.
     """
-    trivial_patterns = {"", ".*", "^.*$", "^.*", ".*$", "[\\s\\S]*", "^[\\s\\S]*$"}
+    # A pattern counts as constraining only if it actually REJECTS prose. Terra
+    # bypassed an earlier allowlist-of-trivial-patterns version with
+    # `^.{1,80}$` — non-trivial to look at, wide open in practice. So probe it:
+    # if any of these representative prose/PII strings satisfies the pattern, the
+    # field can carry free text no matter how clever the regex looks.
+    prose_probes = (
+        "Alice Smith SSN 123-45-6789",
+        'he said "we lose $4k a day"',
+        "alice@customer.example",
+        "traces show ~3.1k runs/day",
+        "line one\nline two",
+    )
+
+    def pattern_admits_prose(pattern: str) -> bool:
+        try:
+            compiled = re.compile(pattern)
+        except re.error:
+            return True  # unparseable here: assume the worst rather than skip
+        return any(compiled.search(probe) for probe in prose_probes)
 
     def deref(node: dict, doc: dict, seen: frozenset) -> tuple[dict, dict, frozenset] | None:
         """Resolve a $ref against the document it appears IN — a local `#/definitions/X`
@@ -512,7 +537,8 @@ def _free_text_paths(schema: dict) -> set[str]:
             return True if resolved is None else admits_string(*resolved)
         if any(k in node for k in ("const", "enum")):
             return False
-        if node.get("pattern") not in (None, *trivial_patterns):
+        pattern = node.get("pattern")
+        if pattern is not None and not pattern_admits_prose(pattern):
             return False
         types = node.get("type")
         types = [types] if isinstance(types, str) else types
@@ -552,14 +578,32 @@ def _free_text_paths(schema: dict) -> set[str]:
             return
         for sub in (s for key in ("allOf", "anyOf", "oneOf") for s in node.get(key, [])):
             walk(sub, doc, path, seen)
-        for key in ("if", "then", "else"):
-            if isinstance(node.get(key), dict):
-                walk(node[key], doc, path, seen)
         for name, prop in (node.get("properties") or {}).items():
             walk(prop, doc, f"{path}.{name}" if path else name, seen)
         extra = node.get("additionalProperties")
         if isinstance(extra, dict):
             walk(extra, doc, f"{path}.*", seen)
+        elif extra is not False and node.get("type") == "object":
+            # A DECLARED object that is absent `additionalProperties` (or sets it
+            # true) accepts arbitrary extra members, and a string is one of them.
+            # Restricted to declared objects on purpose: an allOf overlay carries
+            # `properties` without a type and cannot widen the closed base it
+            # intersects, so flagging those would be noise, not a finding.
+            found.add(f"{path}.* (open object)")
+        for name, sub in (node.get("patternProperties") or {}).items():
+            walk(sub, doc, f"{path}.<{name}>", seen)
+        for name, sub in (node.get("dependencies") or {}).items():
+            if isinstance(sub, dict):
+                walk(sub, doc, f"{path}.{name}?", seen)
+        if isinstance(node.get("propertyNames"), dict):
+            walk(node["propertyNames"], doc, f"{path}.<names>", seen)
+        # `if` / `then` / `else` / `not` / `contains` are deliberately NOT traversed.
+        # They are predicates and restrictions: against a closed object they can
+        # reject payloads but never make a new member acceptable, so they add no
+        # string channel. Walking them produced false positives — e.g. the
+        # `contains` matcher that detects a withheld report is a declared object
+        # without `additionalProperties: false`, and nothing is ever validated
+        # against it as a payload shape.
         items = node.get("items")
         if isinstance(items, dict):
             walk(items, doc, f"{path}[]", seen)
@@ -575,7 +619,7 @@ def test_no_request_property_can_carry_free_text() -> None:
     guard: `["string", "null"]`, `pattern: ".*"`, an anyOf with one free branch, a
     nested object or array of unconstrained strings, and an additionalProperties
     string map."""
-    assert _free_text_paths(_load(f"{REQUEST}.json")) == EXPECTED_FREE_TEXT_RESIDUALS
+    assert _free_text_paths(_load(f"{REQUEST}.json")) == EXPECTED_UNCONSTRAINED_STRING_PATHS
 
 
 def _pointer_request(pointer: str) -> dict:

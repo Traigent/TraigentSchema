@@ -89,7 +89,9 @@ Tests + example vectors (new) — SUPERSEDED wording: these were called "determi
 - Structural client-side sharing policy: `sharing_policy.{policy_version, allowlist}`; a value in the
   transmitted area REQUIRES its field on the allowlist (enforced per field), so an off-allowlist
   value is unrepresentable. Empty-allowlist / all-withheld submission is honest and representable.
-- `additionalProperties:false` at every boundary; no free-form raw survey/user content; no
+- `additionalProperties:false` at every boundary; no free-form raw survey/user content EXCEPT
+  the identifier-shaped evidence pointer (SUPERSEDED wording: this line originally claimed no
+  user content at all); no
   client-asserted tenant/project (tenant/project from auth context — backend obligation).
 
 ## Response contract — verified properties

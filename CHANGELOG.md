@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.11.0] - 2026-07-18
+## [5.1.0] - 2026-07-25
 
 ### Added
 - **Economics recommendation calculator contract (contract-first, pre-release).** The closed
@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   TraigentSchema. Added to the existing `planned_projects` (non-canonical) economics catalog and
   marked `x-asserted-against-backend: false` — no backend serves it yet. The route documents 200
   (recommendation computed), 400/422 (validation), 401/403 (auth), and 503 (service unavailable).
+  Every non-2xx status binds `error_envelope_schema.json`, the same shared envelope the sibling
+  telemetry route binds since 5.0.0 (#343) — specified here rather than observed, since no
+  implementation exists yet, and pinned by tests so the bare-description gap #343 closed next
+  door cannot reopen on this route.
   - **Closed characterization submission** (`economics_recommendation_request_schema.json`): the
     five closed band fields and their optional typed overrides (reused from the characterization
     vocabulary by `$ref`, never restated), each with per-field `asked | inferred | defaulted`
@@ -58,6 +62,200 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     request/response pairs (solo builder, support automation, and an all-withheld submission that
     maps to a spend-$0 recommendation) that both the offline path and the backend agree on. They
     are static vectors paired by echoed `request_id` and carry no computation implementation.
+
+## [5.0.0] - 2026-07-24
+
+### Breaking
+
+The 4.9.0 -> 4.14.0 develop-line aggregate contained public, intentional
+contract tightenings (workspace no-silent-legacy policy) that were shipped
+as `fix(contract)` PATCH/MINOR bumps. SemVer requires a MAJOR bump for any
+of these; none was taken at the time. This release corrects the version
+number only — no further schema behavior changes. Every item below was
+verified against the actual schema diff (`git diff origin/main..origin/develop`
+on the pre-5.0.0 tree); each is a strict narrowing of a previously-valid
+request shape.
+
+- **`billing_limits_schema.json` no longer accepts the formerly-required
+  trials-only shape (#333, `57b4069`).** `required` changed from
+  `["trials", "api_calls", "benchmarks", "users"]` to
+  `["optimization_trials", "optimization_samples", "api_calls", "benchmarks",
+  "users"]`. A payload that supplies only the deprecated `trials` alias
+  (previously sufficient) is now rejected: `optimization_trials` and
+  `optimization_samples` are both required.
+- **`evaluator_definition_create_request_schema.json` no longer accepts an
+  open/free-form `judge_config` on create (#337, `abee0b1`).** `judge_config`
+  changed from `{"type": "object", "additionalProperties": true}` to
+  `$ref: evaluator_definition_schema.json#/definitions/JudgeConfig` — the
+  same strict contract as update (`additionalProperties: false`; requires
+  `instructions`, `model_id`, `context_type`). A previously-valid partial or
+  additional-property-bearing `judge_config` on create is now rejected.
+- **`annotation_queue_update_request_schema.json` no longer accepts
+  `measure_ids: []` (#341, `05e6afb`).** `measure_ids` gained `minItems: 1`,
+  matching create. An update can no longer clear a queue's measure set to an
+  empty array through this field.
+- **`spend_approval_request_schema.json` no longer accepts unbounded or
+  non-numeric `requested_estimate_usd` (#333, `57b4069`).** Previously
+  `type: ["number", "string", "null"]` with only `maxLength: 64` and no
+  `pattern`/`minimum`/`maximum` — any non-numeric string under 64 characters,
+  any negative number, and any arbitrarily large number all validated. Now
+  bounded to `[0, 1,000,000]` with a pattern constraining the string branch
+  to the same range. This is a fourth breaking change found while auditing
+  this range; it was not part of the original three-item report that
+  triggered this release.
+
+Only these four changes are breaking. Every other schema delta in the
+4.9.0 -> 4.14.0 range (economics telemetry contracts — entirely new;
+`execution_mode` becoming optional; `judge_config` parity note above;
+pagination/enum/response-field widenings; the `measure_type` conditional
+open-vocabulary escape hatch for `is_custom=true` records) is additive or
+loosening, not breaking.
+
+### Added
+
+- **Economics telemetry endpoint contract completeness (`economics/economics_endpoints.json`).**
+  The `POST /api/v1/economics/telemetry` OpenAPI entry documented `400`,
+  `401`, `403`, `409`, `413`, and `422` with bare text descriptions and no
+  response body schema. TraigentBackend (`origin/develop`,
+  `src/routes/economics_routes.py` +
+  `src/services/economics/telemetry_ingest_service.py`) already serves this
+  route for real and validates its own responses against these exact
+  `traigent_schema` files (`src/services/economics/schema_contract.py`
+  loads `traigent_schema/schemas/economics/*` directly). Verified against
+  that implementation:
+  - `422` is not a generic error — the service builds it with
+    `_build_response(..., replayed=False)` and validates it with
+    `_validate_response(response, replayed=False)`, i.e. the exact same
+    `economics_telemetry_ingest_response_initial_schema.json` shape as
+    `201`, distinguished only by status code (all events rejected). The
+    endpoint contract now `$ref`s that schema for `422` instead of leaving
+    it bodyless.
+  - `400`/`401`/`403`/`409`/`413` are all produced by the backend's
+    `error_response()` helper, which emits exactly the
+    `{success, message, error, error_code}` shape of
+    `error_envelope_schema.json`. The endpoint contract now `$ref`s
+    `../error_envelope_schema.json` for each, matching the convention used
+    by canonical modules (e.g. `billing/spend_controls_endpoints.json`).
+  - Added previously-undocumented `500` (unhandled ingestion failure /
+    internal response-contract invariant breach) and `503`
+    (`EconomicsSchemaUnavailable` — contract unavailable, fails closed),
+    both also `error_envelope_schema.json`.
+  - Left `x-stability: pre-release` / `x-asserted-against-backend: false`
+    and the `planned_projects` catalog placement unchanged: an existing test
+    (`tests/test_economics_telemetry_contract.py::test_route_is_not_claimed_as_canonical_backend_truth`)
+    locks that classification in as an intentional, tested decision, and
+    flipping it is a cross-repo release-posture call for the owner, not a
+    schema-correctness fix. See the accompanying report for detail — the
+    docstring backing that test ("no backend serves this yet") is now
+    factually stale given the live TraigentBackend implementation, which is
+    flagged separately rather than changed unilaterally here.
+
+## [4.14.0] - 2026-07-19
+
+### Changed
+- **`measure_ids` create/update parity in annotation queues (#340):**
+  `annotation_queue_update_request_schema.measure_ids` now enforces
+  `minItems: 1`, matching `annotation_queue_create_request_schema` (which
+  already required a non-empty array). An update can no longer clear the
+  measure set to an empty array through this field, closing the create/update
+  contract asymmetry.
+
+## [4.13.0] - 2026-07-19
+
+### Changed
+- **`execution_mode` optional in `execution_mode_schema` (#334):** the schema's
+  `required` set is now just `["experiment_id"]` (was
+  `["execution_mode", "experiment_id"]`). `execution_mode` is a canonical
+  selector that the backend defaults, so it need not be supplied by the client;
+  the existing `if/then` conditional (hybrid_api → require api binding) is
+  unchanged and still applies when `execution_mode` is present.
+- **`judge_config` create/update parity in evaluator definitions (#335):**
+  `evaluator_definition_create_request_schema.judge_config` now `$ref`s
+  `evaluator_definition_schema.json#/definitions/JudgeConfig` — the same strict
+  contract used by the update request (required: `instructions`, `model_id`,
+  `context_type`; `additionalProperties: false`) — instead of an open
+  `{type: object, additionalProperties: true}`. An incomplete judge config is
+  now rejected on create as well as update. RESIDUAL: needs BE-owner
+  confirmation (#335) that the backend accepts/emits the strict JudgeConfig on
+  the create path.
+
+## [4.12.0] - 2026-07-19
+
+### Changed
+- **Bound `requested_estimate_usd` in spend-approval requests (#330):**
+  `spend_approval_request_schema` now constrains `requested_estimate_usd` to a
+  non-negative, bounded money value — the string branch must match
+  `^(?:\d{1,6}(?:\.\d{1,6})?|1000000(?:\.0{1,6})?)$` (non-negative decimal in
+  `[0, 1,000,000]`, ≤6 fractional digits; the pattern itself caps the string
+  value since JSON-Schema `minimum`/`maximum` bind only the number branch) and
+  the number branch is bounded to `[0, 1,000,000]` — rejecting negative, non-numeric,
+  and absurdly large estimates at the schema layer (mirrors the
+  `wallet_admin_adjustment_request` money-bounds pattern). Authoritative
+  policy-threshold enforcement remains backend-side.
+- **Require the canonical optimization meter pair in `billing_limits` (#329):**
+  `billing_limits_schema` now requires `optimization_trials` and
+  `optimization_samples` (alongside `api_calls`, `benchmarks`, `users`) instead
+  of the deprecated `trials` alias, so the admission-critical canonical meter
+  pair must be present. RESIDUAL: TraigentBackend must emit
+  `optimization_trials`/`optimization_samples` in billing-limits payloads for
+  canonical read-back to pass.
+
+## [4.11.0] - 2026-07-19
+
+### Changed
+- **Custom measure_type round-trip, conditionally (#321):** `measure_schema`
+  now validates `measure_type` with an `is_custom`-keyed conditional:
+  standard measures (`is_custom=false`, or absent) MUST use the closed
+  `#/definitions/MeasureType` vocabulary, while custom (`is_custom=true`)
+  measures may use any bounded, non-blank, control-char-free label
+  (minLength 1, maxLength 255). A custom `measure_type` now round-trips
+  create → read-back, WITHOUT opening `PUT /api/v1/measures/{measure_id}`
+  (which consumes this schema as its request body) to blanks, typos, or
+  arbitrary labels on standard measures. The create request
+  (`measure_create_request_schema`) deliberately stays backend-modeled
+  (free string, extra=allow — see `tests/test_create_request_contracts.py`);
+  RESIDUAL: server-side enforcement of the conditional vocabulary on
+  `POST /api/v1/measures` is a TraigentBackend follow-up — until then a
+  standard-measure create with a junk `measure_type` is accepted by the
+  backend but will (correctly) fail canonical read-back validation.
+- **Measure value-type discriminator (#320):** added a canonical
+  `MeasureValueType` enum (`numeric|categorical|boolean`) to `measure_schema`
+  and `$ref`'d it from the observability `review_score`/`review_measure_summary`
+  read schemas (previously duplicated inline). The measure-definition
+  `value_type` stays a documented open free-form label; the closed enum applies
+  only where a score value is projected onto a typed column.
+- **Review-score source vocabulary (#318):** widened `review_score_schema`
+  `source` to the create-request's eight values
+  (`manual|evaluator|api|human|user|llm|model|sdk`) so a legitimately-POSTed
+  source round-trips through `validate_response`.
+- **Pagination canonicalization (#319):** added a canonical
+  `offset_pagination_schema` (`limit/offset/total/has_more`) and `$ref`'d it
+  from the comparison-examples list response (previously inlined). The flat
+  `{page, per_page, total}` observability/costs list responses
+  (session/trace/issue/trace_variant/cost_users) now also permit the optional
+  canonical `total_pages`/`has_next`/`has_prev` fields.
+  **Compatibility note:** `cost_users`, `issue_list`, and
+  `trace_variant_list` responses were CLOSED schemas
+  (`additionalProperties: false`) through 4.10.0 — a client validating
+  responses against ≤4.10.0 will REJECT a server that starts emitting the
+  new fields. Backend emission of `total_pages`/`has_next`/`has_prev` on
+  those three endpoints is therefore gated on consumers regenerating to
+  ≥4.11.0 first (additive-with-regeneration-gate, not zero-impact).
+  `session_list`/`trace_list` were already open schemas; for them the fields
+  are plainly additive.
+
+### Deferred
+- **Trace-ingest timestamp enforcement (#316 residual):** `workflow_trace_schema`
+  span `start_time`/`end_time` keep their prose-only ISO-8601 promise; the
+  planned `format: date-time` assertion is NOT applied. The repo validator
+  enforces `format` (RFC 3339 via `FormatChecker`), and the Python SDK's
+  ingest producer (`traigent/integrations/observability/workflow_traces.py`,
+  `add_span` path, lines ~1383-1423 at time of writing) accepts
+  `datetime | str`, emitting offset-less `.isoformat()` for naive datetimes
+  and passing caller strings through verbatim — so machine-enforcement would
+  reject payloads today's producers legitimately emit. Normalize the SDK
+  producer (require tz-aware, normalize strings) first; then apply the
+  format assertion in a follow-up schema release.
 
 ## [4.10.0] - 2026-07-17
 
@@ -347,6 +545,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Agent tuning-history browse surface (experiment groups, Wave A).** Additive
+  read-only enrichment of `execution/experiment_group_schema.json` and the
+  `execution/execution_endpoints.json` experiment-group routes: complete browse
+  rows (measures/summary-stats/error-state/provenance), a page-independent
+  full-group column manifest, cursor pagination alongside legacy `page`/`per_page`,
+  a `dataset_scope` (default `all`) group filter, and a read-only
+  `POST /api/v1/experiment-groups/{group_id}/configuration-runs/query` surface.
+  Group identity stays exactly visibility-scoped `agent_id` + canonical
+  `dataset_id`; no cross-setup ranking or Wave B comparison signatures are added.
+  Contract invariants are now enforced structurally rather than only described in
+  prose:
+  - `CursorPage` couples the fields — `has_more: true` requires a non-null opaque
+    `next_cursor` and `has_more: false` requires `next_cursor: null`; the group-list
+    and configuration-run-list payloads accept exactly one of `pagination` or
+    `cursor` (never both, never neither).
+  - The full-group column manifest has no `truncated` escape hatch (a partial
+    manifest can no longer claim completeness), and each namespace array accepts
+    only descriptors of its own `kind`.
+  - Column predicates are exclusive by operator: scalar operators require a scalar
+    operand, `in`/`not_in` require a bounded non-empty scalar array, and
+    `is_null`/`is_not_null` forbid a value.
+  - Group read/query routes expose canonical **redacted** error envelopes; a hidden
+    group and a non-existent one are the single indistinguishable `404` (no `403`),
+    so forbidden-vs-not-found never leaks.
+  - `GroupedConfigurationRunProvenance` no longer duplicates the source-execution
+    ids (Draft 7 cannot assert sibling equality); those ids stay canonical at the
+    browse-row top level and provenance carries only group/display context.
+    Runtime one-row-per-execution and exact scope/agent/dataset partitioning remain
+    downstream backend/E2E acceptance criteria, not proven by this schema.
+  - Group-list deterministic tie-break (unreleased correction): the group-list
+    tie-breaker is the group's canonical visible identity — `agent_id` ascending,
+    then canonical `dataset_id` ascending with nulls ordered first (the explicit
+    no-dataset group sorts before any concrete dataset id) — applied after the
+    requested primary sort and fixed independent of the primary field, its
+    direction, and `dataset_id` nullness. This replaces the earlier `group_id`
+    ascending tie-break: `group_id` is a non-reversible SHA-derived lookup token
+    that cannot be portably range-bounded, so it cannot back exact SQL-bounded
+    cursor pagination, whereas `(agent_id, canonical dataset_id)` is the exact
+    group identity, is fully range-orderable, and yields the same deterministic
+    total order. The tie-break has no user-facing semantic value; deterministic,
+    exact, visible-identity order does. The configuration-run row tie-break
+    (`configuration_run_id` ascending) is unchanged. The `GET /api/v1/experiment-groups`
+    inline `sort_by` parameter description in `execution/execution_endpoints.json` now
+    mirrors this authoritative `ExperimentGroupSortField` language byte-for-byte, so the
+    endpoint copy can no longer contradict the field (it previously still read
+    "group_id ascending").
+  - Redacted error envelope (same Wave A surface): a strict
+    `ExperimentGroupErrorEnvelope` subtype now backs every experiment-group
+    `400`/`401`/`404`/`500` (rather than the generic envelope directly). It stays
+    shape-compatible with the canonical envelope but forbids `details` structurally
+    and closes every public string field to a finite, fixed server-controlled enum —
+    `message` (display strings), `error`, and `error_code` are all enums — so no raw
+    query/group/SQL/secret value, and not even a benign-looking opaque token such as a
+    lowercase group id (`grp_...`), can validate in any public field. (An earlier draft
+    bounded `message` by a display-safe character set and `error_code` by a lowercase
+    token grammar, which still admitted such opaque tokens; the finite enums close that
+    gap.) `GET /experiment-groups/{group_id}` gained its previously-missing malformed-id
+    `400`, so every constrained-`group_id` route now has a safe malformed-id response.
+  - Legacy `page`/`per_page` mode and `cursor`/`limit` mode are made exhaustive and
+    mutually exclusive through the repository's established `x-excludes` extension on
+    each pagination parameter; every cross-mix (cursor+page, cursor+per_page,
+    limit+page, limit+per_page) is rejected, and omitting all four defaults to legacy
+    page mode.
+  - Predicate operands exclude `null` for both scalar and `in`/`not_in` set operators
+    (absent-or-null matching is reserved for `is_null`/`is_not_null`); set operands
+    are non-empty, bounded, and unique. String operands and every string set member
+    have a shared `maxLength: 255` cap, aligned with Backend request validation.
+  - `GroupedConfigurationRunErrorState` couples `has_error: false` with
+    `error_code: null`; a classified code without a failure is rejected.
+  - Manifest namespace arrays are `uniqueItems` (exact-duplicate descriptors
+    rejected). Rejecting same-`(kind, key)` duplicates that disagree on metadata is
+    recorded as a backend acceptance criterion, since Draft 7 cannot express
+    uniqueness by a subproperty.
+- **Experiment-group outage contract:** all four experiment-group browse/query
+  operations now document the fail-closed authentication-backend `503` response.
+  A dedicated strict envelope admits only the two fixed, redacted middleware
+  representations of `AUTH_BACKEND_UNAVAILABLE`; it rejects diagnostic details,
+  request-derived content, and additional properties. Existing `400`, `401`,
+  `404`, and `500` response contracts are unchanged.
 - `optimization/optimization_plan_request_schema.json` and
   `optimization/optimization_plan_response_schema.json` for
   `POST /api/v1/optimization/plan`, plus a dedicated

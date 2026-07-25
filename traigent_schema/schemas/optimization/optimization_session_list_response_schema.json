@@ -42,6 +42,7 @@
         },
         "created_at": {
           "type": "string",
+          "format": "date-time",
           "description": "ISO-8601 creation timestamp when the server provides one."
         },
         "progress": {

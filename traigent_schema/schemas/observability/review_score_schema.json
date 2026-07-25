@@ -20,8 +20,12 @@
       ]
     },
     "target_id": { "type": "string", "minLength": 1 },
-    "source": { "type": "string", "enum": ["manual", "evaluator", "api"] },
-    "value_type": { "type": "string", "enum": ["numeric", "categorical", "boolean"] },
+    "source": {
+      "type": "string",
+      "enum": ["manual", "evaluator", "api", "human", "user", "llm", "model", "sdk"],
+      "description": "Origin of the score. Shares one vocabulary with the create-request source enum so a POSTed value round-trips on read-back (TraigentSchema#318)."
+    },
+    "value_type": { "$ref": "../measures/measure_schema.json#/definitions/MeasureValueType" },
     "value": {},
     "numeric_value": { "type": ["number", "null"] },
     "categorical_value": { "type": ["string", "null"] },

@@ -234,6 +234,15 @@ def test_experiment_group_read_surfaces_have_2xx_response_schemas():
             )
 
 
+def test_experiment_group_query_surface_has_a_2xx_response_schema():
+    """The read-only configuration-run query POST joins the response-schema coverage set."""
+    spec = _load("execution/execution_endpoints.json")
+    op = spec["paths"]["/api/v1/experiment-groups/{group_id}/configuration-runs/query"]["post"]
+    schema = op["responses"]["200"].get("content", {}).get("application/json", {}).get("schema", {})
+    assert schema.get("$ref"), "experiment-group query POST 200 has no response schema"
+    assert schema["$ref"].endswith("#/definitions/GroupedConfigurationRunQueryResponse")
+
+
 def test_experiment_group_response_schemas_wrap_payloads_in_data():
     """Response definitions are success envelopes; the former bare bodies live under data."""
     schema = _load("execution/experiment_group_schema.json")
@@ -241,6 +250,7 @@ def test_experiment_group_response_schemas_wrap_payloads_in_data():
         "ExperimentGroupListResponse": "ExperimentGroupListPayload",
         "ExperimentGroupDetailResponse": "ExperimentGroupDetailPayload",
         "GroupedConfigurationRunListResponse": "GroupedConfigurationRunListPayload",
+        "GroupedConfigurationRunQueryResponse": "GroupedConfigurationRunQueryPayload",
     }
 
     for response_name, payload_name in expected_payload_refs.items():

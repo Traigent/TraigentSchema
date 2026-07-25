@@ -23,6 +23,25 @@
       ],
       "format": "date-time",
       "description": "Canonical nullable timestamp."
+    },
+    "Priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high"
+      ],
+      "description": "Canonical categorical priority vocabulary (low < normal < high). Reference this instead of re-spelling the enum per schema (#313); use PriorityWithCritical where a fourth 'critical' tier is offered. Note: 'normal' is the canonical middle rank — schemas that emit 'medium' are drifted spellings of the same tier."
+    },
+    "PriorityWithCritical": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "critical"
+      ],
+      "description": "Canonical categorical priority vocabulary with an escalation tier (low < normal < high < critical). Superset of Priority (#313). Distinct from the integer 'priority' rank-order fields, which are numeric ordering, not this severity vocabulary."
     }
   }
 }

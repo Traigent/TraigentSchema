@@ -39,7 +39,7 @@ dev = [
     "pytest>=8.4.2,<9; python_version < '3.10'",
     "pytest>=9.0.3; python_version >= '3.10'",  # CVE-2025-71176
     "pytest-cov>=4.0",
-    "ruff>=0.1.0",
+    "ruff==0.15.17",  # Exact pin (parity with TraigentBackend/traigent-smartopt): reproducible `ruff check` across machines/CI. Lint-only gate; not format-gated.
     "mypy>=1.0,<3",
 ]
 

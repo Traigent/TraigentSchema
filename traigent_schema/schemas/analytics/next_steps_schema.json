@@ -202,7 +202,7 @@
           "priority": {
             "type": "integer",
             "minimum": 1,
-            "description": "Display priority; lower values should be shown first."
+            "description": "Display priority rank; lower values shown first. This is a rank-order integer, NOT the categorical common_types Priority severity vocabulary (#313)."
           },
           "rationale": {
             "type": "string",

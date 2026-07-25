@@ -190,6 +190,30 @@ def responses_200_ref(op: dict) -> str:
     return op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
 
 
+def test_every_error_status_binds_the_shared_error_envelope() -> None:
+    """Every documented non-2xx status carries a body schema, and it is the same
+    shared envelope the sibling telemetry route binds (#343, `01f3e2a`). This is a
+    contract-first SPECIFICATION, not a verified observation: no backend serves this
+    route yet (`x-asserted-against-backend: false`), so this pins what the service
+    must return rather than what it does return. A bare description with no schema —
+    the gap #343 closed next door — fails here."""
+    responses = _load("economics_endpoints.json")["paths"][ENDPOINT]["post"]["responses"]
+    for status in ("400", "401", "403", "422", "503"):
+        ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
+        assert ref == "../error_envelope_schema.json", (
+            f"{status} must $ref ../error_envelope_schema.json exactly, got {ref!r}"
+        )
+
+
+def test_the_route_documents_exactly_the_expected_status_set() -> None:
+    """Pin the whole status set, so a status silently dropped — or one added without
+    a body schema — is caught here instead of by a client at runtime."""
+    responses = _load("economics_endpoints.json")["paths"][ENDPOINT]["post"]["responses"]
+    assert set(responses) == {"200", "400", "401", "403", "422", "503"}
+    for status, response in responses.items():
+        assert "content" in response, f"{status} documents no body schema"
+
+
 def test_both_new_schemas_are_discoverable_in_a_clean_checkout() -> None:
     """A clean checkout must be able to find and load the new contracts by name —
     both through the package loader and through SchemaValidator's schema table."""

@@ -29,17 +29,11 @@
       }
     },
     "pagination": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "page": { "type": "integer", "minimum": 1 },
-        "per_page": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "total": { "type": "integer", "minimum": 0 },
-        "total_pages": { "type": "integer", "minimum": 0 },
-        "has_next": { "type": "boolean" },
-        "has_prev": { "type": "boolean" }
-      },
-      "required": ["page", "per_page", "total", "total_pages", "has_next", "has_prev"]
+      "$comment": "Canonical pagination shape ($ref) plus a per_page maximum:100 overlay — export-job listing hard-caps page size at 100. Overlay rather than fork so the base shape stays single-sourced (#312).",
+      "allOf": [
+        { "$ref": "../pagination_schema.json" },
+        { "properties": { "per_page": { "maximum": 100 } } }
+      ]
     }
   },
   "required": ["context", "items", "pagination"]

@@ -66,7 +66,7 @@
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 128 },
         "category": { "type": "string", "enum": ["tool_reliability", "retry_policy", "tool_routing", "recurring_issue", "behavioral_variation"] },
-        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"], "$comment": "Uses 'medium' as the middle tier, diverging from the canonical common_types Priority ('normal'). Not migrated here: this is a response schema, so aligning the emitted value to 'normal' requires a coordinated backend change (#313 follow-up)." },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "subject": { "type": "string", "minLength": 1, "maxLength": 128 },
         "evidence": { "$ref": "#/definitions/RecommendationEvidence" },

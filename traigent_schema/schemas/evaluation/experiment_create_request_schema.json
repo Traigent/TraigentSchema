@@ -350,7 +350,7 @@
         },
         "priority": {
           "type": "integer",
-          "description": "Priority level for experiment execution",
+          "description": "Numeric priority rank for experiment execution (0-100 ordering). This is a rank-order integer, NOT the categorical common_types Priority severity vocabulary (#313).",
           "minimum": 0,
           "maximum": 100
         },

@@ -88,7 +88,8 @@
             "string",
             "integer",
             "null"
-          ]
+          ],
+          "description": "Identity id. The audit surface is the only place ids are typed integer|string: legacy audit rows serialize integer database ids, while newer rows serialize the canonical string ForeignKeyId. Every non-audit schema types this as a plain string, so consumers must coerce this field to string."
         },
         "outcome": {
           "type": [

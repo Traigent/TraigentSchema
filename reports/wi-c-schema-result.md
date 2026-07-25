@@ -1,5 +1,23 @@
 # WI-C Schema — economics recommendation calculator contract (evidence)
 
+> **Update — rebased onto develop 5.0.0 on 2026-07-25 (captain).** The packet below was
+> written against the pre-5.0.0 develop line and then parked. Everything in the body
+> still describes the contract accurately, with these superseded numbers:
+>
+> | Body says | Now |
+> |---|---|
+> | version `4.10.0 → 4.11.0`, CHANGELOG `[4.11.0] - 2026-07-18` | `5.0.0 → 5.1.0`, CHANGELOG `[5.1.0] - 2026-07-25` (develop shipped the 5.0.0 honest-SemVer release, #343, while this was parked) |
+> | `schemaFileCount` 375 → 377, `files=377` | 376 → **378** (develop added one schema file meanwhile); parity re-stamped with `scripts/refresh_parity.py --update` |
+>
+> One substantive addition on rebase: develop's #343 bound every non-2xx status of the
+> sibling telemetry route to `error_envelope_schema.json` and pinned those bindings with
+> tests. This route documented its five error statuses as bare descriptions — the exact
+> gap #343 had just closed next door — so the same convention is now applied here and
+> pinned by two new tests (`test_every_error_status_binds_the_shared_error_envelope`,
+> `test_the_route_documents_exactly_the_expected_status_set`), verified to fail when the
+> binding is removed. It is a contract-first **specification**, not an observation: no
+> backend serves this route, and `x-asserted-against-backend: false` still holds.
+
 Branch `feature/econ-model-wi-c-schema`, worktree `TraigentSchema-wi-c`, continued from
 accepted WI-B HEAD `c27a034`. All changes left UNCOMMITTED (HEAD still `c27a034`; captain owns
 refs/commits). Schema-only WI-C: the closed characterization submission request and the

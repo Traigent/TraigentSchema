@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/offset_pagination_schema.json",
+  "title": "Offset Pagination Metadata",
+  "description": "Canonical offset-based pagination metadata (uses limit/offset rather than page/per_page). Companion to pagination_schema.json for endpoints that page by absolute offset.",
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum number of items per page."
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Offset of the first returned item."
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of matching items (after filtering)."
+    },
+    "has_more": {
+      "type": "boolean",
+      "description": "Whether more items exist beyond the current page."
+    }
+  },
+  "required": [
+    "limit",
+    "offset",
+    "total",
+    "has_more"
+  ],
+  "additionalProperties": false
+}

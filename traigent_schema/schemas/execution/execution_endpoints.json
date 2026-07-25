@@ -120,19 +120,29 @@
             "name": "page",
             "in": "query",
             "required": false,
+            "description": "Legacy page-mode page number (1-based). Belongs to legacy page mode (page/per_page), which is mutually exclusive with cursor mode (cursor/limit): supplying page together with cursor or limit is rejected with 400. When page, per_page, cursor, and limit are all omitted the route defaults to legacy page mode. The x-excludes list names the cursor-mode parameters this parameter may not be combined with, so the exclusion is machine-readable for backend/frontend.",
             "schema": {
               "type": "integer",
               "minimum": 1
-            }
+            },
+            "x-excludes": [
+              "cursor",
+              "limit"
+            ]
           },
           {
             "name": "per_page",
             "in": "query",
             "required": false,
+            "description": "Legacy page-mode window size. Belongs to legacy page mode (page/per_page), which is mutually exclusive with cursor mode (cursor/limit): supplying per_page together with cursor or limit is rejected with 400. Omitting page, per_page, cursor, and limit defaults to legacy page mode. The x-excludes list names the cursor-mode parameters this parameter may not be combined with.",
             "schema": {
               "type": "integer",
               "minimum": 1
-            }
+            },
+            "x-excludes": [
+              "cursor",
+              "limit"
+            ]
           },
           {
             "name": "agent_id",
@@ -147,11 +157,77 @@
             "name": "dataset_id",
             "in": "query",
             "required": false,
-            "description": "Canonical dataset id filter after legacy alias resolution. Omit for all groups; use the explicit no-dataset filter supported by backend query semantics rather than an empty string.",
+            "description": "Canonical dataset id filter after legacy alias resolution. Omit for all groups; use dataset_scope=without_dataset for the explicit no-dataset group rather than an empty string.",
             "schema": {
               "type": "string",
               "minLength": 1
             }
+          },
+          {
+            "name": "dataset_scope",
+            "in": "query",
+            "required": false,
+            "description": "Explicit dataset-presence filter. Use without_dataset to select exactly the canonical no-dataset groups (dataset_id null); an empty-string dataset_id must be rejected rather than treated as no-dataset. Combining dataset_scope=without_dataset with a concrete dataset_id is contradictory and must be rejected.",
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupDatasetScope"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Bounded free-text search over group-identity display fields (agent_id and canonical dataset_id) only. Search never matches tuned variables, KPIs, measures, config hashes, or fingerprints, and never widens visibility: results stay restricted to the caller's authorized scope.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "description": "Fixed, closed vocabulary of sortable group-list fields. Sorting is never accepted over tuned variables, KPIs, measures, config hashes, or fingerprints at the group level, and group_id itself is deliberately not a member of this sort vocabulary. Ties on the requested primary sort are broken deterministically - after that primary sort and independent of its direction - by the group's canonical visible identity: agent_id ascending, then canonical dataset_id ascending with nulls ordered first (the explicit no-dataset group sorts before any concrete dataset id). The opaque group_id is not the tie-break key: it is a non-reversible SHA-derived token that cannot be portably range-bounded for exact SQL cursor pagination, whereas (agent_id, canonical dataset_id) is the exact group identity, gives the same deterministic total order, and is exactly range-orderable. The tie-break carries no user-facing semantic value; only deterministic, exact, visible-identity order does.",
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupSortField"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/SortDirection"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque server-sealed continuation cursor. Belongs to cursor mode (cursor/limit) and is mutually exclusive with page and per_page: a request supplying cursor together with page or per_page must be rejected with 400 rather than silently preferring one. Cursor mode returns the cursor payload field; page/per_page mode returns pagination. The x-excludes list names the legacy-page-mode parameters this one may not be combined with. The cursor is bound to the filter and sort it was issued with and is never an authorization boundary.",
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/OpaqueCursor"
+            },
+            "x-excludes": [
+              "page",
+              "per_page"
+            ]
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Window size for cursor mode. Belongs to cursor mode (cursor/limit), which is mutually exclusive with legacy page mode (page/per_page): supplying limit together with page or per_page is rejected with 400. The x-excludes list names the legacy-page-mode parameters this parameter may not be combined with.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "x-excludes": [
+              "page",
+              "per_page"
+            ]
           }
         ],
         "responses": {
@@ -161,6 +237,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - malformed or contradictory query parameters. This includes dataset_scope=without_dataset combined with a concrete dataset_id, an empty-string dataset_id, a limit above the maximum, and any mix of the two mutually exclusive pagination modes declared through the per-parameter x-excludes extension: legacy page mode (page/per_page) and cursor mode (cursor/limit). Every cross-set combination is rejected here - cursor+page, cursor+per_page, limit+page, limit+per_page, or any other legacy/cursor mixture - because the two sets cannot be combined. Omitting all four defaults to legacy page mode. The strict redacted error subtype carries a closed error name and a display-safe message only, never raw query text, internal identifiers, or server internals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. The canonical error envelope discloses no group, experiment, or dataset existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. The canonical error envelope is redacted: no stack traces, SQL, raw exception strings, or internal identifiers are ever returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication backend temporarily unavailable. The request fails closed before any experiment-group lookup or aggregation. The dedicated service-unavailable envelope is finite and redacted: it exposes only the stable AUTH_BACKEND_UNAVAILABLE classification and one of the two fixed middleware-safe public messages, never database errors, exception text, credentials, request values, internal identifiers, or group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
                 }
               }
             }
@@ -192,6 +308,56 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad request - a malformed group_id that fails the opaque OpaqueExperimentGroupId grammar (length or character-set bounds). The path parameter is a lookup token only, so a syntactically invalid token is rejected before any lookup and never disclosed back to the caller. The strict redacted error subtype carries a closed error name and a display-safe message only, never the raw group_id, query text, or server internals; a well-formed but unknown or hidden group is reported as the indistinguishable 404, not this 400.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. The canonical error envelope discloses no group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found OR outside the caller's visible scope - these two conditions are deliberately indistinguishable. A group hidden from the caller returns exactly this response, with the same status, the same redacted canonical error envelope, and no field that would confirm existence or distinguish 'forbidden' from 'not found'. There is no 403 on this resource for that reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. The canonical error envelope is redacted: no stack traces, SQL, raw exception strings, or internal identifiers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication backend temporarily unavailable. The request fails closed before any experiment-group lookup or aggregation. The dedicated service-unavailable envelope is finite and redacted: it exposes only the stable AUTH_BACKEND_UNAVAILABLE classification and one of the two fixed middleware-safe public messages, never database errors, exception text, credentials, request values, internal identifiers, or group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -213,19 +379,58 @@
             "name": "page",
             "in": "query",
             "required": false,
+            "description": "Legacy page-mode page number (1-based). Belongs to legacy page mode (page/per_page), which is mutually exclusive with cursor mode (cursor/limit): supplying page together with cursor or limit is rejected with 400. When page, per_page, cursor, and limit are all omitted the route defaults to legacy page mode. The x-excludes list names the cursor-mode parameters this parameter may not be combined with, so the exclusion is machine-readable for backend/frontend.",
             "schema": {
               "type": "integer",
               "minimum": 1
-            }
+            },
+            "x-excludes": [
+              "cursor",
+              "limit"
+            ]
           },
           {
             "name": "per_page",
             "in": "query",
             "required": false,
+            "description": "Legacy page-mode window size. Belongs to legacy page mode (page/per_page), which is mutually exclusive with cursor mode (cursor/limit): supplying per_page together with cursor or limit is rejected with 400. Omitting page, per_page, cursor, and limit defaults to legacy page mode. The x-excludes list names the cursor-mode parameters this parameter may not be combined with.",
             "schema": {
               "type": "integer",
               "minimum": 1
-            }
+            },
+            "x-excludes": [
+              "cursor",
+              "limit"
+            ]
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque server-sealed continuation cursor. Belongs to cursor mode (cursor/limit) and is mutually exclusive with page and per_page: a request supplying cursor together with page or per_page must be rejected with 400 rather than silently preferring one. Cursor mode returns the cursor payload field; page/per_page mode continues to return pagination unchanged. The x-excludes list names the legacy-page-mode parameters this one may not be combined with.",
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/OpaqueCursor"
+            },
+            "x-excludes": [
+              "page",
+              "per_page"
+            ]
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Window size for cursor mode. Belongs to cursor mode (cursor/limit), which is mutually exclusive with legacy page mode (page/per_page): supplying limit together with page or per_page is rejected with 400. The x-excludes list names the legacy-page-mode parameters this parameter may not be combined with.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "x-excludes": [
+              "page",
+              "per_page"
+            ]
           }
         ],
         "responses": {
@@ -235,6 +440,148 @@
               "application/json": {
                 "schema": {
                   "$ref": "./experiment_group_schema.json#/definitions/GroupedConfigurationRunListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - a malformed group_id that fails the opaque OpaqueExperimentGroupId grammar, malformed pagination parameters, a limit above the maximum, or any mix of the two mutually exclusive pagination modes declared through the per-parameter x-excludes extension: legacy page mode (page/per_page) and cursor mode (cursor/limit). Every cross-set combination is rejected - cursor+page, cursor+per_page, limit+page, limit+per_page, or any other legacy/cursor mixture - and omitting all four defaults to legacy page mode. Strict redacted error subtype only: a closed error name and a display-safe message, never the raw group_id, query text, or server internals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. The canonical error envelope discloses no group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found OR outside the caller's visible scope - deliberately indistinguishable, same status and redacted envelope, no 403, so a hidden group is never distinguished from a non-existent one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. Redacted canonical error envelope: no stack traces, SQL, raw exception strings, or internal identifiers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication backend temporarily unavailable. The request fails closed before any experiment-group lookup or aggregation. The dedicated service-unavailable envelope is finite and redacted: it exposes only the stable AUTH_BACKEND_UNAVAILABLE classification and one of the two fixed middleware-safe public messages, never database errors, exception text, credentials, request values, internal identifiers, or group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiment-groups/{group_id}/configuration-runs/query": {
+      "post": {
+        "summary": "Query source configuration runs for an experiment group (read-only)",
+        "description": "Read-only structured query over the visible group's source configuration runs. POST is used only to carry a bounded structured query body that does not fit query-string limits: the operation has no side effects, creates/mutates/deletes nothing, and is authorized exactly as the equivalent GET. Returns the existing canonical success envelope. Rows are complete browse rows and are never deduplicated by tuned variables, objectives, config hash, display name, or status; per-execution provenance is preserved. Predicates and sort terms are validated against the group's full-group column manifest and rejected with a 4xx when unknown or not filterable/sortable - never silently ignored. This surface is cursor-only: page/per_page are not accepted, so a request cannot mix cursor with page. Ranking, winner, and comparison-signature semantics are out of scope for this surface.",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./experiment_group_schema.json#/definitions/OpaqueExperimentGroupId"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "https://schemas.traigent.ai/execution/experiment_group_schema.json#/definitions/GroupedConfigurationRunQueryRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grouped configuration runs queried successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/GroupedConfigurationRunQueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query - a malformed group_id that fails the opaque OpaqueExperimentGroupId grammar, an unknown or non-filterable/non-sortable predicate or sort column, an operator/operand mismatch (a scalar operator with an array operand, a null operand on any scalar or 'in'/'not_in' operator, 'in'/'not_in' without a bounded non-empty unique array, or 'is_null'/'is_not_null' carrying a value), an out-of-range limit, a cursor replayed against a different filter/sort, or an unparseable date bound. This surface is cursor-only, so page/per_page are structurally rejected rather than mixed with cursor. The response is the strict redacted error subtype: a closed error name plus a display-safe message, never the offending query text, column values, internal identifiers, SQL, or server internals.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated. The canonical error envelope discloses no group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found OR outside the caller's visible scope - the single indistinguishable hidden/not-found condition. Same status, same redacted canonical error envelope, and no 403, so this read-only query never leaks whether a group exists but is forbidden versus simply does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. Redacted canonical error envelope: no stack traces, SQL, raw exception strings, or internal identifiers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication backend temporarily unavailable. The request fails closed before any experiment-group lookup or aggregation. The dedicated service-unavailable envelope is finite and redacted: it exposes only the stable AUTH_BACKEND_UNAVAILABLE classification and one of the two fixed middleware-safe public messages, never database errors, exception text, credentials, request values, internal identifiers, or group existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_group_schema.json#/definitions/ExperimentGroupServiceUnavailableErrorEnvelope"
                 }
               }
             }

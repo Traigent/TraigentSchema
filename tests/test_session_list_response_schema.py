@@ -27,7 +27,7 @@ def test_full_summary_is_valid():
             {
                 "session_id": "11111111-1111-1111-1111-111111111111",
                 "status": "active",
-                "created_at": "2026-01-01T00:00:00",
+                "created_at": "2026-01-01T00:00:00Z",
                 "progress": {"completed": 5, "total": 10, "failed": 0},
             }
         ],

@@ -30,11 +30,46 @@
               }
             }
           },
-          "400": {"description": "Malformed submission, or unknown contract/version."},
-          "401": {"description": "Authentication required."},
-          "403": {"description": "Insufficient permission to request a recommendation for this scope."},
-          "422": {"description": "The submission is well-formed but the shared characterization is insufficient to compute a usable recommendation (e.g. every decision-relevant band was withheld); no recommendation is fabricated from withheld values."},
-          "503": {"description": "The recommendation service is temporarily unavailable; the client should retry rather than proceed without a recommendation."}
+          "400": {
+            "description": "Malformed submission, or unknown contract/version.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission to request a recommendation for this scope.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "422": {
+            "description": "The submission is well-formed but the shared characterization is insufficient to compute a usable recommendation (e.g. every decision-relevant band was withheld); no recommendation is fabricated from withheld values.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "503": {
+            "description": "The recommendation service is temporarily unavailable; the client should retry rather than proceed without a recommendation.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          }
         },
         "x-wrap-status": "unclassified — economics recommendation is not in the #136 wrap-map; the documented 200 response is the bare recommendation shape. Reconcile envelope status when the backend service lands.",
         "x-traigent-note": "Tenant/project scoping is resolved from the authenticated request context. The contract carries no tenant field precisely so a client cannot assert one. The MCP survey tool calls this contract; presentation phrasing and MCP transport mechanics are out of scope here."
@@ -78,12 +113,70 @@
               }
             }
           },
-          "400": {"description": "Malformed batch, unknown contract/version, or malformed idempotency key."},
-          "401": {"description": "Authentication required."},
-          "403": {"description": "Insufficient permission to submit economics telemetry for this scope."},
-          "409": {"description": "Idempotency conflict — the same key was submitted with a different body. Stored events are immutable and are never overwritten."},
-          "413": {"description": "Batch exceeds the 500-event limit."},
-          "422": {"description": "Every event in the batch was rejected."}
+          "400": {
+            "description": "Malformed batch, unknown contract/version, or malformed idempotency key.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission to submit economics telemetry for this scope.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict — the same key was submitted with a different body. Stored events are immutable and are never overwritten.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "413": {
+            "description": "Batch exceeds the 500-event limit.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "422": {
+            "description": "Every event in the batch was rejected. NOT a generic error envelope: the body binds replayed=false and carries the full counts/rejections detail — the exact same shape as 201 (initial response schema), distinguished only by the status code.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "./economics_telemetry_ingest_response_initial_schema.json"}
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error — either an unhandled ingestion failure, or an internal invariant breach where the service would have emitted a response that fails the response contract (never shipped; mapped to a stable, client-safe 500 instead).",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          },
+          "503": {
+            "description": "The authoritative economics telemetry contract is unavailable (schema directory or a required schema file missing). Fails closed rather than validating against an absent or partial contract.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../error_envelope_schema.json"}
+              }
+            }
+          }
         },
         "x-wrap-status": "unclassified — economics telemetry is not in the #136 wrap-map; the documented response is the bare ingest-result shape. Reconcile envelope status when backend ingestion lands.",
         "x-traigent-note": "Tenant scoping is resolved from the authenticated request context. The contract carries no tenant field precisely so a client cannot assert one."

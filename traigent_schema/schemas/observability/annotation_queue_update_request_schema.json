@@ -22,7 +22,8 @@
       "items": {
         "type": "string",
         "maxLength": 1000
-      }
+      },
+      "minItems": 1
     },
     "status": {
       "type": "string",

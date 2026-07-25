@@ -26,5 +26,5 @@
     "benchmarks": { "type": "integer", "minimum": -1 },
     "users": { "type": "integer", "minimum": -1 }
   },
-  "required": ["trials", "api_calls", "benchmarks", "users"]
+  "required": ["optimization_trials", "optimization_samples", "api_calls", "benchmarks", "users"]
 }

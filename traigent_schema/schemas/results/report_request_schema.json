@@ -303,11 +303,8 @@
       "description": "URL to call when the report is complete"
     },
     "priority": {
-      "type": "string",
-      "enum": [
-        "low",
-        "normal",
-        "high"
+      "allOf": [
+        { "$ref": "../common_types_schema.json#/definitions/Priority" }
       ],
       "default": "normal",
       "description": "Priority of the report generation task"

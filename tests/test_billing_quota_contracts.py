@@ -64,6 +64,27 @@ def test_billing_limits_accepts_two_dimensional_optimization_keys():
     assert errors == []
 
 
+def test_billing_limits_requires_canonical_optimization_meter_pair():
+    # issue #329: the admission-critical canonical pair must be required; the
+    # deprecated `trials` alias alone must NOT satisfy the contract.
+    validator = SchemaValidator()
+    trials_only = {
+        "trials": 50,
+        "api_calls": 1000,
+        "benchmarks": 25,
+        "users": 1,
+    }
+    assert validator.validate_json(trials_only, "billing_limits_schema")
+
+    missing_samples = {
+        "optimization_trials": 50,
+        "api_calls": 1000,
+        "benchmarks": 25,
+        "users": 1,
+    }
+    assert validator.validate_json(missing_samples, "billing_limits_schema")
+
+
 def test_usage_summary_response_shape():
     validator = SchemaValidator()
     errors = validator.validate_json(

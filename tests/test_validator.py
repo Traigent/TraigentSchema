@@ -382,6 +382,41 @@ class TestValidateRequest:
         )
         assert errors == []
 
+    def test_annotation_queue_update_rejects_empty_measure_ids(self, validator):
+        """An update with measure_ids: [] must be rejected (minItems parity with
+        create) so a PATCH can never silently empty a queue's measures."""
+        errors = validator.validate_request(
+            "/api/v1beta/annotation-queues/queue_abc",
+            "PATCH",
+            {
+                "measure_ids": [],
+            },
+        )
+        assert errors
+        assert any("measure_ids" in error for error in errors)
+
+    def test_annotation_queue_update_accepts_non_empty_measure_ids(self, validator):
+        """A non-empty measure_ids list is a valid update payload."""
+        errors = validator.validate_request(
+            "/api/v1beta/annotation-queues/queue_abc",
+            "PATCH",
+            {
+                "measure_ids": ["m1"],
+            },
+        )
+        assert errors == []
+
+    def test_annotation_queue_update_allows_omitted_measure_ids(self, validator):
+        """measure_ids stays optional on update: omitting it validates."""
+        errors = validator.validate_request(
+            "/api/v1beta/annotation-queues/queue_abc",
+            "PATCH",
+            {
+                "name": "Renamed Review Queue",
+            },
+        )
+        assert errors == []
+
     def test_default_backend_contract_ignores_removed_tunable_routes(self, validator):
         errors = validator.validate_request(
             "/api/v1/tunables",

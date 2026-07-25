@@ -115,8 +115,9 @@
           "description": "Maximum number of retry attempts"
         },
         "priority": {
-          "type": "string",
-          "enum": ["low", "normal", "high", "critical"],
+          "allOf": [
+            { "$ref": "../common_types_schema.json#/definitions/PriorityWithCritical" }
+          ],
           "default": "normal",
           "description": "Execution priority in the queue"
         },

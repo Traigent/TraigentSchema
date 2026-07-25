@@ -1,0 +1,26 @@
+{
+  "event_id": "01JQ3AA05JRZ0CN5Z2S9KYX616",
+  "emitter_id": "01JQ3A7XW5K9J2N8M4P6R0T3V1",
+  "emitter_version": 7,
+  "occurred_at": "2026-07-12T10:15:28.500Z",
+  "kind": "observation.upsert",
+  "trace_id": "tr_123",
+  "entity_id": "obs_big_1",
+  "data": {
+    "type": "generation",
+    "total_tokens": 12000,
+    "cost_usd": "0.048000",
+    "input_ref": {
+      "key": "tenant-scoped/inputs/01JQ3AA05JRZ0CN5Z2S9KYX616",
+      "byte_count": 262144,
+      "content_type": "application/json",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "output_ref": {
+      "key": "tenant-scoped/outputs/01JQ3AA05JRZ0CN5Z2S9KYX616",
+      "byte_count": 131072,
+      "content_type": "text/plain",
+      "sha256": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "event_id": "01JQ3AA05JRZ0CN5Z2S9KYX611",
+  "emitter_id": "01JQ3A7XW5K9J2N8M4P6R0T3V1",
+  "emitter_version": 2,
+  "occurred_at": "2026-07-12T10:15:29.100Z",
+  "kind": "trace.patch",
+  "trace_id": "tr_123",
+  "entity_id": "tr_123",
+  "data": {
+    "status": "completed",
+    "ended_at": "2026-07-12T10:15:29.050Z"
+  }
+}

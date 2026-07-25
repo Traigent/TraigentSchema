@@ -1,0 +1,355 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/observability_v2_error_schema.json",
+  "title": "Observability Ingest v2 Error",
+  "description": "Stable error taxonomy and HTTP error-response body for the v2 ingest protocol (14-observability-ingest-v2 §2.2/§3.1/§3.2/§7). Extends the canonical error envelope (success:false, message, error) with a machine-readable v2 `error_code`. Codes that surface as an HTTP response carry their ratified status (bound below); admission-terminal and SDK-side codes have no HTTP status and appear as EventStatusRecord.terminal_code / SDK diagnostics instead. See x-error-catalog for the full code -> {phase, http_status, retryable} table.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "manifest_safe",
+  "x-privacy-note": "Protocol-level refusal metadata only — a closed-enum error_code, its ratified http_status, an integer retry_after, and a message/details pair that are client-safe BY CONSTRUCTION (the backend builds these from the typed admission exception's own pre-written text, never from a raw exception or request payload). No user-authored content, no PII and no server internals reach this body, so it is safe to export to logs, telemetry and support tooling in full. Classified manifest_safe, matching the status response it pairs with, rather than aggregate_safe (nothing here is an aggregated statistic). `details` is an open object and is the one place this guarantee could be broken: producers MUST keep it to client-safe, structured diagnostics (e.g. {\"reason\": \"cross_ingest_reuse\"}), and any producer that needs to put user-controlled values there MUST annotate them x-content:true with their own x-privacy-classification instead of inheriting this one.",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Machine-readable error name the client can branch on. Stable, not a raw exception string."
+    },
+    "error_code": {
+      "$ref": "#/definitions/ErrorCode"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "description": "Human-readable, client-safe summary. No server internals."
+    },
+    "http_status": {
+      "type": "integer",
+      "enum": [
+        400,
+        409,
+        410,
+        413,
+        422,
+        429,
+        503
+      ],
+      "description": "HTTP status for HTTP-surfaced errors. Required and pinned for codes the design gives a status; omitted for admission-terminal / SDK-side codes."
+    },
+    "retry_after": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Seconds to wait before retrying the identical ingest_id/event_ids (Retry-After header value). Present for the 503/429 back-pressure codes."
+    },
+    "details": {
+      "type": "object",
+      "description": "Optional structured, client-safe diagnostics. MUST NOT contain server internals."
+    }
+  },
+  "required": [
+    "success",
+    "error",
+    "error_code",
+    "message"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "INGEST_ID_REUSE"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "required": [
+          "http_status"
+        ],
+        "properties": {
+          "http_status": {
+            "const": 409
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "EVENT_ID_REUSE"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "required": [
+          "http_status"
+        ],
+        "properties": {
+          "http_status": {
+            "const": 409
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "ENTITY_VERSION_COLLISION"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "required": [
+          "http_status"
+        ],
+        "properties": {
+          "http_status": {
+            "const": 409
+          }
+        },
+        "description": "Corrected binding (was previously grouped with the no-HTTP-binding admission-terminal codes below): the owner-decided option-d claim gate detects this atomically at ADMISSION time via the global claim table's revision UNIQUE constraint (14-observability-ingest-v2 admission-control migration), so it is a synchronous client-integrity error at the admission edge -- same family/status as INGEST_ID_REUSE / EVENT_ID_REUSE -- and NEVER a later materializer-terminal outcome. See x-error-catalog."
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "POSTGRES_ADMISSION_DEADLINE_EXCEEDED"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "required": [
+          "http_status",
+          "retry_after"
+        ],
+        "properties": {
+          "http_status": {
+            "const": 503
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "POSTGRES_ADMISSION_SLOW"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "required": [
+          "http_status",
+          "retry_after"
+        ],
+        "properties": {
+          "http_status": {
+            "const": 503
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "ADMISSION_BULKHEAD_SATURATED"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "required": [
+          "http_status",
+          "retry_after"
+        ],
+        "properties": {
+          "http_status": {
+            "const": 503
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "QUEUE_CAPACITY_EXHAUSTED"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "required": [
+          "http_status",
+          "retry_after"
+        ],
+        "properties": {
+          "http_status": {
+            "const": 429
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "SNAPSHOT_PROTOCOL_RETIRED"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "required": [
+          "http_status"
+        ],
+        "properties": {
+          "http_status": {
+            "const": 410
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "enum": [
+              "PENDING_VERSION_LIMIT",
+              "VERSION_GAP",
+              "VERSION_GAP_EXPIRED",
+              "EVENT_ID_EXPIRED",
+              "OUTBOX_FULL"
+            ]
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "http_status": false,
+          "retry_after": false
+        },
+        "description": "Admission-terminal and SDK-side codes have no HTTP binding in the design; they MUST NOT carry an http_status or retry_after. They surface as EventStatusRecord.terminal_code / SDK diagnostics, not as an HTTP error body with a status. ENTITY_VERSION_COLLISION is NOT in this group (see its own dedicated allOf entry above) -- unlike these, it is detected synchronously at admission, not at materialization."
+      }
+    }
+  ],
+  "definitions": {
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "INGEST_ID_REUSE",
+        "EVENT_ID_REUSE",
+        "ENTITY_VERSION_COLLISION",
+        "PENDING_VERSION_LIMIT",
+        "VERSION_GAP",
+        "VERSION_GAP_EXPIRED",
+        "POSTGRES_ADMISSION_DEADLINE_EXCEEDED",
+        "POSTGRES_ADMISSION_SLOW",
+        "ADMISSION_BULKHEAD_SATURATED",
+        "QUEUE_CAPACITY_EXHAUSTED",
+        "EVENT_ID_EXPIRED",
+        "OUTBOX_FULL",
+        "SNAPSHOT_PROTOCOL_RETIRED"
+      ],
+      "description": "The stable v2 error/terminal-reason taxonomy."
+    }
+  },
+  "x-error-catalog": {
+    "INGEST_ID_REUSE": {
+      "phase": "admission-http",
+      "http_status": 409,
+      "retryable": false
+    },
+    "EVENT_ID_REUSE": {
+      "phase": "admission-http",
+      "http_status": 409,
+      "retryable": false
+    },
+    "ENTITY_VERSION_COLLISION": {
+      "phase": "admission-http",
+      "http_status": 409,
+      "retryable": false
+    },
+    "PENDING_VERSION_LIMIT": {
+      "phase": "materializer-terminal",
+      "http_status": null,
+      "retryable": false
+    },
+    "VERSION_GAP": {
+      "phase": "materializer-terminal",
+      "http_status": null,
+      "retryable": false
+    },
+    "VERSION_GAP_EXPIRED": {
+      "phase": "materializer-terminal",
+      "http_status": null,
+      "retryable": false
+    },
+    "POSTGRES_ADMISSION_DEADLINE_EXCEEDED": {
+      "phase": "admission-http",
+      "http_status": 503,
+      "retryable": true
+    },
+    "POSTGRES_ADMISSION_SLOW": {
+      "phase": "admission-http",
+      "http_status": 503,
+      "retryable": true
+    },
+    "ADMISSION_BULKHEAD_SATURATED": {
+      "phase": "admission-http",
+      "http_status": 503,
+      "retryable": true
+    },
+    "QUEUE_CAPACITY_EXHAUSTED": {
+      "phase": "admission-http",
+      "http_status": 429,
+      "retryable": true
+    },
+    "EVENT_ID_EXPIRED": {
+      "phase": "admission-http",
+      "http_status": null,
+      "retryable": false
+    },
+    "OUTBOX_FULL": {
+      "phase": "sdk-side",
+      "http_status": null,
+      "retryable": false
+    },
+    "SNAPSHOT_PROTOCOL_RETIRED": {
+      "phase": "protocol-retirement",
+      "http_status": 410,
+      "retryable": false
+    }
+  }
+}

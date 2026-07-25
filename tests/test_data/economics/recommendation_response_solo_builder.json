@@ -1,0 +1,52 @@
+{
+  "contract": "economics_recommendation",
+  "contract_version": "1.0.0",
+  "request_id": "econrec-req-solo-0001",
+  "computed_at": "2026-07-18T09:00:00Z",
+  "formula_identity": {
+    "formula_version": "econ-formula-v0",
+    "assumption_set_version": "econ-assumptions-v0",
+    "assumptions_are_starting_assumptions": true,
+    "published_reference": "econ-formula-doc-v0"
+  },
+  "archetype": "solo_coding_builder",
+  "dominant_value_channel": "save_expert_time",
+  "budget": {
+    "recommended_daily_usd": 12.0,
+    "floor_usd": 5.0,
+    "cap_usd": 50.0,
+    "floor_cap_are_starting_assumptions": true,
+    "basis": {
+      "method": "clamp_floor_cap_fraction_of_conservative_realized_value",
+      "uses_conservative_lower_bound": true,
+      "value_lower_bound": {"estimate": 640.0, "lower": 168.0, "upper": 1120.0, "level": 0.9, "unit": "usd"}
+    }
+  },
+  "payback": {
+    "is_lower_bound_positive": true,
+    "payback_days": 4.2,
+    "conservative_daily_realized_value_usd": 12.0,
+    "explanation": [
+      {"component": "avoided_bad_promotion_payback", "usd_value": 100.0, "number_value": 1.2, "unit": "count", "emphasis": "lower_bound"},
+      {"component": "labor_saved_estimate", "usd_value": 90.0, "unit": "usd", "references_field": "human_cycle_hours_band", "emphasis": "lower_bound"}
+    ]
+  },
+  "stop_rule": {
+    "rule": "continue_while_evsi_plus_lower_bound_exceeds_next_cost",
+    "next_experiment_cost_usd": 10.0
+  },
+  "required_receipt": {"receipt_kind": "winner"},
+  "spend_zero_case": {
+    "available": true,
+    "explanation": [{"component": "spend_zero_always_available"}]
+  },
+  "why": [
+    {"component": "dominant_value_channel", "references_field": "value_channel"},
+    {"component": "daily_volume_drives_scale", "references_field": "daily_volume_band"},
+    {"component": "conservative_lower_bound_leads", "emphasis": "lower_bound"},
+    {"component": "budget_is_fraction_of_lower_bound_value", "usd_value": 168.0, "unit": "usd", "emphasis": "lower_bound"},
+    {"component": "archetype_sets_floor_and_cap"},
+    {"component": "receipt_required_before_value_counts"},
+    {"component": "assumptions_are_starting_not_validated"}
+  ]
+}

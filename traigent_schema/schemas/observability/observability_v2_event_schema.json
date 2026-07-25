@@ -1,0 +1,516 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/observability_v2_event_schema.json",
+  "title": "Observability Ingest v2 Event",
+  "description": "The canonical message unit of the v2 versioned-delta ingest protocol (14-observability-ingest-v2 §2.1/§2.2). One event is one broker message. Every event carries the common envelope fields plus a `data` delta whose shape is selected by `kind`. Tenant/project scope is NEVER a client field — it is derived from the authenticated credential. The per-entity revision authority is the SDK: (entity_id, emitter_id, emitter_version) is contiguous per emitter from 1. Event bodies are capped at 64 KiB after canonicalization; large input/output is an object reference, never inline.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-max-event-bytes": 65536,
+  "properties": {
+    "event_id": {
+      "$ref": "#/definitions/MonotonicId"
+    },
+    "emitter_id": {
+      "$ref": "#/definitions/MonotonicId"
+    },
+    "emitter_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Per-entity revision allocated by the emitter's durable local outbox; contiguous from 1 per (entity_id, emitter_id). A value greater than last_emitter_version + 1 is admitted as PENDING_VERSION."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Client-side event time (RFC-3339)."
+    },
+    "kind": {
+      "$ref": "#/definitions/EventKind"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Client trace identifier the event belongs to."
+    },
+    "entity_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Stable entity the revision applies to: trace_id for trace.* / reparent, observation_id for observation.upsert, deterministic link_id for prompt_link.*."
+    },
+    "data": {
+      "type": "object",
+      "description": "Kind-specific delta body. Its concrete shape is bound by the allOf branches below."
+    }
+  },
+  "required": [
+    "event_id",
+    "emitter_id",
+    "emitter_version",
+    "occurred_at",
+    "kind",
+    "trace_id",
+    "entity_id",
+    "data"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "trace.upsert"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/definitions/TraceUpsertData"
+          },
+          "entity_id": {
+            "x-equal-to": "#/properties/trace_id"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "trace.patch"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/definitions/TracePatchData"
+          },
+          "entity_id": {
+            "x-equal-to": "#/properties/trace_id"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "observation.upsert"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/definitions/ObservationUpsertData"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "prompt_link.upsert"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/definitions/PromptLinkUpsertData"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "prompt_link.delete"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/definitions/PromptLinkDeleteData"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "trace.reparent"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/definitions/TraceReparentData"
+          },
+          "entity_id": {
+            "x-equal-to": "#/properties/trace_id"
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "MonotonicId": {
+      "description": "Time-ordered unique identifier: a 26-char Crockford-base32 ULID or a hyphenated UUID (UUIDv7-like). Stable across local-outbox retry. Used for ingest_id, event_id, and emitter_id.",
+      "type": "string",
+      "maxLength": 36,
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+          "description": "ULID (Crockford base32, excludes I/L/O/U)."
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "UUID (any version; v7 recommended for time-ordering)."
+        }
+      ]
+    },
+    "Sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64,
+      "description": "Lowercase hex SHA-256 digest."
+    },
+    "EventKind": {
+      "type": "string",
+      "enum": [
+        "trace.upsert",
+        "trace.patch",
+        "observation.upsert",
+        "prompt_link.upsert",
+        "prompt_link.delete",
+        "trace.reparent"
+      ],
+      "description": "The six v2 event kinds (14-observability-ingest-v2 §2.2)."
+    },
+    "DecimalString": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$",
+      "maxLength": 32,
+      "description": "Non-negative decimal carried as a string to preserve precision (e.g. cost \"0.001104\")."
+    },
+    "InlineContent": {
+      "description": "Small inline user-controlled input/output content carried directly in the event body (permissive JSON: string / object / array / scalar / null). String content is bounded per field and the whole event is additionally capped at 64 KiB after canonicalization (x-max-event-bytes). Content that would exceed the event cap MUST use the object reference (input_ref/output_ref) instead of being inlined.",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 65536
+        },
+        {
+          "type": "object"
+        },
+        {
+          "type": "array"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ObservationType": {
+      "type": "string",
+      "enum": [
+        "span",
+        "generation",
+        "event",
+        "tool_call",
+        "agent",
+        "chain",
+        "tool",
+        "retriever",
+        "evaluator",
+        "embedding",
+        "guardrail"
+      ],
+      "description": "Observation kind; full set the backend ObservationType accepts."
+    },
+    "TraceUpsertData": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "trace.upsert creates the trace shell and its creation fields. A trace.upsert/patch that sets session_id triggers server-side session attribution (§2.3).",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus"
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "user_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "environment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "release": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "custom_trace_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "maxItems": 256
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Opaque user-supplied annotations. Do NOT place structured platform data here — correlation_ids and prompt_reference are dedicated fields."
+        },
+        "input_ref": {
+          "$ref": "./observability_v2_object_reference_schema.json"
+        },
+        "output_ref": {
+          "$ref": "./observability_v2_object_reference_schema.json"
+        },
+        "input": {
+          "$ref": "#/definitions/InlineContent"
+        },
+        "output": {
+          "$ref": "#/definitions/InlineContent"
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "correlation_ids": {
+          "$ref": "./correlation_ids_schema.json"
+        },
+        "prompt_reference": {
+          "$ref": "./prompt_reference_schema.json"
+        }
+      }
+    },
+    "TracePatchData": {
+      "$ref": "#/definitions/TraceUpsertData"
+    },
+    "ObservationUpsertData": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "observation.upsert creates or patches one observation (entity_id is the observation_id). Counters (tokens/cost/latency) are applied additively server-side.",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/ObservationType"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "status": {
+          "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus"
+        },
+        "parent_observation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "started_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "$ref": "#/definitions/DecimalString"
+        },
+        "model_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "tool_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "input_ref": {
+          "$ref": "./observability_v2_object_reference_schema.json"
+        },
+        "output_ref": {
+          "$ref": "./observability_v2_object_reference_schema.json"
+        },
+        "input": {
+          "$ref": "#/definitions/InlineContent"
+        },
+        "output": {
+          "$ref": "#/definitions/InlineContent"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Opaque user-supplied annotations."
+        },
+        "correlation_ids": {
+          "$ref": "./correlation_ids_schema.json"
+        },
+        "prompt_reference": {
+          "$ref": "./prompt_reference_schema.json"
+        }
+      }
+    },
+    "PromptLinkUpsertData": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "prompt_link.upsert changes one named link (entity_id is the deterministic link_id derived from scope, trace, optional observation, and prompt identity).",
+      "properties": {
+        "prompt": {
+          "$ref": "./prompt_reference_schema.json"
+        },
+        "observation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "prompt"
+      ]
+    },
+    "PromptLinkDeleteData": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "prompt_link.delete removes one named link. The link is fully identified by entity_id (the deterministic link_id); no body fields are required.",
+      "properties": {}
+    },
+    "TraceReparentData": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "trace.reparent moves one trace between sessions (§2.3). The trace's absolute contribution is subtracted from from_session_id and added to to_session_id under the trace-mapping lock.",
+      "properties": {
+        "from_session_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "description": "Prior session; null if the trace was previously UNATTRIBUTED."
+        },
+        "to_session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "New session the trace is attributed to."
+        }
+      },
+      "required": [
+        "to_session_id"
+      ]
+    }
+  }
+}

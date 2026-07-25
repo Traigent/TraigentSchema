@@ -1,0 +1,21 @@
+{
+  "event_id": "01JQ3AA05JRZ0CN5Z2S9KYX612",
+  "emitter_id": "01JQ3A7XW5K9J2N8M4P6R0T3V1",
+  "emitter_version": 3,
+  "occurred_at": "2026-07-12T10:15:28.001Z",
+  "kind": "observation.upsert",
+  "trace_id": "tr_123",
+  "entity_id": "obs_llm_1",
+  "data": {
+    "type": "generation",
+    "name": "llm_call",
+    "status": "completed",
+    "parent_observation_id": "obs_root",
+    "latency_ms": 842,
+    "input_tokens": 300,
+    "output_tokens": 68,
+    "total_tokens": 368,
+    "cost_usd": "0.001104",
+    "model_name": "gpt-4o-mini"
+  }
+}

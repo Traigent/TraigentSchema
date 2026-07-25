@@ -1,0 +1,19 @@
+{
+  "protocol_version": "2.0",
+  "ingest_id": "01JQ3A8T6CH3A7XVJQ1E2M8SNQ",
+  "source": "traigent-python/1.18.0",
+  "tenant_id": "tenant_evil",
+  "project_id": "proj_evil",
+  "events": [
+    {
+      "event_id": "01JQ3A8V5JRZ0CN5Z2S9KYX6KA",
+      "emitter_id": "01JQ3A7XW5K9J2N8M4P6R0T3V1",
+      "emitter_version": 1,
+      "occurred_at": "2026-07-12T10:15:28.001Z",
+      "kind": "trace.patch",
+      "trace_id": "tr_123",
+      "entity_id": "tr_123",
+      "data": {"status": "completed"}
+    }
+  ]
+}

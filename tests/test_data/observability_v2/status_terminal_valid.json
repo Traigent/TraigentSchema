@@ -1,0 +1,30 @@
+{
+  "ingest_id": "01JQ3A8T6CH3A7XVJQ1E2M8SNQ",
+  "protocol_version": "2.0",
+  "manifest_state": "PARTIALLY_DEAD_LETTERED",
+  "events_detail_available": true,
+  "events": [
+    {
+      "event_id": "01JQ3A8V5JRZ0CN5Z2S9KYX6KA",
+      "state": "MATERIALIZED",
+      "event_hash": "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff00",
+      "attempted_count": 1,
+      "capacity_disposition": "CONSUMED",
+      "quota_disposition": "CONSUMED",
+      "terminal_reason": null,
+      "terminal_code": null,
+      "replay_owner": null
+    },
+    {
+      "event_id": "01JQ3A8V5JRZ0CN5Z2S9KYX6KB",
+      "state": "DEAD_LETTERED",
+      "event_hash": "00ffeeddccbbaa998877665544332211009f8e7d6c5b4a39281706f5e4d3c2b1",
+      "attempted_count": 5,
+      "capacity_disposition": "RELEASED",
+      "quota_disposition": "RELEASED",
+      "terminal_reason": "pending-version store cap exceeded for this entity",
+      "terminal_code": "PENDING_VERSION_LIMIT",
+      "replay_owner": "platform"
+    }
+  ]
+}

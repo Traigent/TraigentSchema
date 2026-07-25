@@ -1,0 +1,19 @@
+{
+  "ingest_id": "01JQ3A8T6CH3A7XVJQ1E2M8SNQ",
+  "protocol_version": "2.0",
+  "manifest_state": "COMPLETED",
+  "events_detail_available": false,
+  "events": [
+    {
+      "event_id": "01JQ3A8V5JRZ0CN5Z2S9KYX6KA",
+      "state": "MATERIALIZED",
+      "event_hash": "a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff00",
+      "attempted_count": 1,
+      "capacity_disposition": "CONSUMED",
+      "quota_disposition": "CONSUMED",
+      "terminal_reason": null,
+      "terminal_code": null,
+      "replay_owner": null
+    }
+  ]
+}

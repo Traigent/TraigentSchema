@@ -1,0 +1,35 @@
+{
+  "protocol_version": "2.0",
+  "ingest_id": "01JQ3A8T6CH3A7XVJQ1E2M8SNR",
+  "source": "traigent-python/1.18.0",
+  "events": [
+    {
+      "event_id": "01JQ3A9V5JRZ0CN5Z2S9KYX600",
+      "emitter_id": "01JQ3A7XW5K9J2N8M4P6R0T3AA",
+      "emitter_version": 1,
+      "occurred_at": "2026-07-12T10:15:28.001Z",
+      "kind": "observation.upsert",
+      "trace_id": "tr_777",
+      "entity_id": "obs_shared",
+      "data": {
+        "type": "generation",
+        "input_tokens": 100,
+        "cost_usd": "0.000500"
+      }
+    },
+    {
+      "event_id": "01JQ3A9V5JRZ0CN5Z2S9KYX601",
+      "emitter_id": "01JQ3A7XW5K9J2N8M4P6R0T3BB",
+      "emitter_version": 1,
+      "occurred_at": "2026-07-12T10:15:28.050Z",
+      "kind": "observation.upsert",
+      "trace_id": "tr_777",
+      "entity_id": "obs_shared",
+      "data": {
+        "type": "generation",
+        "output_tokens": 42,
+        "cost_usd": "0.000210"
+      }
+    }
+  ]
+}

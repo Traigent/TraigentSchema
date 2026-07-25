@@ -1,0 +1,46 @@
+{
+  "contract": "economics_recommendation",
+  "contract_version": "1.0.0",
+  "request_id": "econrec-req-support-0002",
+  "submitted_at": "2026-07-18T09:05:00Z",
+  "source": {"kind": "coding_agent", "name": "coding-agent", "version": "1.4.2"},
+  "characterization": {
+    "bands": {
+      "value_channel": "replace_manual_operations",
+      "daily_volume_band": "1k_to_99k",
+      "error_cost_band": "escalation_50_to_5k_usd",
+      "lifecycle_stage": "full_production_we_pay",
+      "human_cycle_hours_band": "8_to_40h"
+    },
+    "overrides": {
+      "value_per_task_usd": 6.0,
+      "observed_daily_volume": 12000,
+      "human_minutes_per_example": 5
+    },
+    "field_reports": [
+      {"field": "value_channel", "provenance": "asked", "confidence": 1.0, "sharing_outcome": "shared"},
+      {"field": "error_cost_band", "provenance": "asked", "confidence": 1.0, "sharing_outcome": "shared"},
+      {"field": "daily_volume_band", "provenance": "inferred", "confidence": 0.9, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "gateway_meter_completions_daily"},
+      {"field": "lifecycle_stage", "provenance": "inferred", "confidence": 0.85, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "traces_production_api_key_present"},
+      {"field": "human_cycle_hours_band", "provenance": "asked", "confidence": 1.0, "sharing_outcome": "shared"},
+      {"field": "value_per_task_usd", "provenance": "asked", "confidence": 1.0, "sharing_outcome": "shared"},
+      {"field": "observed_daily_volume", "provenance": "inferred", "confidence": 0.9, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "gateway_meter_14d_mean"},
+      {"field": "human_minutes_per_example", "provenance": "asked", "confidence": 1.0, "sharing_outcome": "shared"}
+    ],
+    "sharing_policy_version": "sharing-policy-v0",
+    "asked_count": 2
+  },
+  "sharing_policy": {
+    "policy_version": "sharing-policy-v0",
+    "allowlist": [
+      "value_channel",
+      "daily_volume_band",
+      "error_cost_band",
+      "lifecycle_stage",
+      "human_cycle_hours_band",
+      "value_per_task_usd",
+      "observed_daily_volume",
+      "human_minutes_per_example"
+    ]
+  }
+}

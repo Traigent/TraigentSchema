@@ -1,0 +1,10 @@
+{
+  "success": false,
+  "error": "event_id_reuse",
+  "error_code": "EVENT_ID_REUSE",
+  "message": "An event with this event_id was already admitted with a different payload hash. A same-id, different-hash retry is a client integrity error; do not mint a replacement id.",
+  "http_status": 409,
+  "details": {
+    "event_id": "01JQ3A8V5JRZ0CN5Z2S9KYX6KA"
+  }
+}

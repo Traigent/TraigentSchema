@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "error": "snapshot_protocol_retired",
+  "error_code": "SNAPSHOT_PROTOCOL_RETIRED",
+  "message": "The v1beta observability snapshot protocol is retired. Upgrade to the v2 SDK and send versioned deltas to POST /api/v2/observability/events.",
+  "http_status": 410
+}

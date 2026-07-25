@@ -1,0 +1,46 @@
+{
+  "contract": "economics_recommendation",
+  "contract_version": "1.0.0",
+  "request_id": "econrec-req-withheld-0003",
+  "computed_at": "2026-07-18T09:10:00Z",
+  "formula_identity": {
+    "formula_version": "econ-formula-v0",
+    "assumption_set_version": "econ-assumptions-v0",
+    "assumptions_are_starting_assumptions": true
+  },
+  "archetype": "undetermined",
+  "dominant_value_channel": "save_expert_time",
+  "budget": {
+    "recommended_daily_usd": 5.0,
+    "floor_usd": 5.0,
+    "cap_usd": 50.0,
+    "floor_cap_are_starting_assumptions": true,
+    "basis": {
+      "method": "spend_zero_no_positive_lower_bound",
+      "uses_conservative_lower_bound": true,
+      "value_lower_bound": {"estimate": 40.0, "lower": -60.0, "upper": 220.0, "level": 0.9, "unit": "usd"}
+    }
+  },
+  "payback": {
+    "is_lower_bound_positive": false,
+    "conservative_daily_realized_value_usd": -4.3,
+    "explanation": [
+      {"component": "spend_zero_always_available"},
+      {"component": "conservative_lower_bound_leads", "emphasis": "lower_bound"}
+    ]
+  },
+  "stop_rule": {"rule": "stop_when_realized_value_nonpositive"},
+  "required_receipt": {"receipt_kind": "winner"},
+  "spend_zero_case": {
+    "available": true,
+    "explanation": [
+      {"component": "spend_zero_always_available"},
+      {"component": "assumptions_are_starting_not_validated"}
+    ]
+  },
+  "why": [
+    {"component": "conservative_lower_bound_leads", "emphasis": "lower_bound"},
+    {"component": "spend_zero_always_available"},
+    {"component": "assumptions_are_starting_not_validated"}
+  ]
+}

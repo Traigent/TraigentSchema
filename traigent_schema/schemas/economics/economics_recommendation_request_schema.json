@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_recommendation_request_schema.json",
+  "title": "Economics recommendation request (closed characterization submission)",
+  "description": "The ONLY way agent-economics characterization reaches Traigent's recommendation endpoint: a CLOSED submission an agent posts to POST /api/v1/economics/recommendation. It carries the five closed band fields and their optional typed overrides, per-field provenance / confidence / evidence accounting, a presentation-only agent display name, and a client-side sharing policy that decides which fields ever leave the machine. It is the intake half of the calculator; the backend-authoritative recommendation is the response contract. Nothing outside this schema can be submitted (additionalProperties:false at every boundary), and no free-form raw survey or user content can ride along: every characterization value is a closed enum member or a typed, bounded number. The characterization payload reuses the WI-B telemetry characterization object so the closed-pipe egress guarantees (a withheld field is absent from the transmitted value area, a transmitted value carries a shared report, a shared report carries its value) are the SAME pipe here as in telemetry rather than a second, drifting restatement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "contract_version",
+    "request_id",
+    "submitted_at",
+    "source",
+    "characterization",
+    "sharing_policy"
+  ],
+  "properties": {
+    "contract": {
+      "type": "string",
+      "const": "economics_recommendation",
+      "maxLength": 32,
+      "description": "Stable identifier of the recommendation contract family. Distinct from the `economics_telemetry` contract const so a telemetry batch cannot be mistaken for a recommendation submission and vice versa; a payload that does not name this contract is rejected. maxLength is redundant with the const but satisfies the #138 request-string input-hardening lint."
+    },
+    "contract_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "maxLength": 16,
+      "description": "Stable version of the recommendation contract. The endpoint rejects unknown versions rather than best-effort parsing them; a breaking change ships a new const value. maxLength is redundant with the const but satisfies the #138 request-string input-hardening lint."
+    },
+    "request_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "Agent-generated id for this submission, echoed in the response so a recommendation can be joined back to the request that produced it. Opaque: carries no prompt, example, or customer content."
+    },
+    "submitted_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+    "source": {"$ref": "./economics_common_schema.json#/definitions/Source"},
+    "agent_display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]{1,80}(?![\\s\\S])",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "PRESENTATION ONLY. The name the coding agent uses for the user's agent when it renders the recommendation (e.g. 'your QA agent'). It exists so the synchronous response can be rendered in the user's own terms; it is NOT a characterization value, has no analytic use, and MUST NOT be persisted, logged, or forwarded to telemetry (see x-backend-obligations). It is barred from telemetry by construction: it is not a member of the CharacterizationFieldName allowlist, so the WI-B telemetry contract cannot carry it. Optional: an agent that does not name the user's agent simply omits it. Bounded and control-character-free (the pattern excludes C0 controls and DEL and anchors the tail with a negative lookahead so a trailing newline cannot smuggle a second line) so it cannot become a free-text egress channel; it is still user-authored, hence user_content."
+    },
+    "characterization": {
+      "allOf": [{"$ref": "./economics_run_event_schema.json#/definitions/CharacterizationTelemetry"}],
+      "description": "The closed characterization: the five bands, the optional typed overrides, and one per-field report per determined field (provenance asked|inferred|defaulted, confidence, sharing outcome, and evidence accounting). Reused verbatim from the WI-B telemetry characterization object so the closed-pipe rules are identical: (egress) a field reported withheld_by_policy is ABSENT from bands/overrides; (coverage) a transmitted value carries a shared report; (substance) a shared report carries its value; (evidence) an inferred value accounts for its evidence, and a withheld pointer cannot ride along. Which bands a recommendation actually requires to compute is the backend's judgement (see x-backend-obligations), not a contract requirement — an under-specified submission is answered with a spend-$0 / undetermined recommendation or a 422, never by inventing values."
+    },
+    "sharing_policy": {"$ref": "#/definitions/SharingPolicy"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["bands"], "properties": {"bands": {"required": ["value_channel"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "value_channel"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["bands"], "properties": {"bands": {"required": ["daily_volume_band"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "daily_volume_band"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["bands"], "properties": {"bands": {"required": ["error_cost_band"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "error_cost_band"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["bands"], "properties": {"bands": {"required": ["lifecycle_stage"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "lifecycle_stage"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["bands"], "properties": {"bands": {"required": ["human_cycle_hours_band"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "human_cycle_hours_band"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["overrides"], "properties": {"overrides": {"required": ["value_per_task_usd"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "value_per_task_usd"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["overrides"], "properties": {"overrides": {"required": ["loss_per_bad_output_usd"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "loss_per_bad_output_usd"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["overrides"], "properties": {"overrides": {"required": ["observed_daily_volume"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "observed_daily_volume"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["overrides"], "properties": {"overrides": {"required": ["forecast_daily_volume"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "forecast_daily_volume"}}}}}}
+    },
+    {
+      "if": {
+        "required": ["characterization"],
+        "properties": {"characterization": {"required": ["overrides"], "properties": {"overrides": {"required": ["human_minutes_per_example"]}}}}
+      },
+      "then": {"properties": {"sharing_policy": {"required": ["allowlist"], "properties": {"allowlist": {"contains": {"const": "human_minutes_per_example"}}}}}}
+    }
+  ],
+  "definitions": {
+    "SharingPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_version", "allowlist"],
+      "properties": {
+        "policy_version": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
+          "description": "Version of the client-side sharing policy that produced the sharing outcomes in characterization.field_reports. So the withholding rate can be attributed to a specific policy."
+        },
+        "allowlist": {
+          "type": "array",
+          "items": {"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/CharacterizationFieldName"},
+          "uniqueItems": true,
+          "maxItems": 10,
+          "description": "The characterization fields the client's sharing policy permits to LEAVE the machine. Withholding is structural: a field NOT on this allowlist may not occupy the transmitted value area — it is absent from characterization.bands/overrides (its value stays local) and at most recorded withheld_by_policy in field_reports (safe outcome metadata that carries no value). The request-level `allOf` enforces the binding per field: a value present in bands/overrides REQUIRES its field on this allowlist, so a transmitted value for a non-allowlisted field is unrepresentable rather than a policy bug caught downstream. An empty allowlist is honest and fully representable: the client shares nothing, every determined field is reported withheld_by_policy, and the recommendation still returns the spend-$0 case. Bounded to the ten allowlisted field names; the enum membership is the vocabulary's, not restated here."
+        }
+      },
+      "description": "The client-side sharing policy: the version that ran and the allowlist of fields permitted to egress. This is the DEFINITION of the policy (which the telemetry characterization object deliberately does not carry — it carries only the per-field OUTCOMES). Enforced client-side; the backend is not an enforcement point and must never reconstruct a withheld value (see x-backend-obligations)."
+    }
+  },
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
+  "x-backend-obligations": [
+    "TENANT/PROJECT FROM CONTEXT: the tenant and project this submission belongs to are resolved from the authenticated request context, NOT from the body. The contract carries no tenant or project field precisely so a client cannot assert ownership of one; a recommendation is scoped to the caller's authenticated context.",
+    "SHARING POLICY IS CLIENT-ENFORCED: the client is the single enforcement point for field-level sharing. The backend must NOT infer, reconstruct, or backfill a withheld value from other fields — a field absent under an allowlist that excludes it is withheld by design, not missing data to be filled in.",
+    "AGENT DISPLAY NAME IS EPHEMERAL: agent_display_name is presentation-only user content. It MUST NOT be persisted, written to logs, echoed in errors, or forwarded to any telemetry/analytics sink; it exists only for the duration of forming the synchronous response and is then dropped. It is already barred from the WI-B telemetry contract by not being an allowlisted CharacterizationFieldName.",
+    "SUFFICIENCY IS A BACKEND JUDGEMENT: which bands are required to compute a usable recommendation (the design's minimum is Q1 value_channel and Q3 error_cost_band) is decided by the backend, not the contract. An under-specified or all-withheld submission is answered with an `undetermined` archetype / spend-$0 recommendation, or rejected 422 — never by inventing or defaulting a value the client withheld.",
+    "NO PRICING/CREDIT INPUT: the recommendation must be independent of pricing, credits, sales incentives, and wallet/billing state. This contract declares no such input field (additionalProperties:false blocks any), so the recommendation cannot be computed as a function of one; the backend must likewise not join billing/credit state into the computation."
+  ],
+  "x-traigent-note": "Contract-first per the workspace cross-repo rule: this schema lands before the backend recommendation service and the MCP survey tool exist. It is registered under the planned (non-canonical) contract root and is NOT asserted against backend parity. Presentation phrasing and MCP transport mechanics are deliberately out of scope: the closed submission is the commitment; how the agent word the questions is the open presentation layer, and how the MCP tool frames the call is transport."
+}

@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.11.0] - 2026-07-18
+
+### Added
+- **Economics recommendation calculator contract (contract-first, pre-release).** The closed
+  characterization submission and the backend-authoritative recommendation for a new canonical
+  route `POST /api/v1/economics/recommendation`, published ahead of the backend recommendation
+  service and the MCP survey tool per the cross-repo rule that request/response shapes start in
+  TraigentSchema. Added to the existing `planned_projects` (non-canonical) economics catalog and
+  marked `x-asserted-against-backend: false` — no backend serves it yet. The route documents 200
+  (recommendation computed), 400/422 (validation), 401/403 (auth), and 503 (service unavailable).
+  - **Closed characterization submission** (`economics_recommendation_request_schema.json`): the
+    five closed band fields and their optional typed overrides (reused from the characterization
+    vocabulary by `$ref`, never restated), each with per-field `asked | inferred | defaulted`
+    provenance, required confidence, and evidence accounting. The characterization payload reuses
+    the WI-B telemetry characterization object so the closed-pipe egress rules are the SAME pipe
+    here as in telemetry rather than a second, drifting restatement: a field reported
+    `withheld_by_policy` is ABSENT from the transmitted value area, a transmitted value carries a
+    `shared` report, a `shared` report carries its value, and an inferred value accounts for its
+    evidence (a withheld pointer cannot ride along). `additionalProperties: false` at every object
+    boundary; no free-form raw survey/user content is representable.
+  - **Structural client-side sharing policy.** A `sharing_policy` with a `policy_version` and an
+    `allowlist` of the fields permitted to egress. Withholding is structural, not advisory: a
+    value present in the transmitted value area REQUIRES its field on the allowlist (enforced per
+    field), so a transmitted value for a non-allowlisted field is unrepresentable. An empty
+    allowlist (share nothing, all fields reported `withheld_by_policy`) is honest and fully
+    representable, and the recommendation still returns the spend-$0 case.
+  - **Presentation-only `agent_display_name`.** Bounded and control-character-free (so it cannot
+    become a free-text egress channel) and tagged `x-content` / `x-privacy-classification:
+    user_content`. It is not an allowlisted characterization field, so the WI-B telemetry contract
+    cannot carry it; a backend obligation declares it ephemeral — never persisted, logged, or
+    forwarded to telemetry.
+  - **Backend-authoritative recommendation** (`economics_recommendation_response_schema.json`):
+    versioned formula/assumption identity with a required `assumptions_are_starting_assumptions:
+    true` label; archetype and dominant value channel (vocabulary `$ref`); a recommended daily
+    build budget with archetype floor/cap (labelled starting assumptions, `const`-guarded) and a
+    conservative-lower-bound basis carrying the value interval with its level; a structured
+    payback statement where `payback_days` exists ONLY on a positive conservative lower bound and
+    is forbidden otherwise; a closed stop rule; the required receipt kind (reused from the receipt
+    contract by `$ref`); a first-class spend-$0 case that is ALWAYS present with `available: const
+    true`; and a required, non-empty, bounded `why` of STRUCTURED, closed-vocabulary render tokens
+    the coding agent turns into prose in the user's own terms (their value channel, volume band,
+    error-cost band). No render token can claim an assumption was validated — the only
+    validation-status token is `assumptions_are_starting_not_validated`.
+  - **Independence from funding and pricing.** The recommendation is independent of credits,
+    incentives, grants, promotional balances, wallet/billing state, and pricing: no such field is
+    declared or representable in either contract (`additionalProperties: false` blocks any), so the
+    recommendation cannot be a function of that state. Budget floors/caps are labelled starting
+    assumptions, NOT funded amounts — funding (the seven-day credit envelope) is the separate WI-D
+    owner-gated decision and is deliberately out of scope here.
+  - **Deterministic offline fixture vectors** (`tests/test_data/economics/`): canonical
+    request/response pairs (solo builder, support automation, and an all-withheld submission that
+    maps to a spend-$0 recommendation) that both the offline path and the backend agree on. They
+    are static vectors paired by echoed `request_id` and carry no computation implementation.
+
 ## [4.10.0] - 2026-07-17
 
 ### Added

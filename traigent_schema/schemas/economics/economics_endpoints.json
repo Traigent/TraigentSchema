@@ -1,13 +1,45 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Economics Telemetry Routes",
+    "title": "Traigent Economics Routes",
     "version": "1.0.0",
-    "description": "Planned tenant-scoped economics telemetry ingestion. Contract-first: this route is published here before TraigentBackend ingestion and SDK emission exist, per the workspace rule that request/response shapes start in TraigentSchema. It is NOT asserted against backend parity."
+    "description": "Planned tenant-scoped economics routes: telemetry ingestion (exposure funnel, run economics, receipts) and the recommendation calculator (closed characterization submission in, backend-authoritative recommendation out). Contract-first: these routes are published here before TraigentBackend ingestion / computation and SDK emission exist, per the workspace rule that request/response shapes start in TraigentSchema. Neither is asserted against backend parity."
   },
   "x-stability": "pre-release",
   "x-asserted-against-backend": false,
   "paths": {
+    "/api/v1/economics/recommendation": {
+      "post": {
+        "summary": "Compute an economics recommendation from a closed characterization submission",
+        "description": "Accepts one closed characterization submission (the five bands, optional typed overrides, per-field provenance/confidence/evidence, a presentation-only agent display name, and the client-side sharing policy) and returns the backend-authoritative recommendation: archetype, dominant value channel, recommended daily build budget with floor/cap and a conservative lower-bound basis, a structured payback statement, stop rule, required receipt, the first-class spend-$0 case, and a structured `why` the agent renders in the user's own terms. The recommendation is independent of pricing, credits, sales incentives, and wallet/billing state, and every dollar figure is a labelled starting assumption. Tenant/project are resolved from the authenticated context; the body carries no tenant field.",
+        "operationId": "computeEconomicsRecommendation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "./economics_recommendation_request_schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recommendation computed. The body is the backend-authoritative recommendation and always carries the spend-$0 case.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "./economics_recommendation_response_schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Malformed submission, or unknown contract/version."},
+          "401": {"description": "Authentication required."},
+          "403": {"description": "Insufficient permission to request a recommendation for this scope."},
+          "422": {"description": "The submission is well-formed but the shared characterization is insufficient to compute a usable recommendation (e.g. every decision-relevant band was withheld); no recommendation is fabricated from withheld values."},
+          "503": {"description": "The recommendation service is temporarily unavailable; the client should retry rather than proceed without a recommendation."}
+        },
+        "x-wrap-status": "unclassified — economics recommendation is not in the #136 wrap-map; the documented 200 response is the bare recommendation shape. Reconcile envelope status when the backend service lands.",
+        "x-traigent-note": "Tenant/project scoping is resolved from the authenticated request context. The contract carries no tenant field precisely so a client cannot assert one. The MCP survey tool calls this contract; presentation phrasing and MCP transport mechanics are out of scope here."
+      }
+    },
     "/api/v1/economics/telemetry": {
       "post": {
         "summary": "Ingest a batch of economics telemetry events",

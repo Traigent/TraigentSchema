@@ -53,14 +53,14 @@ jobs:
           fetch-depth: 0
           path: TraigentSchema
 
-      # continue-on-error: a token that is SET but unusable (expired, revoked, or scoped
-      # without Contents:Read on the spine repo) previously hard-failed this job. Because
-      # the token is shared by every repo running this workflow, one expiry turned EVERY
-      # open PR red org-wide with no code change — that happened 2026-07-24/25 when
-      # VALIDATION_CI_PAT (the `||` fallback) started returning 403. spine-pr-scan is an
-      # ADVISORY check (required checks are "Aikido Security: check code" and
-      # "ci-required"), so an unavailable scanner must not manufacture a blocking-looking
-      # red. It degrades to a loud skip below instead.
+      # continue-on-error here does NOT mean "tolerate a broken scan". It exists only so
+      # this workflow can tell "token absent" apart from "token present but unusable"
+      # (expired, revoked, or scoped without Contents:Read on the spine repo) and report
+      # the precise reason before failing the job. Either way the job still fails closed
+      # below: a scan that cannot run must not report success, because that is
+      # indistinguishable from a clean scan. `spine-pr-scan` is advisory (required checks
+      # on this repo are "Aikido Security: check code" and "ci-required"), so this failing
+      # does not block merges — but it must still show red, honestly, not green.
       - name: Checkout validation spine
         id: spine-checkout
         if: env.SPINE_RO_TOKEN != ''
@@ -83,9 +83,11 @@ jobs:
             echo "SPINE_AVAILABLE=false" >> "$GITHUB_ENV"
           fi
 
-      # Never silently green: if the scan could not run, say so on the PR and in the job
-      # summary. A scanner that cannot run must not look like a scanner that found nothing.
-      - name: Note skipped spine scan
+      # Fail closed. A scan that cannot run must not report success — that would be
+      # indistinguishable from a clean scan and defeats the point of running one.
+      # Dependabot is exempt because GitHub withholds repository secrets from dependabot
+      # PRs by design, and dependency bumps carry no policy surface.
+      - name: Fail closed when spine scan cannot run
         if: env.SPINE_AVAILABLE != 'true'
         run: |
           if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
@@ -97,9 +99,9 @@ jobs:
           else
             reason="the configured token could not check out Traigent/traigent-validation-spine (expired, revoked, or missing Contents:Read)"
           fi
-          echo "::warning::Validation spine scan DID NOT RUN — ${reason}. This is an advisory check; the PR is not blocked, but no spine gap report exists for it."
+          echo "::error::Validation spine scan FAILED TO RUN — ${reason}. Failing closed: a scan that cannot execute must not report success."
           {
-            echo "## Validation Spine — PR scan: NOT RUN"
+            echo "## Validation Spine — PR scan: FAILED TO RUN"
             echo
             echo "**No gap report was produced for this PR.** Absence of findings below is not evidence of none."
             echo
@@ -109,7 +111,7 @@ jobs:
             echo '`tools/secret-ops/rotate-spine-ro-token.sh` in the traigent-workspace repo'
             echo "(owner-run; sets \`SPINE_RO_TOKEN\` across all repos running this workflow)."
           } >> "$GITHUB_STEP_SUMMARY"
-          exit 0
+          exit 1
 
       - name: Capture PR changed files
         if: env.SPINE_AVAILABLE == 'true' && github.event_name == 'pull_request'
@@ -238,4 +240,3 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
-          if-no-files-found: warn

@@ -315,8 +315,12 @@ def test_route_binds_the_ingest_request_schema() -> None:
 
 
 def test_route_is_not_claimed_as_canonical_backend_truth() -> None:
-    """Contract-first honesty: no backend serves this yet, so it must not sit in
-    the canonical `backend` root, which means 'current backend truth'."""
+    """The route is NOT in the canonical `backend` root. Note what this does and does
+    not mean: TraigentBackend does serve this route in production today, so the
+    original 'no backend serves this yet' reading of this test is out of date. What
+    the assertion locks is the CLASSIFICATION, which #343 left unchanged on purpose —
+    promoting the economics module to canonical backend truth is an owner-level
+    release-posture decision, not a schema-correctness fix."""
     assert (
         SchemaValidator(contract="backend")._endpoint_schemas.get(
             "POST:/api/v1/economics/telemetry"

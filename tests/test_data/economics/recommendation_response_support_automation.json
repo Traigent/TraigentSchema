@@ -1,0 +1,54 @@
+{
+  "contract": "economics_recommendation",
+  "contract_version": "1.0.0",
+  "request_id": "econrec-req-support-0002",
+  "computed_at": "2026-07-18T09:05:00Z",
+  "formula_identity": {
+    "formula_version": "econ-formula-v0",
+    "assumption_set_version": "econ-assumptions-v0",
+    "assumptions_are_starting_assumptions": true,
+    "published_reference": "econ-formula-doc-v0"
+  },
+  "archetype": "support_automation",
+  "dominant_value_channel": "replace_manual_operations",
+  "secondary_value_channel": "prevent_costly_mistakes",
+  "budget": {
+    "recommended_daily_usd": 120.0,
+    "floor_usd": 10.0,
+    "cap_usd": 250.0,
+    "floor_cap_are_starting_assumptions": true,
+    "basis": {
+      "method": "clamp_floor_cap_fraction_of_conservative_realized_value",
+      "uses_conservative_lower_bound": true,
+      "value_lower_bound": {"estimate": 24000.0, "lower": 16800.0, "upper": 36000.0, "level": 0.9, "unit": "usd"}
+    }
+  },
+  "payback": {
+    "is_lower_bound_positive": true,
+    "payback_days": 2.0,
+    "conservative_daily_realized_value_usd": 1200.0,
+    "explanation": [
+      {"component": "avoided_bad_promotion_payback", "usd_value": 2500.0, "number_value": 2.9, "unit": "count", "emphasis": "lower_bound"},
+      {"component": "error_cost_drives_risk", "references_field": "error_cost_band", "emphasis": "lower_bound"}
+    ]
+  },
+  "stop_rule": {
+    "rule": "stop_when_upper_bound_below_next_cost",
+    "next_experiment_cost_usd": 100.0
+  },
+  "required_receipt": {"receipt_kind": "defect"},
+  "spend_zero_case": {
+    "available": true,
+    "explanation": [{"component": "spend_zero_always_available"}]
+  },
+  "why": [
+    {"component": "dominant_value_channel", "references_field": "value_channel"},
+    {"component": "daily_volume_drives_scale", "references_field": "daily_volume_band", "number_value": 12000, "unit": "count"},
+    {"component": "error_cost_drives_risk", "references_field": "error_cost_band", "emphasis": "lower_bound"},
+    {"component": "conservative_lower_bound_leads", "emphasis": "lower_bound"},
+    {"component": "value_of_information_justifies_small_test"},
+    {"component": "receipt_required_before_value_counts"},
+    {"component": "spend_zero_always_available"},
+    {"component": "assumptions_are_starting_not_validated"}
+  ]
+}

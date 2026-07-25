@@ -53,8 +53,18 @@ jobs:
           fetch-depth: 0
           path: TraigentSchema
 
+      # continue-on-error: a token that is SET but unusable (expired, revoked, or scoped
+      # without Contents:Read on the spine repo) previously hard-failed this job. Because
+      # the token is shared by every repo running this workflow, one expiry turned EVERY
+      # open PR red org-wide with no code change — that happened 2026-07-24/25 when
+      # VALIDATION_CI_PAT (the `||` fallback) started returning 403. spine-pr-scan is an
+      # ADVISORY check (required checks are "Aikido Security: check code" and
+      # "ci-required"), so an unavailable scanner must not manufacture a blocking-looking
+      # red. It degrades to a loud skip below instead.
       - name: Checkout validation spine
+        id: spine-checkout
         if: env.SPINE_RO_TOKEN != ''
+        continue-on-error: true
         uses: actions/checkout@v7
         with:
           repository: Traigent/traigent-validation-spine
@@ -62,23 +72,47 @@ jobs:
           path: .spine
           token: ${{ env.SPINE_RO_TOKEN }}
 
+      # Availability is proven by the checkout actually succeeding, not by the token merely
+      # being non-empty. Every downstream step keys off SPINE_AVAILABLE.
+      - name: Determine spine availability
+        id: spine-available
+        run: |
+          if [ "${{ steps.spine-checkout.outcome }}" = "success" ] && [ -d "$GITHUB_WORKSPACE/.spine" ]; then
+            echo "SPINE_AVAILABLE=true" >> "$GITHUB_ENV"
+          else
+            echo "SPINE_AVAILABLE=false" >> "$GITHUB_ENV"
+          fi
+
+      # Never silently green: if the scan could not run, say so on the PR and in the job
+      # summary. A scanner that cannot run must not look like a scanner that found nothing.
       - name: Note skipped spine scan
-        if: env.SPINE_RO_TOKEN == ''
+        if: env.SPINE_AVAILABLE != 'true'
         run: |
           if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
-            echo "::notice::SPINE_RO_TOKEN unavailable for dependabot PR (secrets blocked by design); spine scan skipped - dependabot bumps carry no policy surface."
+            echo "::notice::Spine scan skipped for dependabot PR (secrets blocked by design); dependabot bumps carry no policy surface."
             exit 0
           fi
-          echo "::error::SPINE_RO_TOKEN is not configured; validation spine scan cannot run."
+          if [ -z "${SPINE_RO_TOKEN}" ]; then
+            reason="repository secret SPINE_RO_TOKEN is not configured (and no VALIDATION_CI_PAT fallback exists)"
+          else
+            reason="the configured token could not check out Traigent/traigent-validation-spine (expired, revoked, or missing Contents:Read)"
+          fi
+          echo "::warning::Validation spine scan DID NOT RUN — ${reason}. This is an advisory check; the PR is not blocked, but no spine gap report exists for it."
           {
-            echo "## Validation Spine — PR scan"
+            echo "## Validation Spine — PR scan: NOT RUN"
             echo
-            echo "Failed closed: repository secret \`SPINE_RO_TOKEN\` is not configured."
+            echo "**No gap report was produced for this PR.** Absence of findings below is not evidence of none."
+            echo
+            echo "Reason: ${reason}."
+            echo
+            echo "Fix: rotate the read-only spine token with"
+            echo '`tools/secret-ops/rotate-spine-ro-token.sh` in the traigent-workspace repo'
+            echo "(owner-run; sets \`SPINE_RO_TOKEN\` across all repos running this workflow)."
           } >> "$GITHUB_STEP_SUMMARY"
-          exit 1
+          exit 0
 
       - name: Capture PR changed files
-        if: env.SPINE_RO_TOKEN != '' && github.event_name == 'pull_request'
+        if: env.SPINE_AVAILABLE == 'true' && github.event_name == 'pull_request'
         working-directory: TraigentSchema
         shell: bash
         run: |
@@ -92,22 +126,22 @@ jobs:
           echo "Captured ${count} PR changed file(s) for scoped summary."
 
       - name: Set up Python 3.11
-        if: env.SPINE_RO_TOKEN != ''
+        if: env.SPINE_AVAILABLE == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        if: env.SPINE_RO_TOKEN != ''
+        if: env.SPINE_AVAILABLE == 'true'
         run: pip install --upgrade pip "uv==0.8.13"
 
       - name: Install spine
-        if: env.SPINE_RO_TOKEN != ''
+        if: env.SPINE_AVAILABLE == 'true'
         working-directory: .spine
         run: uv sync --extra dev
 
       - name: Run security_ledger against product repo
-        if: env.SPINE_RO_TOKEN != ''
+        if: env.SPINE_AVAILABLE == 'true'
         id: spine-run
         continue-on-error: true
         working-directory: .spine
@@ -123,7 +157,7 @@ jobs:
             --file-limit "$SPINE_FILE_LIMIT"
 
       - name: Summarize new critical findings
-        if: always() && env.SPINE_RO_TOKEN != ''
+        if: always() && env.SPINE_AVAILABLE == 'true'
         working-directory: .spine
         run: |
           set -e
@@ -191,7 +225,7 @@ jobs:
           PY
 
       - name: Upload spine gap artifacts
-        if: always() && env.SPINE_RO_TOKEN != ''
+        if: always() && env.SPINE_AVAILABLE == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: validation-spine-gaps

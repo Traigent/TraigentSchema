@@ -1,0 +1,7 @@
+{
+  "success": false,
+  "error": "snapshot_protocol_retired",
+  "error_code": "SNAPSHOT_PROTOCOL_RETIRED",
+  "message": "Retirement error mislabeled with the wrong HTTP status (409 instead of the ratified 410).",
+  "http_status": 409
+}

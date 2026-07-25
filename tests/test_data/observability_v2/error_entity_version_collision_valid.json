@@ -1,0 +1,11 @@
+{
+  "success": false,
+  "error": "entity_version_collision",
+  "error_code": "ENTITY_VERSION_COLLISION",
+  "message": "Another event already claimed this per-emitter revision for the entity. Revision numbers are contiguous per emitter and cannot be reused.",
+  "http_status": 409,
+  "details": {
+    "entity_id": "obs_llm_1",
+    "emitter_version": 3
+  }
+}

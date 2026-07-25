@@ -1,0 +1,19 @@
+{
+  "event_id": "01JQ3AA05JRZ0CN5Z2S9KYX610",
+  "emitter_id": "01JQ3A7XW5K9J2N8M4P6R0T3V1",
+  "emitter_version": 1,
+  "occurred_at": "2026-07-12T10:15:27.900Z",
+  "kind": "trace.upsert",
+  "trace_id": "tr_123",
+  "entity_id": "tr_123",
+  "data": {
+    "name": "support-run",
+    "status": "running",
+    "session_id": "sess_a",
+    "environment": "production",
+    "release": "1.4.0",
+    "tags": ["prod"],
+    "metadata": {"team": "support"},
+    "started_at": "2026-07-12T10:15:27.800Z"
+  }
+}

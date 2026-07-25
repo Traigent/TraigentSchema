@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/observability/observability_v2_object_reference_schema.json",
+  "title": "Observability Ingest v2 Object Reference",
+  "description": "Authenticated, content-addressed reference to a large input/output payload stored out-of-band (14-observability-ingest-v2 §2.1/§2.2). v2 event bodies are capped at 64 KiB after canonicalization, so large input/output is NEVER inlined on the wire — it is carried as this reference and verified by the materializer against `byte_count` and `sha256`. The referenced object is user content; this reference metadata itself carries no inline content.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "description": "Opaque, tenant/project-scoped storage key for the referenced object. Resolution scope comes from the authenticated credential, never from this key."
+    },
+    "byte_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Exact byte length of the referenced object, verified by the materializer."
+    },
+    "content_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "IANA media type of the referenced object (e.g. application/json, text/plain)."
+    },
+    "sha256": {
+      "$ref": "./observability_v2_event_schema.json#/definitions/Sha256Hex"
+    }
+  },
+  "required": [
+    "key",
+    "byte_count",
+    "content_type",
+    "sha256"
+  ]
+}

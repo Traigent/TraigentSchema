@@ -26,7 +26,7 @@
       "minLength": 1,
       "maxLength": 128,
       "pattern": "^[A-Za-z0-9_.:-]+$",
-      "description": "Caller-generated identifier. The grammar blocks whitespace, quotes, and at-signs, which stops a value being PASTED in verbatim. It does not stop content being ENCODED: `Alice.Smith.123` and `Ignore.previous.instructions` are both valid identifiers, so this type guarantees a SHAPE, never an absence of prompt text, example text, or customer data. Contracts that use this type for client-supplied values must treat them as user content and redact them downstream; see the economics recommendation request's CLIENT-AUTHORED STRINGS ARE USER CONTENT obligation for a worked example."
+      "description": "Caller-generated identifier. Mechanically: the pattern admits ASCII letters and digits with `.`, `_`, `:`, `-` between them, and nothing else — so whitespace, quotes, at-signs, control characters, and non-ASCII are rejected. That is the entire guarantee. It says nothing about MEANING: `Alice.Smith.123` and `Ignore.previous.instructions` both satisfy it, so a conforming value may still contain customer data, example text, or instruction-shaped text. This type guarantees a SHAPE, never an absence of content. Contracts that use this type for client-supplied values must treat them as user content and redact them downstream; see the economics recommendation request's CLIENT-AUTHORED STRINGS ARE USER CONTENT obligation for a worked example."
     },
     "IdempotencyKey": {
       "type": "string",

@@ -110,12 +110,15 @@ Tests + example vectors (new) — SUPERSEDED wording: these were called "determi
 - `why`: required, non-empty, bounded array of closed render tokens the agent renders in the user's
   own bands (`references_field` from the vocabulary); NO token can claim assumptions were validated
   (only `assumptions_are_starting_not_validated` exists).
-- Independent of credits/incentives/pricing/wallet/billing/WI-D: no such field declared or
-  representable; asserted by a property-name scan over both contracts.
+- Independent of credits/incentives/pricing/wallet/billing/WI-D: no such field is declared or
+  representable, asserted by a $ref-following property-name scan over both contracts. SUPERSEDED
+  scope note: that scan proves a CLIENT cannot submit such state and the backend cannot return it.
+  It cannot prove independence — a backend can join wallet state it already holds server-side, and
+  no schema can prevent that. Independence is the NO PRICING/CREDIT INPUT backend obligation.
 
 ## Verification — exact commands + counts
 
-**RESTAMPED 2026-07-25, post sol round 2: these numbers were produced on the tree of `2a7a9f4` plus the commit that carries this text.** (A report cannot cite its own SHA; naming the parent plus 'this commit' is the closest honest pin. `git log -1 -- reports/wi-c-schema-result.md` resolves it.) The original
+**RESTAMPED 2026-07-25.** These figures were produced on the tree of the commit that last modified this file — resolve it with `git log -1 -- reports/wi-c-schema-result.md`. No SHA is written here on purpose: an earlier draft invented one that did not exist yet, and the next attempt (naming a parent) went stale the moment this file was edited again. A pin that cannot be wrong is worth more than one that reads as more precise. The original
 2026-07-18 numbers below the line are kept as the historical record of the parked
 packet; these are the current ones, re-run by the captain, each standalone with no
 pipe that could mask an exit code:

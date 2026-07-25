@@ -26,7 +26,7 @@
       "minLength": 1,
       "maxLength": 128,
       "pattern": "^[A-Za-z0-9_.:-]+$",
-      "description": "Opaque caller-generated identifier. The grammar blocks whitespace, quotes, and at-signs, so it cannot carry a raw prompt, an example, or a pasted sentence — but it is CALLER-authored and `Alice.Smith.123` is a valid identifier, so it is not guaranteed free of customer content. Contracts that use this type for client-supplied values must treat them as user content and redact them downstream; see the economics recommendation request's CLIENT-AUTHORED STRINGS ARE USER CONTENT obligation for a worked example."
+      "description": "Caller-generated identifier. The grammar blocks whitespace, quotes, and at-signs, which stops a value being PASTED in verbatim. It does not stop content being ENCODED: `Alice.Smith.123` and `Ignore.previous.instructions` are both valid identifiers, so this type guarantees a SHAPE, never an absence of prompt text, example text, or customer data. Contracts that use this type for client-supplied values must treat them as user content and redact them downstream; see the economics recommendation request's CLIENT-AUTHORED STRINGS ARE USER CONTENT obligation for a worked example."
     },
     "IdempotencyKey": {
       "type": "string",

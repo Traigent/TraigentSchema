@@ -960,8 +960,13 @@ def _property_names(schema: dict, *, follow_refs: bool = True) -> set[str]:
 
 def test_no_credit_incentive_or_pricing_field_is_declared_anywhere() -> None:
     """WI-D boundary: credit/incentive/funding and pricing/wallet/billing are OUT of
-    scope. Neither contract may declare such a field; the recommendation cannot be a
-    function of state it cannot carry."""
+    scope, so neither contract may declare such a field.
+
+    What this proves is narrower than it may read: it proves a CLIENT cannot submit
+    that state and the backend cannot return it. It does NOT prove the recommendation
+    is independent of pricing — a backend can join wallet state it already holds
+    server-side, and no schema can stop it. That independence is the
+    NO PRICING/CREDIT INPUT backend obligation, asserted separately as declared."""
     for schema_name in (REQUEST, RESPONSE):
         names = _property_names(_load(f"{schema_name}.json"))
         offenders = {n for n in names if any(tok in n for tok in _FORBIDDEN_TOKENS)}

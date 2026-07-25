@@ -11,7 +11,7 @@
     "/api/v1/economics/recommendation": {
       "post": {
         "summary": "Compute an economics recommendation from a closed characterization submission",
-        "description": "Accepts one closed characterization submission (the five bands, optional typed overrides, per-field provenance/confidence/evidence, and the client-side sharing policy — no presentation-only string of any kind) and returns the backend-authoritative recommendation: archetype, dominant value channel, recommended daily build budget with floor/cap and a conservative lower-bound basis, a structured payback statement, stop rule, required receipt, the first-class spend-$0 case, and a structured `why` the agent renders in the user's own terms. The recommendation is independent of pricing, credits, sales incentives, and wallet/billing state, and every dollar figure is a labelled starting assumption. Tenant/project are resolved from the authenticated context; the body carries no tenant field.",
+        "description": "Accepts one closed characterization submission (the five bands, optional typed overrides, per-field provenance/confidence/evidence, and the client-side sharing policy — no presentation-only string of any kind) and returns the backend-authoritative recommendation: archetype, the dominant value channel WHEN the archetype is determined (an `undetermined` archetype carries no channel, because a channel the client withheld must not be invented), recommended daily build budget with floor/cap and a conservative lower-bound basis, a structured payback statement, stop rule, required receipt, the first-class spend-$0 case, and a structured `why` the agent renders in the user's own terms. The recommendation is independent of pricing, credits, sales incentives, and wallet/billing state, and every dollar figure is a labelled starting assumption. Tenant/project are resolved from the authenticated context; the body carries no tenant field.",
         "operationId": "computeEconomicsRecommendation",
         "requestBody": {
           "required": true,
@@ -23,7 +23,7 @@
         },
         "responses": {
           "200": {
-            "description": "Recommendation computed. The body is the backend-authoritative recommendation and always carries the spend-$0 case.",
+            "description": "Recommendation computed. The body is the backend-authoritative recommendation and always carries the spend-$0 case. An all-withheld or under-specified submission is answered 200 with an `undetermined` archetype, no value channel, and the spend-$0 case — withholding is never itself a 422.",
             "content": {
               "application/json": {
                 "schema": {"$ref": "./economics_recommendation_response_schema.json"}
@@ -55,7 +55,7 @@
             }
           },
           "422": {
-            "description": "The submission is well-formed but the shared characterization is insufficient to compute a usable recommendation (e.g. every decision-relevant band was withheld); no recommendation is fabricated from withheld values.",
+            "description": "The submission is well-formed but cannot be answered at all — for example contradictory duplicate field reports for one characterization field. NOT the withholding case: An all-withheld or under-specified submission is answered 200 with an `undetermined` archetype, no value channel, and the spend-$0 case — withholding is never itself a 422. No recommendation is ever fabricated from withheld values.",
             "content": {
               "application/json": {
                 "schema": {"$ref": "../error_envelope_schema.json"}

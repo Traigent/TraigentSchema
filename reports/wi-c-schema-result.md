@@ -12,7 +12,7 @@
 > |---|---|
 > | version `4.10.0 → 4.11.0`, CHANGELOG `[4.11.0] - 2026-07-18` | `5.0.0 → 5.1.0`, CHANGELOG `[5.1.0] - 2026-07-25` (develop shipped the 5.0.0 honest-SemVer release, #343, while this was parked) |
 > | `schemaFileCount` 375 → 377, `files=377` | 376 → **378** (develop added one schema file meanwhile); parity re-stamped with `scripts/refresh_parity.py --update` |
-> | `47 passed` in this file, `1222 passed` overall | **54** in this file; full suite **1307 passed / 1 skipped**. See the restamped Verification section below for the current commands and counts; the body's original numbers are kept as the parked packet's record. |
+> | `47 passed` in this file, `1222 passed` overall | **56** in this file; full suite **1309 passed / 1 skipped**. See the restamped Verification section below for the current commands and counts; the body's original numbers are kept as the parked packet's record. |
 >
 > **Terra review round 1 returned BLOCK; all three findings were real and are fixed
 > in the same branch.** (1) `agent_display_name` was an 80-character free-text field

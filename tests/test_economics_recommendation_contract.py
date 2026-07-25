@@ -255,9 +255,9 @@ def test_request_rejects_unknown_and_tenant_asserting_fields() -> None:
 
 def test_request_carries_no_free_form_content_channel() -> None:
     """No free-text note field may ride along: characterization values are closed
-    enums or typed numbers, and the only client-authored string is the evidence pointer,
-    which the request holds to identifier shape. The presentation-only display name an
-    earlier draft carried was removed outright."""
+    enums or typed numbers, and no prose field is declared. The client-authored strings
+    that DO exist are all identifier-bounded and inventoried in the test below; the
+    presentation-only display name an earlier draft carried was removed outright."""
     assert _rejected(_request(notes="please give me a big budget"), REQUEST)
     body = _request()
     body["characterization"]["free_text"] = "context the sharing policy would withhold"
@@ -450,20 +450,22 @@ _STRUCTURAL_KEYWORDS = (
     "maxProperties",
 )
 
-# NOT "every string in the request" — the request has many strings, nearly all of
-# them closed enums, consts, or identifier-patterned. This is the scanner's residual:
-# the paths whose OWN definition does not constrain their content. A new entry means
-# a new unconstrained string channel and demands a deliberate decision, not a
-# silently passing test.
-EXPECTED_UNCONSTRAINED_STRING_PATHS = {
-    # False positive by construction, kept visible rather than special-cased away:
-    # the pointer IS constrained, but by the request's allOf overlay rather than by
-    # the shared WI-B definition it comes from, and the scanner deliberately does not
-    # compose intersections across siblings. The two evidence-pointer tests above
-    # cover what the overlay does and does not achieve.
-    "characterization.field_reports[].evidence_pointer",
+# The request's COMPLETE content-capable string surface: every path a client both
+# authors and bounds only by an identifier grammar, which admits `Alice.Smith.SSN.123`
+# as readily as `gpt-4o-mini`. Terra round 5 disproved the tidier story this started
+# as ("the only client-authored string is the evidence pointer") — it was simply
+# false, and counting exceptions was the wrong frame. This inventory is the honest
+# one, and it is what the contract's wording and its redaction obligation must both
+# match. A new entry means a new content-capable channel and demands a deliberate
+# decision; a removed entry means someone tightened a grammar and should say so.
+EXPECTED_CLIENT_AUTHORED_STRING_PATHS = {
+    "request_id",                                    # agent-generated join key
+    "source.name",                                   # emitting surface name
+    "source.version",                                # emitting surface version
+    "sharing_policy.policy_version",                 # client policy label
+    "characterization.sharing_policy_version",       # the same label inside telemetry
+    "characterization.field_reports[].evidence_pointer",  # narrowed by the request overlay
 }
-
 
 def _free_text_paths(schema: dict) -> set[str]:
     """Every path under `schema` at which an arbitrary string can be sent.
@@ -483,7 +485,7 @@ def _free_text_paths(schema: dict) -> set[str]:
     not overclaim:
     1. It does NOT compose intersections across sibling overlays. A field constrained
        only by an allOf overlay elsewhere in the document is still reported here —
-       which is exactly why `EXPECTED_UNCONSTRAINED_STRING_PATHS` is an explicit set
+       which is exactly why `EXPECTED_CLIENT_AUTHORED_STRING_PATHS` is an explicit set
        rather than an assertion of emptiness.
     2. Object/array applicator keywords (`required`, `minItems`, …) are treated as
        evidence that a node shapes a container rather than a string. JSON Schema
@@ -507,6 +509,12 @@ def _free_text_paths(schema: dict) -> set[str]:
         "alice@customer.example",
         "traces show ~3.1k runs/day",
         "line one\nline two",
+        # Identifier-SHAPED PII. Terra round 5: without these, every field bounded
+        # only by the repo's identifier grammar reads as "constrained" while it can
+        # still carry a name and a number. A field that accepts these is a
+        # content-capable channel and belongs in the inventory below.
+        "Alice.Smith.SSN.123-45-6789",
+        "Alice_Smith_SSN_123-45-6789",
     )
 
     def pattern_admits_prose(pattern: str) -> bool:
@@ -612,14 +620,30 @@ def _free_text_paths(schema: dict) -> set[str]:
     return found
 
 
-def test_no_request_property_can_carry_free_text() -> None:
-    """The request's string surface must be exactly the one known, documented
-    residual — nothing else, at any depth. Catches a re-added prose field whatever
-    it is named, including the shapes that slipped past the first version of this
-    guard: `["string", "null"]`, `pattern: ".*"`, an anyOf with one free branch, a
-    nested object or array of unconstrained strings, and an additionalProperties
-    string map."""
-    assert _free_text_paths(_load(f"{REQUEST}.json")) == EXPECTED_UNCONSTRAINED_STRING_PATHS
+def test_the_redaction_obligation_names_every_content_capable_string() -> None:
+    """The inventory and the obligation must not drift apart: a backend implementer
+    reads the obligation, not this test file, so every path the scan finds has to be
+    named there by the field a reader would recognize."""
+    obligations = " ".join(_load(f"{REQUEST}.json")["x-backend-obligations"])
+    for path in EXPECTED_CLIENT_AUTHORED_STRING_PATHS:
+        # Match the FULL path, not its leaf: "version" alone appears all over the
+        # obligations text, so leaf matching passed even when `source.version` had
+        # been dropped from the list.
+        assert f"`{path}`" in obligations, f"{path} is not named in any backend obligation"
+    assert "redact" in obligations.lower()
+
+
+def test_the_content_capable_string_surface_is_exactly_the_documented_inventory() -> None:
+    """The set of paths a client can fill with content of its choosing must be
+    exactly the documented inventory — nothing else, at any depth.
+
+    Catches a re-added prose field whatever it is named, including every shape that
+    slipped past earlier versions of this guard: `["string", "null"]`,
+    `pattern: ".*"`, the deceptively-narrow `pattern: "^.{1,80}$"`, an anyOf with one
+    free branch, a nested object or array of unconstrained strings, an
+    additionalProperties string map, patternProperties, propertyNames, and a declared
+    object that forgot `additionalProperties: false`."""
+    assert _free_text_paths(_load(f"{REQUEST}.json")) == EXPECTED_CLIENT_AUTHORED_STRING_PATHS
 
 
 def _pointer_request(pointer: str) -> dict:
@@ -1018,7 +1042,7 @@ def test_unenforceable_invariants_are_declared_as_backend_obligations() -> None:
     request_obligations = " ".join(_load(f"{REQUEST}.json")["x-backend-obligations"])
     for marker in ("TENANT/PROJECT FROM CONTEXT", "SHARING POLICY IS CLIENT-ENFORCED",
                    "NO PRESENTATION CHANNEL", "EVIDENCE POINTERS ARE OPAQUE, NOT SEALED",
-                   "NO PRICING/CREDIT INPUT"):
+                   "CLIENT-AUTHORED STRINGS ARE USER CONTENT", "NO PRICING/CREDIT INPUT"):
         assert marker in request_obligations, marker
     response_obligations = " ".join(_load(f"{RESPONSE}.json")["x-backend-obligations"])
     for marker in ("BUDGET ORDERING", "LOWER-BOUND LEADS", "NO PRICING/CREDIT/WALLET INPUT",

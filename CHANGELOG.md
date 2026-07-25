@@ -28,9 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `withheld_by_policy` is ABSENT from the transmitted value area, a transmitted value carries a
     `shared` report, a `shared` report carries its value, and an inferred value accounts for its
     evidence (a withheld pointer cannot ride along). `additionalProperties: false` at every object
-    boundary; no free-form raw survey/user content is representable — with one bounded
-    exception, stated so the guarantee is not read wider than it is: the evidence pointer,
-    which the grammar above holds to identifier shape.
+    boundary, and no prose field is declared. Six client-authored strings remain
+    (`request_id`, `source.name`, `source.version`, both `sharing_policy_version` labels,
+    and the evidence pointer); each is bounded by an identifier grammar that blocks
+    sentences but not content, since `Alice.Smith.SSN.123-45-6789` is a valid identifier.
+    They are enumerated in a backend obligation requiring redaction and pinned by a test,
+    rather than described as a closure the contract does not deliver.
   - **Structural client-side sharing policy.** A `sharing_policy` with a `policy_version` and an
     `allowlist` of the fields permitted to egress. Withholding is structural, not advisory: a
     value present in the transmitted value area REQUIRES its field on the allowlist (enforced per

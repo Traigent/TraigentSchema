@@ -393,7 +393,7 @@
     "evaluationContractAndExecutionBudget": "Manifest Python pin advanced from e2de19c1 to 21e65c41 (origin/develop) to cover six root exports added on 2026-07-21 that the live js-public-parity gate flagged unclassified. ContractCode, ContractFinding, EVALUATION_CONTRACT_VERSION, EvaluationContractReport, and validate_evaluation_contract (traigent.contract) are the no-execution evaluation-compatibility contract (Traigent/Traigent#1979); ExecutionBudget (traigent.core.execution_budget) is the experimental cumulative cross-phase execution budget (Traigent/Traigent#1980). Both are explicitly marked experimental in their Python docstrings and traigent-js main has no corresponding export, so all six are classified deferred-backlog (Python-only for now, no open JS design yet) rather than matched or deferred-schema. Owner may re-bucket any of these before or after merge."
   },
   "schemaRefresh": {
-    "lastSchemaFileSha": "c403463a0ee7959039301ef99bbdff5c4ea7439dde8aaf2add73d44a04fefb2c",
+    "lastSchemaFileSha": "134ced63da6c58f4ef42499a560f355b88d9a8b20474cadeecd2347d8960af18",
     "schemaFileCount": 378,
     "note": "Auto-stamped by scripts/refresh_parity.py. Do not hand-edit this block."
   }

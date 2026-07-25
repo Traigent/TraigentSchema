@@ -5,6 +5,8 @@
   "description": "Stable error taxonomy and HTTP error-response body for the v2 ingest protocol (14-observability-ingest-v2 §2.2/§3.1/§3.2/§7). Extends the canonical error envelope (success:false, message, error) with a machine-readable v2 `error_code`. Codes that surface as an HTTP response carry their ratified status (bound below); admission-terminal and SDK-side codes have no HTTP status and appear as EventStatusRecord.terminal_code / SDK diagnostics instead. See x-error-catalog for the full code -> {phase, http_status, retryable} table.",
   "type": "object",
   "additionalProperties": false,
+  "x-privacy-classification": "manifest_safe",
+  "x-privacy-note": "Protocol-level refusal metadata only — a closed-enum error_code, its ratified http_status, an integer retry_after, and a message/details pair that are client-safe BY CONSTRUCTION (the backend builds these from the typed admission exception's own pre-written text, never from a raw exception or request payload). No user-authored content, no PII and no server internals reach this body, so it is safe to export to logs, telemetry and support tooling in full. Classified manifest_safe, matching the status response it pairs with, rather than aggregate_safe (nothing here is an aggregated statistic). `details` is an open object and is the one place this guarantee could be broken: producers MUST keep it to client-safe, structured diagnostics (e.g. {\"reason\": \"cross_ingest_reuse\"}), and any producer that needs to put user-controlled values there MUST annotate them x-content:true with their own x-privacy-classification instead of inheriting this one.",
   "properties": {
     "success": {
       "type": "boolean",

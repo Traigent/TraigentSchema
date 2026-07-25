@@ -5,6 +5,8 @@
   "description": "Response for GET /api/v2/observability/ingests/{ingest_id} (14-observability-ingest-v2 §3.2). Returns the manifest state plus one record per event. Polling is authoritative; a webhook is optional. Reusing the same ingest_id returns the persisted manifest, so a client that times out without a response treats the outcome as UNKNOWN and reads status by ingest_id rather than minting a replacement.",
   "type": "object",
   "additionalProperties": false,
+  "x-privacy-classification": "manifest_safe",
+  "x-privacy-note": "Ingest-manifest metadata only — client-minted opaque ids (ingest_id / event_id), an immutable SHA-256 payload DIGEST (never the payload), integer attempt counts, closed-enum states and dispositions, and terminal_reason strings drawn from a fixed, pre-written, server-side table. No user-authored or LLM-generated content, no PII, and no server internals reach this body, so it is safe to export to logs, telemetry and support tooling in full. Classified manifest_safe rather than aggregate_safe because nothing here is an aggregated statistic: it is per-event manifest metadata about the caller's own submission. Any future field that could carry user-controlled values (e.g. echoing a submitted name) MUST be annotated x-content:true with its own x-privacy-classification and MUST NOT inherit this one.",
   "properties": {
     "ingest_id": {
       "$ref": "./observability_v2_event_schema.json#/definitions/MonotonicId"

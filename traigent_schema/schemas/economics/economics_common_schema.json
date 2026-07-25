@@ -26,7 +26,7 @@
       "minLength": 1,
       "maxLength": 128,
       "pattern": "^[A-Za-z0-9_.:-]+$",
-      "description": "Opaque caller-generated identifier. Carries no raw prompt, example, or customer content."
+      "description": "Opaque caller-generated identifier. The grammar blocks whitespace, quotes, and at-signs, so it cannot carry a raw prompt, an example, or a pasted sentence — but it is CALLER-authored and `Alice.Smith.123` is a valid identifier, so it is not guaranteed free of customer content. Contracts that use this type for client-supplied values must treat them as user content and redact them downstream; see the economics recommendation request's CLIENT-AUTHORED STRINGS ARE USER CONTENT obligation for a worked example."
     },
     "IdempotencyKey": {
       "type": "string",

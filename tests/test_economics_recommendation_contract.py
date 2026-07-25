@@ -925,13 +925,17 @@ def _property_names(schema: dict, *, follow_refs: bool = True) -> set[str]:
     declared the WI-D boundary clean without ever looking at the imported fields.
     """
     names: set[str] = set()
-    seen_refs: set[str] = set()
+    # Keyed by (document $id, ref) rather than the ref string alone: a local
+    # "#/definitions/X" means different things in different files, so a bare-string
+    # key could silently skip a second document's definition.
+    seen_refs: set[tuple[str, str]] = set()
 
     def walk(node: object, doc: dict) -> None:
         if isinstance(node, dict):
             ref = node.get("$ref")
-            if follow_refs and isinstance(ref, str) and ref not in seen_refs:
-                seen_refs.add(ref)
+            key = (str(doc.get("$id", "")), ref) if isinstance(ref, str) else None
+            if follow_refs and key is not None and key not in seen_refs:
+                seen_refs.add(key)
                 file_part, _, frag = ref.partition("#")
                 try:
                     target_doc = doc if not file_part else _load(file_part.lstrip("./"))
@@ -1069,6 +1073,51 @@ def test_the_all_withheld_pair_leads_with_spend_zero_and_no_payback() -> None:
 # --------------------------------------------------------------------------- #
 # honesty: what the contract does NOT prove
 # --------------------------------------------------------------------------- #
+def test_an_undetermined_recommendation_cannot_invent_a_value_channel() -> None:
+    """The gap sol found in the example vectors was a contract gap underneath.
+    `ValueChannel` is closed and has no 'undetermined' member (Archetype does), while
+    `dominant_value_channel` used to be unconditionally required — so a submission
+    that shared nothing could only be answered by asserting a channel the backend
+    could not possibly know, which the request's own no-backfill obligation forbids.
+
+    Now: an `undetermined` archetype forbids both channel fields, and every other
+    archetype requires the dominant one."""
+    undetermined = _response(archetype="undetermined")
+    del undetermined["dominant_value_channel"]
+    assert _ok(undetermined, RESPONSE), "the honest all-withheld answer must be representable"
+
+    invented = _response(archetype="undetermined")
+    assert _rejected(invented, RESPONSE), (
+        "an undetermined recommendation must not name a dominant value channel"
+    )
+    invented_secondary = _response(archetype="undetermined")
+    del invented_secondary["dominant_value_channel"]
+    invented_secondary["secondary_value_channel"] = "increase_revenue"
+    assert _rejected(invented_secondary, RESPONSE)
+
+    determined_without_channel = _response()
+    del determined_without_channel["dominant_value_channel"]
+    assert _rejected(determined_without_channel, RESPONSE), (
+        "a determined archetype still owes its dominant channel"
+    )
+
+
+def test_the_all_withheld_vector_pair_does_not_reconstruct_withheld_values() -> None:
+    """The shipped all-withheld pair is the worked example of the rule above: the
+    submission shares nothing and its paired response must therefore claim nothing —
+    no channel, no payback, spend-$0 available."""
+    request = _load_fixture("recommendation_request_all_withheld.json")
+    response = _load_fixture("recommendation_response_spend_zero.json")
+    assert _ok(request, REQUEST) and _ok(response, RESPONSE)
+    assert request["sharing_policy"]["allowlist"] == []
+    assert not request["characterization"].get("bands"), "an all-withheld request shares no band"
+    assert response["archetype"] == "undetermined"
+    assert "dominant_value_channel" not in response, "a withheld channel was reconstructed"
+    assert "secondary_value_channel" not in response
+    assert response["spend_zero_case"]["available"] is True
+    assert "payback_days" not in response["payback"]
+
+
 def test_the_value_interval_must_be_denominated_in_dollars() -> None:
     """The budget is a dollar amount derived from this interval, but the shared
     ConfidenceInterval also admits `tokens`, `seconds`, and `count`. Without pinning

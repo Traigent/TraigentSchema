@@ -75,15 +75,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     the coding agent turns into prose in the user's own terms (their value channel, volume band,
     error-cost band). No render token can claim an assumption was validated — the only
     validation-status token is `assumptions_are_starting_not_validated`.
+  - **An undetermined recommendation cannot invent a value channel.** `ValueChannel` is a
+    closed vocabulary with no `undetermined` member (unlike `Archetype`, which has one), while
+    `dominant_value_channel` was unconditionally required — so the design's own "all-withheld
+    submission still gets the honest spend-$0 answer" branch was unrepresentable: any 200 had
+    to assert a channel the backend could not know, contradicting the no-backfill obligation.
+    `dominant_value_channel` is now required only when the archetype is determined, and both
+    channel fields are forbidden when it is `undetermined`.
   - **Independence from funding and pricing.** The recommendation is independent of credits,
     incentives, grants, promotional balances, wallet/billing state, and pricing: no such field is
-    declared or representable in either contract (`additionalProperties: false` blocks any), so the
-    recommendation cannot be a function of that state. Budget floors/caps are labelled starting
+    declared or representable in either contract (`additionalProperties: false` blocks any), so no
+    such state can be SUBMITTED to or RETURNED from the recommendation. Note the honest limit: the
+    schema cannot stop a backend from joining pricing or wallet state it already holds server-side —
+    that is the NO PRICING/CREDIT/WALLET INPUT backend obligation, not a structural guarantee. Budget floors/caps are labelled starting
     assumptions, NOT funded amounts — funding (the seven-day credit envelope) is the separate WI-D
     owner-gated decision and is deliberately out of scope here.
   - **Deterministic example vectors** (`tests/test_data/economics/`): request/response pairs
-    (solo builder, support automation, and an all-withheld submission that maps to a spend-$0
-    recommendation), paired by echoed `request_id` and carrying no computation implementation.
+    (solo builder, support automation, and an all-withheld submission paired with an
+    `undetermined`-archetype spend-$0 recommendation that names NO value channel), paired by echoed `request_id` and carrying no computation implementation.
     They are schema-valid EXAMPLES, not conformance evidence: nothing implements this contract
     yet, so no claim is made that a backend or an offline path agrees with them. Conformance
     testing begins when the first producer exists.

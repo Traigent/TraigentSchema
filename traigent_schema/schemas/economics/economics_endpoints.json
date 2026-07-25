@@ -3,7 +3,7 @@
   "info": {
     "title": "Traigent Economics Routes",
     "version": "1.0.0",
-    "description": "Two tenant-scoped economics routes at DIFFERENT maturities, stated per route because one file-level label would misdescribe one of them. `POST /api/v1/economics/telemetry` is IMPLEMENTED — TraigentBackend serves it and validates its own responses against these schema files. `POST /api/v1/economics/recommendation` is CONTRACT-FIRST and UNIMPLEMENTED — no backend computes it; it is published ahead of the service per the workspace rule that request/response shapes start in TraigentSchema. The file-level `x-stability` / `x-asserted-against-backend` below are unchanged and are now the CONSERVATIVE FLOOR across both routes rather than a description of either: accurate for the recommendation route, understating the telemetry route, whose classification flip is an owner-level release-posture call flagged separately (#343). Where the two differ, the per-operation `x-stability` is authoritative."
+    "description": "Two tenant-scoped economics routes at DIFFERENT maturities, stated per route because one file-level label would misdescribe one of them. `POST /api/v1/economics/telemetry` is IMPLEMENTED — TraigentBackend serves it and validates its own responses against these schema files. `POST /api/v1/economics/recommendation` is CONTRACT-FIRST and UNIMPLEMENTED — no backend computes it; it is published ahead of the service per the workspace rule that request/response shapes start in TraigentSchema. The file-level `x-stability` / `x-asserted-against-backend` below are unchanged and are now the CONSERVATIVE FLOOR across both routes rather than a description of either: accurate for the recommendation route, understating the telemetry route, whose classification flip is an owner-level release-posture call flagged separately (#343). Where the two differ, the per-operation description is authoritative. No per-operation `x-stability` is set: the canonical vocabulary is {stable, pre-release, experimental, deprecated}, and choosing between them for the live telemetry route IS the owner-gated classification call, so inventing a value to describe the difference would pre-empt it."
   },
   "x-stability": "pre-release",
   "x-asserted-against-backend": false,
@@ -13,7 +13,6 @@
         "summary": "Compute an economics recommendation from a closed characterization submission",
         "description": "Accepts one closed characterization submission (the five bands, optional typed overrides, per-field provenance/confidence/evidence, and the client-side sharing policy — no presentation-only string of any kind) and returns the backend-authoritative recommendation: archetype, dominant value channel, recommended daily build budget with floor/cap and a conservative lower-bound basis, a structured payback statement, stop rule, required receipt, the first-class spend-$0 case, and a structured `why` the agent renders in the user's own terms. The recommendation is independent of pricing, credits, sales incentives, and wallet/billing state, and every dollar figure is a labelled starting assumption. Tenant/project are resolved from the authenticated context; the body carries no tenant field.",
         "operationId": "computeEconomicsRecommendation",
-        "x-stability": "pre-release-unimplemented",
         "requestBody": {
           "required": true,
           "content": {
@@ -79,9 +78,8 @@
     "/api/v1/economics/telemetry": {
       "post": {
         "summary": "Ingest a batch of economics telemetry events",
-        "description": "Accepts one idempotent batch of exposure-funnel events, run-economics records, and machine-verifiable receipts. Idempotent: replaying a batch with the same Idempotency-Key returns the original result (200) instead of re-applying it; a first ingest returns 201.",
+        "description": "Accepts one idempotent batch of exposure-funnel events, run-economics records, and machine-verifiable receipts. Idempotent: replaying a batch with the same Idempotency-Key returns the original result (200) instead of re-applying it; a first ingest returns 201. IMPLEMENTED: TraigentBackend serves this route today and validates its own responses against these schema files. The file-level `x-asserted-against-backend: false` understates that; flipping the classification is an owner-level release-posture decision (flagged in #343) and is deliberately not taken here.",
         "operationId": "ingestEconomicsTelemetry",
-        "x-stability": "implemented-served-by-backend",
         "parameters": [
           {
             "name": "Idempotency-Key",

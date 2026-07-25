@@ -115,14 +115,14 @@ Tests + example vectors (new) — SUPERSEDED wording: these were called "determi
 
 ## Verification — exact commands + counts
 
-**RESTAMPED 2026-07-25 at branch head `dc4eadc6`+ (post sol round 1).** The original
+**RESTAMPED 2026-07-25, post sol round 2: these numbers were produced on the tree of `2a7a9f4` plus the commit that carries this text.** (A report cannot cite its own SHA; naming the parent plus 'this commit' is the closest honest pin. `git log -1 -- reports/wi-c-schema-result.md` resolves it.) The original
 2026-07-18 numbers below the line are kept as the historical record of the parked
 packet; these are the current ones, re-run by the captain, each standalone with no
 pipe that could mask an exit code:
 
 | Command | Result |
 |---|---|
-| `pytest tests/` | **1307 passed, 1 skipped, 2 warnings** |
+| `pytest tests/` | **1309 passed, 1 skipped, 2 warnings** |
 | `pytest tests/test_economics_recommendation_contract.py tests/test_economics_telemetry_contract.py` | **145 passed** |
 | `ruff check traigent_schema/` (CI's scope) + the changed test file | All checks passed |
 | `mypy traigent_schema/ --ignore-missing-imports` | Success, 5 source files |
@@ -135,7 +135,10 @@ Guards proven to bite by mutation, each reverted immediately after: removing the
 evidence-pointer narrowing; re-adding a display-name property; making
 `published_reference` optional; deleting any one of the ten allowlist gates; adding a
 seventh client-authored identifier string; dropping one field, or the whole
-obligation, from the redaction duty; and ten distinct free-text bypasses
+obligation, from the redaction duty; **dropping the `usd` unit pin on the value
+interval; dropping the VALUE INTERVAL ORDERING, REQUEST ID IS AN ECHO, or UNIQUE
+CHARACTERIZATION FIELDS obligation; a `^[a-z ]{1,80}$` prose field**; and ten distinct
+free-text bypasses
 (`^.{1,80}$`, `patternProperties`, an `additionalProperties`-less declared object,
 `propertyNames`, `["string","null"]`, `pattern: ".*"`, an `anyOf` with one free
 branch, a nested object, an `additionalProperties` string map, an array of strings).

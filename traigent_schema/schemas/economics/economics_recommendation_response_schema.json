@@ -68,17 +68,18 @@
     "LOWER-BOUND LEADS: recommended_daily_usd is derived from the CONSERVATIVE lower bound of realized value (budget.basis.value_lower_bound), not a point estimate. The contract binds uses_conservative_lower_bound:true and requires the interval, but that the recommended amount actually follows from the lower bound (and not from the point estimate or upper bound) is a computation the backend must honour.",
     "NO PRICING/CREDIT/WALLET INPUT: the recommendation must not be a function of pricing, credits, sales incentives, or wallet/billing state. No such field is representable here or in the request; the backend must likewise not join that state into the computation. Budget floors/caps are labelled starting assumptions, NOT funded amounts — funding is the WI-D owner-gated decision and is out of scope for this contract.",
     "PAYBACK ONLY ON A POSITIVE LOWER BOUND: payback_days is present only when payback.is_lower_bound_positive is true; when the conservative bound is not positive the recommendation leads with the spend-$0 case and claims no payback. The contract enforces the presence rule; that the boolean reflects the real sign of the lower bound is a backend obligation.",
-    "ASSUMPTIONS ARE NOT VALIDATED: every dollar figure is a starting assumption. The backend must not present any figure as validated in any rendered or logged form; the funnel/receipt telemetry (WI-B) is what validates the model over time."
+    "ASSUMPTIONS ARE NOT VALIDATED: every dollar figure is a starting assumption. The backend must not present any figure as validated in any rendered or logged form; the funnel/receipt telemetry (WI-B) is what validates the model over time.",
+    "PUBLISHED REFERENCE MUST RESOLVE: formula_identity.published_reference is required by the contract, but the schema can only check that a label is present and opaque. The backend must emit a reference that actually resolves to the published, versioned formula + assumptions document for that formula_version and assumption_set_version. Emitting a placeholder, a dangling id, or a reference to an unpublished internal document satisfies the schema and violates this obligation — it would turn the auditability claim into a false one."
   ],
   "definitions": {
     "FormulaIdentity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["formula_version", "assumption_set_version", "assumptions_are_starting_assumptions"],
+      "required": ["formula_version", "assumption_set_version", "assumptions_are_starting_assumptions", "published_reference"],
       "properties": {
         "formula_version": {
           "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
-          "description": "Version of the value/budget formula that produced this recommendation, so a recommendation is reproducible and auditable. The formula is published; consumers can re-derive from it."
+          "description": "Version of the value/budget formula that produced this recommendation. An opaque label: it names the formula, it does not carry it. Reproducibility rests on the REQUIRED published_reference below plus the design commitment to publish and version that document — the contract can pin the identifiers, it cannot itself prove a document is reachable."
         },
         "assumption_set_version": {
           "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
@@ -91,7 +92,7 @@
         },
         "published_reference": {
           "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
-          "description": "Optional opaque reference to the published formula + assumptions document (the design commits to publishing and versioning the formula and assumptions). Carries no content."
+          "description": "REQUIRED opaque reference to the published formula + assumptions document. Required rather than optional because the credibility claim is that a recommendation is auditable: a response that named only two internal version labels would leave a consumer with nothing to look up, so the claim would outrun the contract. That the reference actually RESOLVES to a published document is a backend obligation the schema cannot enforce (see PUBLISHED REFERENCE MUST RESOLVE). Carries no content."
         }
       },
       "description": "The versioned identity of the formula and assumption set behind this recommendation, plus the structural starting-assumption label. The credibility contract: publish and version the formula and assumptions."
@@ -287,5 +288,5 @@
       "description": "One structured, renderable explanation factor. Closed reason token plus typed, bounded operands and an optional reference to the user's own characterization field — enough for the coding agent to render the 'why' in the user's terms, and never a free-form prose payload."
     }
   },
-  "x-traigent-note": "Contract-first per the workspace cross-repo rule: this response schema lands before the backend recommendation service exists and is NOT asserted against backend parity. The authoritative computation lives in the backend; SDK preflight, portal, and skills CALL this contract rather than reimplement it, and an offline path returns the same shapes from the shipped fixture vectors. Presentation phrasing lives in the agent's open presentation layer: the backend returns structured render tokens, and the agent turns them into the user's language."
+  "x-traigent-note": "Contract-first per the workspace cross-repo rule: this response schema lands before the backend recommendation service exists and is NOT asserted against backend parity. The authoritative computation lives in the backend; SDK preflight, portal, and skills are intended to CALL this contract rather than reimplement it. The shipped vectors under tests/test_data/economics/ are schema-valid EXAMPLES of these shapes — nothing implements this contract yet, so they are not conformance evidence for any producer, and no claim is made here that a backend or an offline path agrees with them. Conformance testing starts when the first producer exists. Presentation phrasing lives in the agent's open presentation layer: the backend returns structured render tokens, and the agent turns them into the user's language."
 }

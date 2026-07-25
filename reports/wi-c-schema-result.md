@@ -9,6 +9,24 @@
 > | version `4.10.0 → 4.11.0`, CHANGELOG `[4.11.0] - 2026-07-18` | `5.0.0 → 5.1.0`, CHANGELOG `[5.1.0] - 2026-07-25` (develop shipped the 5.0.0 honest-SemVer release, #343, while this was parked) |
 > | `schemaFileCount` 375 → 377, `files=377` | 376 → **378** (develop added one schema file meanwhile); parity re-stamped with `scripts/refresh_parity.py --update` |
 >
+> **Terra review round 1 returned BLOCK; all three findings were real and are fixed
+> in the same branch.** (1) `agent_display_name` was an 80-character free-text field
+> whose own description claimed it "cannot become a free-text egress channel" — removed
+> outright, since the agent renders locally and never needs to transmit it; and
+> `evidence_pointer` is now intersected with the opaque-identifier grammar inside this
+> request, documented as bounding the channel rather than sealing it (the shared WI-B
+> definition is untouched — narrowing a shipped contract is a breaking change owed a
+> coordinated MAJOR release, raised to the owner instead). (2) The claim that "an offline
+> path returns the same shapes" and that fixtures are agreed by "both the offline path
+> and the backend" was unsupported — no producer exists — so the vectors are now
+> described as schema-valid examples, not conformance evidence. (3) `published_reference`
+> was optional while the schema claimed the formula is published and re-derivable; it is
+> now required, with resolution declared as a backend obligation. Terra's non-blocking
+> item is also done: the allowlist gate is now driven from the vocabulary across all ten
+> fields instead of spot-checking two. Each fix was mutation-tested — removing the
+> narrowing, re-adding a display name, making the reference optional, and deleting one
+> allowlist gate each fail their guard.
+>
 > One substantive addition on rebase: develop's #343 bound every non-2xx status of the
 > sibling telemetry route to `error_envelope_schema.json` and pinned those bindings with
 > tests. This route documented its five error statuses as bare descriptions — the exact

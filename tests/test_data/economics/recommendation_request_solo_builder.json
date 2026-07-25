@@ -4,7 +4,6 @@
   "request_id": "econrec-req-solo-0001",
   "submitted_at": "2026-07-18T09:00:00Z",
   "source": {"kind": "coding_agent", "name": "coding-agent", "version": "1.4.2"},
-  "agent_display_name": "your coding assistant",
   "characterization": {
     "bands": {
       "value_channel": "save_expert_time",
@@ -16,9 +15,9 @@
     "field_reports": [
       {"field": "value_channel", "provenance": "asked", "confidence": 1.0, "sharing_outcome": "shared"},
       {"field": "error_cost_band", "provenance": "asked", "confidence": 1.0, "sharing_outcome": "shared"},
-      {"field": "daily_volume_band", "provenance": "inferred", "confidence": 0.8, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "traces show ~80 completed runs/day over 14 days"},
-      {"field": "lifecycle_stage", "provenance": "inferred", "confidence": 0.7, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "no promotion/apply calls and no trusted holdout in the repo"},
-      {"field": "observed_daily_volume", "provenance": "inferred", "confidence": 0.8, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "14d trace count averaged"},
+      {"field": "daily_volume_band", "provenance": "inferred", "confidence": 0.8, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "traces_14d_completed_runs_daily_mean"},
+      {"field": "lifecycle_stage", "provenance": "inferred", "confidence": 0.7, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "repo_scan_no_promotion_calls_no_holdout"},
+      {"field": "observed_daily_volume", "provenance": "inferred", "confidence": 0.8, "sharing_outcome": "shared", "evidence_status": "provided", "evidence_pointer": "traces_14d_count_mean"},
       {"field": "loss_per_bad_output_usd", "provenance": "inferred", "confidence": 0.4, "sharing_outcome": "withheld_by_policy", "evidence_status": "withheld_by_policy"}
     ],
     "sharing_policy_version": "sharing-policy-v0",

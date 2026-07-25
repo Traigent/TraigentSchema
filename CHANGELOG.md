@@ -35,14 +35,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     field), so a transmitted value for a non-allowlisted field is unrepresentable. An empty
     allowlist (share nothing, all fields reported `withheld_by_policy`) is honest and fully
     representable, and the recommendation still returns the spend-$0 case.
-  - **Presentation-only `agent_display_name`.** Bounded and control-character-free (so it cannot
-    become a free-text egress channel) and tagged `x-content` / `x-privacy-classification:
-    user_content`. It is not an allowlisted characterization field, so the WI-B telemetry contract
-    cannot carry it; a backend obligation declares it ephemeral — never persisted, logged, or
-    forwarded to telemetry.
+  - **No presentation channel at all.** An earlier draft of this contract carried an 80-character
+    `agent_display_name` and argued that being bounded and control-character-free meant it "cannot
+    become a free-text egress channel". That was false — 80 printable characters carry prose — so
+    the field is removed rather than re-worded, and `additionalProperties: false` now makes it
+    unrepresentable. Nothing replaced it: the agent renders the recommendation in the user's own
+    terms from structured tokens, on its own machine, so the name never needs to be transmitted.
+  - **Evidence pointers are narrowed to an opaque grammar in this request.** The shared WI-B
+    `EvidencePointer` admits 280 characters of free text; inside this request it is intersected
+    with the repo's opaque-identifier grammar, so prose, whitespace, quotes, and email- or
+    sentence-shaped values are unrepresentable. The shared definition is deliberately NOT changed
+    here — narrowing a shipped contract is a breaking change owed a coordinated MAJOR release —
+    and the narrowing is documented as BOUNDING the channel, not sealing it: a token can still
+    encode a number, so treating pointers as user content (redact, never parse, never join to a
+    withheld field) remains a declared backend obligation.
   - **Backend-authoritative recommendation** (`economics_recommendation_response_schema.json`):
     versioned formula/assumption identity with a required `assumptions_are_starting_assumptions:
-    true` label; archetype and dominant value channel (vocabulary `$ref`); a recommended daily
+    true` label and a **required** `published_reference` — required rather than optional because
+    the auditability claim would otherwise outrun the contract: a response naming only two
+    internal version labels leaves a consumer nothing to look up. That the reference actually
+    resolves to a published document is a declared backend obligation the schema cannot enforce;
+    archetype and dominant value channel (vocabulary `$ref`); a recommended daily
     build budget with archetype floor/cap (labelled starting assumptions, `const`-guarded) and a
     conservative-lower-bound basis carrying the value interval with its level; a structured
     payback statement where `payback_days` exists ONLY on a positive conservative lower bound and
@@ -58,10 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     recommendation cannot be a function of that state. Budget floors/caps are labelled starting
     assumptions, NOT funded amounts — funding (the seven-day credit envelope) is the separate WI-D
     owner-gated decision and is deliberately out of scope here.
-  - **Deterministic offline fixture vectors** (`tests/test_data/economics/`): canonical
-    request/response pairs (solo builder, support automation, and an all-withheld submission that
-    maps to a spend-$0 recommendation) that both the offline path and the backend agree on. They
-    are static vectors paired by echoed `request_id` and carry no computation implementation.
+  - **Deterministic example vectors** (`tests/test_data/economics/`): request/response pairs
+    (solo builder, support automation, and an all-withheld submission that maps to a spend-$0
+    recommendation), paired by echoed `request_id` and carrying no computation implementation.
+    They are schema-valid EXAMPLES, not conformance evidence: nothing implements this contract
+    yet, so no claim is made that a backend or an offline path agrees with them. Conformance
+    testing begins when the first producer exists.
 
 ## [5.0.0] - 2026-07-24
 

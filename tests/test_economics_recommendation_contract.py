@@ -114,6 +114,7 @@ def _response(**extra) -> dict:
             "formula_version": "econ-formula-v0",
             "assumption_set_version": "econ-assumptions-v0",
             "assumptions_are_starting_assumptions": True,
+            "published_reference": "econ-formula-doc-v0",
         },
         "archetype": "solo_coding_builder",
         "dominant_value_channel": "save_expert_time",
@@ -286,7 +287,7 @@ def test_asked_and_defaulted_values_cannot_fake_inference_evidence() -> None:
         body = _transmit(
             "value_channel", "save_expert_time",
             _report("value_channel", provenance=provenance,
-                    evidence_status="provided", evidence_pointer="made this up"),
+                    evidence_status="provided", evidence_pointer="made_this_up"),
         )
         assert _rejected(body, REQUEST), provenance
 
@@ -303,7 +304,7 @@ def test_inferred_evidence_may_be_withheld_but_not_leaked() -> None:
     assert _ok(body, REQUEST)
     # the pointer must not ride along on a withheld field
     body["characterization"]["field_reports"][0]["evidence_pointer"] = (
-        "incident ledger shows $4k median escalation"
+        "incident_ledger_median_escalation"
     )
     assert _rejected(body, REQUEST)
 
@@ -352,17 +353,48 @@ def test_the_allowlist_binding_covers_overrides_not_only_bands() -> None:
     off = _transmit(
         "observed_daily_volume", 80,
         _report("observed_daily_volume", provenance="inferred", confidence=0.8,
-                evidence_status="provided", evidence_pointer="14d trace count"),
+                evidence_status="provided", evidence_pointer="traces_14d_count"),
         allowlist=[], container="overrides",
     )
     assert _rejected(off, REQUEST), "a transmitted override off the allowlist must be rejected"
     on = _transmit(
         "observed_daily_volume", 80,
         _report("observed_daily_volume", provenance="inferred", confidence=0.8,
-                evidence_status="provided", evidence_pointer="14d trace count"),
+                evidence_status="provided", evidence_pointer="traces_14d_count"),
         allowlist=["observed_daily_volume"], container="overrides",
     )
     assert _ok(on, REQUEST)
+
+
+def test_every_vocabulary_field_is_allowlist_gated_not_just_the_sampled_ones() -> None:
+    """The schema writes one allOf gate per characterization field by hand, so a
+    missing or mistyped gate is invisible to a spot check of two fields. Drive the
+    whole vocabulary from the vocabulary itself: for each of the ten fields, a value
+    transmitted with an empty allowlist must be rejected and the same value with the
+    field allowlisted must be accepted. Deleting any single gate fails here."""
+    vocab = load_schema("economics_characterization_vocabulary_schema")["definitions"]
+    bands = vocab["CharacterizationBands"]["properties"]
+    overrides = vocab["CharacterizationOverrides"]["properties"]
+    all_fields = set(vocab["CharacterizationFieldName"]["enum"])
+    assert all_fields == set(bands) | set(overrides), (
+        "vocabulary drift: the allowlist names and the transmittable containers "
+        "must describe the same ten fields"
+    )
+
+    def _first_enum_member(prop: dict) -> str:
+        """Resolve a band property's local $ref to its enum and take a member, so the
+        test tracks the vocabulary instead of hard-coding values that could drift."""
+        target = prop["$ref"].rsplit("/", 1)[-1]
+        return vocab[target]["enum"][0]
+
+    for field in sorted(all_fields):
+        container = "bands" if field in bands else "overrides"
+        value = _first_enum_member(bands[field]) if container == "bands" else 42
+        report = _report(field, provenance="asked", confidence=1.0, sharing_outcome="shared")
+        off = _transmit(field, value, report, allowlist=[], container=container)
+        assert _rejected(off, REQUEST), f"{field}: transmitted off-allowlist was accepted"
+        on = _transmit(field, value, report, allowlist=[field], container=container)
+        assert _ok(on, REQUEST), f"{field}: honest allowlisted transmission was rejected"
 
 
 def test_an_empty_allowlist_all_withheld_submission_is_honest() -> None:
@@ -389,32 +421,90 @@ def test_sharing_policy_requires_a_version_and_an_allowlist() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# agent_display_name: presentation-only, bounded, never telemetry
+# no presentation channel; evidence pointers are opaque
 # --------------------------------------------------------------------------- #
-def test_agent_display_name_is_bounded_and_control_character_free() -> None:
-    assert _ok(_request(agent_display_name="your QA agent"), REQUEST)
-    assert _rejected(_request(agent_display_name="bad\nname"), REQUEST), (
-        "a trailing/embedded newline must not smuggle a second line"
+def test_the_request_carries_no_presentation_string_at_all() -> None:
+    """An earlier draft carried an 80-character `agent_display_name` and claimed a
+    bounded, control-character-free string 'cannot become a free-text egress
+    channel'. Eighty printable characters carry prose, so the claim was false and the
+    field was removed rather than re-worded. Nothing replaced it: the agent renders
+    the response from structured tokens on its own machine."""
+    schema = _load(f"{REQUEST}.json")
+    assert "agent_display_name" not in schema["properties"]
+    assert _rejected(_request(agent_display_name="your QA agent"), REQUEST), (
+        "additionalProperties:false must make a display name unrepresentable"
     )
-    assert _rejected(_request(agent_display_name="x" * 81), REQUEST)
-    assert _rejected(_request(agent_display_name=""), REQUEST)
+    assert _rejected(_request(display_name="anything"), REQUEST)
+    obligations = " ".join(schema["x-backend-obligations"])
+    assert "NO PRESENTATION CHANNEL" in obligations
 
 
-def test_agent_display_name_is_annotated_as_ephemeral_user_content() -> None:
-    prop = _load(f"{REQUEST}.json")["properties"]["agent_display_name"]
-    assert prop.get("x-content") is True
-    assert prop.get("x-privacy-classification") == "user_content"
+def test_no_request_property_is_a_free_text_user_content_channel() -> None:
+    """Generalizes the removal: no top-level property of this request may be tagged
+    as user content. If someone re-adds a prose field later, this fails even if they
+    give it a different name."""
+    props = _load(f"{REQUEST}.json")["properties"]
+    offenders = [n for n, p in props.items() if p.get("x-content") is True]
+    assert offenders == [], f"free-text channels re-introduced: {offenders}"
+
+
+def _pointer_request(pointer: str) -> dict:
+    """A minimal valid request whose single inferred field carries `pointer`."""
+    req = _request()
+    req["characterization"]["field_reports"] = [
+        {
+            "field": "value_channel",
+            "provenance": "inferred",
+            "confidence": 0.8,
+            "sharing_outcome": "shared",
+            "evidence_status": "provided",
+            "evidence_pointer": pointer,
+        }
+    ]
+    req["characterization"]["bands"] = {"value_channel": "save_expert_time"}
+    req["sharing_policy"]["allowlist"] = ["value_channel"]
+    return req
+
+
+def test_evidence_pointers_cannot_carry_prose_or_pii() -> None:
+    """The shared WI-B EvidencePointer admits 280 characters of free text. Inside
+    THIS request it is intersected with the repo's opaque-identifier grammar, so a
+    sentence, an email address, or a name-and-number string is unrepresentable."""
+    assert _ok(_pointer_request("traces_14d_count_mean"), REQUEST)
+    for leak in (
+        "traces show ~3.1k runs/day over 14 days",
+        "Alice Smith SSN 123-45-6789",
+        "alice@customer.example",
+        "loss per bad output = $4000",
+        'customer said "we lose 4k a day"',
+    ):
+        assert _rejected(_pointer_request(leak), REQUEST), f"prose accepted: {leak!r}"
+
+
+def test_the_pointer_narrowing_is_documented_as_bounding_not_sealing() -> None:
+    """Honesty check on the fix itself. The narrowing bounds the channel; it does not
+    seal it — an identifier-shaped token can still encode a number belonging to a
+    field the client reported withheld, and no schema can detect that. The contract
+    must say so rather than claim closure, and the residual must be a named backend
+    obligation."""
+    leaky = _pointer_request("loss_per_bad_output_4000")
+    assert _ok(leaky, REQUEST), (
+        "this SHOULD still validate — the test documents the residual channel, "
+        "and fails if someone later claims it was closed without closing it"
+    )
     obligations = " ".join(_load(f"{REQUEST}.json")["x-backend-obligations"])
-    assert "AGENT DISPLAY NAME IS EPHEMERAL" in obligations
+    assert "EVIDENCE POINTERS ARE OPAQUE, NOT SEALED" in obligations
+    assert "redact" in obligations.lower()
 
 
-def test_agent_display_name_is_not_a_telemetry_characterization_field() -> None:
-    """Presentation-only: it is not an allowlisted CharacterizationFieldName, so the
-    WI-B telemetry contract cannot carry it — the request may name the user's agent,
-    telemetry never can."""
+def test_no_presentation_field_is_a_telemetry_characterization_field() -> None:
+    """The WI-B telemetry contract could never carry a display name either: it is not
+    an allowlisted CharacterizationFieldName. Kept as a regression guard on the
+    vocabulary, now that the request has no such field at all."""
     vocab = load_schema("economics_characterization_vocabulary_schema")
     allowlist = set(vocab["definitions"]["CharacterizationFieldName"]["enum"])
     assert "agent_display_name" not in allowlist
+    assert "display_name" not in allowlist
 
 
 # --------------------------------------------------------------------------- #
@@ -434,6 +524,7 @@ def test_response_requires_the_whole_recommendation_record() -> None:
 def test_response_carries_versioned_formula_and_assumption_identity() -> None:
     for field in (
         "formula_version", "assumption_set_version", "assumptions_are_starting_assumptions",
+        "published_reference",
     ):
         body = _response()
         del body["formula_identity"][field]
@@ -738,11 +829,13 @@ def test_the_all_withheld_pair_leads_with_spend_zero_and_no_payback() -> None:
 def test_unenforceable_invariants_are_declared_as_backend_obligations() -> None:
     request_obligations = " ".join(_load(f"{REQUEST}.json")["x-backend-obligations"])
     for marker in ("TENANT/PROJECT FROM CONTEXT", "SHARING POLICY IS CLIENT-ENFORCED",
-                   "AGENT DISPLAY NAME IS EPHEMERAL", "NO PRICING/CREDIT INPUT"):
+                   "NO PRESENTATION CHANNEL", "EVIDENCE POINTERS ARE OPAQUE, NOT SEALED",
+                   "NO PRICING/CREDIT INPUT"):
         assert marker in request_obligations, marker
     response_obligations = " ".join(_load(f"{RESPONSE}.json")["x-backend-obligations"])
     for marker in ("BUDGET ORDERING", "LOWER-BOUND LEADS", "NO PRICING/CREDIT/WALLET INPUT",
-                   "PAYBACK ONLY ON A POSITIVE LOWER BOUND", "ASSUMPTIONS ARE NOT VALIDATED"):
+                   "PAYBACK ONLY ON A POSITIVE LOWER BOUND", "ASSUMPTIONS ARE NOT VALIDATED",
+                   "PUBLISHED REFERENCE MUST RESOLVE"):
         assert marker in response_obligations, marker
 
 

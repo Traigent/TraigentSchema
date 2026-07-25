@@ -6,7 +6,8 @@
   "formula_identity": {
     "formula_version": "econ-formula-v0",
     "assumption_set_version": "econ-assumptions-v0",
-    "assumptions_are_starting_assumptions": true
+    "assumptions_are_starting_assumptions": true,
+    "published_reference": "econ-formula-doc-v0"
   },
   "archetype": "undetermined",
   "dominant_value_channel": "save_expert_time",

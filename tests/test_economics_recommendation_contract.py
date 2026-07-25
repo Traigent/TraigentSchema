@@ -254,8 +254,8 @@ def test_request_rejects_unknown_and_tenant_asserting_fields() -> None:
 
 def test_request_carries_no_free_form_content_channel() -> None:
     """No free-text note field may ride along: characterization values are closed
-    enums or typed numbers, and the only user-authored string (agent_display_name)
-    is bounded, control-character-free, and presentation-only."""
+    enums or typed numbers, and the request carries no user-authored string at all —
+    the presentation-only display name an earlier draft had was removed."""
     assert _rejected(_request(notes="please give me a big budget"), REQUEST)
     body = _request()
     body["characterization"]["free_text"] = "context the sharing policy would withhold"
@@ -439,13 +439,39 @@ def test_the_request_carries_no_presentation_string_at_all() -> None:
     assert "NO PRESENTATION CHANNEL" in obligations
 
 
-def test_no_request_property_is_a_free_text_user_content_channel() -> None:
-    """Generalizes the removal: no top-level property of this request may be tagged
-    as user content. If someone re-adds a prose field later, this fails even if they
-    give it a different name."""
-    props = _load(f"{REQUEST}.json")["properties"]
-    offenders = [n for n, p in props.items() if p.get("x-content") is True]
-    assert offenders == [], f"free-text channels re-introduced: {offenders}"
+def test_no_request_property_can_carry_free_text() -> None:
+    """Generalizes the removal by SHAPE, not by annotation. An earlier version of this
+    test only looked for `x-content: true`, which a new prose field could simply omit
+    — it would have called itself a general guard while catching nothing. Instead:
+    every top-level string property must be constrained by a const, an enum, or a
+    pattern (directly or through its $ref chain). An unconstrained string of any name
+    fails here."""
+    schema = _load(f"{REQUEST}.json")
+
+    def _constrains_strings(node: dict, depth: int = 0) -> bool:
+        if depth > 6:
+            return False
+        if any(k in node for k in ("const", "enum", "pattern")):
+            return True
+        if "$ref" in node:
+            ref = node["$ref"]
+            if ref.startswith("#/definitions/"):
+                return _constrains_strings(schema["definitions"][ref.split("/")[-1]], depth + 1)
+            file_part, _, frag = ref.partition("#")
+            target = _load(file_part.lstrip("./"))
+            for part in [p for p in frag.split("/") if p]:
+                target = target[part]
+            return _constrains_strings(target, depth + 1)
+        for key in ("allOf", "anyOf", "oneOf"):
+            if any(_constrains_strings(sub, depth + 1) for sub in node.get(key, [])):
+                return True
+        # A non-string leaf (object/number/array) is not a free-text channel.
+        return node.get("type") not in (None, "string")
+
+    unconstrained = [
+        name for name, prop in schema["properties"].items() if not _constrains_strings(prop)
+    ]
+    assert unconstrained == [], f"unconstrained free-text properties: {unconstrained}"
 
 
 def _pointer_request(pointer: str) -> dict:
@@ -466,10 +492,14 @@ def _pointer_request(pointer: str) -> dict:
     return req
 
 
-def test_evidence_pointers_cannot_carry_prose_or_pii() -> None:
-    """The shared WI-B EvidencePointer admits 280 characters of free text. Inside
-    THIS request it is intersected with the repo's opaque-identifier grammar, so a
-    sentence, an email address, or a name-and-number string is unrepresentable."""
+def test_evidence_pointers_cannot_carry_sentence_shaped_text() -> None:
+    """The shared WI-B EvidencePointer admits 280 characters of free text. Inside THIS
+    request it is intersected with the repo's opaque-identifier grammar, which rejects
+    whitespace, quotes, at-signs, non-ASCII, and control characters — so a copied
+    sentence or an email address is unrepresentable.
+
+    Scoped deliberately: the assertion is about SENTENCE-shaped text, not about PII in
+    general. See the companion residual test for what this does NOT stop."""
     assert _ok(_pointer_request("traces_14d_count_mean"), REQUEST)
     for leak in (
         "traces show ~3.1k runs/day over 14 days",
@@ -477,24 +507,33 @@ def test_evidence_pointers_cannot_carry_prose_or_pii() -> None:
         "alice@customer.example",
         "loss per bad output = $4000",
         'customer said "we lose 4k a day"',
+        "runs_per_day_3100\n",
     ):
         assert _rejected(_pointer_request(leak), REQUEST), f"prose accepted: {leak!r}"
 
 
-def test_the_pointer_narrowing_is_documented_as_bounding_not_sealing() -> None:
-    """Honesty check on the fix itself. The narrowing bounds the channel; it does not
-    seal it — an identifier-shaped token can still encode a number belonging to a
-    field the client reported withheld, and no schema can detect that. The contract
-    must say so rather than claim closure, and the residual must be a named backend
-    obligation."""
-    leaky = _pointer_request("loss_per_bad_output_4000")
-    assert _ok(leaky, REQUEST), (
-        "this SHOULD still validate — the test documents the residual channel, "
-        "and fails if someone later claims it was closed without closing it"
-    )
+def test_the_pointer_narrowing_bounds_the_channel_and_does_not_seal_it() -> None:
+    """Honesty check on the fix itself, and the reason the contract must not claim
+    'PII is unrepresentable'. The identifier grammar permits `.`, `_`, `:`, `/`, `+`
+    and `-` between alphanumerics, so an underscore-joined name or amount is a VALID
+    token — including one belonging to a field the client reported withheld. No schema
+    can detect that. These payloads are asserted to VALIDATE so the residual stays
+    visible: if someone later narrows the grammar, this test fails and they must
+    update the contract's wording to match, instead of the wording quietly drifting
+    ahead of what is enforced."""
+    for still_valid in (
+        "loss_per_bad_output_4000",
+        "Alice_Smith_SSN_123-45-6789",
+    ):
+        assert _ok(_pointer_request(still_valid), REQUEST), (
+            f"{still_valid!r} SHOULD validate — this documents the residual channel"
+        )
     obligations = " ".join(_load(f"{REQUEST}.json")["x-backend-obligations"])
     assert "EVIDENCE POINTERS ARE OPAQUE, NOT SEALED" in obligations
     assert "redact" in obligations.lower()
+    assert "does NOT make PII or values unrepresentable" in obligations, (
+        "the obligation must state the residual in the same words the test proves"
+    )
 
 
 def test_no_presentation_field_is_a_telemetry_characterization_field() -> None:
@@ -798,9 +837,10 @@ def test_offline_fixture_vectors_validate_against_the_contracts() -> None:
 
 
 def test_offline_fixture_pairs_share_request_ids_without_recomputing() -> None:
-    """The fixtures are canonical request/response SHAPES paired by request_id — a
-    deterministic vector set the offline path and the backend agree on. They embody
-    no computation: the pairing is by echoed id, not a recomputed value."""
+    """The fixtures are canonical request/response SHAPES paired by request_id. They
+    are schema-valid EXAMPLES, not conformance evidence: no backend and no offline
+    path exists yet, so nothing is claimed to agree with them. They embody no
+    computation — the pairing is by echoed id, not a recomputed value."""
     pairs = [
         ("recommendation_request_solo_builder.json", "recommendation_response_solo_builder.json"),
         ("recommendation_request_support_automation.json",

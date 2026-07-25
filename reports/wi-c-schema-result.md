@@ -2,12 +2,17 @@
 
 > **Update — rebased onto develop 5.0.0 on 2026-07-25 (captain).** The packet below was
 > written against the pre-5.0.0 develop line and then parked. Everything in the body
-> still describes the contract accurately, with these superseded numbers:
+> described the contract as it stood on 2026-07-18. Read the body as the ORIGINAL
+> record, not as current truth: the passages marked SUPERSEDED below no longer hold,
+> and where the body and this note disagree, this note is authoritative.
+>
+> Superseded numbers:
 >
 > | Body says | Now |
 > |---|---|
 > | version `4.10.0 → 4.11.0`, CHANGELOG `[4.11.0] - 2026-07-18` | `5.0.0 → 5.1.0`, CHANGELOG `[5.1.0] - 2026-07-25` (develop shipped the 5.0.0 honest-SemVer release, #343, while this was parked) |
 > | `schemaFileCount` 375 → 377, `files=377` | 376 → **378** (develop added one schema file meanwhile); parity re-stamped with `scripts/refresh_parity.py --update` |
+> | `47 passed` in this file, `1222 passed` overall | **52** in this file (2 endpoint-binding tests, 2 pointer tests, 1 vocabulary-wide allowlist test added; 3 display-name tests replaced by 2); full suite **1305 passed / 1 skipped** |
 >
 > **Terra review round 1 returned BLOCK; all three findings were real and are fixed
 > in the same branch.** (1) `agent_display_name` was an 80-character free-text field
@@ -59,7 +64,9 @@ Wiring / docs / manifest (modified):
   `README.md` release line → 4.11.0.
 - `parity/python-js-sdk.json` — re-stamped digest + `schemaFileCount` 375 → 377.
 
-Tests + deterministic offline fixtures (new):
+Tests + example vectors (new) — SUPERSEDED wording: these were called "deterministic
+ offline fixtures"; nothing implements the contract, so they are schema-valid EXAMPLES,
+ not evidence that any offline path or backend agrees with them:
 - `tests/test_economics_recommendation_contract.py` (47 tests)
 - `tests/test_data/economics/recommendation_{request,response}_*.json` — 3 request/response pairs
   (solo builder, support automation, all-withheld → spend-$0), paired by echoed `request_id`, no
@@ -73,10 +80,12 @@ Tests + deterministic offline fixtures (new):
 - Per-field provenance `asked|inferred|defaulted`, required confidence, and evidence accounting;
   the characterization payload reuses the WI-B `CharacterizationTelemetry` definition by `$ref`, so
   the egress/coverage/substance/evidence closed-pipe rules are the SAME pipe, not a restatement.
-- Presentation-only `agent_display_name`: bounded (1–80), control-character-free (pattern excludes
-  C0 controls + DEL and anchors the tail so a trailing newline can't smuggle a second line),
-  `x-content`/`user_content`; declared ephemeral (never persisted/logged/telemetered) and it is not
-  an allowlisted `CharacterizationFieldName`, so WI-B telemetry cannot carry it.
+- ~~Presentation-only `agent_display_name`~~ **SUPERSEDED — the field was REMOVED on 2026-07-25.**
+  The original text argued that being bounded (1–80) and control-character-free meant it could not
+  become a free-text egress channel. Terra's review showed that claim was false — 80 printable
+  characters carry prose — so the field was deleted rather than re-worded, and
+  `additionalProperties: false` now makes it unrepresentable. The request carries no presentation
+  string of any kind.
 - Structural client-side sharing policy: `sharing_policy.{policy_version, allowlist}`; a value in the
   transmitted area REQUIRES its field on the allowlist (enforced per field), so an off-allowlist
   value is unrepresentable. Empty-allowlist / all-withheld submission is honest and representable.
@@ -139,8 +148,9 @@ Tests + deterministic offline fixtures (new):
 - Reused the WI-B `CharacterizationTelemetry` definition (via `$ref`) for the submission's
   characterization intake instead of re-expressing ~25 withholding/coverage/substance/evidence
   conditionals. This maximizes "reference, don't restate", guarantees the submission's closed pipe
-  is byte-identical to telemetry's, and keeps `agent_display_name` + `sharing_policy` at the request
-  top level (telemetry's object correctly carries neither). Reversible (could be forked into an
+  is byte-identical to telemetry's, and keeps `sharing_policy` at the request top level
+  (telemetry's object correctly carries neither). SUPERSEDED: this sentence originally also named
+  `agent_display_name`, which no longer exists in the contract. Reversible (could be forked into an
   independent definition later without a contract-shape change to callers).
 
 ## Residuals / notes for the captain
@@ -156,5 +166,6 @@ Tests + deterministic offline fixtures (new):
 - Backend obligations (things Draft-07 cannot enforce) are declared as `x-backend-obligations` on
   both schemas and asserted-as-declared by the tests: tenant/project from context, budget
   floor≤recommended≤cap ordering, that the lower-bound/positive-bound booleans reflect real signs,
-  no pricing/credit join, agent_display_name non-persistence, and 200/422/503 status selection.
+  no pricing/credit join, evidence-pointer redaction (the pointer narrowing bounds the channel but
+  does not seal it), published-reference resolution, and 200/422/503 status selection.
   These transfer to the backend packet.

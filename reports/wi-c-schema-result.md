@@ -12,7 +12,7 @@
 > |---|---|
 > | version `4.10.0 → 4.11.0`, CHANGELOG `[4.11.0] - 2026-07-18` | `5.0.0 → 5.1.0`, CHANGELOG `[5.1.0] - 2026-07-25` (develop shipped the 5.0.0 honest-SemVer release, #343, while this was parked) |
 > | `schemaFileCount` 375 → 377, `files=377` | 376 → **378** (develop added one schema file meanwhile); parity re-stamped with `scripts/refresh_parity.py --update` |
-> | `47 passed` in this file, `1222 passed` overall | **52** in this file (2 endpoint-binding tests, 2 pointer tests, 1 vocabulary-wide allowlist test added; 3 display-name tests replaced by 2); full suite **1305 passed / 1 skipped** |
+> | `47 passed` in this file, `1222 passed` overall | **54** in this file; full suite **1307 passed / 1 skipped**. See the restamped Verification section below for the current commands and counts; the body's original numbers are kept as the parked packet's record. |
 >
 > **Terra review round 1 returned BLOCK; all three findings were real and are fixed
 > in the same branch.** (1) `agent_display_name` was an 80-character free-text field
@@ -114,6 +114,35 @@ Tests + example vectors (new) — SUPERSEDED wording: these were called "determi
   representable; asserted by a property-name scan over both contracts.
 
 ## Verification — exact commands + counts
+
+**RESTAMPED 2026-07-25 at branch head `dc4eadc6`+ (post sol round 1).** The original
+2026-07-18 numbers below the line are kept as the historical record of the parked
+packet; these are the current ones, re-run by the captain, each standalone with no
+pipe that could mask an exit code:
+
+| Command | Result |
+|---|---|
+| `pytest tests/` | **1307 passed, 1 skipped, 2 warnings** |
+| `pytest tests/test_economics_recommendation_contract.py tests/test_economics_telemetry_contract.py` | **145 passed** |
+| `ruff check traigent_schema/` (CI's scope) + the changed test file | All checks passed |
+| `mypy traigent_schema/ --ignore-missing-imports` | Success, 5 source files |
+| `scripts/refresh_parity.py --update` then `--check` | up to date, **files=378** |
+
+The 1 skip and 2 DeprecationWarnings are pre-existing and unrelated to WI-C
+(`test_auth_taxonomy_parity.py` / `test_best_config_contract_closure.py`).
+
+Guards proven to bite by mutation, each reverted immediately after: removing the
+evidence-pointer narrowing; re-adding a display-name property; making
+`published_reference` optional; deleting any one of the ten allowlist gates; adding a
+seventh client-authored identifier string; dropping one field, or the whole
+obligation, from the redaction duty; and ten distinct free-text bypasses
+(`^.{1,80}$`, `patternProperties`, an `additionalProperties`-less declared object,
+`propertyNames`, `["string","null"]`, `pattern: ".*"`, an `anyOf` with one free
+branch, a nested object, an `additionalProperties` string map, an array of strings).
+
+---
+
+### Historical — original 2026-07-18 run (SUPERSEDED, kept as the parked packet's record)
 
 - Focused (new file): `pytest tests/test_economics_recommendation_contract.py` → **47 passed**.
 - Focused (new + WI-B economics): `pytest tests/test_economics_recommendation_contract.py

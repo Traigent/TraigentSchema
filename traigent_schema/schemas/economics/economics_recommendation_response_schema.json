@@ -69,6 +69,8 @@
     "NO PRICING/CREDIT/WALLET INPUT: the recommendation must not be a function of pricing, credits, sales incentives, or wallet/billing state. No such field is representable here or in the request; the backend must likewise not join that state into the computation. Budget floors/caps are labelled starting assumptions, NOT funded amounts — funding is the WI-D owner-gated decision and is out of scope for this contract.",
     "PAYBACK ONLY ON A POSITIVE LOWER BOUND: payback_days is present only when payback.is_lower_bound_positive is true; when the conservative bound is not positive the recommendation leads with the spend-$0 case and claims no payback. The contract enforces the presence rule; that the boolean reflects the real sign of the lower bound is a backend obligation.",
     "ASSUMPTIONS ARE NOT VALIDATED: every dollar figure is a starting assumption. The backend must not present any figure as validated in any rendered or logged form; the funnel/receipt telemetry (WI-B) is what validates the model over time.",
+    "VALUE INTERVAL ORDERING: budget.basis.value_lower_bound must satisfy lower <= estimate <= upper. JSON Schema cannot compare sibling values, and a fragment $ref does NOT import the shared ConfidenceInterval's own obligation text, so the duty is restated here rather than assumed inherited. This is not cosmetic: the model leads with the lower bound, so an inverted interval turns an unfavourable result into a favourable claim. Reject as interval_bounds_inconsistent.",
+    "REQUEST ID IS AN ECHO, NOT A NEW ID: response.request_id MUST equal the request_id of the submission that produced this recommendation. The contract can only require an identifier-shaped value; equality across two messages is unenforceable in a single-document schema. A recommendation returned under a different id silently re-attributes budget advice to another submission, so a mismatch is a defect, not a cosmetic inconsistency.",
     "PUBLISHED REFERENCE MUST RESOLVE: formula_identity.published_reference is required by the contract, but the schema can only check that a label is present and opaque. The backend must emit a reference that actually resolves to the published, versioned formula + assumptions document for that formula_version and assumption_set_version. Emitting a placeholder, a dangling id, or a reference to an unpublished internal document satisfies the schema and violates this obligation — it would turn the auditability claim into a false one."
   ],
   "definitions": {
@@ -139,8 +141,11 @@
               "description": "Structural label: the budget is based on the CONSERVATIVE lower bound of realized value, never a point estimate. A required const, so a recommendation cannot quietly base a budget on an optimistic point estimate."
             },
             "value_lower_bound": {
-              "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ConfidenceInterval"}],
-              "description": "The estimated realized-value interval the budget is based on, WITH its level, so the lower bound the budget leads with is explicit and a point estimate can never be mistaken for it. May legitimately have a non-positive lower bound (which drives the spend-$0 case). Reused from the common ConfidenceInterval, not restated."
+              "allOf": [
+                {"$ref": "./economics_common_schema.json#/definitions/ConfidenceInterval"},
+                {"properties": {"unit": {"const": "usd"}}}
+              ],
+              "description": "The estimated realized-value interval the budget is based on, WITH its level, so the lower bound the budget leads with is explicit and a point estimate can never be mistaken for it. May legitimately have a non-positive lower bound (which drives the spend-$0 case). Reused from the common ConfidenceInterval, with `unit` pinned to `usd`: the shared type also admits `tokens`, `seconds`, and `count`, and a budget in dollars cannot be derived from an interval measured in tokens. Ordering (lower <= estimate <= upper) is NOT expressible in JSON Schema and is carried forward as an explicit backend obligation here, because a fragment $ref does not import the shared type's own obligation text."
             }
           },
           "description": "How the budget was derived: the closed method, the structural conservative-lower-bound label, and the value interval it leads with."

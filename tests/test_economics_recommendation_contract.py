@@ -515,6 +515,11 @@ def _free_text_paths(schema: dict) -> set[str]:
         # content-capable channel and belongs in the inventory below.
         "Alice.Smith.SSN.123-45-6789",
         "Alice_Smith_SSN_123-45-6789",
+        # Lowercase prose with spaces and nothing else. A pattern like
+        # `^[a-z ]{1,80}$` rejects every probe above while accepting sentences,
+        # so without this the scan would call it constrained.
+        "we lose about four thousand a day on bad answers",
+        "0123456789 0123456789 0123456789",
     )
 
     def pattern_admits_prose(pattern: str) -> bool:
@@ -624,13 +629,19 @@ def test_the_redaction_obligation_names_every_content_capable_string() -> None:
     """The inventory and the obligation must not drift apart: a backend implementer
     reads the obligation, not this test file, so every path the scan finds has to be
     named there by the field a reader would recognize."""
-    obligations = " ".join(_load(f"{REQUEST}.json")["x-backend-obligations"])
+    obligations = _load(f"{REQUEST}.json")["x-backend-obligations"]
+    # Each path must be named in an obligation that ITSELF requires redaction.
+    # Joining every obligation into one string and then looking for "redact"
+    # anywhere passed even with redaction removed from five of the six fields,
+    # because the separate evidence-pointer obligation still contained the word.
+    redacting = [o for o in obligations if "redact" in o.lower()]
+    assert redacting, "no obligation requires redaction at all"
     for path in EXPECTED_CLIENT_AUTHORED_STRING_PATHS:
-        # Match the FULL path, not its leaf: "version" alone appears all over the
-        # obligations text, so leaf matching passed even when `source.version` had
-        # been dropped from the list.
-        assert f"`{path}`" in obligations, f"{path} is not named in any backend obligation"
-    assert "redact" in obligations.lower()
+        # Full path, not the leaf: "version" alone appears throughout the text, so
+        # leaf matching passed while `source.version` had been deleted.
+        assert any(f"`{path}`" in o for o in redacting), (
+            f"{path} is not covered by any obligation that requires redaction"
+        )
 
 
 def test_the_content_capable_string_surface_is_exactly_the_documented_inventory() -> None:
@@ -901,25 +912,45 @@ def test_response_money_is_finite_nonnegative_and_bounded() -> None:
 # --------------------------------------------------------------------------- #
 _FORBIDDEN_TOKENS = (
     "credit", "incentive", "grant", "promo", "wallet", "billing", "coupon",
-    "discount", "dollar_gate", "sales", "price", "funding", "voucher", "balance",
+    "discount", "dollar_gate", "sales", "price", "pricing", "funding", "voucher",
+    "balance", "subscription", "invoice", "charge", "quota",
 )
 
 
-def _property_names(schema: dict) -> set[str]:
-    names: set[str] = set()
+def _property_names(schema: dict, *, follow_refs: bool = True) -> set[str]:
+    """Property names declared anywhere in `schema`, INCLUDING through `$ref`.
 
-    def walk(node: object) -> None:
+    The ref-following matters: this request imports its whole characterization
+    shape by reference, so a scan that stopped at the local document would have
+    declared the WI-D boundary clean without ever looking at the imported fields.
+    """
+    names: set[str] = set()
+    seen_refs: set[str] = set()
+
+    def walk(node: object, doc: dict) -> None:
         if isinstance(node, dict):
+            ref = node.get("$ref")
+            if follow_refs and isinstance(ref, str) and ref not in seen_refs:
+                seen_refs.add(ref)
+                file_part, _, frag = ref.partition("#")
+                try:
+                    target_doc = doc if not file_part else _load(file_part.lstrip("./"))
+                    target = target_doc
+                    for part in [x for x in frag.split("/") if x]:
+                        target = target[part]
+                except (KeyError, FileNotFoundError):  # pragma: no cover - fails loudly below
+                    raise AssertionError(f"unresolvable $ref while scanning: {ref}") from None
+                walk(target, target_doc)
             props = node.get("properties")
             if isinstance(props, dict):
                 names.update(props)
             for value in node.values():
-                walk(value)
+                walk(value, doc)
         elif isinstance(node, list):
             for value in node:
-                walk(value)
+                walk(value, doc)
 
-    walk(schema)
+    walk(schema, schema)
     return names
 
 
@@ -1038,15 +1069,39 @@ def test_the_all_withheld_pair_leads_with_spend_zero_and_no_payback() -> None:
 # --------------------------------------------------------------------------- #
 # honesty: what the contract does NOT prove
 # --------------------------------------------------------------------------- #
+def test_the_value_interval_must_be_denominated_in_dollars() -> None:
+    """The budget is a dollar amount derived from this interval, but the shared
+    ConfidenceInterval also admits `tokens`, `seconds`, and `count`. Without pinning
+    the unit, a token-denominated interval is a schema-valid basis for a USD budget.
+    Ordering (lower <= estimate <= upper) cannot be expressed in JSON Schema and is
+    carried as an obligation instead — asserted as declared, not as enforced."""
+    body = _response()
+    assert _ok(body, RESPONSE)
+    for wrong_unit in ("tokens", "seconds", "count"):
+        body = _response()
+        body["budget"]["basis"]["value_lower_bound"]["unit"] = wrong_unit
+        assert _rejected(body, RESPONSE), f"a {wrong_unit} interval was accepted as a USD basis"
+    inverted = _response()
+    inverted["budget"]["basis"]["value_lower_bound"].update({"lower": 900.0, "estimate": 100.0})
+    assert _ok(inverted, RESPONSE), (
+        "ordering is NOT schema-enforceable; this asserts the honest limit so the "
+        "obligation below cannot be quietly dropped as redundant"
+    )
+    obligations = " ".join(_load(f"{RESPONSE}.json")["x-backend-obligations"])
+    assert "VALUE INTERVAL ORDERING" in obligations
+
+
 def test_unenforceable_invariants_are_declared_as_backend_obligations() -> None:
     request_obligations = " ".join(_load(f"{REQUEST}.json")["x-backend-obligations"])
     for marker in ("TENANT/PROJECT FROM CONTEXT", "SHARING POLICY IS CLIENT-ENFORCED",
                    "NO PRESENTATION CHANNEL", "EVIDENCE POINTERS ARE OPAQUE, NOT SEALED",
-                   "CLIENT-AUTHORED STRINGS ARE USER CONTENT", "NO PRICING/CREDIT INPUT"):
+                   "CLIENT-AUTHORED STRINGS ARE USER CONTENT", "UNIQUE CHARACTERIZATION FIELDS",
+                   "NO PRICING/CREDIT INPUT"):
         assert marker in request_obligations, marker
     response_obligations = " ".join(_load(f"{RESPONSE}.json")["x-backend-obligations"])
     for marker in ("BUDGET ORDERING", "LOWER-BOUND LEADS", "NO PRICING/CREDIT/WALLET INPUT",
                    "PAYBACK ONLY ON A POSITIVE LOWER BOUND", "ASSUMPTIONS ARE NOT VALIDATED",
+                   "VALUE INTERVAL ORDERING", "REQUEST ID IS AN ECHO, NOT A NEW ID",
                    "PUBLISHED REFERENCE MUST RESOLVE"):
         assert marker in response_obligations, marker
 

@@ -331,9 +331,90 @@
           "description": "Opaque evidence join hash for the authoritative decision, null when unavailable."
         }
       }
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional client-safe provenance banner identifying that this guidance originated from the Traigent engine, with a templated headline/rationale, coarse evidence-basis labels, and the engine that produced it. Additive/optional: absent on legacy responses and on empty/degenerate responses that carry no decision and no non-empty next_steps.",
+      "required": [
+        "source",
+        "label",
+        "headline",
+        "why",
+        "basis",
+        "engine"
+      ],
+      "properties": {
+        "source": {
+          "const": "traigent"
+        },
+        "label": {
+          "const": "Traigent"
+        },
+        "headline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "basis": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "optimization_history",
+              "run_comparison",
+              "parameter_importance",
+              "value_priors",
+              "optimization_logic"
+            ]
+          }
+        },
+        "engine": {
+          "type": "string",
+          "enum": [
+            "rules",
+            "policy"
+          ]
+        }
+      }
     }
   },
   "allOf": [
+    {
+      "if": {
+        "allOf": [
+          {
+            "not": {
+              "required": [
+                "decision"
+              ]
+            }
+          },
+          {
+            "properties": {
+              "next_steps": {
+                "maxItems": 0
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "attribution"
+          ]
+        }
+      }
+    },
     {
       "if": {
         "required": [

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.1.0] - 2026-07-25
 
 ### Added
+- **Optional first-party `attribution` provenance block on the next-steps and decision-payload
+  response schemas (#352).** Mirrors `Traigent/TraigentBackend#2431` — a closed object
+  (`source`/`label` consts, `headline`/`why`, a 5-token `basis` enum, `engine` in `{rules,policy}`)
+  added under `properties` of `next_steps_schema.json` and `decision_payload_schema.json` (inherited
+  by `decision_payload_response_schema.json` via `$ref`). Optional — absent on empty/degenerate
+  responses; next-steps carries an `allOf` honesty guard requiring `attribution` be absent when there
+  is no decision and no served step. Additive: strict consumers no longer reject the field the
+  backend now emits.
 - **Economics recommendation calculator contract (contract-first, pre-release).** The closed
   characterization submission and the backend-authoritative recommendation for a new canonical
   route `POST /api/v1/economics/recommendation`, published ahead of the backend recommendation

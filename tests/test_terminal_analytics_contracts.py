@@ -99,6 +99,18 @@ def _success_envelope(data: dict) -> dict:
     return {"success": True, "message": "ok", "data": data}
 
 
+def _valid_attribution() -> dict:
+    """Well-formed optional attribution provenance banner (#352)."""
+    return {
+        "source": "traigent",
+        "label": "Traigent",
+        "headline": "Traigent recommends promoting config c-12.",
+        "why": "It sits at the frontier knee and clears the cost constraint.",
+        "basis": ["optimization_history", "run_comparison"],
+        "engine": "rules",
+    }
+
+
 def _load_analytics_endpoints() -> dict:
     with open(get_schemas_dir() / "analytics" / "analytics_endpoints.json", encoding="utf-8") as fh:
         return json.load(fh)
@@ -277,6 +289,73 @@ class TestDecisionPayload:
         data["run_id"] = "trial_deadbeef00"
         errors = validator.validate_json(data, DECISION_PAYLOAD_SCHEMA)
         assert errors == [], f"Unexpected errors: {errors}"
+
+    # ------------------------------------------------------------------
+    # attribution provenance banner (#352)
+    # ------------------------------------------------------------------
+
+    def test_attribution_accepted(self, validator: SchemaValidator, data_dir: Path) -> None:
+        data = _load_fixture(data_dir, "decision_payload_valid.json")
+        data["attribution"] = _valid_attribution()
+        errors = validator.validate_json(data, DECISION_PAYLOAD_SCHEMA)
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_attribution_absent_valid(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        # attribution is optional: the canonical fixture omits it and stays valid.
+        data = _load_fixture(data_dir, "decision_payload_valid.json")
+        assert "attribution" not in data
+        errors = validator.validate_json(data, DECISION_PAYLOAD_SCHEMA)
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_attribution_bad_source_rejected(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        data = _load_fixture(data_dir, "decision_payload_valid.json")
+        data["attribution"] = _valid_attribution()
+        data["attribution"]["source"] = "acme"
+        errors = validator.validate_json(data, DECISION_PAYLOAD_SCHEMA)
+        assert any("source" in e or "const" in e for e in errors)
+
+    def test_attribution_bad_engine_rejected(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        data = _load_fixture(data_dir, "decision_payload_valid.json")
+        data["attribution"] = _valid_attribution()
+        data["attribution"]["engine"] = "heuristic"
+        errors = validator.validate_json(data, DECISION_PAYLOAD_SCHEMA)
+        assert any("engine" in e or "enum" in e for e in errors)
+
+    def test_attribution_empty_basis_rejected(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        data = _load_fixture(data_dir, "decision_payload_valid.json")
+        data["attribution"] = _valid_attribution()
+        data["attribution"]["basis"] = []
+        errors = validator.validate_json(data, DECISION_PAYLOAD_SCHEMA)
+        assert any("basis" in e or "minItems" in e for e in errors)
+
+    def test_attribution_additional_property_rejected(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        data = _load_fixture(data_dir, "decision_payload_valid.json")
+        data["attribution"] = _valid_attribution()
+        data["attribution"]["raw_signal"] = 0.91  # closed object, no signal leakage
+        errors = validator.validate_json(data, DECISION_PAYLOAD_SCHEMA)
+        assert any("raw_signal" in e or "Additional properties" in e for e in errors)
+
+    def test_response_envelope_inherits_attribution(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        # decision_payload_response_schema.data $refs decision_payload_schema, so the
+        # additive attribution field flows through the {success,message,data} envelope.
+        data = _load_fixture(data_dir, "decision_payload_valid.json")
+        data["attribution"] = _valid_attribution()
+        errors = validator.validate_json(
+            _success_envelope(data), DECISION_PAYLOAD_RESPONSE_SCHEMA
+        )
+        assert errors == [], f"Unexpected response-envelope errors: {errors}"
 
 
 # ---------------------------------------------------------------------------

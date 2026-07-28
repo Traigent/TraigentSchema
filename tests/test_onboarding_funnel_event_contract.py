@@ -51,6 +51,7 @@ def _rejected(payload: dict) -> bool:
 def _event(**extra) -> dict:
     """A complete, honest funnel.v1 event. Overriding one key exercises exactly it."""
     event = {
+        "schema": "funnel.v1",
         "run_id": "lead-9f3a.evt-01",
         "ts": "2026-07-18T09:00:00Z",
         "stage": "discover",
@@ -125,10 +126,24 @@ def test_outcome_enum_is_closed() -> None:
 # required fields and the closed top-level shape
 # --------------------------------------------------------------------------- #
 def test_each_required_field_is_enforced_when_omitted() -> None:
-    for field in ("run_id", "ts", "stage", "event", "actor", "outcome"):
+    for field in ("schema", "run_id", "ts", "stage", "event", "actor", "outcome"):
         event = _event()
         del event[field]
         assert _rejected(event), f"{field}: a funnel event is incomplete without it"
+
+
+def test_wire_version_is_required_and_pinned() -> None:
+    """`schema` is REQUIRED, not an optional const: a versionless event validating
+    would be a forward-compat hazard once the closed enums evolve, because a consumer
+    could not tell a funnel.v1 event from a later, differently-shaped one. Omitting it
+    is rejected, and only the exact 'funnel.v1' value is accepted."""
+    assert "schema" in _load_schema()["required"]
+    versionless = _event()
+    del versionless["schema"]
+    assert _rejected(versionless), "a versionless event must not validate"
+    assert _rejected(_event(schema="funnel.v2")), "a mismatched contract version is rejected"
+    assert _rejected(_event(schema="")), "an empty version is rejected"
+    assert _ok(_event(schema="funnel.v1"))
 
 
 def test_additional_top_level_keys_are_rejected() -> None:
@@ -137,7 +152,7 @@ def test_additional_top_level_keys_are_rejected() -> None:
     never from the event body."""
     assert _rejected(_event(tenant_id="t-other")), "a client-asserted tenant field must be rejected"
     assert _rejected(_event(surprise=1))
-    # the optional, declared keys are still accepted
+    # the declared keys (required schema, optional meta) are still accepted
     assert _ok(_event(schema="funnel.v1"))
     assert _ok(_event(meta={"note": "reported"}))
 
@@ -145,17 +160,37 @@ def test_additional_top_level_keys_are_rejected() -> None:
 # --------------------------------------------------------------------------- #
 # run_id: opaque public id, shape-only guarantee
 # --------------------------------------------------------------------------- #
-def test_run_id_pattern_rejects_whitespace_and_at_sign() -> None:
-    for bad in ("has spaces", "lead@example.com", "lead\t01", "", "a" * 129):
-        assert _rejected(_event(run_id=bad)), bad
-    for good in ("lead-9f3a.evt-01", "run_1:2.3-4", "A0"):
+def test_run_id_pattern_rejects_whitespace_at_sign_newline_and_punctuation_only() -> None:
+    bad = (
+        "has spaces",
+        "lead@example.com",
+        "lead\t01",
+        "lead-1\n",  # a trailing newline: Python '$' would admit this, the lookahead must not
+        "\nlead-1",
+        "...",  # punctuation-only, no alphanumeric boundary
+        "-lead",  # must start with an alphanumeric
+        "lead-",  # must end with an alphanumeric
+        " x",  # leading whitespace
+        "",
+        "a" * 129,  # over maxLength
+    )
+    for value in bad:
+        assert _rejected(_event(run_id=value)), repr(value)
+    for good in ("lead-9f3a.evt-01", "run_1:2.3-4", "A0", "leadrun_ab12", "a"):
         assert _ok(_event(run_id=good)), good
 
 
-def test_run_id_is_marked_an_identifier_and_is_public_only() -> None:
+def test_run_id_is_marked_an_identifier_and_described_as_public_only() -> None:
     run_id = _load_schema()["properties"]["run_id"]
     assert run_id["x-identifier"] is True
-    assert run_id["pattern"] == "^[A-Za-z0-9_.:-]+$"
+    # the anchor is a negative lookahead, not '$', so a trailing newline is rejected
+    assert run_id["pattern"] == "^[A-Za-z0-9]([A-Za-z0-9_.:-]*[A-Za-z0-9])?(?![\\s\\S])"
+    # the public-repo leak guard: run_id is described only as an opaque public id, with
+    # no disclosure of any onboarding secret/token/credential mechanism
+    description = run_id["description"].lower()
+    assert "opaque public correlation id" in description
+    for leaked in ("token", "single-use", "secret token"):
+        assert leaked not in description, f"run_id description must not disclose {leaked!r}"
 
 
 # --------------------------------------------------------------------------- #
@@ -184,9 +219,15 @@ def test_ts_rejects_a_local_offset_and_other_non_utc_forms() -> None:
         "2026-07-18",
         "yesterday",
         "",
+        "2026-07-18T09:00:00.1234567890Z",  # 10 fractional digits: outside the ≤9-digit subset
     ):
         assert _rejected(_event(ts=bad)), bad
-    for good in ("2026-07-18T09:00:00Z", "2026-07-18T09:00:00.123Z", "2026-07-18T09:00:00.123456Z"):
+    for good in (
+        "2026-07-18T09:00:00Z",
+        "2026-07-18T09:00:00.123Z",
+        "2026-07-18T09:00:00.123456Z",
+        "2026-07-18T09:00:00.123456789Z",  # the subset admits up to nanosecond (9-digit) precision
+    ):
         assert _ok(_event(ts=good)), good
 
 
@@ -196,12 +237,33 @@ def test_ts_rejects_a_local_offset_and_other_non_utc_forms() -> None:
 def test_meta_is_optional_bounded_and_classified_as_user_content() -> None:
     assert _ok(_event()), "meta is optional"
     assert _ok(_event(meta={})), "an empty meta object is allowed"
+    assert _ok(_event(meta={"note": "reported"})), "a bounded string->string map is allowed"
     assert _rejected(_event(meta="a note")), "meta must be an object, not free text"
-    oversized = {f"k{i}": i for i in range(65)}
-    assert _rejected(_event(meta=oversized)), "meta is bounded (maxProperties)"
+    # bounded key count (maxProperties): string values isolate this to the key count
+    too_many = {f"k{i}": "v" for i in range(65)}
+    assert _rejected(_event(meta=too_many)), "meta is bounded (maxProperties)"
+    assert _ok(_event(meta={f"k{i}": "v" for i in range(64)})), "64 keys is the ceiling"
+    # bounded per-value size (maxLength via additionalProperties): a 1 MB value is
+    # rejected even though maxProperties and x-max-event-bytes alone would not catch it
+    assert _ok(_event(meta={"note": "x" * 8192})), "8192 chars is the per-value ceiling"
+    assert _rejected(_event(meta={"note": "x" * 8193})), "an oversized meta value is rejected"
+    assert _rejected(_event(meta={"note": "x" * 1_000_000})), "a ~1 MB meta value is rejected"
+    # meta values are strings: a structured/numeric value is not representable
+    assert _rejected(_event(meta={"attempt": 3})), "meta is a string map, not structured data"
     meta = _load_schema()["properties"]["meta"]
     assert meta["x-content"] is True
     assert meta["x-privacy-classification"] == "user_content"
+    assert meta["additionalProperties"]["maxLength"] == 8192
+
+
+def test_meta_byte_ceiling_is_declared_as_a_backend_obligation() -> None:
+    """JSON Schema cannot count the canonicalized byte size of the event, so the
+    65536-byte x-max-event-bytes ceiling is NOT enforced here. That gap must be
+    explicit in the obligations rather than implied by the annotation."""
+    obligations = " ".join(_load_schema()["x-backend-obligations"]).lower()
+    assert "x-max-event-bytes" in obligations
+    assert "65536" in obligations
+    assert "backend-side" in obligations or "server-side" in obligations
 
 
 # --------------------------------------------------------------------------- #

@@ -9,30 +9,31 @@
   "x-asserted-against-backend": false,
   "x-max-event-bytes": 65536,
   "x-backend-obligations": [
-    "Tenant/project ownership of run_id is resolved from the authenticated credential, never from a client field: an event whose run_id belongs to another tenant must be rejected at admission. The body carries no tenant field and this contract cannot check ownership.",
+    "Tenant/project ownership of run_id is resolved from the authenticated request context, never from a client field: an event whose run_id belongs to another tenant must be rejected at admission. The body carries no tenant field and this contract cannot check ownership.",
     "Stage-order reconciliation across separate events: the funnel order of stages (and whether a given stage may follow another for the same run_id) is a relationship between distinct events that JSON Schema cannot compare, so ordering is reconciled server-side, not in this per-event contract.",
+    "meta total size: the 65536-byte event-body ceiling (x-max-event-bytes) is a byte count over the canonicalized event that JSON Schema cannot compute, so it is enforced backend-side at admission, not by this contract. The per-value (8192-char) and per-key (64) bounds declared here cap the obvious inflation vectors but do not add up to the byte ceiling.",
     "meta redaction: meta is opaque user-authored content and MUST be redacted from logs, telemetry, and exports downstream. The contract bounds and classifies meta but cannot guarantee any value inside it is free of sensitive content."
   ],
-  "required": ["run_id", "ts", "stage", "event", "actor", "outcome"],
+  "required": ["schema", "run_id", "ts", "stage", "event", "actor", "outcome"],
   "properties": {
     "schema": {
       "const": "funnel.v1",
-      "description": "Optional wire self-descriptor naming this contract and version. Present, it must be exactly 'funnel.v1'; a payload that names a different contract is not a funnel.v1 event. A breaking change ships a new const value rather than silently reinterpreting this one."
+      "description": "Required wire self-descriptor naming this contract and version; it must be exactly 'funnel.v1'. Requiring it means every event self-identifies its contract version, so once the closed enums (stage/actor/outcome) evolve a consumer can tell a funnel.v1 event from a later version instead of silently mis-reading a versionless one. A breaking change ships a new const value rather than reinterpreting this one."
     },
     "run_id": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9_.:-]*[A-Za-z0-9])?(?![\\s\\S])",
       "x-identifier": true,
-      "description": "Opaque public id of the lead. It is a stable join key so events for the same lead can be correlated across surfaces. The single-use token never appears in the event, and run_id is not a secret or an oracle: possessing it grants nothing and reveals nothing beyond identity for joining. Mechanically the pattern admits ASCII letters and digits with '.', '_', ':', '-' between them and nothing else, so whitespace, quotes, at-signs, control characters, and non-ASCII are rejected; that is a guarantee about SHAPE, not about meaning."
+      "description": "An opaque public correlation id for the onboarding attempt; it is not a secret and reveals nothing about credentials. It is a stable join key so events for the same attempt can be correlated across surfaces. Mechanically the pattern requires a value that both starts and ends with an ASCII letter or digit, with '.', '_', ':', '-' permitted only between alphanumerics and nothing else, so whitespace, quotes, at-signs, control characters, non-ASCII, and punctuation-only values are rejected. The end is anchored with a negative lookahead rather than '$', because under the Python validator '$' also matches immediately before a trailing newline, which would admit a value like 'lead-1\\n'. That is a guarantee about SHAPE, not about meaning."
     },
     "ts": {
       "type": "string",
       "format": "date-time",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
       "maxLength": 40,
-      "description": "RFC-3339 timestamp in UTC, emitted with a trailing Z. The pattern enforces the stated form rather than describing it: 'format: date-time' alone also admits a local offset (2026-07-17T13:00:00+03:00), and an offset-bearing timestamp read as UTC silently moves an event by hours, which reorders a funnel. This is a new contract with no emitters to break, so the form the prose promises is enforced; an emitter with a local clock normalizes to UTC before it emits."
+      "description": "RFC-3339 timestamp in UTC, emitted with a trailing Z. The pattern enforces the stated form rather than describing it: 'format: date-time' alone also admits a local offset (2026-07-17T13:00:00+03:00), and an offset-bearing timestamp read as UTC silently moves an event by hours, which reorders a funnel. This is a new contract with no emitters to break, so the form the prose promises is enforced; an emitter with a local clock normalizes to UTC before it emits. The fractional part is limited to at most 9 digits (nanosecond precision): a deliberate RFC-3339-UTC subset mirroring the platform's shared UtcTimestamp, so a timestamp carrying 10 or more fractional digits is outside the subset and rejected."
     },
     "stage": {
       "type": "string",
@@ -68,9 +69,13 @@
     "meta": {
       "type": "object",
       "maxProperties": 64,
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 8192
+      },
       "x-content": true,
       "x-privacy-classification": "user_content",
-      "description": "Optional opaque, user-authored annotations for this event. Bounded: the whole event body is additionally capped at 65536 bytes after canonicalization (x-max-event-bytes), and this object is capped at 64 keys. It is treated as user content: do NOT place structured platform data here, and redact it from logs and exports. The contract guarantees the container is bounded, never that any value inside it is free of sensitive content."
+      "description": "Optional opaque, user-authored annotations for this event: a bounded map of string keys to string values. Each value is capped at 8192 characters and the map at 64 keys, so no single meta value or key count is unbounded. JSON Schema cannot count the canonicalized byte size of the whole event, so the 65536-byte event ceiling (x-max-event-bytes) is NOT enforced by this schema — it is a backend obligation (see x-backend-obligations); the per-value and per-key bounds here only cap the obvious inflation vectors. meta is treated as user content: do NOT place structured platform data here, and redact it from logs and exports. The contract guarantees the container is bounded, never that any value inside it is free of sensitive content."
     }
   }
 }

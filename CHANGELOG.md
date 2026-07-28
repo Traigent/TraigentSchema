@@ -37,6 +37,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.1.0] - 2026-07-25
 
 ### Added
+- **Observability v2 availability and v1beta retirement posture (contract-first, pre-release;
+  TraigentBackend #2127).** The v2 event-admission and ingest-status routes were published with
+  the v2 protocol contract before a backend serves either path. Both operations now carry the
+  existing `x-stability: pre-release` / `x-asserted-against-backend: false` classification at
+  operation scope, the truthful scope for a canonical observability catalog that otherwise
+  contains live backend routes. Their documented 202/200 semantics remain the intended protocol,
+  not an assertion of present backend behavior, until the open draft TraigentBackend #2127 lands.
+  The same release had prematurely represented the two live v1beta snapshot-ingest routes as
+  retired-only. They now document both states explicitly: current TraigentBackend `main` and
+  `develop` accept each route with 202, while the typed 410 `SNAPSHOT_PROTOCOL_RETIRED` response
+  is a declared-ahead-of-backend cutover state that waits on #2127. This keeps the v2 direct-cutover
+  rule (no translation or materialization after retirement) visible without telling consumers that
+  a presently working endpoint has already disappeared.
 - **Optional first-party `attribution` provenance block on the next-steps and decision-payload
   response schemas (#352).** Mirrors `Traigent/TraigentBackend#2431` — a closed object
   (`source`/`label` consts, `headline`/`why`, a 5-token `basis` enum, `engine` in `{rules,policy}`)

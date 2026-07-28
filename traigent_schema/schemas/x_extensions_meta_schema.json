@@ -19,7 +19,7 @@
     },
     "x-asserted-against-backend": {
       "type": "boolean",
-      "description": "False when the contract file has NOT been asserted against current backend parity (e.g. pre-release or planned endpoints). True when backend parity tests cover the contract. Set at the top-level schema object for endpoint files."
+      "description": "False when the documented contract scope has NOT been asserted against current backend parity (e.g. pre-release or planned endpoints). True when backend parity tests cover the contract. Set at the top-level schema object when an entire endpoint file is unasserted; set on an operation when a canonical endpoint file mixes backend-asserted routes with a declared-ahead route."
     },
     "x-authoritative-signal": {
       "type": "string",

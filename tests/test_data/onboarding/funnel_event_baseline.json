@@ -1,0 +1,9 @@
+{
+  "schema": "funnel.v1",
+  "run_id": "lead-9f3a.baseline-01",
+  "ts": "2026-07-18T09:12:45Z",
+  "stage": "baseline",
+  "event": "baseline_measured",
+  "actor": "system",
+  "outcome": "ok"
+}

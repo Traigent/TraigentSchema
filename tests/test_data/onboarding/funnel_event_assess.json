@@ -1,0 +1,10 @@
+{
+  "schema": "funnel.v1",
+  "run_id": "lead-9f3a.assess-01",
+  "ts": "2026-07-18T09:05:00Z",
+  "stage": "assess",
+  "event": "readiness_assessed",
+  "actor": "agent",
+  "outcome": "ok",
+  "meta": {"readiness_band": "excellent"}
+}

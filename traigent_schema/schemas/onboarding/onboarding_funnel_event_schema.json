@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/onboarding/onboarding_funnel_event_schema.json",
+  "title": "Onboarding funnel event (funnel.v1)",
+  "description": "The cross-repo onboarding-funnel event contract, funnel.v1. One event is one observation of a lead moving through the onboarding funnel: {run_id, ts, stage, event, actor, outcome, meta?}. The shape is deliberately small and closed so any surface (SDK, coding agent, portal, backend) can emit a comparable event without inventing fields. This is a contract-first, pre-release schema: it defines the WIRE, not any backend route or storage, and several invariants it depends on cannot be expressed in JSON Schema and are enumerated as backend obligations rather than assumed proven. Every field is bounded above so a malformed or hostile payload is rejected by the contract rather than by downstream processing.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
+  "x-max-event-bytes": 65536,
+  "x-backend-obligations": [
+    "Tenant/project ownership of run_id is resolved from the authenticated credential, never from a client field: an event whose run_id belongs to another tenant must be rejected at admission. The body carries no tenant field and this contract cannot check ownership.",
+    "Stage-order reconciliation across separate events: the funnel order of stages (and whether a given stage may follow another for the same run_id) is a relationship between distinct events that JSON Schema cannot compare, so ordering is reconciled server-side, not in this per-event contract.",
+    "meta redaction: meta is opaque user-authored content and MUST be redacted from logs, telemetry, and exports downstream. The contract bounds and classifies meta but cannot guarantee any value inside it is free of sensitive content."
+  ],
+  "required": ["run_id", "ts", "stage", "event", "actor", "outcome"],
+  "properties": {
+    "schema": {
+      "const": "funnel.v1",
+      "description": "Optional wire self-descriptor naming this contract and version. Present, it must be exactly 'funnel.v1'; a payload that names a different contract is not a funnel.v1 event. A breaking change ships a new const value rather than silently reinterpreting this one."
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "x-identifier": true,
+      "description": "Opaque public id of the lead. It is a stable join key so events for the same lead can be correlated across surfaces. The single-use token never appears in the event, and run_id is not a secret or an oracle: possessing it grants nothing and reveals nothing beyond identity for joining. Mechanically the pattern admits ASCII letters and digits with '.', '_', ':', '-' between them and nothing else, so whitespace, quotes, at-signs, control characters, and non-ASCII are rejected; that is a guarantee about SHAPE, not about meaning."
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "maxLength": 40,
+      "description": "RFC-3339 timestamp in UTC, emitted with a trailing Z. The pattern enforces the stated form rather than describing it: 'format: date-time' alone also admits a local offset (2026-07-17T13:00:00+03:00), and an offset-bearing timestamp read as UTC silently moves an event by hours, which reorders a funnel. This is a new contract with no emitters to break, so the form the prose promises is enforced; an emitter with a local clock normalizes to UTC before it emits."
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "discover",
+        "verify",
+        "handoff",
+        "assess",
+        "baseline",
+        "account",
+        "key",
+        "enhanced"
+      ],
+      "description": "The funnel stage this event observes. Closed so a consumer never has to guess what a stage means; a stage that fits no member is a versioned enum addition, not a free-text escape hatch."
+    },
+    "event": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9._:/+-]*[A-Za-z0-9])?(?![\\s\\S])",
+      "description": "A bounded, opaque event label within the stage (an identifier grammar: ASCII letters and digits, with '.', '_', ':', '/', '+', '-' permitted only between alphanumerics, so a value starts and ends with a letter or digit). Constrained to an identifier grammar rather than left free-form so it cannot become an egress channel for prose or PII. This grammar guarantees a SHAPE, not an absence of content, so a value derived from user data must still be treated as content downstream."
+    },
+    "actor": {
+      "type": "string",
+      "enum": ["human", "agent", "system"],
+      "description": "Who caused this event: 'human' (the person onboarding), 'agent' (an AI coding agent acting on their behalf), or 'system' (the platform itself). Closed so the actor of every funnel step is unambiguous."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["ok", "retry", "fail", "abandon"],
+      "description": "How this stage attempt resolved: 'ok' (succeeded), 'retry' (transient failure, will be attempted again), 'fail' (terminal failure at this stage), or 'abandon' (the lead stopped without completing). Closed so a drop-off is recorded as a value, not inferred from the absence of a later event."
+    },
+    "meta": {
+      "type": "object",
+      "maxProperties": 64,
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Optional opaque, user-authored annotations for this event. Bounded: the whole event body is additionally capped at 65536 bytes after canonicalization (x-max-event-bytes), and this object is capped at 64 keys. It is treated as user content: do NOT place structured platform data here, and redact it from logs and exports. The contract guarantees the container is bounded, never that any value inside it is free of sensitive content."
+    }
+  }
+}

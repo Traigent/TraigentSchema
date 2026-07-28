@@ -119,6 +119,10 @@ PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS = {
     ("optimization/session_finalize_response_schema.json", "reason_code"),
     ("optimization/tvar_catalog_entry_schema.json", "baseline"),
     ("status_schema.json", "degraded"),
+    # funnel.v1 onboarding-funnel `stage` enum: "baseline" is the funnel stage at
+    # which a lead's baseline is measured — the onboarding funnel step, not the
+    # artifact-state lifecycle "baseline" state this guard protects.
+    ("onboarding/onboarding_funnel_event_schema.json", "baseline"),
 }
 
 

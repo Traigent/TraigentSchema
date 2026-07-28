@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.0] - 2026-07-28
+
+### Added
+- **Cross-repo onboarding-funnel event contract, `funnel.v1` (contract-first, pre-release).** A new
+  standalone event schema `onboarding/onboarding_funnel_event_schema.json` defining the single wire
+  unit of the onboarding funnel: `{run_id, ts, stage, event, actor, outcome, meta?}`, so any surface
+  (SDK, coding agent, portal, backend) can emit a comparable event without inventing fields. The
+  event object is closed (`additionalProperties: false`) with `run_id, ts, stage, event, actor,
+  outcome` required.
+  - **`run_id`** is the lead's opaque **public** join id — bounded identifier grammar
+    (`^[A-Za-z0-9_.:-]+$`, 1–128 chars, `x-identifier: true`); it is not a secret or an oracle, and
+    the single-use token never appears in the event. **`ts`** is RFC-3339 UTC pinned to a trailing
+    `Z` by pattern (mirrors the economics `UtcTimestamp` shape), so an offset-bearing timestamp read
+    as UTC cannot silently reorder the funnel. **`stage`** is a closed 8-member enum
+    (`discover, verify, handoff, assess, baseline, account, key, enhanced`); **`event`** is a
+    bounded opaque identifier label (ShortLabel-style grammar, ≤128); **`actor`** ∈
+    `{human, agent, system}`; **`outcome`** ∈ `{ok, retry, fail, abandon}`. Optional **`meta`** is a
+    bounded (`maxProperties: 64`, `x-max-event-bytes: 65536`) user-content object marked
+    `x-content: true` + `x-privacy-classification: user_content`. An optional `schema` self-descriptor
+    pins the wire version (`const: "funnel.v1"`).
+  - Marked `x-stability: pre-release` and `x-asserted-against-backend: false`. The invariants JSON
+    Schema cannot enforce — tenant ownership of `run_id` from the authenticated context, cross-event
+    stage-order reconciliation, and downstream `meta` redaction — are enumerated under
+    `x-backend-obligations` so they are visible rather than assumed proven. No endpoint-catalog entry
+    is added: the contract defines the wire, not a client-facing route.
+
 ## [5.1.0] - 2026-07-25
 
 ### Added

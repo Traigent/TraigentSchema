@@ -512,14 +512,31 @@ def test_x_error_catalog_status_matches_binding():
         assert catalog[code]["http_status"] is None, code
 
 
-def test_v1beta_ingest_publishes_typed_410_retirement_response():
+def test_unimplemented_v2_operations_are_marked_pre_release_not_backend_asserted():
+    with open(OBS / "observability_endpoints.json", encoding="utf-8") as handle:
+        catalog = json.load(handle)
+    for path, method in (
+        ("/api/v2/observability/events", "post"),
+        ("/api/v2/observability/ingests/{ingest_id}", "get"),
+    ):
+        operation = catalog["paths"][path][method]
+        assert operation["x-stability"] == "pre-release", (path, method)
+        assert operation["x-asserted-against-backend"] is False, (path, method)
+
+
+def test_v1beta_ingest_describes_current_202_and_declared_410_retirement():
     with open(OBS / "observability_endpoints.json", encoding="utf-8") as handle:
         catalog = json.load(handle)
     for path in (
         "/api/v1beta/observability/ingest",
         "/api/v1beta/projects/{project_id}/observability/ingest",
     ):
-        responses = catalog["paths"][path]["post"]["responses"]
-        assert "410" in responses, path
+        operation = catalog["paths"][path]["post"]
+        responses = operation["responses"]
+        assert set(responses) == {"202", "410"}, path
+        assert operation["x-stability"] == "pre-release", path
+        assert operation["x-asserted-against-backend"] is False, path
+        assert "declared ahead of TraigentBackend #2127" in operation["description"], path
+        assert "Current backend behavior" in responses["202"]["description"], path
         ref = responses["410"]["content"]["application/json"]["schema"]["$ref"]
         assert ref.endswith("observability_v2_error_schema.json"), (path, ref)

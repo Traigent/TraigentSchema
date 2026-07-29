@@ -1,0 +1,9 @@
+{
+  "schema": "funnel.v1",
+  "run_id": "lead-9f3a.access-03",
+  "ts": "2026-08-11T14:02:07Z",
+  "stage": "access_restored",
+  "event": "access_reinstated",
+  "actor": "system",
+  "outcome": "ok"
+}

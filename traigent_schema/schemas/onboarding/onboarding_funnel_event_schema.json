@@ -12,7 +12,8 @@
     "Tenant/project ownership of run_id is resolved from the authenticated request context, never from a client field: an event whose run_id belongs to another tenant must be rejected at admission. The body carries no tenant field and this contract cannot check ownership.",
     "Stage-order reconciliation across separate events: the funnel order of stages (and whether a given stage may follow another for the same run_id) is a relationship between distinct events that JSON Schema cannot compare, so ordering is reconciled server-side, not in this per-event contract.",
     "meta total size: the 65536-byte event-body ceiling (x-max-event-bytes) is a byte count over the canonicalized event that JSON Schema cannot compute, so it is enforced backend-side at admission, not by this contract. The per-value (8192-char) and per-key (64) bounds declared here cap the obvious inflation vectors but do not add up to the byte ceiling.",
-    "meta redaction: meta is opaque user-authored content and MUST be redacted from logs, telemetry, and exports downstream. The contract bounds and classifies meta but cannot guarantee any value inside it is free of sensitive content."
+    "meta redaction: meta is opaque user-authored content and MUST be redacted from logs, telemetry, and exports downstream. The contract bounds and classifies meta but cannot guarantee any value inside it is free of sensitive content.",
+    "Access-period linkage: an access_period_ended or access_restored event fires long after the originating onboarding attempt, so the producer must durably retain the run_id correlation; this per-event contract records observations of the period's lifecycle and never its duration, deadline, or policy, which are resolved server-side."
   ],
   "required": ["schema", "run_id", "ts", "stage", "event", "actor", "outcome"],
   "properties": {
@@ -44,10 +45,13 @@
         "assess",
         "baseline",
         "account",
+        "access_period_started",
         "key",
-        "enhanced"
+        "enhanced",
+        "access_period_ended",
+        "access_restored"
       ],
-      "description": "The funnel stage this event observes. Closed so a consumer never has to guess what a stage means; a stage that fits no member is a versioned enum addition, not a free-text escape hatch."
+      "description": "The funnel stage this event observes. Closed so a consumer never has to guess what a stage means; a stage that fits no member is a versioned enum addition, not a free-text escape hatch. 'access_period_started' records the account's portal access period beginning at registration; 'access_period_ended' records that period elapsing; 'access_restored' records access being restored on the same account. 'key' records API-key issuance and is non-authorizing — a key is a credential, never the entitlement. The enum is listed in funnel order, but ORDER IS NOT ENFORCED HERE (see x-backend-obligations). A lifecycle observation of the access period carries outcome 'ok' — the observation succeeded; drop-off is not inferred from it."
     },
     "event": {
       "type": "string",

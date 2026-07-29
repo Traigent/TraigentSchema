@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/entitlement_required_error_schema.json",
+  "title": "Entitlement Required Error DTO",
+  "description": "ErrorEnvelopeDTO specialized for 'authenticated, but not entitled': the caller's identity is valid but the account has no active access period or plan. Consumers MUST branch on details.reason, never on message text. An API key authenticates a caller and never entitles one; possession of a key is not an access period. This defines the WIRE only — which operations are gated, and how entitlement is stored, are per-surface decisions outside this schema.",
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
+  "x-backend-obligations": [
+    "message is server-authored display text: it MUST NOT carry a credential, an internal identifier, a route, or storage detail, and no consumer may branch on it. JSON Schema bounds the string but cannot inspect its meaning, so redaction and content discipline are enforced by the producer.",
+    "reason precedence: 'access_period_ended' and 'no_active_plan' can both describe one account. The producer picks exactly one by a documented precedence rule; this contract cannot determine which account state caused the refusal.",
+    "HTTP status selection for this body is a per-surface decision and is deliberately not pinned here."
+  ],
+  "allOf": [
+    {
+      "$ref": "./error_envelope_schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "error": {
+          "const": "entitlement_required"
+        },
+        "message": {
+          "maxLength": 512
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason"],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "enum": ["access_period_ended", "no_active_plan"],
+              "description": "Machine-readable cause. 'access_period_ended' — an access period existed and has elapsed. 'no_active_plan' — no access period or plan is active. Closed: a new cause is a versioned enum addition, not a free-text escape hatch. Consumers should still implement a default branch."
+            }
+          }
+        }
+      },
+      "required": ["details"]
+    }
+  ]
+}

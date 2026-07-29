@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.3.0] - 2026-07-29
+
+### Added
+- **Access-period lifecycle stages on the `funnel.v1` onboarding-funnel contract, and a new shared
+  `entitlement_required` error body (#361).** The funnel `stage` enum grows from 8 to 11 members,
+  in place on `funnel.v1` rather than as a `funnel.v2`: the contract is `x-stability: pre-release`,
+  the change is purely additive (all eight existing values survive and every existing fixture still
+  validates), and no producer emits it yet, so minting a v2 would strand a v1 nothing ever wrote.
+  - **`access_period_started`** (between `account` and `key`) records the account's portal access
+    period beginning at registration; **`access_period_ended`** records that period elapsing and
+    **`access_restored`** records access being restored on the same account — both appended after
+    `enhanced`, since they are post-funnel lifecycle observations of an attempt that already
+    completed. The stage description states outright that **`key` is non-authorizing**: an API key
+    is a credential, never the entitlement, so possession of one is not an access period. It also
+    pins the analytics rule that a lifecycle observation carries `outcome: "ok"` — the observation
+    itself succeeded, and a lapse is time elapsing, not the lead-initiated stop that `outcome`
+    already defines `abandon` to mean. Enum order remains documentation only, reconciled
+    server-side, as for the economics funnel sibling.
+  - A fifth **`x-backend-obligations`** entry declares the access-period linkage the wire cannot
+    enforce: an `access_period_ended` or `access_restored` event fires long after the originating
+    onboarding attempt, so the producer must durably retain the `run_id` correlation. The contract
+    records observations of the period's lifecycle and never its duration, deadline, or policy,
+    which stay server-resolved.
+- **`entitlement_required_error_schema.json` — the "authenticated, but not entitled" response body
+  (#361; coordinates with TraigentBackend #2461).** A new root-level schema composing
+  `error_envelope_schema.json` exactly as `validation_error_schema.json` does, because the error
+  can fire on any gated route and is not an onboarding-specific fragment. `error` is pinned to the
+  const `entitlement_required`, and `details` is closed (`additionalProperties: false`) around a
+  required **`reason`** ∈ `{access_period_ended, no_active_plan}` — so consumers branch on a
+  machine-readable cause, never on prose. `reason` lives under `details` and not at the top level
+  because the envelope is `additionalProperties: false` and `additionalProperties` does not see
+  properties declared in a sibling `allOf` branch; a top-level `reason` would be rejected outright.
+  `message` stays a bounded (≤512) free string rather than a `const`: it is client-rendered display
+  text, and freezing English prose would block localization and make every reword a contract change.
+  No `error_code` const is minted — `error` plus `details.reason` already determine every branch.
+  - Marked `x-stability: pre-release` / `x-asserted-against-backend: false`. The properties JSON
+    Schema cannot check are declared under `x-backend-obligations`: that `message` must carry no
+    credential, internal identifier, route, or storage detail and must not be branched on; that
+    `reason` precedence is the producer's documented decision when both causes describe one
+    account; and that HTTP status selection is deliberately per-surface and not pinned here.
+
 ## [5.2.0] - 2026-07-28
 
 ### Added

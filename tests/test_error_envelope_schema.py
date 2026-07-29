@@ -289,3 +289,19 @@ def test_entitlement_required_still_enforces_the_envelope_discriminator():
     no_message = _entitlement()
     del no_message["message"]
     assert _entitlement_errors(no_message)
+
+
+def test_entitlement_required_forbids_an_unsynchronised_error_code() -> None:
+    """The envelope declares `error_code` optional and unconstrained.
+
+    Inheriting it would let a surface emit an error_code that disagrees with
+    details.reason -- two machine-readable signals for one state, which is the
+    exact divergence this schema exists to prevent. It is also an unbounded free
+    string on a PUBLIC contract, so it could carry a credential or a route name.
+    Rejecting a pinned const did not imply leaving the field wide open.
+    """
+    assert _entitlement_errors(_entitlement(details={"reason": "access_period_ended"})) == []
+    for smuggled in ("no_active_plan", "ENTITLEMENT_REQUIRED", "uk_live_abc123"):
+        payload = _entitlement(details={"reason": "access_period_ended"})
+        payload["error_code"] = smuggled
+        assert _entitlement_errors(payload) != [], f"error_code={smuggled!r} was accepted"

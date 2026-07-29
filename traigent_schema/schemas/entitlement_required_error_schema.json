@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/entitlement_required_error_schema.json",
   "title": "Entitlement Required Error DTO",
-  "description": "ErrorEnvelopeDTO specialized for 'authenticated, but not entitled': the caller's identity is valid but the account has no active access period or plan. Consumers MUST branch on details.reason, never on message text. An API key authenticates a caller and never entitles one; possession of a key is not an access period. This defines the WIRE only — which operations are gated, and how entitlement is stored, are per-surface decisions outside this schema.",
+  "description": "ErrorEnvelopeDTO specialized for 'authenticated, but not entitled': the caller's identity is valid but the account has no active access period or plan. Consumers MUST branch on details.reason, never on message text. An API key authenticates a caller and never entitles one; possession of a key is not an access period. This defines the WIRE only \u2014 which operations are gated, and how entitlement is stored, are per-surface decisions outside this schema.",
   "x-stability": "pre-release",
   "x-asserted-against-backend": false,
   "x-backend-obligations": [
@@ -26,17 +26,28 @@
         "details": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["reason"],
+          "required": [
+            "reason"
+          ],
           "properties": {
             "reason": {
               "type": "string",
-              "enum": ["access_period_ended", "no_active_plan"],
-              "description": "Machine-readable cause. 'access_period_ended' — an access period existed and has elapsed. 'no_active_plan' — no access period or plan is active. Closed: a new cause is a versioned enum addition, not a free-text escape hatch. Consumers should still implement a default branch."
+              "enum": [
+                "access_period_ended",
+                "no_active_plan"
+              ],
+              "description": "Why access is refused, for machine branching. Consumers branch on this and never on `message`. PRECEDENCE IS PART OF THE CONTRACT because the two states overlap: an account whose access period has elapsed and which has never purchased satisfies both. 'access_period_ended' takes precedence whenever the account HAD a period that has now elapsed; 'no_active_plan' is for an account that has no period to have ended - it never started one, or its access came from a plan that is now absent. Without this rule two compliant surfaces would emit different reasons for one state and drive divergent UI."
             }
           }
+        },
+        "error_code": {
+          "not": {},
+          "description": "Forbidden on this response. The envelope declares `error_code` optional and unconstrained, which would let a surface emit an error_code that disagrees with details.reason - two machine-readable signals for one state, which is the exact divergence this schema exists to prevent. Branching is determined by `error` plus `details.reason` and nothing else. A pinned code can be added later if a consumer needs one; an unconstrained free string on a public contract cannot."
         }
       },
-      "required": ["details"]
+      "required": [
+        "details"
+      ]
     }
   ]
 }

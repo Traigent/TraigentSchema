@@ -380,3 +380,28 @@ def test_no_stage_fixture_labels_an_event_as_a_credential() -> None:
         assert "credential" not in event, (
             f"{path.name}: an event label must not present a key as a credential"
         )
+
+
+LIFECYCLE_STAGES = ("access_period_started", "access_period_ended", "access_restored")
+
+
+def test_access_period_lifecycle_stages_are_pinned_to_outcome_ok() -> None:
+    """A lapse is time passing, not a user abandoning.
+
+    Left to prose, an emitter could mark an automatic expiry `abandon` and
+    silently corrupt the funnel's headline conversion metric -- silent because
+    nothing errors and the number is simply wrong. A user can be actively
+    running optimizations on the last day and still lapse.
+    """
+    for stage in LIFECYCLE_STAGES:
+        assert _ok(_event(stage=stage, outcome="ok"))
+        for wrong in ("abandon", "fail", "retry"):
+            assert _rejected(
+                _event(stage=stage, outcome=wrong)
+            ), f"{stage} wrongly accepted outcome={wrong}"
+
+
+def test_non_lifecycle_stages_keep_the_full_outcome_vocabulary() -> None:
+    """The pin is scoped: it must not quietly narrow the other eight stages."""
+    for outcome in ("ok", "retry", "fail", "abandon"):
+        assert _ok(_event(stage="verify", outcome=outcome))

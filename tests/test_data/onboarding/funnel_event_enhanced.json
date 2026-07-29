@@ -1,0 +1,9 @@
+{
+  "schema": "funnel.v1",
+  "run_id": "lead-9f3a.enhanced-01",
+  "ts": "2026-07-18T09:30:15Z",
+  "stage": "enhanced",
+  "event": "enhanced_run_started",
+  "actor": "agent",
+  "outcome": "retry"
+}

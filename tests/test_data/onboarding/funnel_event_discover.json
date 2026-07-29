@@ -1,0 +1,9 @@
+{
+  "schema": "funnel.v1",
+  "run_id": "lead-9f3a.discover-01",
+  "ts": "2026-07-18T09:00:00Z",
+  "stage": "discover",
+  "event": "funnel_entered",
+  "actor": "system",
+  "outcome": "ok"
+}

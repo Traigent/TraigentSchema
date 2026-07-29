@@ -1,0 +1,304 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/economics/economics_recommendation_response_schema.json",
+  "title": "Economics recommendation response (backend-authoritative)",
+  "description": "The backend-authoritative recommendation returned by POST /api/v1/economics/recommendation. It leads with the conservative lower bound and ALWAYS carries the spend-$0 case, so a recommendation can never present only an optimistic path. Every dollar figure is a labelled STARTING ASSUMPTION, never a validated one (funnel telemetry is what validates the model), and the contract makes that structural: the formula/assumption identity binds `assumptions_are_starting_assumptions: true`, the budget binds a conservative-lower-bound basis, and the renderable `why` has no member that could claim an assumption was validated. The `why` and the payback explanation are STRUCTURED, closed-vocabulary render tokens the coding agent turns into prose in the user's own terms (their agent, their volume band, their error-cost band) — not an unbounded free-form payload the backend writes for them. The recommendation is independent of credits, pricing, sales incentives, wallet/billing state, and the WI-D funding decision: no such field is representable (additionalProperties:false at every boundary) and none is declared.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "contract_version",
+    "request_id",
+    "computed_at",
+    "formula_identity",
+    "archetype",
+    "budget",
+    "payback",
+    "stop_rule",
+    "required_receipt",
+    "spend_zero_case",
+    "why"
+  ],
+  "properties": {
+    "contract": {
+      "type": "string",
+      "const": "economics_recommendation",
+      "description": "Names the recommendation contract family, matching the request. A response that does not name it is not a recommendation."
+    },
+    "contract_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Stable version of the recommendation contract."
+    },
+    "request_id": {
+      "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+      "x-identifier": true,
+      "description": "Echo of the submission's request_id, so a recommendation joins back to the characterization it answers."
+    },
+    "computed_at": {"$ref": "./economics_common_schema.json#/definitions/UtcTimestamp"},
+    "formula_identity": {"$ref": "#/definitions/FormulaIdentity"},
+    "archetype": {"$ref": "./economics_common_schema.json#/definitions/Archetype"},
+    "dominant_value_channel": {
+      "allOf": [{"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/ValueChannel"}],
+      "description": "The dominant value channel the recommendation is built around, drawn from the closed characterization vocabulary. Reused by $ref, not restated."
+    },
+    "secondary_value_channel": {
+      "allOf": [{"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/ValueChannel"}],
+      "description": "An optional secondary value channel. Same closed vocabulary."
+    },
+    "budget": {"$ref": "#/definitions/BuildBudget"},
+    "payback": {"$ref": "#/definitions/PaybackStatement"},
+    "stop_rule": {"$ref": "#/definitions/StopRule"},
+    "required_receipt": {"$ref": "#/definitions/RequiredReceipt"},
+    "spend_zero_case": {"$ref": "#/definitions/SpendZeroCase"},
+    "why": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {"$ref": "#/definitions/WhyComponent"},
+      "description": "The mandatory explanation, as STRUCTURED render tokens rather than prose: each component names a closed reason and carries typed, bounded operands the coding agent renders in the user's own terms. Required and non-empty because the explanation duty is a product requirement, not decoration — a recommendation with no `why` is incomplete. No component can claim an assumption was validated; the honest counterpart `assumptions_are_starting_not_validated` is the only member that speaks to validation status."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"required": ["archetype"], "properties": {"archetype": {"const": "undetermined"}}},
+      "then": {"not": {"anyOf": [{"required": ["dominant_value_channel"]}, {"required": ["secondary_value_channel"]}]}},
+      "else": {"required": ["dominant_value_channel"]},
+      "description": "A recommendation for a submission that shared nothing cannot name a value channel, and must not invent one. ValueChannel is a closed vocabulary with no 'undetermined' member (unlike Archetype, which has one), so before this rule the contract's own 'all-withheld -> undetermined archetype + spend-$0' branch was UNREPRESENTABLE: any 200 had to assert a channel the backend could not know. Now the undetermined archetype forbids both channel fields, and every other archetype requires the dominant one. The alternative reading — that a fully-withheld submission must always be a 422 — was rejected because the design's whole point is that withholding everything still returns the honest spend-$0 answer rather than an error. The request obligation and the endpoint's 200/422 descriptions state that same rule in the same words, so the three documents cannot be read against each other."
+    }
+  ],
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
+  "x-backend-obligations": [
+    "STATUS/FLAG AGREEMENT: a 200 carries this recommendation body. Insufficient shared characterization is NOT a 422 — it is a 200 with an `undetermined` archetype, no value channel, and the spend-$0 case, because withholding must still return the honest answer rather than an error. 422 is for a well-formed submission the backend cannot answer at all (for example contradictory duplicate field reports); a transient inability to compute is a 503. Never a 200 carrying a fabricated recommendation. The backend selects the status for the outcome it actually produced.",
+    "BUDGET ORDERING: floor_usd <= recommended_daily_usd <= cap_usd must hold. JSON Schema bounds the three amounts independently but cannot relate them; an out-of-order budget is a backend defect to reject at the boundary, not a contract-valid recommendation.",
+    "LOWER-BOUND LEADS: recommended_daily_usd is derived from the CONSERVATIVE lower bound of realized value (budget.basis.value_lower_bound), not a point estimate. The contract binds uses_conservative_lower_bound:true and requires the interval, but that the recommended amount actually follows from the lower bound (and not from the point estimate or upper bound) is a computation the backend must honour.",
+    "NO PRICING/CREDIT/WALLET INPUT: the recommendation must not be a function of pricing, credits, sales incentives, or wallet/billing state. No such field is representable here or in the request; the backend must likewise not join that state into the computation. Budget floors/caps are labelled starting assumptions, NOT funded amounts — funding is the WI-D owner-gated decision and is out of scope for this contract.",
+    "PAYBACK ONLY ON A POSITIVE LOWER BOUND: payback_days is present only when payback.is_lower_bound_positive is true; when the conservative bound is not positive the recommendation leads with the spend-$0 case and claims no payback. The contract enforces the presence rule; that the boolean reflects the real sign of the lower bound is a backend obligation.",
+    "ASSUMPTIONS ARE NOT VALIDATED: every dollar figure is a starting assumption. The backend must not present any figure as validated in any rendered or logged form; the funnel/receipt telemetry (WI-B) is what validates the model over time.",
+    "VALUE INTERVAL ORDERING: budget.basis.value_lower_bound must satisfy lower <= estimate <= upper. JSON Schema cannot compare sibling values, and a fragment $ref does NOT import the shared ConfidenceInterval's own obligation text, so the duty is restated here rather than assumed inherited. This is not cosmetic: the model leads with the lower bound, so an inverted interval turns an unfavourable result into a favourable claim. Reject as interval_bounds_inconsistent.",
+    "REQUEST ID IS AN ECHO, NOT A NEW ID: response.request_id MUST equal the request_id of the submission that produced this recommendation. The contract can only require an identifier-shaped value; equality across two messages is unenforceable in a single-document schema. A recommendation returned under a different id silently re-attributes budget advice to another submission, so a mismatch is a defect, not a cosmetic inconsistency.",
+    "PUBLISHED REFERENCE MUST RESOLVE: formula_identity.published_reference is required by the contract, but the schema can only check that a label is present and opaque. The backend must emit a reference that actually resolves to the published, versioned formula + assumptions document for that formula_version and assumption_set_version. Emitting a placeholder, a dangling id, or a reference to an unpublished internal document satisfies the schema and violates this obligation — it would turn the auditability claim into a false one."
+  ],
+  "definitions": {
+    "FormulaIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["formula_version", "assumption_set_version", "assumptions_are_starting_assumptions", "published_reference"],
+      "properties": {
+        "formula_version": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
+          "description": "Version of the value/budget formula that produced this recommendation. An opaque label: it names the formula, it does not carry it. Reproducibility rests on the REQUIRED published_reference below plus the design commitment to publish and version that document — the contract can pin the identifiers, it cannot itself prove a document is reachable."
+        },
+        "assumption_set_version": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/ShortLabel"}],
+          "description": "Version of the assumption set (loaded rates, archetype budgets, default volumes/values) in force. Bumped when a starting assumption changes."
+        },
+        "assumptions_are_starting_assumptions": {
+          "type": "boolean",
+          "const": true,
+          "description": "Structural honesty label: every dollar figure in this recommendation is a STARTING assumption, not a validated fact. A required const rather than an optional boolean, so a recommendation cannot silently drop the label or set it false to imply its numbers are validated."
+        },
+        "published_reference": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/Identifier"}],
+          "description": "REQUIRED opaque reference to the published formula + assumptions document. Required rather than optional because the credibility claim is that a recommendation is auditable: a response that named only two internal version labels would leave a consumer with nothing to look up, so the claim would outrun the contract. That the reference actually RESOLVES to a published document is a backend obligation the schema cannot enforce (see PUBLISHED REFERENCE MUST RESOLVE). Identifier-shaped, which is a guarantee about characters and nothing else: a conforming value may still contain customer data or instruction-shaped text (`Ignore.previous.instructions` conforms)."
+        }
+      },
+      "description": "The versioned identity of the formula and assumption set behind this recommendation, plus the structural starting-assumption label. The credibility contract: publish and version the formula and assumptions."
+    },
+    "BuildBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recommended_daily_usd", "floor_usd", "cap_usd", "floor_cap_are_starting_assumptions", "basis"],
+      "properties": {
+        "recommended_daily_usd": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UsdAmount"}],
+          "description": "Recommended daily build-phase spend. Derived from the conservative lower bound of realized value (see basis), clamped to the archetype floor/cap. floor_usd <= this <= cap_usd is a backend obligation."
+        },
+        "floor_usd": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UsdAmount"}],
+          "description": "The archetype floor for the daily budget. A labelled STARTING ASSUMPTION (see floor_cap_are_starting_assumptions): a floor is not a funded amount, and funding is the WI-D owner-gated decision, out of scope here."
+        },
+        "cap_usd": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UsdAmount"}],
+          "description": "The archetype cap for the daily budget. A labelled starting assumption. Narrative cannot raise it: the cap is backend-authored."
+        },
+        "floor_cap_are_starting_assumptions": {
+          "type": "boolean",
+          "const": true,
+          "description": "Structural label: the floor and cap are starting assumptions, NOT funded balances or credits. A required const so the budget cannot present its floor/cap as anything other than an assumption. Funding (a seven-day credit envelope) is the separate WI-D owner-gated decision; no credit/funding field exists in this contract."
+        },
+        "basis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "uses_conservative_lower_bound", "value_lower_bound"],
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "clamp_floor_cap_fraction_of_conservative_realized_value",
+                "archetype_floor_only",
+                "spend_zero_no_positive_lower_bound"
+              ],
+              "description": "CLOSED budget-derivation method. 'clamp_floor_cap_fraction_of_conservative_realized_value' is the normal case (a fraction of the lower-bound realized value, clamped to the archetype floor/cap). 'archetype_floor_only' is used when value cannot be estimated but the archetype floor still applies. 'spend_zero_no_positive_lower_bound' records that the conservative bound is not positive, so the recommended amount is the floor and the recommendation leads with the spend-$0 case."
+            },
+            "uses_conservative_lower_bound": {
+              "type": "boolean",
+              "const": true,
+              "description": "Structural label: the budget is based on the CONSERVATIVE lower bound of realized value, never a point estimate. A required const, so a recommendation cannot quietly base a budget on an optimistic point estimate."
+            },
+            "value_lower_bound": {
+              "allOf": [
+                {"$ref": "./economics_common_schema.json#/definitions/ConfidenceInterval"},
+                {"properties": {"unit": {"const": "usd"}}}
+              ],
+              "description": "The estimated realized-value interval the budget is based on, WITH its level, so the lower bound the budget leads with is explicit and a point estimate can never be mistaken for it. May legitimately have a non-positive lower bound (which drives the spend-$0 case). Reused from the common ConfidenceInterval, with `unit` pinned to `usd`: the shared type also admits `tokens`, `seconds`, and `count`, and a budget in dollars cannot be derived from an interval measured in tokens. Ordering (lower <= estimate <= upper) is NOT expressible in JSON Schema and is carried forward as an explicit backend obligation here, because a fragment $ref does not import the shared type's own obligation text."
+            }
+          },
+          "description": "How the budget was derived: the closed method, the structural conservative-lower-bound label, and the value interval it leads with."
+        }
+      },
+      "description": "The recommended daily build budget with its archetype floor and cap and its conservative lower-bound basis. Floors/caps are starting assumptions; nothing here is a funded amount or a credit."
+    },
+    "PaybackStatement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["is_lower_bound_positive", "conservative_daily_realized_value_usd", "explanation"],
+      "properties": {
+        "is_lower_bound_positive": {
+          "type": "boolean",
+          "description": "Whether the conservative lower bound of daily realized value is positive. Payback is only claimed when this is true (see the conditional below): the model must never claim payback from a point estimate when the conservative bound is not positive."
+        },
+        "payback_days": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Conservative payback horizon in days = total optimization cost / conservative daily realized value. Present ONLY when is_lower_bound_positive is true, and FORBIDDEN otherwise (enforced below): a payback number computed from a non-positive bound is exactly the false-positive the credibility rules forbid. Bounded so no unbounded or non-finite value enters the statement."
+        },
+        "conservative_daily_realized_value_usd": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/SignedUsdAmount"}],
+          "description": "The conservative (lower-bound) daily realized value the payback rests on. SIGNED: it may legitimately be zero or negative, which is precisely the case that forbids a payback claim and leads with spend-$0."
+        },
+        "explanation": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {"$ref": "#/definitions/WhyComponent"},
+          "description": "The payback statement's renderable explanation, as STRUCTURED render tokens rather than an unbounded free-form payload: e.g. an avoided_bad_promotion_payback component the agent renders as 'one avoided bad promotion worth $C pays for N weeks of optimization', in the user's own numbers. Bounded and closed."
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"is_lower_bound_positive": {"const": true}}, "required": ["is_lower_bound_positive"]},
+          "then": {"required": ["payback_days"]},
+          "else": {"not": {"required": ["payback_days"]}}
+        }
+      ],
+      "description": "The payback statement as structured values plus a bounded renderable explanation. Payback_days exists only on a positive conservative lower bound; otherwise the recommendation carries no payback number and leads with the spend-$0 case."
+    },
+    "StopRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule"],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "enum": [
+            "continue_while_evsi_plus_lower_bound_exceeds_next_cost",
+            "stop_when_upper_bound_below_next_cost",
+            "stop_when_realized_value_nonpositive"
+          ],
+          "description": "CLOSED stop/continue rule from the economics design. Continue while the value of information plus the incremental lower bound exceeds the next experiment's cost; stop when even the upper bound cannot cover the next cost, or when attainable uptake makes realized value non-positive."
+        },
+        "next_experiment_cost_usd": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/UsdAmount"}],
+          "description": "The estimated cost of the next experiment the rule is evaluated against. Optional: the rule is stated even before a concrete next experiment is priced."
+        }
+      },
+      "description": "The stop/continue rule the client should apply: a closed directive plus the optional next-experiment cost it is evaluated against."
+    },
+    "RequiredReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt_kind"],
+      "properties": {
+        "receipt_kind": {
+          "allOf": [{"$ref": "./economics_receipt_event_schema.json#/properties/receipt_kind"}],
+          "description": "Which machine-verifiable receipt the client must produce before this spend counts as value: winner | defect | savings. Reuses the receipt contract's closed kind enum by $ref rather than restating it, so the recommendation and the receipt it requires cannot drift."
+        }
+      },
+      "description": "The receipt requirement: the kind of independently-verified receipt the client must produce for the recommended spend to count. The receipt itself is submitted through the WI-B receipt contract; this only names which kind is required."
+    },
+    "SpendZeroCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "explanation"],
+      "properties": {
+        "available": {
+          "type": "boolean",
+          "const": true,
+          "description": "The spend-$0 case is ALWAYS available. A required const true, so no recommendation can omit or disable it: the user can always choose to spend nothing, and the model leads with the no-spend case whenever the conservative bound is not positive."
+        },
+        "explanation": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {"$ref": "#/definitions/WhyComponent"},
+          "description": "The renderable statement of the spend-$0 option, as structured tokens the agent renders in context (e.g. spend_zero_always_available). Bounded and closed."
+        }
+      },
+      "description": "The first-class spend-$0 case, REQUIRED on every recommendation. Making it a required object with `available: const true` means a recommendation cannot be issued that hides the option to spend nothing."
+    },
+    "WhyComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component"],
+      "properties": {
+        "component": {
+          "type": "string",
+          "enum": [
+            "dominant_value_channel",
+            "secondary_value_channel",
+            "daily_volume_drives_scale",
+            "error_cost_drives_risk",
+            "lifecycle_stage_sets_horizon",
+            "conservative_lower_bound_leads",
+            "budget_is_fraction_of_lower_bound_value",
+            "archetype_sets_floor_and_cap",
+            "spend_zero_always_available",
+            "assumptions_are_starting_not_validated",
+            "avoided_bad_promotion_payback",
+            "receipt_required_before_value_counts",
+            "stop_when_upper_bound_below_cost",
+            "value_of_information_justifies_small_test",
+            "labor_saved_estimate",
+            "inference_cost_saving_estimate"
+          ],
+          "description": "CLOSED reason token. The coding agent renders it into prose in the user's own terms; the vocabulary is closed so the explanation cannot become a free-text egress channel and cannot make an unbounded set of claims. There is deliberately NO 'assumptions_validated' member — the only validation-status token is 'assumptions_are_starting_not_validated', so a recommendation cannot claim, in structured form, that its dollar assumptions have been validated."
+        },
+        "references_field": {
+          "allOf": [{"$ref": "./economics_characterization_vocabulary_schema.json#/definitions/CharacterizationFieldName"}],
+          "description": "The user's own characterization field this factor is expressed in terms of (e.g. daily_volume_band, error_cost_band), so the agent renders the explanation using the user's actual volumes and error costs rather than generic copy. Drawn from the closed allowlist."
+        },
+        "usd_value": {
+          "allOf": [{"$ref": "./economics_common_schema.json#/definitions/SignedUsdAmount"}],
+          "description": "An optional signed dollar operand for the token (e.g. the avoided-bad-promotion value, a labor-saving estimate). Signed and bounded; it is a starting assumption like every dollar figure here."
+        },
+        "number_value": {
+          "type": "number",
+          "minimum": -1000000000,
+          "maximum": 1000000000,
+          "description": "An optional numeric operand (e.g. weeks of optimization a receipt pays for, a volume). Bounded."
+        },
+        "unit": {"$ref": "./economics_common_schema.json#/definitions/MeasurementUnit"},
+        "emphasis": {
+          "type": "string",
+          "enum": ["lower_bound", "point", "upper_bound"],
+          "description": "Which statistic this factor emphasises. Present so the credibility rule 'lead with the lower bound' is expressible in the render tokens: a value factor emphasising a point or upper bound is visibly not the conservative one."
+        }
+      },
+      "description": "One structured, renderable explanation factor. Closed reason token plus typed, bounded operands and an optional reference to the user's own characterization field — enough for the coding agent to render the 'why' in the user's terms, and never a free-form prose payload."
+    }
+  },
+  "x-traigent-note": "Contract-first per the workspace cross-repo rule: this response schema lands before the backend recommendation service exists and is NOT asserted against backend parity. The authoritative computation lives in the backend; SDK preflight, portal, and skills are intended to CALL this contract rather than reimplement it. The shipped vectors under tests/test_data/economics/ are schema-valid EXAMPLES of these shapes — nothing implements this contract yet, so they are not conformance evidence for any producer, and no claim is made here that a backend or an offline path agrees with them. Conformance testing starts when the first producer exists. Presentation phrasing lives in the agent's open presentation layer: the backend returns structured render tokens, and the agent turns them into the user's language."
+}

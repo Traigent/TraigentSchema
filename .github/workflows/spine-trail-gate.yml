@@ -17,9 +17,6 @@ on:
     types: [opened, edited, synchronize, reopened, ready_for_review]
   merge_group: {}
 
-permissions:
-  contents: read
-
 concurrency:
   # PR events: collapse re-pushes (cancel stale). merge_group events: never
   # cancel a queue candidate (it would fail its required gate and stall the
@@ -31,6 +28,11 @@ jobs:
   spine-trail:
     name: spine-trail present
     runs-on: ubuntu-latest
+    # No token at all: this job only echoes and reads the PR body out of the
+    # event payload. It never checks out code and never calls the GitHub API, so
+    # granting it `contents: read` was privilege it could not use.
+    # (Sonar githubactions:S8264 — read permissions belong at the job level.)
+    permissions: {}
     steps:
       - name: Pass-through for merge queue
         if: ${{ github.event_name == 'merge_group' }}
@@ -146,7 +148,7 @@ jobs:
         with:
           repository: Traigent/traigent-validation-spine
           ref: ${{ steps.classify.outputs.spine_commit }}
-          token: ${{ secrets.SPINE_READ_TOKEN || github.token }}
+          token: ${{ secrets.SPINE_RO_TOKEN || github.token }}
           path: .spine-shadow
           persist-credentials: false
           fetch-depth: 0

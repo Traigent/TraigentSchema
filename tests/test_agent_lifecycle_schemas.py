@@ -119,6 +119,10 @@ PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS = {
     ("optimization/session_finalize_response_schema.json", "reason_code"),
     ("optimization/tvar_catalog_entry_schema.json", "baseline"),
     ("status_schema.json", "degraded"),
+    # funnel.v1 onboarding-funnel `stage` enum: "baseline" is the funnel stage at
+    # which a lead's baseline is measured — the onboarding funnel step, not the
+    # artifact-state lifecycle "baseline" state this guard protects.
+    ("onboarding/onboarding_funnel_event_schema.json", "baseline"),
 }
 
 
@@ -156,6 +160,18 @@ def valid_next_steps_payload() -> dict[str, object]:
                 "evidence_level": "medium",
             }
         ],
+    }
+
+
+def _valid_attribution() -> dict[str, object]:
+    """Well-formed optional attribution provenance banner (#352)."""
+    return {
+        "source": "traigent",
+        "label": "Traigent",
+        "headline": "Traigent recommends expanding the dataset before promotion.",
+        "why": "Coverage is thin relative to the objective, which limits confidence.",
+        "basis": ["optimization_history", "parameter_importance"],
+        "engine": "policy",
     }
 
 
@@ -895,6 +911,136 @@ class TestNextStepsSchema:
         payload["next_steps"] = []
 
         assert validator.validate_json(payload, "next_steps_schema")
+
+    # ------------------------------------------------------------------
+    # attribution provenance banner (#352)
+    # ------------------------------------------------------------------
+
+    def test_next_steps_accepts_attribution(self, validator, valid_next_steps_payload):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["attribution"] = _valid_attribution()
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_next_steps_without_attribution_remains_valid(
+        self, validator, valid_next_steps_payload
+    ):
+        # attribution is optional: the canonical fixture omits it entirely.
+        assert "attribution" not in valid_next_steps_payload
+        errors = validator.validate_json(valid_next_steps_payload, "next_steps_schema")
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_next_steps_attribution_rejects_bad_source(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["attribution"] = _valid_attribution()
+        payload["attribution"]["source"] = "not_traigent"
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any("source" in e or "const" in e for e in errors)
+
+    def test_next_steps_attribution_rejects_bad_engine(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["attribution"] = _valid_attribution()
+        payload["attribution"]["engine"] = "neural"  # not in {rules, policy}
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any("engine" in e or "enum" in e for e in errors)
+
+    def test_next_steps_attribution_rejects_empty_basis(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["attribution"] = _valid_attribution()
+        payload["attribution"]["basis"] = []  # violates minItems: 1
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any("basis" in e or "minItems" in e for e in errors)
+
+    def test_next_steps_attribution_rejects_unknown_basis_label(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["attribution"] = _valid_attribution()
+        payload["attribution"]["basis"] = ["raw_signal_scores"]  # not in enum
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any("basis" in e or "enum" in e for e in errors)
+
+    def test_next_steps_attribution_rejects_additional_property(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["attribution"] = _valid_attribution()
+        payload["attribution"]["raw_signal"] = 0.873  # closed object
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any("raw_signal" in e or "Additional properties" in e for e in errors)
+
+    def test_next_steps_attribution_rejects_missing_required_field(
+        self, validator, valid_next_steps_payload
+    ):
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["attribution"] = _valid_attribution()
+        del payload["attribution"]["headline"]
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors
+        assert any("headline" in e or "required" in e for e in errors)
+
+    def test_attribution_allowed_alongside_authoritative_decision(
+        self, validator, valid_next_steps_payload
+    ):
+        # A decision is present, so the honesty guard does not apply and the
+        # banner may accompany it even though next_steps is the empty mirror.
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["decision"] = {
+            "id": "decision_123",
+            "category": "run_optimization",
+            "source_engine": "policy",
+            "evidence_snapshot_hash": "sha256:abc123",
+            "rationale": "Run optimization.",
+            "action": {"kind": "skill", "command_template": "traigent-optimize-run"},
+            "evidence_level": "high",
+        }
+        payload["next_steps"] = []
+        payload["attribution"] = _valid_attribution()
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_degenerate_response_rejects_attribution(
+        self, validator, valid_next_steps_payload
+    ):
+        # Honesty guard: with no decision and no non-empty next_steps there is no
+        # produced guidance, so a provenance banner must not be attached.
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["next_steps"] = []
+        payload.pop("decision", None)
+        payload["attribution"] = _valid_attribution()
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors, "Expected honesty-guard rejection of attribution on a degenerate response"
+
+    def test_degenerate_response_without_attribution_valid(
+        self, validator, valid_next_steps_payload
+    ):
+        # The same empty/degenerate response is valid when it makes no attribution claim.
+        payload = copy.deepcopy(valid_next_steps_payload)
+        payload["next_steps"] = []
+        payload.pop("decision", None)
+
+        errors = validator.validate_json(payload, "next_steps_schema")
+        assert errors == [], f"Unexpected errors: {errors}"
 
 
 class TestNextStepsReceiptSchema:

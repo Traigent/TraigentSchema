@@ -1,0 +1,20 @@
+{
+  "contract": "economics_recommendation",
+  "contract_version": "1.0.0",
+  "request_id": "econrec-req-withheld-0003",
+  "submitted_at": "2026-07-18T09:10:00Z",
+  "source": {"kind": "coding_agent", "name": "coding-agent", "version": "1.4.2"},
+  "characterization": {
+    "field_reports": [
+      {"field": "value_channel", "provenance": "inferred", "confidence": 0.6, "sharing_outcome": "withheld_by_policy", "evidence_status": "withheld_by_policy"},
+      {"field": "error_cost_band", "provenance": "inferred", "confidence": 0.5, "sharing_outcome": "withheld_by_policy", "evidence_status": "withheld_by_policy"},
+      {"field": "loss_per_bad_output_usd", "provenance": "inferred", "confidence": 0.4, "sharing_outcome": "withheld_by_policy", "evidence_status": "withheld_by_policy"}
+    ],
+    "sharing_policy_version": "sharing-policy-strict-v0",
+    "asked_count": 0
+  },
+  "sharing_policy": {
+    "policy_version": "sharing-policy-strict-v0",
+    "allowlist": []
+  }
+}

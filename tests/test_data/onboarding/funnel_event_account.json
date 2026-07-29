@@ -1,0 +1,9 @@
+{
+  "schema": "funnel.v1",
+  "run_id": "lead-9f3a.account-01",
+  "ts": "2026-07-18T09:20:03Z",
+  "stage": "account",
+  "event": "account_provisioned",
+  "actor": "human",
+  "outcome": "ok"
+}

@@ -19,7 +19,7 @@
     },
     "x-asserted-against-backend": {
       "type": "boolean",
-      "description": "False when the contract file has NOT been asserted against current backend parity (e.g. pre-release or planned endpoints). True when backend parity tests cover the contract. Set at the top-level schema object for endpoint files."
+      "description": "False when the documented contract scope has NOT been asserted against current backend parity (e.g. pre-release or planned endpoints). True when backend parity tests cover the contract. Set at the top-level schema object when an entire endpoint file is unasserted; set on an operation when a canonical endpoint file mixes backend-asserted routes with a declared-ahead route."
     },
     "x-authoritative-signal": {
       "type": "string",
@@ -75,6 +75,13 @@
         { "type": "array", "items": { "type": "string" } }
       ]
     },
+    "x-error-catalog": {
+      "type": "object",
+      "description": "Machine-readable map of stable error codes to their {phase, http_status, retryable} metadata. Placed on an error-taxonomy schema (e.g. observability_v2_error_schema) so consumers can enumerate the full code catalog, including admission-terminal and SDK-side codes that have no HTTP status (http_status: null).",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
     "x-excludes": {
       "type": "array",
       "items": { "type": "string" },
@@ -95,6 +102,14 @@
     "x-internal-sensitive": {
       "type": "boolean",
       "description": "True when a schema carries short-lived privileged execution metadata that may be returned only to an authenticated, authorized caller and must be redacted from logs and diagnostics."
+    },
+    "x-max-event-bytes": {
+      "type": "integer",
+      "description": "Maximum canonicalized byte size of a single wire object (e.g. one observability v2 event body, 65536). Enforced by the admission edge, not by JSON Schema; declared on the schema whose instances are byte-capped so the limit is discoverable from the contract."
+    },
+    "x-max-request-bytes": {
+      "type": "integer",
+      "description": "Maximum HTTP JSON body size in bytes for a request envelope (e.g. observability v2 ingest, 5242880 = 5 MiB). Enforced by the admission edge, not by JSON Schema; declared on the request schema so the limit is discoverable from the contract."
     },
     "x-naming-convention": {
       "type": "object",

@@ -53,8 +53,18 @@ jobs:
           fetch-depth: 0
           path: TraigentSchema
 
+      # continue-on-error here does NOT mean "tolerate a broken scan". It exists only so
+      # this workflow can tell "token absent" apart from "token present but unusable"
+      # (expired, revoked, or scoped without Contents:Read on the spine repo) and report
+      # the precise reason before failing the job. Either way the job still fails closed
+      # below: a scan that cannot run must not report success, because that is
+      # indistinguishable from a clean scan. `spine-pr-scan` is advisory (required checks
+      # on this repo are "Aikido Security: check code" and "ci-required"), so this failing
+      # does not block merges — but it must still show red, honestly, not green.
       - name: Checkout validation spine
+        id: spine-checkout
         if: env.SPINE_RO_TOKEN != ''
+        continue-on-error: true
         uses: actions/checkout@v7
         with:
           repository: Traigent/traigent-validation-spine
@@ -62,23 +72,49 @@ jobs:
           path: .spine
           token: ${{ env.SPINE_RO_TOKEN }}
 
-      - name: Note skipped spine scan
-        if: env.SPINE_RO_TOKEN == ''
+      # Availability is proven by the checkout actually succeeding, not by the token merely
+      # being non-empty. Every downstream step keys off SPINE_AVAILABLE.
+      - name: Determine spine availability
+        id: spine-available
+        run: |
+          if [ "${{ steps.spine-checkout.outcome }}" = "success" ] && [ -d "$GITHUB_WORKSPACE/.spine" ]; then
+            echo "SPINE_AVAILABLE=true" >> "$GITHUB_ENV"
+          else
+            echo "SPINE_AVAILABLE=false" >> "$GITHUB_ENV"
+          fi
+
+      # Fail closed. A scan that cannot run must not report success — that would be
+      # indistinguishable from a clean scan and defeats the point of running one.
+      # Dependabot is exempt because GitHub withholds repository secrets from dependabot
+      # PRs by design, and dependency bumps carry no policy surface.
+      - name: Fail closed when spine scan cannot run
+        if: env.SPINE_AVAILABLE != 'true'
         run: |
           if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
-            echo "::notice::SPINE_RO_TOKEN unavailable for dependabot PR (secrets blocked by design); spine scan skipped - dependabot bumps carry no policy surface."
+            echo "::notice::Spine scan skipped for dependabot PR (secrets blocked by design); dependabot bumps carry no policy surface."
             exit 0
           fi
-          echo "::error::SPINE_RO_TOKEN is not configured; validation spine scan cannot run."
+          if [ -z "${SPINE_RO_TOKEN}" ]; then
+            reason="repository secret SPINE_RO_TOKEN is not configured (and no VALIDATION_CI_PAT fallback exists)"
+          else
+            reason="the configured token could not check out Traigent/traigent-validation-spine (expired, revoked, or missing Contents:Read)"
+          fi
+          echo "::error::Validation spine scan FAILED TO RUN — ${reason}. Failing closed: a scan that cannot execute must not report success."
           {
-            echo "## Validation Spine — PR scan"
+            echo "## Validation Spine — PR scan: FAILED TO RUN"
             echo
-            echo "Failed closed: repository secret \`SPINE_RO_TOKEN\` is not configured."
+            echo "**No gap report was produced for this PR.** Absence of findings below is not evidence of none."
+            echo
+            echo "Reason: ${reason}."
+            echo
+            echo "Fix: rotate the read-only spine token with"
+            echo '`tools/secret-ops/rotate-spine-ro-token.sh` in the traigent-workspace repo'
+            echo "(owner-run; sets \`SPINE_RO_TOKEN\` across all repos running this workflow)."
           } >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
       - name: Capture PR changed files
-        if: env.SPINE_RO_TOKEN != '' && github.event_name == 'pull_request'
+        if: env.SPINE_AVAILABLE == 'true' && github.event_name == 'pull_request'
         working-directory: TraigentSchema
         shell: bash
         run: |
@@ -92,22 +128,22 @@ jobs:
           echo "Captured ${count} PR changed file(s) for scoped summary."
 
       - name: Set up Python 3.11
-        if: env.SPINE_RO_TOKEN != ''
+        if: env.SPINE_AVAILABLE == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        if: env.SPINE_RO_TOKEN != ''
+        if: env.SPINE_AVAILABLE == 'true'
         run: pip install --upgrade pip "uv==0.8.13"
 
       - name: Install spine
-        if: env.SPINE_RO_TOKEN != ''
+        if: env.SPINE_AVAILABLE == 'true'
         working-directory: .spine
         run: uv sync --extra dev
 
       - name: Run security_ledger against product repo
-        if: env.SPINE_RO_TOKEN != ''
+        if: env.SPINE_AVAILABLE == 'true'
         id: spine-run
         continue-on-error: true
         working-directory: .spine
@@ -122,8 +158,31 @@ jobs:
             --health-dir "$GITHUB_WORKSPACE/.spine-health" \
             --file-limit "$SPINE_FILE_LIMIT"
 
+      # A scan that examined zero files is not a clean scan. The spine's
+      # security_ledger only knows the repos listed in `_PYTHON_REPOS`
+      # (Traigent, TraigentBackend, TraigentSchema). If this repo ever drops
+      # out of that list, or the checkout subpath drifts, the report comes
+      # back with `file_count: 0` and every gate below passes vacuously —
+      # exactly how TraigentFrontend and traigent-js scanned nothing while
+      # reporting success. Assert the scan had subjects.
+      - name: Assert the scan examined files
+        if: env.SPINE_AVAILABLE == 'true'
+        run: |
+          set -euo pipefail
+          graph="$GITHUB_WORKSPACE/.spine-health/latest-security-graph.json"
+          if [ ! -f "$graph" ]; then
+            echo "::error::no security graph emitted; the scan did not run."
+            exit 1
+          fi
+          files="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['scope_summary']['file_count'])" "$graph")"
+          echo "spine scan examined $files files"
+          if [ "$files" -eq 0 ]; then
+            echo "::error::spine scan examined 0 files — this repo is not covered by the scanner (see _PYTHON_REPOS in the spine's security_ledger/graph.py). A zero-subject scan cannot pass."
+            exit 1
+          fi
+
       - name: Summarize new critical findings
-        if: always() && env.SPINE_RO_TOKEN != ''
+        if: always() && env.SPINE_AVAILABLE == 'true'
         working-directory: .spine
         run: |
           set -e
@@ -191,10 +250,16 @@ jobs:
           PY
 
       - name: Upload spine gap artifacts
-        if: always() && env.SPINE_RO_TOKEN != ''
+        if: always() && env.SPINE_AVAILABLE == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: validation-spine-gaps
           path: .spine-health/
+          # `.spine-health` is a dot-directory, and upload-artifact excludes
+          # hidden paths by default — so this artifact has never actually
+          # uploaded ("No files were found with the provided path"), and
+          # `if-no-files-found: warn` kept that quiet. The findings the scan
+          # produces are the only reviewable evidence it exists to produce.
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 14
-          if-no-files-found: warn

@@ -6,9 +6,103 @@
     "description": "Planned project-scoped and tenant-scoped stored observability routes used by the beta SDK surface."
   },
   "paths": {
+    "/api/v2/observability/events": {
+      "post": {
+        "summary": "Ingest observability v2 versioned-delta events",
+        "description": "Contract-first, pre-release admission edge for the v2 protocol (14-observability-ingest-v2 §2.1/§3.1), declared ahead of TraigentBackend implementation in #2127. No current backend serves this path. When implemented, it accepts at most 100 events and 5 MiB of JSON; tenant/project scope is derived from the authenticated credential and is never client-selected. A 202 will mean the request committed to the durable admission outbox, not that any row is queryable.",
+        "x-stability": "pre-release",
+        "x-asserted-against-backend": false,
+        "operationId": "ingestObservabilityV2Events",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./observability_v2_ingest_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Admitted to the durable admission outbox (ADMITTED). Reusing the same ingest_id with the same request returns the persisted manifest.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./observability_v2_ingest_status_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request; no admission committed.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          },
+          "409": {
+            "description": "INGEST_ID_REUSE (different request under a used ingest_id) or EVENT_ID_REUSE (same event_id, different hash) — client integrity error.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          },
+          "413": {
+            "description": "Request exceeds the 5 MiB / 100-event admission limit.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          },
+          "422": {
+            "description": "Schema-valid but semantically rejected; no admission committed.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          },
+          "429": {
+            "description": "QUEUE_CAPACITY_EXHAUSTED — admission budget exceeded; retry the identical ids after Retry-After.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          },
+          "503": {
+            "description": "POSTGRES_ADMISSION_DEADLINE_EXCEEDED / POSTGRES_ADMISSION_SLOW / ADMISSION_BULKHEAD_SATURATED — fail-fast admission back-pressure; retry the identical ids after Retry-After.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          }
+        }
+      }
+    },
+    "/api/v2/observability/ingests/{ingest_id}": {
+      "get": {
+        "summary": "Get observability v2 ingest status",
+        "description": "Contract-first, pre-release v2 ingest-status route (14-observability-ingest-v2 §3.2), declared ahead of TraigentBackend implementation in #2127. No current backend serves this path. When implemented, polling is authoritative; a webhook is optional.",
+        "x-stability": "pre-release",
+        "x-asserted-against-backend": false,
+        "operationId": "getObservabilityV2IngestStatus",
+        "parameters": [
+          {
+            "name": "ingest_id",
+            "in": "path",
+            "required": true,
+            "description": "The MonotonicId (ULID / UUIDv7) the SDK generated for the request.",
+            "schema": {
+              "$ref": "./observability_v2_event_schema.json#/definitions/MonotonicId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Manifest state plus one record per event.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./observability_v2_ingest_status_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No manifest for this ingest_id under the authenticated scope.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          }
+        }
+      }
+    },
     "/api/v1beta/observability/ingest": {
       "post": {
-        "summary": "Ingest observability traces",
+        "summary": "Ingest observability traces (v1beta snapshot protocol)",
+        "description": "Current backend behavior accepts the legacy snapshot-ingest and returns 202. The v2 direct-cutover retirement in 14-observability-ingest-v2 §7 is declared ahead of TraigentBackend #2127: once that backend change lands, this endpoint returns typed 410 SNAPSHOT_PROTOCOL_RETIRED and does not admit, translate, or materialize the payload. This pre-release operation is not asserted against current backend parity because its declared retirement is not live yet.",
+        "x-stability": "pre-release",
+        "x-asserted-against-backend": false,
         "requestBody": {
           "required": true,
           "content": {
@@ -18,12 +112,24 @@
               }
             }
           }
+        },
+        "responses": {
+          "202": {
+            "description": "Current backend behavior: the v1beta snapshot payload is accepted for asynchronous observability ingestion."
+          },
+          "410": {
+            "description": "SNAPSHOT_PROTOCOL_RETIRED — the v1beta snapshot protocol is retired; upgrade to the v2 SDK and POST /api/v2/observability/events.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          }
         }
       }
     },
     "/api/v1beta/projects/{project_id}/observability/ingest": {
       "post": {
-        "summary": "Ingest project observability traces",
+        "summary": "Ingest project observability traces (v1beta snapshot protocol)",
+        "description": "Current backend behavior accepts the legacy snapshot-ingest and returns 202. The v2 direct-cutover retirement in 14-observability-ingest-v2 §7 is declared ahead of TraigentBackend #2127: once that backend change lands, this endpoint returns typed 410 SNAPSHOT_PROTOCOL_RETIRED and does not admit, translate, or materialize the payload. This pre-release operation is not asserted against current backend parity because its declared retirement is not live yet.",
+        "x-stability": "pre-release",
+        "x-asserted-against-backend": false,
         "requestBody": {
           "required": true,
           "content": {
@@ -32,6 +138,15 @@
                 "$ref": "./observability_ingest_request_schema.json"
               }
             }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Current backend behavior: the v1beta snapshot payload is accepted for asynchronous observability ingestion."
+          },
+          "410": {
+            "description": "SNAPSHOT_PROTOCOL_RETIRED — the v1beta snapshot protocol is retired; upgrade to the v2 SDK and POST /api/v2/observability/events.",
+            "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
           }
         }
       }

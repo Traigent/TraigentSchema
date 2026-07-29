@@ -5,6 +5,148 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.0] - 2026-07-28
+
+### Added
+- **Cross-repo onboarding-funnel event contract, `funnel.v1` (contract-first, pre-release).** A new
+  standalone event schema `onboarding/onboarding_funnel_event_schema.json` defining the single wire
+  unit of the onboarding funnel: `{run_id, ts, stage, event, actor, outcome, meta?}`, so any surface
+  (SDK, coding agent, portal, backend) can emit a comparable event without inventing fields. The
+  event object is closed (`additionalProperties: false`) with `schema, run_id, ts, stage, event,
+  actor, outcome` required.
+  - **`run_id`** is an opaque **public** correlation id for the onboarding attempt — not a secret,
+    revealing nothing about credentials — bounded to an identifier grammar (alphanumeric-bounded, with
+    `.`/`_`/`:`/`-` only between alphanumerics, 1–128 chars, `x-identifier: true`); the end is anchored
+    with a negative lookahead rather than `$` so a trailing newline and a punctuation-only id are
+    rejected. **`ts`** is RFC-3339 UTC pinned to a trailing `Z` by pattern (mirrors the economics
+    `UtcTimestamp` shape, a ≤9-fractional-digit / nanosecond subset), so an offset-bearing timestamp
+    read as UTC cannot silently reorder the funnel. **`stage`** is a closed 8-member enum
+    (`discover, verify, handoff, assess, baseline, account, key, enhanced`); **`event`** is a
+    bounded opaque identifier label (ShortLabel-style grammar, ≤128); **`actor`** ∈
+    `{human, agent, system}`; **`outcome`** ∈ `{ok, retry, fail, abandon}`. Optional **`meta`** is a
+    bounded string→string map (`maxProperties: 64`, per-value `maxLength: 8192`) marked
+    `x-content: true` + `x-privacy-classification: user_content`. A **required** `schema` self-descriptor
+    pins the wire version (`const: "funnel.v1"`) so every event self-identifies its contract version.
+  - Marked `x-stability: pre-release` and `x-asserted-against-backend: false`. The invariants JSON
+    Schema cannot enforce — tenant ownership of `run_id` from the authenticated request context,
+    cross-event stage-order reconciliation, the 65536-byte event ceiling (`x-max-event-bytes`, a byte
+    count JSON Schema cannot compute, enforced backend-side), and downstream `meta` redaction — are
+    enumerated under `x-backend-obligations` so they are visible rather than assumed proven. No
+    endpoint-catalog entry is added: the contract defines the wire, not a client-facing route.
+
+## [5.1.0] - 2026-07-25
+
+### Added
+- **Observability v2 availability and v1beta retirement posture (contract-first, pre-release;
+  TraigentBackend #2127).** The v2 event-admission and ingest-status routes were published with
+  the v2 protocol contract before a backend serves either path. Both operations now carry the
+  existing `x-stability: pre-release` / `x-asserted-against-backend: false` classification at
+  operation scope, the truthful scope for a canonical observability catalog that otherwise
+  contains live backend routes. Their documented 202/200 semantics remain the intended protocol,
+  not an assertion of present backend behavior, until the open draft TraigentBackend #2127 lands.
+  The same release had prematurely represented the two live v1beta snapshot-ingest routes as
+  retired-only. They now document both states explicitly: current TraigentBackend `main` and
+  `develop` accept each route with 202, while the typed 410 `SNAPSHOT_PROTOCOL_RETIRED` response
+  is a declared-ahead-of-backend cutover state that waits on #2127. This keeps the v2 direct-cutover
+  rule (no translation or materialization after retirement) visible without telling consumers that
+  a presently working endpoint has already disappeared.
+- **Optional first-party `attribution` provenance block on the next-steps and decision-payload
+  response schemas (#352).** Mirrors `Traigent/TraigentBackend#2431` — a closed object
+  (`source`/`label` consts, `headline`/`why`, a 5-token `basis` enum, `engine` in `{rules,policy}`)
+  added under `properties` of `next_steps_schema.json` and `decision_payload_schema.json` (inherited
+  by `decision_payload_response_schema.json` via `$ref`). Optional — absent on empty/degenerate
+  responses; next-steps carries an `allOf` honesty guard requiring `attribution` be absent when there
+  is no decision and no served step. Additive: strict consumers no longer reject the field the
+  backend now emits.
+- **Economics recommendation calculator contract (contract-first, pre-release).** The closed
+  characterization submission and the backend-authoritative recommendation for a new canonical
+  route `POST /api/v1/economics/recommendation`, published ahead of the backend recommendation
+  service and the MCP survey tool per the cross-repo rule that request/response shapes start in
+  TraigentSchema. Added to the existing `planned_projects` (non-canonical) economics catalog and
+  marked `x-asserted-against-backend: false` — no backend serves it yet. The route documents 200
+  (recommendation computed), 400/422 (validation), 401/403 (auth), and 503 (service unavailable).
+  Every non-2xx status binds `error_envelope_schema.json`, the same shared envelope the sibling
+  telemetry route binds since 5.0.0 (#343) — specified here rather than observed, since no
+  implementation exists yet, and pinned by tests so the bare-description gap #343 closed next
+  door cannot reopen on this route.
+  - **Closed characterization submission** (`economics_recommendation_request_schema.json`): the
+    five closed band fields and their optional typed overrides (reused from the characterization
+    vocabulary by `$ref`, never restated), each with per-field `asked | inferred | defaulted`
+    provenance, required confidence, and evidence accounting. The characterization payload reuses
+    the WI-B telemetry characterization object so the closed-pipe egress rules are the SAME pipe
+    here as in telemetry rather than a second, drifting restatement: a field reported
+    `withheld_by_policy` is ABSENT from the transmitted value area, a transmitted value carries a
+    `shared` report, a `shared` report carries its value, and an inferred value accounts for its
+    evidence (a withheld pointer cannot ride along). `additionalProperties: false` at every object
+    boundary, and no prose field is declared. Six client-authored strings remain
+    (`request_id`, `source.name`, `source.version`, both `sharing_policy_version` labels,
+    and the evidence pointer); each is bounded by an identifier grammar that blocks
+    sentences but not content, since `Alice.Smith.SSN.123-45-6789` is a valid identifier.
+    They are enumerated in a backend obligation requiring redaction and pinned by a test,
+    rather than described as a closure the contract does not deliver.
+  - **Structural client-side sharing policy.** A `sharing_policy` with a `policy_version` and an
+    `allowlist` of the fields permitted to egress. Withholding is structural, not advisory: a
+    value present in the transmitted value area REQUIRES its field on the allowlist (enforced per
+    field), so a transmitted value for a non-allowlisted field is unrepresentable. An empty
+    allowlist (share nothing, all fields reported `withheld_by_policy`) is honest and fully
+    representable, and the recommendation still returns the spend-$0 case.
+  - **No presentation channel at all.** An earlier draft of this contract carried an 80-character
+    `agent_display_name` and argued that being bounded and control-character-free meant it "cannot
+    become a free-text egress channel". That was false — 80 printable characters carry prose — so
+    the field is removed rather than re-worded, and `additionalProperties: false` now makes it
+    unrepresentable. Nothing replaced it: the agent renders the recommendation in the user's own
+    terms from structured tokens, on its own machine, so the name never needs to be transmitted.
+  - **Evidence pointers are narrowed to an opaque grammar in this request.** The shared WI-B
+    `EvidencePointer` admits 280 characters of free text; inside this request it is intersected
+    with the repo's opaque-identifier grammar, which rejects whitespace, quotes, at-signs,
+    non-ASCII, and control characters — so a copied sentence or an email address is
+    unrepresentable. It does NOT make PII or values unrepresentable: the grammar permits
+    separators between alphanumerics, so `Alice_Smith_SSN_123-45-6789` remains a valid token.
+    This bounds the channel and blocks the copy-a-sentence case; it is not a privacy boundary,
+    and a test pins that residual so the wording cannot drift ahead of it. The shared definition
+    is deliberately NOT changed
+    here — narrowing a shipped contract is a breaking change owed a coordinated MAJOR release —
+    and the narrowing is documented as BOUNDING the channel, not sealing it: a token can still
+    encode a number, so treating pointers as user content (redact, never parse, never join to a
+    withheld field) remains a declared backend obligation.
+  - **Backend-authoritative recommendation** (`economics_recommendation_response_schema.json`):
+    versioned formula/assumption identity with a required `assumptions_are_starting_assumptions:
+    true` label and a **required** `published_reference` — required rather than optional because
+    the auditability claim would otherwise outrun the contract: a response naming only two
+    internal version labels leaves a consumer nothing to look up. That the reference actually
+    resolves to a published document is a declared backend obligation the schema cannot enforce;
+    archetype and dominant value channel (vocabulary `$ref`); a recommended daily
+    build budget with archetype floor/cap (labelled starting assumptions, `const`-guarded) and a
+    conservative-lower-bound basis carrying the value interval with its level; a structured
+    payback statement where `payback_days` exists ONLY on a positive conservative lower bound and
+    is forbidden otherwise; a closed stop rule; the required receipt kind (reused from the receipt
+    contract by `$ref`); a first-class spend-$0 case that is ALWAYS present with `available: const
+    true`; and a required, non-empty, bounded `why` of STRUCTURED, closed-vocabulary render tokens
+    the coding agent turns into prose in the user's own terms (their value channel, volume band,
+    error-cost band). No render token can claim an assumption was validated — the only
+    validation-status token is `assumptions_are_starting_not_validated`.
+  - **An undetermined recommendation cannot invent a value channel.** `ValueChannel` is a
+    closed vocabulary with no `undetermined` member (unlike `Archetype`, which has one), while
+    `dominant_value_channel` was unconditionally required — so the design's own "all-withheld
+    submission still gets the honest spend-$0 answer" branch was unrepresentable: any 200 had
+    to assert a channel the backend could not know, contradicting the no-backfill obligation.
+    `dominant_value_channel` is now required only when the archetype is determined, and both
+    channel fields are forbidden when it is `undetermined`.
+  - **Independence from funding and pricing.** The recommendation is independent of credits,
+    incentives, grants, promotional balances, wallet/billing state, and pricing: no such field is
+    declared or representable in either contract (`additionalProperties: false` blocks any), so no
+    such state can be SUBMITTED to or RETURNED from the recommendation. Note the honest limit: the
+    schema cannot stop a backend from joining pricing or wallet state it already holds server-side —
+    that is the NO PRICING/CREDIT/WALLET INPUT backend obligation, not a structural guarantee. Budget floors/caps are labelled starting
+    assumptions, NOT funded amounts — funding (the seven-day credit envelope) is the separate WI-D
+    owner-gated decision and is deliberately out of scope here.
+  - **Deterministic example vectors** (`tests/test_data/economics/`): request/response pairs
+    (solo builder, support automation, and an all-withheld submission paired with an
+    `undetermined`-archetype spend-$0 recommendation that names NO value channel), paired by echoed `request_id` and carrying no computation implementation.
+    They are schema-valid EXAMPLES, not conformance evidence: nothing implements this contract
+    yet, so no claim is made that a backend or an offline path agrees with them. Conformance
+    testing begins when the first producer exists.
+
 ## [5.0.0] - 2026-07-24
 
 ### Breaking

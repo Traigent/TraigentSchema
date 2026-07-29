@@ -1,0 +1,9 @@
+{
+  "schema": "funnel.v1",
+  "run_id": "lead-9f3a.handoff-01",
+  "ts": "2026-07-18T09:02:30Z",
+  "stage": "handoff",
+  "event": "agent_handoff",
+  "actor": "agent",
+  "outcome": "ok"
+}

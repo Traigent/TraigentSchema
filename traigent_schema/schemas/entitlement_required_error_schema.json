@@ -8,7 +8,9 @@
   "x-backend-obligations": [
     "message is server-authored display text: it MUST NOT carry a credential, an internal identifier, a route, or storage detail, and no consumer may branch on it. JSON Schema bounds the string but cannot inspect its meaning, so redaction and content discipline are enforced by the producer.",
     "reason precedence: 'access_period_ended' and 'no_active_plan' can both describe one account. The producer picks exactly one by a documented precedence rule; this contract cannot determine which account state caused the refusal.",
-    "HTTP status selection for this body is a per-surface decision and is deliberately not pinned here."
+    "HTTP status selection for this body is a per-surface decision and is deliberately not pinned here.",
+    "message is SERVER-AUTHORED, CLIENT-RENDERED text and MUST NOT be built from internal state. Red-team probes confirm the contract accepts a credential-shaped string, an internal route, a table name with a SQL fragment, and a stack frame in this field: JSON Schema cannot close free text, so the producer owns it. Never interpolate an exception, a query, a route, an identifier, or any credential into message. Everything a consumer needs to act on is in `error` and `details.reason`, which are closed.",
+    "reason PRECEDENCE is a producer obligation, not a schema constraint: an account whose period elapsed AND which never purchased satisfies both reasons, and the contract accepts either. The producer must emit 'access_period_ended' whenever a period existed and elapsed, so two surfaces cannot describe one state differently."
   ],
   "allOf": [
     {

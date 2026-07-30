@@ -1,0 +1,9 @@
+{
+  "schema": "funnel.v1",
+  "run_id": "lead-9f3a.access-02",
+  "ts": "2026-08-08T09:20:31Z",
+  "stage": "access_period_ended",
+  "event": "access_period_elapsed",
+  "actor": "system",
+  "outcome": "ok"
+}

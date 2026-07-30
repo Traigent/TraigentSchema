@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.4.0] - 2026-07-30
+
+### Fixed
+- **`auth/register_request_schema.json` described a different endpoint than the one that exists.**
+  Two corrections, both of which made the published contract actively misleading rather than merely
+  incomplete.
+  - It documented **`additionalProperties: true`**, with the description "backend reads these keys
+    and ignores unknown ones". The producer does the **opposite**: it rejects an unknown key with a
+    `400` rather than ignoring it. A client trusting the contract would send a retired or misspelled
+    field, expect it to be dropped, and instead have the whole registration refused. Now
+    `additionalProperties: false`, with the description stating that unknown keys are refused *and
+    why that is the safer behaviour* — a stale client is told, not silently registered without its
+    credential.
+  - It omitted **`invite_token`** and **`registration_code`**, two of the three credential fields the
+    endpoint accepts, so the only credential a reader could discover was `access_code`.
+    `registration_code` is the single-use, address-bound code delivered by e-mail to a self-serve
+    registrant. Its description records the deliberate wire-vs-reader split: the reader is shown the
+    words "access code", while `access_code` is a *different* credential — the administrator-issued
+    cohort code, reusable within its cohort and not bound to one address. The two names differ on
+    purpose and must not be merged.
+
+  **Versioning note for the reviewer.** Released as a MINOR. Adding the two fields is additive, but
+  tightening `additionalProperties` narrows what this schema accepts, which is breaking for a
+  consumer that validated against it. It is graded minor because the constraint is a *correction of a
+  contract that never matched its producer* — payloads it newly rejects were already being rejected
+  at runtime — and because a repository-wide search found **no consumer of this file** outside this
+  package's own tests. Escalate to a major if you judge the published shape, rather than the
+  behaviour it describes, to be the compatibility surface.
+
+- **`entitlement_required_error_schema.json`: five backend obligations reduced to three**, with no
+  loss of obligation. The five contained two near-duplicate pairs and one internal contradiction:
+  - the two `message` obligations are merged — the second was a strict superset of the first;
+  - the two `reason`-precedence obligations are merged, and the contradiction removed. One stated
+    that the producer "picks exactly one by a documented precedence rule" while leaving that rule
+    unstated and asserting the contract "cannot determine which account state caused the refusal";
+    the other supplied the actual rule. The surviving text keeps the concrete rule — emit
+    `access_period_ended` whenever a period existed and elapsed — and keeps the honest statement that
+    the contract cannot adjudicate, since both are true and only the vague half was redundant.
+  - the HTTP-status obligation is unchanged.
+
 ## [5.3.0] - 2026-07-29
 
 ### Added

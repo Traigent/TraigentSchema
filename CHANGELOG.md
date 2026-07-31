@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.4.0] - 2026-07-30
 
 ### Added
+- **A canonical, additive HTTP `201` registration-success contract.**
+  `auth/register_created_response_schema.json` models the Backend's real wrapped
+  `{success, data}` envelope and makes the two successful outcomes explicit: a no-session result for
+  cohort, invite, and ordinary registrations, or a complete access/refresh-token pair for the
+  verified self-serve flow coordinated with TraigentBackend #2481. The self-serve producer is not
+  deployed yet, so the schema is conservatively marked `x-asserted-against-backend: false`.
+  `auth_endpoints.json` now publishes the `201` response; the previously published flat `200`
+  contract remains accepted and is explicitly deprecated until its 6.0.0 removal. This is
+  MINOR-safe: it adds a new schema/response entry without tightening or deleting any 5.3 validation
+  behavior.
+
 - **`auth/register_request_schema.json` now documents two of the three credential fields the register
   endpoint accepts.** `invite_token` and `registration_code` were undocumented, so the only credential a
   reader could discover was `access_code`. `registration_code` is the portal's unified wire field for

@@ -884,7 +884,7 @@
             }
           },
           "403": {
-            "description": "The human denied the device authorization.",
+            "description": "Terminal RFC 8628 access_denied outcome: either the human denied the device authorization, or an approved principal no longer has product access when the CLI exchanges the device code. No API key is issued.",
             "content": {
               "application/json": {
                 "schema": {
@@ -894,7 +894,7 @@
             }
           },
           "429": {
-            "description": "The client polled faster than the allowed interval.",
+            "description": "RFC 8628 slow_down: either the client polled faster than the allowed interval, or the server transiently deferred an approved exchange because access could not be determined or API-key issuance rolled back. No API key is issued; Retry-After and details.interval carry the authoritative next polling interval.",
             "headers": {
               "Retry-After": {
                 "description": "Seconds the CLI should wait before polling again.",
@@ -929,8 +929,19 @@
           }
         },
         "responses": {
+          "201": {
+            "description": "Account created. The response is a success envelope with either a no-session registration result or, for an email-proven self-serve registration code, an auto-login session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./register_created_response_schema.json"
+                }
+              }
+            }
+          },
           "200": {
-            "description": "Registration accepted. No access token is issued — the user must verify their email before logging in.",
+            "description": "Deprecated 5.x compatibility contract. Current TraigentBackend producers return HTTP 201 with register_created_response_schema.json; this legacy flat response is retained until the next major version.",
+            "x-deprecated": "Use the HTTP 201 register_created_response_schema.json contract instead. The legacy HTTP 200 response contract will be removed in the next major release (6.0.0).",
             "content": {
               "application/json": {
                 "schema": {

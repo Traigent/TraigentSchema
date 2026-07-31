@@ -12,13 +12,22 @@
     "Tenant/project ownership of run_id is resolved from the authenticated request context, never from a client field: an event whose run_id belongs to another tenant must be rejected at admission. The body carries no tenant field and this contract cannot check ownership.",
     "Stage-order reconciliation across separate events: the funnel order of stages (and whether a given stage may follow another for the same run_id) is a relationship between distinct events that JSON Schema cannot compare, so ordering is reconciled server-side, not in this per-event contract.",
     "meta total size: the 65536-byte event-body ceiling (x-max-event-bytes) is a byte count over the canonicalized event that JSON Schema cannot compute, so it is enforced backend-side at admission, not by this contract. The per-value (8192-char) and per-key (64) bounds declared here cap the obvious inflation vectors but do not add up to the byte ceiling.",
-    "meta redaction: meta is opaque user-authored content and MUST be redacted from logs, telemetry, and exports downstream. The contract bounds and classifies meta but cannot guarantee any value inside it is free of sensitive content."
+    "meta redaction: meta is opaque user-authored content and MUST be redacted from logs, telemetry, and exports downstream. The contract bounds and classifies meta but cannot guarantee any value inside it is free of sensitive content.",
+    "Access-period linkage: an access_period_ended or access_restored event fires long after the originating onboarding attempt, so the producer must durably retain the run_id correlation; this per-event contract records observations of the period's lifecycle and never its duration, deadline, or policy, which are resolved server-side."
   ],
-  "required": ["schema", "run_id", "ts", "stage", "event", "actor", "outcome"],
+  "required": [
+    "schema",
+    "run_id",
+    "ts",
+    "stage",
+    "event",
+    "actor",
+    "outcome"
+  ],
   "properties": {
     "schema": {
       "const": "funnel.v1",
-      "description": "Required wire self-descriptor naming this contract and version; it must be exactly 'funnel.v1'. Requiring it means every event self-identifies its contract version, so once the closed enums (stage/actor/outcome) evolve a consumer can tell a funnel.v1 event from a later version instead of silently mis-reading a versionless one. A breaking change ships a new const value rather than reinterpreting this one."
+      "description": "Required wire self-descriptor naming this contract and version; it must be exactly 'funnel.v1'. Requiring it means every event self-identifies its contract version, so a consumer can tell a funnel.v1 event from a later version instead of silently mis-reading a versionless one. VERSIONING RULE, stated precisely because this contract has already evolved its stage enum in place: while this schema is 'x-stability: pre-release' AND no producer emits it, a closed enum may gain members within funnel.v1 - there is no deployed event stream to break, and minting a new discriminator would leave a permanently dead one. A consumer pinned to an older package release will reject the newer members, so consumers of a pre-release contract must track the package rather than pin it. ONCE A PRODUCER EXISTS, that latitude ends: any closed-enum change then ships a new const value here."
     },
     "run_id": {
       "type": "string",
@@ -44,10 +53,13 @@
         "assess",
         "baseline",
         "account",
+        "access_period_started",
         "key",
-        "enhanced"
+        "enhanced",
+        "access_period_ended",
+        "access_restored"
       ],
-      "description": "The funnel stage this event observes. Closed so a consumer never has to guess what a stage means; a stage that fits no member is a versioned enum addition, not a free-text escape hatch."
+      "description": "The funnel stage this event observes. Closed so a consumer never has to guess what a stage means; a stage that fits no member is a versioned enum addition, not a free-text escape hatch. 'access_period_started' records the account's portal access period beginning at registration; 'access_period_ended' records that period elapsing; 'access_restored' records access being restored on the same account. 'key' records API-key issuance and is non-authorizing \u2014 a key is a credential, never the entitlement. The enum is listed in funnel order, but ORDER IS NOT ENFORCED HERE (see x-backend-obligations). A lifecycle observation of the access period carries outcome 'ok' \u2014 the observation succeeded; drop-off is not inferred from it."
     },
     "event": {
       "type": "string",
@@ -58,12 +70,21 @@
     },
     "actor": {
       "type": "string",
-      "enum": ["human", "agent", "system"],
+      "enum": [
+        "human",
+        "agent",
+        "system"
+      ],
       "description": "Who caused this event: 'human' (the person onboarding), 'agent' (an AI coding agent acting on their behalf), or 'system' (the platform itself). Closed so the actor of every funnel step is unambiguous."
     },
     "outcome": {
       "type": "string",
-      "enum": ["ok", "retry", "fail", "abandon"],
+      "enum": [
+        "ok",
+        "retry",
+        "fail",
+        "abandon"
+      ],
       "description": "How this stage attempt resolved: 'ok' (succeeded), 'retry' (transient failure, will be attempted again), 'fail' (terminal failure at this stage), or 'abandon' (the lead stopped without completing). Closed so a drop-off is recorded as a value, not inferred from the absence of a later event."
     },
     "meta": {
@@ -75,7 +96,33 @@
       },
       "x-content": true,
       "x-privacy-classification": "user_content",
-      "description": "Optional opaque, user-authored annotations for this event: a bounded map of string keys to string values. Each value is capped at 8192 characters and the map at 64 keys, so no single meta value or key count is unbounded. JSON Schema cannot count the canonicalized byte size of the whole event, so the 65536-byte event ceiling (x-max-event-bytes) is NOT enforced by this schema — it is a backend obligation (see x-backend-obligations); the per-value and per-key bounds here only cap the obvious inflation vectors. meta is treated as user content: do NOT place structured platform data here, and redact it from logs and exports. The contract guarantees the container is bounded, never that any value inside it is free of sensitive content."
+      "description": "Optional opaque, user-authored annotations for this event: a bounded map of string keys to string values. Each value is capped at 8192 characters and the map at 64 keys, so no single meta value or key count is unbounded. JSON Schema cannot count the canonicalized byte size of the whole event, so the 65536-byte event ceiling (x-max-event-bytes) is NOT enforced by this schema \u2014 it is a backend obligation (see x-backend-obligations); the per-value and per-key bounds here only cap the obvious inflation vectors. meta is treated as user content: do NOT place structured platform data here, and redact it from logs and exports. The contract guarantees the container is bounded, never that any value inside it is free of sensitive content."
     }
-  }
+  },
+  "allOf": [
+    {
+      "$comment": "Lifecycle observations of the access period are not funnel drop-off. The period elapsing is time passing, not a user abandoning: a user can be actively running optimizations on the last day and still lapse. Leaving this to prose let an emitter mark an automatic expiry 'abandon', which silently corrupts the funnel's headline conversion metric - silent because nothing errors and the number is simply wrong. Whether the PRODUCT counts a lapse as drop-off is a separate analytics decision; if it does, that belongs in its own exit-reason dimension, never overloaded onto `outcome`.",
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "access_period_started",
+              "access_period_ended",
+              "access_restored"
+            ]
+          }
+        },
+        "required": [
+          "stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "const": "ok"
+          }
+        }
+      }
+    }
+  ]
 }

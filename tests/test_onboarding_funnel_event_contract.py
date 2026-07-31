@@ -28,7 +28,19 @@ SCHEMA = "onboarding_funnel_event_schema"
 _SCHEMA_PATH = get_schemas_dir() / "onboarding" / "onboarding_funnel_event_schema.json"
 _FIXTURES_DIR = Path(__file__).resolve().parent / "test_data" / "onboarding"
 
-_STAGES = ["discover", "verify", "handoff", "assess", "baseline", "account", "key", "enhanced"]
+_STAGES = [
+    "discover",
+    "verify",
+    "handoff",
+    "assess",
+    "baseline",
+    "account",
+    "access_period_started",
+    "key",
+    "enhanced",
+    "access_period_ended",
+    "access_restored",
+]
 
 
 def _v() -> SchemaValidator:
@@ -103,6 +115,83 @@ def test_every_stage_is_representable() -> None:
 def test_unknown_stage_is_rejected() -> None:
     for stage in ("onboarded", "DISCOVER", "", "assess "):
         assert _rejected(_event(stage=stage)), stage
+
+
+def test_near_miss_access_period_spellings_are_rejected() -> None:
+    """The three access-period stages were named in full precisely because the short
+    forms are ambiguous, so the short forms must not quietly validate. A producer that
+    emits bare 'access' or 'lapse' has invented an unnamed stage; a producer that emits
+    'ACCESS_PERIOD_STARTED' or a trailing-space variant has emitted a value no consumer
+    can group with the canonical one. Both fail here rather than in the funnel report."""
+    for stage in (
+        "access",
+        "access_period",
+        "lapse",
+        "restore",
+        "restored",
+        "access_period_start",
+        "access_period_end",
+        "ACCESS_PERIOD_STARTED",
+        "Access_Period_Started",
+        "access_period_started ",
+        " access_period_started",
+        "access-period-started",
+        "access period started",
+        "access_restored\n",
+    ):
+        assert _rejected(_event(stage=stage)), repr(stage)
+
+
+def test_stage_description_pins_the_non_authorizing_key_and_the_lapse_outcome_rule() -> None:
+    """Two decisions in this packet live in prose because enforcing them in-schema would
+    over-constrain a producer that does not exist yet (see the reconciled plan §3, §4).
+    Prose drifts unless something asserts it, so both are pinned here:
+
+    1. `key` is API-key issuance and is NON-AUTHORIZING — a key authenticates a caller and
+       never entitles one. This is the confusion the whole access-period split exists to
+       prevent, so the contract must say it out loud.
+    2. A lifecycle observation of the access period carries `outcome: "ok"` — the
+       observation succeeded. `abandon` means "the lead stopped without completing", and a
+       period elapsing is time passing, not the lead stopping; recording it as `abandon`
+       would encode a behavioural claim from a temporal fact and corrupt drop-off analytics
+       silently once two surfaces disagree.
+    """
+    description = _load_schema()["properties"]["stage"]["description"].lower()
+    assert "non-authorizing" in description, "the contract must state that `key` is non-authorizing"
+    assert "a key is a credential, never the entitlement" in description
+    assert "outcome 'ok'" in description or 'outcome "ok"' in description, (
+        "the lifecycle-observation outcome rule must be stated, not left to a reader"
+    )
+    assert "drop-off is not inferred from it" in description
+    # ordering is documentation, and the contract must say so rather than imply enforcement
+    assert "order is not enforced here" in description
+
+
+def test_stage_description_does_not_disclose_credential_mechanics() -> None:
+    """The public-repo leak guard, mirroring the one on run_id
+    (`test_run_id_is_marked_an_identifier_and_described_as_public_only`). Describing the
+    access period is legitimate; describing how a credential is minted or how long a code
+    lives is disclosure, and this description is the natural place for it to creep in."""
+    description = _load_schema()["properties"]["stage"]["description"].lower()
+    for leaked in ("token", "six-digit", "six digit", "access code", "single-use", "secret"):
+        assert leaked not in description, f"stage description must not disclose {leaked!r}"
+
+
+def test_access_period_linkage_is_declared_as_a_backend_obligation() -> None:
+    """`access_period_ended` and `access_restored` fire long after the originating
+    onboarding attempt, so the run_id correlation must outlive the attempt — something no
+    per-event schema can check. And the period's duration/deadline/policy are deliberately
+    NOT on the wire, so that omission must read as a decision rather than an oversight."""
+    obligations = _load_schema()["x-backend-obligations"]
+    linkage = [o for o in obligations if "access_period_ended" in o]
+    assert len(linkage) == 1, "exactly one obligation must own access-period linkage"
+    entry = linkage[0].lower()
+    assert "access_restored" in entry
+    assert "run_id" in entry, "the obligation must name the correlation the producer must retain"
+    assert "duration" in entry and "deadline" in entry and "policy" in entry, (
+        "the obligation must say what this contract deliberately does NOT carry"
+    )
+    assert "server-side" in entry, "and that those are resolved server-side instead"
 
 
 # --------------------------------------------------------------------------- #
@@ -277,3 +366,42 @@ def test_every_on_disk_stage_fixture_validates() -> None:
         assert _ok(payload), f"{path.name} must validate against funnel.v1"
         seen.add(payload["stage"])
     assert seen == set(_STAGES), f"fixtures must cover every stage; missing {set(_STAGES) - seen}"
+
+
+def test_no_stage_fixture_labels_an_event_as_a_credential() -> None:
+    """The `key` stage records API-key issuance and is non-authorizing, so the worked
+    example must not call the artifact a "credential" — that is exactly the word that
+    reads as entitlement-bearing, and a fixture is what a producer copies. The schema
+    cannot enforce this (`event` is a free identifier label by design), so the examples
+    this repo ships are pinned instead."""
+    for path in sorted(_FIXTURES_DIR.glob("funnel_event_*.json")):
+        with open(path, encoding="utf-8") as fh:
+            event = json.load(fh)["event"].lower()
+        assert "credential" not in event, (
+            f"{path.name}: an event label must not present a key as a credential"
+        )
+
+
+LIFECYCLE_STAGES = ("access_period_started", "access_period_ended", "access_restored")
+
+
+def test_access_period_lifecycle_stages_are_pinned_to_outcome_ok() -> None:
+    """A lapse is time passing, not a user abandoning.
+
+    Left to prose, an emitter could mark an automatic expiry `abandon` and
+    silently corrupt the funnel's headline conversion metric -- silent because
+    nothing errors and the number is simply wrong. A user can be actively
+    running optimizations on the last day and still lapse.
+    """
+    for stage in LIFECYCLE_STAGES:
+        assert _ok(_event(stage=stage, outcome="ok"))
+        for wrong in ("abandon", "fail", "retry"):
+            assert _rejected(
+                _event(stage=stage, outcome=wrong)
+            ), f"{stage} wrongly accepted outcome={wrong}"
+
+
+def test_non_lifecycle_stages_keep_the_full_outcome_vocabulary() -> None:
+    """The pin is scoped: it must not quietly narrow the other eight stages."""
+    for outcome in ("ok", "retry", "fail", "abandon"):
+        assert _ok(_event(stage="verify", outcome=outcome))

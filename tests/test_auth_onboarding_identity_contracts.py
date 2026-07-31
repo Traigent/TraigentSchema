@@ -1,11 +1,14 @@
 """Contract tests for auth onboarding / identity gaps (TraigentSchema#178).
 
-Three gaps closed:
-  1. POST /auth/register 200 response schema (register_response_schema.json).
-  2. Shared auth user identity shape (auth_user_identity_schema.json) wired into
+Five gaps closed:
+  1. Legacy POST /auth/register 200 response schema
+     (register_response_schema.json).
+  2. Canonical POST /auth/register 201 response envelope
+     (register_created_response_schema.json).
+  3. Shared auth user identity shape (auth_user_identity_schema.json) wired into
      login / token-refresh / SSO-callback user fields.
-  3. auth_me.data requires id + email (no longer zero required fields).
-  4. provisioned_workspace_schema.json was deleted (orphaned, conflicting field
+  4. auth_me.data requires id + email (no longer zero required fields).
+  5. provisioned_workspace_schema.json was deleted (orphaned, conflicting field
      default_project_id vs device_token_success_schema.json's project_id).
 """
 
@@ -19,6 +22,7 @@ from traigent_schema import SchemaValidator, load_schema
 from traigent_schema.utils import get_schemas_dir
 
 REGISTER_RESPONSE = "register_response_schema"
+REGISTER_CREATED_RESPONSE = "register_created_response_schema"
 AUTH_USER_IDENTITY = "auth_user_identity_schema"
 
 
@@ -108,16 +112,25 @@ def test_register_response_user_requires_id_and_email() -> None:
         )
 
 
-def test_register_response_is_wired_in_auth_endpoints() -> None:
-    """The POST /auth/register 200 must reference register_response_schema.json."""
+def test_register_responses_are_wired_in_auth_endpoints() -> None:
+    """201 is canonical; the false-but-published 200 remains deprecated."""
     schemas_dir = get_schemas_dir()
     with open(schemas_dir / "auth" / "auth_endpoints.json", encoding="utf-8") as fh:
         spec = json.load(fh)
-    response_200 = spec["paths"]["/api/v1/auth/register"]["post"]["responses"]["200"]
+    responses = spec["paths"]["/api/v1/auth/register"]["post"]["responses"]
+    response_200 = responses["200"]
     ref = response_200.get("content", {}).get("application/json", {}).get("schema", {}).get("$ref", "")
     assert ref.endswith("register_response_schema.json"), (
         f"POST /auth/register 200 must $ref register_response_schema.json; got: {ref!r}"
     )
+    deprecation = response_200["x-deprecated"]
+    extension_registry = load_schema("x_extensions_meta_schema")
+    Draft7Validator(extension_registry["properties"]["x-deprecated"]).validate(deprecation)
+    assert "register_created_response_schema.json" in deprecation
+    assert "6.0.0" in deprecation
+    response_201 = responses["201"]
+    ref = response_201["content"]["application/json"]["schema"]["$ref"]
+    assert ref.endswith("register_created_response_schema.json")
 
 
 def test_register_response_is_registered_by_runtime_discovery() -> None:
@@ -125,7 +138,86 @@ def test_register_response_is_registered_by_runtime_discovery() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. auth_user_identity_schema (shared user identity sub-type)
+# 2. canonical register_created_response_schema
+# ---------------------------------------------------------------------------
+
+
+def test_register_created_response_schema_is_valid_draft7() -> None:
+    schema = load_schema(REGISTER_CREATED_RESPONSE)
+    Draft7Validator.check_schema(schema)
+    assert schema["x-asserted-against-backend"] is False
+
+
+def test_register_created_response_accepts_no_session_envelope() -> None:
+    payload = {
+        "success": True,
+        "data": {
+            "user": {
+                "id": "user_abc123",
+                "email": "alice@example.com",
+                "email_verified": False,
+            },
+            "message": "Registration successful. Please check your email.",
+            "requires_email_verification": True,
+            "email_sent": True,
+        },
+    }
+    assert SchemaValidator().validate_json(payload, REGISTER_CREATED_RESPONSE) == []
+
+
+def test_register_created_response_accepts_self_serve_session_envelope() -> None:
+    payload = {
+        "success": True,
+        "data": {
+            "user": {
+                "id": "user_abc123",
+                "email": "alice@example.com",
+                "email_verified": True,
+            },
+            "message": "Registration successful.",
+            "requires_email_verification": False,
+            "email_sent": False,
+            "onboarding_completed": False,
+            "access_token": "access.jwt.value",
+            "refresh_token": "refresh.jwt.value",
+            "csrf_token": "csrf-value",
+        },
+    }
+    assert SchemaValidator().validate_json(payload, REGISTER_CREATED_RESPONSE) == []
+
+
+def test_register_created_response_requires_the_complete_session_pair() -> None:
+    payload = {
+        "success": True,
+        "data": {
+            "user": {"id": "u1", "email": "a@b.com"},
+            "message": "Registration successful.",
+            "requires_email_verification": False,
+            "email_sent": False,
+            "onboarding_completed": False,
+            "access_token": "access.jwt.value",
+        },
+    }
+    assert SchemaValidator().validate_json(payload, REGISTER_CREATED_RESPONSE)
+
+
+def test_register_created_response_rejects_the_legacy_flat_shape() -> None:
+    payload = {
+        "success": True,
+        "message": "Registration successful.",
+        "user": {"id": "u1", "email": "a@b.com"},
+        "requires_email_verification": True,
+        "email_sent": True,
+    }
+    assert SchemaValidator().validate_json(payload, REGISTER_CREATED_RESPONSE)
+
+
+def test_register_created_response_is_registered_by_runtime_discovery() -> None:
+    assert REGISTER_CREATED_RESPONSE in set(SchemaValidator().available_schemas)
+
+
+# ---------------------------------------------------------------------------
+# 3. auth_user_identity_schema (shared user identity sub-type)
 # ---------------------------------------------------------------------------
 
 

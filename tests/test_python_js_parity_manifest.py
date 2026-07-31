@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
-PYTHON_DEVELOP_SHA = "21e65c41abbdf29d850938dfedce86bb9def6f72"
+PYTHON_DEVELOP_SHA = "d56e4353dd3166223591e1f89a5cc32e86f30b36"
 
 PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ADVISORY_SELECTION_NOTICE",
@@ -116,6 +116,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "SessionDTO",
     "SessionListResponse",
     "SessionRecord",
+    "SpanResult",
     "StatisticsCallback",
     "StrategyConfig",
     "StrategyPresetError",

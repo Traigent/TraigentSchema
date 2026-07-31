@@ -14,9 +14,24 @@ jobs:
     name: Dispatch validation-spine G8
     runs-on: ubuntu-latest
     steps:
+      # TraigentSchema is a PUBLIC repo, so org-level secrets with
+      # visibility:private (SPINE_RO_TOKEN / VALIDATION_CI_PAT) are invisible
+      # to it, and a personal-access-token repo secret is subject to org SAML
+      # SSO enforcement (PATs lose their per-org SSO grant on every SAML
+      # policy change). An App installation token is minted fresh on every
+      # run, belongs to no person, and is not SSO-revocable. See
+      # tools/secret-ops/README-ci-github-app.md.
+      - name: Mint spine-dispatch app token
+        id: spine_app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.SPINE_DISPATCH_APP_ID }}
+          private-key: ${{ secrets.SPINE_DISPATCH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Dispatch validation-spine repository_dispatch
         env:
-          GH_TOKEN: ${{ secrets.VALIDATION_CI_PAT }}
+          GH_TOKEN: ${{ steps.spine_app_token.outputs.token }}
           WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           WORKFLOW_EVENT: ${{ github.event.workflow_run.event }}
           SOURCE_REPO: ${{ github.repository }}
@@ -28,12 +43,38 @@ jobs:
         run: |
           set -euo pipefail
 
+          # A skip is a LEGITIMATE outcome (non-PR upstream event, or a
+          # failed/non-success upstream run) but it must never look like a
+          # pass. `::notice::` alone renders identically to a normal green
+          # check in the Actions UI/API, so a run that skipped and a run that
+          # actually dispatched were indistinguishable at a glance — the
+          # exact "quietly skipped reads as validated" false-green this
+          # workflow otherwise guards against below. Escalate to `::warning::`
+          # (visibly flagged on the run) and also write a
+          # $GITHUB_STEP_SUMMARY line, since notices/warnings don't appear in
+          # the checks list the way the step summary does.
+          skip_summary() {
+            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+              {
+                echo "### G8 dispatch: SKIPPED"
+                echo ""
+                echo "$1"
+                echo ""
+                echo "No repository_dispatch was sent to traigent-validation-spine."
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
           if [ "$GITHUB_EVENT_NAME" = "workflow_run" ] && [ "$WORKFLOW_EVENT" != "pull_request" ]; then
-            echo "::notice::Skipping G8 dispatch for non-PR upstream event: $WORKFLOW_EVENT"
+            msg="Skipping G8 dispatch for non-PR upstream event: $WORKFLOW_EVENT"
+            echo "::warning::${msg}"
+            skip_summary "$msg"
             exit 0
           fi
           if [ "$GITHUB_EVENT_NAME" = "workflow_run" ] && [ "$WORKFLOW_CONCLUSION" != "success" ]; then
-            echo "::notice::Skipping G8 dispatch because upstream workflow concluded: $WORKFLOW_CONCLUSION"
+            msg="Skipping G8 dispatch because upstream workflow concluded: $WORKFLOW_CONCLUSION"
+            echo "::warning::${msg}"
+            skip_summary "$msg"
             exit 0
           fi
           # Credential presence is a HARD requirement past this point. The two
@@ -43,7 +84,15 @@ jobs:
           # false-green. This mirrors the hardening already in
           # traigent-model-checking's copy of this workflow.
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::error::VALIDATION_CI_PAT is not configured for a trusted run; cannot dispatch validation-spine G8. Configure the secret or the spine will never see this change."
+            msg="spine-dispatch App token is empty; cannot dispatch validation-spine G8. Check that SPINE_DISPATCH_APP_ID / SPINE_DISPATCH_APP_PRIVATE_KEY are configured and the App is installed on this repo and on traigent-validation-spine, or the spine will never see this change."
+            echo "::error::${msg}"
+            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+              {
+                echo "### G8 dispatch: FAILED"
+                echo ""
+                echo "$msg"
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
             exit 1
           fi
 
@@ -70,3 +119,11 @@ jobs:
             -f client_payload[source_head_branch]="$source_branch" \
             -f client_payload[source_base_branch]="$source_base_branch" \
             -f client_payload[source_head_sha]="$source_sha"
+
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "### G8 dispatch: SENT"
+              echo ""
+              echo "Dispatched validation-g8 for $SOURCE_REPO@$source_sha."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

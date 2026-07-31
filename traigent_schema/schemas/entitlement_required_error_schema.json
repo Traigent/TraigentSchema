@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/entitlement_required_error_schema.json",
+  "title": "Entitlement Required Error DTO",
+  "description": "ErrorEnvelopeDTO specialized for 'authenticated, but not entitled': the caller's identity is valid but the account has no active access period or plan. Consumers MUST branch on details.reason, never on message text. An API key authenticates a caller and never entitles one; possession of a key is not an access period. This defines the WIRE only \u2014 which operations are gated, and how entitlement is stored, are per-surface decisions outside this schema.",
+  "x-stability": "pre-release",
+  "x-asserted-against-backend": false,
+  "x-backend-obligations": [
+    "message is SERVER-AUTHORED, CLIENT-RENDERED display text. It MUST NOT be built from internal state, and MUST NOT carry a credential, an internal identifier, a route, a storage detail, an exception or a query. No consumer may branch on it. Red-team probes confirm this contract accepts a credential-shaped string, an internal route, a storage name with a query fragment, and a stack frame in this field: JSON Schema bounds a string but cannot inspect its meaning, so redaction and content discipline are the producer's, enforced outside this contract. Everything a consumer needs in order to act is in `error` and `details.reason`, both of which are closed.",
+    "reason PRECEDENCE is a producer obligation, not a schema constraint. An account whose period elapsed AND which never purchased satisfies both reasons, and this contract accepts either, so it cannot determine which state caused a refusal. The producer MUST emit 'access_period_ended' whenever a period existed and elapsed, so that two surfaces cannot describe one state differently.",
+    "HTTP status selection for this body is a per-surface decision and is deliberately not pinned here."
+  ],
+  "allOf": [
+    {
+      "$ref": "./error_envelope_schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "error": {
+          "const": "entitlement_required"
+        },
+        "message": {
+          "maxLength": 512
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "enum": [
+                "access_period_ended",
+                "no_active_plan"
+              ],
+              "description": "Why access is refused, for machine branching. Consumers branch on this and never on `message`. PRECEDENCE IS PART OF THE CONTRACT because the two states overlap: an account whose access period has elapsed and which has never purchased satisfies both. 'access_period_ended' takes precedence whenever the account HAD a period that has now elapsed; 'no_active_plan' is for an account that has no period to have ended - it never started one, or its access came from a plan that is now absent. Without this rule two compliant surfaces would emit different reasons for one state and drive divergent UI."
+            }
+          }
+        },
+        "error_code": {
+          "not": {},
+          "description": "Forbidden on this response. The envelope declares `error_code` optional and unconstrained, which would let a surface emit an error_code that disagrees with details.reason - two machine-readable signals for one state, which is the exact divergence this schema exists to prevent. Branching is determined by `error` plus `details.reason` and nothing else. A pinned code can be added later if a consumer needs one; an unconstrained free string on a public contract cannot."
+        }
+      },
+      "required": [
+        "details"
+      ]
+    }
+  ]
+}

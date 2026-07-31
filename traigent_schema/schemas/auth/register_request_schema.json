@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/auth/register_request_schema.json",
   "title": "Register Request",
-  "description": "POST /api/v1/auth/register body. NOTE: the server REJECTS an unknown key with a 400 rather than ignoring it. That is deliberately NOT yet encoded as additionalProperties:false, because closing the set is a breaking change for any consumer validating against this schema, and because the currently deployed producer still accepts two retired credential fields this document does not declare. Closing it is scheduled for the next major, once the producer it describes is live. Do not read additionalProperties:true as permission to send extra keys -- they are refused at runtime.",
+  "description": "POST /api/v1/auth/register body. NOTE: the server REJECTS an unknown key with a 400 rather than ignoring it. That is deliberately NOT yet encoded as additionalProperties:false, because closing the set is a breaking change for any consumer validating against this schema, and because producer versions inside the 5.x compatibility window accept two retired credential fields this document does not declare. Closing it is scheduled for the next major after the unified-field producer is deployed. Do not read additionalProperties:true as permission to send extra keys -- they are refused at runtime.",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -46,14 +46,12 @@
       "description": "Optional requested registration tier."
     },
     "invite_token": {
-      "type": "string",
-      "maxLength": 512,
-      "description": "Optional. Single-use invitation token. Mutually exclusive with the other two credential fields."
+      "description": "Optional single-use invitation token. Mutually exclusive with access_code and registration_code. This property is annotation-only in 5.4.0 so documenting a formerly unknown key does not narrow the set of payloads accepted by the 5.3 schema.",
+      "x-traigent-note": "The producer expects a string credential. Runtime type and length constraints are intentionally descriptive until the next major contract release; adding validating keywords here in 5.4 would reject instances that 5.3 accepted through additionalProperties:true."
     },
     "registration_code": {
-      "type": "string",
-      "maxLength": 64,
-      "description": "Optional. The single-use, address-bound code delivered by e-mail to a self-serve registrant. Presented to the reader as their \"access code\"; registration_code is the wire name and the two deliberately differ, because access_code is a different credential resolved against a different store. Mutually exclusive with the other two credential fields."
+      "description": "Optional unified portal wire field for the code shown to the reader as an \"access code\". It may carry either an administrator-issued cohort code or the single-use, address-bound code e-mailed to a self-serve registrant; the server dispatches it to the appropriate credential store, checking the cohort store first. access_code remains the cohort-only field for callers that name that credential type explicitly. Mutually exclusive with access_code and invite_token. This property is annotation-only in 5.4.0 so documenting a formerly unknown key does not narrow the set of payloads accepted by the 5.3 schema.",
+      "x-traigent-note": "The producer expects a bounded string credential. Runtime type and length constraints are intentionally descriptive until the next major contract release; adding validating keywords here in 5.4 would reject instances that 5.3 accepted through additionalProperties:true."
     }
   },
   "required": [

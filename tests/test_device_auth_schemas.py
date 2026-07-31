@@ -574,6 +574,10 @@ def test_auth_device_flow_endpoints_are_wired() -> None:
     assert token["responses"]["403"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "device_token_response_schema.json"
     )
+    token_denial_description = token["responses"]["403"]["description"]
+    assert "access_denied" in token_denial_description
+    assert "human denied" in token_denial_description
+    assert "no longer has product access" in token_denial_description
     assert token["responses"]["429"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "device_token_response_schema.json"
     )

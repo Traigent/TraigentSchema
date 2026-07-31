@@ -10,14 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **`auth/register_request_schema.json` now documents two of the three credential fields the register
   endpoint accepts.** `invite_token` and `registration_code` were undocumented, so the only credential a
-  reader could discover was `access_code`. `registration_code` is the single-use, address-bound code
-  delivered by e-mail to a self-serve registrant; its description records the deliberate wire-vs-reader
-  split — the reader is shown the words "access code", while `access_code` is a *different* credential
-  (the administrator-issued cohort code, reusable within its cohort and not bound to one address). The
-  two names differ on purpose and must not be merged.
+  reader could discover was `access_code`. `registration_code` is the portal's unified wire field for
+  the code shown to a reader as their "access code": it can carry either an administrator-issued cohort
+  code or the single-use, address-bound code e-mailed to a self-serve registrant, and the server
+  dispatches it to the appropriate credential store, cohort first. `access_code` remains the
+  cohort-only field for callers that identify that credential type explicitly.
 
-  Purely additive: both are optional, and `additionalProperties` remains `true`, so every payload that
-  validated against 5.3.0 still validates.
+  Purely additive: both new property entries contain documentation annotations only, and
+  `additionalProperties` remains `true`. They deliberately carry no `type`, `maxLength`, or other
+  validating keyword in 5.4.0, because a named-property constraint would reject values that 5.3.0
+  accepted while the same names were treated as unknown properties. Runtime constraints can be
+  encoded with the closed property set in the next major release.
 
 ### Fixed
 - **The register schema no longer claims the server ignores unknown keys.** Its description said
@@ -27,12 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   behaviour.
 
   **Deliberately NOT encoding that as `additionalProperties: false` in this release**, though an earlier
-  draft of this change did. Two reasons, both of which make the tightening a *major*, not a minor:
+  draft of this change did. The new fields are also annotation-only for the same compatibility reason.
+  Two facts make either form of validation tightening a *major*, not a minor:
   its blast radius is external — a consumer pinned to `^5.3` would silently begin rejecting payloads it
   previously accepted, with no change on their side, which is precisely the break semver exists to
   signal; and a schema package's published shape *is* its compatibility surface, so "the old contract
   was inaccurate" does not downgrade the change. Scheduled for the next major, once the producer it
   describes is deployed.
+
+- **The device-token `403` contract now documents entitlement loss after approval.** An
+  `access_denied` token response can mean either that the person denied the device request or that the
+  approved principal lost product access before token exchange; neither case issues credentials.
 
 - **`entitlement_required_error_schema.json`: five backend obligations reduced to three**, with no
   obligation lost. The five contained two near-duplicate pairs and one internal contradiction:

@@ -884,7 +884,7 @@
             }
           },
           "403": {
-            "description": "The human denied the device authorization.",
+            "description": "Terminal RFC 8628 access_denied outcome: either the human denied the device authorization, or an approved principal no longer has product access when the CLI exchanges the device code. No API key is issued.",
             "content": {
               "application/json": {
                 "schema": {

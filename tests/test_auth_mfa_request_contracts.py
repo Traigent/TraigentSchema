@@ -1,9 +1,11 @@
 """#133: auth/MFA/audit-export write ops must declare a requestBody schema (or an
 explicit bodyless marker), plus error-response contracts on the credential boundary.
 
-The backend reads documented keys and ignores unknown ones (never 422s on extras),
-so every request schema here is additionalProperties:true — the contract must not
-reject a body the backend accepts.
+Most auth/MFA request producers represented here ignore unknown keys, so their
+schemas remain open to avoid rejecting bodies the producer accepts. Registration
+is the documented exception: its producer rejects unknown keys, but the 5.x schema
+stays open for accepted-instance compatibility until that tightening can be
+released as a major contract change.
 """
 import json
 
@@ -79,7 +81,11 @@ def test_credential_routes_resolve_and_validate():
 
 
 def test_request_bodies_accept_unknown_keys_matching_backend():
-    """The backend ignores unknown keys, so the contract must too (no false rejection)."""
+    """Open schemas mirror the listed producers that ignore unknown keys.
+
+    Register is deliberately absent: its producer rejects unknown keys, while
+    its 5.x contract remains open only for backward compatibility.
+    """
     v = SchemaValidator(contract="backend")
     assert v.validate_request(
         "/api/v1/auth/login", "POST",

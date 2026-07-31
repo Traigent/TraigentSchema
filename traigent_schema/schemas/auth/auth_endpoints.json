@@ -894,7 +894,7 @@
             }
           },
           "429": {
-            "description": "The client polled faster than the allowed interval.",
+            "description": "RFC 8628 slow_down: either the client polled faster than the allowed interval, or the server transiently deferred an approved exchange because access could not be determined or API-key issuance rolled back. No API key is issued; Retry-After and details.interval carry the authoritative next polling interval.",
             "headers": {
               "Retry-After": {
                 "description": "Seconds the CLI should wait before polling again.",

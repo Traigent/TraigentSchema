@@ -582,3 +582,9 @@ def test_auth_device_flow_endpoints_are_wired() -> None:
         "device_token_response_schema.json"
     )
     assert "Retry-After" in token["responses"]["429"]["headers"]
+    token_retry_description = token["responses"]["429"]["description"]
+    assert "slow_down" in token_retry_description
+    assert "polled faster" in token_retry_description
+    assert "access could not be determined" in token_retry_description
+    assert "API-key issuance rolled back" in token_retry_description
+    assert "No API key is issued" in token_retry_description

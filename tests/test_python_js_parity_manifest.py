@@ -116,6 +116,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "SessionDTO",
     "SessionListResponse",
     "SessionRecord",
+    "SpanResult",
     "StatisticsCallback",
     "StrategyConfig",
     "StrategyPresetError",

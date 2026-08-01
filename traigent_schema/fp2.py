@@ -26,12 +26,21 @@ import hashlib
 import math
 from typing import Any
 
-__all__ = ["Fp2UnsupportedValue", "canonicalize", "digest"]
+__all__ = ["MAX_DEPTH", "Fp2UnsupportedValue", "canonicalize", "digest"]
 
 # IEEE-754 doubles represent every integer up to this magnitude exactly.
 # A Python int beyond it cannot round-trip through a JavaScript Number, so it
 # is unsupported rather than silently divergent (see docs/fingerprints/fp2.md).
 _MAX_SAFE_INTEGER = 2**53 - 1
+
+# Normative nesting limit, identical in every fp2 implementation. It is part of
+# the spec rather than a Python detail on purpose: if each SDK simply nested
+# until its own runtime gave out, Python (~332 levels at the default recursion
+# limit) and JavaScript (thousands) would disagree about which manifests are
+# digestible, which is the cross-language divergence fp2 exists to prevent.
+# 100 is far above any real manifest and far below every target runtime's
+# capacity, so a plain recursive implementation can comply without tricks.
+MAX_DEPTH = 100
 
 
 class Fp2UnsupportedValue(TypeError):
@@ -152,43 +161,93 @@ def _encode_int(value: int) -> str:
     return str(exact)
 
 
-def _encode(value: Any, seen: set[int]) -> str:
-    if value is None:
-        return "null"
-    if value is True:
-        return "true"
-    if value is False:
-        return "false"
-    if isinstance(value, str):
-        return _encode_string(value)
-    if isinstance(value, int):
-        return _encode_int(value)
-    if isinstance(value, float):
-        return _encode_float(value)
-    if isinstance(value, (list, tuple)):
-        if id(value) in seen:
-            raise Fp2UnsupportedValue("circular reference")
-        seen.add(id(value))
-        try:
-            return "[" + ",".join(_encode(item, seen) for item in value) + "]"
-        finally:
-            seen.discard(id(value))
-    if isinstance(value, dict):
-        if id(value) in seen:
-            raise Fp2UnsupportedValue("circular reference")
-        seen.add(id(value))
-        try:
-            for key in value:
-                if not isinstance(key, str):
-                    raise Fp2UnsupportedValue(f"non-string object key: {key!r}")
-            items = sorted(value.items(), key=lambda item: _utf16_sort_key(item[0]))
-            body = ",".join(
-                f"{_encode_string(key)}:{_encode(item, seen)}" for key, item in items
-            )
-            return "{" + body + "}"
-        finally:
-            seen.discard(id(value))
-    raise Fp2UnsupportedValue(f"unsupported type: {type(value).__name__}")
+# Work-stack entry tags for the iterative encoder.
+_EMIT = 0  # append literal text to the output
+_VALUE = 1  # encode this value
+_CLOSE = 2  # leave a container: drop it from the open-path set
+
+
+def _encode(root: Any) -> str:
+    """Encode ``root`` with an explicit work stack rather than recursion.
+
+    Recursion would make the result depend on how much interpreter stack the
+    *caller* happened to have left, so identical data could canonicalize from
+    one call site and raise RecursionError from a deeper one. An explicit stack
+    makes the outcome a property of the data alone; MAX_DEPTH is then the only
+    thing that rejects a manifest, and it rejects it identically everywhere.
+    """
+    out: list[str] = []
+    open_containers: set[int] = set()
+    work: list[tuple[int, Any, int]] = [(_VALUE, root, 1)]
+
+    while work:
+        kind, payload, depth = work.pop()
+
+        if kind == _EMIT:
+            out.append(payload)
+            continue
+        if kind == _CLOSE:
+            open_containers.discard(payload)
+            continue
+
+        value = payload
+        if value is None:
+            out.append("null")
+            continue
+        if value is True:
+            out.append("true")
+            continue
+        if value is False:
+            out.append("false")
+            continue
+        if isinstance(value, str):
+            out.append(_encode_string(value))
+            continue
+        if isinstance(value, int):
+            out.append(_encode_int(value))
+            continue
+        if isinstance(value, float):
+            out.append(_encode_float(value))
+            continue
+
+        if isinstance(value, (list, tuple, dict)):
+            if depth > MAX_DEPTH:
+                raise Fp2UnsupportedValue(
+                    f"manifest nests deeper than the fp2 limit of {MAX_DEPTH}"
+                )
+            identity = id(value)
+            if identity in open_containers:
+                raise Fp2UnsupportedValue("circular reference")
+            open_containers.add(identity)
+
+            # Children are pushed reversed so they pop in emission order.
+            pending: list[tuple[int, Any, int]] = []
+            if isinstance(value, dict):
+                for key in value:
+                    if not isinstance(key, str):
+                        raise Fp2UnsupportedValue(f"non-string object key: {key!r}")
+                items = sorted(value.items(), key=lambda item: _utf16_sort_key(item[0]))
+                out.append("{")
+                for index, (key, item) in enumerate(items):
+                    if index:
+                        pending.append((_EMIT, ",", 0))
+                    pending.append((_EMIT, _encode_string(key) + ":", 0))
+                    pending.append((_VALUE, item, depth + 1))
+                pending.append((_EMIT, "}", 0))
+            else:
+                out.append("[")
+                for index, item in enumerate(value):
+                    if index:
+                        pending.append((_EMIT, ",", 0))
+                    pending.append((_VALUE, item, depth + 1))
+                pending.append((_EMIT, "]", 0))
+            pending.append((_CLOSE, identity, 0))
+            work.extend(reversed(pending))
+            continue
+
+        raise Fp2UnsupportedValue(f"unsupported type: {type(value).__name__}")
+
+    return "".join(out)
 
 
 def canonicalize(value: Any) -> str:
@@ -196,12 +255,36 @@ def canonicalize(value: Any) -> str:
 
     Raises:
         Fp2UnsupportedValue: the manifest is incomplete and the caller must
-            record ``state="unknown"`` with no digest.
+            record ``state="unknown"`` with no digest. This is the ONLY
+            exception type this function raises. A manifest either canonicalizes
+            or is incomplete; there is no third outcome, so any other failure is
+            translated rather than allowed to escape. Letting a foreign type out
+            crashes a caller that is documented to catch one type, turning an
+            honest "unknown" into a dead run.
     """
-    return _encode(value, set())
+    try:
+        return _encode(value)
+    except Fp2UnsupportedValue:
+        raise
+    except Exception as error:  # noqa: BLE001 - deliberate, see docstring
+        raise Fp2UnsupportedValue(
+            f"manifest could not be canonicalized: {type(error).__name__}: {error}"
+        ) from error
 
 
 def digest(value: Any) -> str:
-    """Return the algorithm-prefixed fp2 digest for ``value``."""
+    """Return the algorithm-prefixed fp2 digest for ``value``.
+
+    Raises:
+        Fp2UnsupportedValue: as for :func:`canonicalize`, and for the same
+            reason -- hashing is inside the guarantee, not outside it.
+    """
     canonical = canonicalize(value)
-    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    try:
+        return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    except Fp2UnsupportedValue:
+        raise
+    except Exception as error:  # noqa: BLE001 - deliberate, see canonicalize
+        raise Fp2UnsupportedValue(
+            f"manifest could not be digested: {type(error).__name__}: {error}"
+        ) from error

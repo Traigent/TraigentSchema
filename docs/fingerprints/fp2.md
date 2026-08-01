@@ -102,20 +102,53 @@ thresholds and never zero-pads an exponent. Python's `repr` does neither, so
 - `undefined` inside an array is an **unsupported value**. It is NOT converted
   to `null`.
 
+## Nesting depth
+
+A manifest MUST NOT nest containers (objects and arrays) more than **100**
+levels deep. The outermost container is level 1. A manifest that exceeds the
+limit is an **unsupported value**.
+
+The number is normative and identical in every implementation. It is specified
+rather than left to the runtime because "as deep as the language allows" is not
+a specification: CPython at its default recursion limit gives out around 332
+levels, while a JavaScript engine manages thousands. Two SDKs inheriting their
+own runtime's stack would disagree about which manifests are digestible at all
+— one returning a digest where the other returns `unknown` — which is the
+cross-language divergence this document exists to prevent. 100 is far above any
+real agent, dataset, evaluator or configuration-space manifest and far below
+every target runtime's capacity, so a plain recursive implementation can comply
+without special measures.
+
+Implementations SHOULD NOT let the limit be enforced *by* the runtime stack.
+A recursive encoder consumes the caller's stack, so the same manifest can
+canonicalize when called from `main` and abort when called from deeper inside
+an application — the outcome becomes a property of the call site rather than of
+the data. An explicit work stack, or a hard depth check applied before any
+recursion, keeps the result a function of the manifest alone.
+
 ## Unsupported values
 
 The following make a manifest **incomplete**: `NaN`, `Infinity`, `-Infinity`,
 `undefined` in an array, functions, symbols, `BigInt`, integers outside the
-IEEE-754 safe integer range, lone surrogates in a string or key, circular
-references, and any object that is not a plain object, array, string, number,
-boolean or null (including `Date`, `Map`, `Set`, class instances and `Proxy`).
+IEEE-754 safe integer range, lone surrogates in a string or key, nesting beyond
+the depth limit above, circular references, and any object that is not a plain
+object, array, string, number, boolean or null (including `Date`, `Map`, `Set`,
+class instances and `Proxy`).
 
 When a manifest is incomplete the implementation MUST return
 `state: "unknown"` with no digest. It MUST signal this through the one error
-type the caller is documented to catch. An implementation that lets a different
-exception escape (a `UnicodeEncodeError` from an un-encodable string, say)
-crashes the run instead of degrading to `unknown`, which is a fail-open in the
-other direction: the caller never gets the chance to record the honest answer.
+type the caller is documented to catch, and that type MUST be the only one the
+entry points can raise. An implementation that lets a different exception
+escape — a `UnicodeEncodeError` from an un-encodable string, a `RecursionError`
+from deep nesting — crashes the run instead of degrading to `unknown`, which is
+a fail-open in the other direction: the caller never gets the chance to record
+the honest answer.
+
+This is a rule about the *class*, not a list of known offenders. Canonicalizing
+either produces bytes or does not; there is no third outcome. An implementation
+MUST therefore translate any unexpected failure into the documented error type
+rather than enumerate the failures it has thought of so far — the list is
+exactly what keeps turning out to be incomplete.
 
 It MUST NOT coerce the value and continue. Python's
 `json.dumps(..., default=str)` does exactly this — it stringifies whatever it

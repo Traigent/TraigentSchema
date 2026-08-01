@@ -17,6 +17,7 @@ REQUIRED_SECTIONS = (
     "## Key ordering",
     "## Numbers",
     "## Null and undefined",
+    "## Nesting depth",
     "## Unsupported values",
     "## Manifests",
     "## Digest format",
@@ -49,6 +50,29 @@ def test_spec_forbids_silent_coercion_of_unsupported_values() -> None:
 
     assert "default=str" in text, "The spec must call out Python's default=str trap by name"
     assert "unknown" in text, "Unsupported values must resolve to unknown, never a coerced string"
+
+
+def test_spec_states_the_depth_limit_as_a_number() -> None:
+    """Plan 3 implements two SDKs from this text.
+
+    A limit only the Python implementation knows is a new cross-SDK divergence:
+    one client would digest a manifest the other rejects. The number has to be
+    in the spec, and it has to match the reference implementation.
+    """
+    from traigent_schema.fp2 import MAX_DEPTH
+
+    text = SPEC.read_text(encoding="utf-8")
+
+    assert str(MAX_DEPTH) in text, f"the spec never states the limit ({MAX_DEPTH})"
+    assert "depth" in text.lower()
+
+
+def test_spec_forbids_foreign_exception_types_as_a_class_rule() -> None:
+    """Enumerating known offenders is what left RecursionError uncovered."""
+    text = SPEC.read_text(encoding="utf-8").lower()
+
+    assert "recursionerror" in text, "deep nesting is not named as an incomplete manifest"
+    assert "third outcome" in text, "the class rule is not stated, only instances"
 
 
 def test_spec_requires_dataset_order_to_be_significant() -> None:

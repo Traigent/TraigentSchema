@@ -8,12 +8,13 @@ language invisibly.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from traigent_schema.fp2 import Fp2UnsupportedValue, canonicalize, digest
+from traigent_schema.fp2 import MAX_DEPTH, Fp2UnsupportedValue, canonicalize, digest
 
 CORPUS = Path(__file__).resolve().parent / "data" / "fp2_conformance.json"
 
@@ -202,6 +203,88 @@ def test_lone_surrogate_degrades_to_unknown_rather_than_crashing() -> None:
         digest({"k": "a\ud800b"})
     with pytest.raises(Fp2UnsupportedValue):
         canonicalize({"a\ud800b": 1})  # as a key, too
+
+
+def _nest(depth: int) -> dict[str, Any]:
+    """Build ``depth`` nested objects: depth 1 is ``{"a": {}}``'s outer level."""
+    value: Any = {}
+    for _ in range(depth - 1):
+        value = {"a": value}
+    return value
+
+
+def test_nesting_at_the_depth_limit_is_accepted() -> None:
+    assert canonicalize(_nest(MAX_DEPTH)).count("{") == MAX_DEPTH
+
+
+def test_nesting_beyond_the_depth_limit_degrades_to_unknown() -> None:
+    """Deep nesting used to escape as RecursionError, which no caller catches.
+
+    A configuration space can genuinely nest, and the old encoder burned about
+    three interpreter frames per level, so it died at depth 332 on a default
+    recursion limit -- as an exception type the contract never mentions, so the
+    run crashed instead of recording state="unknown".
+    """
+    with pytest.raises(Fp2UnsupportedValue):
+        canonicalize(_nest(MAX_DEPTH + 1))
+    with pytest.raises(Fp2UnsupportedValue):
+        digest(_nest(MAX_DEPTH + 1))
+    with pytest.raises(Fp2UnsupportedValue):
+        canonicalize({"rows": [_nest(MAX_DEPTH)]})  # limit counts from the root
+
+
+def _stack_depth() -> int:
+    depth = 0
+    frame: Any = sys._getframe()
+    while frame is not None:
+        depth += 1
+        frame = frame.f_back
+    return depth
+
+
+def _call_with_headroom(headroom: int, action: Any) -> Any:
+    """Invoke ``action`` with only ``headroom`` interpreter frames left."""
+    if sys.getrecursionlimit() - _stack_depth() > headroom:
+        return _call_with_headroom(headroom, action)
+    return action()
+
+
+def test_depth_limit_is_a_property_of_the_data_not_of_the_call_site() -> None:
+    """The same manifest must resolve the same way from any stack depth.
+
+    A recursive encoder spends the CALLER's stack, so identical data
+    canonicalized fine from main() and raised RecursionError 400 frames down:
+    the digest depended on where in the program it was computed, which is not a
+    property any manifest should have.
+
+    The headroom is deliberately smaller than a recursive encoder would need
+    for a legal manifest (~3 frames per level, so ~300 at the limit) and far
+    more than the iterative one does. Calling at a fixed shallow depth instead
+    would pass under both encoders and prove nothing.
+    """
+    payload = _nest(MAX_DEPTH)
+    expected = canonicalize(payload)
+    headroom = 150
+
+    assert headroom < 3 * MAX_DEPTH, "headroom must be too small for a recursive encoder"
+
+    assert _call_with_headroom(headroom, lambda: canonicalize(payload)) == expected
+
+
+def test_entry_points_raise_only_the_documented_type() -> None:
+    """The class rule: no foreign exception may escape, whatever the cause.
+
+    Enumerating known offenders is exactly what left RecursionError uncovered
+    after the lone-surrogate fix, so this asserts the guarantee itself.
+    """
+
+    class Hostile(dict):  # a mapping whose iteration blows up mid-encode
+        def __iter__(self) -> Any:
+            raise ZeroDivisionError("not a TypeError, not anticipated")
+
+    for entry_point in (canonicalize, digest):
+        with pytest.raises(Fp2UnsupportedValue):
+            entry_point({"outer": Hostile()})
 
 
 def test_circular_reference_is_unsupported() -> None:

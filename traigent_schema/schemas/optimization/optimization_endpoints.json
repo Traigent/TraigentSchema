@@ -256,6 +256,21 @@
                     "description": "Which identity contract the caller is speaking. 1 = legacy, identity inferred from function_name/agent_key. 2 = declared identity with derived versions. Absent means 1. The server records this immutably on the run so a session created before a deploy and finalized after it resolves consistently.",
                     "x-privacy-classification": "metadata"
                   },
+                  "hosted_dataset_ref": {
+                    "type": "object",
+                    "required": ["dataset_id"],
+                    "description": "Reference to a dataset already registered server-side. This is the ONLY typed channel for pointing at a hosted dataset; dataset_metadata is free-form and must never be used to smuggle an identity. The server verifies this id against the caller's tenant and project visibility BEFORE deriving dataset_id from it, and sets dataset_id_source='registered' on success. A reference the caller cannot see is rejected, not silently downgraded to unknown.",
+                    "properties": {
+                      "dataset_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Server-side identifier of the registered dataset."
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-privacy-classification": "metadata"
+                  },
                   "configuration_space": {
                     "type": "object"
                   },

@@ -136,6 +136,35 @@
                       "type": "string",
                       "minLength": 1
                     }
+                  },
+                  "ArtifactVersion": {
+                    "type": "object",
+                    "required": ["schema", "state"],
+                    "properties": {
+                      "schema": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 32,
+                        "description": "Manifest algorithm identifier, e.g. 'afp2' (agent), 'dfp2o' (dataset, ordered), 'efp2' (evaluator), 'cfp2' (config space). Tagging the algorithm lets it change without invalidating stored history."
+                      },
+                      "digest": {
+                        "type": ["string", "null"],
+                        "pattern": "^sha256:[0-9a-f]{64}$",
+                        "description": "Algorithm-prefixed digest over the manifest. Required when state is 'verified'; must be absent or null when state is 'unknown'."
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": ["verified", "unknown"],
+                        "description": "'verified' = the manifest was completed and the digest is trustworthy. 'unknown' = the manifest could not be completed (unsupported value, opaque closure state, external evaluator without a declared revision). An 'unknown' version cannot participate in a comparability claim."
+                      }
+                    },
+                    "additionalProperties": false,
+                    "allOf": [
+                      {
+                        "if": { "properties": { "state": { "const": "verified" } }, "required": ["state"] },
+                        "then": { "required": ["digest"], "properties": { "digest": { "type": "string" } } }
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -201,6 +230,30 @@
                     "type": ["string", "null"],
                     "enum": ["declared", "registered", "unknown", null],
                     "description": "How evaluator_id was obtained. Same vocabulary and semantics as agent_id_source.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "artifact_versions": {
+                    "type": "object",
+                    "description": "Derived content versions for the artifacts this run used. A version is a digest over a specified manifest (see docs/fingerprints/fp2.md) and is algorithm-tagged so the algorithm can change without invalidating history. Versions decide COMPARABILITY; they are never identity. A version whose manifest could not be completed is state='unknown', and unknown must never be treated as equal to anything, including another unknown.",
+                    "properties": {
+                      "agent": { "$ref": "#/definitions/ArtifactVersion" },
+                      "dataset": { "$ref": "#/definitions/ArtifactVersion" },
+                      "evaluator": { "$ref": "#/definitions/ArtifactVersion" },
+                      "config_space": { "$ref": "#/definitions/ArtifactVersion" }
+                    },
+                    "additionalProperties": false,
+                    "x-privacy-classification": "metadata"
+                  },
+                  "code_revision": {
+                    "type": ["string", "null"],
+                    "maxLength": 255,
+                    "description": "Optional VCS revision of the caller's code at run time, typically a git commit SHA. Provenance only: it never participates in identity or comparability, because a commit can change without changing the agent and vice versa. Mirrors the observability execution-context field of the same name.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "identity_version": {
+                    "type": ["integer", "null"],
+                    "enum": [1, 2, null],
+                    "description": "Which identity contract the caller is speaking. 1 = legacy, identity inferred from function_name/agent_key. 2 = declared identity with derived versions. Absent means 1. The server records this immutably on the run so a session created before a deploy and finalized after it resolves consistently.",
                     "x-privacy-classification": "metadata"
                   },
                   "configuration_space": {

@@ -157,7 +157,7 @@
     },
     "ExperimentGroupOverview": {
       "type": "object",
-      "description": "Additive read-time group overview for experiments sharing the same visible agent_id and canonical dataset_id.",
+      "description": "Additive read-time group overview for experiments sharing the same visible agent_id and canonical dataset_id, or one unidentified singleton run.",
       "required": [
         "group_id",
         "agent_id",
@@ -171,20 +171,39 @@
         "last_experiment_updated_at",
         "first_experiment_run_created_at",
         "last_experiment_run_updated_at",
-        "status_summary"
+        "status_summary",
+        "identity_state"
       ],
       "properties": {
         "group_id": {
           "$ref": "#/definitions/OpaqueExperimentGroupId"
         },
         "agent_id": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "maxLength": 255,
-          "description": "Canonical agent id used for grouping within the caller's visible tenant/project/user scope."
+          "description": "Canonical agent id used for grouping within the caller's visible tenant/project/user scope. Null is permitted only when identity_state is 'unidentified'."
         },
         "dataset_id": {
           "$ref": "#/definitions/CanonicalDatasetId"
+        },
+        "identity_state": {
+          "type": "string",
+          "enum": [
+            "identified",
+            "unidentified"
+          ],
+          "description": "'identified' = the run declared both an agent and a dataset identity and belongs to a real (agent, dataset) cohort. 'unidentified' = at least one identity was absent; the item is a SINGLETON for one run and joins no cohort. Unidentified runs are never merged into a shared bucket: a shared 'unknown' group is the same aggregation defect under a different name."
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Present only when identity_state is 'unidentified'. The single run this singleton item represents, so every experiment is returned exactly once."
         },
         "experiment_count": {
           "type": "integer",
@@ -241,7 +260,69 @@
           "$ref": "#/definitions/ExperimentGroupStatusSummary"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "identity_state": {
+                "const": "unidentified"
+              }
+            },
+            "required": [
+              "identity_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "run_id"
+            ],
+            "properties": {
+              "run_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "identity_state": {
+                "const": "identified"
+              }
+            },
+            "required": [
+              "identity_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "run_id": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "identity_state": {
+                "const": "identified"
+              }
+            },
+            "required": [
+              "identity_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "agent_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
     },
     "ExperimentGroupSourceExperiment": {
       "type": "object",

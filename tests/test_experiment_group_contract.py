@@ -40,6 +40,7 @@ def _group(**overrides: Any) -> dict[str, Any]:
         "group_id": "grp_agentA_dataset1",
         "agent_id": "agent_123",
         "dataset_id": "dataset_456",
+        "identity_state": "identified",
         "experiment_count": 2,
         "experiment_run_count": 3,
         "configuration_run_count": 7,

@@ -146,7 +146,28 @@
                 "properties": {
                   "function_name": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "Display/code label for the optimized function. Historically this doubled as the agent identity key: when `agent_key` is absent the backend still resolves the owning agent by normalizing this value, so callers that vary it per run fragment their (agent, dataset) optimization history. New callers SHOULD send a stable `agent_key` and put per-run intent in `run_title` instead."
+                  },
+                  "agent_key": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Stable identity key for the agent being optimized. Explicit null is accepted and means absent (the server treats it exactly as an omitted field), matching the run narrative on experiment_run_schema.json. When present it is the sole basis for resolving the owning agent, and therefore for grouping runs into an (agent, dataset) optimization history. It MUST be stable across runs of the same agent — do not encode a variant, hypothesis, weighting, permutation count, or date into it. Omit to preserve the legacy behavior of deriving identity from `function_name`. The 255 limit is the agent-name storage limit, so a schema-valid key is always servable; an over-length key is REJECTED rather than truncated, because silently shortening an identity would merge two distinct agents — and their two optimization histories — into one."
+                  },
+                  "run_title": {
+                    "type": ["string", "null"],
+                    "maxLength": 512,
+                    "description": "Optional author-supplied title stating what this run is testing (e.g. 'Check best router model'). Persisted as the experiment run's `name`. Purely a label: it never affects agent identity, cohorting, scoring, or recommendations.",
+                    "x-content": true,
+                    "x-privacy-classification": "user_content"
+                  },
+                  "run_description": {
+                    "type": ["string", "null"],
+                    "maxLength": 4000,
+                    "description": "Optional author-supplied description of what this run is testing and why — the hypothesis or intent, recorded before results are known. Persisted as the experiment run's `description`. Purely a label: it never affects agent identity, cohorting, scoring, or recommendations.",
+                    "x-content": true,
+                    "x-privacy-classification": "user_content"
                   },
                   "configuration_space": {
                     "type": "object"

@@ -50,7 +50,12 @@ CONTENT_FIELDS = {
     "observability/trace_comment_create_request_schema.json": ["content"],
     # execution logs can embed user content (logs[].message); tagged as the
     # governance-safe default (issue #125 judgment call).
-    "evaluation/experiment_run_schema.json": ["message"],
+    # name/description are the author-supplied run narrative (title + hypothesis)
+    # written by a human or their coding agent — free text, so they redact like
+    # any other user content.
+    "evaluation/experiment_run_schema.json": ["message", "name", "description"],
+    # the same narrative on the way in, at session creation.
+    "optimization/optimization_endpoints.json": ["run_title", "run_description"],
 }
 
 

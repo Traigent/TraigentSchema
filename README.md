@@ -220,7 +220,7 @@ mypy traigent_schema
 
 ## Version
 
-Current release line: **5.4.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
+Current release line: **5.5.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
 
 The 5.4 register additions are documentation-only annotations: `invite_token` and the portal's
 unified `registration_code` wire field remain unconstrained by validating keywords so every

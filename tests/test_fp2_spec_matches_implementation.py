@@ -35,6 +35,21 @@ def _flowed() -> str:
     return " ".join(_spec().replace("`", "").replace("*", "").split())
 
 
+def _unsupported_list() -> str:
+    """Just the sentence that ENUMERATES unsupported values, typography flattened.
+
+    Deliberately narrower than the section. Every word in that list also
+    appears in the rationale prose around it -- and 'tuples' appears in the
+    rationale inside this very section -- so both a document-wide and a
+    section-wide search would still pass after an entry was deleted from the
+    list. That is a guard that looks protective and is not.
+    """
+    section = _section("Unsupported values")
+    start = section.index("The following make a manifest")
+    paragraph = section[start:].split("\n\n", 1)[0]
+    return " ".join(paragraph.replace("`", "").replace("*", "").split())
+
+
 def _section(title: str) -> str:
     text = _spec()
     start = text.index(f"## {title}")
@@ -97,12 +112,21 @@ _UNSUPPORTED: tuple[tuple[str, Any], ...] = (
     ("lone surrogates in a string or key", "a\ud800b"),
     ("tuples", (1, 2)),
     ("subclasses of the supported types", type("D", (dict,), {})()),
+    ("functions", lambda: None),
+    ("an object key that is not exactly a string", {1: "x"}),
+    ("Date", __import__("datetime").datetime(2026, 1, 1)),
+    ("Map", {}.keys()),
+    ("Set", {1, 2}),
 )
 
 
 @pytest.mark.parametrize("phrase,value", _UNSUPPORTED, ids=[p for p, _ in _UNSUPPORTED])
 def test_every_named_unsupported_value_is_actually_rejected(phrase: str, value: Any) -> None:
-    assert phrase in _flowed(), f"the spec no longer lists {phrase!r} as unsupported"
+    # Scoped to the enumerating sentence, not the document or even the
+    # section -- see _unsupported_list for why both are too wide.
+    assert phrase in _unsupported_list(), (
+        f"the spec's unsupported-value list no longer names {phrase!r}"
+    )
     with pytest.raises(Fp2UnsupportedValue):
         canonicalize({"k": value})
 

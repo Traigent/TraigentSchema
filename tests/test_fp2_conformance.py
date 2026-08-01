@@ -7,6 +7,7 @@ language invisibly.
 
 from __future__ import annotations
 
+import collections
 import json
 import sys
 from pathlib import Path
@@ -145,19 +146,135 @@ def test_integer_beyond_the_safe_range_is_unsupported() -> None:
     assert canonicalize({"n": float(2**70)}) == '{"n":1.1805916207174113e+21}'
 
 
+def test_subclasses_cannot_choose_the_canonical_bytes() -> None:
+    """Exact types only: a subclass owns its own iteration and conversion.
+
+    isinstance() let user code decide the digest through an overridden items(),
+    __iter__ or __int__ -- the repr trap through a different door. Each of
+    these produced attacker-chosen canonical bytes before the fix.
+    """
+
+    class SneakyDict(dict):
+        def items(self) -> Any:
+            return [("evil", "injected")]
+
+        def __iter__(self) -> Any:
+            return iter(["evil"])
+
+    class SneakyList(list):
+        def __iter__(self) -> Any:
+            return iter(["injected"])
+
+    class SneakyStr(str):
+        def __iter__(self) -> Any:
+            return iter("HACKED")
+
+    class SneakyInt(int):
+        def __int__(self) -> int:
+            return 999
+
+    for label, value in (
+        ("dict subclass", SneakyDict(a=1)),
+        ("list subclass", SneakyList([1, 2])),
+        ("str subclass", SneakyStr("safe")),
+        ("int subclass", SneakyInt(1)),
+    ):
+        with pytest.raises(Fp2UnsupportedValue):
+            canonicalize({"k": value})
+            pytest.fail(f"{label} chose its own bytes")
+
+
+def test_a_hostile_key_cannot_choose_the_object_ordering() -> None:
+    """Keys, not just values: encode() produces the UTF-16 sort key.
+
+    A str subclass overriding encode() picked the sort key for the whole
+    object and got a VERIFIED digest for a reordering of the caller's choosing.
+    The subclass must be used AS A KEY -- in value position this was already
+    closed, so a value-position test passes and proves nothing.
+    """
+
+    class HostileKey(str):
+        def encode(self, *args: Any, **kwargs: Any) -> bytes:
+            return b"\x00\x00"  # sorts before everything
+
+    with pytest.raises(Fp2UnsupportedValue):
+        canonicalize({HostileKey("z"): 1, "a": 2})
+    with pytest.raises(Fp2UnsupportedValue):
+        digest({HostileKey("z"): 1, "a": 2})
+
+    # The honest ordering, for contrast.
+    assert canonicalize({"z": 1, "a": 2}) == '{"a":2,"z":1}'
+
+
+def test_tuples_are_rejected_rather_than_flattened_into_arrays() -> None:
+    """Reversed on review, and the reasoning matters more than the rule.
+
+    Accepting tuples converged the SDKs, but it made {"mode": ["safe"]} and
+    {"mode": ("safe",)} hash EQUAL while a closure branching on
+    isinstance(mode, tuple) behaves differently -- a version asserting an
+    equality that does not exist. The two failure modes are not symmetric:
+    rejecting loses a comparison that was available (recoverable, and visible
+    as unknown), accepting asserts comparability that is not there (silent,
+    and the exact failure this feature exists to stop).
+
+    The convergence belongs one level up: a genuinely positional dataset row is
+    normalized to an array by the manifest builder, where the positional intent
+    is known.
+    """
+    for value in ((1, 2), ("safe",), ()):
+        with pytest.raises(Fp2UnsupportedValue):
+            canonicalize({"k": value})
+
+    Row = collections.namedtuple("Row", ["input", "expected"])
+    with pytest.raises(Fp2UnsupportedValue):
+        canonicalize({"k": Row(1, 2)})
+
+    # The builder's normalization is what produces a digest, and it is explicit.
+    assert canonicalize({"k": list(("safe",))}) == '{"k":["safe"]}'
+
+
+def test_error_messages_never_echo_caller_content() -> None:
+    """fp2 runs over dataset rows; an exception message is logged everywhere.
+
+    The same disclosure rule that covers telemetry and exports covers this.
+    Report the type, the index, or the limit -- never the value.
+    """
+    secret = "customer SSN 123-45-6789"
+
+    probes = (
+        {"row": secret + "\ud800"},  # lone surrogate carrying user content
+        {secret + "\ud800": 1, "a": 2},  # ...in key position
+    )
+    for payload in probes:
+        with pytest.raises(Fp2UnsupportedValue) as caught:
+            canonicalize(payload)  # type: ignore[arg-type]
+        assert secret not in str(caught.value), f"leaked content: {caught.value}"
+
+    class Hostile(dict):
+        def __iter__(self) -> Any:
+            raise ValueError(secret)  # a foreign error whose message is content
+
+    with pytest.raises(Fp2UnsupportedValue) as caught:
+        canonicalize({"outer": Hostile()})
+    assert secret not in str(caught.value), f"leaked a chained message: {caught.value}"
+
+
 def test_numeric_subclass_cannot_reach_the_digest_through_repr() -> None:
     """The default=str trap one level down: repr on a float subclass is caller-owned.
 
     numpy.float64 renders as 'np.float64(0.1)'. Formatting via repr would put
     that straight into the canonical bytes -- invalid JSON, and a digest that
-    silently depends on a library's display choice.
+    silently depends on a library's display choice. Now rejected outright by
+    exact-type dispatch rather than coerced, so the caller gets an honest
+    unknown instead of a digest nobody else can reproduce.
     """
 
     class Sneaky(float):
         def __repr__(self) -> str:
             return "PWNED"
 
-    assert canonicalize({"n": Sneaky(1.5)}) == '{"n":1.5}'
+    with pytest.raises(Fp2UnsupportedValue):
+        canonicalize({"n": Sneaky(1.5)})
 
 
 def test_negative_zero_normalizes_to_zero() -> None:

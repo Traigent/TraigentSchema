@@ -75,6 +75,80 @@ def test_spec_forbids_foreign_exception_types_as_a_class_rule() -> None:
     assert "third outcome" in text, "the class rule is not stated, only instances"
 
 
+def test_spec_specifies_manifest_construction_not_just_canonicalization() -> None:
+    """Identical canonicalization of DIFFERENT manifests still diverges.
+
+    Two SDKs can follow the canonicalization rules faithfully, build different
+    manifests from the same run, and get different valid digests -- the
+    key-ordering failure one level up, where no amount of canonicalization
+    saves you. Each algorithm must say what goes in and what is left out.
+    """
+    text = SPEC.read_text(encoding="utf-8")
+    # Markdown reflows, so match against whitespace-normalized prose: the test
+    # pins what the spec SAYS, not where its line breaks fall.
+    flowed = " ".join(text.split())
+
+    assert "Construction" in text, "no algorithm states how its manifest is built"
+    # cfp2 was the worst offender: 'normalized configuration space' with
+    # normalization defined nowhere. It is now anchored to the wire value.
+    assert "configuration_space" in flowed, "cfp2 normalization is still unanchored"
+    # afp2/efp2 digest source text and cannot be equal across languages; the
+    # spec must say so rather than implying a parity it cannot deliver.
+    assert "within one language runtime" in flowed
+
+
+def test_spec_records_the_tuple_decision_explicitly() -> None:
+    """A Python-only type needs a stated decision, not silence."""
+    text = SPEC.read_text(encoding="utf-8").lower()
+    flowed = " ".join(text.split())
+
+    assert "tuple" in text, "the tuple decision is unrecorded"
+    assert "namedtuple" in text, "the exact edge of the tuple rule is unstated"
+    assert "isinstance" in text, "the exact-type rule is not spelled out for implementers"
+    # Rejecting tuples only works if the builder is told to normalize positional
+    # rows; otherwise Plan 3 rediscovers the problem as a broken dataset digest.
+    assert "tuples are rejected" in flowed, "the reversal is not recorded"
+    assert "positional" in flowed, "the builder's normalization duty is unstated"
+
+
+def test_spec_gives_source_manifests_a_runtime_discriminator() -> None:
+    """A scope that lives only in prose is a scope no comparator can honour.
+
+    afp2/efp2 are comparable only within one language runtime, but a digest is
+    opaque, so the manifest itself has to make a cross-runtime match impossible.
+    """
+    # Strip markdown code ticks too: the spec writes `runtime`, and the test
+    # pins the statement, not its typography.
+    flowed = " ".join(SPEC.read_text(encoding="utf-8").replace("`", "").split())
+
+    assert '"runtime"' in flowed, "afp2/efp2 carry no runtime discriminator"
+    assert "runtime is mandatory" in flowed.lower()
+    # ...and dfp2o/cfp2 must NOT carry one: they are required to match across
+    # languages, so a runtime token would break the parity they exist to give.
+    assert "carry no such field" in flowed
+
+
+def test_spec_forbids_echoing_caller_content_in_errors() -> None:
+    """Same disclosure rule as telemetry and exports; fp2 sees user content."""
+    flowed = " ".join(SPEC.read_text(encoding="utf-8").split()).lower()
+
+    assert "must not echo the offending value" in flowed
+    assert "never the content" in flowed
+
+
+def test_spec_records_the_int_float_false_equality_as_a_known_limit() -> None:
+    """Same family as the tuple collision, but this one cannot be closed.
+
+    JSON has one number type and JavaScript cannot express the distinction, so
+    any rule separating int from float would guarantee cross-SDK divergence.
+    Recorded so a reader meets it here rather than in a wrong comparison.
+    """
+    flowed = " ".join(SPEC.read_text(encoding="utf-8").split()).lower()
+
+    assert "does not distinguish integer from float" in flowed
+    assert "known false-equality" in flowed
+
+
 def test_spec_requires_dataset_order_to_be_significant() -> None:
     text = SPEC.read_text(encoding="utf-8").lower()
 

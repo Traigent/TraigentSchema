@@ -37,11 +37,39 @@ def test_session_create_accepts_declared_identity() -> None:
             agent_id_source="declared",
             dataset_id="refunds-golden",
             dataset_id_source="declared",
+            # evaluator_id is the PRE-EXISTING field (200-char, registered-alias
+            # semantics) and is untouched by this feature. It is paired with its
+            # source here because a source without its value is contradictory --
+            # see test_evaluator_source_cannot_contradict_its_own_value.
+            evaluator_id="exact-match-v3",
             evaluator_id_source="declared",
         ),
     )
 
     assert errors == [], f"Expected clean validation, got: {errors}"
+
+
+def test_evaluator_source_cannot_contradict_its_own_value() -> None:
+    """Same correlation rule as agent and dataset, applied to the evaluator.
+
+    Evaluator identity stays optional under every version -- it is not part of
+    the (agent, dataset) cohort key -- but once a caller states a source, the
+    source and the value must agree.
+    """
+    declared_without_value = _validator().validate_request(
+        "/api/v1/sessions", "POST", _payload(evaluator_id_source="declared")
+    )
+    assert declared_without_value, "'declared' with no evaluator_id is unreadable"
+
+    unknown_with_value = _validator().validate_request(
+        "/api/v1/sessions",
+        "POST",
+        _payload(evaluator_id="exact-match-v3", evaluator_id_source="unknown"),
+    )
+    assert unknown_with_value, "'unknown' while carrying an evaluator_id is contradictory"
+
+    omitted_entirely = _validator().validate_request("/api/v1/sessions", "POST", _payload())
+    assert omitted_entirely == [], "evaluator identity must stay fully optional"
 
 
 def test_session_create_without_identity_still_validates() -> None:
@@ -116,6 +144,118 @@ def test_every_new_identity_field_declares_a_privacy_classification() -> None:
         assert (
             "x-privacy-classification" in properties[field]
         ), f"{field} has no x-privacy-classification"
+
+
+def _v2(**overrides: Any) -> dict[str, Any]:
+    """A complete, honest identity_version 2 payload."""
+    payload = _payload(
+        identity_version=2,
+        agent_id="ticket-classifier",
+        agent_id_source="declared",
+        dataset_id="refunds-golden",
+        dataset_id_source="declared",
+        artifact_versions={
+            "agent": {"schema": "afp2", "digest": "sha256:" + "a" * 64, "state": "verified"},
+            "dataset": {"schema": "dfp2o", "digest": "sha256:" + "b" * 64, "state": "verified"},
+            "evaluator": {"schema": "efp2", "digest": None, "state": "unknown"},
+            "config_space": {"schema": "cfp2", "digest": "sha256:" + "c" * 64, "state": "verified"},
+        },
+    )
+    payload.update(overrides)
+    return payload
+
+
+def test_declaring_v2_and_sending_no_identity_is_rejected() -> None:
+    """v2 means 'I speak declared identity'; saying it and sending nothing
+    leaves the server to fall back on function_name/agent_key derivation,
+    which is the inference this whole contract exists to remove."""
+    errors = _validator().validate_request(
+        "/api/v1/sessions", "POST", _payload(identity_version=2)
+    )
+
+    assert errors, "identity_version 2 with no declared identity must be rejected"
+
+
+def test_v2_requires_every_identity_source() -> None:
+    for field in ("agent_id_source", "dataset_id_source"):
+        payload = _v2()
+        payload.pop(field)
+        errors = _validator().validate_request("/api/v1/sessions", "POST", payload)
+        assert errors, f"v2 must require {field}"
+
+
+def test_a_source_cannot_contradict_its_own_value() -> None:
+    """'declared' with no value, or 'unknown' with one, is unreadable: a
+    consumer cannot tell which half to believe."""
+    contradictions = (
+        ("agent claims declared but is null", {"agent_id_source": "declared", "agent_id": None}),
+        ("agent claims unknown but has a value", {"agent_id_source": "unknown", "agent_id": "a"}),
+        (
+            "dataset claims declared but is null",
+            {"dataset_id_source": "declared", "dataset_id": None},
+        ),
+        (
+            "dataset claims unknown but has a value",
+            {"dataset_id_source": "unknown", "dataset_id": "d"},
+        ),
+    )
+    for label, overrides in contradictions:
+        errors = _validator().validate_request("/api/v1/sessions", "POST", _v2(**overrides))
+        assert errors, label
+
+
+def test_an_honestly_unknown_v2_payload_is_accepted() -> None:
+    """Unknown must stay expressible, or callers will fake a value to get through."""
+    errors = _validator().validate_request(
+        "/api/v1/sessions",
+        "POST",
+        _v2(
+            agent_id=None,
+            agent_id_source="unknown",
+            dataset_id=None,
+            dataset_id_source="unknown",
+        ),
+    )
+
+    assert errors == [], f"an explicitly unknown v2 run must validate: {errors}"
+
+
+def test_dataset_id_and_hosted_dataset_ref_are_mutually_exclusive() -> None:
+    """Accepting both forces the server to pick a winner between two
+    caller-supplied identities, which is inference by another name."""
+    errors = _validator().validate_request(
+        "/api/v1/sessions",
+        "POST",
+        _v2(hosted_dataset_ref={"dataset_id": "bench_01HZY8Q4"}),
+    )
+
+    assert errors, "dataset_id and hosted_dataset_ref must not both be accepted"
+
+
+def test_registered_dataset_requires_the_hosted_reference() -> None:
+    payload = _v2(dataset_id_source="registered")
+    payload.pop("dataset_id")
+    errors = _validator().validate_request("/api/v1/sessions", "POST", payload)
+    assert errors, "'registered' with no hosted_dataset_ref has nothing to resolve"
+
+    payload["hosted_dataset_ref"] = {"dataset_id": "bench_01HZY8Q4"}
+    errors = _validator().validate_request("/api/v1/sessions", "POST", payload)
+    assert errors == [], f"the hosted-dataset flow must validate: {errors}"
+
+
+def test_unknown_dataset_cannot_smuggle_a_hosted_reference() -> None:
+    payload = _v2(dataset_id_source="unknown", dataset_id=None)
+    payload["hosted_dataset_ref"] = {"dataset_id": "bench_01HZY8Q4"}
+    errors = _validator().validate_request("/api/v1/sessions", "POST", payload)
+
+    assert errors, "a hosted reference IS an identity; 'unknown' contradicts it"
+
+
+def test_legacy_callers_are_unaffected_by_every_v2_constraint() -> None:
+    """The whole point of versioning: none of this reaches an old SDK."""
+    for payload in (_payload(), _payload(identity_version=1), _payload(agent_id="a")):
+        errors = _validator().validate_request("/api/v1/sessions", "POST", payload)
+        assert errors == [], f"legacy payload must stay valid: {errors}"
 
 
 def test_existing_evaluator_id_is_not_redefined() -> None:

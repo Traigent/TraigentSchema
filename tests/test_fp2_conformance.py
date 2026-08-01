@@ -7,6 +7,7 @@ language invisibly.
 
 from __future__ import annotations
 
+import collections
 import json
 import sys
 from pathlib import Path
@@ -145,19 +146,77 @@ def test_integer_beyond_the_safe_range_is_unsupported() -> None:
     assert canonicalize({"n": float(2**70)}) == '{"n":1.1805916207174113e+21}'
 
 
+def test_subclasses_cannot_choose_the_canonical_bytes() -> None:
+    """Exact types only: a subclass owns its own iteration and conversion.
+
+    isinstance() let user code decide the digest through an overridden items(),
+    __iter__ or __int__ -- the repr trap through a different door. Each of
+    these produced attacker-chosen canonical bytes before the fix.
+    """
+
+    class SneakyDict(dict):
+        def items(self) -> Any:
+            return [("evil", "injected")]
+
+        def __iter__(self) -> Any:
+            return iter(["evil"])
+
+    class SneakyList(list):
+        def __iter__(self) -> Any:
+            return iter(["injected"])
+
+    class SneakyStr(str):
+        def __iter__(self) -> Any:
+            return iter("HACKED")
+
+    class SneakyInt(int):
+        def __int__(self) -> int:
+            return 999
+
+    for label, value in (
+        ("dict subclass", SneakyDict(a=1)),
+        ("list subclass", SneakyList([1, 2])),
+        ("str subclass", SneakyStr("safe")),
+        ("int subclass", SneakyInt(1)),
+    ):
+        with pytest.raises(Fp2UnsupportedValue):
+            canonicalize({"k": value})
+            pytest.fail(f"{label} chose its own bytes")
+
+
+def test_tuples_are_accepted_as_arrays_but_namedtuples_are_not() -> None:
+    """The deliberate exception, and its exact edge.
+
+    The test is not "does the other language have this type" but "do both SDKs
+    produce the same bytes for the same data". A tuple and a JS array of the
+    same items canonicalize identically, so accepting it CONVERGES the SDKs;
+    rejecting it would make Python answer unknown where JavaScript answers with
+    a digest. A namedtuple is a subclass, is a record rather than a sequence,
+    and would be an object in JavaScript, so it stays unsupported.
+    """
+    assert canonicalize({"k": (1, 2)}) == canonicalize({"k": [1, 2]}) == '{"k":[1,2]}'
+
+    Row = collections.namedtuple("Row", ["input", "expected"])
+    with pytest.raises(Fp2UnsupportedValue):
+        canonicalize({"k": Row(1, 2)})
+
+
 def test_numeric_subclass_cannot_reach_the_digest_through_repr() -> None:
     """The default=str trap one level down: repr on a float subclass is caller-owned.
 
     numpy.float64 renders as 'np.float64(0.1)'. Formatting via repr would put
     that straight into the canonical bytes -- invalid JSON, and a digest that
-    silently depends on a library's display choice.
+    silently depends on a library's display choice. Now rejected outright by
+    exact-type dispatch rather than coerced, so the caller gets an honest
+    unknown instead of a digest nobody else can reproduce.
     """
 
     class Sneaky(float):
         def __repr__(self) -> str:
             return "PWNED"
 
-    assert canonicalize({"n": Sneaky(1.5)}) == '{"n":1.5}'
+    with pytest.raises(Fp2UnsupportedValue):
+        canonicalize({"n": Sneaky(1.5)})
 
 
 def test_negative_zero_normalizes_to_zero() -> None:

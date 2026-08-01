@@ -150,6 +150,34 @@ MUST therefore translate any unexpected failure into the documented error type
 rather than enumerate the failures it has thought of so far — the list is
 exactly what keeps turning out to be incomplete.
 
+### Types are matched exactly, never by subclass
+
+An implementation MUST dispatch on the **exact** type, not on an "is a"
+relationship. A subclass supplies its own iteration and conversion behaviour,
+so accepting one hands the choice of canonical bytes to the code that built the
+manifest. A Python `dict` subclass overriding `items()`, a `list` or `str`
+subclass overriding `__iter__`, and an `int` subclass overriding `__int__` all
+change the digest of data that looks identical — the same failure as formatting
+a number through `repr`, reached through a different door.
+
+Concretely, in Python: `type(x) is dict`, not `isinstance(x, dict)`. This makes
+`OrderedDict`, `defaultdict`, `IntEnum`, `namedtuple` and `numpy` scalars
+unsupported. That is intended and it fails closed: the caller gets `unknown`
+and loses a comparison, rather than a digest nobody can reproduce. Converting
+to plain types is the manifest builder's job, and it must happen before
+hashing, not inside it.
+
+**Tuples are the one deliberate exception**, and they are accepted as arrays.
+The test is not "does the language have this type" but "do the two SDKs produce
+the same bytes for the same data". A Python `tuple` and a JavaScript array of
+the same items canonicalize identically, so accepting it makes the SDKs
+*converge*; rejecting it would make Python answer `unknown` where JavaScript
+answers with a digest for the same logical manifest, which is divergence — the
+thing this document exists to prevent. Dataset rows are routinely tuples in
+Python, so this is a common path, not an edge case. The exception is exact
+`tuple` only: a `namedtuple` is a subclass, is semantically a record rather
+than a sequence, and would be an object in JavaScript, so it stays unsupported.
+
 It MUST NOT coerce the value and continue. Python's
 `json.dumps(..., default=str)` does exactly this — it stringifies whatever it
 cannot serialize — which produces a digest that looks verified but silently
@@ -164,20 +192,54 @@ user-defined `repr` can reach the canonical bytes.
 
 ## Manifests
 
+Canonicalization only guarantees that the same manifest hashes to the same
+bytes. If two SDKs build *different manifests* from the same run, identical
+canonicalization still yields different digests, and the failure looks exactly
+like the key-ordering bug one level up. So construction is normative too: each
+algorithm below states what goes in, in what order, and what is deliberately
+left out.
+
+**Comparability scope.** `afp2` and `efp2` digest source text, which is
+language-specific by nature: a Python agent and a JavaScript agent are never
+byte-equal and are not meant to be. Those two are comparable **within one
+language runtime**, across runs and machines. `dfp2o` and `cfp2` digest data
+that crosses the wire unchanged and MUST be equal across languages for equal
+input. Every algorithm uses the identical canonicalization rules regardless.
+
 ### afp2 — agent
 
 ```
-{"kind":"afp2","source":<callable source text>,"bound":<canonical bound state or omitted>}
+{"kind":"afp2","source":<source text>,"bound":<bound state, omitted when empty>}
 ```
 
-`source` is the text of the decorated callable after unwrapping decorators.
-`bound` carries partial arguments, closure cells or instance state **when they
-are observable and canonically serializable**; otherwise the manifest is
-incomplete and the result is `unknown`.
+Construction:
+
+1. Unwrap decorator wrappers to the innermost user-authored callable, so that
+   re-decorating or re-tuning does not change the digest.
+2. Take that callable's source text **excluding its decorator lines**. A
+   decorator carries tuning configuration, which `cfp2` already covers;
+   including it would make the agent version move whenever the search space
+   moved, conflating two artifacts the contract deliberately separates.
+3. Normalize line endings to `\n`, remove the common leading indentation, and
+   strip trailing whitespace at the end of the text. Nothing else: no comment
+   stripping, no reformatting, no parsing. Every further normalization needs a
+   parser, and two parsers are two more things that can disagree.
+
+`bound` carries state the callable closes over, present **only** when non-empty:
+
+```
+{"partial_args":[...],"partial_kwargs":{...},"closure":{...},"instance":{...}}
+```
+
+Each key is omitted when it has no entries. `closure` and `instance` are keyed
+by variable and attribute name. If any bound value is not canonically
+serializable the manifest is incomplete and the result is `unknown` — bound
+state changes behaviour, so a digest that quietly skipped it would assert an
+equality that is not there.
 
 Coverage limit, which implementations MUST surface rather than hide: `afp2`
-covers the decorated body only. A change to an imported prompt, helper or model
-client leaves the digest equal.
+covers the unwrapped callable's own text and bound state. A change to an
+imported prompt, helper or model client leaves the digest equal.
 
 ### dfp2o — dataset, order significant
 
@@ -185,7 +247,21 @@ client leaves the digest equal.
 {"kind":"dfp2o","rows":[<row 0>,<row 1>,...]}
 ```
 
-Each row is `{"input":<input>,"expected":<expected or null>}`.
+Construction: every row of the evaluation dataset, in dataset order, each
+reduced to exactly
+
+```
+{"input":<input>,"expected":<expected or null>}
+```
+
+- **All** rows are included, never the budget-capped prefix actually executed.
+  The digest describes the dataset; the budget belongs to the run.
+- `expected` is `null` when the row has no expected output. Absent and null are
+  the same row.
+- Any other field on a source row — an id, a split label, free-form metadata —
+  is **excluded**. This is a stated coverage limit, not an oversight: two
+  datasets differing only in row metadata get equal digests.
+- A row that is a positional pair is read as `(input, expected)`.
 
 Row order is **significant**. It is part of the manifest, not a formatting
 detail, because execution consumes an ordered prefix under a budget: with a
@@ -203,6 +279,15 @@ the `dataset` slot of `artifact_versions`.
 {"kind":"efp2","external":{"kind":<kind>,"revision":<declared revision>}}
 ```
 
+Exactly one of `source` or `external` is present.
+
+- `source` is built by the same three normalization steps as `afp2`.
+- `external` describes an evaluator this process does not contain. `kind` is a
+  short caller-supplied token naming the evaluator type or transport; it is
+  descriptive only and never carries a URL, host, credential, or any other
+  value that could identify an endpoint. `revision` is an immutable string the
+  caller asserts changes whenever the evaluator's behaviour changes.
+
 For an external evaluator reached over a network, the caller MUST supply an
 immutable `revision`. Without one the manifest is incomplete and the result is
 `unknown`, because behavior behind a stable URL can change invisibly and a
@@ -211,8 +296,37 @@ digest over the endpoint alone would assert a false equality.
 ### cfp2 — configuration space
 
 ```
-{"kind":"cfp2","space":<normalized configuration space>}
+{"kind":"cfp2","space":<configuration space as sent on the wire>}
 ```
+
+`space` is the **exact value the client sends as `configuration_space` on
+session create**, canonicalized by the rules above and otherwise untouched.
+
+This is the whole normalization rule, and it is deliberately defined by
+reference to the wire contract rather than to any internal representation.
+"Normalized configuration space" without that anchor is unimplementable: an SDK
+that expands sugar into an internal form, or orders variables by insertion, or
+represents a choice list as a typed object, would produce a different manifest
+from one that does not — while both authors believed they had followed the
+spec. Pinning it to the transmitted value means the two SDKs hash the same
+bytes because they already agreed to send the same bytes.
+
+Consequences an implementer must know:
+
+- Any client-side sugar is expanded **before** hashing, because expansion
+  happens before sending.
+- The order of values within a choice list is **significant**, for the same
+  reason row order is: search consumes them in order under a trial budget, so
+  two orders explore different configurations first.
+- A configuration space that cannot be canonicalized makes the manifest
+  incomplete, exactly as elsewhere.
+
+### Anything not listed here
+
+`afp2`, `dfp2o`, `efp2` and `cfp2` are the complete set for this contract
+version. Prompts, toolsets and deployment identifiers have no slot and MUST NOT
+be smuggled into one of the four above; adding an artifact means adding a slot,
+which is a contract change.
 
 ## Digest format
 

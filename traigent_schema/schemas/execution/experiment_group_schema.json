@@ -23,7 +23,7 @@
           "type": "null"
         }
       ],
-      "description": "Canonical persisted evaluation dataset id after resolving legacy aliases such as eval_dataset_id, evaluation_set_id, or benchmark_id. Null means this group is explicitly the no-dataset group; empty string and unknown alias values must not be emitted."
+      "description": "Canonical persisted evaluation dataset id after resolving legacy aliases such as eval_dataset_id, evaluation_set_id, or benchmark_id. Null means EXPLICITLY no dataset - the run had none and the caller said so - and never 'a dataset was used but we could not identify it'. That second case is not representable here: it makes the item identity_state 'unidentified', a singleton keyed on run_id. Emitting an undeclared dataset as null would merge unrelated runs into one no-dataset cohort, which is the defect this split exists to remove. Empty string and unknown alias values must not be emitted."
     },
     "OpaqueCursor": {
       "type": "string",
@@ -114,7 +114,7 @@
         "without_dataset"
       ],
       "default": "all",
-      "description": "Explicit dataset-presence filter for the group list. 'without_dataset' selects exactly the canonical no-dataset groups (dataset_id null) and is the only supported way to ask for them: an empty-string dataset_id must be rejected rather than treated as no-dataset. 'all' is the default (applied when the parameter is omitted) and applies no dataset-presence constraint. Combining dataset_scope=without_dataset with a concrete dataset_id filter is contradictory and must be rejected."
+      "description": "Explicit dataset-presence filter for the group list. 'without_dataset' selects exactly the canonical no-dataset groups - identity_state 'identified' with dataset_id null, meaning the caller explicitly ran without a dataset - and is the only supported way to ask for them: an empty-string dataset_id must be rejected rather than treated as no-dataset. It does NOT select unidentified singletons, whose dataset_id is also null but for the opposite reason: those runs may well have used a dataset that was never declared, and returning them here would put unrelated runs back in one bucket under a filter that claims to mean 'no dataset'. 'all' is the default (applied when the parameter is omitted) and applies no dataset-presence constraint. Combining dataset_scope=without_dataset with a concrete dataset_id filter is contradictory and must be rejected."
     },
     "ExperimentRunStatusCounts": {
       "type": "object",
@@ -196,7 +196,7 @@
             "identified",
             "unidentified"
           ],
-          "description": "'identified' = the run declared an agent identity and belongs to a real (agent_id, canonical dataset_id) cohort; agent_id is then structurally required to be a string. 'unidentified' = no agent identity could be established; the item is a SINGLETON for one run, keyed on the required run_id, and joins no cohort. Unidentified runs are never merged into a shared bucket: a shared 'unknown' group is the same aggregation defect under a different name. Scope note, stated because the enforced rule and the intended rule differ here: this discriminator is currently keyed on AGENT identity only. An identified group may still carry dataset_id null - that is the pre-existing explicit no-dataset group that dataset_scope='without_dataset' selects, and it remains valid. Whether a missing dataset identity should also force a singleton, by symmetry with the agent rule, is an open product decision and is deliberately NOT asserted here; do not read 'identified' as a claim that a dataset identity was declared."
+          "description": "'identified' = BOTH identities were established, so the item is a real (agent_id, canonical dataset_id) cohort. agent_id is then structurally required to be a string, and dataset_id is either a declared id or null meaning EXPLICIT NONE - the caller ran with no dataset and said so. 'unidentified' = at least one identity could not be established; the item is a SINGLETON for one run, keyed on the required run_id, and agent_id and dataset_id are both null because a singleton has no cohort key. This is the load-bearing distinction: null under 'identified' means explicitly no dataset, null under 'unidentified' means not known. Overloading one null for both is what let two different undeclared inline datasets under one declared agent merge into a single (agent_id, null) cohort - a false merge presented to the user as one agent's history. Unidentified runs are never merged into a shared bucket: a shared 'unknown' group is the same aggregation defect under a different name."
         },
         "run_id": {
           "type": [
@@ -280,6 +280,12 @@
             "properties": {
               "run_id": {
                 "type": "string"
+              },
+              "agent_id": {
+                "type": "null"
+              },
+              "dataset_id": {
+                "type": "null"
               }
             }
           }

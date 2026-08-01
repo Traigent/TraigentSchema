@@ -143,22 +143,22 @@ def _ecmascript_number_to_string(value: float) -> str:
 
 
 def _encode_float(value: float) -> str:
+    # Reached only for an exact float. A subclass would carry a caller-defined
+    # __repr__/__float__ (numpy.float64 renders as "np.float64(0.1)") and is
+    # rejected by the exact-type dispatch before it gets here.
     if math.isnan(value) or math.isinf(value):
         raise Fp2UnsupportedValue(f"non-finite number: {value!r}")
-    # float() strips any subclass: repr() on a float subclass is caller-defined
-    # (numpy.float64 renders as "np.float64(0.1)"), which is precisely the
-    # repr-dependent digest fp2 exists to prevent.
-    return _ecmascript_number_to_string(float(value))
+    return _ecmascript_number_to_string(value)
 
 
 def _encode_int(value: int) -> str:
-    exact = int(value)  # strip int subclasses (IntEnum, numpy integers)
-    if abs(exact) > _MAX_SAFE_INTEGER:
+    # Exact int only; a subclass could override __int__ and choose its own digits.
+    if abs(value) > _MAX_SAFE_INTEGER:
         raise Fp2UnsupportedValue(
             f"integer outside the IEEE-754 safe range, not representable as a "
-            f"JavaScript Number: {exact}"
+            f"JavaScript Number: {value}"
         )
-    return str(exact)
+    return str(value)
 
 
 # Work-stack entry tags for the iterative encoder.
@@ -200,17 +200,23 @@ def _encode(root: Any) -> str:
         if value is False:
             out.append("false")
             continue
-        if isinstance(value, str):
+        # Exact types only. isinstance() would admit subclasses, and a subclass
+        # decides its own __iter__/items()/__int__/__float__ -- so user code,
+        # not this function, would choose the canonical bytes. That is the same
+        # hole as formatting through repr(), reached through a different door.
+        # The spec already calls class instances unsupported; this makes the
+        # implementation agree with it.
+        if type(value) is str:
             out.append(_encode_string(value))
             continue
-        if isinstance(value, int):
+        if type(value) is int:
             out.append(_encode_int(value))
             continue
-        if isinstance(value, float):
+        if type(value) is float:
             out.append(_encode_float(value))
             continue
 
-        if isinstance(value, (list, tuple, dict)):
+        if type(value) in (list, tuple, dict):
             if depth > MAX_DEPTH:
                 raise Fp2UnsupportedValue(
                     f"manifest nests deeper than the fp2 limit of {MAX_DEPTH}"
@@ -222,7 +228,7 @@ def _encode(root: Any) -> str:
 
             # Children are pushed reversed so they pop in emission order.
             pending: list[tuple[int, Any, int]] = []
-            if isinstance(value, dict):
+            if type(value) is dict:
                 for key in value:
                     if not isinstance(key, str):
                         raise Fp2UnsupportedValue(f"non-string object key: {key!r}")

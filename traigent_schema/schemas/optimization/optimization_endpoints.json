@@ -238,12 +238,32 @@
                   },
                   "artifact_versions": {
                     "type": "object",
-                    "description": "Derived content versions for the artifacts this run used. A version is a digest over a specified manifest (see docs/fingerprints/fp2.md) and is algorithm-tagged so the algorithm can change without invalidating history. Versions decide COMPARABILITY; they are never identity. A version whose manifest could not be completed is state='unknown', and unknown must never be treated as equal to anything, including another unknown.",
+                    "description": "Derived content versions for the artifacts this run used. A version is a digest over a specified manifest (see docs/fingerprints/fp2.md) and is algorithm-tagged so the algorithm can change without invalidating history. Versions decide COMPARABILITY; they are never identity. A version whose manifest could not be completed is state='unknown', and unknown must never be treated as equal to anything, including another unknown. Under identity_version 2 all four slots are REQUIRED, because an ABSENT slot is the same failure as an unknown one wearing a disguise: two runs that both omit a slot look alike to any consumer that compares what it was given, so silence would be read as agreement. Saying 'unknown' costs one field and is honest; saying nothing is not. Each slot's schema is bound to its own algorithm family so a dataset digest cannot be filed under agent, which would make two unrelated artifacts compare equal. 'fp1' stays admissible in every slot: legacy fp1 digests are valid history, are never recomputed, and are not comparable with fp2 digests.",
                     "properties": {
-                      "agent": { "$ref": "#/definitions/ArtifactVersion" },
-                      "dataset": { "$ref": "#/definitions/ArtifactVersion" },
-                      "evaluator": { "$ref": "#/definitions/ArtifactVersion" },
-                      "config_space": { "$ref": "#/definitions/ArtifactVersion" }
+                      "agent": {
+                        "allOf": [
+                          { "$ref": "#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "enum": ["afp2", "fp1"] } } }
+                        ]
+                      },
+                      "dataset": {
+                        "allOf": [
+                          { "$ref": "#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "enum": ["dfp2o", "fp1"] } } }
+                        ]
+                      },
+                      "evaluator": {
+                        "allOf": [
+                          { "$ref": "#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "enum": ["efp2", "fp1"] } } }
+                        ]
+                      },
+                      "config_space": {
+                        "allOf": [
+                          { "$ref": "#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "enum": ["cfp2", "fp1"] } } }
+                        ]
+                      }
                     },
                     "additionalProperties": false,
                     "x-privacy-classification": "metadata"
@@ -448,6 +468,93 @@
                     "evaluator_definition_id"
                   ]
                 },
+                "allOf": [
+                  {
+                    "description": "dataset_id and hosted_dataset_ref are mutually exclusive, modelled exactly as the existing evaluator_id/evaluator_definition_id exclusion above. One states a logical identity the caller owns; the other points at a server-side object the server resolves. Accepting both would force the server to pick a winner, and picking a winner between two identities the caller supplied is inference by another name.",
+                    "not": { "required": ["dataset_id", "hosted_dataset_ref"] }
+                  },
+                  {
+                    "description": "identity_version 2 means 'I speak declared identity'. A caller that says so and then sends nothing leaves the server to fall back on function_name/agent_key derivation - the exact inference this contract exists to remove. Under 2 the sources are mandatory, so a caller must state where each identity came from, including stating that it does not know.",
+                    "if": {
+                      "properties": { "identity_version": { "const": 2 } },
+                      "required": ["identity_version"]
+                    },
+                    "then": {
+                      "required": ["agent_id_source", "dataset_id_source", "artifact_versions"],
+                      "properties": {
+                        "artifact_versions": {
+                          "required": ["agent", "dataset", "evaluator", "config_space"]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "description": "A source of 'declared' or 'registered' asserts an identity was established, so the value must be present and non-null. A source that claims an identity while the identity is absent is unreadable: a consumer cannot tell whether it was lost in transit or never existed.",
+                    "if": {
+                      "properties": { "agent_id_source": { "enum": ["declared", "registered"] } },
+                      "required": ["agent_id_source"]
+                    },
+                    "then": {
+                      "required": ["agent_id"],
+                      "properties": { "agent_id": { "type": "string" } }
+                    }
+                  },
+                  {
+                    "description": "'unknown' means no identity could be established, so carrying a value contradicts it. Allowing both would let a run be keyed on an id the contract simultaneously says is not an identity.",
+                    "if": {
+                      "properties": { "agent_id_source": { "const": "unknown" } },
+                      "required": ["agent_id_source"]
+                    },
+                    "then": { "properties": { "agent_id": { "type": "null" } } }
+                  },
+                  {
+                    "description": "A declared dataset identity is supplied inline by the caller.",
+                    "if": {
+                      "properties": { "dataset_id_source": { "const": "declared" } },
+                      "required": ["dataset_id_source"]
+                    },
+                    "then": {
+                      "required": ["dataset_id"],
+                      "properties": { "dataset_id": { "type": "string" } }
+                    }
+                  },
+                  {
+                    "description": "'registered' means the identity comes from a verified server-side object, and hosted_dataset_ref is the only typed channel for pointing at one. The server derives dataset_id from it after checking tenant/project visibility, so the caller does not send dataset_id itself - the exclusion above already forbids sending both.",
+                    "if": {
+                      "properties": { "dataset_id_source": { "const": "registered" } },
+                      "required": ["dataset_id_source"]
+                    },
+                    "then": { "required": ["hosted_dataset_ref"] }
+                  },
+                  {
+                    "description": "An unknown dataset identity carries neither an inline id nor a hosted reference; either one would be an identity, contradicting 'unknown'.",
+                    "if": {
+                      "properties": { "dataset_id_source": { "const": "unknown" } },
+                      "required": ["dataset_id_source"]
+                    },
+                    "then": {
+                      "properties": { "dataset_id": { "type": "null" } },
+                      "not": { "required": ["hosted_dataset_ref"] }
+                    }
+                  },
+                  {
+                    "description": "Evaluator identity is optional under every contract version, because it is not part of the (agent, dataset) cohort key. But once a caller states a source, the source and the value must agree, exactly as for agent and dataset. evaluator_id itself is unchanged: it keeps its pre-existing registered-alias semantics and 200-character limit.",
+                    "if": {
+                      "properties": {
+                        "evaluator_id_source": { "enum": ["declared", "registered"] }
+                      },
+                      "required": ["evaluator_id_source"]
+                    },
+                    "then": { "required": ["evaluator_id"] }
+                  },
+                  {
+                    "if": {
+                      "properties": { "evaluator_id_source": { "const": "unknown" } },
+                      "required": ["evaluator_id_source"]
+                    },
+                    "then": { "not": { "required": ["evaluator_id"] } }
+                  }
+                ],
                 "additionalProperties": true
               }
             }

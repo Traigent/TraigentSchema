@@ -127,16 +127,61 @@ def test_group_list_tie_break_includes_run_id_so_singletons_stay_orderable() -> 
     assert inline_sort_by["description"] == sort_field_description
 
 
-def test_identified_group_may_still_have_no_dataset() -> None:
-    """Pinned deliberately: the dataset half of the symmetry is NOT enforced.
+def test_explicit_none_dataset_stays_a_group() -> None:
+    """null under 'identified' means the caller explicitly ran without a dataset.
 
-    identity_state keys on agent identity only. dataset_id null on an
-    identified group is the pre-existing explicit no-dataset group that
-    dataset_scope='without_dataset' selects, and it stays valid. Whether a
-    missing dataset identity should also force a singleton is an open owner
-    decision; this test records the current, enforced answer so a future
-    change is a visible decision rather than an accident.
+    That is a real cohort and dataset_scope='without_dataset' still selects it.
+    Losing this would break an already-shipped query surface.
     """
     errors = list(_validator().iter_errors(_identified_group(dataset_id=None)))
 
-    assert errors == [], f"identified + no dataset must remain valid: {errors}"
+    assert errors == [], f"an explicit no-dataset group must stay valid: {errors}"
+
+
+def test_a_singleton_carries_no_cohort_key() -> None:
+    """The false merge, closed structurally.
+
+    Two different undeclared inline datasets under one declared agent used to
+    validate as (agent_id, null) twice and merge into a single cohort -- one
+    agent's history showing runs that never shared a dataset. A singleton has
+    no cohort, so it carries no cohort key: both agent_id and dataset_id are
+    null and identity lives entirely in run_id.
+    """
+    for label, overrides in (
+        ("agent_id on a singleton", {"agent_id": "agt_123"}),
+        ("dataset_id on a singleton", {"dataset_id": "dset_456"}),
+    ):
+        item = _identified_group(
+            **{
+                "agent_id": None,
+                "dataset_id": None,
+                "identity_state": "unidentified",
+                "run_id": "run_789",
+                **overrides,
+            }
+        )
+        assert list(_validator().iter_errors(item)), label
+
+
+def test_null_dataset_means_two_different_things_and_the_state_says_which() -> None:
+    """The distinction the whole B3 fix rests on, asserted directly.
+
+    Same dataset_id (null), opposite meanings: explicit none under
+    'identified', not-known under 'unidentified'. Overloading one null for
+    both is what produced the false merge.
+    """
+    explicit_none = _identified_group(dataset_id=None)
+    unknown = _identified_group(
+        agent_id=None, dataset_id=None, identity_state="unidentified", run_id="run_789"
+    )
+
+    assert explicit_none["dataset_id"] == unknown["dataset_id"] is None
+    assert list(_validator().iter_errors(explicit_none)) == []
+    assert list(_validator().iter_errors(unknown)) == []
+    assert explicit_none["identity_state"] != unknown["identity_state"]
+
+    # And the contract says which is which, for the reader who has only the schema.
+    dataset_description = _document()["definitions"]["CanonicalDatasetId"]["description"]
+    assert "EXPLICITLY no dataset" in dataset_description
+    scope_description = _document()["definitions"]["ExperimentGroupDatasetScope"]["description"]
+    assert "does NOT select unidentified singletons" in scope_description

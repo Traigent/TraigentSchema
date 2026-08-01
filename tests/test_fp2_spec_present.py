@@ -75,6 +75,37 @@ def test_spec_forbids_foreign_exception_types_as_a_class_rule() -> None:
     assert "third outcome" in text, "the class rule is not stated, only instances"
 
 
+def test_spec_specifies_manifest_construction_not_just_canonicalization() -> None:
+    """Identical canonicalization of DIFFERENT manifests still diverges.
+
+    Two SDKs can follow the canonicalization rules faithfully, build different
+    manifests from the same run, and get different valid digests -- the
+    key-ordering failure one level up, where no amount of canonicalization
+    saves you. Each algorithm must say what goes in and what is left out.
+    """
+    text = SPEC.read_text(encoding="utf-8")
+    # Markdown reflows, so match against whitespace-normalized prose: the test
+    # pins what the spec SAYS, not where its line breaks fall.
+    flowed = " ".join(text.split())
+
+    assert "Construction" in text, "no algorithm states how its manifest is built"
+    # cfp2 was the worst offender: 'normalized configuration space' with
+    # normalization defined nowhere. It is now anchored to the wire value.
+    assert "configuration_space" in flowed, "cfp2 normalization is still unanchored"
+    # afp2/efp2 digest source text and cannot be equal across languages; the
+    # spec must say so rather than implying a parity it cannot deliver.
+    assert "within one language runtime" in flowed
+
+
+def test_spec_records_the_tuple_decision_explicitly() -> None:
+    """A Python-only type needs a stated decision, not silence."""
+    text = SPEC.read_text(encoding="utf-8").lower()
+
+    assert "tuple" in text, "the tuple decision is unrecorded"
+    assert "namedtuple" in text, "the exact edge of the tuple exception is unstated"
+    assert "isinstance" in text, "the exact-type rule is not spelled out for implementers"
+
+
 def test_spec_requires_dataset_order_to_be_significant() -> None:
     text = SPEC.read_text(encoding="utf-8").lower()
 

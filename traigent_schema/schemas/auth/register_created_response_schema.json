@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/register_created_response_schema.json",
+  "title": "Register Created Response DTO",
+  "description": "Canonical HTTP 201 body for POST /api/v1/auth/register. Every successful registration returns a standard success envelope. The deployed Backend produces the no-session variant for cohort, invite, and ordinary registrations. The verified self-serve session variant coordinates with TraigentBackend #2481 and remains contract-first until that producer is deployed. The two variants are explicit so a response cannot carry only one member of the access/refresh token pair.",
+  "x-asserted-against-backend": false,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "const": true
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user",
+        "message",
+        "requires_email_verification",
+        "email_sent"
+      ],
+      "properties": {
+        "user": {
+          "allOf": [
+            {
+              "$ref": "./auth_user_identity_schema.json"
+            },
+            {
+              "type": "object"
+            }
+          ],
+          "description": "The newly-created user. Unlike identity-bearing status responses, a successful registration never returns null here."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requires_email_verification": {
+          "type": "boolean",
+          "description": "True when the user must verify email before login. False for an accepted invite or an email-proven self-serve registration."
+        },
+        "email_sent": {
+          "type": "boolean",
+          "description": "Whether this request successfully dispatched a verification email."
+        },
+        "invite": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true,
+          "description": "Optional accepted-invite context on invite registration."
+        },
+        "access_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present only on the verified self-serve auto-login variant."
+        },
+        "refresh_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present only with access_token on the verified self-serve auto-login variant."
+        },
+        "csrf_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present when the response establishes cookie authentication. Accepted on the no-session variant only for compatibility with deployed 5.x producers."
+        },
+        "onboarding_completed": {
+          "type": "boolean",
+          "description": "Current self-serve auto-login responses report false; absent on no-session registration."
+        }
+      },
+      "oneOf": [
+        {
+          "title": "No-session registration",
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "access_token"
+                ]
+              },
+              {
+                "required": [
+                  "refresh_token"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "title": "Verified self-serve registration with session",
+          "required": [
+            "access_token",
+            "refresh_token",
+            "onboarding_completed"
+          ],
+          "properties": {
+            "requires_email_verification": {
+              "const": false
+            },
+            "email_sent": {
+              "const": false
+            },
+            "onboarding_completed": {
+              "const": false
+            }
+          }
+        }
+      ]
+    }
+  }
+}

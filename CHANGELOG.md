@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.4.0] - 2026-07-31
+## [5.5.0] - 2026-08-01
 
 ### Added
 - **Per-run narrative on the experiment run, and a stable `agent_key` on session creation.** An
@@ -37,6 +37,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     telemetry, trace lanes, planner/LLM prompts, billing metadata, and logs, and redacted on export
     absent explicit opt-in; and agent identity must never be derived from a per-run title. Declaring
     them here documents the obligation — it is not evidence any consumer satisfies it.
+## [5.4.0] - 2026-07-30
+
+### Added
+- **A canonical, additive HTTP `201` registration-success contract.**
+  `auth/register_created_response_schema.json` models the Backend's real wrapped
+  `{success, data}` envelope and makes the two successful outcomes explicit: a no-session result for
+  cohort, invite, and ordinary registrations, or a complete access/refresh-token pair for the
+  verified self-serve flow coordinated with TraigentBackend #2481. The self-serve producer is not
+  deployed yet, so the schema is conservatively marked `x-asserted-against-backend: false`.
+  `auth_endpoints.json` now publishes the `201` response; the previously published flat `200`
+  contract remains accepted and is explicitly deprecated until its 6.0.0 removal. This is
+  MINOR-safe: it adds a new schema/response entry without tightening or deleting any 5.3 validation
+  behavior.
+
+- **`auth/register_request_schema.json` now documents two of the three credential fields the register
+  endpoint accepts.** `invite_token` and `registration_code` were undocumented, so the only credential a
+  reader could discover was `access_code`. `registration_code` is the portal's unified wire field for
+  the code shown to a reader as their "access code": it can carry either an administrator-issued cohort
+  code or the single-use, address-bound code e-mailed to a self-serve registrant, and the server
+  dispatches it to the appropriate credential store, cohort first. `access_code` remains the
+  cohort-only field for callers that identify that credential type explicitly.
+
+  Purely additive: both new property entries contain documentation annotations only, and
+  `additionalProperties` remains `true`. They deliberately carry no `type`, `maxLength`, or other
+  validating keyword in 5.4.0, because a named-property constraint would reject values that 5.3.0
+  accepted while the same names were treated as unknown properties. Runtime constraints can be
+  encoded with the closed property set in the next major release.
+
+### Fixed
+- **The register schema no longer claims the server ignores unknown keys.** Its description said
+  "backend reads these keys and ignores unknown ones"; the server does the opposite and **rejects** an
+  unknown key with a `400`. A client trusting the old text would send a retired or misspelled field,
+  expect it to be dropped, and have the whole registration refused. The description now states the real
+  behaviour.
+
+  **Deliberately NOT encoding that as `additionalProperties: false` in this release**, though an earlier
+  draft of this change did. The new fields are also annotation-only for the same compatibility reason.
+  Two facts make either form of validation tightening a *major*, not a minor:
+  its blast radius is external — a consumer pinned to `^5.3` would silently begin rejecting payloads it
+  previously accepted, with no change on their side, which is precisely the break semver exists to
+  signal; and a schema package's published shape *is* its compatibility surface, so "the old contract
+  was inaccurate" does not downgrade the change. Scheduled for the next major, once the producer it
+  describes is deployed.
+
+- **The device-token `403` contract now documents entitlement loss after approval.** An
+  `access_denied` token response can mean either that the person denied the device request or that the
+  approved principal lost product access before token exchange; neither case issues credentials.
+
+- **`entitlement_required_error_schema.json`: five backend obligations reduced to three**, with no
+  obligation lost. The five contained two near-duplicate pairs and one internal contradiction:
+  - the two `message` obligations are merged — the second was a strict superset of the first;
+  - the two `reason`-precedence obligations are merged, and the contradiction removed. One stated that
+    the producer "picks exactly one by a documented precedence rule" while leaving that rule unstated
+    and asserting the contract "cannot determine which account state caused the refusal"; the other
+    supplied the actual rule. The surviving text keeps the concrete rule — emit `access_period_ended`
+    whenever a period existed and elapsed — *and* the honest statement that the contract cannot
+    adjudicate, since both are true and only the vague half was redundant.
+  - the HTTP-status obligation is unchanged.
 
 ## [5.3.0] - 2026-07-29
 

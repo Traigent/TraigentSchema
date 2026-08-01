@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/auth/register_response_schema.json",
   "title": "Register Response DTO",
-  "description": "200 body for POST /api/v1/auth/register. No access token is issued at registration time — the user must verify their email before they can log in. The workspace (tenant/team/project) is provisioned asynchronously; project_id is surfaced later via the device-flow (device_token_success_schema.json).",
+  "description": "Deprecated flat HTTP 200 compatibility DTO retained for the 5.x validation window. Current TraigentBackend producers return HTTP 201 with the wrapped register_created_response_schema.json contract. Removing or tightening this accepted legacy shape is deferred to the next major version.",
   "type": "object",
   "additionalProperties": false,
   "required": ["success", "message", "user", "requires_email_verification", "email_sent"],

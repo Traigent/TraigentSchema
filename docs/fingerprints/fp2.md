@@ -11,10 +11,13 @@ fp2 defines four manifest algorithms:
 
 | Id | Artifact | Manifest input |
 |----|----------|----------------|
-| `afp2` | agent | callable source text, plus canonical bound state when observable |
+| `afp2` | agent | callable source text, plus bound state |
 | `dfp2o` | dataset | the **ordered** evaluation rows |
 | `efp2` | evaluator | evaluator source text, or a declared immutable revision |
-| `cfp2` | configuration space | the normalized configuration space |
+| `cfp2` | configuration space | the configuration space exactly as sent on the wire |
+
+This table is a summary; the **Manifests** section below is authoritative for
+what each manifest contains and how it is built.
 
 fp2 supersedes fp1. fp1 digests remain valid history and are never rewritten;
 they are stored with `schema: "fp1"` and are not comparable with fp2 digests.
@@ -167,6 +170,27 @@ MUST therefore translate any unexpected failure into the documented error type
 rather than enumerate the failures it has thought of so far — the list is
 exactly what keeps turning out to be incomplete.
 
+### Never coerce what you cannot represent
+
+An implementation MUST NOT convert an unrepresentable value into some nearby
+representable one and continue. Python's `json.dumps(..., default=str)` does
+exactly this — it stringifies whatever it cannot serialize — which produces a
+digest that looks verified but silently depends on an object's `repr`. That is
+the specific trap fp2 exists to close, and `default=str` is forbidden in every
+fp2 implementation.
+
+The same trap reappears one level down, and the conclusion there is the same:
+`repr`/`toString` on a **numeric subclass** is caller-controlled, and
+`repr(numpy.float64(0.1))` is `np.float64(0.1)`, not `0.1`. A numeric subclass
+is therefore an **unsupported value** — rejected, never converted to its
+builtin base and formatted. Coercing it would be the `default=str` move under a
+friendlier name: it would produce a digest for a value whose text this
+implementation does not control, and two SDKs would have no reason to agree on
+what that text is. Rejecting yields `unknown`, which is honest and comparable
+across implementations.
+
+That conclusion generalizes into the dispatch rule below.
+
 ### Types are matched exactly, never by subclass
 
 An implementation MUST dispatch on the **exact** type, not on an "is a"
@@ -207,24 +231,14 @@ comparison that was legitimately available: recoverable, and visible as
 this whole feature exists to stop, so a lost comparison is the cheaper error.
 
 The convergence that argument was protecting is real, and it belongs one level
-up. Where a structure is **genuinely positional** — a dataset row supplied as
-`(input, expected)` — the manifest builder converts it to an array *before*
-canonicalizing, deliberately and visibly, as part of constructing the manifest.
-Doing it there makes the positional intent explicit at the point where it is
-known; doing it inside `canonicalize` would silently apply it to every tuple,
-including ones whose type is load-bearing.
-
-It MUST NOT coerce the value and continue. Python's
-`json.dumps(..., default=str)` does exactly this — it stringifies whatever it
-cannot serialize — which produces a digest that looks verified but silently
-depends on an object's `repr`. That is the specific trap fp2 exists to close.
-`default=str` is forbidden in every fp2 implementation.
-
-The same trap reappears one level down, and implementations MUST close it
-there too: `repr`/`toString` on a **numeric subclass** is caller-controlled.
-`repr(numpy.float64(0.1))` is `np.float64(0.1)`, not `0.1`. A number MUST be
-converted to the exact builtin type before it is formatted, so that no
-user-defined `repr` can reach the canonical bytes.
+up: the **manifest builder** resolves a positional structure into whatever
+shape that manifest specifies, before canonicalizing. For a dataset row
+supplied as `(input, expected)` that shape is the two-key object `dfp2o`
+requires — `{"input":…,"expected":…}` — **not** an array; see the `dfp2o`
+construction rules below, which are authoritative for row shape. Doing it in
+the builder makes the positional intent explicit at the point where it is
+known; doing it inside `canonicalize` would silently apply one blanket rule to
+every tuple, including ones whose type is load-bearing.
 
 ## Manifests
 
@@ -284,6 +298,13 @@ by variable and attribute name. If any bound value is not canonically
 serializable the manifest is incomplete and the result is `unknown` — bound
 state changes behaviour, so a digest that quietly skipped it would assert an
 equality that is not there.
+
+The same answer applies when bound state cannot be **observed** at all — a
+callable whose closure or instance dictionary the runtime does not expose. That
+is `unknown`, not an omitted `bound` key. Omitting the key is reserved for the
+case where the implementation positively determined there is no bound state;
+"I looked and there is none" and "I could not look" must not produce the same
+digest, because the second one may be hiding state that changes behaviour.
 
 Coverage limit, which implementations MUST surface rather than hide: `afp2`
 covers the unwrapped callable's own text and bound state. A change to an

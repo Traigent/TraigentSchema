@@ -169,6 +169,40 @@
                     "x-content": true,
                     "x-privacy-classification": "user_content"
                   },
+                  "agent_id": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Declared stable identity of the agent being optimized. Identity is DECLARED, never inferred: the SDK must not derive it from a function name, source path, working directory, or search space, because every one of those moves when the agent is retuned, moved, or rebuilt. Explicit null means absent and the run is treated as unidentified (see agent_id_source). The 255 limit is the agent-name storage limit; an over-length value is REJECTED rather than truncated, because silently shortening an identity would merge two distinct agents — and their two optimization histories — into one.",
+                    "x-privacy-classification": "user_content",
+                    "x-content": true
+                  },
+                  "agent_id_source": {
+                    "type": ["string", "null"],
+                    "enum": ["declared", "registered", "unknown", null],
+                    "description": "How agent_id was obtained. 'declared' = supplied by the caller (argument, environment variable, or project config). 'registered' = resolved from a verified server-side object. 'unknown' = no identity could be established; the run is keyed as a singleton on its own run id and joins no cohort. There is deliberately no 'derived' value: inference is what fragmented history in the first place.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "dataset_id": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Declared stable identity of the evaluation dataset. Symmetric with agent_id in every respect, including rejection rather than truncation at 255 characters. This is a LOGICAL identity, not a foreign key: it does not reference the hosted benchmark table. For a hosted dataset send hosted_dataset_ref instead and the server derives this.",
+                    "x-privacy-classification": "user_content",
+                    "x-content": true
+                  },
+                  "dataset_id_source": {
+                    "type": ["string", "null"],
+                    "enum": ["declared", "registered", "unknown", null],
+                    "description": "How dataset_id was obtained. Same vocabulary and semantics as agent_id_source.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "evaluator_id_source": {
+                    "type": ["string", "null"],
+                    "enum": ["declared", "registered", "unknown", null],
+                    "description": "How evaluator_id was obtained. Same vocabulary and semantics as agent_id_source.",
+                    "x-privacy-classification": "metadata"
+                  },
                   "configuration_space": {
                     "type": "object"
                   },

@@ -30,21 +30,67 @@ A manifest is serialized to canonical JSON before hashing.
 
 ## Key ordering
 
-Object keys are sorted by **code point** of their UTF-16 representation,
-ascending.
+Object keys are sorted ascending by their **UTF-16 code unit sequence**,
+compared numerically, unit by unit, shorter-is-smaller on a common prefix.
+This is the rule RFC 8785 (JSON Canonicalization Scheme) specifies, and it is
+NOT the same as ordering by Unicode code point.
 
-Implementations MUST NOT use locale-aware comparison. JavaScript's
-`String.prototype.localeCompare` is forbidden: it orders differently by locale
-and differs from Python's `sorted()`. Use `<` on the raw strings in JavaScript
-and `sorted()` in Python, which both compare by code unit.
+Code point and code unit order **invert** for any key containing an astral
+character (above U+FFFF). An astral character is encoded as a surrogate pair
+whose leading unit is in `D800`–`DBFF`, which is numerically *below* every
+character in `E000`–`FFFF`, while its code point is *above* all of them:
+
+| Key | Code point | UTF-16 code units |
+|-----|-----------|-------------------|
+| `😀` U+1F600 | `0x1F600` | `D83D DE00` |
+| `Ａ` U+FF21 | `0xFF21` | `FF21` |
+
+Code-point order puts `Ａ` first (`0xFF21 < 0x1F600`); code-unit order puts
+`😀` first (`0xD83D < 0xFF21`). Two SDKs disagreeing here produce different
+canonical bytes and therefore different digests for identical data.
+
+Per language:
+
+- **JavaScript**: `keys.sort()`, or `<`/`>` on the raw strings. JavaScript
+  strings are UTF-16 and its relational operators compare code units, so this
+  is already the required order. `String.prototype.localeCompare` is
+  **forbidden**: it orders by locale.
+- **Python**: `sorted(keys, key=lambda k: k.encode("utf-16-be"))`. Bare
+  `sorted()` is **forbidden**: Python compares code points and inverts against
+  JavaScript on astral keys. Comparing UTF-16 big-endian bytes lexicographically
+  is exactly comparing code-unit sequences numerically.
+
+A key that is not encodable text — a lone surrogate — is an **unsupported
+value**: no two implementations can agree on bytes that do not exist.
 
 ## Numbers
 
-- Integers within the IEEE-754 double safe range are emitted without a decimal
-  point or exponent.
-- Non-integer finite numbers are emitted using the shortest round-trip
-  representation.
+Numbers are serialized with the **ECMAScript `Number::toString` algorithm**
+(ECMA-262 §6.1.6.1.20), which RFC 8785 adopts. Round-tripping is necessary but
+not sufficient: two shortest round-trip representations of the same double can
+still be different text, and different text is a different digest.
+
+Concretely, ECMAScript switches between fixed and exponential notation at fixed
+thresholds and never zero-pads an exponent. Python's `repr` does neither, so
+`repr` MUST NOT be used directly:
+
+| Value | Python `repr` | ECMAScript (required) |
+|-------|---------------|----------------------|
+| `1e16` | `1e+16` | `10000000000000000` |
+| `1e20` | `1e+20` | `100000000000000000000` |
+| `1e-5` | `1e-05` | `0.00001` |
+| `1e-7` | `1e-07` | `1e-7` |
+| `1e21` | `1e+21` | `1e+21` |
+
 - `-0` is emitted as `0`.
+- Integers are emitted without a decimal point or exponent when the algorithm
+  above yields fixed notation, which it does for every integer up to `1e21`.
+- An **integer outside the IEEE-754 safe integer range** (`|v| > 2^53 - 1`) is
+  an **unsupported value**. JavaScript cannot hold it in a `Number` without
+  losing precision, so Python's arbitrary-precision `int` and a JavaScript
+  `Number` would silently disagree — the same divergence as `BigInt`, which is
+  already unsupported. A *float* of the same magnitude is fine: it round-trips
+  through a `Number` exactly and both languages serialize it identically.
 - `NaN`, `Infinity` and `-Infinity` are **unsupported values** (see below).
   They are NOT emitted as `null`, which is what bare `JSON.stringify` does.
 
@@ -59,18 +105,29 @@ and `sorted()` in Python, which both compare by code unit.
 ## Unsupported values
 
 The following make a manifest **incomplete**: `NaN`, `Infinity`, `-Infinity`,
-`undefined` in an array, functions, symbols, `BigInt`, circular references, and
-any object that is not a plain object, array, string, number, boolean or null
-(including `Date`, `Map`, `Set`, class instances and `Proxy`).
+`undefined` in an array, functions, symbols, `BigInt`, integers outside the
+IEEE-754 safe integer range, lone surrogates in a string or key, circular
+references, and any object that is not a plain object, array, string, number,
+boolean or null (including `Date`, `Map`, `Set`, class instances and `Proxy`).
 
 When a manifest is incomplete the implementation MUST return
-`state: "unknown"` with no digest.
+`state: "unknown"` with no digest. It MUST signal this through the one error
+type the caller is documented to catch. An implementation that lets a different
+exception escape (a `UnicodeEncodeError` from an un-encodable string, say)
+crashes the run instead of degrading to `unknown`, which is a fail-open in the
+other direction: the caller never gets the chance to record the honest answer.
 
 It MUST NOT coerce the value and continue. Python's
 `json.dumps(..., default=str)` does exactly this — it stringifies whatever it
 cannot serialize — which produces a digest that looks verified but silently
 depends on an object's `repr`. That is the specific trap fp2 exists to close.
 `default=str` is forbidden in every fp2 implementation.
+
+The same trap reappears one level down, and implementations MUST close it
+there too: `repr`/`toString` on a **numeric subclass** is caller-controlled.
+`repr(numpy.float64(0.1))` is `np.float64(0.1)`, not `0.1`. A number MUST be
+converted to the exact builtin type before it is formatted, so that no
+user-defined `repr` can reach the canonical bytes.
 
 ## Manifests
 

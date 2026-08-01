@@ -150,7 +150,7 @@
                       "digest": {
                         "type": ["string", "null"],
                         "pattern": "^sha256:[0-9a-f]{64}$",
-                        "description": "Algorithm-prefixed digest over the manifest. Required when state is 'verified'; must be absent or null when state is 'unknown'."
+                        "description": "Algorithm-prefixed digest over the manifest. Required when state is 'verified'; must be absent or null when state is 'unknown'. Both directions are structurally enforced by the allOf below: an 'unknown' carrying a digest would let a consumer compare it and read two incomparable runs as equal, which is the whole failure state 'unknown' exists to prevent."
                       },
                       "state": {
                         "type": "string",
@@ -163,6 +163,10 @@
                       {
                         "if": { "properties": { "state": { "const": "verified" } }, "required": ["state"] },
                         "then": { "required": ["digest"], "properties": { "digest": { "type": "string" } } }
+                      },
+                      {
+                        "if": { "properties": { "state": { "const": "unknown" } }, "required": ["state"] },
+                        "then": { "properties": { "digest": { "type": "null" } } }
                       }
                     ]
                   }

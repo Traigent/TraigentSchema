@@ -54,7 +54,7 @@ def test_versions_are_optional() -> None:
     assert errors == [], f"Expected clean validation, got: {errors}"
 
 
-def test_unknown_state_requires_no_digest() -> None:
+def test_unknown_state_is_expressible_without_a_digest() -> None:
     versions = _versions()
     versions["dataset"] = {"schema": "dfp2o", "digest": None, "state": "unknown"}
 
@@ -63,6 +63,40 @@ def test_unknown_state_requires_no_digest() -> None:
     )
 
     assert errors == [], f"unknown state must be expressible without a digest: {errors}"
+
+
+def test_unknown_state_must_not_carry_a_digest() -> None:
+    """The other direction, and the one that matters for fail-closed.
+
+    'unknown' means the manifest could not be completed, so there is nothing
+    for a digest to be a digest OF. Letting one through gives a consumer a
+    comparable-looking value for an incomparable run: unknown would read as
+    equal to something, which is exactly what the state exists to prevent.
+    """
+    versions = _versions()
+    versions["evaluator"] = {
+        "schema": "efp2",
+        "digest": "sha256:" + "d" * 64,
+        "state": "unknown",
+    }
+
+    errors = _validator().validate_request(
+        "/api/v1/sessions", "POST", _payload(artifact_versions=versions)
+    )
+
+    assert errors, "An 'unknown' version carrying a digest must be rejected"
+
+
+def test_unknown_state_may_omit_the_digest_key_entirely() -> None:
+    """Absent and explicit-null are both honest ways to say 'no digest'."""
+    versions = _versions()
+    versions["evaluator"] = {"schema": "efp2", "state": "unknown"}
+
+    errors = _validator().validate_request(
+        "/api/v1/sessions", "POST", _payload(artifact_versions=versions)
+    )
+
+    assert errors == [], f"omitting digest under unknown must validate: {errors}"
 
 
 def test_verified_state_requires_a_digest() -> None:

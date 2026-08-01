@@ -487,8 +487,18 @@ def test_group_identity_never_leaks_tvars_kpis_or_fingerprints() -> None:
         "name",
     }
     assert not (identity_properties & forbidden)
-    # Identity remains exactly agent_id + canonical dataset_id.
-    assert {"agent_id", "dataset_id"} <= identity_properties
+    # Identity is agent_id + canonical dataset_id for a cohort, or run_id for an
+    # unidentified singleton, discriminated by identity_state.
+    assert {"agent_id", "dataset_id", "run_id", "identity_state"} <= identity_properties
+    # Pinned as an exact set, not a subset: a subset check silently tolerates a
+    # new identity field, which is how run_id itself landed here without the
+    # contract's own identity invariant being updated to mention it.
+    assert {name for name in identity_properties if name.endswith("_id")} == {
+        "group_id",
+        "agent_id",
+        "dataset_id",
+        "run_id",
+    }
 
 
 # ---- Wave A: full-group column manifest ----
@@ -1413,10 +1423,14 @@ def test_group_list_tie_break_is_canonical_identity_not_opaque_group_id() -> Non
     )
     assert "configuration_run_id ascending" in query_sort_desc
 
-    # (8) Identity remains exactly scope + agent_id + canonical dataset_id: the
-    #     tie-break change added no new identity field and dropped none.
+    # (8) Identity is scope + agent_id + canonical dataset_id for a cohort, or
+    #     run_id for an unidentified singleton. run_id also joins the tie-break:
+    #     singletons all carry a null agent_id, so (agent_id, dataset_id) alone
+    #     stopped being a total order the moment they were introduced.
     identity_properties = set(schema["definitions"]["ExperimentGroupOverview"]["properties"])
-    assert {"agent_id", "dataset_id"} <= identity_properties
+    assert {"agent_id", "dataset_id", "run_id"} <= identity_properties
+    for haystack in (sort_field_desc, top_desc):
+        assert "run_id ascending" in haystack
 
 
 def test_contract_documents_auth_non_disclosure_and_pagination_invariants() -> None:

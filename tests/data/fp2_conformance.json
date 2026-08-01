@@ -1,0 +1,26 @@
+{
+  "spec": "fp2",
+  "note": "Markers @@NAN@@/@@INF@@/@@UNDEFINED@@/@@BIGINT@@/@@DATE@@ are substituted with the language's native value by each SDK's harness.",
+  "cases": [
+    {"name": "empty_object", "value": {}, "expect": "ok", "canonical": "{}", "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"},
+    {"name": "empty_array", "value": [], "expect": "ok", "canonical": "[]", "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"},
+    {"name": "flat_object", "value": {"b": 1, "a": 2}, "expect": "ok", "canonical": "{\"a\":2,\"b\":1}", "digest": "sha256:d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772"},
+    {"name": "uppercase_sorts_before_lowercase", "value": {"Z": 1, "a": 2}, "expect": "ok", "canonical": "{\"Z\":1,\"a\":2}", "digest": "sha256:b19fcf144d639e7ba9a9d01385685d8aa19699bff9fa3e916f61935afabcd8e9"},
+    {"name": "nested", "value": {"outer": {"inner": [1, 2, {"k": "v"}]}}, "expect": "ok", "canonical": "{\"outer\":{\"inner\":[1,2,{\"k\":\"v\"}]}}", "digest": "sha256:7edffdd677549aaf2f1b7cbeb4e960359117b3ba495a487f6a207541c79e0a26"},
+    {"name": "null_value_is_kept", "value": {"a": 1, "b": null}, "expect": "ok", "canonical": "{\"a\":1,\"b\":null}", "digest": "sha256:46e0ff59f6164548317489fbea1133a48f7a83c325c3535e44559c9619afb76b"},
+    {"name": "booleans", "value": {"t": true, "f": false}, "expect": "ok", "canonical": "{\"f\":false,\"t\":true}", "digest": "sha256:c22848c47426fcf4d27e55573c22f1d23546315c251e8e4bc384820ba5fae568"},
+    {"name": "negative_zero", "value": {"n": -0.0}, "expect": "ok", "canonical": "{\"n\":0}", "digest": "sha256:f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"},
+    {"name": "integral_float", "value": {"n": 3.0}, "expect": "ok", "canonical": "{\"n\":3}", "digest": "sha256:215ddd5567ca2590efd4ea109b4e56cbe591e2676fbf54a9262692c539166da6"},
+    {"name": "fractional_float", "value": {"n": 0.1}, "expect": "ok", "canonical": "{\"n\":0.1}", "digest": "sha256:c20c34ed16c837e86b4dcdb33f98c274c9f7da1231f64302082d2cd50743f951"},
+    {"name": "non_ascii_literal", "value": {"k": "héllo"}, "expect": "ok", "canonical": "{\"k\":\"héllo\"}", "digest": "sha256:d3352a192f21ed49ab7d14dbc8b24d71f95b178a227b9e2bbb6e10e584bbaa8f"},
+    {"name": "escapes", "value": {"k": "a\"b\\c\nd"}, "expect": "ok", "canonical": "{\"k\":\"a\\\"b\\\\c\\nd\"}", "digest": "sha256:491e4aa6b126ff691599a664d377fa349e3f64663e1ea607a4dec189a317ea78"},
+    {"name": "unicode_key_ordering", "value": {"é": 1, "e": 2}, "expect": "ok", "canonical": "{\"e\":2,\"é\":1}", "digest": "sha256:ae0cc153856ae8fdab2420c8f8e36a9f9cd47c4b1a73531be4bd7dc8092fa69e"},
+    {"name": "dataset_rows_ordered", "value": {"kind": "dfp2o", "rows": [{"input": "a", "expected": "1"}, {"input": "b", "expected": "2"}]}, "expect": "ok", "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"1\",\"input\":\"a\"},{\"expected\":\"2\",\"input\":\"b\"}]}", "digest": "sha256:4322d39db182cb078f5e8efd2b960ccaba8cbaa14cfb19e1678e2504e61f6e15"},
+    {"name": "dataset_rows_reversed_differs", "value": {"kind": "dfp2o", "rows": [{"input": "b", "expected": "2"}, {"input": "a", "expected": "1"}]}, "expect": "ok", "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"2\",\"input\":\"b\"},{\"expected\":\"1\",\"input\":\"a\"}]}", "digest": "sha256:b6fad64456a60a0ebde025c448cc3559e88e31c69dd072bc71cefd21dc025bdb"},
+    {"name": "nan", "value": {"n": "@@NAN@@"}, "expect": "unsupported"},
+    {"name": "infinity", "value": {"n": "@@INF@@"}, "expect": "unsupported"},
+    {"name": "undefined_in_array", "value": {"a": ["@@UNDEFINED@@"]}, "expect": "unsupported"},
+    {"name": "bigint", "value": {"n": "@@BIGINT@@"}, "expect": "language_specific"},
+    {"name": "date", "value": {"d": "@@DATE@@"}, "expect": "unsupported"}
+  ]
+}

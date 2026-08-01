@@ -73,7 +73,12 @@ def _utf16_sort_key(value: str) -> bytes:
     try:
         return value.encode("utf-16-be")
     except UnicodeEncodeError as error:
-        raise Fp2UnsupportedValue(f"string is not encodable text: {value!r}") from error
+        # The offending text is NOT echoed. fp2 runs over dataset rows and agent
+        # bound state, so any value here may be user content, and an exception
+        # message is one of the most reliably logged strings in a system.
+        raise Fp2UnsupportedValue(
+            f"string is not encodable text (lone surrogate at index {error.start})"
+        ) from error
 
 
 def _encode_string(value: str) -> str:
@@ -143,22 +148,22 @@ def _ecmascript_number_to_string(value: float) -> str:
 
 
 def _encode_float(value: float) -> str:
+    # Reached only for an exact float. A subclass would carry a caller-defined
+    # __repr__/__float__ (numpy.float64 renders as "np.float64(0.1)") and is
+    # rejected by the exact-type dispatch before it gets here.
     if math.isnan(value) or math.isinf(value):
-        raise Fp2UnsupportedValue(f"non-finite number: {value!r}")
-    # float() strips any subclass: repr() on a float subclass is caller-defined
-    # (numpy.float64 renders as "np.float64(0.1)"), which is precisely the
-    # repr-dependent digest fp2 exists to prevent.
-    return _ecmascript_number_to_string(float(value))
+        raise Fp2UnsupportedValue("non-finite number (NaN or Infinity)")
+    return _ecmascript_number_to_string(value)
 
 
 def _encode_int(value: int) -> str:
-    exact = int(value)  # strip int subclasses (IntEnum, numpy integers)
-    if abs(exact) > _MAX_SAFE_INTEGER:
+    # Exact int only; a subclass could override __int__ and choose its own digits.
+    if abs(value) > _MAX_SAFE_INTEGER:
         raise Fp2UnsupportedValue(
-            f"integer outside the IEEE-754 safe range, not representable as a "
-            f"JavaScript Number: {exact}"
+            "integer outside the IEEE-754 safe range, not representable as a "
+            f"JavaScript Number (limit {_MAX_SAFE_INTEGER})"
         )
-    return str(exact)
+    return str(value)
 
 
 # Work-stack entry tags for the iterative encoder.
@@ -200,17 +205,23 @@ def _encode(root: Any) -> str:
         if value is False:
             out.append("false")
             continue
-        if isinstance(value, str):
+        # Exact types only. isinstance() would admit subclasses, and a subclass
+        # decides its own __iter__/items()/__int__/__float__ -- so user code,
+        # not this function, would choose the canonical bytes. That is the same
+        # hole as formatting through repr(), reached through a different door.
+        # The spec already calls class instances unsupported; this makes the
+        # implementation agree with it.
+        if type(value) is str:
             out.append(_encode_string(value))
             continue
-        if isinstance(value, int):
+        if type(value) is int:
             out.append(_encode_int(value))
             continue
-        if isinstance(value, float):
+        if type(value) is float:
             out.append(_encode_float(value))
             continue
 
-        if isinstance(value, (list, tuple, dict)):
+        if type(value) in (list, dict):
             if depth > MAX_DEPTH:
                 raise Fp2UnsupportedValue(
                     f"manifest nests deeper than the fp2 limit of {MAX_DEPTH}"
@@ -222,10 +233,16 @@ def _encode(root: Any) -> str:
 
             # Children are pushed reversed so they pop in emission order.
             pending: list[tuple[int, Any, int]] = []
-            if isinstance(value, dict):
+            if type(value) is dict:
                 for key in value:
-                    if not isinstance(key, str):
-                        raise Fp2UnsupportedValue(f"non-string object key: {key!r}")
+                    # Exact type for KEYS as well as values. A str subclass can
+                    # override encode(), and encode() produces the UTF-16 sort
+                    # key -- so a subclassed key chooses the ordering of the
+                    # whole object, and the result is a *verified* digest.
+                    if type(key) is not str:
+                        raise Fp2UnsupportedValue(
+                            f"object key is not a plain string: {type(key).__name__}"
+                        )
                 items = sorted(value.items(), key=lambda item: _utf16_sort_key(item[0]))
                 out.append("{")
                 for index, (key, item) in enumerate(items):
@@ -267,8 +284,12 @@ def canonicalize(value: Any) -> str:
     except Fp2UnsupportedValue:
         raise
     except Exception as error:  # noqa: BLE001 - deliberate, see docstring
+        # Only the exception TYPE is reported. A foreign exception's message can
+        # embed caller data (a KeyError naming a user key, for instance), and
+        # fp2 messages must stay content-free. The original is kept on __cause__
+        # for a developer holding the traceback.
         raise Fp2UnsupportedValue(
-            f"manifest could not be canonicalized: {type(error).__name__}: {error}"
+            f"manifest could not be canonicalized ({type(error).__name__})"
         ) from error
 
 
@@ -286,5 +307,5 @@ def digest(value: Any) -> str:
         raise
     except Exception as error:  # noqa: BLE001 - deliberate, see canonicalize
         raise Fp2UnsupportedValue(
-            f"manifest could not be digested: {type(error).__name__}: {error}"
+            f"manifest could not be digested ({type(error).__name__})"
         ) from error

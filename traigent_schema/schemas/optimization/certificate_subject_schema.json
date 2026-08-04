@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/certificate_subject_schema.json",
+  "title": "Traigent Guarantee Certificate Subject",
+  "description": "What a guarantee certificate is ABOUT. v1 certificates carried spec_hash, so the certificate was a member of the object whose digest it contained - circular, and uncomputable if spec_hash were to cover the certificate. The consequence was that validation had to be stripped from spec_hash, leaving the subtree labelled 'guaranteed' as the one region the integrity digest did not cover. Binding the subject to config_hash plus identity removes the circularity, so spec_hash can cover the complete spec including the certificate. SCOPE, stated so it is not over-read: the certificate certifies the selection of THIS configuration under THIS identity. It does not certify provenance or any other validation content. Two specs with an identical config and identity but different provenance are the same subject; they are distinguished by spec_hash and versioned separately, which is the correct division of labour.",
+  "type": "object",
+  "required": [
+    "hash_algorithm",
+    "config_hash",
+    "config_id",
+    "function_ref",
+    "environment",
+    "best_config_schema_version"
+  ],
+  "properties": {
+    "hash_algorithm": {
+      "description": "The algorithm under which config_hash was computed. Present so a subject can never be compared across algorithms.",
+      "$ref": "./best_config_hash_contract_schema.json#/definitions/hash_algorithm"
+    },
+    "config_hash": {
+      "description": "Digest of the raw published spec.config. The certificate binds this rather than spec_hash.",
+      "$ref": "./best_config_hash_contract_schema.json#/definitions/sha256_digest"
+    },
+    "config_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "function_ref": {
+      "description": "Required as a member, but explicitly nullable: a config need not be bound to a function. null is a deliberate assertion that there is no function binding, distinct from the field being absent, so a subject can never be silently under-specified.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "environment": {
+      "$ref": "./best_config_v2_schema.json#/definitions/best_config_environment"
+    },
+    "best_config_schema_version": {
+      "description": "The spec envelope the certified config was expressed in, so a subject issued against one envelope cannot be replayed against another.",
+      "type": "string",
+      "enum": [
+        "traigent.best_config.v2"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

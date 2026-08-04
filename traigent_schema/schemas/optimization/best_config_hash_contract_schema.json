@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/best_config_hash_contract_schema.json",
+  "title": "Traigent Best Config Hash Contract",
+  "description": "Normative definitions for the best-config integrity digests. Before this contract existed the response schema constrained only the digest FORMAT, so each implementation invented its own preimage and canonicalization and they diverged. Every producer and consumer of a best-config digest MUST conform to the definitions here. Threat model: these are bare SHA-256 digests with no signature or MAC, so they detect corruption, truncation, encoding damage, partial writes and wrong-record delivery. They are NOT authentication: an actor able to write storage can rewrite content and digests together. Authenticated tamper evidence would require signatures and is deliberately out of scope.",
+  "type": "object",
+  "definitions": {
+    "hash_algorithm": {
+      "description": "Identifies the canonicalization and preimage rules used to produce every digest on a record. Carried OUTSIDE the hashed spec, alongside the digests, so a record is self-describing without being self-referential. A consumer meeting an unknown value MUST fail closed: never fall back to another algorithm, because that is a downgrade path.",
+      "type": "string",
+      "enum": [
+        "v1"
+      ]
+    },
+    "sha256_digest": {
+      "description": "Lowercase hex SHA-256 with an explicit prefix, so a digest is never mistaken for an opaque token.",
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "domain_tag": {
+      "description": "Domain separator bound into every preimage. The preimage is `domain_tag || 0x00 || canonical_bytes`. The NUL separator is unambiguous because tags are ASCII and fp2 canonical JSON escapes NUL as \\u0000 rather than emitting a raw byte. Domain separation prevents a digest computed for one role being accepted for another (role substitution, cross-protocol comparison, wrong-digest wiring) - all failures within the corruption/wrong-record model above. It adds no authentication. The algorithm version is a component of the tag, so changing hash_algorithm necessarily changes every digest.",
+      "type": "string",
+      "enum": [
+        "traigent.best_config.config.v1",
+        "traigent.best_config.spec.v1"
+      ]
+    },
+    "canonicalization": {
+      "description": "The fp2 canonicalization profile (traigent_schema/fp2.py, normative document docs/fingerprints/fp2.md, conformance corpus tests/data/fp2_conformance.json). fp2 is the single reference implementation: it fixes RFC 8785 number formatting via the ECMAScript Number::toString algorithm, orders object keys by UTF-16 code unit rather than code point, and rejects rather than coerces values it cannot represent identically in every language. Strings preserve their Unicode CODE-POINT sequence; they are not normalized, and the phrase 'byte-for-byte' would be inaccurate because canonicalization does not preserve original JSON escaping or transport bytes.",
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "const": "fp2"
+        },
+        "max_depth": {
+          "description": "Containers from the root. Normative rather than left to each runtime's stack, so implementations agree on which payloads are digestible at all.",
+          "type": "integer",
+          "const": 100
+        },
+        "max_canonical_spec_bytes": {
+          "description": "Upper bound on the UTF-8 length of the canonical spec text. Bounds the cost of recursive key ordering on untrusted input.",
+          "type": "integer",
+          "const": 262144
+        }
+      },
+      "required": [
+        "profile",
+        "max_depth",
+        "max_canonical_spec_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "rejected_values": {
+      "description": "Values that MUST be rejected before canonicalization, in every implementation and every language. Rejection is required rather than resolution: any silent coercion produces a digest that looks verified while depending on one runtime's accident. Duplicate property names in particular CANNOT be detected after parsing, because the parser has already collapsed them - detection requires a duplicate-aware decoder at the HTTP or file boundary, before objects are materialized.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "duplicate_property_name",
+          "lone_surrogate",
+          "non_finite_number",
+          "unsafe_integral_number",
+          "exceeds_max_depth",
+          "exceeds_max_canonical_spec_bytes"
+        ]
+      }
+    },
+    "digest_roles": {
+      "description": "One role per digest. Before this contract, a single digest served several purposes and its meaning drifted between the raw published config, the allowlist-filtered config, and the defaults-merged runtime config.",
+      "type": "object",
+      "properties": {
+        "config_hash": {
+          "description": "Digest of the exact raw spec.config AS PUBLISHED, before any allowlist filtering or default merging. This is the value certificates bind, manifests record and the backend stores. It is the identity of the configuration itself.",
+          "$ref": "#/definitions/sha256_digest"
+        },
+        "spec_hash": {
+          "description": "Digest of the COMPLETE spec object, with no exclusion list. Because certificates bind config_hash plus identity rather than spec_hash, no circularity arises and validation and certificate content are covered. A changed certificate therefore changes spec_hash, which closes a gap where updated certificate evidence was silently discarded when spec_hash was unchanged.",
+          "$ref": "#/definitions/sha256_digest"
+        }
+      },
+      "required": [
+        "config_hash",
+        "spec_hash"
+      ],
+      "additionalProperties": false
+    },
+    "normalization_policy": {
+      "description": "Normalize internal identifiers. Never normalize customer content. Prompts, system messages and configuration values are customer content, where fidelity is the point: NFC-normalizing them changes the bytes sent to a model, and therefore tokenization and output. Internally-constructed identifiers may be normalized, because canonical equality is the point there. Consequently NFC and NFD spellings of visually identical text are DISTINCT values with distinct digests under this contract, and are delivered to the caller unchanged.",
+      "type": "object",
+      "properties": {
+        "customer_content": {
+          "type": "string",
+          "const": "preserve"
+        },
+        "internal_identifiers": {
+          "type": "string",
+          "const": "may_normalize"
+        }
+      },
+      "required": [
+        "customer_content",
+        "internal_identifiers"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

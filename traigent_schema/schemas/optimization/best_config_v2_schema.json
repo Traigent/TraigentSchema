@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/best_config_v2_schema.json",
+  "title": "Traigent Best Config v2",
+  "description": "Canonical promoted runtime configuration selected by an optimization run. v2 differs from v1 in one respect only: every EVENT TIMESTAMP is removed from provenance. v1 carried published_at, exported_at and created_at, all minted at the moment of an action, which made an otherwise identical republished config look new and forced the integrity digest to exclude provenance in order to keep republishing idempotent. Removing the volatility at source is strictly better than excluding evidence from the digest: provenance now contains only stable facts, so spec_hash covers the complete spec with no exclusion list. Publication time belongs to server-owned version metadata; export time belongs to the repo-manifest envelope. v1 remains packaged and readable so the migration can read both.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "config_id",
+    "config"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "traigent.best_config.v2"
+    },
+    "config_id": {
+      "description": "Stable, caller-chosen identity for the configuration. Deriving it from a function name couples identity to code, so a rename orphans history; callers SHOULD set it explicitly.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "not": {
+        "pattern": "[/\\\\\\u0000]"
+      }
+    },
+    "function_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*(\\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$"
+    },
+    "environment": {
+      "$ref": "#/definitions/best_config_environment"
+    },
+    "config": {
+      "description": "The promoted configuration exactly as published. config_hash is computed over this object BEFORE any allowlist filtering or default merging, so the digest is stable regardless of what a particular runtime chooses to apply. Values are customer content and are never normalized.",
+      "type": "object",
+      "maxProperties": 512,
+      "additionalProperties": true
+    },
+    "provenance": {
+      "description": "Stable evidence about where this configuration came from. Event timestamps are deliberately absent - see the schema description. Because nothing here is volatile, provenance is covered by spec_hash rather than excluded from it, and a genuinely new optimization_id correctly produces a new version.",
+      "type": "object",
+      "maxProperties": 128,
+      "properties": {
+        "algorithm": {
+          "$ref": "./optimization_strategy_schema.json#/definitions/SupportedOptimizationStrategyName"
+        },
+        "optimization_id": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "source_optimization_id": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "source_session_id": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "traigent_version": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "description": "Validation evidence, including any guaranteed-selection result. Covered by spec_hash in full: v1 stripped guaranteed-selection claims here because the certificate contained spec_hash, which was circular. v2 rebinds the certificate to config_hash plus identity, so nothing needs stripping.",
+      "type": "object",
+      "maxProperties": 128,
+      "additionalProperties": true
+    },
+    "forward_compat": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "best_config_environment": {
+      "type": "string",
+      "enum": [
+        "default",
+        "dev",
+        "development",
+        "test",
+        "staging",
+        "prod",
+        "production"
+      ]
+    }
+  }
+}

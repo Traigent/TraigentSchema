@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/best_config_manifest_v2_schema.json",
+  "title": "Traigent Best Config Repo Manifest v2",
+  "description": "Index of best-config specs committed to a repository. Note this envelope had a version constant in the SDK (traigent.best_config_manifest.v1) but no schema anywhere - the shape was governed by one implementation's code. v2 governs it here and adds two things. First, every entry carries hash_algorithm, so a manifest written under one algorithm can never be verified under another: an entry whose algorithm a reader does not recognise is INVALID rather than upgradable, and the reader fails closed. Second, exported_at moves here from the spec's provenance. Export time is a fact about producing this manifest, not about the configuration, and keeping it inside the spec is what made an otherwise identical config hash differently on every export. A repo manifest is a user artifact under version control - not a reconstructible cache - so migration must back it up and regenerate it from its spec source rather than deleting it.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "configs"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "traigent.best_config_manifest.v2"
+    },
+    "exported_at": {
+      "description": "When this manifest was written. Envelope metadata, deliberately outside any hashed spec.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "configs": {
+      "description": "One entry per config_id. The key is the config_id; entries carry no config content, only the pointer and the digests needed to verify the spec file on load.",
+      "type": "object",
+      "maxProperties": 512,
+      "additionalProperties": {
+        "$ref": "#/definitions/manifest_entry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "manifest_entry": {
+      "type": "object",
+      "required": [
+        "path",
+        "spec_hash",
+        "config_hash",
+        "hash_algorithm"
+      ],
+      "properties": {
+        "path": {
+          "description": "Spec filename relative to the manifest. A bare filename, never a traversing or absolute path.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "not": {
+            "pattern": "(^/)|(^[A-Za-z]:)|(\\.\\.)|[\\\\\\u0000]"
+          }
+        },
+        "spec_hash": {
+          "$ref": "./best_config_hash_contract_schema.json#/definitions/sha256_digest"
+        },
+        "config_hash": {
+          "$ref": "./best_config_hash_contract_schema.json#/definitions/sha256_digest"
+        },
+        "hash_algorithm": {
+          "description": "Required per entry rather than once per manifest: entries are written independently over time, so a single envelope-level value would silently mislabel any entry written under a different algorithm.",
+          "$ref": "./best_config_hash_contract_schema.json#/definitions/hash_algorithm"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

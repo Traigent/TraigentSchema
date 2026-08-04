@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/guarantee_certificate_v2_delta_schema.json",
+  "title": "Guarantee Certificate v2 — binding delta",
+  "description": "The v1 -> v2 delta for the certificate's BINDING fields only. Deliberately a delta rather than a full copy of guarantee_certificate_schema.json: that schema carries ~19 required statistical fields (delta, epsilon, ci_method, quality_ci, sample_count and the rest) which v2 does not change, and duplicating them would create two definitions of the same statistics that drift apart. The full v2 certificate is the v1 statistical body with the binding fields replaced as specified here; the composition is asserted by the contract tests. What changes: v1 carried loose spec_hash / config_hash / config_id fields, each independently nullable, so a certificate could be issued with none of them set and still validate - the binding was optional in the schema and only enforced later, in backend gate code. v2 replaces them with a single REQUIRED subject object whose members are all required, so an unbound certificate is unrepresentable rather than merely rejected downstream. spec_hash is removed outright: a certificate containing the digest of the record that contains it is circular, and that circularity is the sole reason validation had to be excluded from spec_hash.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "traigent.guarantee_certificate.v2"
+    },
+    "subject": {
+      "description": "What this certificate is about. Required, and every member within it is required.",
+      "$ref": "./certificate_subject_schema.json"
+    },
+    "runtime_config_hash": {
+      "description": "Retained from v1 unchanged. Freshness hook: the gate may compare this against the CURRENT runtime environment, which is a different question from what the certificate is about, so it stays outside subject.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "price_snapshot_hash": {
+      "description": "Retained from v1 unchanged. Freshness hook, as above.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  },
+  "definitions": {
+    "removed_in_v2": {
+      "description": "Recorded so the removal is a documented contract decision rather than an omission a future reader might restore. spec_hash: circular, see the schema description. config_hash and config_id: not removed but MOVED into subject, where they became required rather than nullable.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "spec_hash"
+        ]
+      }
+    }
+  }
+}

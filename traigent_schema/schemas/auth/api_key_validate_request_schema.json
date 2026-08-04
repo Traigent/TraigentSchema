@@ -4,7 +4,7 @@
   "title": "API Key Validation Request",
   "description": "Optional JSON-body form for POST /api/v1/keys/validate. The endpoint also accepts the X-API-Key request header.",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "api_key": {
       "type": "string",

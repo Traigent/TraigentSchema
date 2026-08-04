@@ -31,7 +31,7 @@
           {"name": "key_type", "in": "query", "schema": {"type": "string", "enum": ["user", "service", "admin", "temporary", "readonly", "system"]}},
           {"name": "search", "in": "query", "schema": {"type": "string", "maxLength": 255}},
           {"name": "include_expired", "in": "query", "schema": {"type": "boolean", "default": false}},
-          {"name": "scope", "in": "query", "schema": {"type": "string", "enum": ["all", "user"]}}
+          {"name": "scope", "in": "query", "schema": {"type": "string", "enum": ["all", "user"], "default": "user"}}
         ],
         "responses": {
           "200": {"description": "API keys page.", "content": {"application/json": {"schema": {"$ref": "./api_key_list_response_schema.json"}}}},
@@ -44,6 +44,14 @@
     },
     "/api/v1/keys/{key_id}": {
       "parameters": [{"name": "key_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 128}}],
+      "get": {
+        "summary": "Get API key",
+        "operationId": "getApiKey",
+        "responses": {
+          "200": {"description": "API key detail.", "content": {"application/json": {"schema": {"$ref": "./api_key_detail_response_schema.json"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
       "put": {
         "summary": "Update API key",
         "operationId": "updateApiKey",

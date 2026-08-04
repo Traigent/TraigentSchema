@@ -32,7 +32,11 @@
     "created_at": {"type": ["string", "null"], "format": "date-time"},
     "updated_at": {"type": ["string", "null"], "format": "date-time"},
     "is_active": {"type": "boolean"},
-    "needs_rotation": {"type": "boolean"}
+    "needs_rotation": {"type": "boolean"},
+    "allowed_ips": {"type": ["array", "null"], "items": {"type": "string"}},
+    "custom_metadata": {"type": ["object", "null"]},
+    "last_used_ip": {"type": ["string", "null"], "maxLength": 45},
+    "analytics": {"type": "object", "additionalProperties": true}
   },
   "required": ["id", "key_id", "key_prefix", "user_id", "tenant_id", "project_id", "key_type", "key_name", "description", "status", "version", "parent_key_id", "permissions", "scopes", "rate_limit_tier", "custom_rate_limits", "rotation_enabled", "rotation_interval_days", "last_rotated_at", "next_rotation_at", "expires_at", "last_used_at", "usage_count", "created_at", "updated_at", "is_active", "needs_rotation"]
 }

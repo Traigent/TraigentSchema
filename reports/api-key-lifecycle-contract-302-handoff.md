@@ -15,6 +15,11 @@
   field from the stale `create_secret` to live `data.key`.
 - Added lifecycle contract regressions to
   `tests/test_admin_onboarding_contract.py` and restamped the parity manifest.
+- Catalogued GET `/api/v1/keys/{key_id}` and its optional management-visible
+  fields.  The list `scope` default is explicitly `user`.
+- The suspend and validation body schemas remain permissive for extra fields,
+  matching the current routes' documented-field parsing.  Rotate and update
+  retain their live strict request validation.
 
 ## Deliberate boundaries
 
@@ -28,7 +33,8 @@ while the checked-in lock still selected 0.15.20; `uv lock --check` now passes.
 ## Verification
 
 - `uv run --extra dev python -m pytest tests/test_admin_onboarding_contract.py -q -p no:cacheprovider`
-  — 21 passed.
+  — 32 passed.  The table-driven matrix covers every catalogued lifecycle
+  method, concrete success response schema, and all exposed defaults.
 - `uv run --extra dev ruff check traigent_schema tests/test_admin_onboarding_contract.py`
   — passed.
 - `uv run --extra dev python scripts/refresh_parity.py --check` — passed after

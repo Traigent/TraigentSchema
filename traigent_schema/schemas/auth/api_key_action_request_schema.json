@@ -4,7 +4,7 @@
   "title": "API Key Action Request",
   "description": "Optional request body for the API key suspend action.",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "reason": {"type": "string", "description": "Optional client-supplied reason."}
   }

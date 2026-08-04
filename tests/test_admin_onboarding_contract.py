@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
@@ -286,7 +288,7 @@ def test_lifecycle_action_and_validation_request_shapes() -> None:
     ) == []
     assert validator.validate_request(
         "/api/v1/keys/validate", "POST", {"api_key": "sk_example", "extra": True}
-    )
+    ) == []
 
 
 def test_create_and_update_rotation_fields_match_route_defaults() -> None:
@@ -312,3 +314,211 @@ def test_list_filters_match_public_route_vocabulary() -> None:
     assert names["per_page"]["maximum"] == 100
     assert names["include_expired"]["default"] is False
     assert names["scope"]["enum"] == ["all", "user"]
+    assert names["scope"]["default"] == "user"
+
+
+def _api_key_detail() -> dict:
+    return {
+        "id": 1,
+        "key_id": "key_123",
+        "key_prefix": "sk_test",
+        "user_id": "user_123",
+        "tenant_id": "tenant_123",
+        "project_id": None,
+        "key_type": "user",
+        "key_name": "automation",
+        "description": None,
+        "status": "ACTIVE",
+        "version": 1,
+        "parent_key_id": None,
+        "permissions": ["read"],
+        "scopes": ["experiments:read"],
+        "rate_limit_tier": "standard",
+        "custom_rate_limits": None,
+        "rotation_enabled": True,
+        "rotation_interval_days": 90,
+        "last_rotated_at": None,
+        "next_rotation_at": None,
+        "expires_at": None,
+        "last_used_at": None,
+        "usage_count": 0,
+        "created_at": "2026-08-04T00:00:00Z",
+        "updated_at": "2026-08-04T00:00:00Z",
+        "is_active": True,
+        "needs_rotation": False,
+    }
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "method", "request_data", "request_schema", "response_schema", "response"),
+    [
+        (
+            "/api/v1/keys",
+            "POST",
+            {"key_name": "automation"},
+            "api_key_create_request_schema",
+            "api_key_create_response_schema",
+            {
+                "success": True,
+                "message": "API key created successfully",
+                "data": {
+                    "key": "sk_example",
+                    "key_id": "key_123",
+                    "key_prefix": "sk_test",
+                    "key_name": "automation",
+                    "key_type": "user",
+                    "created_at": "2026-08-04T00:00:00Z",
+                },
+            },
+        ),
+        (
+            "/api/v1/keys",
+            "GET",
+            {},
+            None,
+            "api_key_list_response_schema",
+            {
+                "success": True,
+                "data": {
+                    "items": [_api_key_detail()],
+                    "pagination": {
+                        "page": 1,
+                        "per_page": 20,
+                        "total": 1,
+                        "total_pages": 1,
+                        "has_next": False,
+                        "has_prev": False,
+                    },
+                },
+            },
+        ),
+        (
+            "/api/v1/keys/key_123",
+            "GET",
+            {},
+            None,
+            "api_key_detail_response_schema",
+            {
+                "success": True,
+                "data": _api_key_detail()
+                | {
+                    "allowed_ips": ["127.0.0.1"],
+                    "custom_metadata": {"label": "value"},
+                    "last_used_ip": "127.0.0.1",
+                    "analytics": {"requests": 1},
+                },
+            },
+        ),
+        (
+            "/api/v1/keys/key_123",
+            "PUT",
+            {"rotation_enabled": True, "rotation_interval_days": 90},
+            "api_key_update_request_schema",
+            "api_key_detail_response_schema",
+            {"success": True, "message": "API key updated successfully", "data": _api_key_detail()},
+        ),
+        (
+            "/api/v1/keys/key_123",
+            "DELETE",
+            {},
+            None,
+            "api_key_action_response_schema",
+            {"success": True, "message": "API key revoked successfully"},
+        ),
+        (
+            "/api/v1/keys/key_123/rotate",
+            "POST",
+            {"strategy": "immediate"},
+            "api_key_rotate_request_schema",
+            "api_key_rotate_response_schema",
+            {
+                "success": True,
+                "message": "API key rotated successfully",
+                "data": {
+                    "old_key_id": "key_old",
+                    "new_key_id": "key_new",
+                    "new_key": "sk_example",
+                    "strategy": "immediate",
+                },
+            },
+        ),
+        (
+            "/api/v1/keys/key_123/suspend",
+            "POST",
+            {"reason": "temporary hold", "ignored_by_live_route": True},
+            "api_key_action_request_schema",
+            "api_key_action_response_schema",
+            {"success": True, "message": "API key suspended successfully"},
+        ),
+        (
+            "/api/v1/keys/key_123/reactivate",
+            "POST",
+            {},
+            None,
+            "api_key_action_response_schema",
+            {"success": True, "message": "API key reactivated successfully"},
+        ),
+        (
+            "/api/v1/keys/validate",
+            "POST",
+            {"api_key": "sk_example", "ignored_by_live_route": True},
+            "api_key_validate_request_schema",
+            "api_key_validate_response_schema",
+            {"valid": True},
+        ),
+    ],
+)
+def test_lifecycle_concrete_request_and_response_matrix(
+    endpoint: str,
+    method: str,
+    request_data: dict,
+    request_schema: str | None,
+    response_schema: str,
+    response: dict,
+) -> None:
+    validator = SchemaValidator()
+    catalog = _load(KEYS_ENDPOINTS)
+    normalized_endpoint = validator._normalize_endpoint(method, endpoint)
+    catalog_endpoint = endpoint.replace("key_123", "{key_id}")
+
+    if request_schema is None:
+        assert "requestBody" not in catalog["paths"][catalog_endpoint][method.lower()]
+    else:
+        assert validator.validate_request(endpoint, method, request_data) == []
+        assert validator._endpoint_schemas[f"{method}:{normalized_endpoint}"] == request_schema
+
+    assert validator.validate_json(response, response_schema) == []
+
+
+def test_validate_header_form_is_catalogued_without_a_json_body_requirement() -> None:
+    operation = _load(KEYS_ENDPOINTS)["paths"]["/api/v1/keys/validate"]["post"]
+    header = next(
+        parameter for parameter in operation["parameters"] if parameter["name"] == "X-API-Key"
+    )
+    assert header["in"] == "header"
+    assert header.get("required") is not True
+    assert operation["requestBody"].get("required") is not True
+
+
+def test_defaults_are_explicit_schema_metadata() -> None:
+    rotate = _load(SCHEMAS / "auth" / "api_key_rotate_request_schema.json")
+    create = _load(SCHEMAS / "auth" / "api_key_create_request_schema.json")
+    list_params = _load(KEYS_ENDPOINTS)["paths"]["/api/v1/keys"]["get"]["parameters"]
+    list_defaults = {item["name"]: item["schema"].get("default") for item in list_params}
+
+    assert rotate["properties"]["strategy"]["default"] == "immediate"
+    assert create["properties"]["key_type"]["default"] == "user"
+    assert create["properties"]["permissions"]["default"] == ["read"]
+    assert create["properties"]["scope_preset"]["default"] == "minimal"
+    assert create["properties"]["rotation_enabled"]["default"] is True
+    assert create["properties"]["rotation_interval_days"]["default"] == 90
+    assert create["properties"]["auto_rotate"]["default"] is False
+    assert list_defaults == {
+        "page": 1,
+        "per_page": 20,
+        "status": None,
+        "key_type": None,
+        "search": None,
+        "include_expired": False,
+        "scope": "user",
+    }

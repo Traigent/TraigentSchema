@@ -10,6 +10,7 @@ from __future__ import annotations
 import collections
 import json
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -101,7 +102,7 @@ def test_key_ordering_is_utf16_code_unit_not_code_point() -> None:
     cannot catch this; without this case a Python implementation using sorted()
     passes the whole corpus and still splits cohorts by client language.
     """
-    astral = "\U0001F600"
+    astral = "\U0001f600"
     bmp = "Ａ"
 
     assert astral.encode("utf-16-be").hex() == "d83dde00"
@@ -418,3 +419,32 @@ def test_non_ascii_is_emitted_literally() -> None:
 
 def test_digest_carries_its_algorithm_prefix() -> None:
     assert digest({"a": 1}).startswith("sha256:")
+
+
+def test_nfc_and_nfd_are_distinct_and_never_collapsed() -> None:
+    """fp2 preserves code points; it must NOT normalize.
+
+    This is load-bearing for the best-config hash contract: a prompt is customer
+    content, and NFC-normalizing it changes the bytes that reach a model, so the
+    canonicalizer has to leave both forms alone and let them hash differently.
+    An implementation that quietly normalized would still satisfy every other
+    case in the corpus -- the precomposed and decomposed spellings are visually
+    identical, so nothing else here would notice.
+    """
+    cases = {case["name"]: case for case in _cases()}
+
+    precomposed = cases["non_ascii_literal"]  # {"k": "h\u00e9llo"}, NFC
+    decomposed = cases["unicode_value_nfd_decomposed"]  # same text, NFD
+
+    assert precomposed["value"] != decomposed["value"], "fixtures must differ"
+    assert unicodedata.normalize("NFC", decomposed["value"]["k"]) == (precomposed["value"]["k"]), (
+        "the two fixtures must be the same text in different forms"
+    )
+
+    assert precomposed["digest"] != decomposed["digest"]
+    assert digest(decomposed["value"]) == decomposed["digest"]
+
+    # Keys too: a normalizing implementation would collapse these into one member.
+    key_case = cases["unicode_key_nfd_decomposed"]
+    assert digest(key_case["value"]) == key_case["digest"]
+    assert key_case["digest"] != precomposed["digest"]

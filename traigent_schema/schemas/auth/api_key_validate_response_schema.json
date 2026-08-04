@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_validate_response_schema.json",
+  "title": "API Key Validation Response",
+  "description": "Response from POST /api/v1/keys/validate.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "valid": {"type": "boolean"},
+    "error": {"type": "string", "minLength": 1},
+    "error_code": {"type": "string", "minLength": 1},
+    "message": {"type": "string", "minLength": 1},
+    "retry_after": {"type": "integer", "minimum": 0},
+    "remediation": {"type": "object"}
+  },
+  "required": ["valid"]
+}

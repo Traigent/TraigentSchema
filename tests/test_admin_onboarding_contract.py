@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
 SCHEMAS = get_schemas_dir()
@@ -94,6 +95,8 @@ def test_api_keys_post_error_responses_ref_envelope() -> None:
     responses = catalog["paths"]["/api/v1/keys"]["post"].get("responses", {})
     for code, response in responses.items():
         if code[0] in {"4", "5"} and code != "429":
+            if response.get("$ref", "").startswith("#/components/responses/"):
+                continue
             ref = (
                 response.get("content", {})
                 .get("application/json", {})
@@ -196,7 +199,8 @@ def test_api_key_create_request_schema_is_valid_json() -> None:
     with open(path, encoding="utf-8") as fh:
         schema = json.load(fh)
     assert schema.get("type") == "object"
-    assert "name" in schema.get("required", [])
+    assert "key_name" in schema.get("required", [])
+    assert "name" not in schema.get("properties", {})
 
 
 def test_api_key_resource_schema_is_valid_json() -> None:
@@ -206,7 +210,7 @@ def test_api_key_resource_schema_is_valid_json() -> None:
         schema = json.load(fh)
     assert schema.get("type") == "object"
     required = schema.get("required", [])
-    for field in ("key_id", "name", "prefix"):
+    for field in ("key", "key_id", "key_prefix", "key_name"):
         assert field in required, f"{field} must be required in api_key_resource_schema"
 
 
@@ -214,8 +218,97 @@ def test_api_key_resource_schema_has_privacy_annotation() -> None:
     path = SCHEMAS / "auth" / "api_key_resource_schema.json"
     with open(path, encoding="utf-8") as fh:
         schema = json.load(fh)
-    # create_secret must be marked as one-time
-    create_secret_prop = schema.get("properties", {}).get("create_secret", {})
-    assert create_secret_prop.get("x-one-time-field") is True, (
-        "create_secret must be annotated x-one-time-field=true to prevent caching/re-transmission"
+    key_prop = schema.get("properties", {}).get("key", {})
+    assert key_prop.get("x-one-time-field") is True, (
+        "key must be annotated x-one-time-field=true"
     )
+
+
+# ---------------------------------------------------------------------------
+# API-key lifecycle contract (#302)
+# ---------------------------------------------------------------------------
+
+
+def test_api_key_lifecycle_routes_are_catalogued() -> None:
+    paths = _load(KEYS_ENDPOINTS)["paths"]
+    for path, method in (
+        ("/api/v1/keys", "get"),
+        ("/api/v1/keys/{key_id}", "put"),
+        ("/api/v1/keys/{key_id}", "delete"),
+        ("/api/v1/keys/{key_id}/rotate", "post"),
+        ("/api/v1/keys/{key_id}/suspend", "post"),
+        ("/api/v1/keys/{key_id}/reactivate", "post"),
+        ("/api/v1/keys/validate", "post"),
+    ):
+        assert method in paths[path], f"{method.upper()} {path} is absent"
+
+
+def test_rotate_request_defaults_and_rejects_legacy_fields() -> None:
+    validator = SchemaValidator()
+    path = "/api/v1/keys/key_123/rotate"
+
+    assert validator.validate_request(path, "POST", {}) == []
+    assert validator.validate_request(
+        path, "POST", {"strategy": "gradual", "reason": "planned cutover"}
+    ) == []
+    for legacy_field in ("grace_period_hours", "notify_users", "force_rotation"):
+        errors = validator.validate_request(path, "POST", {legacy_field: True})
+        assert errors, f"{legacy_field} must not be accepted by rotate"
+    assert validator.validate_request(path, "POST", {"strategy": "later"})
+
+
+def test_rotate_response_models_one_time_secret() -> None:
+    validator = SchemaValidator()
+    response = {
+        "success": True,
+        "message": "API key rotated successfully",
+        "data": {
+            "old_key_id": "key_old",
+            "new_key_id": "key_new",
+            "new_key": "sk_example",
+            "strategy": "immediate",
+        },
+    }
+    assert validator.validate_json(response, "api_key_rotate_response_schema") == []
+    schema = _load(SCHEMAS / "auth" / "api_key_rotate_response_schema.json")
+    new_key = schema["properties"]["data"]["properties"]["new_key"]
+    assert new_key["x-privacy-classification"] == "secret"
+    assert new_key["x-one-time-field"] is True
+
+
+def test_lifecycle_action_and_validation_request_shapes() -> None:
+    validator = SchemaValidator()
+    assert validator.validate_request(
+        "/api/v1/keys/key_123/suspend", "POST", {"reason": "temporary hold"}
+    ) == []
+    assert validator.validate_request(
+        "/api/v1/keys/validate", "POST", {"api_key": "sk_example"}
+    ) == []
+    assert validator.validate_request(
+        "/api/v1/keys/validate", "POST", {"api_key": "sk_example", "extra": True}
+    )
+
+
+def test_create_and_update_rotation_fields_match_route_defaults() -> None:
+    validator = SchemaValidator()
+    create = {
+        "key_name": "automation",
+        "rotation_enabled": True,
+        "rotation_interval_days": 90,
+        "auto_rotate": False,
+    }
+    assert validator.validate_request("/api/v1/keys", "POST", create) == []
+    assert validator.validate_request("/api/v1/keys", "POST", {"name": "stale"})
+    assert validator.validate_request(
+        "/api/v1/keys/key_123", "PUT", {"rotation_interval_days": 91, "auto_rotate": True}
+    ) == []
+
+
+def test_list_filters_match_public_route_vocabulary() -> None:
+    params = _load(KEYS_ENDPOINTS)["paths"]["/api/v1/keys"]["get"]["parameters"]
+    names = {param["name"]: param["schema"] for param in params}
+    assert names["page"]["default"] == 1
+    assert names["per_page"]["default"] == 20
+    assert names["per_page"]["maximum"] == 100
+    assert names["include_expired"]["default"] is False
+    assert names["scope"]["enum"] == ["all", "user"]

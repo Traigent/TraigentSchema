@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_rotate_response_schema.json",
+  "title": "API Key Rotate Response",
+  "description": "Successful response from POST /api/v1/keys/{key_id}/rotate.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {"type": "boolean", "const": true},
+    "message": {"type": "string", "minLength": 1},
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "old_key_id": {"type": "string", "minLength": 1, "maxLength": 128, "x-identifier": true},
+        "new_key_id": {"type": "string", "minLength": 1, "maxLength": 128, "x-identifier": true},
+        "new_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "x-privacy-classification": "secret",
+          "x-one-time-field": true,
+          "x-privacy-note": "Returned only by a successful rotate response. Do not log, cache, export, or retransmit this value."
+        },
+        "strategy": {"type": "string", "enum": ["immediate", "gradual", "scheduled", "emergency"]}
+      },
+      "required": ["old_key_id", "new_key_id", "new_key", "strategy"]
+    }
+  },
+  "required": ["success", "message", "data"]
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_validate_request_schema.json",
+  "title": "API Key Validation Request",
+  "description": "Optional JSON-body form for POST /api/v1/keys/validate. The endpoint also accepts the X-API-Key request header.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "api_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "x-privacy-classification": "secret",
+      "x-privacy-note": "Do not log, cache, export, or retransmit this value."
+    }
+  },
+  "required": ["api_key"]
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_list_response_schema.json",
+  "title": "API Key List Response",
+  "description": "Successful paginated response from GET /api/v1/keys.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {"type": "boolean", "const": true},
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {"type": "array", "items": {"$ref": "./api_key_detail_schema.json"}},
+        "pagination": {"$ref": "../pagination_schema.json"}
+      },
+      "required": ["items", "pagination"]
+    }
+  },
+  "required": ["success", "data"]
+}

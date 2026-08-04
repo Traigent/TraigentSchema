@@ -3,98 +3,124 @@
   "info": {
     "title": "Traigent API Key Management Routes",
     "version": "1.0.0",
-    "description": "Canonical backend routes for API key lifecycle management (POST /api/v1/keys). Backed by TraigentBackend/src/routes/auth_routes.py key handlers."
+    "description": "Public API-key lifecycle contract."
   },
   "paths": {
     "/api/v1/keys": {
       "post": {
         "summary": "Create API key",
-        "description": "Create a new API key for the authenticated user. The plaintext secret is returned once in the 201 response (create_secret field) and never again — the client must store it immediately. Only user-requestable scopes are accepted; admin:all is a privileged server-side scope and is rejected. Keys may optionally be scoped to a project_id; the caller must be a project member or admin to create project-scoped keys.",
         "operationId": "createApiKey",
-        "x-required-permission": "write",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./api_key_create_request_schema.json"
-              }
-            }
-          }
-        },
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./api_key_create_request_schema.json"}}}},
         "responses": {
-          "201": {
-            "description": "API key created successfully. The create_secret field contains the one-time plaintext secret.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./api_key_resource_schema.json"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request — malformed body, invalid scope tokens, or name too long.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Not authenticated — missing or invalid session/token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden — only project members or admins may create project-scoped keys; or the requested scopes exceed the caller's entitlements.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict — a key with the same name already exists for this user.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
-          }
+          "201": {"description": "API key created.", "content": {"application/json": {"schema": {"$ref": "./api_key_create_response_schema.json"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "429": {"description": "Too many requests.", "content": {"application/json": {"schema": {"$ref": "../rate_limit_info_schema.json"}}}},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "get": {
+        "summary": "List API keys",
+        "operationId": "listApiKeys",
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer", "minimum": 1, "default": 1}},
+          {"name": "per_page", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}},
+          {"name": "status", "in": "query", "schema": {"type": "string", "enum": ["ACTIVE", "ROTATING", "REVOKED", "EXPIRED", "SUSPENDED"]}},
+          {"name": "key_type", "in": "query", "schema": {"type": "string", "enum": ["user", "service", "admin", "temporary", "readonly", "system"]}},
+          {"name": "search", "in": "query", "schema": {"type": "string", "maxLength": 255}},
+          {"name": "include_expired", "in": "query", "schema": {"type": "boolean", "default": false}},
+          {"name": "scope", "in": "query", "schema": {"type": "string", "enum": ["all", "user"]}}
+        ],
+        "responses": {
+          "200": {"description": "API keys page.", "content": {"application/json": {"schema": {"$ref": "./api_key_list_response_schema.json"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "500": {"$ref": "#/components/responses/InternalError"}
         }
       }
+    },
+    "/api/v1/keys/{key_id}": {
+      "parameters": [{"name": "key_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 128}}],
+      "put": {
+        "summary": "Update API key",
+        "operationId": "updateApiKey",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./api_key_update_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "API key updated.", "content": {"application/json": {"schema": {"$ref": "./api_key_detail_response_schema.json"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "summary": "Revoke API key",
+        "operationId": "revokeApiKey",
+        "responses": {
+          "200": {"description": "API key revoked.", "content": {"application/json": {"schema": {"$ref": "./api_key_action_response_schema.json"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/api/v1/keys/{key_id}/rotate": {
+      "parameters": [{"name": "key_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 128}}],
+      "post": {
+        "summary": "Rotate API key",
+        "operationId": "rotateApiKey",
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "./api_key_rotate_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "API key rotated. The returned new_key is available only in this response.", "content": {"application/json": {"schema": {"$ref": "./api_key_rotate_response_schema.json"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/api/v1/keys/{key_id}/suspend": {
+      "parameters": [{"name": "key_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 128}}],
+      "post": {
+        "summary": "Suspend API key",
+        "operationId": "suspendApiKey",
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "./api_key_action_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "API key suspended.", "content": {"application/json": {"schema": {"$ref": "./api_key_action_response_schema.json"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "409": {"$ref": "#/components/responses/Conflict"}, "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/api/v1/keys/{key_id}/reactivate": {
+      "parameters": [{"name": "key_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 128}}],
+      "post": {
+        "summary": "Reactivate API key",
+        "operationId": "reactivateApiKey",
+        "responses": {
+          "200": {"description": "API key reactivated.", "content": {"application/json": {"schema": {"$ref": "./api_key_action_response_schema.json"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/api/v1/keys/validate": {
+      "post": {
+        "summary": "Validate API key",
+        "operationId": "validateApiKey",
+        "parameters": [{"name": "X-API-Key", "in": "header", "schema": {"type": "string", "minLength": 1, "maxLength": 512}, "description": "Alternative to the JSON-body api_key field."}],
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "./api_key_validate_request_schema.json"}}}},
+        "responses": {
+          "200": {"description": "Validation result.", "content": {"application/json": {"schema": {"$ref": "./api_key_validate_response_schema.json"}}}},
+          "400": {"description": "Validation request was incomplete.", "content": {"application/json": {"schema": {"$ref": "./api_key_validate_response_schema.json"}}}},
+          "401": {"description": "API key was not accepted.", "content": {"application/json": {"schema": {"$ref": "./api_key_validate_response_schema.json"}}}},
+          "429": {"description": "Too many validation requests.", "content": {"application/json": {"schema": {"$ref": "./api_key_validate_response_schema.json"}}}},
+          "500": {"description": "Validation is unavailable.", "content": {"application/json": {"schema": {"$ref": "./api_key_validate_response_schema.json"}}}}
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadRequest": {"description": "Invalid request.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "Unauthorized": {"description": "Authentication is required.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "Forbidden": {"description": "The action is not permitted.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "NotFound": {"description": "API key was not found.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "Conflict": {"description": "The requested lifecycle action conflicts with the current API key state.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "InternalError": {"description": "The request could not be completed.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}}
     }
   }
 }

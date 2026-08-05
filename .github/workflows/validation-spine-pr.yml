@@ -135,12 +135,13 @@ jobs:
 
       - name: Install uv
         if: env.SPINE_AVAILABLE == 'true'
-        run: pip install --upgrade pip "uv==0.8.13"
+        run: |
+          pip install --upgrade --only-binary :all: pip "uv==0.8.13"
 
       - name: Install spine
         if: env.SPINE_AVAILABLE == 'true'
         working-directory: .spine
-        run: uv sync --extra dev
+        run: uv sync --extra dev --no-build
 
       - name: Run security_ledger against product repo
         if: env.SPINE_AVAILABLE == 'true'

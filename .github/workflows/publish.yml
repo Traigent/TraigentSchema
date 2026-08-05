@@ -133,8 +133,8 @@ jobs:
         run: |
           python -m venv test_env
           source test_env/bin/activate
-          pip install --upgrade pip
-          pip install dist/*.whl
+          pip install --upgrade --only-binary :all: pip
+          pip install --only-binary :all: dist/*.whl
           python - <<'PY'
           import traigent_schema
           from traigent_schema import SchemaValidator, load_schema
@@ -220,7 +220,7 @@ jobs:
           VERSION="$EXPECTED_VERSION"
           echo "Testing installation of traigent-schema==$VERSION from $PACKAGE_LABEL"
 
-          curl -fsSL "$PACKAGE_API_URL" -o package.json
+          curl --proto '=https' --proto-redir '=https' -fsSL "$PACKAGE_API_URL" -o package.json
           python - "$VERSION" package.json <<'PY'
           import json
           import sys
@@ -237,7 +237,7 @@ jobs:
 
           python -m venv test_env
           source test_env/bin/activate
-          pip install --upgrade pip
+          pip install --upgrade --only-binary :all: pip
           pip install "${INSTALL_ARGS[@]}" "traigent-schema==$VERSION"
           python - <<'PY'
           import traigent_schema

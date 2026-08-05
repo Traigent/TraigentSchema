@@ -75,7 +75,7 @@
     },
     "model_usage": {
       "type": "array",
-      "$comment": "cache_read_tokens/cache_creation_tokens below are the SAME logical fields as common_types_schema.json#/definitions/CacheReadTokens and CacheCreationTokens — this contract is where that vocabulary was first established. It intentionally keeps a non-nullable integer variant rather than $ref-ing the canonical (nullable) definitions: harness telemetry aggregates counts the harness computes itself, so a count is always known here, whereas a provider-sourced usage record must be able to say 'the provider did not report this'. Widening this ingest contract to accept null is a separate decision for the harness-telemetry owner, not a side effect of adding the canonical definitions.",
+      "$comment": "cache_read_tokens/cache_creation_tokens below are the SAME logical fields as common_types_schema.json#/definitions/CacheReadTokens and CacheCreationTokens — this contract is where that vocabulary was first established. They are left as non-nullable integers here only because changing an ingest contract is the harness-telemetry owner's decision, NOT because the absent-vs-zero problem is absent on this path: the OTLP reader (src/services/harness_telemetry/otlp_translator.py `_attr_int`) defaults a missing attribute to 0, so a harness that reports no cache dimension is currently recorded as 'zero cache tokens' — indistinguishable from 'no cache was used', which is the exact defect the canonical nullable definitions exist to prevent. Tracked separately; do not read this comment as a claim that the harness path is already correct.",
       "items": {
         "type": "object",
         "additionalProperties": false,

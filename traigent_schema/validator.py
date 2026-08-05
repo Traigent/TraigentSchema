@@ -17,11 +17,17 @@ from typing import Any
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
 from referencing import Registry, Resource
+from referencing.exceptions import Unresolvable
+from referencing.jsonschema import DRAFT7
 
 from traigent_schema.utils import ContractName, get_contract_path, get_schemas_dir
 
 logger = logging.getLogger(__name__)
 SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
+# Synthetic base for schemas that are embedded in an endpoint catalog rather than
+# stored as their own file, so their relative "./x.json" refs still resolve against
+# the schemas root. planned_projects_endpoints.json alone carries 60 such refs.
+_INLINE_SCHEMA_BASE_ID = f"{SCHEMA_ID_BASE}__inline_request_schema__"
 _RFC3339_DATE_TIME_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})[Tt]"
     r"(?P<time>\d{2}:\d{2}:\d{2})"
@@ -333,19 +339,58 @@ class SchemaValidator:
         :meth:`_validate_inline_schema`: builds the registry/format-checker
         aware validator, collects errors, and maps recursion / unexpected
         failures to stable messages.
+
+        The validator is anchored on the schema's own ``$id`` (see
+        :meth:`_anchored_validator`) so that relative ``$ref``s resolve. Passing
+        the schema dict straight to ``Draft7Validator`` leaves the resolver with an
+        empty base URI, which makes every ``./x.json`` and ``../x.json`` reference
+        in the library unresolvable.
         """
         try:
-            validator = Draft7Validator(
-                schema,
-                registry=self._registry,
-                format_checker=_FORMAT_CHECKER,
-            )
+            validator = self._anchored_validator(schema)
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
         except RecursionError:
             return [self._RECURSION_ERROR_MESSAGE]
+        except Unresolvable as e:
+            # A dangling reference is a broken contract, not a property of the
+            # payload. Say so, instead of letting it read as "this data is invalid"
+            # -- that laundering is what hid the empty-base-URI bug in the first
+            # place, because every affected schema reported a plausible-looking
+            # per-payload validation error.
+            return [f"Schema reference error (contract defect, not payload): {e}"]
         except Exception as e:
             return [f"Validation error: {str(e)}"]
+
+    def _anchored_validator(self, schema: dict[str, Any]) -> Draft7Validator:
+        """Build a validator whose resolver knows where ``schema`` lives.
+
+        Relative ``$ref``s are resolved against the base URI of the referring
+        schema. ``Draft7Validator(schema, registry=...)`` does not derive that base
+        from ``$id``, so the reference target is looked up under an empty base and
+        raises ``Unresolvable``. Validating through a ``$ref`` to the schema's
+        registered ``$id`` instead makes resolution start *inside* that resource,
+        which is where the relative refs are written to resolve from.
+        """
+        schema_id = schema.get("$id")
+
+        if schema_id and self._registry is not None:
+            return Draft7Validator(
+                {"$ref": schema_id},
+                registry=self._registry,
+                format_checker=_FORMAT_CHECKER,
+            )
+
+        # Inline request schemas (embedded in an endpoint catalog) have no $id of
+        # their own; anchor them at the schemas root so their "./x.json" refs point
+        # at the same files a standalone schema's would.
+        registry = self._registry or Registry()
+        resource: Resource[dict[str, Any]] = DRAFT7.create_resource(schema)
+        return Draft7Validator(
+            {"$ref": _INLINE_SCHEMA_BASE_ID},
+            registry=registry.with_resource(_INLINE_SCHEMA_BASE_ID, resource),
+            format_checker=_FORMAT_CHECKER,
+        )
 
     def _validate_inline_schema(
         self,

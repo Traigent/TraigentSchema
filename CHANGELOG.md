@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.5.1] - 2026-08-05
+
+### Fixed
+- **Relative `$ref`s never resolved — every one of them, library-wide.** 169 schema files reference
+  their siblings relatively (`./x.json`, `../x.json`), and `planned_projects_endpoints.json` alone
+  carries 60 such refs inside inline request schemas. None of them worked.
+  `Draft7Validator(schema, registry=...)` does not derive a base URI from the schema's `$id`, so the
+  resolver ran with an empty base and every relative reference raised `Unresolvable`. The practical
+  effect: any payload that populated a `$ref`-typed field — an observation carrying `status` or
+  `correlation_ids`, a v1beta project request carrying an error envelope — was reported invalid, and
+  the constraint the reference was supposed to import was never enforced on payloads that omitted it.
+  Validation now runs through a `$ref` to the schema's own registered `$id`, which starts resolution
+  inside that resource; inline catalog schemas (which have no `$id`) are anchored at the schemas root
+  so their `./x.json` refs point at the same files a standalone schema's would.
+- **A dangling reference no longer masquerades as a payload error.** The broad handler in
+  `_run_validator` rendered `Unresolvable` as `"Validation error: Unresolvable: ../status_schema.json#/…"`,
+  which reads as *the data was rejected*. That laundering is why this survived: every affected schema
+  produced a plausible-looking per-payload complaint rather than an obvious wiring failure. Reference
+  failures are now reported as `"Schema reference error (contract defect, not payload)"`, and
+  `tests/test_relative_ref_resolution.py` statically resolves **every** `$ref` in **every** schema so a
+  dead reference is caught here rather than as an inexplicable 422 in a consumer repo.
+
+  No schema content changed and no contract was widened or narrowed; this is purely the resolver
+  wiring. The full suite (1655 tests) passes unchanged.
+
 ## [5.5.0] - 2026-08-01
 
 ### Added

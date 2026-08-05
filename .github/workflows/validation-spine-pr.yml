@@ -141,7 +141,7 @@ jobs:
       - name: Install spine
         if: env.SPINE_AVAILABLE == 'true'
         working-directory: .spine
-        run: uv sync --extra dev --no-build
+        run: uv sync --extra dev
 
       - name: Run security_ledger against product repo
         if: env.SPINE_AVAILABLE == 'true'

@@ -235,7 +235,7 @@ jobs:
           fi
 
           # (c) install and run the spine's own verifier.
-          python3 -m pip install --quiet --upgrade pip >/dev/null 2>&1
+          python3 -m pip install --quiet --upgrade --only-binary :all: pip >/dev/null 2>&1
           pip install -e "$SPINE_DIR" >/dev/null 2>&1 || true
           VOUT=$(validation change receipt verify "$SESSION" --spine-repo "$SPINE_DIR" 2>/dev/null)
           VRC=$?

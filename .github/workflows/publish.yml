@@ -84,8 +84,8 @@ jobs:
 
       - name: Install build and test dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install build twine
+          python -m pip install --upgrade --only-binary :all: pip
+          python -m pip install --only-binary :all: build twine
           python -m pip install -e ".[dev]"
 
       - name: Read package version
@@ -238,7 +238,7 @@ jobs:
           python -m venv test_env
           source test_env/bin/activate
           pip install --upgrade --only-binary :all: pip
-          pip install "${INSTALL_ARGS[@]}" "traigent-schema==$VERSION"
+          pip install --only-binary :all: "${INSTALL_ARGS[@]}" "traigent-schema==$VERSION"
           python - <<'PY'
           import traigent_schema
           from traigent_schema import SchemaValidator, load_schema

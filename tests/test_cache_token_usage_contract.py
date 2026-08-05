@@ -1,0 +1,192 @@
+"""Contract tests for the canonical cached-token usage vocabulary.
+
+Traigent/Traigent#2068, Traigent/traigent-js#290 and TraigentBackend#2511 all need
+one thing from Schema: a usage shape that can carry cached-token counts AND express
+"the provider did not report this", so that a silent provider is never rounded to a
+confident zero.
+
+These tests pin the two properties the downstream fixes actually depend on:
+
+1. the fields exist on the usage surfaces (ingest, read, cost aggregate), and
+2. ``null`` is a legal value distinct from ``0`` — because defaulting a silent
+   provider to ``0`` is what makes the cost wrong in the first place.
+"""
+
+import json
+
+import pytest
+
+from traigent_schema import SchemaValidator
+from traigent_schema.utils import get_schemas_dir
+
+CANONICAL_DEFINITIONS = (
+    "CacheReadTokens",
+    "CacheCreationTokens",
+    "UnreportedUsageFields",
+)
+
+CACHE_FIELDS = ("cache_read_tokens", "cache_creation_tokens")
+
+
+def _schema(*parts):
+    path = get_schemas_dir()
+    for part in parts:
+        path = path / part
+    with open(path) as handle:
+        return json.load(handle)
+
+
+def test_canonical_cache_definitions_live_in_common_types():
+    """The vocabulary has exactly one home, so surfaces cannot drift apart."""
+    definitions = _schema("common_types_schema.json")["definitions"]
+
+    for name in CANONICAL_DEFINITIONS:
+        assert name in definitions, f"{name} missing from common_types_schema.json"
+
+
+@pytest.mark.parametrize("name", ["CacheReadTokens", "CacheCreationTokens"])
+def test_cache_counts_are_nullable_by_design(name):
+    """null (provider silent) must remain distinguishable from 0 (no cache used).
+
+    This is the whole point of the contract change. If someone "tidies" these to a
+    plain integer, every downstream cost path silently regains the confidently-wrong
+    zero that #2068/#2511 were filed about — so pin it here rather than in prose.
+    """
+    definition = _schema("common_types_schema.json")["definitions"][name]
+
+    assert definition["type"] == ["integer", "null"]
+    assert definition["minimum"] == 0
+
+
+def test_cache_fields_reference_the_canonical_definitions_not_a_local_copy():
+    """Each surface $refs the shared definition instead of re-spelling the type."""
+    surfaces = {
+        "observation_schema": _schema(
+            "observability", "observation_schema.json"
+        )["properties"],
+        "cost_user_usage_item_schema": _schema(
+            "costs", "cost_user_usage_item_schema.json"
+        )["properties"],
+    }
+
+    for surface, properties in surfaces.items():
+        for field in CACHE_FIELDS:
+            assert field in properties, f"{field} missing from {surface}"
+            ref = properties[field].get("$ref", "")
+            assert "common_types_schema.json#/definitions/" in ref, (
+                f"{surface}.{field} inlines its own type instead of referencing "
+                f"the canonical definition (got {ref!r})"
+            )
+
+
+def test_every_ingest_depth_level_carries_the_cache_fields():
+    """observation_ingest repeats its shape per nesting depth; none may lag.
+
+    The file hand-duplicates Observation_d1..d6. A cache field added to only the
+    top level would silently drop cached tokens from any nested generation.
+    """
+    definitions = _schema("observability", "observation_ingest_schema.json")[
+        "definitions"
+    ]
+    depth_levels = [name for name in definitions if name.startswith("Observation_d")]
+
+    assert len(depth_levels) >= 6, "expected the 6 hand-duplicated depth levels"
+
+    for level in depth_levels:
+        properties = definitions[level]["properties"]
+        for field in (*CACHE_FIELDS, "unreported_usage_fields"):
+            assert field in properties, f"{field} missing from {level}"
+
+
+def test_ingest_accepts_a_provider_that_reported_cache_tokens():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "id": "obs_cached",
+            "type": "generation",
+            "name": "anthropic.messages.create",
+            "input_tokens": 6,
+            "output_tokens": 120,
+            "cache_read_tokens": 4609,
+            "cache_creation_tokens": 0,
+        },
+        "observation_ingest_schema",
+    )
+
+    assert errors == [], errors
+
+
+def test_ingest_accepts_a_silent_provider_as_null_with_an_attribution():
+    """Amazon Nova omits the cache keys entirely rather than reporting 0.
+
+    The producer must be able to say "unknown", and say *why* it is unknown, without
+    inventing a number.
+    """
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "id": "obs_silent",
+            "type": "generation",
+            "name": "bedrock.converse",
+            "input_tokens": 4615,
+            "output_tokens": 120,
+            "cache_read_tokens": None,
+            "cache_creation_tokens": None,
+            "unreported_usage_fields": [
+                "cache_read_tokens",
+                "cache_creation_tokens",
+            ],
+        },
+        "observation_ingest_schema",
+    )
+
+    assert errors == [], errors
+
+
+def test_ingest_still_accepts_a_payload_with_no_cache_dimension_at_all():
+    """Pre-existing producers must keep validating unchanged (pure widening)."""
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "id": "obs_legacy",
+            "type": "generation",
+            "name": "openai.chat.completions.create",
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        },
+        "observation_ingest_schema",
+    )
+
+    assert errors == [], errors
+
+
+def test_ingest_rejects_a_negative_cache_count():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "id": "obs_bad",
+            "type": "generation",
+            "name": "openai.chat.completions.create",
+            "cache_read_tokens": -1,
+        },
+        "observation_ingest_schema",
+    )
+
+    assert errors != [], "a negative cached-token count must not validate"
+
+
+def test_cost_user_usage_item_carries_cache_tokens_without_requiring_them():
+    """The aggregate gains the dimension; existing backends keep validating."""
+    item_schema = _schema("costs", "cost_user_usage_item_schema.json")
+
+    for field in CACHE_FIELDS:
+        assert field in item_schema["properties"]
+        assert field not in item_schema["required"], (
+            f"{field} must stay optional so the current backend response, which "
+            f"does not yet emit it, keeps validating"
+        )

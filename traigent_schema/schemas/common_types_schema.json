@@ -42,6 +42,32 @@
         "critical"
       ],
       "description": "Canonical categorical priority vocabulary with an escalation tier (low < normal < high < critical). Superset of Priority (#313). Distinct from the integer 'priority' rank-order fields, which are numeric ordering, not this severity vocabulary."
+    },
+    "CacheReadTokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Canonical count of input tokens served from a provider prompt cache, billed at a discounted cache-read rate. NULLABLE BY DESIGN: null means the provider did not report the field, which is NOT the same as zero. Defaulting a silent provider to 0 makes 'no cache dimension reported' indistinguishable from 'no cache was used' and yields a confidently wrong cost (Amazon Nova omits the keys entirely rather than reporting 0). Consumers that need to know why a count is null read unreported_usage_fields. Normalized from usage.prompt_tokens_details.cached_tokens (OpenAI Chat Completions), usage.input_tokens_details.cached_tokens (OpenAI Responses), usage.cache_read_input_tokens (Anthropic), usage.cacheReadInputTokens (Bedrock Converse), usageMetadata.cachedContentTokenCount (Gemini). NOTE ON DISJOINTNESS: Bedrock reports cache reads DISJOINTLY from inputTokens, while OpenAI reports them as a SUBSET of prompt_tokens — a cost calculation must know which convention produced the numbers, so producers normalize to the disjoint convention (input_tokens excludes cache_read_tokens)."
+    },
+    "CacheCreationTokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Canonical count of input tokens written into a provider prompt cache, typically billed at a PREMIUM over fresh input (so cache accounting errors run in both directions and cannot be dismissed as a conservative margin). Nullable with the same absent-is-not-zero semantics as CacheReadTokens. Normalized from usage.cache_creation_input_tokens (Anthropic) and usage.cacheWriteInputTokens (Bedrock Converse); providers with automatic caching (OpenAI, Gemini) do not report a cache-write count and leave this null. Spelling note: this is the same concept some provider docs call 'cache write'. The name matches the vocabulary already established in harness_session_record.json rather than introducing a third spelling."
+    },
+    "UnreportedUsageFields": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "maxItems": 32,
+      "description": "Names of canonical usage fields the provider did not report for this record, e.g. [\"cache_read_tokens\", \"cache_creation_tokens\"]. Disambiguates the two reasons a count is null: the provider stayed silent (field listed here) versus the producer never populated the dimension at all (field absent from this list). Without it a null is unattributable, and cost consumers cannot tell a genuine unknown from a producer that predates the field."
     }
   }
 }

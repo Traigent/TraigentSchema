@@ -75,6 +75,7 @@
     },
     "model_usage": {
       "type": "array",
+      "$comment": "cache_read_tokens/cache_creation_tokens below are the SAME logical fields as common_types_schema.json#/definitions/CacheReadTokens and CacheCreationTokens — this contract is where that vocabulary was first established. It intentionally keeps a non-nullable integer variant rather than $ref-ing the canonical (nullable) definitions: harness telemetry aggregates counts the harness computes itself, so a count is always known here, whereas a provider-sourced usage record must be able to say 'the provider did not report this'. Widening this ingest contract to accept null is a separate decision for the harness-telemetry owner, not a side effect of adding the canonical definitions.",
       "items": {
         "type": "object",
         "additionalProperties": false,

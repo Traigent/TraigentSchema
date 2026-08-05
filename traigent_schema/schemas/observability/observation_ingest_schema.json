@@ -40,6 +40,15 @@
     "_ObservabilityTraceStatus": {
       "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus"
     },
+    "_CacheReadTokens": {
+      "$ref": "../common_types_schema.json#/definitions/CacheReadTokens"
+    },
+    "_CacheCreationTokens": {
+      "$ref": "../common_types_schema.json#/definitions/CacheCreationTokens"
+    },
+    "_UnreportedUsageFields": {
+      "$ref": "../common_types_schema.json#/definitions/UnreportedUsageFields"
+    },
     "Observation_d1": {
       "type": "object",
       "additionalProperties": false,
@@ -102,6 +111,15 @@
             "null"
           ],
           "minimum": 0
+        },
+        "cache_read_tokens": {
+          "$ref": "#/definitions/_CacheReadTokens"
+        },
+        "cache_creation_tokens": {
+          "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "unreported_usage_fields": {
+          "$ref": "#/definitions/_UnreportedUsageFields"
         },
         "cost_usd": {
           "type": "number",
@@ -235,6 +253,15 @@
           ],
           "minimum": 0
         },
+        "cache_read_tokens": {
+          "$ref": "#/definitions/_CacheReadTokens"
+        },
+        "cache_creation_tokens": {
+          "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "unreported_usage_fields": {
+          "$ref": "#/definitions/_UnreportedUsageFields"
+        },
         "cost_usd": {
           "type": "number",
           "minimum": 0
@@ -366,6 +393,15 @@
             "null"
           ],
           "minimum": 0
+        },
+        "cache_read_tokens": {
+          "$ref": "#/definitions/_CacheReadTokens"
+        },
+        "cache_creation_tokens": {
+          "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "unreported_usage_fields": {
+          "$ref": "#/definitions/_UnreportedUsageFields"
         },
         "cost_usd": {
           "type": "number",
@@ -499,6 +535,15 @@
           ],
           "minimum": 0
         },
+        "cache_read_tokens": {
+          "$ref": "#/definitions/_CacheReadTokens"
+        },
+        "cache_creation_tokens": {
+          "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "unreported_usage_fields": {
+          "$ref": "#/definitions/_UnreportedUsageFields"
+        },
         "cost_usd": {
           "type": "number",
           "minimum": 0
@@ -631,6 +676,15 @@
           ],
           "minimum": 0
         },
+        "cache_read_tokens": {
+          "$ref": "#/definitions/_CacheReadTokens"
+        },
+        "cache_creation_tokens": {
+          "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "unreported_usage_fields": {
+          "$ref": "#/definitions/_UnreportedUsageFields"
+        },
         "cost_usd": {
           "type": "number",
           "minimum": 0
@@ -762,6 +816,15 @@
             "null"
           ],
           "minimum": 0
+        },
+        "cache_read_tokens": {
+          "$ref": "#/definitions/_CacheReadTokens"
+        },
+        "cache_creation_tokens": {
+          "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "unreported_usage_fields": {
+          "$ref": "#/definitions/_UnreportedUsageFields"
         },
         "cost_usd": {
           "type": "number",

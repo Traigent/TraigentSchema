@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.6.0] - 2026-08-05
+
+### Added
+- **Canonical cached-token usage vocabulary**, in `common_types_schema.json`:
+  `CacheReadTokens`, `CacheCreationTokens`, `UnreportedUsageFields`. Every major provider now bills
+  cached input at a steep discount — measured on Bedrock, cache-read input is `$0.0003/1k` vs
+  `$0.003/1k` fresh, exactly **10× cheaper** — and Traigent had no cache dimension at any layer, so
+  reported cost was materially wrong for any cached workload. Unblocks Traigent/Traigent#2068,
+  Traigent/traigent-js#290 and TraigentBackend#2511, which cannot produce a correct cost until the
+  contract can carry the counts.
+  - Applied to the usage surfaces that actually move a per-call number: `observation_schema.json`
+    (read), `observation_ingest_schema.json` (write — all six hand-duplicated depth levels, via local
+    aliases so they cannot drift apart), and `costs/cost_user_usage_item_schema.json` (aggregate).
+  - **The counts are nullable by design, and that is the load-bearing part.** `null` means the
+    provider did not report the field; it is *not* zero. Defaulting a silent provider to `0` makes
+    "no cache dimension reported" indistinguishable from "no cache was used" and yields a
+    confidently wrong cost — Amazon Nova omits the keys entirely rather than reporting `0`, which is
+    exactly the trap. `UnreportedUsageFields` then names *which* fields the provider withheld, so a
+    genuine unknown is distinguishable from a producer that predates the field. A test pins the
+    nullability, because "tidying" these to a plain integer silently restores the original defect.
+  - **Naming.** The upstream issues all propose `cache_write_tokens`; this uses
+    `cache_creation_tokens` instead, because `harness_session_record.json` already established that
+    spelling for the identical concept and TraigentBackend#2511 cites it as precedent. A third name
+    for one concept is how the drift this file exists to prevent begins.
+  - Purely additive: no field became required, `additionalProperties: false` surfaces are unaffected
+    for existing producers, and every payload that validated before still validates.
+- `harness_session_record.json` gains a `$comment` recording that its non-nullable
+  `cache_read_tokens` / `cache_creation_tokens` are the same logical fields as the new canonical
+  definitions, and why it deliberately keeps the non-nullable variant (harness telemetry computes its
+  own counts, so a count is always known there). Widening that ingest contract is the
+  harness-telemetry owner's call, not a side effect of this change.
+
 ## [5.5.1] - 2026-08-05
 
 ### Fixed

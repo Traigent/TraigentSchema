@@ -46,6 +46,9 @@
     "_CacheCreationTokens": {
       "$ref": "../common_types_schema.json#/definitions/CacheCreationTokens"
     },
+    "_CacheCreationTokensByTtl": {
+      "$ref": "../common_types_schema.json#/definitions/CacheCreationTokensByTtl"
+    },
     "_UnreportedUsageFields": {
       "$ref": "../common_types_schema.json#/definitions/UnreportedUsageFields"
     },
@@ -117,6 +120,9 @@
         },
         "cache_creation_tokens": {
           "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "cache_creation_tokens_by_ttl": {
+          "$ref": "#/definitions/_CacheCreationTokensByTtl"
         },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
@@ -259,6 +265,9 @@
         "cache_creation_tokens": {
           "$ref": "#/definitions/_CacheCreationTokens"
         },
+        "cache_creation_tokens_by_ttl": {
+          "$ref": "#/definitions/_CacheCreationTokensByTtl"
+        },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
         },
@@ -399,6 +408,9 @@
         },
         "cache_creation_tokens": {
           "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "cache_creation_tokens_by_ttl": {
+          "$ref": "#/definitions/_CacheCreationTokensByTtl"
         },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
@@ -541,6 +553,9 @@
         "cache_creation_tokens": {
           "$ref": "#/definitions/_CacheCreationTokens"
         },
+        "cache_creation_tokens_by_ttl": {
+          "$ref": "#/definitions/_CacheCreationTokensByTtl"
+        },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
         },
@@ -682,6 +697,9 @@
         "cache_creation_tokens": {
           "$ref": "#/definitions/_CacheCreationTokens"
         },
+        "cache_creation_tokens_by_ttl": {
+          "$ref": "#/definitions/_CacheCreationTokensByTtl"
+        },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
         },
@@ -822,6 +840,9 @@
         },
         "cache_creation_tokens": {
           "$ref": "#/definitions/_CacheCreationTokens"
+        },
+        "cache_creation_tokens_by_ttl": {
+          "$ref": "#/definitions/_CacheCreationTokensByTtl"
         },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"

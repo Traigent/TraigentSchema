@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.6.1] - 2026-08-05
+
+### Added
+- **`CacheCreationTokensByTtl`** — a per-TTL breakdown of `cache_creation_tokens`, applied to
+  `observation_schema.json` and all six depth levels of `observation_ingest_schema.json`. Closes
+  the gap found while red-teaming 5.6.0: cache **writes** are priced per tier (Anthropic charges
+  **1.25x** base input at 5 minutes and **2x** at 1 hour, and one request may contain both), so a
+  consumer multiplying an untiered total by a single rate is **60% wrong** whenever the assumed tier
+  is not the one that ran. That is the same invisible-dimension defect cached tokens themselves were,
+  one level down. Absent means the tier split is *unknown*, not all-one-tier; `additionalProperties:
+  false` keeps an unrecognised tier name from passing as opaque data; and the per-tier counts are
+  nullable with the same absent-is-not-zero semantics as the rest of the family. Purely additive.
+
 ## [5.6.0] - 2026-08-05
 
 ### Added

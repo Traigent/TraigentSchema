@@ -190,3 +190,99 @@ def test_cost_user_usage_item_carries_cache_tokens_without_requiring_them():
             f"{field} must stay optional so the current backend response, which "
             f"does not yet emit it, keeps validating"
         )
+
+
+# --------------------------------------------------------------------------
+# Cache-write TTL tiers (#383). A cache write is priced per tier -- 1.25x base
+# input at 5 minutes, 2x at 1 hour -- so an untiered total is 60% wrong whenever
+# the assumed tier is not the one that ran. The contract has to be able to say
+# which tier, and to say "unknown".
+# --------------------------------------------------------------------------
+
+
+def test_ttl_breakdown_definition_exists_and_is_nullable_per_tier():
+    definitions = _schema("common_types_schema.json")["definitions"]
+
+    assert "CacheCreationTokensByTtl" in definitions
+    props = definitions["CacheCreationTokensByTtl"]["properties"]
+    for tier in ("ephemeral_5m", "ephemeral_1h"):
+        assert props[tier]["type"] == ["integer", "null"], (
+            f"{tier} must stay nullable: absent means the provider did not report "
+            f"that tier, which is not the same as zero tokens on it"
+        )
+
+
+def test_ttl_breakdown_rejects_an_unknown_tier_name():
+    """A typo'd or newly-invented tier must not slip through as opaque data."""
+    definitions = _schema("common_types_schema.json")["definitions"]
+
+    assert definitions["CacheCreationTokensByTtl"]["additionalProperties"] is False
+
+
+def test_every_ingest_depth_level_carries_the_ttl_breakdown():
+    definitions = _schema("observability", "observation_ingest_schema.json")[
+        "definitions"
+    ]
+    depth_levels = [n for n in definitions if n.startswith("Observation_d")]
+
+    assert len(depth_levels) >= 6
+    for level in depth_levels:
+        assert "cache_creation_tokens_by_ttl" in definitions[level]["properties"], (
+            f"{level} lags the top level; a nested generation would silently lose "
+            f"its cache-write tier"
+        )
+
+
+def test_ingest_accepts_a_request_that_used_both_tiers():
+    """Anthropic can report both tiers on one request."""
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "id": "obs_both",
+            "type": "generation",
+            "name": "anthropic.messages.create",
+            "cache_creation_tokens": 1500,
+            "cache_creation_tokens_by_ttl": {
+                "ephemeral_5m": 1000,
+                "ephemeral_1h": 500,
+            },
+        },
+        "observation_ingest_schema",
+    )
+
+    assert errors == [], errors
+
+
+def test_ingest_accepts_an_untiered_total_as_tier_unknown():
+    """Bedrock Converse reports only an aggregate cacheWriteInputTokens."""
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "id": "obs_untiered",
+            "type": "generation",
+            "name": "bedrock.converse",
+            "cache_creation_tokens": 1500,
+            "unreported_usage_fields": ["cache_creation_tokens_by_ttl"],
+        },
+        "observation_ingest_schema",
+    )
+
+    assert errors == [], errors
+
+
+def test_ingest_rejects_a_misspelled_tier():
+    validator = SchemaValidator()
+
+    errors = validator.validate_json(
+        {
+            "id": "obs_bad_tier",
+            "type": "generation",
+            "name": "anthropic.messages.create",
+            "cache_creation_tokens_by_ttl": {"ephemeral_10m": 100},
+        },
+        "observation_ingest_schema",
+    )
+
+    assert errors != [], "an unrecognised TTL tier must not validate"

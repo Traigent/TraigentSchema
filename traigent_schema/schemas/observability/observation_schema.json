@@ -19,6 +19,7 @@
     "total_tokens": { "type": ["integer", "null"], "minimum": 0 },
     "cache_read_tokens": { "$ref": "../common_types_schema.json#/definitions/CacheReadTokens" },
     "cache_creation_tokens": { "$ref": "../common_types_schema.json#/definitions/CacheCreationTokens" },
+    "cache_creation_tokens_by_ttl": { "$ref": "../common_types_schema.json#/definitions/CacheCreationTokensByTtl" },
     "unreported_usage_fields": { "$ref": "../common_types_schema.json#/definitions/UnreportedUsageFields" },
     "cost_usd": { "type": "number", "minimum": 0 },
     "model_name": { "type": ["string", "null"], "maxLength": 255 },

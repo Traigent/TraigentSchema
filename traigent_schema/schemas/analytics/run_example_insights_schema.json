@@ -218,7 +218,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "Recommended action label (e.g. 'remove_redundant', 'expand_coverage')."
+            "description": "Recommended action label (e.g. 'expand_coverage', 'replace_or_rewrite'). Rule 0: additive and corrective only -- subtractive advice keyed to an observed signal must not appear here. NOTE this is free text with no enum, so the constraint is NOT machine-enforced at this field; the producer is where it is actually held. Retiring an enum member elsewhere does not close this channel."
           },
           "reason": {
             "type": "string",

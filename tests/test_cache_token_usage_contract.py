@@ -286,3 +286,50 @@ def test_ingest_rejects_a_misspelled_tier():
     )
 
     assert errors != [], "an unrecognised TTL tier must not validate"
+
+
+def test_the_cost_aggregate_can_express_the_ttl_tier_it_prices_by():
+    """`cost_user_usage_item` is the one surface here that multiplies a count by a rate.
+
+    It carried `cache_creation_tokens` but not the TTL breakdown, while declaring
+    `additionalProperties: false` — so a producer that knew the tier could not send
+    it. That is not a silent gap: it is a HARD REJECT of the only payload able to
+    price a cache write correctly, on the only surface that prices one.
+    """
+    item_schema = _schema("costs", "cost_user_usage_item_schema.json")
+
+    assert item_schema.get("additionalProperties") is False, (
+        "this test's premise is that undeclared fields are rejected here"
+    )
+    assert "cache_creation_tokens_by_ttl" in item_schema["properties"], (
+        "an untiered cache-write count cannot be priced: the 5-minute and 1-hour "
+        "tiers differ by 60%, so the surface that applies a rate must be able to "
+        "carry the tier"
+    )
+    assert "cache_creation_tokens_by_ttl" not in item_schema.get("required", []), (
+        "must stay optional — the current backend response does not emit it yet"
+    )
+
+
+def test_input_tokens_states_the_disjointness_convention_it_now_assumes():
+    """The contract redefines `input_tokens`; it has to say so ON `input_tokens`.
+
+    Producers are told to normalize to the disjoint convention (input excludes
+    cache reads), but that instruction lived only on `CacheReadTokens`. A consumer
+    reading `input_tokens` alone — which is exactly what an `input_tokens × rate`
+    query does — had no way to learn the convention changed, and old and new
+    records are not distinguishable by the field itself.
+    """
+    for args in (
+        ("costs", "cost_user_usage_item_schema.json"),
+        ("observability", "observation_schema.json"),
+    ):
+        schema = _schema(*args)
+        description = schema["properties"]["input_tokens"].get("description", "")
+        assert "cache_read_tokens" in description, (
+            f"{args[-1]}: input_tokens must name the convention it now assumes"
+        )
+        assert "5.7.0" in description, (
+            f"{args[-1]}: input_tokens must say which records predate the convention, "
+            f"since the field alone cannot distinguish them"
+        )

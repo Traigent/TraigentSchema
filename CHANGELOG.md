@@ -5,20 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.6.1] - 2026-08-05
-
-### Added
-- **`CacheCreationTokensByTtl`** — a per-TTL breakdown of `cache_creation_tokens`, applied to
-  `observation_schema.json` and all six depth levels of `observation_ingest_schema.json`. Closes
-  the gap found while red-teaming 5.6.0: cache **writes** are priced per tier (Anthropic charges
-  **1.25x** base input at 5 minutes and **2x** at 1 hour, and one request may contain both), so a
-  consumer multiplying an untiered total by a single rate is **60% wrong** whenever the assumed tier
-  is not the one that ran. That is the same invisible-dimension defect cached tokens themselves were,
-  one level down. Absent means the tier split is *unknown*, not all-one-tier; `additionalProperties:
-  false` keeps an unrecognised tier name from passing as opaque data; and the per-tier counts are
-  nullable with the same absent-is-not-zero semantics as the rest of the family. Purely additive.
-
-## [5.6.0] - 2026-08-05
+## [5.7.0] - 2026-08-05
 
 ### Added
 - **Canonical cached-token usage vocabulary**, in `common_types_schema.json`:
@@ -42,13 +29,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `cache_creation_tokens` instead, because `harness_session_record.json` already established that
     spelling for the identical concept and TraigentBackend#2511 cites it as precedent. A third name
     for one concept is how the drift this file exists to prevent begins.
-  - Purely additive: no field became required, `additionalProperties: false` surfaces are unaffected
-    for existing producers, and every payload that validated before still validates.
+  - Purely additive: no field became required and every payload that validated before still
+    validates. Note the direction of the `additionalProperties: false` constraint — it does not
+    reject *existing* producers, but it does hard-reject a producer that starts sending a new field
+    the surface has not declared. That is why `cache_creation_tokens_by_ttl` is declared on
+    `costs/cost_user_usage_item_schema.json` as well: it is the one surface here where a count is
+    multiplied by a rate, so it is exactly where the TTL tier has to be expressible.
 - `harness_session_record.json` gains a `$comment` recording that its non-nullable
   `cache_read_tokens` / `cache_creation_tokens` are the same logical fields as the new canonical
-  definitions, and why it deliberately keeps the non-nullable variant (harness telemetry computes its
-  own counts, so a count is always known there). Widening that ingest contract is the
-  harness-telemetry owner's call, not a side effect of this change.
+  definitions. They stay non-nullable here only because changing an ingest contract is the
+  harness-telemetry owner's decision — **not** because the absent-vs-zero problem is absent on that
+  path. It is not: the OTLP reader (`otlp_translator.py` `_attr_int`) defaults a missing attribute to
+  `0`, so a harness reporting no cache dimension is currently recorded as "zero cache tokens",
+  indistinguishable from "no cache was used" — the exact defect the canonical nullable definitions
+  exist to prevent. Tracked separately; do not read the `$comment` as a claim that the harness path
+  is already correct. (An earlier draft of this entry asserted the opposite — that harness telemetry
+  always knows its counts. Commit `40b7c76` retracted that claim in the schema itself; this entry
+  had kept it.)
+
+## [5.6.1] - 2026-08-05
+
+### Added
+- **`CacheCreationTokensByTtl`** — a per-TTL breakdown of `cache_creation_tokens`, applied to
+  `observation_schema.json` and all six depth levels of `observation_ingest_schema.json`. Closes
+  the gap found while red-teaming 5.6.0: cache **writes** are priced per tier (Anthropic charges
+  **1.25x** base input at 5 minutes and **2x** at 1 hour, and one request may contain both), so a
+  consumer multiplying an untiered total by a single rate is **60% wrong** whenever the assumed tier
+  is not the one that ran. That is the same invisible-dimension defect cached tokens themselves were,
+  one level down. Absent means the tier split is *unknown*, not all-one-tier; `additionalProperties:
+  false` keeps an unrecognised tier name from passing as opaque data; and the per-tier counts are
+  nullable with the same absent-is-not-zero semantics as the rest of the family. Purely additive.
 
 ## [5.5.1] - 2026-08-05
 

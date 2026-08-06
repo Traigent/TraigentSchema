@@ -136,6 +136,39 @@
                       "type": "string",
                       "minLength": 1
                     }
+                  },
+                  "ArtifactVersion": {
+                    "type": "object",
+                    "required": ["schema", "state"],
+                    "properties": {
+                      "schema": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 32,
+                        "description": "Manifest algorithm identifier, e.g. 'afp2' (agent), 'dfp2o' (dataset, ordered), 'efp2' (evaluator), 'cfp2' (config space). Tagging the algorithm lets it change without invalidating stored history."
+                      },
+                      "digest": {
+                        "type": ["string", "null"],
+                        "pattern": "^sha256:[0-9a-f]{64}$",
+                        "description": "Algorithm-prefixed digest over the manifest. Required when state is 'verified'; must be absent or null when state is 'unknown'. Both directions are structurally enforced by the allOf below: an 'unknown' carrying a digest would let a consumer compare it and read two incomparable runs as equal, which is the whole failure state 'unknown' exists to prevent."
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": ["verified", "unknown"],
+                        "description": "'verified' = the manifest was completed and the digest is trustworthy. 'unknown' = the manifest could not be completed (unsupported value, opaque closure state, external evaluator without a declared revision). An 'unknown' version cannot participate in a comparability claim."
+                      }
+                    },
+                    "additionalProperties": false,
+                    "allOf": [
+                      {
+                        "if": { "properties": { "state": { "const": "verified" } }, "required": ["state"] },
+                        "then": { "required": ["digest"], "properties": { "digest": { "type": "string" } } }
+                      },
+                      {
+                        "if": { "properties": { "state": { "const": "unknown" } }, "required": ["state"] },
+                        "then": { "properties": { "digest": { "type": "null" } } }
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -146,7 +179,121 @@
                 "properties": {
                   "function_name": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "Display/code label for the optimized function. Historically this doubled as the agent identity key: when `agent_key` is absent the backend still resolves the owning agent by normalizing this value, so callers that vary it per run fragment their (agent, dataset) optimization history. New callers SHOULD send a stable `agent_key` and put per-run intent in `run_title` instead."
+                  },
+                  "agent_key": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Stable identity key for the agent being optimized. Explicit null is accepted and means absent (the server treats it exactly as an omitted field), matching the run narrative on experiment_run_schema.json. When present it is the sole basis for resolving the owning agent, and therefore for grouping runs into an (agent, dataset) optimization history. It MUST be stable across runs of the same agent — do not encode a variant, hypothesis, weighting, permutation count, or date into it. Omit to preserve the legacy behavior of deriving identity from `function_name`. The 255 limit is the agent-name storage limit, so a schema-valid key is always servable; an over-length key is REJECTED rather than truncated, because silently shortening an identity would merge two distinct agents — and their two optimization histories — into one."
+                  },
+                  "run_title": {
+                    "type": ["string", "null"],
+                    "maxLength": 512,
+                    "description": "Optional author-supplied title stating what this run is testing (e.g. 'Check best router model'). Persisted as the experiment run's `name`. Purely a label: it never affects agent identity, cohorting, scoring, or recommendations.",
+                    "x-content": true,
+                    "x-privacy-classification": "user_content"
+                  },
+                  "run_description": {
+                    "type": ["string", "null"],
+                    "maxLength": 4000,
+                    "description": "Optional author-supplied description of what this run is testing and why — the hypothesis or intent, recorded before results are known. Persisted as the experiment run's `description`. Purely a label: it never affects agent identity, cohorting, scoring, or recommendations.",
+                    "x-content": true,
+                    "x-privacy-classification": "user_content"
+                  },
+                  "agent_id": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Declared stable identity of the agent being optimized. Identity is DECLARED, never inferred: the SDK must not derive it from a function name, source path, working directory, or search space, because every one of those moves when the agent is retuned, moved, or rebuilt. Explicit null means absent and the run is treated as unidentified (see agent_id_source). The 255 limit is the agent-name storage limit; an over-length value is REJECTED rather than truncated, because silently shortening an identity would merge two distinct agents — and their two optimization histories — into one.",
+                    "x-privacy-classification": "user_content",
+                    "x-content": true
+                  },
+                  "agent_id_source": {
+                    "type": ["string", "null"],
+                    "enum": ["declared", "registered", "unknown", null],
+                    "description": "How agent_id was obtained. 'declared' = supplied by the caller (argument, environment variable, or project config). 'registered' = resolved from a verified server-side object. 'unknown' = no identity could be established; the run is keyed as a singleton on its own run id and joins no cohort. There is deliberately no 'derived' value: inference is what fragmented history in the first place.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "dataset_id": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Declared stable identity of the evaluation dataset. Symmetric with agent_id in every respect, including rejection rather than truncation at 255 characters. This is a LOGICAL identity, not a foreign key: it does not reference the hosted benchmark table. For a hosted dataset send hosted_dataset_ref instead and the server derives this.",
+                    "x-privacy-classification": "user_content",
+                    "x-content": true
+                  },
+                  "dataset_id_source": {
+                    "type": ["string", "null"],
+                    "enum": ["declared", "registered", "unknown", null],
+                    "description": "How dataset_id was obtained. Same vocabulary and semantics as agent_id_source.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "evaluator_id_source": {
+                    "type": ["string", "null"],
+                    "enum": ["declared", "registered", "unknown", null],
+                    "description": "How evaluator_id was obtained. Same vocabulary and semantics as agent_id_source.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "artifact_versions": {
+                    "type": "object",
+                    "description": "Derived content versions for the artifacts this run used. A version is a digest over a specified manifest (see docs/fingerprints/fp2.md) and is algorithm-tagged so the algorithm can change without invalidating history. Versions decide COMPARABILITY; they are never identity. A version whose manifest could not be completed is state='unknown', and unknown must never be treated as equal to anything, including another unknown. Under identity_version 2 all four slots are REQUIRED, because an ABSENT slot is the same failure as an unknown one wearing a disguise: two runs that both omit a slot look alike to any consumer that compares what it was given, so silence would be read as agreement. Saying 'unknown' costs one field and is honest; saying nothing is not. Each slot's schema is bound to its own algorithm family so a dataset digest cannot be filed under agent, which would make two unrelated artifacts compare equal. 'fp1' stays admissible in every slot: legacy fp1 digests are valid history, are never recomputed, and are not comparable with fp2 digests.",
+                    "properties": {
+                      "agent": {
+                        "allOf": [
+                          { "$ref": "#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "enum": ["afp2", "fp1"] } } }
+                        ]
+                      },
+                      "dataset": {
+                        "allOf": [
+                          { "$ref": "#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "enum": ["dfp2o", "fp1"] } } }
+                        ]
+                      },
+                      "evaluator": {
+                        "allOf": [
+                          { "$ref": "#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "enum": ["efp2", "fp1"] } } }
+                        ]
+                      },
+                      "config_space": {
+                        "allOf": [
+                          { "$ref": "#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "enum": ["cfp2", "fp1"] } } }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-privacy-classification": "metadata"
+                  },
+                  "code_revision": {
+                    "type": ["string", "null"],
+                    "maxLength": 255,
+                    "description": "Optional VCS revision of the caller's code at run time, typically a git commit SHA. Provenance only: it never participates in identity or comparability, because a commit can change without changing the agent and vice versa. Mirrors the observability execution-context field of the same name.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "identity_version": {
+                    "type": ["integer", "null"],
+                    "enum": [1, 2, null],
+                    "description": "Which identity contract the caller is speaking. 1 = legacy, identity inferred from function_name/agent_key. 2 = declared identity with derived versions. Absent means 1. The server records this immutably on the run so a session created before a deploy and finalized after it resolves consistently.",
+                    "x-privacy-classification": "metadata"
+                  },
+                  "hosted_dataset_ref": {
+                    "type": "object",
+                    "required": ["dataset_id"],
+                    "description": "Reference to a dataset already registered server-side. This is the ONLY typed channel for pointing at a hosted dataset; dataset_metadata is free-form and must never be used to smuggle an identity. The server verifies this id against the caller's tenant and project visibility BEFORE deriving dataset_id from it, and sets dataset_id_source='registered' on success. A reference the caller cannot see is rejected, not silently downgraded to unknown.",
+                    "properties": {
+                      "dataset_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Server-side identifier of the registered dataset."
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-privacy-classification": "metadata"
                   },
                   "configuration_space": {
                     "type": "object"
@@ -321,6 +468,95 @@
                     "evaluator_definition_id"
                   ]
                 },
+                "allOf": [
+                  {
+                    "description": "dataset_id and hosted_dataset_ref are mutually exclusive, modelled exactly as the existing evaluator_id/evaluator_definition_id exclusion above. One states a logical identity the caller owns; the other points at a server-side object the server resolves. Accepting both would force the server to pick a winner, and picking a winner between two identities the caller supplied is inference by another name.",
+                    "not": { "required": ["dataset_id", "hosted_dataset_ref"] }
+                  },
+                  {
+                    "description": "identity_version 2 means 'I speak declared identity'. A caller that says so and then sends nothing leaves the server to fall back on function_name/agent_key derivation - the exact inference this contract exists to remove. Under 2 the sources are mandatory AND non-null: requiring only the key would be no requirement at all, because the source type admits null, so a null source would satisfy the requirement while firing none of the value-correlation rules below - handing the caller a legal way back to inference and a way to pair a null source with a real id. 'unknown' is how a caller says it does not know; null is not.",
+                    "if": {
+                      "properties": { "identity_version": { "const": 2 } },
+                      "required": ["identity_version"]
+                    },
+                    "then": {
+                      "required": ["agent_id_source", "dataset_id_source", "artifact_versions"],
+                      "properties": {
+                        "agent_id_source": { "type": "string" },
+                        "dataset_id_source": { "type": "string" },
+                        "artifact_versions": {
+                          "required": ["agent", "dataset", "evaluator", "config_space"]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "description": "A source of 'declared' or 'registered' asserts an identity was established, so the value must be present and non-null. A source that claims an identity while the identity is absent is unreadable: a consumer cannot tell whether it was lost in transit or never existed.",
+                    "if": {
+                      "properties": { "agent_id_source": { "enum": ["declared", "registered"] } },
+                      "required": ["agent_id_source"]
+                    },
+                    "then": {
+                      "required": ["agent_id"],
+                      "properties": { "agent_id": { "type": "string" } }
+                    }
+                  },
+                  {
+                    "description": "'unknown' means no identity could be established, so carrying a value contradicts it. Allowing both would let a run be keyed on an id the contract simultaneously says is not an identity.",
+                    "if": {
+                      "properties": { "agent_id_source": { "const": "unknown" } },
+                      "required": ["agent_id_source"]
+                    },
+                    "then": { "properties": { "agent_id": { "type": "null" } } }
+                  },
+                  {
+                    "description": "A declared dataset identity is supplied inline by the caller.",
+                    "if": {
+                      "properties": { "dataset_id_source": { "const": "declared" } },
+                      "required": ["dataset_id_source"]
+                    },
+                    "then": {
+                      "required": ["dataset_id"],
+                      "properties": { "dataset_id": { "type": "string" } }
+                    }
+                  },
+                  {
+                    "description": "'registered' means the identity comes from a verified server-side object, and hosted_dataset_ref is the only typed channel for pointing at one. The server derives dataset_id from it after checking tenant/project visibility, so the caller does not send dataset_id itself - the exclusion above already forbids sending both.",
+                    "if": {
+                      "properties": { "dataset_id_source": { "const": "registered" } },
+                      "required": ["dataset_id_source"]
+                    },
+                    "then": { "required": ["hosted_dataset_ref"] }
+                  },
+                  {
+                    "description": "An unknown dataset identity carries neither an inline id nor a hosted reference; either one would be an identity, contradicting 'unknown'.",
+                    "if": {
+                      "properties": { "dataset_id_source": { "const": "unknown" } },
+                      "required": ["dataset_id_source"]
+                    },
+                    "then": {
+                      "properties": { "dataset_id": { "type": "null" } },
+                      "not": { "required": ["hosted_dataset_ref"] }
+                    }
+                  },
+                  {
+                    "description": "Evaluator identity is optional under every contract version, because it is not part of the (agent, dataset) cohort key. But once a caller states a source, the source and the value must agree, exactly as for agent and dataset. evaluator_id itself is unchanged: it keeps its pre-existing registered-alias semantics and 200-character limit.",
+                    "if": {
+                      "properties": {
+                        "evaluator_id_source": { "enum": ["declared", "registered"] }
+                      },
+                      "required": ["evaluator_id_source"]
+                    },
+                    "then": { "required": ["evaluator_id"] }
+                  },
+                  {
+                    "if": {
+                      "properties": { "evaluator_id_source": { "const": "unknown" } },
+                      "required": ["evaluator_id_source"]
+                    },
+                    "then": { "not": { "required": ["evaluator_id"] } }
+                  }
+                ],
                 "additionalProperties": true
               }
             }

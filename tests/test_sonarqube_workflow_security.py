@@ -37,7 +37,16 @@ def test_checkout_uses_only_the_exact_trusted_event_sha() -> None:
     workflow = _workflow()
     steps = workflow["jobs"]["sonarqube-quality-gate"]["steps"]
 
-    checkouts = [step for step in steps if step.get("uses") == "actions/checkout@v7"]
+    # Match the action irrespective of how it is pinned. The ref is now a commit
+    # SHA (supply-chain hardening, githubactions:S8544), and will change again on
+    # every future pin bump; the security property under test is "exactly one
+    # checkout in this privileged job, at the trusted event SHA, unconditional,
+    # without persisted credentials" -- which has nothing to do with the ref.
+    checkouts = [
+        step
+        for step in steps
+        if str(step.get("uses", "")).split("@", 1)[0] == "actions/checkout"
+    ]
     assert len(checkouts) == 1
     trusted_checkout = checkouts[0]
     assert trusted_checkout["name"] == "Checkout trusted event ref"

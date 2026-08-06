@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout trusted event ref
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -58,12 +58,12 @@ jobs:
           SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO=sudo
           command -v unzip >/dev/null 2>&1 || { $SUDO apt-get update -qq && $SUDO apt-get install -y -qq unzip; }
           if ! command -v kubectl >/dev/null 2>&1; then
-            curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
+            curl --proto '=https' --proto-redir '=https' -fsSLo /tmp/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
             echo "${KUBECTL_SHA256}  /tmp/kubectl" | sha256sum -c -
             $SUDO install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
           fi
           if ! command -v sonar-scanner >/dev/null 2>&1; then
-            curl -fsSLo /tmp/sc.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-aarch64.zip"
+            curl --proto '=https' --proto-redir '=https' -fsSLo /tmp/sc.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-aarch64.zip"
             echo "${SONAR_SCANNER_SHA256}  /tmp/sc.zip" | sha256sum -c -
             rm -rf "/tmp/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-aarch64"
             (cd /tmp && unzip -q -o sc.zip)
@@ -87,16 +87,16 @@ jobs:
           [ "$status" = "UP" ] || { echo "::error::SonarQube did not reach UP"; exit 1; }
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
 
       - name: Install dependencies + run tests with coverage
         continue-on-error: true
         run: |
-          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet --upgrade --only-binary :all: pip
           pip install --quiet -e ".[dev]" 2>/dev/null || pip install --quiet -e .
-          pip install --quiet pytest pytest-cov pytest-timeout
+          pip install --quiet --only-binary :all: pytest pytest-cov pytest-timeout
           mkdir -p reports
           # pure-pytest schema lib: no DB/redis/services needed. timeout bounds any hang.
           pytest tests/ -q --timeout=120 --timeout-method=thread \

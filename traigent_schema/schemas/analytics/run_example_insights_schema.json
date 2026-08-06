@@ -144,9 +144,9 @@
               "increase_repetitions",
               "replace_or_rewrite",
               "keep_as_hard_case",
-              "remove_redundant",
               "inspect_evaluator"
-            ]
+            ],
+            "description": "Rule 0 (disclosure register): additive and corrective actions only. `remove_redundant` was retired -- subtractive advice keyed to an observed signal biases the customer's own measurement and is unrepairable, since excluded items carry zero inclusion probability."
           }
         }
       }

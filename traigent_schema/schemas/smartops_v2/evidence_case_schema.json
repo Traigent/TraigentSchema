@@ -22,12 +22,14 @@
     },
     "provenance": {
       "type": "object",
-      "required": ["lifecycle_id", "lifecycle_revision", "source_hash", "lineage_hash", "policy_version", "policy_hash"],
+      "required": ["lifecycle_id", "lifecycle_revision", "source_hash", "lineage_hash", "data_layer_hash", "data_version_hash", "policy_version", "policy_hash"],
       "properties": {
         "lifecycle_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
         "lifecycle_revision": {"type": "integer", "minimum": 0},
         "source_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "lineage_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "data_layer_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "data_version_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "policy_version": {"type": "string", "minLength": 1, "maxLength": 128},
         "policy_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
       },

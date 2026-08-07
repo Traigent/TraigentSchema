@@ -77,6 +77,8 @@ def _evidence_case(*, basis: str = "OBSERVED_ONLY") -> dict[str, object]:
             "lifecycle_revision": 7,
             "source_hash": "c" * 64,
             "lineage_hash": "d" * 64,
+            "data_layer_hash": "f" * 64,
+            "data_version_hash": "0" * 64,
             "policy_version": "planner-v2-policy-2026.08",
             "policy_hash": "e" * 64,
         },
@@ -145,3 +147,17 @@ def test_evidence_case_is_closed_and_excludes_live_keys_and_wall_clock_fields() 
         target = case if container is None else case[container]
         target[field] = value
         assert _errors(case, "evidence_case_schema"), field
+
+
+@pytest.mark.parametrize("field", ["data_layer_hash", "data_version_hash"])
+def test_evidence_case_requires_each_data_provenance_pin(field: str) -> None:
+    case = _evidence_case()
+    del case["provenance"][field]
+    assert _errors(case, "evidence_case_schema"), field
+
+
+@pytest.mark.parametrize("field", ["data_layer_hash", "data_version_hash"])
+def test_evidence_case_rejects_each_malformed_data_provenance_pin(field: str) -> None:
+    case = _evidence_case()
+    case["provenance"][field] = "A" * 64
+    assert _errors(case, "evidence_case_schema"), field

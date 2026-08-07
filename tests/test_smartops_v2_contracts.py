@@ -377,6 +377,8 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
                 "lifecycle_revision": 7,
                 "source_hash": "c" * 64,
                 "lineage_hash": "d" * 64,
+                "data_layer_hash": "f" * 64,
+                "data_version_hash": "0" * 64,
                 "policy_version": "planner-v2-policy-2026.08",
                 "policy_hash": "e" * 64,
             },

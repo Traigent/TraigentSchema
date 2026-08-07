@@ -149,20 +149,25 @@ def test_certificate_subject_binds_config_hash_not_spec_hash() -> None:
 def test_certificate_subject_function_ref_is_required_but_nullable() -> None:
     """null asserts 'no function binding'; absence would be ambiguous.
 
-    Expressed as anyOf[$ref to best_config_v2's definition, null] rather than
-    a local type: ["string", "null"] with its own maxLength -- see
+    Expressed as a $ref to best_config_v2's shared nullable_function_ref
+    definition (anyOf[$ref function_ref, null]) rather than a local
+    anyOf/type: ["string", "null"] with its own maxLength -- see
     test_certificate_subject_refs_v2_definitions_instead_of_duplicating_them
-    for why the $ref form is required rather than merely permitted.
+    and test_best_config_v2_and_subject_function_ref_share_one_definition
+    for why the shared $ref form is required rather than merely permitted.
     """
     subject = _load(_SUBJECT)
-    function_ref = subject["properties"]["function_ref"]
     assert "function_ref" in subject["required"]
+    assert subject["properties"]["function_ref"] == {
+        "$ref": "./best_config_v2_schema.json#/definitions/nullable_function_ref"
+    }
 
-    any_of = function_ref["anyOf"]
+    nullable_function_ref = _definitions(_BEST_CONFIG_V2)["nullable_function_ref"]
+    any_of = nullable_function_ref["anyOf"]
     assert {"type": "null"} in any_of
     ref_branches = [branch for branch in any_of if "$ref" in branch]
     assert len(ref_branches) == 1
-    assert ref_branches[0]["$ref"] == "./best_config_v2_schema.json#/definitions/function_ref"
+    assert ref_branches[0]["$ref"] == "#/definitions/function_ref"
 
 
 def test_certificate_subject_refs_v2_definitions_instead_of_duplicating_them() -> None:
@@ -183,18 +188,34 @@ def test_certificate_subject_refs_v2_definitions_instead_of_duplicating_them() -
     for keyword in ("pattern", "minLength", "maxLength", "not"):
         assert keyword not in subject_properties["config_id"]
 
-    function_ref_ref_branch = next(
-        branch for branch in subject_properties["function_ref"]["anyOf"] if "$ref" in branch
-    )
-    assert function_ref_ref_branch == {
-        "$ref": "./best_config_v2_schema.json#/definitions/function_ref"
+    assert subject_properties["function_ref"] == {
+        "$ref": "./best_config_v2_schema.json#/definitions/nullable_function_ref"
     }
-    for keyword in ("pattern", "minLength", "maxLength"):
-        assert keyword not in function_ref_ref_branch
+    for keyword in ("pattern", "minLength", "maxLength", "anyOf"):
+        assert keyword not in subject_properties["function_ref"]
 
     # The v2 side is the one place the pattern/length constraints are allowed to live.
     assert "pattern" in v2_definitions["config_id"]["not"]
     assert "pattern" in v2_definitions["function_ref"]
+
+
+def test_best_config_v2_and_subject_function_ref_share_one_definition() -> None:
+    """best_config_v2's own function_ref property and subject's must $ref the identical target.
+
+    Proves the hoist actually removed the duplication rather than merely
+    matching by coincidence: both properties must point at literally the
+    same nullable_function_ref definition, not two definitions with equal
+    content.
+    """
+    v2_properties = _load(_BEST_CONFIG_V2)["properties"]
+    subject_properties = _load(_SUBJECT)["properties"]
+
+    assert v2_properties["function_ref"] == {"$ref": "#/definitions/nullable_function_ref"}
+    assert subject_properties["function_ref"] == {
+        "$ref": "./best_config_v2_schema.json#/definitions/nullable_function_ref"
+    }
+    assert "environment" in _load(_BEST_CONFIG_V2)["required"]
+    assert "function_ref" in _load(_BEST_CONFIG_V2)["required"]
 
 
 def test_manifest_configs_property_names_ref_v2_config_id() -> None:
@@ -209,6 +230,128 @@ def test_unknown_hash_algorithm_has_no_fallback_encoded() -> None:
     algorithm = _definitions(_CONTRACT)["hash_algorithm"]
     assert algorithm["enum"] == ["v1"]
     assert "default" not in algorithm
+
+
+# --- mechanical drift: statistical body vs. v1, and the v2 envelope mirror ---
+
+_STATISTICAL_BODY = _OPTIMIZATION / "guarantee_certificate_statistical_body_schema.json"
+_GUARANTEE_V1 = _OPTIMIZATION / "guarantee_certificate_schema.json"
+_GUARANTEE_V2 = _OPTIMIZATION / "guarantee_certificate_v2_schema.json"
+_GUARANTEE_V2_DELTA = _OPTIMIZATION / "guarantee_certificate_v2_delta_schema.json"
+
+# v1 members that are binding or envelope-only and therefore have no
+# equivalent in the reusable statistical body: schema_version identifies the
+# ENVELOPE, not the statistics, and the other five are exactly the v1 binding
+# fields v2's subject replaced (see guarantee_certificate_v2_delta_schema.json's
+# own description).
+_V1_BINDING_AND_ENVELOPE_ONLY_MEMBERS = frozenset(
+    {
+        "schema_version",
+        "config_id",
+        "spec_hash",
+        "config_hash",
+        "runtime_config_hash",
+        "price_snapshot_hash",
+    }
+)
+
+# Prose-only keys: allowed to differ between v1 and the statistical body
+# without breaking constraint equivalence, per the assignment's own framing
+# ("after ... normalizing title/$id/description/$comment"). "version" is
+# also prose (v1's top-level informational version string; the body has no
+# such field at all).
+_PROSE_ONLY_KEYS = frozenset({"description", "title", "$comment", "$id", "$schema", "version"})
+
+
+def _strip_prose(node: Any) -> Any:
+    """Recursively drop prose-only keys so two schema fragments can be
+    compared on constraints alone."""
+    if isinstance(node, dict):
+        return {
+            key: _strip_prose(value) for key, value in node.items() if key not in _PROSE_ONLY_KEYS
+        }
+    if isinstance(node, list):
+        return [_strip_prose(item) for item in node]
+    return node
+
+
+def test_statistical_body_is_constraint_equivalent_to_v1_after_excluding_binding_fields() -> None:
+    """guarantee_certificate_statistical_body_schema.json must not silently drift from v1.
+
+    v1 (guarantee_certificate_schema.json) is READ ONLY here -- this test
+    proves the reusable body still says exactly what v1 says about the
+    shared statistics, never that v1 itself changed. Constraint-equivalent
+    after excluding the binding/envelope-only members and normalizing prose
+    (title/$id/description/$comment/version) means: identical member sets
+    once those six are excluded, identical required sets once schema_version
+    is excluded, and byte-for-byte identical constraint schemas (everything
+    except the normalized-away prose keys) for every shared member,
+    definition, and the shared allOf accuracy_then_cost rule.
+    """
+    v1 = _load(_GUARANTEE_V1)
+    body = _load(_STATISTICAL_BODY)
+
+    v1_only = set(v1["properties"]) - set(body["properties"])
+    body_only = set(body["properties"]) - set(v1["properties"])
+    assert v1_only == _V1_BINDING_AND_ENVELOPE_ONLY_MEMBERS
+    assert body_only == set(), "the statistical body must not carry a member v1 never had"
+
+    assert set(v1["required"]) - set(body["required"]) == {"schema_version"}
+    assert set(body["required"]) - set(v1["required"]) == set()
+
+    shared_members = set(v1["properties"]) & set(body["properties"])
+    assert shared_members, "expected at least one shared statistical member"
+    for member in sorted(shared_members):
+        v1_member = _strip_prose(v1["properties"][member])
+        body_member = _strip_prose(body["properties"][member])
+        assert v1_member == body_member, member
+
+    assert _strip_prose(v1["definitions"]) == _strip_prose(body["definitions"])
+    assert _strip_prose(v1["allOf"]) == _strip_prose(body["allOf"])
+
+
+def test_v2_envelope_mirrors_exactly_the_union_of_its_composed_branches() -> None:
+    """guarantee_certificate_v2_schema.json's placeholder properties block must
+    track the union of the statistical body and the v2 binding delta exactly.
+
+    The v2 envelope repeats every composed property name with an empty `{}`
+    schema (see the file itself) purely so additionalProperties: false can
+    close the object over BOTH allOf branches -- draft-07 evaluates
+    additionalProperties within each branch, not across an allOf composition,
+    so without this mirror a property from either branch would be silently
+    rejected. If a future field is added to the statistical body or the v2
+    delta without adding it here too, this test fails: the union and the
+    mirror would diverge, which is exactly the class of drift a placeholder
+    list invites once someone forgets to update it.
+    """
+    body_members = set(_load(_STATISTICAL_BODY)["properties"])
+    delta_members = set(_load(_GUARANTEE_V2_DELTA)["properties"])
+    mirrored_members = set(_load(_GUARANTEE_V2)["properties"])
+
+    union = body_members | delta_members
+    assert mirrored_members == union
+    assert mirrored_members - union == set(), (
+        "v2 mirrors a property neither composed branch declares"
+    )
+    assert union - mirrored_members == set(), (
+        "a composed-branch property is missing from the v2 mirror"
+    )
+
+    # selected_id is intentionally intersected (not merely mirrored as `{}`)
+    # with best_config_v2's config_id definition in the v2 envelope -- see
+    # guarantee_certificate_v2_schema.json and
+    # test_selected_id_matches_subject_config_id_has_no_violation /
+    # test_selected_id_mismatch_is_schema_valid_but_semantically_caught in
+    # test_evidence_case_contract.py for the accompanying declared invariant.
+    v2_properties = _load(_GUARANTEE_V2)["properties"]
+    assert v2_properties["selected_id"] != {}
+    assert (
+        v2_properties["selected_id"]["$ref"]
+        == "./best_config_v2_schema.json#/definitions/config_id"
+    )
+    non_intersected_mirrors = mirrored_members - {"selected_id"}
+    for member in non_intersected_mirrors:
+        assert v2_properties[member] == {}, member
 
 
 def test_normalization_policy_preserves_customer_content() -> None:

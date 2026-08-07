@@ -7,6 +7,8 @@
   "required": [
     "schema_version",
     "config_id",
+    "environment",
+    "function_ref",
     "config"
   ],
   "properties": {
@@ -18,7 +20,7 @@
       "$ref": "#/definitions/config_id"
     },
     "function_ref": {
-      "$ref": "#/definitions/function_ref"
+      "$ref": "#/definitions/nullable_function_ref"
     },
     "environment": {
       "$ref": "#/definitions/best_config_environment"
@@ -73,6 +75,7 @@
   "additionalProperties": false,
   "definitions": {
     "best_config_environment": {
+      "description": "The deployment environment this configuration was published under. Required and non-null: v2 is a new, unconsumed envelope, so there is no existing-row backward-compatibility reason to allow an implicit default. No implicit default; consumers MUST NOT synthesize one when a caller omits it -- an omitted environment is a validation error, not 'default'.",
       "type": "string",
       "enum": [
         "default",
@@ -94,11 +97,22 @@
       }
     },
     "function_ref": {
-      "description": "The single normative definition of a function reference. Every other schema that names a function_ref (certificate_subject_schema.json) $refs this rather than repeating the pattern, so the constraint cannot drift between them.",
+      "description": "The single normative definition of a function reference. Every other schema that names a function_ref (certificate_subject_schema.json) $refs this rather than repeating the pattern, so the constraint cannot drift between them. Use nullable_function_ref, not this definition directly, wherever the member itself is required-but-nullable (best_config_v2's own function_ref property and certificate_subject's).",
       "type": "string",
       "minLength": 3,
       "maxLength": 512,
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*(\\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$"
+    },
+    "nullable_function_ref": {
+      "description": "function_ref, required as a member but explicitly nullable: a config need not be bound to a function. null is a deliberate assertion that there is no function binding, distinct from the field being absent, so a config or certificate subject can never be silently under-specified about its function binding. The single normative definition of the required-but-nullable shape: best_config_v2_schema.json's own function_ref property and certificate_subject_schema.json's function_ref property both $ref this exact definition, so 'a certificate can bind to a function_ref value the config envelope itself would reject' is syntactically impossible rather than merely policed by convention.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/function_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }

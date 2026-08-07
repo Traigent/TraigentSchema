@@ -224,6 +224,8 @@ def test_best_config_v2_config_id_rejects_the_same_values() -> None:
     base_payload = {
         "schema_version": "traigent.best_config.v2",
         "config_id": "checkout-router",
+        "environment": "production",
+        "function_ref": None,
         "config": {},
     }
     for bad_config_id in ("", "a" * 129, "has/slash"):
@@ -232,6 +234,61 @@ def test_best_config_v2_config_id_rejects_the_same_values() -> None:
         assert _errors(v2_path, payload), f"{bad_config_id!r} must be rejected"
 
     assert _errors(v2_path, base_payload) == []
+
+
+# --- v2 identity: environment and function_ref are explicit, not implied ----
+
+
+def _valid_v2_config() -> dict[str, Any]:
+    return {
+        "schema_version": "traigent.best_config.v2",
+        "config_id": "checkout-router",
+        "environment": "production",
+        "function_ref": "app.routing:route",
+        "config": {},
+    }
+
+
+def test_best_config_v2_rejects_a_missing_environment() -> None:
+    payload = _valid_v2_config()
+    del payload["environment"]
+    assert _errors(_OPTIMIZATION / "best_config_v2_schema.json", payload)
+
+
+def test_best_config_v2_rejects_a_missing_function_ref() -> None:
+    payload = _valid_v2_config()
+    del payload["function_ref"]
+    assert _errors(_OPTIMIZATION / "best_config_v2_schema.json", payload)
+
+
+def test_best_config_v2_rejects_an_empty_environment() -> None:
+    payload = _valid_v2_config()
+    payload["environment"] = ""
+    assert _errors(_OPTIMIZATION / "best_config_v2_schema.json", payload)
+
+
+def test_best_config_v2_rejects_a_null_environment() -> None:
+    """environment is required and non-null -- no implicit default is synthesized."""
+    payload = _valid_v2_config()
+    payload["environment"] = None
+    assert _errors(_OPTIMIZATION / "best_config_v2_schema.json", payload)
+
+
+def test_best_config_v2_accepts_an_explicit_null_function_ref() -> None:
+    """null asserts 'no function binding'; a config need not be bound to one."""
+    payload = _valid_v2_config()
+    payload["function_ref"] = None
+    assert _errors(_OPTIMIZATION / "best_config_v2_schema.json", payload) == []
+
+
+def test_best_config_v2_rejects_a_malformed_non_null_function_ref() -> None:
+    payload = _valid_v2_config()
+    payload["function_ref"] = "not a function ref at all"
+    assert _errors(_OPTIMIZATION / "best_config_v2_schema.json", payload)
+
+
+def test_best_config_v2_accepts_the_fully_explicit_identity() -> None:
+    assert _errors(_OPTIMIZATION / "best_config_v2_schema.json", _valid_v2_config()) == []
 
 
 def _every_ref(node: Any) -> list[str]:

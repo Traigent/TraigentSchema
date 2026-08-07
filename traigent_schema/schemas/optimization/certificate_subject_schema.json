@@ -25,15 +25,7 @@
       "$ref": "./best_config_v2_schema.json#/definitions/config_id"
     },
     "function_ref": {
-      "description": "Required as a member, but explicitly nullable: a config need not be bound to a function. null is a deliberate assertion that there is no function binding, distinct from the field being absent, so a subject can never be silently under-specified. When non-null, it must satisfy the same definition as best_config_v2's function_ref, so a certificate can never bind to a function_ref value that the config it certifies could not itself carry.",
-      "anyOf": [
-        {
-          "$ref": "./best_config_v2_schema.json#/definitions/function_ref"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "$ref": "./best_config_v2_schema.json#/definitions/nullable_function_ref"
     },
     "environment": {
       "$ref": "./best_config_v2_schema.json#/definitions/best_config_environment"

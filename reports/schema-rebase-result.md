@@ -78,7 +78,7 @@ not against the branch's old base:
   --json /tmp/evidence-case-breaking-schema-check.json
 ```
 
-Result at `HEAD=240a72b93478d57c9511f40ab44db5b93d679dd2`: 9 changed
+Result at `HEAD=94d2bf1dca20d8d1ba9e0ed981563833cef1cf5f`: 9 changed
 schema files, 10 findings — 9 informational and **1 acknowledged breaking
 finding**, with **0 unacknowledged breaking findings**.  Eight EvidenceCase/v2
 schemas are new files.  The changed existing
@@ -91,11 +91,12 @@ the response side.
 
 The allowlist acknowledgement is scoped to
 `#/properties/evidence_case` and records the coordinated-rollout condition:
-TraigentBackend must pin this Schema revision before its planner emits the new
-member, so a consumer cannot receive the expanded response while still pinned
-to the old closed contract.  The acknowledgement makes the intended break
-explicit; it does not claim that the response addition is backwards-compatible
-or waive the Backend pin requirement.
+pinning TraigentBackend to this Schema revision before planner emission is a
+necessary prerequisite, but rollout remains blocked until every strict or
+generated response consumer is reconciled with `evidence_case`.  The
+acknowledgement makes the intended break explicit; it does not claim that the
+response addition is backwards-compatible or waive any consumer-reconciliation
+requirement.
 
 Combined-tree verification:
 
@@ -103,6 +104,7 @@ Combined-tree verification:
 PATH="$PWD/.venv/bin:$PATH" pytest tests/ -q -p no:cacheprovider
 PATH="$PWD/.venv/bin:$PATH" ruff check traigent_schema/
 PATH="$PWD/.venv/bin:$PATH" mypy traigent_schema/ --ignore-missing-imports
+.venv/bin/python -m pytest tests/test_breaking_schema_check.py -q
 .venv/bin/python scripts/refresh_parity.py --check
 .venv/bin/python scripts/schema_reachability.py --check
 PATH="$PWD/.venv/bin:$PATH" pytest \
@@ -112,8 +114,9 @@ PATH="$PWD/.venv/bin:$PATH" pytest \
 
 Results:
 
-* full suite: **1736 passed, 1 skipped** (4 pre-existing `RefResolver`
+* full suite: **1766 passed, 1 skipped** (4 pre-existing `RefResolver`
   deprecation warnings), Python 3.13.14;
+* breaking-gate regression suite: **56 passed**;
 * ruff: passed;
 * mypy: passed (with the repository's existing Python-3.9 configuration
   warning);
@@ -146,6 +149,25 @@ Results:
   endpoint or present in the five consumers' current develop snapshots. They
   must become reachable through subsequent consumer/endpoint work before they
   can support a production feature claim.
+* Python SDK reconciliation is still required for G4.  Current SDK `develop`
+  contains a generated `ShadowEvaluateResponseSchema` without the required
+  `evidence_case` member.  Running its generator check against this exact
+  Schema worktree fails and shows the missing field in the generated diff:
+
+  ```bash
+  TRAIGENT_SCHEMA_REPO="$PWD" \
+    /home/nimrod/TraigentProjects/Traigent/.venv/bin/python \
+    /home/nimrod/TraigentProjects/core_project/develop/Traigent/scripts/generate_schema_types.py \
+    --check
+  ```
+
+  The EvidenceCase SDK candidate at
+  `ea8b7d5eb7690e0a6a0b0eaf5222984667d6eed4` is six commits behind current
+  SDK `origin/develop` and predates the committed generated-type gate entirely.
+  G4 therefore requires integrating current SDK develop, regenerating against
+  the final Schema SHA, committing the generated output, and passing the
+  generated-type drift check.  The Backend pin alone does not clear this
+  strict/generated-consumer requirement.
 * The local run used Python 3.13.14 whereas the new hosted breaking-check
   workflow pins Python 3.12; hosted CI remains the release authority.
 * `origin/main` was 17 commits ahead of this develop-bound candidate during

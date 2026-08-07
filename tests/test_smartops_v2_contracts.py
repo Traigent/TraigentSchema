@@ -363,6 +363,24 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
             "certificate_ref": None,
             "cell_fingerprint": None,
         },
+        "evidence_case": {
+            "schema_version": "traigent.smartops.evidence_case.v1",
+            "publication_basis": "OBSERVED_ONLY",
+            "evidence": {
+                "evidence_snapshot_hash": "ev_0123456789abcdefghijklmnopqrstuvwxyzAB",
+                "certified": False,
+                "policy_eligible": False,
+                "certificate_ref": None,
+            },
+            "provenance": {
+                "lifecycle_id": "lifecycle_0123456789abcdef",
+                "lifecycle_revision": 7,
+                "source_hash": "c" * 64,
+                "lineage_hash": "d" * 64,
+                "policy_version": "planner-v2-policy-2026.08",
+                "policy_hash": "e" * 64,
+            },
+        },
         "pins": {
             "rules_version": "planner-v2-rules-2026.07.4",
             "rules_hash": "a" * 64,

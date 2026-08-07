@@ -34,6 +34,14 @@
       "pattern": "^sha256:[a-f0-9]{64}$"
     }
   },
+  "not": {
+    "description": "v1 binding members must not coexist with the required v2 subject. The composed v2 envelope supplies closed-object rejection as well; this delta-level guard keeps the invariant true for every direct consumer of the binding delta.",
+    "anyOf": [
+      {"required": ["spec_hash"]},
+      {"required": ["config_hash"]},
+      {"required": ["config_id"]}
+    ]
+  },
   "definitions": {
     "removed_in_v2": {
       "description": "Recorded so the removal is a documented contract decision rather than an omission a future reader might restore. spec_hash: circular, see the schema description. config_hash and config_id: not removed but MOVED into subject, where they became required rather than nullable.",

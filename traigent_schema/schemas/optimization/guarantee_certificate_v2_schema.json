@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/guarantee_certificate_v2_schema.json",
+  "title": "Guarantee Certificate v2",
+  "description": "Closed v2 guarantee certificate. It composes the unchanged statistical body with the v2 binding delta: the certificate is bound by a complete subject, never by the circular v1 top-level spec_hash/config_hash/config_id fields. This schema is reader-only in Sprint 0; it does not authorize or imply v2 certificate issuance.",
+  "type": "object",
+  "allOf": [
+    {"$ref": "./guarantee_certificate_statistical_body_schema.json"},
+    {"$ref": "./guarantee_certificate_v2_delta_schema.json"}
+  ],
+  "properties": {
+    "schema_version": {}, "subject": {}, "runtime_config_hash": {}, "price_snapshot_hash": {},
+    "mode": {}, "anchor_id": {}, "selected_id": {}, "delta": {}, "epsilon": {}, "epsilon_acc": {}, "epsilon_cost": {}, "eta": {}, "eta_kind": {}, "ci_method": {}, "design": {}, "multiplicity_scheme": {}, "delta_prime_acc": {}, "delta_prime_cost": {}, "per_candidate": {}, "quality_ci": {}, "cost_ci": {}, "sample_count": {}, "cost_treated_as": {}, "peak_gap_upper_bound": {}, "composite_gap_to_true_max": {}, "best_effort_candidate": {}, "no_decision_reason": {}, "achievable_delta_at_budget": {}, "extra_examples_for_target_delta": {}, "eval_workload_hash": {}, "candidate_set_hash": {}, "scope_notes": {}
+  },
+  "additionalProperties": false
+}

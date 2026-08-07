@@ -3,7 +3,7 @@
   "$id": "https://schemas.traigent.ai/smartops_v2/shadow_evaluate_response_schema.json",
   "title": "Internal exact-support SmartOps Planner V2 shadow evaluation response",
   "type": "object",
-  "required": ["schema_version", "evidence_snapshot_hash", "profile", "rules", "policy", "disagrees", "diagnostics", "pins", "evaluated_at"],
+  "required": ["schema_version", "evidence_snapshot_hash", "profile", "rules", "policy", "disagrees", "diagnostics", "evidence_case", "pins", "evaluated_at"],
   "properties": {
     "schema_version": {"type": "string", "const": "2.0.0"},
     "evidence_snapshot_hash": {"type": "string", "pattern": "^ev_[A-Za-z0-9_-]{32,96}$", "maxLength": 99},
@@ -60,6 +60,10 @@
       ],
       "additionalProperties": false,
       "x-privacy-classification": "internal_confidential"
+    },
+    "evidence_case": {
+      "description": "Deterministic, shadow-only publication-basis projection over this immutable evidence snapshot. It carries no signer, live-key, or wall-clock material and does not change a publish or execution decision.",
+      "$ref": "./evidence_case_schema.json"
     },
     "pins": {
       "type": "object",

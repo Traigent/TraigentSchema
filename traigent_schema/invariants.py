@@ -31,6 +31,8 @@ declares.
 
 from __future__ import annotations
 
+import math
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -50,11 +52,28 @@ _META_SCHEMA_NAME = "x_extensions_meta_schema"
 # unrelated number. See fp2.py's MAX_DEPTH docstring for why 100 specifically.
 _MAX_COMPARISON_DEPTH = 100
 
-# A generous bound on how many (left, right) node pairs one comparison may
-# visit. Real declared-invariant targets are small schema-bounded subtrees;
-# this exists only so a pathologically wide (not necessarily deep) hostile
-# subtree cannot make a single comparison do unbounded work.
+# A generous bound on how many nodes ONE SIDE of a comparison may contain.
+# Applied independently to each compared subtree by _prevalidate_canonical,
+# before the two are ever paired up -- so a pathologically wide (not
+# necessarily deep) hostile subtree on either side is refused on its own,
+# rather than only once paired against the other side. Real declared-
+# invariant targets are small schema-bounded subtrees; this exists only to
+# bound a hostile one.
 _MAX_COMPARISON_NODES = 100_000
+
+# RFC 6901 array-index tokens this module resolves: "0", or a nonzero digit
+# followed by any digits -- ASCII only ("[0-9]" in a Python str pattern
+# matches only the ASCII digits, never a Unicode decimal digit like U+0660
+# ARABIC-INDIC DIGIT ZERO). A leading zero ("01"), a sign ("-1", "+1"), a
+# decimal point ("1.0"), interior whitespace, or any non-ASCII digit is
+# deliberately NOT a canonical index token -- it is unresolvable, the same
+# outcome as any other missing pointer segment, not a distinct error. This
+# is narrower, by design, than the RFC 6901 *syntax* the meta-schema's own
+# pointer pattern accepts for a POINTER (which allows any non-"/"/"~"
+# characters, since an object member name can legitimately look like a
+# non-canonical number) -- this regex only decides which *array* index
+# tokens this function will follow.
+_ARRAY_INDEX_TOKEN = re.compile(r"(?:0|[1-9][0-9]*)")
 
 
 class InvariantDeclarationError(Exception):
@@ -90,6 +109,33 @@ class InvariantComparisonBoundError(Exception):
     code = "invariant_comparison_bound_exceeded"
 
 
+class InvariantNoncanonicalPayloadError(Exception):
+    """A compared subtree is not built purely from canonical JSON built-ins.
+
+    Raised by the same prevalidation pass that enforces
+    InvariantComparisonBoundError's depth/width/cycle bounds, for a
+    different reason: somewhere in a compared subtree (not necessarily at
+    the pointer's own target -- anywhere beneath it) a value is not exactly
+    one of dict/list/str/int/float/bool/None, an object key is not exactly
+    ``str``, or a float is not finite. A ``dict``/``list``/``str`` SUBCLASS
+    is rejected here too, before any of its own ``__eq__``/``__ne__``/
+    ``__hash__`` override -- or its metaclass's own
+    ``__instancecheck__``/``__subclasscheck__`` -- could run and decide the
+    comparison itself; this module only ever calls ``type(x) is ...``, never
+    ``isinstance``, and never invokes ``==``/``!=``/membership against a
+    value whose exact type has not already been confirmed canonical.
+
+    Every message here is fixed, content-free wording: it never names the
+    offending type (not even via ``__name__``, which a hostile class can set
+    to embed payload content) and never echoes the offending value or key.
+    A payload rejected here is neither validated nor invalidated against the
+    declared relation -- evaluation is refused outright, the same posture
+    InvariantComparisonBoundError takes for a too-deep/-wide/cyclic subtree.
+    """
+
+    code = "invariant_noncanonical_payload"
+
+
 @dataclass(frozen=True)
 class InvariantViolation:
     """One declared invariant that did not hold for a given payload.
@@ -122,6 +168,29 @@ def _resolve_pointer(payload: Any, pointer: str) -> Any:
     absent or the wrong container kind, rather than raising: for a
     presence-requiring relation, a missing pointer is itself a violation,
     not an error the caller must separately guard against.
+
+    Object-member lookup never uses ``in``/``[]`` against the traversed
+    dict directly: those operators hash- and equality-compare the token
+    against every STORED key, and if a stored key is a ``str`` subclass
+    with an overridden ``__eq__``, Python's comparison protocol runs the
+    subclass's method first (its type is the more specific one), even
+    though the probe token itself is a plain ``str``. Instead, every
+    candidate key is type-checked (``type(key) is str``) before it is ever
+    compared to the token at all, so a non-``str`` key -- subclass or
+    otherwise -- is skipped, never compared, and its ``__eq__`` is never
+    invoked, regardless of whether it happens to match by content.
+
+    Array-index lookup accepts only a canonical ASCII index token
+    (``_ARRAY_INDEX_TOKEN``: ``0`` or ``[1-9][0-9]*``); a token with a
+    leading zero, a sign, a decimal point, interior whitespace, or a
+    non-ASCII digit resolves to ``_MISSING`` like any other unresolvable
+    segment, not a distinct outcome. ``int()`` is only ever called on a
+    token this regex has already accepted, and even then is guarded: an
+    astronomically long (but canonical-looking) digit token can still trip
+    CPython's own separate, version-dependent integer-string-conversion
+    digit limit, which raises a raw ``ValueError`` this module must not
+    leak -- caught here and treated the same as any other unresolvable
+    segment.
     """
     if pointer == "":
         return payload
@@ -132,13 +201,23 @@ def _resolve_pointer(payload: Any, pointer: str) -> Any:
     for raw_token in pointer.split("/")[1:]:
         token = _unescape_token(raw_token)
         if type(current) is dict:
-            if token not in current:
+            match = _MISSING
+            for key, value in current.items():
+                if type(key) is not str:
+                    continue
+                if key == token:
+                    match = value
+                    break
+            if match is _MISSING:
                 return _MISSING
-            current = current[token]
+            current = match
         elif type(current) is list:
-            if not token.isdigit():
+            if not _ARRAY_INDEX_TOKEN.fullmatch(token):
                 return _MISSING
-            index = int(token)
+            try:
+                index = int(token)
+            except ValueError:
+                return _MISSING
             if index >= len(current):
                 return _MISSING
             current = current[index]
@@ -147,97 +226,182 @@ def _resolve_pointer(payload: Any, pointer: str) -> Any:
     return current
 
 
-# Work-stack entry tags for the iterative comparison walk.
-_VALUE = 0  # visit and compare this (left, right) pair
-_CLOSE = 1  # leave a container pair: drop its identity from the open-path sets
+# Work-stack entry tags for the iterative prevalidation walk.
+_VALIDATE = 0  # visit and canonically validate this node
+_LEAVE = 1  # leave a container: drop its identity from the open-path set
 
 
-def _exact_structural_equal(left: Any, right: Any) -> bool:
-    """Exact-type, deep structural equality over parsed-JSON exact built-ins.
+def _prevalidate_canonical(root: Any) -> None:
+    """Iteratively confirm ``root`` is built purely from canonical JSON built-ins.
 
-    Iterative (explicit work stack), not recursive: the result must be a
-    property of the two subtrees alone, not of how much interpreter stack
-    the caller happened to have left, mirroring fp2._encode and
-    best_config_profile._prevalidate's own iterative walks for exactly the
-    same reason (see fp2.py, best_config_profile.py).
+    Walks the WHOLE subtree -- not just its root -- admitting only
+    dict/list/str/int/float/bool/None, each checked by exact type
+    (``type(x) is ...``, never ``isinstance``) so a subclass is rejected
+    before any of its own ``__eq__``/``__iter__``/``items()`` override could
+    run, mirroring best_config_profile._prevalidate and fp2._encode's own
+    exact-type dispatch for exactly the same reason (see those modules).
+    Type dispatch happens first for every scalar kind; the depth check is
+    reached only after scalars have already been ruled out, exactly as in
+    best_config_profile._prevalidate.
 
-    ``type(left) is type(right)`` is checked before every comparison, at
-    every depth, and rejects a mismatch immediately: a bool must never
-    compare equal to the int 1, and a dict/list/str subclass with an
-    overridden ``__eq__`` must never decide the answer -- the same
-    exact-type discipline fp2 and best_config_profile both use.
+    Iterative (explicit work stack), not recursive, for the same
+    stack-independence reason fp2._encode and best_config_profile's own
+    walk are iterative.
 
-    Cycle detection is path-local per side (mirroring
-    best_config_profile._prevalidate's ``open_ids``): a container's
-    identity is tracked only while its own frame, on its own side, is
-    still open, so the same acyclic sub-object reachable from two
-    siblings on one side compares cleanly against the other side, while a
-    true self-reference on either side is rejected rather than looped on.
+    Cycle detection is path-local (mirroring best_config_profile's
+    ``open_ids``): a container's identity is tracked only while its own
+    frame is still open, so a DAG -- the same acyclic sub-object reachable
+    from two different siblings -- validates cleanly, while a true
+    self-reference is rejected rather than looped on.
+
+    Node budget is charged (reserved) for an entire container's children
+    BEFORE any of them is pushed onto the work stack: ``len(node)`` (O(1)
+    for an exact dict/list -- both track their own length, so this never
+    iterates or copies the container just to size it) is checked against
+    the remaining budget once per container, strictly before the loop that
+    would otherwise enqueue every child. This is what stops a single
+    pathologically wide container from first allocating an unbounded
+    amount of pending work -- or even touching a single one of its
+    children -- before the bound is ever checked.
 
     Raises:
-        InvariantComparisonBoundError: either subtree nests deeper than
-            _MAX_COMPARISON_DEPTH, the walk visits more than
-            _MAX_COMPARISON_NODES pairs, or a container on either side
-            reaches itself.
+        InvariantNoncanonicalPayloadError: some value in the subtree is not
+            an exact JSON built-in type, an object key is not exactly
+            ``str``, or a float is not finite.
+        InvariantComparisonBoundError: the subtree nests deeper than
+            _MAX_COMPARISON_DEPTH, contains more than _MAX_COMPARISON_NODES
+            nodes, or a container reaches itself.
     """
-    work: list[tuple[int, Any, Any, int]] = [(_VALUE, left, right, 1)]
-    open_left_ids: set[int] = set()
-    open_right_ids: set[int] = set()
-    visited = 0
+    open_ids: set[int] = set()
+    remaining = _MAX_COMPARISON_NODES - 1  # the root itself counts as one node
+    work: list[tuple[int, Any, int]] = [(_VALIDATE, root, 1)]
 
     while work:
-        kind, node_left, node_right, depth = work.pop()
+        kind, node, depth = work.pop()
 
-        if kind == _CLOSE:
-            open_left_ids.discard(node_left)
-            open_right_ids.discard(node_right)
+        if kind == _LEAVE:
+            open_ids.discard(node)
             continue
 
-        visited += 1
-        if visited > _MAX_COMPARISON_NODES:
-            raise InvariantComparisonBoundError(
-                "invariant comparison exceeded the maximum number of compared node pairs"
+        if node is None or node is True or node is False:
+            continue
+        node_type = type(node)
+        if node_type is str or node_type is int:
+            continue
+        if node_type is float:
+            if not math.isfinite(node):
+                raise InvariantNoncanonicalPayloadError(
+                    "a compared subtree contains a non-finite float"
+                )
+            continue
+
+        if node_type is not dict and node_type is not list:
+            raise InvariantNoncanonicalPayloadError(
+                "a compared subtree contains a value that is not an exact JSON built-in type"
             )
+
         if depth > _MAX_COMPARISON_DEPTH:
             raise InvariantComparisonBoundError(
                 "invariant comparison exceeded the maximum nesting depth"
             )
 
+        identity = id(node)
+        if identity in open_ids:
+            raise InvariantComparisonBoundError("invariant comparison found a circular reference")
+
+        size = len(node)
+        if size > remaining:
+            raise InvariantComparisonBoundError(
+                "invariant comparison exceeded the maximum number of discovered nodes"
+            )
+        remaining -= size
+        open_ids.add(identity)
+        work.append((_LEAVE, identity, 0))
+
+        if node_type is dict:
+            for key, item in node.items():
+                if type(key) is not str:
+                    raise InvariantNoncanonicalPayloadError(
+                        "a compared subtree contains an object key that is not a plain string"
+                    )
+                work.append((_VALIDATE, item, depth + 1))
+        else:
+            for item in node:
+                work.append((_VALIDATE, item, depth + 1))
+
+
+def _compare_validated(left: Any, right: Any) -> bool:
+    """Deep structural equality between two subtrees already confirmed canonical.
+
+    Callers MUST have already run ``_prevalidate_canonical`` on both
+    ``left`` and ``right`` -- this function trusts, and does not re-check,
+    that every node on both sides is an exact JSON built-in, every object
+    key is an exact ``str``, every float is finite, and neither side is
+    cyclic or exceeds the shared depth/node bounds. Because of that
+    guarantee, this walk needs no bound bookkeeping of its own: it is
+    exactly as deep and as wide as the (already-bounded) left subtree it
+    follows.
+
+    ``type(node_left) is not type(node_right)`` is checked before every
+    comparison and rejects a type mismatch immediately: an ``int`` must
+    never compare equal to an equal-magnitude ``float``, and a ``bool``
+    must never compare equal to the ``int`` ``1``. Ordinary Python ``==``
+    is used only once both sides are confirmed the same exact canonical
+    type, so ``-0.0 == 0.0`` is ``True`` (both exact ``float``) with no
+    special-casing needed.
+    """
+    work: list[tuple[Any, Any]] = [(left, right)]
+
+    while work:
+        node_left, node_right = work.pop()
+
         if type(node_left) is not type(node_right):
             return False
-
         node_type = type(node_left)
 
         if node_type is dict:
             if node_left.keys() != node_right.keys():
                 return False
-            left_id, right_id = id(node_left), id(node_right)
-            if left_id in open_left_ids or right_id in open_right_ids:
-                raise InvariantComparisonBoundError(
-                    "invariant comparison found a circular reference"
-                )
-            open_left_ids.add(left_id)
-            open_right_ids.add(right_id)
-            work.append((_CLOSE, left_id, right_id, 0))
             for key in node_left:
-                work.append((_VALUE, node_left[key], node_right[key], depth + 1))
+                work.append((node_left[key], node_right[key]))
         elif node_type is list:
             if len(node_left) != len(node_right):
                 return False
-            left_id, right_id = id(node_left), id(node_right)
-            if left_id in open_left_ids or right_id in open_right_ids:
-                raise InvariantComparisonBoundError(
-                    "invariant comparison found a circular reference"
-                )
-            open_left_ids.add(left_id)
-            open_right_ids.add(right_id)
-            work.append((_CLOSE, left_id, right_id, 0))
-            for item_left, item_right in zip(node_left, node_right):
-                work.append((_VALUE, item_left, item_right, depth + 1))
+            work.extend(zip(node_left, node_right))
         elif node_left != node_right:
             return False
 
     return True
+
+
+def _exact_structural_equal(left: Any, right: Any) -> bool:
+    """Validate-then-compare exact-type deep structural equality.
+
+    Both ``left`` and ``right`` are FULLY, INDEPENDENTLY confirmed
+    canonical (see ``_prevalidate_canonical``) before any comparison
+    shortcut -- a key-set mismatch, a length mismatch, a top-level type
+    mismatch -- is ever taken. This ordering matters: without it, a
+    cyclic/oversized/noncanonical LEFT compared against a trivially empty
+    RIGHT could return an ordinary ``False`` (via an early key/length
+    mismatch) before the walk ever reached the part of ``left`` that would
+    have raised -- silently treating a subtree this module cannot safely
+    evaluate as merely "unequal", which is wrong for a relation like
+    ``condition_implies_unequal`` (an unequal outcome there is a PASS, not
+    a violation). Validating first, unconditionally, before any shortcut
+    means a subtree this module cannot safely evaluate is refused outright
+    instead.
+
+    Raises:
+        InvariantNoncanonicalPayloadError: either subtree contains a value
+            that is not an exact JSON built-in type, a non-``str`` object
+            key, or a non-finite float.
+        InvariantComparisonBoundError: either subtree nests deeper than
+            _MAX_COMPARISON_DEPTH, contains more than _MAX_COMPARISON_NODES
+            nodes, or a container reaches itself.
+    """
+    _prevalidate_canonical(left)
+    _prevalidate_canonical(right)
+    return _compare_validated(left, right)
 
 
 def _present_and_equal(payload: Any, declaration: dict[str, Any]) -> bool:
@@ -253,9 +417,24 @@ def _selector_lookup_equals_literal(payload: Any, declaration: dict[str, Any]) -
     if type(selector) is not str:
         return False
     mapping = _resolve_pointer(payload, declaration["map_pointer"])
-    if type(mapping) is not dict or selector not in mapping:
+    if type(mapping) is not dict:
         return False
-    return _exact_structural_equal(mapping[selector], declaration["literal"])
+    # Manual scan, not `selector not in mapping` / `mapping[selector]`: those
+    # operators hash- and equality-compare selector against every STORED
+    # key, and a str-subclass key with an overridden __eq__ would run its
+    # own method first (see _resolve_pointer's docstring for the same
+    # reasoning). Every candidate key is type-checked before it is ever
+    # compared to selector, so a non-str key is skipped, never compared.
+    looked_up = _MISSING
+    for key, value in mapping.items():
+        if type(key) is not str:
+            continue
+        if key == selector:
+            looked_up = value
+            break
+    if looked_up is _MISSING:
+        return False
+    return _exact_structural_equal(looked_up, declaration["literal"])
 
 
 def _condition_implies_unequal(payload: Any, declaration: dict[str, Any]) -> bool:
@@ -376,7 +555,10 @@ def validate_declared_invariants(payload: Any, schema_name: str) -> list[Invaria
             returning no violations for a schema that was never wired up to
             declare any.
         InvariantComparisonBoundError: a compared subtree nests too deep,
-            visits too many node pairs, or is circular.
+            contains too many nodes, or is circular.
+        InvariantNoncanonicalPayloadError: a compared subtree contains a
+            value that is not an exact JSON built-in type, a non-``str``
+            object key, or a non-finite float.
     """
     violations: list[InvariantViolation] = []
     for declaration in _declarations(schema_name):

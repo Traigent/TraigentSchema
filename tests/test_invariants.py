@@ -26,7 +26,7 @@ from traigent_schema import (
     validate_declared_invariants,
 )
 from traigent_schema.invariants import (
-    _ARRAY_INDEX_TOKEN,
+    _ARRAY_INDEX_SEGMENT,
     _MAX_COMPARISON_NODES,
     _META_SCHEMA_NAME,
     _MISSING,
@@ -85,11 +85,11 @@ def test_relative_pointer_is_rejected() -> None:
         _resolve_pointer({"a": 1}, "a")
 
 
-# --- array-index pointer tokens: canonical ASCII only --------------------------
+# --- array-index pointer segments: canonical ASCII only ------------------------
 
 
 @pytest.mark.parametrize(
-    "token, is_canonical",
+    "segment, is_canonical",
     [
         ("0", True),
         ("1", True),
@@ -106,12 +106,12 @@ def test_relative_pointer_is_rejected() -> None:
         ("²", False),  # SUPERSCRIPT TWO: str.isdigit() is True, int() raises ValueError
     ],
 )
-def test_array_index_token_canonicality_table(token: str, is_canonical: bool) -> None:
-    assert (_ARRAY_INDEX_TOKEN.fullmatch(token) is not None) is is_canonical
+def test_array_index_segment_canonicality_table(segment: str, is_canonical: bool) -> None:
+    assert (_ARRAY_INDEX_SEGMENT.fullmatch(segment) is not None) is is_canonical
 
 
 def test_leading_zero_array_index_does_not_resolve_despite_being_int_parseable() -> None:
-    """int("01") == 1, an in-range index -- but "01" is not a canonical token."""
+    """int("01") == 1, an in-range index -- but "01" is not a canonical segment."""
     payload = {"items": ["first", "second"]}
     assert _resolve_pointer(payload, "/items/01") is _MISSING
 
@@ -128,7 +128,7 @@ def test_superscript_digit_array_index_does_not_raise_a_raw_value_error() -> Non
     assert _resolve_pointer(payload, "/items/²") is _MISSING
 
 
-def test_unicode_digit_token_is_a_valid_object_key_pointer_unlike_an_array_index() -> None:
+def test_unicode_digit_segment_is_a_valid_object_key_pointer_unlike_an_array_index() -> None:
     """The array-index regex narrows only LIST traversal.
 
     An OBJECT member literally named with the same-looking Unicode digit is
@@ -141,12 +141,12 @@ def test_unicode_digit_token_is_a_valid_object_key_pointer_unlike_an_array_index
     assert _resolve_pointer(payload, "/٠") == "value-for-unicode-key"
 
 
-def test_pointer_through_a_huge_digit_token_does_not_raise_a_raw_value_error() -> None:
+def test_pointer_through_a_huge_digit_segment_does_not_raise_a_raw_value_error() -> None:
     """CPython's own (separate, version-dependent) int-string conversion
     digit limit must never leak as a raw ValueError through this module."""
     payload = {"items": ["first", "second"]}
-    huge_token = "9" * 5000
-    assert _resolve_pointer(payload, f"/items/{huge_token}") is _MISSING
+    huge_segment = "9" * 5000
+    assert _resolve_pointer(payload, f"/items/{huge_segment}") is _MISSING
 
 
 # --- declaration loading: fail closed -----------------------------------------

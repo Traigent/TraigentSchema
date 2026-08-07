@@ -67,19 +67,19 @@ _MAX_COMPARISON_DEPTH = 100
 # bound a hostile one.
 _MAX_COMPARISON_NODES = 100_000
 
-# RFC 6901 array-index tokens this module resolves: "0", or a nonzero digit
+# RFC 6901 array-index segments this module resolves: "0", or a nonzero digit
 # followed by any digits -- ASCII only ("[0-9]" in a Python str pattern
 # matches only the ASCII digits, never a Unicode decimal digit like U+0660
 # ARABIC-INDIC DIGIT ZERO). A leading zero ("01"), a sign ("-1", "+1"), a
 # decimal point ("1.0"), interior whitespace, or any non-ASCII digit is
-# deliberately NOT a canonical index token -- it is unresolvable, the same
+# deliberately NOT a canonical index segment -- it is unresolvable, the same
 # outcome as any other missing pointer segment, not a distinct error. This
 # is narrower, by design, than the RFC 6901 *syntax* the meta-schema's own
 # pointer pattern accepts for a POINTER (which allows any non-"/"/"~"
 # characters, since an object member name can legitimately look like a
 # non-canonical number) -- this regex only decides which *array* index
-# tokens this function will follow.
-_ARRAY_INDEX_TOKEN = re.compile(r"(?:0|[1-9][0-9]*)")
+# segments this function will follow.
+_ARRAY_INDEX_SEGMENT = re.compile(r"(?:0|[1-9][0-9]*)")
 
 
 class InvariantDeclarationError(Exception):
@@ -161,10 +161,10 @@ class InvariantViolation:
     condition_pointer: str | None = None
 
 
-def _unescape_token(token: str) -> str:
+def _unescape_segment(segment: str) -> str:
     # RFC 6901 escapes, applied in this order: ~1 -> / must be undone before
     # ~0 -> ~ or a literal "~1" in a key would incorrectly become "/".
-    return token.replace("~1", "/").replace("~0", "~")
+    return segment.replace("~1", "/").replace("~0", "~")
 
 
 def _resolve_pointer(payload: Any, pointer: str) -> Any:
@@ -176,23 +176,23 @@ def _resolve_pointer(payload: Any, pointer: str) -> Any:
     not an error the caller must separately guard against.
 
     Object-member lookup never uses ``in``/``[]`` against the traversed
-    dict directly: those operators hash- and equality-compare the token
+    dict directly: those operators hash- and equality-compare the segment
     against every STORED key, and if a stored key is a ``str`` subclass
     with an overridden ``__eq__``, Python's comparison protocol runs the
     subclass's method first (its type is the more specific one), even
-    though the probe token itself is a plain ``str``. Instead, every
+    though the probe segment itself is a plain ``str``. Instead, every
     candidate key is type-checked (``type(key) is str``) before it is ever
-    compared to the token at all, so a non-``str`` key -- subclass or
+    compared to the segment at all, so a non-``str`` key -- subclass or
     otherwise -- is skipped, never compared, and its ``__eq__`` is never
     invoked, regardless of whether it happens to match by content.
 
-    Array-index lookup accepts only a canonical ASCII index token
-    (``_ARRAY_INDEX_TOKEN``: ``0`` or ``[1-9][0-9]*``); a token with a
+    Array-index lookup accepts only a canonical ASCII index segment
+    (``_ARRAY_INDEX_SEGMENT``: ``0`` or ``[1-9][0-9]*``); a segment with a
     leading zero, a sign, a decimal point, interior whitespace, or a
     non-ASCII digit resolves to ``_MISSING`` like any other unresolvable
     segment, not a distinct outcome. ``int()`` is only ever called on a
-    token this regex has already accepted, and even then is guarded: an
-    astronomically long (but canonical-looking) digit token can still trip
+    segment this regex has already accepted, and even then is guarded: an
+    astronomically long (but canonical-looking) digit segment can still trip
     CPython's own separate, version-dependent integer-string-conversion
     digit limit, which raises a raw ``ValueError`` this module must not
     leak -- caught here and treated the same as any other unresolvable
@@ -204,24 +204,24 @@ def _resolve_pointer(payload: Any, pointer: str) -> Any:
         raise InvariantDeclarationError("a declared pointer is not an RFC 6901 absolute pointer")
 
     current = payload
-    for raw_token in pointer.split("/")[1:]:
-        token = _unescape_token(raw_token)
+    for raw_segment in pointer.split("/")[1:]:
+        segment = _unescape_segment(raw_segment)
         if type(current) is dict:
             match = _MISSING
             for key, value in current.items():
                 if type(key) is not str:
                     continue
-                if key == token:
+                if key == segment:
                     match = value
                     break
             if match is _MISSING:
                 return _MISSING
             current = match
         elif type(current) is list:
-            if not _ARRAY_INDEX_TOKEN.fullmatch(token):
+            if not _ARRAY_INDEX_SEGMENT.fullmatch(segment):
                 return _MISSING
             try:
-                index = int(token)
+                index = int(segment)
             except ValueError:
                 return _MISSING
             if index >= len(current):

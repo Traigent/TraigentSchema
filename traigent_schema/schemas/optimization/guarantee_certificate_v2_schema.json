@@ -10,7 +10,21 @@
   ],
   "properties": {
     "schema_version": {}, "subject": {}, "runtime_config_hash": {}, "price_snapshot_hash": {},
-    "mode": {}, "anchor_id": {}, "selected_id": {}, "delta": {}, "epsilon": {}, "epsilon_acc": {}, "epsilon_cost": {}, "eta": {}, "eta_kind": {}, "ci_method": {}, "design": {}, "multiplicity_scheme": {}, "delta_prime_acc": {}, "delta_prime_cost": {}, "per_candidate": {}, "quality_ci": {}, "cost_ci": {}, "sample_count": {}, "cost_treated_as": {}, "peak_gap_upper_bound": {}, "composite_gap_to_true_max": {}, "best_effort_candidate": {}, "no_decision_reason": {}, "achievable_delta_at_budget": {}, "extra_examples_for_target_delta": {}, "eval_workload_hash": {}, "candidate_set_hash": {}, "scope_notes": {}
+    "mode": {}, "anchor_id": {},
+    "selected_id": {
+      "description": "Retained from the shared statistical body (required there, type [string, null]) because Mode 2 selection semantics are mechanically equivalent to v1 and a second statistical body must not be forked to change this one field. Intersected here, in the v2 envelope only, with best_config_v2's config_id definition: this makes selected_id required, non-null and syntactically a valid config_id for v2 specifically, without touching the shared body v1 still uses unmodified. Semantic equality with subject.config_id -- selected_id names the SAME configuration the certificate's subject binds -- cannot be expressed in draft-07 and is instead declared in x-traigent-invariants below.",
+      "$ref": "./best_config_v2_schema.json#/definitions/config_id"
+    },
+    "delta": {}, "epsilon": {}, "epsilon_acc": {}, "epsilon_cost": {}, "eta": {}, "eta_kind": {}, "ci_method": {}, "design": {}, "multiplicity_scheme": {}, "delta_prime_acc": {}, "delta_prime_cost": {}, "per_candidate": {}, "quality_ci": {}, "cost_ci": {}, "sample_count": {}, "cost_treated_as": {}, "peak_gap_upper_bound": {}, "composite_gap_to_true_max": {}, "best_effort_candidate": {}, "no_decision_reason": {}, "achievable_delta_at_budget": {}, "extra_examples_for_target_delta": {}, "eval_workload_hash": {}, "candidate_set_hash": {}, "scope_notes": {}
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "x-traigent-invariants": [
+    {
+      "code": "SELECTED_ID_MATCHES_SUBJECT_CONFIG_ID",
+      "relation": "present_and_equal",
+      "left_pointer": "/selected_id",
+      "right_pointer": "/subject/config_id",
+      "description": "selected_id (from the shared statistical body) and subject.config_id (from the v2 binding delta) must name the same configuration: the certificate's statistical claim and its binding subject must be about the same selection, even though draft-07 cannot express equality between a field composed in from one allOf branch and a field composed in from another."
+    }
+  ]
 }

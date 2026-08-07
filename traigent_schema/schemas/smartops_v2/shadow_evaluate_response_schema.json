@@ -98,5 +98,42 @@
     }
   ],
   "additionalProperties": false,
-  "x-internal-only": true
+  "x-internal-only": true,
+  "x-traigent-invariants": [
+    {
+      "code": "EVIDENCE_SNAPSHOT_HASH_MATCHES_EVIDENCE_CASE",
+      "relation": "present_and_equal",
+      "left_pointer": "/evidence_snapshot_hash",
+      "right_pointer": "/evidence_case/evidence/evidence_snapshot_hash",
+      "description": "The top-level evidence_snapshot_hash and the one embedded in the shadow evidence_case projection must name the same immutable evidence snapshot; draft-07 cannot express this sibling-object equality, so JSON Schema alone accepts a structurally valid response where the two diverge."
+    },
+    {
+      "code": "DIAGNOSTICS_CERTIFIED_MATCHES_EVIDENCE_CASE",
+      "relation": "present_and_equal",
+      "left_pointer": "/diagnostics/certified",
+      "right_pointer": "/evidence_case/evidence/certified",
+      "description": "diagnostics.certified and evidence_case.evidence.certified describe the same underlying certification outcome and must agree, even though they live in independently-validated subtrees."
+    },
+    {
+      "code": "DIAGNOSTICS_CERTIFICATE_REF_MATCHES_EVIDENCE_CASE",
+      "relation": "present_and_equal",
+      "left_pointer": "/diagnostics/certificate_ref",
+      "right_pointer": "/evidence_case/evidence/certificate_ref",
+      "description": "diagnostics.certificate_ref and evidence_case.evidence.certificate_ref must name the same certificate (or both be null), even though they live in independently-validated subtrees."
+    },
+    {
+      "code": "PINS_ARTIFACT_VERSION_MATCHES_EVIDENCE_CASE_POLICY_VERSION",
+      "relation": "present_and_equal",
+      "left_pointer": "/pins/artifact_version",
+      "right_pointer": "/evidence_case/provenance/policy_version",
+      "description": "pins.artifact_version and evidence_case.provenance.policy_version pin the same policy artifact version; the response must not pin one version at the top level while the evidence_case projection reports evidence for another."
+    },
+    {
+      "code": "PINS_ARTIFACT_HASH_MATCHES_EVIDENCE_CASE_POLICY_HASH",
+      "relation": "present_and_equal",
+      "left_pointer": "/pins/artifact_hash",
+      "right_pointer": "/evidence_case/provenance/policy_hash",
+      "description": "pins.artifact_hash and evidence_case.provenance.policy_hash pin the same policy artifact content digest; the response must not pin one hash at the top level while the evidence_case projection reports evidence for another."
+    }
+  ]
 }

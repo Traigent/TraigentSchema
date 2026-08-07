@@ -8,7 +8,7 @@ from copy import deepcopy
 
 import pytest
 
-from traigent_schema import SchemaValidator
+from traigent_schema import SchemaValidator, validate_declared_invariants
 
 _VALIDATOR = SchemaValidator(contract="backend")
 _DIGEST = "sha256:" + "a" * 64
@@ -161,3 +161,66 @@ def test_evidence_case_rejects_each_malformed_data_provenance_pin(field: str) ->
     case = _evidence_case()
     case["provenance"][field] = "A" * 64
     assert _errors(case, "evidence_case_schema"), field
+
+
+# --- x-traigent-invariants: guarantee_certificate_v2 selected_id vs subject.config_id ---
+
+
+def test_selected_id_matches_subject_config_id_has_no_violation() -> None:
+    certificate = _v2_certificate()
+    assert certificate["selected_id"] == certificate["subject"]["config_id"]
+    violations = validate_declared_invariants(certificate, "guarantee_certificate_v2_schema")
+    assert "SELECTED_ID_MATCHES_SUBJECT_CONFIG_ID" not in {v.code for v in violations}
+
+
+def _evidence_case_with(*, certified: bool, policy_eligible: bool, basis: str) -> dict[str, object]:
+    case = _evidence_case(basis="OBSERVED_ONLY")
+    case["publication_basis"] = basis
+    case["evidence"]["certified"] = certified
+    case["evidence"]["policy_eligible"] = policy_eligible
+    case["evidence"]["certificate_ref"] = "certificate_0123456789abcdef" if certified else None
+    return case
+
+
+@pytest.mark.parametrize(
+    ("certified", "policy_eligible", "basis", "valid"),
+    [
+        # publication_basis is exactly SUPPORTED_RECOMMENDATION iff certified
+        # AND policy_eligible; every other combination must be OBSERVED_ONLY.
+        (True, True, "SUPPORTED_RECOMMENDATION", True),
+        (True, True, "OBSERVED_ONLY", False),  # the converse direction this section adds
+        (True, False, "OBSERVED_ONLY", True),
+        (True, False, "SUPPORTED_RECOMMENDATION", False),
+        (False, True, "OBSERVED_ONLY", True),
+        (False, True, "SUPPORTED_RECOMMENDATION", False),
+        (False, False, "OBSERVED_ONLY", True),
+        (False, False, "SUPPORTED_RECOMMENDATION", False),
+    ],
+)
+def test_publication_basis_truth_table(
+    certified: bool, policy_eligible: bool, basis: str, valid: bool
+) -> None:
+    case = _evidence_case_with(certified=certified, policy_eligible=policy_eligible, basis=basis)
+    errors = _errors(case, "evidence_case_schema")
+    if valid:
+        assert errors == [], (certified, policy_eligible, basis, errors)
+    else:
+        assert errors, (certified, policy_eligible, basis)
+
+
+def test_selected_id_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    """draft-07 cannot tie a field from one allOf branch to a field from another.
+
+    selected_id comes from the shared statistical body; subject.config_id
+    comes from the v2 binding delta. A certificate where they diverge is
+    still schema-valid -- each is independently syntactically fine -- so
+    only the public semantic interpreter catches the mismatch.
+    """
+    certificate = _v2_certificate()
+    certificate["selected_id"] = "a-different-config"
+    assert certificate["selected_id"] != certificate["subject"]["config_id"]
+
+    assert _errors(certificate, "guarantee_certificate_v2_schema") == []
+
+    violations = validate_declared_invariants(certificate, "guarantee_certificate_v2_schema")
+    assert "SELECTED_ID_MATCHES_SUBJECT_CONFIG_ID" in {v.code for v in violations}

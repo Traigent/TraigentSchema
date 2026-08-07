@@ -15,6 +15,7 @@ Example:
 """
 
 from traigent_schema.analytics_validators import AnalyticsValidator
+from traigent_schema.invariants import InvariantViolation, validate_declared_invariants
 from traigent_schema.utils import (
     get_all_schema_files,
     get_contract_path,
@@ -28,6 +29,7 @@ from traigent_schema.version import __version__
 
 __all__ = [
     "AnalyticsValidator",
+    "InvariantViolation",
     "SchemaValidator",
     "UnvalidatedEndpointError",
     "get_schemas_dir",
@@ -36,5 +38,6 @@ __all__ = [
     "get_contract_path",
     "get_openapi_path",
     "load_schema",
+    "validate_declared_invariants",
     "__version__",
 ]

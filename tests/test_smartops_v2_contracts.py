@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
-from traigent_schema import SchemaValidator
+from traigent_schema import SchemaValidator, validate_declared_invariants
 from traigent_schema.utils import get_schemas_dir
 
 
@@ -343,9 +344,8 @@ def test_resolved_execution_is_exactly_bound_to_action_economics() -> None:
     assert not validator.validate_json(wrong_argv, "resolve_decision_response_schema")
 
 
-def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
-    validator = SchemaValidator(contract="backend")
-    base = {
+def _valid_shadow_response() -> dict[str, Any]:
+    return {
         "schema_version": "2.0.0",
         "evidence_snapshot_hash": "ev_0123456789abcdefghijklmnopqrstuvwxyzAB",
         "profile": "balanced",
@@ -395,6 +395,11 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
         },
         "evaluated_at": "2026-07-10T09:00:00Z",
     }
+
+
+def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
+    validator = SchemaValidator(contract="backend")
+    base = _valid_shadow_response()
     assert not validator.validate_json(base, "shadow_evaluate_response_schema")
 
     certified = json.loads(json.dumps(base))
@@ -416,14 +421,10 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
         support_n=127,
         effective_support_n=127,
     )
-    assert validator.validate_json(
-        insufficient_support, "shadow_evaluate_response_schema"
-    )
+    assert validator.validate_json(insufficient_support, "shadow_evaluate_response_schema")
     honest_unknown_ucb = json.loads(json.dumps(certified))
     honest_unknown_ucb["diagnostics"]["advantage_ucb"] = None
-    assert not validator.validate_json(
-        honest_unknown_ucb, "shadow_evaluate_response_schema"
-    )
+    assert not validator.validate_json(honest_unknown_ucb, "shadow_evaluate_response_schema")
 
     global_certified = json.loads(json.dumps(certified))
     global_certified["diagnostics"]["support_status"] = "global"
@@ -434,6 +435,190 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
     false_agreement = json.loads(json.dumps(certified))
     false_agreement["disagrees"] = False
     assert validator.validate_json(false_agreement, "shadow_evaluate_response_schema")
+
+
+# --- x-traigent-invariants: shadow_evaluate_response declared cross-field equality ---
+#
+# draft-07 JSON Schema has no keyword for sibling/nested-field equality, so
+# JSON Schema alone accepts a structurally valid response where, say, the
+# top-level evidence_snapshot_hash and the one nested inside evidence_case
+# silently diverge -- there is no schema-level rule connecting the two
+# subtrees. Each pair below is first proven schema-valid (documenting that
+# gap), then proven caught by the public semantic interpreter
+# (traigent_schema.validate_declared_invariants), which evaluates the
+# invariants shadow_evaluate_response_schema.json declares in its
+# x-traigent-invariants block.
+
+
+def test_evidence_snapshot_hash_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _valid_shadow_response()
+    payload["evidence_case"]["evidence"]["evidence_snapshot_hash"] = (
+        "ev_ZZZZ56789abcdefghijklmnopqrstuvwxyzAB"
+    )
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "EVIDENCE_SNAPSHOT_HASH_MATCHES_EVIDENCE_CASE" in {v.code for v in violations}
+
+
+def test_evidence_snapshot_hash_match_has_no_violation() -> None:
+    payload = _valid_shadow_response()
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "EVIDENCE_SNAPSHOT_HASH_MATCHES_EVIDENCE_CASE" not in {v.code for v in violations}
+
+
+def test_diagnostics_certified_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _valid_shadow_response()
+    # evidence_case_schema.json's OWN internal rule couples certified=true to
+    # a non-null certificate_ref; both must be set together to keep
+    # evidence_case itself structurally valid while only diagnostics.certified
+    # (a sibling subtree) stays out of step with it.
+    payload["evidence_case"]["evidence"]["certified"] = True
+    payload["evidence_case"]["evidence"]["certificate_ref"] = "certificate_0123456789abcdef"
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "DIAGNOSTICS_CERTIFIED_MATCHES_EVIDENCE_CASE" in {v.code for v in violations}
+
+
+def test_diagnostics_certified_match_has_no_violation() -> None:
+    payload = _valid_shadow_response()
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "DIAGNOSTICS_CERTIFIED_MATCHES_EVIDENCE_CASE" not in {v.code for v in violations}
+
+
+def _consistent_certified_shadow_response() -> dict[str, Any]:
+    """A fully certified response with every declared invariant satisfied.
+
+    Starts from _valid_shadow_response(), then applies the same
+    "certified" transition test_shadow_is_exact_support_and_never_certifies
+    exercises for schema validity, plus the evidence_case and pins/provenance
+    alignment neither that test nor the base fixture asserts (pins and
+    evidence_case.provenance intentionally carry DIFFERENT version/hash
+    literals in the shared fixture -- see
+    test_pins_do_not_match_evidence_case_provenance_in_the_shared_fixture).
+    Each single-field mismatch test below mutates exactly one field away
+    from this otherwise-fully-consistent baseline.
+    """
+    payload = _valid_shadow_response()
+    payload.update(policy=_exact_action(optimize=True), disagrees=True)
+    payload["diagnostics"].update(
+        advantage_point=0.2,
+        advantage_lcb=0.1,
+        advantage_ucb=0.3,
+        support_n=128,
+        effective_support_n=128,
+        support_status="exact",
+        certified=True,
+        certificate_ref="certificate_0123456789abcdef",
+        cell_fingerprint="e" * 64,
+    )
+    payload["evidence_case"]["publication_basis"] = "SUPPORTED_RECOMMENDATION"
+    payload["evidence_case"]["evidence"].update(
+        certified=True,
+        policy_eligible=True,
+        certificate_ref="certificate_0123456789abcdef",
+    )
+    payload["evidence_case"]["provenance"]["policy_version"] = payload["pins"]["artifact_version"]
+    payload["evidence_case"]["provenance"]["policy_hash"] = payload["pins"]["artifact_hash"]
+    return payload
+
+
+def test_pins_do_not_match_evidence_case_provenance_in_the_shared_fixture() -> None:
+    """Documents the pre-existing gap the PINS_ARTIFACT_* invariants close.
+
+    _valid_shadow_response() (used throughout this file, unchanged here) has
+    always carried different literals for pins.artifact_version/artifact_hash
+    and evidence_case.provenance.policy_version/policy_hash -- schema-valid
+    because draft-07 cannot tie the two subtrees together. This is exactly
+    the class of drift the newly declared PINS_ARTIFACT_* invariants exist
+    to catch; see test_pins_artifact_version_mismatch_is_schema_valid_but_semantically_caught
+    and test_pins_artifact_hash_mismatch_is_schema_valid_but_semantically_caught.
+    """
+    validator = SchemaValidator(contract="backend")
+    payload = _valid_shadow_response()
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+    assert (
+        payload["pins"]["artifact_version"]
+        != payload["evidence_case"]["provenance"]["policy_version"]
+    )
+    assert payload["pins"]["artifact_hash"] != payload["evidence_case"]["provenance"]["policy_hash"]
+
+    violations = {
+        v.code for v in validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    }
+    assert "PINS_ARTIFACT_VERSION_MATCHES_EVIDENCE_CASE_POLICY_VERSION" in violations
+    assert "PINS_ARTIFACT_HASH_MATCHES_EVIDENCE_CASE_POLICY_HASH" in violations
+
+
+def test_diagnostics_certificate_ref_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _consistent_certified_shadow_response()
+    payload["evidence_case"]["evidence"]["certificate_ref"] = "certificate_abcdef0123456789"
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "DIAGNOSTICS_CERTIFICATE_REF_MATCHES_EVIDENCE_CASE" in {v.code for v in violations}
+
+
+def test_diagnostics_certificate_ref_match_has_no_violation() -> None:
+    payload = _valid_shadow_response()
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "DIAGNOSTICS_CERTIFICATE_REF_MATCHES_EVIDENCE_CASE" not in {v.code for v in violations}
+
+
+def test_pins_artifact_version_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _consistent_certified_shadow_response()
+    payload["evidence_case"]["provenance"]["policy_version"] = "planner-v2-policy-2099.01"
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "PINS_ARTIFACT_VERSION_MATCHES_EVIDENCE_CASE_POLICY_VERSION" in {
+        v.code for v in violations
+    }
+
+
+def test_pins_artifact_version_match_has_no_violation() -> None:
+    payload = _consistent_certified_shadow_response()
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "PINS_ARTIFACT_VERSION_MATCHES_EVIDENCE_CASE_POLICY_VERSION" not in {
+        v.code for v in violations
+    }
+
+
+def test_pins_artifact_hash_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _consistent_certified_shadow_response()
+    payload["evidence_case"]["provenance"]["policy_hash"] = "f" * 64
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "PINS_ARTIFACT_HASH_MATCHES_EVIDENCE_CASE_POLICY_HASH" in {v.code for v in violations}
+
+
+def test_pins_artifact_hash_match_has_no_violation() -> None:
+    payload = _consistent_certified_shadow_response()
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "PINS_ARTIFACT_HASH_MATCHES_EVIDENCE_CASE_POLICY_HASH" not in {
+        v.code for v in violations
+    }
+
+
+def test_fully_consistent_response_has_zero_declared_invariant_violations() -> None:
+    assert (
+        validate_declared_invariants(
+            _consistent_certified_shadow_response(), "shadow_evaluate_response_schema"
+        )
+        == []
+    )
 
 
 def test_receipt_response_status_verification_combinations_are_closed() -> None:

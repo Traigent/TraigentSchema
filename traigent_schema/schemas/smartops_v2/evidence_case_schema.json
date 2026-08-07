@@ -36,7 +36,10 @@
       "additionalProperties": false
     }
   },
-  "allOf": [{"if": {"properties": {"publication_basis": {"const": "SUPPORTED_RECOMMENDATION"}}, "required": ["publication_basis"]}, "then": {"properties": {"evidence": {"properties": {"certified": {"const": true}, "policy_eligible": {"const": true}}, "required": ["certified", "policy_eligible"]}}}}],
+  "allOf": [
+    {"if": {"properties": {"publication_basis": {"const": "SUPPORTED_RECOMMENDATION"}}, "required": ["publication_basis"]}, "then": {"properties": {"evidence": {"properties": {"certified": {"const": true}, "policy_eligible": {"const": true}}, "required": ["certified", "policy_eligible"]}}}},
+    {"description": "The converse direction, completing the iff: whenever both certified and policy_eligible are true, publication_basis MUST be SUPPORTED_RECOMMENDATION -- it may not remain OBSERVED_ONLY. Combined with the rule above and publication_basis's two-value enum, this pins publication_basis to exactly SUPPORTED_RECOMMENDATION when certified && policy_eligible, and to exactly OBSERVED_ONLY otherwise.", "if": {"properties": {"evidence": {"properties": {"certified": {"const": true}, "policy_eligible": {"const": true}}, "required": ["certified", "policy_eligible"]}}, "required": ["evidence"]}, "then": {"properties": {"publication_basis": {"const": "SUPPORTED_RECOMMENDATION"}}}}
+  ],
   "additionalProperties": false,
   "x-internal-only": true,
   "x-privacy-classification": "internal_confidential"

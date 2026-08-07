@@ -249,6 +249,37 @@
       },
       "additionalProperties": false
     },
+    "x-traigent-invariants": {
+      "type": "array",
+      "description": "Declares cross-field semantic-equality invariants that draft-07 JSON Schema cannot express directly -- there is no sibling/nested-field equality keyword, so a structurally valid instance can still hold two fields that are supposed to always agree but silently diverge. Each item names a stable uppercase CODE, the RELATION being asserted (currently only 'present_and_equal': both pointers must resolve to a present value and those values must be exactly equal), the LEFT_POINTER and RIGHT_POINTER being compared (RFC 6901 absolute JSON Pointers, rooted at the validated instance), and a human DESCRIPTION. This is documentation for the public interpreter in traigent_schema/invariants.py (validate_declared_invariants), which evaluates these declarations against an already structurally-valid parsed instance and returns InvariantViolation objects carrying only code/relation/pointers, never the compared values. JSON Schema validation alone does not enforce these; declaring one here is not itself evidence that any payload actually satisfies it. Declares no values, thresholds, or policy formulas -- only structural equality between two named locations, and no cryptographic certificate validity, eligibility, optimality, or authorization claim.",
+      "items": {
+        "type": "object",
+        "required": ["code", "relation", "left_pointer", "right_pointer", "description"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "relation": {
+            "type": "string",
+            "enum": ["present_and_equal"]
+          },
+          "left_pointer": {
+            "type": "string",
+            "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+          },
+          "right_pointer": {
+            "type": "string",
+            "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "x-traigent-note": {
       "type": "string",
       "description": "A short prose annotation explaining a schema decision, quirk, or exception that is not captured by a standard JSON Schema keyword. Use sparingly; prefer description for normal documentation."

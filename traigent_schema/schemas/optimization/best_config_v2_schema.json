@@ -15,19 +15,10 @@
       "const": "traigent.best_config.v2"
     },
     "config_id": {
-      "description": "Stable, caller-chosen identity for the configuration. Deriving it from a function name couples identity to code, so a rename orphans history; callers SHOULD set it explicitly.",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128,
-      "not": {
-        "pattern": "[/\\\\\\u0000]"
-      }
+      "$ref": "#/definitions/config_id"
     },
     "function_ref": {
-      "type": "string",
-      "minLength": 3,
-      "maxLength": 512,
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*(\\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$"
+      "$ref": "#/definitions/function_ref"
     },
     "environment": {
       "$ref": "#/definitions/best_config_environment"
@@ -92,6 +83,22 @@
         "prod",
         "production"
       ]
+    },
+    "config_id": {
+      "description": "Stable, caller-chosen identity for the configuration. Deriving it from a function name couples identity to code, so a rename orphans history; callers SHOULD set it explicitly. The single normative definition: every other schema that names a config_id (certificate_subject_schema.json, best_config_manifest_v2_schema.json) $refs this rather than repeating the pattern, so the constraint cannot drift between them.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "not": {
+        "pattern": "[/\\\\\\u0000]"
+      }
+    },
+    "function_ref": {
+      "description": "The single normative definition of a function reference. Every other schema that names a function_ref (certificate_subject_schema.json) $refs this rather than repeating the pattern, so the constraint cannot drift between them.",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*(\\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$"
     }
   }
 }

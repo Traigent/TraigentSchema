@@ -162,6 +162,121 @@ def test_subject_allows_explicit_null_function_ref_but_not_omission() -> None:
     assert _errors(_SUBJECT, payload)
 
 
+def test_subject_rejects_a_malformed_function_ref() -> None:
+    """function_ref, when non-null, must satisfy best_config_v2's pattern -- not any string."""
+    payload = _valid_subject()
+    payload["function_ref"] = "not a function ref at all"
+    assert _errors(_SUBJECT, payload)
+
+
+def test_subject_rejects_an_empty_function_ref() -> None:
+    payload = _valid_subject()
+    payload["function_ref"] = ""
+    assert _errors(_SUBJECT, payload)
+
+
+def test_subject_rejects_a_missing_function_ref_key_distinct_from_null() -> None:
+    """absent must fail even though null passes -- the two are not interchangeable."""
+    payload = _valid_subject()
+    del payload["function_ref"]
+    assert _errors(_SUBJECT, payload)
+
+
+def test_subject_config_id_rejects_the_same_values_best_config_v2_rejects() -> None:
+    """v2, certificate, and manifest reject the same invalid config IDs -- one shared definition."""
+    for bad_config_id in ("", "a" * 129, "has/slash", "has\\backslash", "has\x00nul"):
+        payload = _valid_subject()
+        payload["config_id"] = bad_config_id
+        assert _errors(_SUBJECT, payload), f"{bad_config_id!r} must be rejected"
+
+    payload = _valid_subject()
+    payload["config_id"] = "a" * 128
+    assert _errors(_SUBJECT, payload) == []
+
+
+def test_manifest_configs_key_rejects_the_same_config_ids_best_config_v2_rejects() -> None:
+    """The manifest's propertyNames must reject exactly what best_config_v2's config_id rejects."""
+    entry = {
+        "path": "checkout-router.json",
+        "spec_hash": _DIGEST,
+        "config_hash": _DIGEST,
+        "hash_algorithm": "v1",
+    }
+    for bad_config_id in ("", "a" * 129, "has/slash", "has\\backslash"):
+        payload = {
+            "schema_version": "traigent.best_config_manifest.v2",
+            "configs": {bad_config_id: entry},
+        }
+        assert _errors(_MANIFEST_V2, payload), (
+            f"{bad_config_id!r} must be rejected as a manifest key"
+        )
+
+    valid_payload = {
+        "schema_version": "traigent.best_config_manifest.v2",
+        "configs": {"checkout-router": entry},
+    }
+    assert _errors(_MANIFEST_V2, valid_payload) == []
+
+
+def test_best_config_v2_config_id_rejects_the_same_values() -> None:
+    """The v2 envelope itself must reject what the shared definition rejects."""
+    v2_path = _OPTIMIZATION / "best_config_v2_schema.json"
+    base_payload = {
+        "schema_version": "traigent.best_config.v2",
+        "config_id": "checkout-router",
+        "config": {},
+    }
+    for bad_config_id in ("", "a" * 129, "has/slash"):
+        payload = dict(base_payload)
+        payload["config_id"] = bad_config_id
+        assert _errors(v2_path, payload), f"{bad_config_id!r} must be rejected"
+
+    assert _errors(v2_path, base_payload) == []
+
+
+def _every_ref(node: Any) -> list[str]:
+    """Collect every $ref pointer appearing anywhere in a schema document."""
+    refs: list[str] = []
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            refs.append(ref)
+        for value in node.values():
+            refs.extend(_every_ref(value))
+    elif isinstance(node, list):
+        for item in node:
+            refs.extend(_every_ref(item))
+    return refs
+
+
+def test_packaged_schema_closure_resolves_every_ref_in_the_new_envelopes() -> None:
+    """Every $ref from the config_id/function_ref hoist must resolve inside the shipped package.
+
+    Walks the schema document directly and resolves each $ref pointer found,
+    rather than relying on a payload happening to reach every branch (anyOf
+    and definitions unreferenced by a chosen instance would otherwise go
+    unchecked). A $ref pointing outside traigent_schema/schemas would
+    resolve against something not shipped in the distributed package -- the
+    same failure mode _errors() already guards against for remote http(s)
+    refs during payload validation.
+    """
+    for schema_path in (
+        _SUBJECT,
+        _MANIFEST_V2,
+        _OPTIMIZATION / "best_config_v2_schema.json",
+        _OPTIMIZATION / "best_config_hash_contract_schema.json",
+    ):
+        schema = _load(schema_path)
+        Draft7Validator.check_schema(schema)
+        refs = _every_ref(schema)
+        assert refs, f"{schema_path.name}: expected to find at least one $ref"
+
+        resolver = RefResolver.from_schema(schema, store=_schema_store(get_schemas_dir()))
+        for ref in refs:
+            with resolver.resolving(ref) as resolved:
+                assert resolved, f"{schema_path.name}: $ref {ref!r} resolved to nothing"
+
+
 def test_subject_rejects_an_unknown_hash_algorithm() -> None:
     payload = _valid_subject()
     payload["hash_algorithm"] = "v0"

@@ -19,9 +19,12 @@
       "format": "date-time"
     },
     "configs": {
-      "description": "One entry per config_id. The key is the config_id; entries carry no config content, only the pointer and the digests needed to verify the spec file on load.",
+      "description": "One entry per config_id. The key is the config_id; entries carry no config content, only the pointer and the digests needed to verify the spec file on load. Keys are constrained by propertyNames to the same config_id definition best_config_v2 uses, so a manifest can never index an entry under a key the config envelope itself would reject.",
       "type": "object",
       "maxProperties": 512,
+      "propertyNames": {
+        "$ref": "./best_config_v2_schema.json#/definitions/config_id"
+      },
       "additionalProperties": {
         "$ref": "#/definitions/manifest_entry"
       }

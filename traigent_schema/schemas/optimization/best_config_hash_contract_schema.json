@@ -39,7 +39,7 @@
           "const": 100
         },
         "max_canonical_spec_bytes": {
-          "description": "Upper bound on the UTF-8 length of the canonical spec text. Bounds the cost of recursive key ordering on untrusted input.",
+          "description": "Upper bound on the UTF-8 length of the canonical spec text. Bounds the cost of recursive key ordering on untrusted input. This is inherently a POST-canonicalization check: the bound is on the canonical text's length, which does not exist until fp2 has already run. fp2 itself (traigent_schema/fp2.py) performs no byte-length check at all - this limit is enforced by the best-config hash profile (traigent_schema/best_config_profile.py) after fp2.canonicalize() returns and before hashing.",
           "type": "integer",
           "const": 262144
         }
@@ -52,7 +52,7 @@
       "additionalProperties": false
     },
     "rejected_values": {
-      "description": "Values that MUST be rejected before canonicalization, in every implementation and every language. Rejection is required rather than resolution: any silent coercion produces a digest that looks verified while depending on one runtime's accident. Duplicate property names in particular CANNOT be detected after parsing, because the parser has already collapsed them - detection requires a duplicate-aware decoder at the HTTP or file boundary, before objects are materialized.",
+      "description": "Values that MUST be rejected before a preimage is hashed, in every implementation and every language. Rejection is required rather than resolution: any silent coercion produces a digest that looks verified while depending on one runtime's accident. These rules are enforced at two different layers, and this list intentionally does not distinguish them by keyword - implementers MUST consult both fp2 (traigent_schema/fp2.py, docs/fingerprints/fp2.md) and the best-config hash profile (traigent_schema/best_config_profile.py) to find where a given rule actually lives: non_finite_number, exceeds_max_depth and lone_surrogate are enforced BY fp2 canonicalization itself. unsafe_integral_number is only PARTLY fp2's job: fp2 rejects the unsafe Python int TYPE but, by design, canonicalizes an equal-magnitude float (fp2.digest({'n': 1e20}) succeeds) because ordinary finite floats are otherwise valid fp2 input - the best-config hash profile closes this gap by rejecting the numeric VALUE, across both int and float, before fp2 ever sees it. exceeds_max_canonical_spec_bytes cannot be a canonicalization-time rule at all, because the bound is on the canonical text fp2 produces; the best-config hash profile enforces it after canonicalization and before hashing. duplicate_property_name CANNOT be detected after parsing, because the parser has already collapsed them - detection requires a duplicate-aware decoder at the HTTP or file boundary, before objects are materialized, so neither fp2 nor the best-config hash profile can enforce it from an already-parsed value.",
       "type": "array",
       "items": {
         "type": "string",

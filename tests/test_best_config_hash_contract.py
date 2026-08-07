@@ -147,10 +147,61 @@ def test_certificate_subject_binds_config_hash_not_spec_hash() -> None:
 
 
 def test_certificate_subject_function_ref_is_required_but_nullable() -> None:
-    """null asserts 'no function binding'; absence would be ambiguous."""
-    function_ref = _load(_SUBJECT)["properties"]["function_ref"]
-    assert function_ref["type"] == ["string", "null"]
-    assert "function_ref" in _load(_SUBJECT)["required"]
+    """null asserts 'no function binding'; absence would be ambiguous.
+
+    Expressed as anyOf[$ref to best_config_v2's definition, null] rather than
+    a local type: ["string", "null"] with its own maxLength -- see
+    test_certificate_subject_refs_v2_definitions_instead_of_duplicating_them
+    for why the $ref form is required rather than merely permitted.
+    """
+    subject = _load(_SUBJECT)
+    function_ref = subject["properties"]["function_ref"]
+    assert "function_ref" in subject["required"]
+
+    any_of = function_ref["anyOf"]
+    assert {"type": "null"} in any_of
+    ref_branches = [branch for branch in any_of if "$ref" in branch]
+    assert len(ref_branches) == 1
+    assert ref_branches[0]["$ref"] == "./best_config_v2_schema.json#/definitions/function_ref"
+
+
+def test_certificate_subject_refs_v2_definitions_instead_of_duplicating_them() -> None:
+    """Schema drift guard: config_id/function_ref must $ref best_config_v2, not repeat its pattern.
+
+    A local copy of the pattern or minLength/maxLength keywords can silently
+    diverge from best_config_v2's definition the moment either file is edited
+    without the other -- exactly the class of drift this contract exists to
+    end (see the module docstring). Requiring a $ref makes that drift
+    syntactically impossible rather than merely policed by convention.
+    """
+    subject_properties = _load(_SUBJECT)["properties"]
+    v2_definitions = _definitions(_BEST_CONFIG_V2)
+
+    assert subject_properties["config_id"] == {
+        "$ref": "./best_config_v2_schema.json#/definitions/config_id"
+    }
+    for keyword in ("pattern", "minLength", "maxLength", "not"):
+        assert keyword not in subject_properties["config_id"]
+
+    function_ref_ref_branch = next(
+        branch for branch in subject_properties["function_ref"]["anyOf"] if "$ref" in branch
+    )
+    assert function_ref_ref_branch == {
+        "$ref": "./best_config_v2_schema.json#/definitions/function_ref"
+    }
+    for keyword in ("pattern", "minLength", "maxLength"):
+        assert keyword not in function_ref_ref_branch
+
+    # The v2 side is the one place the pattern/length constraints are allowed to live.
+    assert "pattern" in v2_definitions["config_id"]["not"]
+    assert "pattern" in v2_definitions["function_ref"]
+
+
+def test_manifest_configs_property_names_ref_v2_config_id() -> None:
+    """Schema drift guard: manifest keys must be constrained by the same config_id definition."""
+    manifest = _load(_OPTIMIZATION / "best_config_manifest_v2_schema.json")
+    property_names = manifest["properties"]["configs"]["propertyNames"]
+    assert property_names == {"$ref": "./best_config_v2_schema.json#/definitions/config_id"}
 
 
 def test_unknown_hash_algorithm_has_no_fallback_encoded() -> None:

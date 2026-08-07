@@ -37,5 +37,5 @@ parity: ## Verify the parity manifest is up-to-date (mirrors parity-check.yml)
 format: ## Re-stamp the parity manifest after schema changes (NOT ruff format — CI does not enforce it)
 	@python3 scripts/refresh_parity.py --update
 
-breaking-check: ## Contract breaking-change gate against origin/develop (mirrors breaking-schema-check.yml)
+breaking-check: ## Contract breaking-change gate against origin/develop (mirrors ci.yml's breaking-schema-check job)
 	@python3 scripts/breaking_schema_check.py --check

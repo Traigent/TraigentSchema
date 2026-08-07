@@ -41,7 +41,10 @@ def _package_version() -> str:
 
 def test_ci_workflow_uses_pip_cache_for_all_setup_python_jobs() -> None:
     steps = _setup_python_steps()
-    assert len(steps) == 3, "ci.yml should set up Python in lint-type, test, and package jobs"
+    assert len(steps) == 4, (
+        "ci.yml should set up Python in lint-type, test, package, and "
+        "breaking-schema-check jobs"
+    )
 
     for job_name, step in steps:
         config = step.get("with", {})

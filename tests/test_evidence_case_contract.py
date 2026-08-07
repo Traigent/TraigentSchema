@@ -224,3 +224,32 @@ def test_selected_id_mismatch_is_schema_valid_but_semantically_caught() -> None:
 
     violations = validate_declared_invariants(certificate, "guarantee_certificate_v2_schema")
     assert "SELECTED_ID_MATCHES_SUBJECT_CONFIG_ID" in {v.code for v in violations}
+
+
+# --- x-traigent-invariants: guarantee_certificate_v2 per_candidate[selected_id] ---
+
+
+def test_selected_id_maps_to_selected_disposition_has_no_violation() -> None:
+    certificate = _v2_certificate()
+    assert certificate["per_candidate"][certificate["selected_id"]] == "selected"
+    violations = validate_declared_invariants(certificate, "guarantee_certificate_v2_schema")
+    assert "SELECTED_ID_MAPS_TO_SELECTED_DISPOSITION" not in {v.code for v in violations}
+
+
+def test_selected_id_disposition_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    """draft-07 cannot express a dynamic-key lookup into per_candidate.
+
+    per_candidate's keys are open-ended candidate ids, not a fixed property
+    set, so JSON Schema alone cannot tie selected_id's VALUE to the
+    disposition recorded under that same value as a key. A certificate
+    whose selected_id names a candidate recorded as 'feasible' rather than
+    'selected' is still schema-valid -- only the public semantic
+    interpreter catches the mismatch.
+    """
+    certificate = _v2_certificate()
+    certificate["per_candidate"][certificate["selected_id"]] = "feasible"
+
+    assert _errors(certificate, "guarantee_certificate_v2_schema") == []
+
+    violations = validate_declared_invariants(certificate, "guarantee_certificate_v2_schema")
+    assert "SELECTED_ID_MAPS_TO_SELECTED_DISPOSITION" in {v.code for v in violations}

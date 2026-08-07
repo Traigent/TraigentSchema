@@ -25,6 +25,14 @@
       "left_pointer": "/selected_id",
       "right_pointer": "/subject/config_id",
       "description": "selected_id (from the shared statistical body) and subject.config_id (from the v2 binding delta) must name the same configuration: the certificate's statistical claim and its binding subject must be about the same selection, even though draft-07 cannot express equality between a field composed in from one allOf branch and a field composed in from another."
+    },
+    {
+      "code": "SELECTED_ID_MAPS_TO_SELECTED_DISPOSITION",
+      "relation": "selector_lookup_equals_literal",
+      "selector_pointer": "/selected_id",
+      "map_pointer": "/per_candidate",
+      "literal": "selected",
+      "description": "per_candidate, keyed by candidate id, records each candidate's disposition (one of CandidateDisposition); the entry keyed by selected_id must read exactly 'selected'. draft-07 cannot express a dynamic-key lookup -- per_candidate's keys are open-ended candidate ids, not a fixed property set -- so a certificate whose selected_id names a candidate recorded as, say, 'feasible' rather than 'selected' is still schema-valid and only caught here."
     }
   ]
 }

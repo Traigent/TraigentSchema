@@ -621,6 +621,43 @@ def test_fully_consistent_response_has_zero_declared_invariant_violations() -> N
     )
 
 
+# --- x-traigent-invariants: disagrees=true implies rules/policy diverge -------
+
+
+def test_disagrees_true_and_diverging_actions_has_no_violation() -> None:
+    payload = _consistent_certified_shadow_response()
+    assert payload["disagrees"] is True
+    assert payload["rules"] != payload["policy"]
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "DISAGREES_IMPLIES_RULES_POLICY_DIVERGE" not in {v.code for v in violations}
+
+
+def test_disagrees_false_asserts_nothing_even_when_actions_happen_to_match() -> None:
+    """One-way: the base fixture has disagrees=False and identical rules/policy."""
+    payload = _valid_shadow_response()
+    assert payload["disagrees"] is False
+    assert payload["rules"] == payload["policy"]
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "DISAGREES_IMPLIES_RULES_POLICY_DIVERGE" not in {v.code for v in violations}
+
+
+def test_disagrees_true_with_identical_actions_is_schema_valid_but_semantically_caught() -> None:
+    """draft-07 cannot tie the disagrees boolean to an inequality between its siblings.
+
+    A response claiming disagreement while rules and policy are the exact
+    same PlannerAction is internally contradictory but still schema-valid
+    -- only the public semantic interpreter catches it.
+    """
+    validator = SchemaValidator(contract="backend")
+    payload = _consistent_certified_shadow_response()
+    payload["policy"] = payload["rules"]
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert "DISAGREES_IMPLIES_RULES_POLICY_DIVERGE" in {v.code for v in violations}
+
+
 def test_receipt_response_status_verification_combinations_are_closed() -> None:
     validator = SchemaValidator(contract="backend")
     payload = {

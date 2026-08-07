@@ -43,12 +43,11 @@
             "enum": [
               "add_harder_examples",
               "add_diverse_examples",
-              "remove_redundant",
               "fix_ambiguous_labels",
               "increase_coverage",
               "rebalance_classes"
             ],
-            "description": "Safe curation advice category."
+            "description": "Safe curation advice category. Rule 0 (disclosure register): only ADDITIVE and CORRECTIVE advice may cross this boundary. Subtractive advice keyed to an observed signal is prohibited because acting on it biases the customer's own measurement -- excluded items get zero inclusion probability, which is unrepairable. Measured on a 70-item confirmation set, top-15-by-observed-discrimination pruning gave -0.202 against a true -0.073 (2.77x); random-15 was unbiased at -0.078. `remove_redundant` was retired here for that reason; do not reintroduce a subtractive category without an owner decision recorded in the disclosure register."
           },
           "affected_count": {
             "type": "integer",

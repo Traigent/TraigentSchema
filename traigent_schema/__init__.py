@@ -23,12 +23,13 @@ from traigent_schema.utils import (
     get_schemas_dir,
     load_schema,
 )
-from traigent_schema.validator import SchemaValidator
+from traigent_schema.validator import SchemaValidator, UnvalidatedEndpointError
 from traigent_schema.version import __version__
 
 __all__ = [
     "AnalyticsValidator",
     "SchemaValidator",
+    "UnvalidatedEndpointError",
     "get_schemas_dir",
     "get_schema_path",
     "get_all_schema_files",

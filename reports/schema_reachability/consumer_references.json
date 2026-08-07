@@ -1,0 +1,1673 @@
+{
+  "description": "Snapshot of literal schema-filename references found in the 5 consumer repos (Traigent, TraigentBackend, TraigentFrontend, traigent-js, traigent-smartopt). Feeds rule 3 of scripts/schema_reachability.py. Refreshed manually via scripts/refresh_consumer_schema_references.py -- see that script's module docstring for what this cannot see.",
+  "manifestVersion": 1,
+  "referenceSites": {
+    "agent_create_request_schema.json": {
+      "TraigentBackend": [
+        "tests/integration/api/test_openapi_routes.py:43"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:155"
+      ]
+    },
+    "agent_deployment_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:156"
+      ]
+    },
+    "agent_playbook_schema.json": {
+      "Traigent": [
+        "traigent/playbook/validator.py:16",
+        "traigent/playbook/schemas/agent_playbook_schema.json:3"
+      ]
+    },
+    "agent_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:157"
+      ]
+    },
+    "agent_schema.json": {
+      "TraigentBackend": [
+        "src/utils/api_serializers.py:50",
+        "src/utils/api_serializers.py:63",
+        "src/services/defaults/schema_loader.py:150",
+        "src/services/defaults/schema_loader.py:151",
+        "src/services/defaults/schema_loader.py:155"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:158"
+      ]
+    },
+    "agent_types_schema.json": {
+      "TraigentBackend": [
+        "CLAUDE.md:1105",
+        "scripts/data_validation.py:169",
+        "scripts/maintenance/check_mock_data.py:105",
+        "src/models/agent_types.py:88",
+        "src/services/defaults/schema_loader.py:148"
+      ],
+      "traigent-js": [
+        "scripts/generate-schema-types.mjs:39",
+        "scripts/generate-schema-types.mjs:40",
+        "src/generated/schema-types/index.ts:159"
+      ]
+    },
+    "analysis_insights_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:47"
+      ]
+    },
+    "annotation_queue_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:48"
+      ]
+    },
+    "annotation_queue_item_complete_result_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:49"
+      ]
+    },
+    "annotation_queue_item_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:50"
+      ]
+    },
+    "annotation_queue_item_create_result_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:51"
+      ]
+    },
+    "annotation_queue_item_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:52"
+      ]
+    },
+    "annotation_queue_item_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:53"
+      ]
+    },
+    "annotation_queue_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:54"
+      ]
+    },
+    "annotation_queue_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:55"
+      ]
+    },
+    "annotation_queue_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:56"
+      ]
+    },
+    "best_config_publish_request_schema.json": {
+      "TraigentBackend": [
+        "src/services/best_config_service.py:119"
+      ]
+    },
+    "best_config_response_schema.json": {
+      "TraigentBackend": [
+        "tests/integration/api/test_best_config_routes.py:63"
+      ]
+    },
+    "best_config_rollback_request_schema.json": {
+      "TraigentBackend": [
+        "src/services/best_config_service.py:120"
+      ]
+    },
+    "billing_checkout_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:112"
+      ]
+    },
+    "billing_checkout_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:113"
+      ]
+    },
+    "billing_enforcement_controls_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:114"
+      ]
+    },
+    "billing_limits_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:115"
+      ]
+    },
+    "billing_plan_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:116"
+      ]
+    },
+    "billing_plans_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:117"
+      ]
+    },
+    "billing_portal_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:118"
+      ]
+    },
+    "certified_selection_schema.json": {
+      "Traigent": [
+        "traigent/cloud/governance.py:214"
+      ],
+      "TraigentBackend": [
+        "src/services/traigent/interactive_session_service.py:1418"
+      ],
+      "traigent-js": [
+        "src/optimization/hybrid.ts:2188",
+        "src/optimization/types.ts:579"
+      ]
+    },
+    "chat_prompt_message_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:36"
+      ]
+    },
+    "cohort_comparison_request_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:40"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:57"
+      ]
+    },
+    "cohort_comparison_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:58"
+      ]
+    },
+    "config_space_schema.json": {
+      "traigent-js": [
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:22",
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:86",
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:119"
+      ]
+    },
+    "configuration_run_schema.json": {
+      "Traigent": [
+        "traigent/cloud/api_operations.py:1244",
+        "traigent/cloud/dtos.py:706"
+      ],
+      "TraigentBackend": [
+        "tests/fixtures/data_fixtures.py:303",
+        "src/services/traigent/session_service_refactored.py:2084",
+        "src/services/defaults/schema_loader.py:163",
+        "src/services/defaults/schema_loader.py:164"
+      ],
+      "TraigentFrontend": [
+        "src/hooks/useColumnManager.tsx:175",
+        "src/components/experiment/ParameterAnalysisExplorer.tsx:419"
+      ],
+      "traigent-js": [
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:33",
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:65",
+        "src/dtos/measures.ts:6"
+      ]
+    },
+    "correlation_ids_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:59"
+      ]
+    },
+    "curation_advice_schema.json": {
+      "TraigentBackend": [
+        "tests/integration/test_next_steps_and_curation_advice.py:491",
+        "tests/integration/test_next_steps_and_curation_advice.py:569",
+        "tests/integration/test_next_steps_and_curation_advice.py:759",
+        "tests/fixtures/contracts/curation_advice_schema.json:4"
+      ]
+    },
+    "dataset_schema.json": {
+      "TraigentBackend": [
+        "src/utils/api_serializers.py:24",
+        "src/utils/api_serializers.py:37"
+      ]
+    },
+    "decision_payload_schema.json": {
+      "TraigentBackend": [
+        "src/shared_infrastructure/schemas/decision_payload.py:70",
+        "src/shared_infrastructure/schemas/decision_payload.py:136"
+      ],
+      "TraigentFrontend": [
+        "src/api/analytics/decisionPayloadApi.ts:38",
+        "src/api/analytics/__tests__/decisionPayloadApi.test.ts:44"
+      ]
+    },
+    "derivation_provenance_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:60"
+      ]
+    },
+    "device_authorization_response_schema.json": {
+      "Traigent": [
+        "tests/unit/cli/test_device_auth_commands.py:26"
+      ]
+    },
+    "device_token_response_schema.json": {
+      "Traigent": [
+        "tests/unit/cli/test_device_auth_commands.py:141"
+      ]
+    },
+    "economics_characterization_vocabulary_schema.json": {
+      "traigent-js": [
+        "src/generated/economics-schema.lock.json:5",
+        "src/generated/economics-schemas.ts:12",
+        "src/generated/economics-schemas.ts:1576",
+        "src/generated/economics-schemas.ts:1708",
+        "src/generated/economics-schemas.ts:1711"
+      ]
+    },
+    "economics_common_schema.json": {
+      "Traigent": [
+        "tests/unit/economics/test_schema.py:201"
+      ],
+      "TraigentBackend": [
+        "tests/unit/services/economics/test_schema_contract.py:37"
+      ],
+      "traigent-js": [
+        "tests/unit/economics/backend-contract.test.ts:123",
+        "src/generated/economics-schema.lock.json:6",
+        "src/generated/economics-schemas.ts:18",
+        "src/generated/economics-schemas.ts:104",
+        "src/generated/economics-schemas.ts:107"
+      ]
+    },
+    "economics_endpoints.json": {
+      "Traigent": [
+        "tests/unit/economics/conftest.py:57"
+      ],
+      "TraigentBackend": [
+        "tests/unit/services/economics/test_schema_contract.py:28",
+        "tests/unit/services/economics/test_schema_contract.py:36"
+      ]
+    },
+    "economics_funnel_event_schema.json": {
+      "traigent-js": [
+        "src/generated/economics-schema.lock.json:7",
+        "src/generated/economics-schemas.ts:411",
+        "src/generated/economics-schemas.ts:3245",
+        "src/generated/schema-types/index.ts:143"
+      ]
+    },
+    "economics_receipt_event_schema.json": {
+      "traigent-js": [
+        "src/generated/economics-schema.lock.json:8",
+        "src/generated/economics-schemas.ts:641",
+        "src/generated/economics-schemas.ts:3251",
+        "src/generated/schema-types/index.ts:144"
+      ]
+    },
+    "economics_recommendation_request_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/services/economics/test_schema_contract.py:34"
+      ]
+    },
+    "economics_recommendation_response_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/services/economics/test_schema_contract.py:35"
+      ]
+    },
+    "economics_run_event_schema.json": {
+      "traigent-js": [
+        "src/generated/economics-schema.lock.json:9",
+        "src/generated/economics-schemas.ts:17",
+        "src/generated/economics-schemas.ts:1464",
+        "src/generated/economics-schemas.ts:3248",
+        "src/economics/egress.ts:8"
+      ]
+    },
+    "economics_telemetry_event_schema.json": {
+      "traigent-js": [
+        "src/generated/economics-schema.lock.json:10",
+        "src/generated/economics-schemas.ts:3240",
+        "src/generated/economics-schemas.ts:3307",
+        "src/generated/schema-types/index.ts:146"
+      ]
+    },
+    "economics_telemetry_ingest_request_schema.json": {
+      "traigent-js": [
+        "tests/unit/economics/generation.test.ts:95",
+        "tests/unit/economics/backend-contract.test.ts:128",
+        "src/generated/economics-schema.lock.json:11",
+        "src/generated/economics-schemas.ts:3258",
+        "src/generated/economics-schemas.ts:3516"
+      ]
+    },
+    "economics_telemetry_ingest_response_initial_schema.json": {
+      "Traigent": [
+        "tests/unit/economics/test_contract_drift.py:125"
+      ],
+      "traigent-js": [
+        "src/generated/economics-schema.lock.json:12",
+        "src/generated/economics-schemas.ts:3327",
+        "src/generated/economics-schemas.ts:3517",
+        "src/generated/schema-types/index.ts:148"
+      ]
+    },
+    "economics_telemetry_ingest_response_replay_schema.json": {
+      "Traigent": [
+        "tests/unit/economics/test_contract_drift.py:123"
+      ],
+      "traigent-js": [
+        "src/generated/economics-schema.lock.json:13",
+        "src/generated/economics-schemas.ts:3350",
+        "src/generated/economics-schemas.ts:3518",
+        "src/generated/schema-types/index.ts:149"
+      ]
+    },
+    "economics_telemetry_ingest_response_schema.json": {
+      "traigent-js": [
+        "tests/unit/economics/backend-contract.test.ts:117",
+        "src/generated/economics-schema.lock.json:14",
+        "src/generated/economics-schemas.ts:3333",
+        "src/generated/economics-schemas.ts:3356",
+        "src/generated/economics-schemas.ts:3373"
+      ]
+    },
+    "entitlement_required_error_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/security/test_portal_access_policy.py:46",
+        "tests/unit/security/test_portal_access_policy.py:90",
+        "scripts/ci/check_schema_pin_coherence.py:5",
+        "scripts/ci/check_schema_pin_coherence.py:107",
+        "src/security/portal_access_policy.py:54"
+      ],
+      "TraigentFrontend": [
+        "src/services/api.ts:108",
+        "src/services/accessPeriod.ts:36"
+      ]
+    },
+    "error_envelope_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/security/test_portal_access_policy.py:101",
+        "tests/unit/security/test_portal_access_policy.py:449",
+        "tests/unit/security/test_portal_access_policy.py:500",
+        "tests/unit/security/test_portal_access_policy.py:503",
+        "tests/unit/security/test_portal_access_policy.py:515"
+      ]
+    },
+    "evaluation_dataset_evaluator_plan_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:61"
+      ]
+    },
+    "evaluation_set_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/services/test_schema_loader.py:33",
+        "tests/unit/services/test_schema_loader.py:34",
+        "tests/unit/services/test_schema_loader.py:65",
+        "scripts/analysis/validate_factory_schema_alignment.py:15",
+        "src/routes/benchmark_routes.py:96"
+      ]
+    },
+    "evaluator_backfill_result_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:62"
+      ]
+    },
+    "evaluator_config_schema.json": {
+      "TraigentBackend": [
+        "src/services/defaults/schema_loader.py:168"
+      ]
+    },
+    "evaluator_definition_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:63"
+      ]
+    },
+    "evaluator_definition_schema.json": {
+      "Traigent": [
+        "traigent/cloud/dtos.py:1435"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:64"
+      ]
+    },
+    "evaluator_execute_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:65"
+      ]
+    },
+    "evaluator_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:66"
+      ]
+    },
+    "evaluator_run_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:67"
+      ]
+    },
+    "evaluator_run_retry_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:68"
+      ]
+    },
+    "evaluator_run_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:69"
+      ]
+    },
+    "evaluator_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:70"
+      ]
+    },
+    "example_set_schema.json": {
+      "TraigentBackend": [
+        "src/utils/api_serializers.py:244",
+        "src/services/defaults/schema_loader.py:152",
+        "src/services/defaults/schema_loader.py:153"
+      ]
+    },
+    "execution_context_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:71"
+      ]
+    },
+    "experiment_group_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/services/test_experiment_group_service.py:667",
+        "tests/integration/api/test_experiment_group_routes.py:2110",
+        "tests/integration/api/test_experiment_group_routes.py:2118",
+        "src/services/experiment_group_service.py:13",
+        "src/services/experiment_group_service.py:98"
+      ],
+      "TraigentFrontend": [
+        "reports/agent-tuning-history-frontend-result.md:38",
+        "tests/e2e/experiments/agent-tuning-history.test.ts:8",
+        "src/services/experimentGroupsApi.ts:7"
+      ]
+    },
+    "experiment_run_schema.json": {
+      "Traigent": [
+        "traigent/cloud/dtos.py:652"
+      ],
+      "TraigentBackend": [
+        "tests/fixtures/data_fixtures.py:263",
+        "src/schemas/experiment_run.py:45",
+        "src/routes/traigent_session_routes.py:499",
+        "src/services/defaults/schema_loader.py:166",
+        "src/services/defaults/schema_loader.py:169"
+      ],
+      "TraigentFrontend": [
+        "src/services/api.types.ts:243"
+      ],
+      "traigent-js": [
+        "src/optimization/hybrid.ts:188",
+        "src/optimization/spec.ts:173"
+      ]
+    },
+    "experiment_schema.json": {
+      "Traigent": [
+        "traigent/cloud/dtos.py:481"
+      ],
+      "TraigentBackend": [
+        "scripts/analysis/validate_factory_schema_alignment.py:59",
+        "src/utils/api_serializers.py:102",
+        "src/utils/api_serializers.py:115",
+        "src/services/defaults/schema_loader.py:165"
+      ]
+    },
+    "exploration_config_schema.json": {
+      "traigent-js": [
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:106"
+      ]
+    },
+    "generator_config_schema.json": {
+      "TraigentBackend": [
+        "src/services/defaults/schema_loader.py:167"
+      ]
+    },
+    "guarantee_certificate_schema.json": {
+      "Traigent": [
+        "traigent/knobs/certificates.py:12"
+      ],
+      "traigent-smartopt": [
+        "tests/guarantee/test_wire.py:148",
+        "traigent_smartopt/guarantee/wire.py:4"
+      ]
+    },
+    "guaranteed_selection_request_schema.json": {
+      "traigent-smartopt": [
+        "tests/guarantee/test_wire.py:149"
+      ]
+    },
+    "guaranteed_selection_result_schema.json": {
+      "TraigentBackend": [
+        "src/services/guaranteed_selection/publish_gate.py:22",
+        "src/services/guaranteed_selection/service.py:5"
+      ],
+      "traigent-smartopt": [
+        "reports/w2-issue64-result.md:21",
+        "tests/guarantee/test_wire.py:150",
+        "tests/guarantee/test_wire.py:158",
+        "traigent_smartopt/guarantee/wire.py:3"
+      ]
+    },
+    "harness_session_record.json": {
+      "TraigentBackend": [
+        "tests/unit/schemas/test_harness_schema_parity.py:3",
+        "tests/unit/schemas/test_harness_schema_parity.py:32",
+        "tests/unit/schemas/test_harness_schema_parity.py:36",
+        "tests/unit/schemas/test_harness_schema_parity.py:48",
+        "src/schemas/harness_schemas.py:5"
+      ]
+    },
+    "hybrid_session_schema.json": {
+      "traigent-js": [
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:63"
+      ]
+    },
+    "intermediate_report_schema.json": {
+      "Traigent": [
+        "reports/sdk-smart-pruning-result.md:14"
+      ]
+    },
+    "issue_detail_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:72"
+      ]
+    },
+    "issue_evidence_ref_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:73"
+      ]
+    },
+    "issue_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:74"
+      ]
+    },
+    "issue_occurrence_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:75"
+      ]
+    },
+    "issue_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:76"
+      ]
+    },
+    "issue_state_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:77"
+      ]
+    },
+    "measure_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:151"
+      ]
+    },
+    "measure_schema.json": {
+      "Traigent": [
+        "traigent/cloud/dtos.py:1482"
+      ],
+      "TraigentBackend": [
+        "src/pydantic_models/measure_models.py:2",
+        "src/utils/api_serializers.py:128",
+        "src/utils/api_serializers.py:141"
+      ],
+      "traigent-js": [
+        "scripts/generate-schema-types.mjs:32",
+        "scripts/generate-schema-types.mjs:37",
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:50",
+        "src/dtos/measures.ts:11",
+        "src/generated/schema-types/index.ts:152"
+      ]
+    },
+    "mep_endpoints.json": {
+      "TraigentBackend": [
+        "tests/contract/test_schema_conformance.py:1",
+        "tests/contract/test_schema_conformance.py:4",
+        "tests/contract/test_schema_conformance.py:24",
+        "tests/contract/test_schema_conformance.py:60",
+        "tests/contract/test_schema_conformance.py:62"
+      ],
+      "TraigentFrontend": [
+        "src/api/README.md:17"
+      ]
+    },
+    "metric_submission_schema.json": {
+      "traigent-js": [
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:32",
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:64",
+        "src/dtos/measures.ts:5"
+      ]
+    },
+    "model_parameters_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:160"
+      ]
+    },
+    "model_parameters_schema.json": {
+      "TraigentBackend": [
+        "src/services/defaults/schema_loader.py:159",
+        "src/services/defaults/schema_loader.py:160"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:161"
+      ]
+    },
+    "model_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/services/test_schema_loader.py:23",
+        "tests/unit/services/test_schema_loader.py:24",
+        "src/utils/api_serializers.py:76",
+        "src/utils/api_serializers.py:89",
+        "src/services/defaults/schema_loader.py:157"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:162"
+      ]
+    },
+    "multi_objective_semantics_schema.json": {
+      "Traigent": [
+        "tests/fixtures/multi_objective_normalization.json:3",
+        "tests/integration/test_cross_sdk_normalization.py:11",
+        "tests/unit/core/test_objectives_edge_cases.py:253",
+        "tests/unit/api/test_types_advanced.py:791",
+        "traigent/core/objectives.py:209"
+      ],
+      "traigent-js": [
+        "tests/cross-sdk/multi-objective-normalization.test.ts:13",
+        "tests/cross-sdk/fixtures/multi_objective_normalization.json:3",
+        "src/optimization/spec.ts:455",
+        "src/optimization/types.ts:334"
+      ]
+    },
+    "next_steps_schema.json": {
+      "TraigentBackend": [
+        "tests/integration/test_next_steps_history_fusion.py:162",
+        "tests/integration/test_next_steps_history_fusion.py:201",
+        "tests/integration/test_next_steps_history_fusion.py:226",
+        "tests/integration/test_next_steps_history_fusion.py:251",
+        "tests/integration/test_next_steps_history_fusion.py:284"
+      ]
+    },
+    "objective_definition_schema.json": {
+      "traigent-js": [
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:88"
+      ]
+    },
+    "observability_endpoints.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:42",
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:54",
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:663"
+      ]
+    },
+    "observability_ingest_request_schema.json": {
+      "Traigent": [
+        "CONTRACT-PROPOSAL.md:13"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:78"
+      ]
+    },
+    "observability_lineage_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:79"
+      ]
+    },
+    "observability_v2_error_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:7",
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:56",
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:122",
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:518",
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:619"
+      ]
+    },
+    "observability_v2_event_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:123"
+      ]
+    },
+    "observability_v2_ingest_status_response_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:6",
+        "tests/unit/routes/test_observability_ingest_v2_contract_conformance.py:121",
+        "src/services/observability_ingest_status_service.py:7",
+        "src/routes/observability_ingest_v2_routes.py:157"
+      ]
+    },
+    "observation_ingest_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:47"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:80"
+      ]
+    },
+    "observation_schema.json": {
+      "traigent-js": [
+        "scripts/generate-schema-types.mjs:59",
+        "src/generated/schema-types/index.ts:81"
+      ]
+    },
+    "optimization_endpoints.json": {
+      "Traigent": [
+        "traigent/cloud/models.py:217"
+      ]
+    },
+    "optimization_session_list_response_schema.json": {
+      "Traigent": [
+        "traigent/cloud/models.py:149"
+      ]
+    },
+    "optimization_trace_step_signature_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/services/analytics/test_optimization_trace_signature_extractor.py:17",
+        "tests/unit/services/analytics/test_optimization_trace_signature_extractor.py:200",
+        "tests/fixtures/contracts/optimization_trace_step_signature_schema.json:3"
+      ]
+    },
+    "paddle_webhook_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:119"
+      ]
+    },
+    "pagination_schema.json": {
+      "traigent-js": [
+        "scripts/generate-schema-types.mjs:63",
+        "src/generated/schema-types/index.ts:165"
+      ]
+    },
+    "planner_draft_schema.json": {
+      "TraigentBackend": [
+        "src/pydantic_models/plan_models.py:31"
+      ]
+    },
+    "project_context_error_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:4"
+      ]
+    },
+    "project_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:5"
+      ]
+    },
+    "project_export_job_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:6"
+      ]
+    },
+    "project_export_job_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:7"
+      ]
+    },
+    "project_export_policy_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:8"
+      ]
+    },
+    "project_export_policy_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:9"
+      ]
+    },
+    "project_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:10"
+      ]
+    },
+    "project_member_candidate_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:11"
+      ]
+    },
+    "project_member_candidate_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:12"
+      ]
+    },
+    "project_member_lookup_error_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:13"
+      ]
+    },
+    "project_membership_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:14"
+      ]
+    },
+    "project_membership_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:15"
+      ]
+    },
+    "project_membership_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:16"
+      ]
+    },
+    "project_membership_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:17"
+      ]
+    },
+    "project_rate_limit_policy_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:18"
+      ]
+    },
+    "project_rate_limit_policy_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:19"
+      ]
+    },
+    "project_retention_policy_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:20"
+      ]
+    },
+    "project_retention_policy_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:21"
+      ]
+    },
+    "project_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:22"
+      ]
+    },
+    "project_scoped_analytics_summary_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:23"
+      ]
+    },
+    "project_scoped_analytics_trend_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:24"
+      ]
+    },
+    "project_scoped_core_metrics_overview_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:25"
+      ]
+    },
+    "project_scoped_evaluator_quality_dashboard_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:26"
+      ]
+    },
+    "project_scoped_experiment_trend_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:27"
+      ]
+    },
+    "project_scoped_fine_tuning_export_query_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:28"
+      ]
+    },
+    "project_scoped_fine_tuning_manifest_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:29"
+      ]
+    },
+    "project_scoped_measure_distribution_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:30"
+      ]
+    },
+    "project_scoped_observability_summary_dashboard_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:31"
+      ]
+    },
+    "project_scoped_optimization_overview_dashboard_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:32"
+      ]
+    },
+    "project_scoped_pricing_catalog_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:33"
+      ]
+    },
+    "project_scoped_project_usage_dashboard_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:34"
+      ]
+    },
+    "project_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:35"
+      ]
+    },
+    "promotion_policy_schema.json": {
+      "Traigent": [
+        "traigent/cloud/governance.py:10"
+      ],
+      "TraigentBackend": [
+        "tests/unit/services/traigent/test_tvl_governance_wire.py:11",
+        "src/services/traigent/interactive_session_service.py:983",
+        "src/services/traigent/interactive_session_service.py:1023"
+      ]
+    },
+    "prompt_analytics_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:37"
+      ]
+    },
+    "prompt_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:38"
+      ]
+    },
+    "prompt_detail_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:39"
+      ]
+    },
+    "prompt_labels_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:40"
+      ]
+    },
+    "prompt_link_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:82"
+      ]
+    },
+    "prompt_playground_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:41"
+      ]
+    },
+    "prompt_playground_result_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:42"
+      ]
+    },
+    "prompt_reference_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:83"
+      ]
+    },
+    "prompt_summary_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:43"
+      ]
+    },
+    "prompt_version_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:44"
+      ]
+    },
+    "prompt_version_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:45"
+      ]
+    },
+    "quota_exceeded_error_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:120"
+      ]
+    },
+    "quota_preflight_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:121"
+      ]
+    },
+    "quota_preflight_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:122"
+      ]
+    },
+    "resolved_prompt_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:46"
+      ]
+    },
+    "retriever_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:163"
+      ]
+    },
+    "retriever_schema.json": {
+      "TraigentBackend": [
+        "src/services/defaults/schema_loader.py:154",
+        "src/services/defaults/schema_loader.py:156"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:164"
+      ]
+    },
+    "review_measure_summary_schema.json": {
+      "traigent-js": [
+        "scripts/generate-schema-types.mjs:31",
+        "src/generated/schema-types/index.ts:84"
+      ]
+    },
+    "review_score_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:85"
+      ]
+    },
+    "review_score_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:86"
+      ]
+    },
+    "review_score_schema.json": {
+      "traigent-js": [
+        "scripts/generate-schema-types.mjs:30",
+        "src/generated/schema-types/index.ts:87"
+      ]
+    },
+    "run_example_insights_schema.json": {
+      "TraigentBackend": [
+        "src/shared_infrastructure/schemas/run_analytics.py:188"
+      ]
+    },
+    "score_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:153"
+      ]
+    },
+    "semantic_saturation_schema.json": {
+      "Traigent": [
+        "tests/unit/core/test_semantic_saturation_stop_condition.py:25",
+        "tests/unit/core/test_semantic_saturation_stop_condition.py:73",
+        "tests/fixtures/contracts/semantic_saturation_schema.json:3",
+        "traigent/api/decorators.py:2494",
+        "docs/architecture/stop_conditions.md:124"
+      ]
+    },
+    "session_finalize_response_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/services/traigent/test_tvl_governance_wire.py:10"
+      ],
+      "TraigentFrontend": [
+        "src/api/models/ExperimentRun.ts:28"
+      ]
+    },
+    "session_ingest_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:88"
+      ]
+    },
+    "session_list_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:89"
+      ]
+    },
+    "session_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:90"
+      ]
+    },
+    "smart_pruning_schema.json": {
+      "Traigent": [
+        "reports/sdk-smart-pruning-result.md:13",
+        "traigent/cloud/smart_pruning.py:53",
+        "traigent/api/decorators.py:2467"
+      ]
+    },
+    "spend_approval_request_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/billing/test_billing_routes.py:89",
+        "tests/unit/billing/test_wallet_service.py:361",
+        "src/routes/billing_routes.py:805",
+        "src/services/billing/wallet_service.py:53",
+        "src/services/billing/wallet_service.py:206"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:123"
+      ]
+    },
+    "spend_approvals_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:124"
+      ]
+    },
+    "spend_policy_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:125"
+      ]
+    },
+    "spend_policy_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:126"
+      ]
+    },
+    "status_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:19",
+        "COMPANION-CHANGES.md:28",
+        "src/services/experiment_group_service.py:125"
+      ],
+      "traigent-js": [
+        "scripts/generate-schema-types.mjs:56",
+        "scripts/generate-schema-types.mjs:63",
+        "src/generated/schema-types/index.ts:166"
+      ]
+    },
+    "structural_fingerprint_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:91"
+      ]
+    },
+    "subscription_cancel_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:127"
+      ]
+    },
+    "subscription_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:128"
+      ]
+    },
+    "task_outcome.json": {
+      "TraigentBackend": [
+        "tests/unit/schemas/test_harness_schema_parity.py:4",
+        "tests/unit/schemas/test_harness_schema_parity.py:33",
+        "tests/unit/schemas/test_harness_schema_parity.py:37",
+        "tests/unit/schemas/test_harness_schema_parity.py:49",
+        "tests/unit/schemas/test_harness_schema_parity.py:50"
+      ]
+    },
+    "timing_metric_vocabulary_schema.json": {
+      "TraigentBackend": [
+        "src/services/experiment_run_service.py:1960"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:154"
+      ]
+    },
+    "tool_analysis_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:92"
+      ]
+    },
+    "trace_analysis_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:93"
+      ]
+    },
+    "trace_collaboration_state_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:94"
+      ]
+    },
+    "trace_collaboration_update_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:95"
+      ]
+    },
+    "trace_comment_create_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:96"
+      ]
+    },
+    "trace_comment_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:97"
+      ]
+    },
+    "trace_comments_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:98"
+      ]
+    },
+    "trace_feedback_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:99"
+      ]
+    },
+    "trace_feedback_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:100"
+      ]
+    },
+    "trace_feedback_upsert_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:101"
+      ]
+    },
+    "trace_ingest_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:22",
+        "COMPANION-CHANGES.md:44"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:102"
+      ]
+    },
+    "trace_list_response_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:31"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:103"
+      ]
+    },
+    "trace_observations_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:104"
+      ]
+    },
+    "trace_projection_response_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:32"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:105"
+      ]
+    },
+    "trace_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:30"
+      ],
+      "traigent-js": [
+        "scripts/generate-schema-types.mjs:59",
+        "tests/cross-sdk/fixtures/observability_trace_payload.json:4",
+        "src/generated/schema-types/index.ts:106"
+      ]
+    },
+    "trace_score_summary_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:107"
+      ]
+    },
+    "trace_variant_detail_response_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:33"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:108"
+      ]
+    },
+    "trace_variant_list_response_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:33"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:109"
+      ]
+    },
+    "trace_variant_schema.json": {
+      "TraigentBackend": [
+        "COMPANION-CHANGES.md:34",
+        "COMPANION-CHANGES.md:34"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:110"
+      ]
+    },
+    "tvar_catalog_entry_schema.json": {
+      "Traigent": [
+        "traigent/config_generator/catalog.py:15"
+      ]
+    },
+    "tvar_definition_schema.json": {
+      "traigent-js": [
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:87"
+      ]
+    },
+    "tvar_observation_schema.json": {
+      "Traigent": [
+        "traigent/tuned_variables/observation.py:27"
+      ]
+    },
+    "tvar_value_recommendation_schema.json": {
+      "Traigent": [
+        "traigent/config_generator/catalog/schemas/tvar_value_recommendation_schema.json:3"
+      ]
+    },
+    "tvl_governance_schema.json": {
+      "Traigent": [
+        "traigent/cloud/governance.py:10"
+      ],
+      "TraigentBackend": [
+        "tests/unit/services/traigent/test_tvl_governance_wire.py:10",
+        "src/services/traigent/interactive_session_service.py:1291"
+      ],
+      "TraigentFrontend": [
+        "src/api/models/ExperimentRun.ts:2",
+        "src/components/experiment/CertificatesPanel.tsx:19"
+      ]
+    },
+    "typed_constraints_schema.json": {
+      "traigent-js": [
+        "docs/SCHEMA_ALIGNMENT_AUDIT.md:89"
+      ]
+    },
+    "usage_check_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:129"
+      ]
+    },
+    "usage_history_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:130"
+      ]
+    },
+    "usage_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:131"
+      ]
+    },
+    "usage_summary_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:132"
+      ]
+    },
+    "user_summary_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:111"
+      ]
+    },
+    "wallet_admin_adjustment_request_schema.json": {
+      "TraigentBackend": [
+        "src/services/billing/wallet_service.py:45"
+      ],
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:133"
+      ]
+    },
+    "wallet_insufficient_balance_error_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:134"
+      ]
+    },
+    "wallet_ledger_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:135"
+      ]
+    },
+    "wallet_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:136"
+      ]
+    },
+    "wallet_top_up_pack_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:137"
+      ]
+    },
+    "wallet_top_up_packs_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:138"
+      ]
+    },
+    "wallet_top_up_request_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:139"
+      ]
+    },
+    "wallet_top_up_response_schema.json": {
+      "traigent-js": [
+        "src/generated/schema-types/index.ts:140"
+      ]
+    },
+    "warm_start_transfer_schema.json": {
+      "TraigentBackend": [
+        "src/services/traigent/interactive_session_service.py:126"
+      ]
+    },
+    "workflow_trace_trial_response_schema.json": {
+      "TraigentBackend": [
+        "tests/unit/routes/test_experiment_run_traces.py:460",
+        "src/routes/experiment_run_routes.py:2722",
+        "src/shared_infrastructure/schemas/workflow_traces.py:67"
+      ]
+    }
+  },
+  "referencedBasenames": [
+    "agent_create_request_schema.json",
+    "agent_deployment_schema.json",
+    "agent_playbook_schema.json",
+    "agent_response_schema.json",
+    "agent_schema.json",
+    "agent_types_schema.json",
+    "analysis_insights_response_schema.json",
+    "annotation_queue_create_request_schema.json",
+    "annotation_queue_item_complete_result_schema.json",
+    "annotation_queue_item_create_request_schema.json",
+    "annotation_queue_item_create_result_schema.json",
+    "annotation_queue_item_list_response_schema.json",
+    "annotation_queue_item_schema.json",
+    "annotation_queue_list_response_schema.json",
+    "annotation_queue_schema.json",
+    "annotation_queue_update_request_schema.json",
+    "best_config_publish_request_schema.json",
+    "best_config_response_schema.json",
+    "best_config_rollback_request_schema.json",
+    "billing_checkout_request_schema.json",
+    "billing_checkout_response_schema.json",
+    "billing_enforcement_controls_response_schema.json",
+    "billing_limits_schema.json",
+    "billing_plan_schema.json",
+    "billing_plans_response_schema.json",
+    "billing_portal_response_schema.json",
+    "certified_selection_schema.json",
+    "chat_prompt_message_schema.json",
+    "cohort_comparison_request_schema.json",
+    "cohort_comparison_response_schema.json",
+    "config_space_schema.json",
+    "configuration_run_schema.json",
+    "correlation_ids_schema.json",
+    "curation_advice_schema.json",
+    "dataset_schema.json",
+    "decision_payload_schema.json",
+    "derivation_provenance_schema.json",
+    "device_authorization_response_schema.json",
+    "device_token_response_schema.json",
+    "economics_characterization_vocabulary_schema.json",
+    "economics_common_schema.json",
+    "economics_endpoints.json",
+    "economics_funnel_event_schema.json",
+    "economics_receipt_event_schema.json",
+    "economics_recommendation_request_schema.json",
+    "economics_recommendation_response_schema.json",
+    "economics_run_event_schema.json",
+    "economics_telemetry_event_schema.json",
+    "economics_telemetry_ingest_request_schema.json",
+    "economics_telemetry_ingest_response_initial_schema.json",
+    "economics_telemetry_ingest_response_replay_schema.json",
+    "economics_telemetry_ingest_response_schema.json",
+    "entitlement_required_error_schema.json",
+    "error_envelope_schema.json",
+    "evaluation_dataset_evaluator_plan_schema.json",
+    "evaluation_set_schema.json",
+    "evaluator_backfill_result_schema.json",
+    "evaluator_config_schema.json",
+    "evaluator_definition_create_request_schema.json",
+    "evaluator_definition_schema.json",
+    "evaluator_execute_request_schema.json",
+    "evaluator_list_response_schema.json",
+    "evaluator_run_list_response_schema.json",
+    "evaluator_run_retry_request_schema.json",
+    "evaluator_run_schema.json",
+    "evaluator_update_request_schema.json",
+    "example_set_schema.json",
+    "execution_context_schema.json",
+    "experiment_group_schema.json",
+    "experiment_run_schema.json",
+    "experiment_schema.json",
+    "exploration_config_schema.json",
+    "generator_config_schema.json",
+    "guarantee_certificate_schema.json",
+    "guaranteed_selection_request_schema.json",
+    "guaranteed_selection_result_schema.json",
+    "harness_session_record.json",
+    "hybrid_session_schema.json",
+    "intermediate_report_schema.json",
+    "issue_detail_response_schema.json",
+    "issue_evidence_ref_schema.json",
+    "issue_list_response_schema.json",
+    "issue_occurrence_schema.json",
+    "issue_schema.json",
+    "issue_state_update_request_schema.json",
+    "measure_create_request_schema.json",
+    "measure_schema.json",
+    "mep_endpoints.json",
+    "metric_submission_schema.json",
+    "model_parameters_create_request_schema.json",
+    "model_parameters_schema.json",
+    "model_schema.json",
+    "multi_objective_semantics_schema.json",
+    "next_steps_schema.json",
+    "objective_definition_schema.json",
+    "observability_endpoints.json",
+    "observability_ingest_request_schema.json",
+    "observability_lineage_response_schema.json",
+    "observability_v2_error_schema.json",
+    "observability_v2_event_schema.json",
+    "observability_v2_ingest_status_response_schema.json",
+    "observation_ingest_schema.json",
+    "observation_schema.json",
+    "optimization_endpoints.json",
+    "optimization_session_list_response_schema.json",
+    "optimization_trace_step_signature_schema.json",
+    "paddle_webhook_request_schema.json",
+    "pagination_schema.json",
+    "planner_draft_schema.json",
+    "project_context_error_schema.json",
+    "project_create_request_schema.json",
+    "project_export_job_list_response_schema.json",
+    "project_export_job_schema.json",
+    "project_export_policy_schema.json",
+    "project_export_policy_update_request_schema.json",
+    "project_list_response_schema.json",
+    "project_member_candidate_list_response_schema.json",
+    "project_member_candidate_schema.json",
+    "project_member_lookup_error_schema.json",
+    "project_membership_create_request_schema.json",
+    "project_membership_list_response_schema.json",
+    "project_membership_schema.json",
+    "project_membership_update_request_schema.json",
+    "project_rate_limit_policy_schema.json",
+    "project_rate_limit_policy_update_request_schema.json",
+    "project_retention_policy_schema.json",
+    "project_retention_policy_update_request_schema.json",
+    "project_schema.json",
+    "project_scoped_analytics_summary_schema.json",
+    "project_scoped_analytics_trend_schema.json",
+    "project_scoped_core_metrics_overview_schema.json",
+    "project_scoped_evaluator_quality_dashboard_schema.json",
+    "project_scoped_experiment_trend_schema.json",
+    "project_scoped_fine_tuning_export_query_schema.json",
+    "project_scoped_fine_tuning_manifest_schema.json",
+    "project_scoped_measure_distribution_schema.json",
+    "project_scoped_observability_summary_dashboard_schema.json",
+    "project_scoped_optimization_overview_dashboard_schema.json",
+    "project_scoped_pricing_catalog_schema.json",
+    "project_scoped_project_usage_dashboard_schema.json",
+    "project_update_request_schema.json",
+    "promotion_policy_schema.json",
+    "prompt_analytics_schema.json",
+    "prompt_create_request_schema.json",
+    "prompt_detail_schema.json",
+    "prompt_labels_update_request_schema.json",
+    "prompt_link_schema.json",
+    "prompt_playground_request_schema.json",
+    "prompt_playground_result_schema.json",
+    "prompt_reference_schema.json",
+    "prompt_summary_schema.json",
+    "prompt_version_create_request_schema.json",
+    "prompt_version_schema.json",
+    "quota_exceeded_error_schema.json",
+    "quota_preflight_request_schema.json",
+    "quota_preflight_response_schema.json",
+    "resolved_prompt_schema.json",
+    "retriever_create_request_schema.json",
+    "retriever_schema.json",
+    "review_measure_summary_schema.json",
+    "review_score_create_request_schema.json",
+    "review_score_list_response_schema.json",
+    "review_score_schema.json",
+    "run_example_insights_schema.json",
+    "score_schema.json",
+    "semantic_saturation_schema.json",
+    "session_finalize_response_schema.json",
+    "session_ingest_schema.json",
+    "session_list_response_schema.json",
+    "session_schema.json",
+    "smart_pruning_schema.json",
+    "spend_approval_request_schema.json",
+    "spend_approvals_response_schema.json",
+    "spend_policy_response_schema.json",
+    "spend_policy_update_request_schema.json",
+    "status_schema.json",
+    "structural_fingerprint_schema.json",
+    "subscription_cancel_response_schema.json",
+    "subscription_response_schema.json",
+    "task_outcome.json",
+    "timing_metric_vocabulary_schema.json",
+    "tool_analysis_response_schema.json",
+    "trace_analysis_response_schema.json",
+    "trace_collaboration_state_schema.json",
+    "trace_collaboration_update_request_schema.json",
+    "trace_comment_create_request_schema.json",
+    "trace_comment_schema.json",
+    "trace_comments_response_schema.json",
+    "trace_feedback_response_schema.json",
+    "trace_feedback_schema.json",
+    "trace_feedback_upsert_request_schema.json",
+    "trace_ingest_schema.json",
+    "trace_list_response_schema.json",
+    "trace_observations_response_schema.json",
+    "trace_projection_response_schema.json",
+    "trace_schema.json",
+    "trace_score_summary_schema.json",
+    "trace_variant_detail_response_schema.json",
+    "trace_variant_list_response_schema.json",
+    "trace_variant_schema.json",
+    "tvar_catalog_entry_schema.json",
+    "tvar_definition_schema.json",
+    "tvar_observation_schema.json",
+    "tvar_value_recommendation_schema.json",
+    "tvl_governance_schema.json",
+    "typed_constraints_schema.json",
+    "usage_check_response_schema.json",
+    "usage_history_response_schema.json",
+    "usage_response_schema.json",
+    "usage_summary_response_schema.json",
+    "user_summary_schema.json",
+    "wallet_admin_adjustment_request_schema.json",
+    "wallet_insufficient_balance_error_schema.json",
+    "wallet_ledger_response_schema.json",
+    "wallet_response_schema.json",
+    "wallet_top_up_pack_schema.json",
+    "wallet_top_up_packs_response_schema.json",
+    "wallet_top_up_request_schema.json",
+    "wallet_top_up_response_schema.json",
+    "warm_start_transfer_schema.json",
+    "workflow_trace_trial_response_schema.json"
+  ],
+  "sources": {
+    "Traigent": {
+      "ref": "origin/develop",
+      "sha": "92137736c1e5a622f602d743d738b81e6d656f59"
+    },
+    "TraigentBackend": {
+      "ref": "origin/develop",
+      "sha": "56c04d7f79ce1813dc9e47053caa803e3d36c832"
+    },
+    "TraigentFrontend": {
+      "ref": "origin/develop",
+      "sha": "f8ebbcdd3464cd295239f736da027acd3ce84f04"
+    },
+    "traigent-js": {
+      "ref": "origin/develop",
+      "sha": "4a9f6f16bcfc9c525f6d442c6f3c3d0133d08cab"
+    },
+    "traigent-smartopt": {
+      "ref": "origin/develop",
+      "sha": "528ba53939cc122e1a409df8ebfca657fa50cdef"
+    }
+  }
+}

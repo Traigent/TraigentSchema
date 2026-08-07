@@ -255,7 +255,7 @@ DOMAIN_TAG_CONFIG: str = _CONTRACT["config_tag"]
 DOMAIN_TAG_SPEC: str = _CONTRACT["spec_tag"]
 
 
-def _is_unsafe_integral(value: Any) -> bool:
+def _is_unsafe_integral(value: int | float) -> bool:
     """True if value (a confirmed exact, non-bool int or float) is an unsafe integral magnitude.
 
     Only ever called by ``_prevalidate`` after the caller has already
@@ -449,6 +449,23 @@ def _reject_non_finite_constant(constant: str) -> float:
     raise MalformedJsonError(f"$: non-finite JSON constant ({constant})")
 
 
+def _parse_float_rejecting_overflow(literal: str) -> float:
+    # A syntactically ordinary number literal (e.g. 1e9999) can still parse
+    # to a non-finite float: float() silently rounds an out-of-range
+    # magnitude to +-inf rather than raising. That is a different gap than
+    # _reject_non_finite_constant closes (which only catches the separate
+    # NaN/Infinity/-Infinity *keyword* tokens) -- here the source text is a
+    # normal digit-exponent literal, not a special constant, so only
+    # checking the parsed result's finiteness can catch it. Rejected here
+    # rather than left for fp2, for the same parse-time-cause reason as the
+    # constant case above. The literal itself is not included in the error:
+    # only the fact that some number in the document overflowed to +-inf.
+    value = float(literal)
+    if not math.isfinite(value):
+        raise MalformedJsonError("$: JSON number literal overflows to a non-finite float")
+    return value
+
+
 def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     # object_pairs_hook sees every key exactly as parsed, before json.loads'
     # own dict construction silently keeps only the last value for a repeated
@@ -477,8 +494,16 @@ def loads_strict(text: str) -> Any:
     output to this module.
 
     ``json.loads`` also accepts the non-standard ``NaN``/``Infinity``/
-    ``-Infinity`` constants by default; this rejects them here rather than
-    letting them reach fp2 as an already-parsed float.
+    ``-Infinity`` constants by default, and silently rounds an ordinary
+    numeric literal whose magnitude overflows a float (e.g. ``1e9999``) to
+    ``inf``/``-inf`` rather than raising; this rejects both here rather than
+    letting a non-finite float reach fp2 as an already-parsed value.
+
+    A JSON document whose container nesting exceeds the interpreter's own
+    recursion limit raises a raw ``RecursionError`` from CPython's decoder
+    -- a foreign, undocumented exception type this function must not leak,
+    for the same reason ``config_digest``/``spec_digest`` never leak one.
+    That is mapped to ``MalformedJsonError`` here too.
 
     Returns:
         The parsed Python value. The caller still invokes
@@ -487,17 +512,22 @@ def loads_strict(text: str) -> Any:
 
     Raises:
         DuplicatePropertyNameError: an object literal repeats a key.
-        MalformedJsonError: the text is not well-formed JSON, or contains a
-            NaN/Infinity/-Infinity constant.
+        MalformedJsonError: the text is not well-formed JSON, nests deeper
+            than the interpreter can parse, or contains a non-finite
+            constant or numeric literal (NaN/Infinity/-Infinity, or a
+            magnitude that overflows to +-inf).
     """
     try:
         return json.loads(
             text,
             object_pairs_hook=_reject_duplicate_object_keys,
             parse_constant=_reject_non_finite_constant,
+            parse_float=_parse_float_rejecting_overflow,
         )
     except (DuplicatePropertyNameError, MalformedJsonError):
         raise
+    except RecursionError as error:
+        raise MalformedJsonError("$: JSON text nests too deeply to parse") from error
     except json.JSONDecodeError as error:
         raise MalformedJsonError(
             f"$: malformed JSON at line {error.lineno} column {error.colno}"

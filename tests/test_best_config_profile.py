@@ -542,6 +542,41 @@ def test_loads_strict_does_not_echo_the_payload_in_its_errors() -> None:
         bcp.loads_strict(f'{{"k": "{canary}" not valid')
     assert canary not in str(malformed_excinfo.value)
 
+    with pytest.raises(bcp.MalformedJsonError) as overflow_excinfo:
+        bcp.loads_strict("1e9999")
+    assert canary not in str(overflow_excinfo.value)
+
+    with pytest.raises(bcp.MalformedJsonError) as recursion_excinfo:
+        bcp.loads_strict("[" * 100_000 + "]" * 100_000)
+    assert canary not in str(recursion_excinfo.value)
+
+
+def test_loads_strict_rejects_a_float_literal_that_overflows_to_infinity() -> None:
+    """1e9999 is an ordinary digit-exponent literal, not the Infinity keyword.
+
+    ``json.loads``'s default ``float()`` parser silently rounds it to
+    ``inf`` rather than raising -- a different gap than
+    test_loads_strict_rejects_non_finite_constants, which only covers the
+    separate NaN/Infinity/-Infinity keyword tokens.
+    """
+    for text in ('{"n": 1e9999}', "1e9999", "-1e9999"):
+        with pytest.raises(bcp.MalformedJsonError) as excinfo:
+            bcp.loads_strict(text)
+        assert excinfo.value.code == "malformed_json"
+
+
+def test_loads_strict_accepts_a_large_but_finite_float_literal() -> None:
+    assert bcp.loads_strict("1e300") == 1e300
+
+
+def test_loads_strict_maps_deep_nesting_recursion_error_to_malformed_json() -> None:
+    """CPython's own decoder raises a raw RecursionError past its own recursion
+    limit; that foreign exception type must never leak from this module."""
+    text = "[" * 100_000 + "]" * 100_000
+    with pytest.raises(bcp.MalformedJsonError) as excinfo:
+        bcp.loads_strict(text)
+    assert excinfo.value.code == "malformed_json"
+
 
 def test_loads_strict_output_still_flows_into_config_digest() -> None:
     """loads_strict returns a parsed value; the caller still digests it explicitly."""

@@ -41,7 +41,13 @@ from jsonschema.exceptions import SchemaError
 
 from .utils import load_schema
 
-__all__ = ["InvariantViolation", "validate_declared_invariants"]
+__all__ = [
+    "InvariantComparisonBoundError",
+    "InvariantDeclarationError",
+    "InvariantNoncanonicalPayloadError",
+    "InvariantViolation",
+    "validate_declared_invariants",
+]
 
 _MISSING = object()
 

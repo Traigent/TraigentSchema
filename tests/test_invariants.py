@@ -16,20 +16,38 @@ from typing import Any
 
 import pytest
 
-from traigent_schema import InvariantViolation, validate_declared_invariants
+import traigent_schema as public_schema
+import traigent_schema.invariants as invariants_module
+from traigent_schema import (
+    InvariantComparisonBoundError,
+    InvariantDeclarationError,
+    InvariantNoncanonicalPayloadError,
+    InvariantViolation,
+    validate_declared_invariants,
+)
 from traigent_schema.invariants import (
     _ARRAY_INDEX_TOKEN,
     _MAX_COMPARISON_NODES,
     _META_SCHEMA_NAME,
     _MISSING,
-    InvariantComparisonBoundError,
-    InvariantDeclarationError,
-    InvariantNoncanonicalPayloadError,
     _exact_structural_equal,
     _prevalidate_canonical,
     _resolve_pointer,
 )
 from traigent_schema.utils import load_schema as _real_load_schema
+
+
+def test_public_invariant_exceptions_are_the_submodule_classes() -> None:
+    expected_exports = {
+        "InvariantComparisonBoundError",
+        "InvariantDeclarationError",
+        "InvariantNoncanonicalPayloadError",
+    }
+    assert expected_exports <= set(public_schema.__all__)
+    assert expected_exports <= set(invariants_module.__all__)
+    assert InvariantComparisonBoundError is invariants_module.InvariantComparisonBoundError
+    assert InvariantDeclarationError is invariants_module.InvariantDeclarationError
+    assert InvariantNoncanonicalPayloadError is invariants_module.InvariantNoncanonicalPayloadError
 
 # --- pointer resolution -------------------------------------------------------
 

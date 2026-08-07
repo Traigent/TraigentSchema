@@ -10,7 +10,7 @@
       "type": "string",
       "minLength": 1,
       "format": "email",
-      "maxLength": 320,
+      "maxLength": 50,
       "description": "Email to resend the verification link to."
     }
   },

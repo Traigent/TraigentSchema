@@ -188,6 +188,31 @@ if ! skip authparity; then
   fi
 fi
 
+# ── 4c. contract breaking-change gate (BLOCKING) ───────────────────────────
+# Mirrors breaking-schema-check.yml. Diffs changed traigent_schema/schemas/**/*.json
+# files against $base_ref and classifies each difference BREAKING/non-breaking via
+# the request/response mirror-image rules (see the script's module docstring).
+# BLOCKING by owner decision (2026-08-07): the rule is "you may not break the
+# contract silently" — a genuine tightening is one scripts/breaking_schema_allowlist.json
+# entry with a real reason (see reason_rejection() — placeholders don't count), not a
+# reason to relax the gate. The script's own failure output names each finding and
+# prints the exact JSON to add.
+if ! skip breakingschema; then
+  section "contract breaking-change gate (breaking-schema-check.yml)"
+  if command -v python3 >/dev/null 2>&1 && [[ -f scripts/breaking_schema_check.py ]]; then
+    if python3 scripts/breaking_schema_check.py --check --base-ref "$base_ref"; then
+      echo "  ✅ no un-acknowledged BREAKING contract changes"
+    else
+      echo "  ❌ BREAKING contract change(s) found (see above) — add a reviewed"
+      echo "      scripts/breaking_schema_allowlist.json entry (JSON printed above) or fix the schema"
+      FAIL=1
+    fi
+  else
+    echo "  ❌ scripts/breaking_schema_check.py not found; required because this gate mirrors CI"
+    FAIL=1
+  fi
+fi
+
 # ── 5. spine preflight (trail reminder) ───────────────────────────────────
 # This repo has no policy-surface globs / require-spine-session gate, so this is
 # a REMINDER, not a blocker: CI's spine-trail-gate.yml checks the PR BODY for a

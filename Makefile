@@ -4,7 +4,7 @@
 # the cloud CI gates locally so failures are caught before pushing (see
 # docs/LOCAL_CI_GATE.md).
 
-.PHONY: help install local-gate install-hooks lint typecheck test parity format
+.PHONY: help install local-gate install-hooks lint typecheck test parity format breaking-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -36,3 +36,6 @@ parity: ## Verify the parity manifest is up-to-date (mirrors parity-check.yml)
 
 format: ## Re-stamp the parity manifest after schema changes (NOT ruff format — CI does not enforce it)
 	@python3 scripts/refresh_parity.py --update
+
+breaking-check: ## Contract breaking-change gate against origin/develop (mirrors breaking-schema-check.yml)
+	@python3 scripts/breaking_schema_check.py --check

@@ -1,5 +1,20 @@
 # EvidenceCase Schema rebase result
 
+> **Historical snapshot, not current state.** This report describes reachability
+> and gate results AS OF this session's own head. The "7 remain unreachable"
+> figure below was correct only at that point in the branch's history: later
+> sessions on this same branch added more v2 optimization/certificate schemas
+> (best_config_hash_contract_schema.json, guarantee_certificate_statistical_body_schema.json,
+> guarantee_certificate_v2_delta_schema.json, guarantee_certificate_v2_schema.json,
+> best_config_manifest_v2_schema.json, best_config_v2_schema.json,
+> certificate_subject_schema.json -- the same seven-schema family this report
+> already names, joined by newer siblings), so the CURRENT unreachable count is
+> higher than 7. Do not cite "7" as the present figure; run
+> `python3 scripts/schema_reachability.py --check` for the live number, and
+> see reports/sonnet-schema-terra-fixes-result.md for the count observed later
+> in this branch's history (26 unreachable / 394 total: 19 pre-existing plus
+> 7 from the v2 envelope additions that followed this rebase).
+
 ## Scope and result
 
 This branch integrated current `origin/develop` (`e9a28cb5a74ad40ed141996ff6b74f96142494bb`)
@@ -47,9 +62,10 @@ python3 scripts/schema_reachability.py --update
 python3 scripts/schema_reachability.py --check
 ```
 
-Result: 394 schemas total; 334 are reached by schema/endpoint graph, 53 by
-the consumer-reference snapshot, 0 by allowlist, and 7 remain unreachable.
-Those seven are intentionally left visible and unallowlisted:
+Result AT THIS SESSION'S HEAD (see the historical-snapshot note above for the
+current figure): 394 schemas total; 334 are reached by schema/endpoint graph,
+53 by the consumer-reference snapshot, 0 by allowlist, and 7 remain
+unreachable. Those seven are intentionally left visible and unallowlisted:
 
 ```text
 optimization/best_config_hash_contract_schema.json

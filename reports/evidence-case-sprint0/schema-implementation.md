@@ -1,5 +1,15 @@
 # Evidence-case Sprint 0 — Schema implementation
 
+> **Historical snapshot.** "Explicit exclusions and gaps" below records what
+> was NOT yet done as of this session's own head. The unsafe-integral-float
+> gap it names was closed in a later session on this same branch:
+> `traigent_schema/best_config_profile.py` now implements exactly that policy
+> (rejecting an unsafe integral VALUE across both int and float, before fp2
+> ever runs) — see reports/sonnet-schema-terra-fixes-result.md and
+> tests/test_best_config_profile.py. Do not read "no fp2 change or
+> unsafe-integral-float policy was implemented" as a statement about the
+> current codebase.
+
 ## Execution identity
 
 - Requested worker model/effort: `gpt-5.6-terra` / `high`.
@@ -55,7 +65,9 @@
 
 - No v2 certificate issuer was added; the new schema is reader-only.
 - No public best-config publish/request/response issuance surface changed.
-- No fp2 change or unsafe-integral-float policy was implemented; that gap remains explicit.
+- No fp2 change or unsafe-integral-float policy was implemented; that gap remained
+  explicit AS OF THIS SESSION'S HEAD (see the historical-snapshot note above: a later
+  session closed it in traigent_schema/best_config_profile.py).
 - No JavaScript reader parity was implemented; it remains a post-Sprint-0 gap.
 - EvidenceCase is internal/shadow-only and does not authorize publishing, execution, persistence, signatures, or live-key material.
 

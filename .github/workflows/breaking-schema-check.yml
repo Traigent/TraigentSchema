@@ -6,19 +6,36 @@ name: Contract breaking-change check
 # base branch and classifies each difference BREAKING or non-breaking, using the
 # request/response mirror-image rule table documented in the script's module docstring.
 #
-# THIS JOB IS BLOCKING (ENFORCE), by owner decision on 2026-08-07. The rule is not "you may
-# not break the contract" — it is "you may not break it silently": the change stays allowed,
-# the silence does not. A genuine, reviewed tightening (e.g. adding a maxLength bound) is one
+# POLICY, by owner decision on 2026-08-07: the rule is not "you may not break the contract" —
+# it is "you may not break it silently": the change stays allowed, the silence does not. A
+# genuine, reviewed tightening (e.g. adding a maxLength bound) is one
 # scripts/breaking_schema_allowlist.json entry with a real `reason`, not a wall of work — a
 # 2026-08-07 backtest against ~97 recent develop-line commits found 55 would have fired, the
 # large majority a single already-shipped bound-hardening sweep, but that number describes
-# unacknowledged history, not a backlog: the gate only ever compares a PR's merge base to its
+# unacknowledged history, not a backlog: the check only ever compares a PR's merge base to its
 # head, so nothing historical needs retroactively acknowledging. Going forward each PR that
 # tightens a bound adds its one allowlist line at review time.
 #
 # Placeholder reasons ("TODO", "see PR", a bare issue number) do NOT count as an
 # acknowledgement — see reason_rejection() in the script. Allowlist entries do not expire: a
 # bound-hardening decision is a permanent historical fact about that contract, not a lease.
+#
+# STATUS — this job is NOT currently a required status check (verified 2026-08-07 via
+# `gh api repos/Traigent/TraigentSchema/rules/branches/<develop|main>`: develop's
+# required_status_checks are ["Aikido Security: check code","ci-required","Analyze (python)",
+# "Analyze (actions)","spine-trail present"]; main's do not list it either). The 2026-08-07
+# "BLOCKING (ENFORCE)" header this replaced was the owner's policy decision, but the decision
+# was never followed through into a ruleset change, so nothing actually blocked a merge on it.
+# It also cannot simply be added as a required context as-is: the `on:` trigger below is
+# path-scoped to `traigent_schema/schemas/**` + the check's own script/allowlist/workflow
+# files, so it does not run at all on a PR that doesn't touch those paths — a required
+# context that never reports leaves such a PR pending forever. `ci-required` (.github/
+# workflows/ci.yml) is already required on develop and could in principle absorb this job,
+# but `needs:` cannot cross workflow files in GitHub Actions, so joining them needs either a
+# `workflow_call` bridge (unverified context-inheritance risk for BASE_REF/HEAD_SHA — see the
+# issue below) or dropping the path filter so this job always runs. Tracked in
+# TraigentSchema#392; until it closes, treat this job as advisory-only: it reports honestly on
+# PRs that touch schema files, but nothing currently stops a merge if it goes red.
 
 on:
   pull_request:

@@ -8,6 +8,14 @@
       "reason": "EvidenceCase is an intentional coordinated response expansion. Pinning TraigentBackend to this Schema revision before planner emission is necessary but not sufficient: rollout remains blocked until every strict or generated response consumer is reconciled with evidence_case.",
       "version": "5.5.0",
       "pr": "#377"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/x-traigent-invariants",
+      "reason": "This intentionally expands the governed extension vocabulary so schemas can declare mechanically checked cross-field equality. It is contract mechanics only, and consumers of the closed registry must update for the new property.",
+      "version": "5.5.0",
+      "pr": "#377"
     }
   ]
 }

@@ -14,15 +14,20 @@
 > best_config_manifest_v2_schema.json, best_config_v2_schema.json,
 > certificate_subject_schema.json), which are intentionally not yet wired into
 > any endpoint catalog or `$ref` graph and so score unreachable on rules 1/2.
-> The unreachable COUNT (19 at base, 26 on this branch) is unchanged by that
-> family, not caused by it: `reports/schema_reachability/consumer_
-> references.json` -- the committed snapshot rule 3 reads -- currently records
-> 34 basenames as consumer-referenced, both at base and on this branch (it was
-> not touched by this branch). A fresh scan of the five live consumer-repo
-> checkouts records 53, which would rescue exactly the pre-existing 19 (both
-> at base and on this branch) and leave only the 7 v2-family schemas above as
-> genuinely unrooted. That refresh has deliberately not been performed here --
-> it is a separate, cross-repo-verified, sha-pinned manual operation
+> The PRE-EXISTING unreachable count of 19 is itself unaffected by that
+> family -- it is 19 on `origin/develop` and still 19 on this branch, with or
+> without the seven new v2 schemas. The TOTAL rising to 26 is caused
+> precisely by those seven schemas being intentionally unrooted; the two
+> effects are separate, not in tension. Why the pre-existing 19 remain
+> unresolved (rather than shrinking) is itself a separate, stale-snapshot
+> issue: `reports/schema_reachability/consumer_references.json` -- the
+> committed snapshot rule 3 reads -- currently records 34 basenames as
+> consumer-referenced, both at base and on this branch (it was not touched by
+> this branch). A fresh scan of the five live consumer-repo checkouts records
+> 53, which would rescue exactly the pre-existing 19 (both at base and on
+> this branch) and leave only the 7 v2-family schemas above as genuinely
+> unrooted. That refresh has deliberately not been performed here -- it is a
+> separate, cross-repo-verified, sha-pinned manual operation
 > (`scripts/refresh_consumer_schema_references.py`), out of scope for this
 > patch -- so the 19 pre-existing entries remain committed as unreachable,
 > unchanged from `origin/develop`, and are not a regression this branch

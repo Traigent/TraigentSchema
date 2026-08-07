@@ -78,10 +78,24 @@ not against the branch's old base:
   --json /tmp/evidence-case-breaking-schema-check.json
 ```
 
-Result: 9 changed schema files, 10 informational findings, **0 unacknowledged
-breaking findings**.  Eight EvidenceCase/v2 schemas are new files.  The only
-changed existing response schema adds required `evidence_case`; the gate treats
-that as response-side informational rather than request compatibility breakage.
+Result at `HEAD=240a72b93478d57c9511f40ab44db5b93d679dd2`: 9 changed
+schema files, 10 findings — 9 informational and **1 acknowledged breaking
+finding**, with **0 unacknowledged breaking findings**.  Eight EvidenceCase/v2
+schemas are new files.  The changed existing
+`smartops_v2/shadow_evaluate_response_schema.json` adds required
+`evidence_case` while the old response contract was closed with
+`additionalProperties: false`.  That property addition is correctly classified
+as response-breaking because an old strict consumer can reject the newly
+emitted member; adding it to `required` is a separate informational finding on
+the response side.
+
+The allowlist acknowledgement is scoped to
+`#/properties/evidence_case` and records the coordinated-rollout condition:
+TraigentBackend must pin this Schema revision before its planner emits the new
+member, so a consumer cannot receive the expanded response while still pinned
+to the old closed contract.  The acknowledgement makes the intended break
+explicit; it does not claim that the response addition is backwards-compatible
+or waive the Backend pin requirement.
 
 Combined-tree verification:
 
@@ -122,7 +136,9 @@ Results:
    schema-enforced rule.
 3. Schema changes now acquire two checks: a PR-relative breaking-change gate
    and a committed cross-repo reachability snapshot. EvidenceCase passes the
-   former; the latter correctly exposes the unrooted v2 schemas above.
+   former with one explicit, versioned acknowledgement for its closed-response
+   expansion—not by classifying the expansion as compatible. The latter
+   correctly exposes the unrooted v2 schemas above.
 
 ## Residual risks and PR readiness
 

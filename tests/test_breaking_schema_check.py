@@ -30,6 +30,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft7Validator
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "breaking_schema_check.py"
@@ -313,6 +314,168 @@ def test_nested_closed_response_added_property_is_breaking(tmp_path: Path) -> No
     assert result.returncode == 1, result.stdout
     assert "/properties/payload/properties/evidence_case" in result.stdout
     assert "property_added, role=response" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "old_additional_properties",
+    [False, {"type": "integer"}],
+    ids=["closed", "constrained"],
+)
+def test_strict_response_added_pattern_property_is_breaking_for_matching_payload(
+    tmp_path: Path, old_additional_properties: object
+) -> None:
+    """A matching member is rejected by the old strict response and accepted by the new
+    pattern, which is the concrete consumer-compatibility break the gate reports."""
+    filename = "widget_response_schema.json"
+    baseline = _closed_response_schema(filename)
+    baseline["additionalProperties"] = old_additional_properties
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["patternProperties"] = {"^x-": {"type": "string"}}
+    payload = {"id": "widget-1", "x-proof": "present"}
+    assert list(Draft7Validator(baseline).iter_errors(payload))
+    assert not list(Draft7Validator(changed).iter_errors(payload))
+    _commit_schema_change(
+        repo, "add-pattern", changed, "add strict response pattern property", filename
+    )
+
+    result = _run_gate(repo, "master", "add-pattern")
+
+    assert result.returncode == 1, result.stdout
+    assert "patternProperties_added, role=response" in result.stdout
+    assert "matching members accepted by the new response" in result.stdout
+
+
+def test_closed_request_added_pattern_property_is_not_breaking(tmp_path: Path) -> None:
+    filename = "widget_request_schema.json"
+    baseline = _closed_response_schema(filename)
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["patternProperties"] = {"^x-": {"type": "string"}}
+    _commit_schema_change(
+        repo, "add-pattern", changed, "add strict request pattern property", filename
+    )
+
+    result = _run_gate(repo, "master", "add-pattern")
+
+    assert result.returncode == 0, result.stdout
+    assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_open_response_added_pattern_property_is_not_breaking(tmp_path: Path) -> None:
+    filename = "widget_response_schema.json"
+    baseline = _closed_response_schema(filename)
+    baseline.pop("additionalProperties")
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["patternProperties"] = {"^x-": {"type": "string"}}
+    _commit_schema_change(
+        repo, "add-pattern", changed, "add open response pattern property", filename
+    )
+
+    result = _run_gate(repo, "master", "add-pattern")
+
+    assert result.returncode == 0, result.stdout
+    assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_bare_closed_schema_added_pattern_property_is_conservatively_breaking(
+    tmp_path: Path,
+) -> None:
+    filename = "widget_schema.json"
+    baseline = _closed_response_schema(filename)
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["patternProperties"] = {"^x-": {"type": "string"}}
+    _commit_schema_change(repo, "add-pattern", changed, "add bare pattern property", filename)
+
+    result = _run_gate(repo, "master", "add-pattern")
+
+    assert result.returncode == 1, result.stdout
+    assert "patternProperties_added, role=conservative" in result.stdout
+
+
+def test_nested_closed_response_added_pattern_property_is_breaking(tmp_path: Path) -> None:
+    filename = "widget_response_schema.json"
+    baseline = _closed_response_schema(filename)
+    baseline["properties"]["payload"] = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}},
+        "required": ["id"],
+        "additionalProperties": False,
+    }
+    baseline["required"].append("payload")
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["payload"]["patternProperties"] = {
+        "^x-": {"type": "string"}
+    }
+    _commit_schema_change(
+        repo, "add-pattern", changed, "add nested response pattern property", filename
+    )
+
+    result = _run_gate(repo, "master", "add-pattern")
+
+    assert result.returncode == 1, result.stdout
+    assert "/properties/payload/patternProperties/^x-" in result.stdout
+    assert "patternProperties_added, role=response" in result.stdout
+
+
+@pytest.mark.parametrize("combinator", ["allOf", "anyOf", "oneOf"])
+@pytest.mark.parametrize(
+    ("filename", "role"),
+    [
+        ("widget_request_schema.json", "request"),
+        ("widget_response_schema.json", "response"),
+        ("widget_schema.json", "conservative"),
+    ],
+)
+@pytest.mark.parametrize("direction", ["added", "removed"])
+def test_combinator_appearance_and_disappearance_follow_role_direction(
+    tmp_path: Path, combinator: str, filename: str, role: str, direction: str
+) -> None:
+    """A combinator's appearance narrows the accepted set; disappearance broadens it.
+    Request and response compatibility therefore point in opposite directions, while a
+    bare/mixed schema conservatively blocks both."""
+    baseline = _closed_response_schema(filename)
+    branch = {"properties": {"id": {"minLength": 1}}}
+    if direction == "removed":
+        baseline[combinator] = [branch]
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    if direction == "added":
+        changed[combinator] = [branch]
+    else:
+        changed.pop(combinator)
+    _commit_schema_change(
+        repo,
+        f"{direction}-{combinator}",
+        changed,
+        f"{direction} {combinator}",
+        filename,
+    )
+
+    result = _run_gate(repo, "master", f"{direction}-{combinator}")
+    expected_breaking = role == "conservative" or (
+        role == "request" and direction == "added"
+    ) or (role == "response" and direction == "removed")
+
+    assert result.returncode == int(expected_breaking), result.stdout
+    assert f"{combinator}_{direction}, role={role}" in result.stdout
+
+
+def test_empty_allof_appearance_is_not_a_contract_change(tmp_path: Path) -> None:
+    filename = "widget_response_schema.json"
+    baseline = _closed_response_schema(filename)
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["allOf"] = []
+    _commit_schema_change(repo, "add-empty-allof", changed, "add empty allOf", filename)
+
+    result = _run_gate(repo, "master", "add-empty-allof")
+
+    assert result.returncode == 0, result.stdout
+    assert "empty allOf appeared" in result.stdout
 
 
 @pytest.mark.parametrize(

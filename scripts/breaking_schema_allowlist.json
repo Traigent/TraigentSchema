@@ -5,7 +5,7 @@
       "file": "smartops_v2/shadow_evaluate_response_schema.json",
       "rule": "property_added",
       "pointer_prefix": "#/properties/evidence_case",
-      "reason": "EvidenceCase is an intentional coordinated response expansion: TraigentBackend will pin this Schema revision before the planner emits evidence_case, so old strict consumers cannot receive the new member during rollout.",
+      "reason": "EvidenceCase is an intentional coordinated response expansion. Pinning TraigentBackend to this Schema revision before planner emission is necessary but not sufficient: rollout remains blocked until every strict or generated response consumer is reconciled with evidence_case.",
       "version": "5.5.0"
     }
   ]

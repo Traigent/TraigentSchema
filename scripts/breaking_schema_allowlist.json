@@ -6,7 +6,8 @@
       "rule": "property_added",
       "pointer_prefix": "#/properties/evidence_case",
       "reason": "EvidenceCase is an intentional coordinated response expansion. Pinning TraigentBackend to this Schema revision before planner emission is necessary but not sufficient: rollout remains blocked until every strict or generated response consumer is reconciled with evidence_case.",
-      "version": "5.5.0"
+      "version": "5.5.0",
+      "pr": "#377"
     }
   ]
 }

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -229,9 +230,15 @@ def test_no_digest_is_returned_when_the_byte_bound_fails() -> None:
 
 
 def test_no_digest_is_returned_when_fp2_itself_rejects() -> None:
-    """fp2 rejection (e.g. non-finite) must also short-circuit before hashing."""
-    with pytest.raises(fp2.Fp2UnsupportedValue):
+    """fp2 rejection (e.g. non-finite) must also short-circuit before hashing.
+
+    Wrapped into the profile's own error type -- see
+    test_fp2_rejections_are_wrapped_not_leaked -- rather than a raw
+    fp2.Fp2UnsupportedValue.
+    """
+    with pytest.raises(bcp.Fp2CanonicalizationError) as excinfo:
         bcp.config_digest({"n": float("nan")})
+    assert not hasattr(excinfo.value, "digest")
 
 
 # --- typed errors are distinguishable and carry contract-aligned codes ------
@@ -240,8 +247,306 @@ def test_no_digest_is_returned_when_fp2_itself_rejects() -> None:
 def test_errors_carry_the_contract_rejected_values_code() -> None:
     assert bcp.UnsafeIntegralValueError.code == "unsafe_integral_number"
     assert bcp.CanonicalSpecTooLargeError.code == "exceeds_max_canonical_spec_bytes"
-    assert issubclass(bcp.UnsafeIntegralValueError, bcp.BestConfigProfileError)
-    assert issubclass(bcp.CanonicalSpecTooLargeError, bcp.BestConfigProfileError)
+    assert bcp.CircularReferenceError.code == "cycle"
+    assert bcp.ExceedsMaxDepthError.code == "exceeds_max_depth"
+    assert bcp.NonStringKeyError.code == "non_string_key"
+    assert bcp.UnsupportedProfileTypeError.code == "unsupported_type"
+    assert bcp.Fp2CanonicalizationError.code == "fp2_canonicalization_failure"
+    assert bcp.DuplicatePropertyNameError.code == "duplicate_property_name"
+    assert bcp.MalformedJsonError.code == "malformed_json"
+    for error_type in (
+        bcp.UnsafeIntegralValueError,
+        bcp.CanonicalSpecTooLargeError,
+        bcp.CircularReferenceError,
+        bcp.ExceedsMaxDepthError,
+        bcp.NonStringKeyError,
+        bcp.UnsupportedProfileTypeError,
+        bcp.Fp2CanonicalizationError,
+        bcp.DuplicatePropertyNameError,
+        bcp.MalformedJsonError,
+    ):
+        assert issubclass(error_type, bcp.BestConfigProfileError)
+
+
+# --- fp2 rejections are wrapped, never leaked raw ----------------------------
+
+
+def test_fp2_rejections_are_wrapped_not_leaked() -> None:
+    """Fp2UnsupportedValue must never escape config_digest/spec_digest directly.
+
+    Makes BestConfigProfileError's own doc claim -- "base for every profile
+    failure" -- true: every exception this module's public API can raise,
+    including fp2's own, is a BestConfigProfileError.
+    """
+    with pytest.raises(bcp.Fp2CanonicalizationError) as excinfo:
+        bcp.config_digest({"n": float("nan")})
+    assert isinstance(excinfo.value.__cause__, fp2.Fp2UnsupportedValue)
+
+    with pytest.raises(bcp.Fp2CanonicalizationError):
+        bcp.config_digest({"s": "a\ud800b"})  # lone surrogate
+
+
+# --- MAX_DEPTH: mechanically bound to the contract and to fp2.MAX_DEPTH -----
+
+
+def test_max_depth_is_derived_from_the_contract_and_matches_fp2() -> None:
+    from traigent_schema.utils import get_schemas_dir
+
+    contract_path = get_schemas_dir() / "optimization" / "best_config_hash_contract_schema.json"
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    assert (
+        bcp.MAX_DEPTH
+        == contract["definitions"]["canonicalization"]["properties"]["max_depth"]["const"]
+    )
+    assert bcp.MAX_DEPTH == fp2.MAX_DEPTH == 100
+
+
+def _nest(depth: int) -> Any:
+    """Return a dict nested `depth` containers deep from the root (root counts as 1)."""
+    value: Any = {"leaf": 1}
+    for _ in range(depth - 1):
+        value = {"child": value}
+    return value
+
+
+def test_nesting_at_exactly_max_depth_is_accepted() -> None:
+    payload = _nest(bcp.MAX_DEPTH)
+    assert fp2.canonicalize(payload)  # fp2 itself must also accept this depth
+    assert bcp.config_digest(payload)
+
+
+def test_nesting_one_past_max_depth_is_rejected_without_a_recursion_error() -> None:
+    payload = _nest(bcp.MAX_DEPTH + 1)
+    with pytest.raises(fp2.Fp2UnsupportedValue):
+        fp2.canonicalize(payload)  # fp2 alone must also reject at the same boundary
+    with pytest.raises(bcp.ExceedsMaxDepthError) as excinfo:
+        bcp.config_digest(payload)
+    assert excinfo.value.code == "exceeds_max_depth"
+
+
+def test_deeply_nested_rejection_never_raises_recursion_error() -> None:
+    """The whole point of an explicit work stack: no Python call-stack growth."""
+    payload = _nest(5000)
+    with pytest.raises(bcp.ExceedsMaxDepthError):
+        bcp.config_digest(payload)
+
+
+# --- cycle detection is path-local, not global -------------------------------
+
+
+def test_self_referential_dict_is_rejected_as_a_cycle() -> None:
+    cyclic: dict[str, Any] = {}
+    cyclic["self"] = cyclic
+    with pytest.raises(bcp.CircularReferenceError) as excinfo:
+        bcp.config_digest(cyclic)
+    assert excinfo.value.code == "cycle"
+
+
+def test_self_referential_list_is_rejected_as_a_cycle() -> None:
+    cyclic: list[Any] = []
+    cyclic.append(cyclic)
+    with pytest.raises(bcp.CircularReferenceError):
+        bcp.config_digest({"items": cyclic})
+
+
+def test_mutual_cycle_between_two_containers_is_rejected() -> None:
+    a: dict[str, Any] = {}
+    b: dict[str, Any] = {"a": a}
+    a["b"] = b
+    with pytest.raises(bcp.CircularReferenceError):
+        bcp.config_digest(a)
+
+
+def test_shared_acyclic_substructure_is_accepted_not_flagged_as_a_cycle() -> None:
+    """The same object reachable from two siblings is a DAG, not a cycle.
+
+    Global (rather than path-local) "seen" tracking would reject this and
+    is exactly the bug path-local open/close bracketing avoids.
+    """
+    shared = {"leaf": "value"}
+    payload = {"a": shared, "b": shared}
+    assert bcp.config_digest(payload)
+    assert fp2.canonicalize(payload)  # fp2 agrees this is valid, unmodified
+
+
+# --- exact-type dispatch: subclasses are rejected without their overrides running ---
+
+
+def test_subclasses_are_rejected_without_invoking_their_overrides() -> None:
+    """isinstance() would admit a subclass and let it choose the canonical bytes.
+
+    Each subclass below raises from its own override if invoked; the
+    assertion is that prevalidation rejects the value via
+    UnsupportedProfileTypeError/NonStringKeyError before ever calling in.
+    """
+
+    class SneakyDict(dict):
+        def items(self) -> Any:
+            raise AssertionError("items() must never be called on a rejected subclass")
+
+    class SneakyList(list):
+        def __iter__(self) -> Any:
+            raise AssertionError("__iter__ must never be called on a rejected subclass")
+
+    class SneakyStr(str):
+        def encode(self, *args: Any, **kwargs: Any) -> bytes:
+            raise AssertionError("encode() must never be called on a rejected subclass")
+
+    class SneakyInt(int):
+        def __int__(self) -> int:
+            raise AssertionError("__int__ must never be called on a rejected subclass")
+
+    for value in (SneakyDict(a=1), SneakyList([1, 2]), SneakyInt(1)):
+        with pytest.raises(bcp.UnsupportedProfileTypeError):
+            bcp.config_digest({"k": value})
+
+    with pytest.raises(bcp.UnsupportedProfileTypeError):
+        bcp.config_digest([SneakyStr("safe")])
+
+    with pytest.raises(bcp.NonStringKeyError):
+        bcp.config_digest({SneakyStr("k"): 1})
+
+
+# --- non-string keys and unsupported types -----------------------------------
+
+
+def test_non_string_key_is_rejected_without_echoing_the_key() -> None:
+    with pytest.raises(bcp.NonStringKeyError) as excinfo:
+        bcp.config_digest({1: "value"})
+    assert excinfo.value.code == "non_string_key"
+    assert "1" not in str(excinfo.value)
+
+
+def test_unsupported_type_is_rejected() -> None:
+    with pytest.raises(bcp.UnsupportedProfileTypeError) as excinfo:
+        bcp.config_digest({"k": (1, 2)})  # tuple: not a JSON built-in type
+    assert excinfo.value.code == "unsupported_type"
+    assert "tuple" in str(excinfo.value)
+
+
+# --- prevalidation rejection means zero fp2 calls -----------------------------
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"n": 1e20},
+        {"n": 10**20},
+        {1: "bad key"},
+        {"k": (1, 2)},
+        _nest(150),
+    ],
+    ids=[
+        "unsafe_integral_float",
+        "unsafe_integral_int",
+        "non_string_key",
+        "unsupported_type",
+        "exceeds_max_depth",
+    ],
+)
+def test_every_prevalidation_rejection_calls_fp2_zero_times(
+    payload: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+    original_canonicalize = fp2.canonicalize
+
+    def _counting_canonicalize(value: Any) -> str:
+        calls.append(value)
+        return original_canonicalize(value)
+
+    monkeypatch.setattr(bcp.fp2, "canonicalize", _counting_canonicalize)
+
+    with pytest.raises(bcp.BestConfigProfileError):
+        bcp.config_digest(payload)
+
+    assert calls == []
+
+
+def test_cyclic_payload_rejection_calls_fp2_zero_times(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+    monkeypatch.setattr(bcp.fp2, "canonicalize", lambda value: calls.append(value))
+
+    cyclic: dict[str, Any] = {}
+    cyclic["self"] = cyclic
+    with pytest.raises(bcp.CircularReferenceError):
+        bcp.config_digest(cyclic)
+
+    assert calls == []
+
+
+# --- no canary leaks in the exception text or repr ---------------------------
+
+
+def test_no_canary_value_leaks_into_any_rejection_message_or_repr() -> None:
+    canary = "SECRET-CUSTOMER-VALUE-DO-NOT-LEAK"
+    numeric_canary = 424242424242
+
+    cases: list[tuple[type[bcp.BestConfigProfileError], Any]] = [
+        (bcp.UnsafeIntegralValueError, {canary: 1e20}),
+        (bcp.NonStringKeyError, {numeric_canary: canary}),
+        (bcp.UnsupportedProfileTypeError, {"k": (canary,)}),
+    ]
+    for expected_type, payload in cases:
+        with pytest.raises(expected_type) as excinfo:
+            bcp.config_digest(payload)
+        assert canary not in str(excinfo.value)
+        assert canary not in repr(excinfo.value)
+        assert str(numeric_canary) not in str(excinfo.value)
+
+    cyclic: dict[str, Any] = {canary: None}
+    cyclic[canary] = cyclic
+    with pytest.raises(bcp.CircularReferenceError) as cyc_excinfo:
+        bcp.config_digest(cyclic)
+    assert canary not in str(cyc_excinfo.value)
+    assert canary not in repr(cyc_excinfo.value)
+
+
+# --- loads_strict: the reference parse-boundary decoder -----------------------
+
+
+def test_loads_strict_accepts_ordinary_json() -> None:
+    assert bcp.loads_strict('{"a": 1, "b": [1, 2, 3]}') == {"a": 1, "b": [1, 2, 3]}
+
+
+def test_loads_strict_rejects_duplicate_object_keys() -> None:
+    with pytest.raises(bcp.DuplicatePropertyNameError) as excinfo:
+        bcp.loads_strict('{"a": 1, "a": 2}')
+    assert excinfo.value.code == "duplicate_property_name"
+
+
+def test_loads_strict_rejects_duplicate_keys_in_a_nested_object() -> None:
+    with pytest.raises(bcp.DuplicatePropertyNameError):
+        bcp.loads_strict('{"outer": {"a": 1, "a": 2}}')
+
+
+def test_loads_strict_rejects_non_finite_constants() -> None:
+    for text in ('{"n": NaN}', '{"n": Infinity}', '{"n": -Infinity}'):
+        with pytest.raises(bcp.MalformedJsonError) as excinfo:
+            bcp.loads_strict(text)
+        assert excinfo.value.code == "malformed_json"
+
+
+def test_loads_strict_rejects_malformed_json() -> None:
+    with pytest.raises(bcp.MalformedJsonError) as excinfo:
+        bcp.loads_strict("{not valid json")
+    assert excinfo.value.code == "malformed_json"
+
+
+def test_loads_strict_does_not_echo_the_payload_in_its_errors() -> None:
+    canary = "SECRET-CUSTOMER-VALUE-DO-NOT-LEAK"
+    with pytest.raises(bcp.DuplicatePropertyNameError) as excinfo:
+        bcp.loads_strict(f'{{"k": "{canary}", "k": "other"}}')
+    assert canary not in str(excinfo.value)
+
+    with pytest.raises(bcp.MalformedJsonError) as malformed_excinfo:
+        bcp.loads_strict(f'{{"k": "{canary}" not valid')
+    assert canary not in str(malformed_excinfo.value)
+
+
+def test_loads_strict_output_still_flows_into_config_digest() -> None:
+    """loads_strict returns a parsed value; the caller still digests it explicitly."""
+    text = '{"model": "gpt-4o-mini", "temperature": 0.7}'
+    assert bcp.config_digest(bcp.loads_strict(text)) == bcp.config_digest(json.loads(text))
 
 
 # --- fail-closed derivation from the packaged schema -------------------------

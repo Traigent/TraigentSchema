@@ -418,10 +418,53 @@ def test_non_string_key_is_rejected_without_echoing_the_key() -> None:
 
 
 def test_unsupported_type_is_rejected() -> None:
+    """Fixed, content-free wording: the offending type's name is never echoed.
+
+    A tuple's own type name ("tuple") must NOT appear in the message --
+    unlike an earlier version of this test, which asserted the opposite and
+    was itself the leak this repair closes. See
+    test_unsupported_type_error_never_names_the_offending_class below for
+    the adversarial version of this same claim (a class whose own name IS a
+    canary string).
+    """
     with pytest.raises(bcp.UnsupportedProfileTypeError) as excinfo:
         bcp.config_digest({"k": (1, 2)})  # tuple: not a JSON built-in type
     assert excinfo.value.code == "unsupported_type"
-    assert "tuple" in str(excinfo.value)
+    assert "tuple" not in str(excinfo.value)
+
+
+class _SECRET_CANARY_CLASS_NAME:  # noqa: N801 - the unusual name IS the test
+    pass
+
+
+def test_unsupported_type_error_never_names_the_offending_class() -> None:
+    with pytest.raises(bcp.UnsupportedProfileTypeError) as excinfo:
+        bcp.config_digest({"k": _SECRET_CANARY_CLASS_NAME()})
+    assert "SECRET_CANARY_CLASS_NAME" not in str(excinfo.value)
+
+
+class _InstanceCheckMeta(type):
+    """A metaclass whose __instancecheck__ raises if isinstance() ever runs it."""
+
+    def __instancecheck__(cls, instance: object) -> bool:
+        raise AssertionError("isinstance() must never be used for canonical type checks")
+
+
+class _InstanceCheckDict(dict, metaclass=_InstanceCheckMeta):
+    pass
+
+
+def test_prevalidation_never_triggers_a_hostile_metaclass_instancecheck() -> None:
+    """Only ``type(x) is dict`` is ever used, never ``isinstance(x, dict)``.
+
+    isinstance() would admit this subclass (it IS a dict) and, along the
+    way, invoke the metaclass's own __instancecheck__ -- which raises.
+    Getting UnsupportedProfileTypeError, not AssertionError, proves
+    isinstance() was never called.
+    """
+    sneaky = _InstanceCheckDict(a=1)
+    with pytest.raises(bcp.UnsupportedProfileTypeError):
+        bcp.config_digest({"k": sneaky})
 
 
 # --- prevalidation rejection means zero fp2 calls -----------------------------
@@ -567,6 +610,51 @@ def test_loads_strict_rejects_a_float_literal_that_overflows_to_infinity() -> No
 
 def test_loads_strict_accepts_a_large_but_finite_float_literal() -> None:
     assert bcp.loads_strict("1e300") == 1e300
+
+
+def test_loads_strict_rejects_a_5000_digit_integer_as_a_typed_error_not_raw_value_error() -> None:
+    """A valid-JSON, astronomically long integer literal must never leak a
+    raw ValueError -- plain json.loads(), and this profile before this fix,
+    both raise CPython's own foreign int-string-conversion-limit
+    ValueError for a literal this long (well past the 4300-digit default)."""
+    text = '{"n": ' + ("9" * 5000) + "}"
+    with pytest.raises(bcp.UnsafeIntegralValueError) as excinfo:
+        bcp.loads_strict(text)
+    assert excinfo.value.code == "unsafe_integral_number"
+
+
+def test_loads_strict_rejects_a_5000_digit_negative_integer_too() -> None:
+    text = '{"n": -' + ("9" * 5000) + "}"
+    with pytest.raises(bcp.UnsafeIntegralValueError):
+        bcp.loads_strict(text)
+
+
+def test_loads_strict_safe_integer_boundary_is_accepted() -> None:
+    assert bcp.loads_strict(str(bcp._MAX_SAFE_INTEGER)) == bcp._MAX_SAFE_INTEGER
+    assert bcp.loads_strict(str(-bcp._MAX_SAFE_INTEGER)) == -bcp._MAX_SAFE_INTEGER
+
+
+def test_loads_strict_one_past_the_safe_integer_boundary_is_rejected() -> None:
+    with pytest.raises(bcp.UnsafeIntegralValueError):
+        bcp.loads_strict(str(bcp._MAX_SAFE_INTEGER + 1))
+
+
+def test_loads_strict_16_digit_boundary_uses_the_exact_value_check_not_just_digit_count() -> None:
+    """16 digits alone is not automatically unsafe: _MAX_SAFE_INTEGER itself
+    has 16 digits and must be accepted, while a different 16-digit number
+    past it must still be rejected -- proving the exact-value check runs,
+    not only the digit-count precheck."""
+    sixteen_digit_and_safe = int("9" + "0" * 15)  # 9_000_000_000_000_000 -- 16 digits, safe
+    assert sixteen_digit_and_safe < bcp._MAX_SAFE_INTEGER
+    assert bcp.loads_strict(str(sixteen_digit_and_safe)) == sixteen_digit_and_safe
+
+    sixteen_digit_and_unsafe = int("9" * 16)  # 16 digits, past _MAX_SAFE_INTEGER
+    with pytest.raises(bcp.UnsafeIntegralValueError):
+        bcp.loads_strict(str(sixteen_digit_and_unsafe))
+
+
+def test_loads_strict_ordinary_small_integers_still_parse_normally() -> None:
+    assert bcp.loads_strict("[0, 1, -1, 42, -42]") == [0, 1, -1, 42, -42]
 
 
 def test_loads_strict_maps_deep_nesting_recursion_error_to_malformed_json() -> None:

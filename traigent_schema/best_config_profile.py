@@ -78,6 +78,11 @@ __all__ = [
 
 _MAX_SAFE_INTEGER = 2**53 - 1
 
+# Digit count of _MAX_SAFE_INTEGER itself (9007199254740991 -> 16). Any JSON
+# integer literal with strictly more digits than this is unsafe by
+# magnitude alone -- see _parse_int_rejecting_unsafe_magnitude's docstring.
+_SAFE_INTEGER_DIGIT_COUNT = len(str(_MAX_SAFE_INTEGER))
+
 _CONTRACT_FILENAME = "best_config_hash_contract_schema.json"
 
 
@@ -134,7 +139,10 @@ class ExceedsMaxDepthError(BestConfigProfileError):
 class NonStringKeyError(BestConfigProfileError):
     """An object key is not a plain ``str``.
 
-    See the ``rejected_values`` entry ``non_string_key``.
+    See the ``rejected_values`` entry ``non_string_key``. The message is
+    fixed, content-free wording only -- it never names the offending key's
+    type (not even via ``__name__``, which a hostile class can set to embed
+    payload content) or echoes the key itself.
     """
 
     code = "non_string_key"
@@ -143,7 +151,10 @@ class NonStringKeyError(BestConfigProfileError):
 class UnsupportedProfileTypeError(BestConfigProfileError):
     """A value is not one of the admissible exact JSON built-in types.
 
-    See the ``rejected_values`` entry ``unsupported_type``.
+    See the ``rejected_values`` entry ``unsupported_type``. The message is
+    fixed, content-free wording only -- it never names the offending type
+    (not even via ``__name__``, which a hostile class can set to embed
+    payload content) or echoes the value itself.
     """
 
     code = "unsupported_type"
@@ -358,7 +369,7 @@ def _prevalidate(root: Any) -> None:
 
         if node_type is not dict and node_type is not list:
             raise UnsupportedProfileTypeError(
-                f"{_location(path)}: unsupported type ({node_type.__name__})"
+                f"{_location(path)}: value is not one of the admissible exact JSON built-in types"
             )
 
         if depth > MAX_DEPTH:
@@ -378,8 +389,7 @@ def _prevalidate(root: Any) -> None:
             for index, (key, item) in enumerate(node.items()):
                 if type(key) is not str:
                     raise NonStringKeyError(
-                        f"{_location(path + (index,))}: object key is not a "
-                        f"plain string (type: {type(key).__name__})"
+                        f"{_location(path + (index,))}: object key is not a plain string"
                     )
                 work.append((_VALUE, item, depth + 1, path + (index,)))
         else:
@@ -466,6 +476,46 @@ def _parse_float_rejecting_overflow(literal: str) -> float:
     return value
 
 
+def _parse_int_rejecting_unsafe_magnitude(literal: str) -> int:
+    """Parse a JSON integer literal, rejecting an unsafe magnitude before ``int()`` runs.
+
+    ``json.loads`` calls this with the exact digit string of every JSON
+    integer (optionally signed; JSON's own grammar already rules out a
+    leading zero on a multi-digit literal, so this never has to). Left to
+    the default ``int(num_str)``, an astronomically long but syntactically
+    ordinary literal (e.g. a 5000-digit integer) would either (a) parse
+    successfully into a Python int this profile's OWN unsafe-integral rule
+    would then reject anyway, wastefully, after doing the parse, or (b), on
+    a CPython build at or above its own separate, version-dependent
+    integer-string-conversion digit limit (``sys.get_int_max_str_digits()``,
+    default 4300), raise a raw, foreign ``ValueError`` this module must
+    never leak.
+
+    A digit-count PRECHECK avoids both: any literal with more digits than
+    ``_SAFE_INTEGER_DIGIT_COUNT`` (16, from ``_MAX_SAFE_INTEGER``'s own
+    string length) is unsafe by magnitude alone -- a 17+ digit number is
+    always greater than the 16-digit ``_MAX_SAFE_INTEGER`` -- so this raises
+    ``UnsafeIntegralValueError`` directly from the digit count, WITHOUT ever
+    calling ``int()`` on the oversized string, deliberately preferring this
+    profile's own normative IEEE-754 safe-integer bound over reproducing
+    CPython's separate (and configurable) digit limit here. Only when the
+    digit count is within the safe range does this call ``int()`` at all,
+    followed by the same exact-value check ``_is_unsafe_integral`` performs
+    for an already-parsed value.
+    """
+    digits = literal[1:] if literal[:1] == "-" else literal
+    if len(digits) > _SAFE_INTEGER_DIGIT_COUNT:
+        raise UnsafeIntegralValueError(
+            f"$: integral value outside the IEEE-754 safe integer range (limit {_MAX_SAFE_INTEGER})"
+        )
+    value = int(literal)
+    if abs(value) > _MAX_SAFE_INTEGER:
+        raise UnsafeIntegralValueError(
+            f"$: integral value outside the IEEE-754 safe integer range (limit {_MAX_SAFE_INTEGER})"
+        )
+    return value
+
+
 def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     # object_pairs_hook sees every key exactly as parsed, before json.loads'
     # own dict construction silently keeps only the last value for a repeated
@@ -499,6 +549,15 @@ def loads_strict(text: str) -> Any:
     ``inf``/``-inf`` rather than raising; this rejects both here rather than
     letting a non-finite float reach fp2 as an already-parsed value.
 
+    A JSON integer literal with an unsafe magnitude (including an
+    astronomically long one, e.g. 5000 digits) is rejected here too, at the
+    parse boundary, via a digit-count precheck before ``int()`` is ever
+    called on an oversized literal -- see
+    ``_parse_int_rejecting_unsafe_magnitude`` for why this is preferred over
+    reproducing CPython's own separate, version-dependent int-from-string
+    conversion digit limit, whose raw ``ValueError`` this function must
+    never leak either way.
+
     A JSON document whose container nesting exceeds the interpreter's own
     recursion limit raises a raw ``RecursionError`` from CPython's decoder
     -- a foreign, undocumented exception type this function must not leak,
@@ -516,6 +575,9 @@ def loads_strict(text: str) -> Any:
             than the interpreter can parse, or contains a non-finite
             constant or numeric literal (NaN/Infinity/-Infinity, or a
             magnitude that overflows to +-inf).
+        UnsafeIntegralValueError: an integer literal's magnitude (by digit
+            count or by exact value) exceeds the IEEE-754 safe integer
+            range.
     """
     try:
         return json.loads(
@@ -523,8 +585,9 @@ def loads_strict(text: str) -> Any:
             object_pairs_hook=_reject_duplicate_object_keys,
             parse_constant=_reject_non_finite_constant,
             parse_float=_parse_float_rejecting_overflow,
+            parse_int=_parse_int_rejecting_unsafe_magnitude,
         )
-    except (DuplicatePropertyNameError, MalformedJsonError):
+    except (DuplicatePropertyNameError, MalformedJsonError, UnsafeIntegralValueError):
         raise
     except RecursionError as error:
         raise MalformedJsonError("$: JSON text nests too deeply to parse") from error

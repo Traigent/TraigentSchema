@@ -102,7 +102,7 @@ Results:
   deprecation warnings), Python 3.13.14;
 * ruff: passed;
 * mypy: passed (with the repository's existing Python-3.9 configuration
-  warning); 
+  warning);
 * parity: passed; reachability freshness: passed;
 * focused validator + analytics + EvidenceCase suite: **133 passed**.
 

@@ -166,7 +166,9 @@ def test_adding_an_optional_property_passes(widget_repo: Path) -> None:
 
 def test_response_role_mirrors_request_role(tmp_path: Path) -> None:
     """A *_response_schema.json is the mirror image of a *_request_schema.json: removing a
-    field from `required` (walking back a guarantee) is BREAKING; adding one is not."""
+    field from `required` (walking back a guarantee) is BREAKING; adding one is not by
+    itself.  A new member is separately BREAKING when the old response was closed, because
+    an old strict consumer rejects a value that carries it."""
     repo = tmp_path / "resp_repo"
     schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
     schema_dir.mkdir(parents=True)
@@ -200,6 +202,117 @@ def test_response_role_mirrors_request_role(tmp_path: Path) -> None:
     result = _run_gate(repo, "master", "loosen-required")
     assert result.returncode == 1, result.stdout
     assert "'color' removed from required" in result.stdout
+
+
+def _response_schema_repo(tmp_path: Path, filename: str, baseline: dict) -> Path:
+    repo = tmp_path / filename.removesuffix(".json")
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    schema_dir.mkdir(parents=True)
+    (schema_dir / filename).write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+    _run_git(repo, "init", "-q")
+    _run_git(repo, "config", "user.email", "test@example.com")
+    _run_git(repo, "config", "user.name", "Breaking Schema Check Tests")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", f"baseline {filename}")
+    return repo
+
+
+def _closed_response_schema(filename: str = "widget_response_schema.json") -> dict:
+    return {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": f"https://schemas.traigent.ai/widgets/{filename}",
+        "type": "object",
+        "properties": {"id": {"type": "string"}},
+        "required": ["id"],
+        "additionalProperties": False,
+    }
+
+
+@pytest.mark.parametrize("make_required", [False, True], ids=["optional", "required"])
+def test_closed_response_added_property_is_breaking(
+    tmp_path: Path, make_required: bool
+) -> None:
+    """Both optional and required new response members can be emitted to an old strict
+    consumer, so both must be classified as a response compatibility break."""
+    filename = "widget_response_schema.json"
+    baseline = _closed_response_schema(filename)
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["evidence_case"] = {"type": "object"}
+    if make_required:
+        changed["required"].append("evidence_case")
+    _commit_schema_change(
+        repo, "add-evidence-case", changed, "add response evidence case", filename
+    )
+
+    result = _run_gate(repo, "master", "add-evidence-case")
+
+    assert result.returncode == 1, result.stdout
+    assert "property_added, role=response" in result.stdout
+    assert (
+        "'evidence_case' added while the old schema's additionalProperties was closed"
+        in result.stdout
+    )
+
+
+def test_open_response_added_property_is_not_breaking(tmp_path: Path) -> None:
+    """An old open response contract already accepted unknown members, so a new optional
+    member is not a strict-consumer compatibility break."""
+    filename = "widget_response_schema.json"
+    baseline = _closed_response_schema(filename)
+    baseline.pop("additionalProperties")
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["evidence_case"] = {"type": "object"}
+    _commit_schema_change(
+        repo, "add-evidence-case", changed, "add open response property", filename
+    )
+
+    result = _run_gate(repo, "master", "add-evidence-case")
+
+    assert result.returncode == 0, result.stdout
+    assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_bare_closed_schema_added_property_is_conservatively_breaking(tmp_path: Path) -> None:
+    """A bare schema may be used as a response, so it must retain the strict-consumer
+    protection rather than inheriting request-only permissiveness."""
+    filename = "widget_schema.json"
+    baseline = _closed_response_schema(filename)
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["evidence_case"] = {"type": "object"}
+    _commit_schema_change(repo, "add-evidence-case", changed, "add bare schema property", filename)
+
+    result = _run_gate(repo, "master", "add-evidence-case")
+
+    assert result.returncode == 1, result.stdout
+    assert "property_added, role=conservative" in result.stdout
+
+
+def test_nested_closed_response_added_property_is_breaking(tmp_path: Path) -> None:
+    """The rule applies at each nested object, not only the top-level response."""
+    filename = "widget_response_schema.json"
+    baseline = _closed_response_schema(filename)
+    baseline["properties"]["payload"] = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}},
+        "required": ["id"],
+        "additionalProperties": False,
+    }
+    baseline["required"].append("payload")
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["payload"]["properties"]["evidence_case"] = {"type": "object"}
+    _commit_schema_change(
+        repo, "add-evidence-case", changed, "add nested response property", filename
+    )
+
+    result = _run_gate(repo, "master", "add-evidence-case")
+
+    assert result.returncode == 1, result.stdout
+    assert "/properties/payload/properties/evidence_case" in result.stdout
+    assert "property_added, role=response" in result.stdout
 
 
 @pytest.mark.parametrize(

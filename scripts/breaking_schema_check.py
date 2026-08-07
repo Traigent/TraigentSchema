@@ -665,18 +665,45 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     ),
                 )
         elif name not in old_props and name in new_props:
-            emit(
-                findings,
-                file,
-                child_pointer,
-                "property_added",
-                "INFO",
-                role,
-                (
-                    f"property '{name}' added (optional unless also newly required — "
-                    "see 'required' findings above)"
-                ),
-            )
+            # A request can safely grow an object shape: submissions valid against the
+            # old schema remain valid.  A response is the mirror image only when old
+            # consumers could already accept the new member.  An old closed object
+            # rejects every newly-emitted member; an old constrained map may reject
+            # it depending on its value schema.  Both are a compatibility risk for a
+            # response consumer, so route it through the normal role matrix instead
+            # of unconditionally calling it informational.
+            #
+            # This intentionally applies whether the new property is optional or
+            # required.  ``required`` answers whether the producer promises to emit
+            # it, not whether an old strict consumer can parse it when it does.
+            if old_rank >= 1:
+                _keyword_finding(
+                    findings,
+                    file,
+                    child_pointer,
+                    role,
+                    "property_added",
+                    narrowed=False,
+                    detail=(
+                        f"property '{name}' added while the old schema's "
+                        f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; "
+                        "an old response consumer may reject that newly-emitted member"
+                    ),
+                )
+            else:
+                emit(
+                    findings,
+                    file,
+                    child_pointer,
+                    "property_added",
+                    "INFO",
+                    role,
+                    (
+                        f"property '{name}' added while the old schema was open; "
+                        "old consumers already accepted unknown members (optional unless "
+                        "also newly required — see 'required' findings above)"
+                    ),
+                )
         else:
             compare_node(
                 old_props[name],

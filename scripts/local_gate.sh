@@ -189,16 +189,19 @@ if ! skip authparity; then
 fi
 
 # ── 4c. contract breaking-change gate (BLOCKING) ───────────────────────────
-# Mirrors breaking-schema-check.yml. Diffs changed traigent_schema/schemas/**/*.json
-# files against $base_ref and classifies each difference BREAKING/non-breaking via
-# the request/response mirror-image rules (see the script's module docstring).
-# BLOCKING by owner decision (2026-08-07): the rule is "you may not break the
-# contract silently" — a genuine tightening is one scripts/breaking_schema_allowlist.json
+# Mirrors ci.yml's breaking-schema-check job (moved there from its own
+# breaking-schema-check.yml file so it can be a `needs:` dependency of
+# ci-required — TraigentSchema#392; `needs:` cannot cross workflow files).
+# Diffs changed traigent_schema/schemas/**/*.json files against $base_ref and
+# classifies each difference BREAKING/non-breaking via the request/response
+# mirror-image rules (see the script's module docstring). BLOCKING by owner
+# decision (2026-08-07): the rule is "you may not break the contract
+# silently" — a genuine tightening is one scripts/breaking_schema_allowlist.json
 # entry with a real reason (see reason_rejection() — placeholders don't count), not a
 # reason to relax the gate. The script's own failure output names each finding and
 # prints the exact JSON to add.
 if ! skip breakingschema; then
-  section "contract breaking-change gate (breaking-schema-check.yml)"
+  section "contract breaking-change gate (ci.yml: breaking-schema-check)"
   if command -v python3 >/dev/null 2>&1 && [[ -f scripts/breaking_schema_check.py ]]; then
     if python3 scripts/breaking_schema_check.py --check --base-ref "$base_ref"; then
       echo "  ✅ no un-acknowledged BREAKING contract changes"

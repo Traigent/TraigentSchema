@@ -5,8 +5,8 @@
 > gap it names was closed in a later session on this same branch:
 > `traigent_schema/best_config_profile.py` now implements exactly that policy
 > (rejecting an unsafe integral VALUE across both int and float, before fp2
-> ever runs) — see reports/sonnet-schema-terra-fixes-result.md and
-> tests/test_best_config_profile.py. Do not read "no fp2 change or
+> ever runs, via an iterative, cycle/depth-bounded prevalidation pass) — see
+> `tests/test_best_config_profile.py`. Do not read "no fp2 change or
 > unsafe-integral-float policy was implemented" as a statement about the
 > current codebase.
 

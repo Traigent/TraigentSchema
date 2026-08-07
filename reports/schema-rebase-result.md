@@ -2,18 +2,33 @@
 
 > **Historical snapshot, not current state.** This report describes reachability
 > and gate results AS OF this session's own head. The "7 remain unreachable"
-> figure below was correct only at that point in the branch's history: later
-> sessions on this same branch added more v2 optimization/certificate schemas
-> (best_config_hash_contract_schema.json, guarantee_certificate_statistical_body_schema.json,
+> figure below was correct only at that point in the branch's history. Do not
+> cite "7" as the present figure; run `python3 scripts/schema_reachability.py
+> --check` for the live number. As of this correction, `origin/develop`
+> reports 19 unreachable / 386 total, and this branch's own head reports 26
+> unreachable / 394 total. The +7 (394 vs 386) is exactly the same seven-schema
+> v2 optimization/certificate family this report already names
+> (best_config_hash_contract_schema.json,
+> guarantee_certificate_statistical_body_schema.json,
 > guarantee_certificate_v2_delta_schema.json, guarantee_certificate_v2_schema.json,
 > best_config_manifest_v2_schema.json, best_config_v2_schema.json,
-> certificate_subject_schema.json -- the same seven-schema family this report
-> already names, joined by newer siblings), so the CURRENT unreachable count is
-> higher than 7. Do not cite "7" as the present figure; run
-> `python3 scripts/schema_reachability.py --check` for the live number, and
-> see reports/sonnet-schema-terra-fixes-result.md for the count observed later
-> in this branch's history (26 unreachable / 394 total: 19 pre-existing plus
-> 7 from the v2 envelope additions that followed this rebase).
+> certificate_subject_schema.json), which are intentionally not yet wired into
+> any endpoint catalog or `$ref` graph and so score unreachable on rules 1/2.
+> The unreachable COUNT (19 at base, 26 on this branch) is unchanged by that
+> family, not caused by it: `reports/schema_reachability/consumer_
+> references.json` -- the committed snapshot rule 3 reads -- currently records
+> 34 basenames as consumer-referenced, both at base and on this branch (it was
+> not touched by this branch). A fresh scan of the five live consumer-repo
+> checkouts records 53, which would rescue exactly the pre-existing 19 (both
+> at base and on this branch) and leave only the 7 v2-family schemas above as
+> genuinely unrooted. That refresh has deliberately not been performed here --
+> it is a separate, cross-repo-verified, sha-pinned manual operation
+> (`scripts/refresh_consumer_schema_references.py`), out of scope for this
+> patch -- so the 19 pre-existing entries remain committed as unreachable,
+> unchanged from `origin/develop`, and are not a regression this branch
+> introduced. EvidenceCase itself (`evidence_case_schema.json`) is rooted via
+> `shadow_evaluate_response_schema.json` and is not part of either unreachable
+> set.
 
 ## Scope and result
 

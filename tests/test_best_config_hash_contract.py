@@ -291,6 +291,8 @@ def test_statistical_body_is_constraint_equivalent_to_v1_after_excluding_binding
     v1 = _load(_GUARANTEE_V1)
     body = _load(_STATISTICAL_BODY)
 
+    assert v1["type"] == body["type"] == "object"
+
     v1_only = set(v1["properties"]) - set(body["properties"])
     body_only = set(body["properties"]) - set(v1["properties"])
     assert v1_only == _V1_BINDING_AND_ENVELOPE_ONLY_MEMBERS
@@ -352,6 +354,28 @@ def test_v2_envelope_mirrors_exactly_the_union_of_its_composed_branches() -> Non
     non_intersected_mirrors = mirrored_members - {"selected_id"}
     for member in non_intersected_mirrors:
         assert v2_properties[member] == {}, member
+
+
+def test_v2_envelope_composes_exactly_the_two_expected_branches_and_is_closed() -> None:
+    """guarantee_certificate_v2_schema.json's own top-level shape, not just its mirror.
+
+    The property-union mirror test above proves the `properties` placeholder
+    block tracks both composed branches; it says nothing about the `allOf`
+    that actually pulls those two branches in, or about whether the envelope
+    itself stays an object closed to anything outside them. A future edit
+    that dropped one `$ref`, added a third, changed `type`, or dropped
+    `additionalProperties: false` would leave the property-union mirror test
+    green (it only compares property NAME sets) while silently widening or
+    narrowing the certificate's actual composed shape.
+    """
+    v2 = _load(_GUARANTEE_V2)
+
+    assert v2["type"] == "object"
+    assert v2["additionalProperties"] is False
+    assert v2["allOf"] == [
+        {"$ref": "./guarantee_certificate_statistical_body_schema.json"},
+        {"$ref": "./guarantee_certificate_v2_delta_schema.json"},
+    ]
 
 
 def test_normalization_policy_preserves_customer_content() -> None:

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/execution/experiment_group_schema.json",
   "title": "Experiment Group Schemas",
-  "description": "Read-only experiment-run grouping by visibility-scoped agent_id and canonical dataset_id. Contract invariants: (1) Group identity is exactly the visibility-scoped agent_id plus the canonical dataset_id for an identified cohort, or the single run_id for an unidentified singleton, and never tuned variables, KPIs, measures, display names, status, config hashes, or fingerprints. identity_state is the discriminator between those two shapes, and it is required so a consumer cannot ignore it. An unidentified run - one where EITHER the agent or the dataset identity could not be established - is returned exactly once as its own singleton keyed on its run_id, and is never merged with any other unidentified run: a shared 'unknown' bucket would be the same aggregation defect under a different name. The agent and dataset rules are symmetric; a run with a declared agent but an undeclared dataset is a singleton exactly like a run with neither, because merging those on (agent_id, null) is the false merge this contract removes. run_id is therefore an identity field on this object, present only on singletons and null on every identified group; it is a source-execution id, not a content hash, and it never carries tuned variables, KPIs, or fingerprints. (2) Tokens are not an authorization boundary: group ids and cursors are opaque lookup/continuation tokens only, and the backend must re-authorize every request by tenant/project/user context and never derive scope or identity from a token. (3) Auth non-disclosure: a group, experiment, run, or dataset outside the caller's visible scope must be indistinguishable from one that does not exist - responses must not confirm existence, leak counts, or distinguish 'forbidden' from 'not found' through status codes, messages, or timing. (4) Deterministic tie-breakers: every list and query order is stabilized by a deterministic server-side tie-breaker applied after the requested primary sort and independent of the primary sort direction. For the group list the tie-breaker is the group's canonical visible identity - agent_id ascending, then canonical dataset_id ascending with nulls ordered first, so the explicit no-dataset group (dataset_id null) sorts before any concrete dataset id, then run_id ascending with nulls ordered first. The run_id term is not decorative: unidentified singletons all carry a null agent_id, so without it two singletons share an identical tie-break key and the 'total order' is not total - which is precisely how a cursor walk starts returning a run twice or skipping it. This canonical-identity tie-break is fixed regardless of which primary field or direction was requested and regardless of dataset_id or run_id nullness. The opaque group_id is deliberately NOT the group tie-break key: it is a non-reversible SHA-derived lookup token that cannot be portably range-bounded, so it cannot back exact SQL-bounded cursor pagination; (agent_id, canonical dataset_id, run_id) is the exact group identity, is fully SQL-orderable, and yields the same deterministic total order. For configuration runs the tie-breaker is configuration_run_id ascending. Equal primary sort keys therefore never yield nondeterministic order or overlapping/skipping cursor windows. (5) No auto cross-page column discovery: the browsable column set is read from the full-group column manifest, never by walking pages and unioning row keys. (6) Missing is absence: an absent or null parameter, measure, or summary stat is absence, never 0 or empty. (7) Browse together, compare selectively: this contract makes no ranking, winner, baseline, or better/worse claim; comparison signatures and compare/rank surfaces are out of scope here.",
+  "description": "Read-only experiment-run grouping by visibility-scoped agent_id and canonical dataset_id. Contract invariants: (1) Group identity is exactly the visibility-scoped agent_id plus the canonical dataset_id for an identified cohort, or the single run_id for an unidentified singleton, and never tuned variables, KPIs, measures, display names, status, config hashes, or fingerprints. identity_state is the discriminator between those two shapes, and it is required so a consumer cannot ignore it. An unidentified run - one where EITHER the agent or the dataset identity could not be established - is returned exactly once as its own singleton keyed on its run_id, and is never merged with any other unidentified run: a shared 'unknown' bucket would be the same aggregation defect under a different name. The agent and dataset rules are symmetric; a run with a declared agent but an undeclared dataset is a singleton exactly like a run with neither, because merging those on (agent_id, null) is the false merge this contract removes. run_id is therefore an identity field on this object, present only on singletons and null on every identified group; it is a source-execution id, not a content hash, and it never carries tuned variables, KPIs, or fingerprints. (2) Tokens are not an authorization boundary: group ids and cursors are opaque lookup/continuation tokens only, and the backend must re-authorize every request by tenant/project/user context and never derive scope or identity from a token. (3) Auth non-disclosure: a group, experiment, run, or dataset outside the caller's visible scope must be indistinguishable from one that does not exist - responses must not confirm existence, leak counts, or distinguish 'forbidden' from 'not found' through status codes, messages, or timing. (4) Deterministic tie-breakers: every list and query order is stabilized by a deterministic server-side tie-breaker applied after the requested primary sort and independent of the primary sort direction. For the group list the tie-breaker is the group's canonical visible identity - agent_id ascending with nulls ordered last, then canonical dataset_id ascending with nulls ordered first, so the explicit no-dataset group (dataset_id null) sorts before any concrete dataset id within an identified agent, then run_id ascending with nulls ordered first. This order is cross-dialect and must be implemented with portable CASE null-rank terms before each value rather than relying on a database's default null ordering. The agent_id nulls-last term is what puts identified cohorts before unidentified singletons; run_id nulls-first does not establish that cross-state ordering. The run_id term is not decorative: unidentified singletons all carry a null agent_id, so without it two singletons share an identical tie-break key and the 'total order' is not total - which is precisely how a cursor walk starts returning a run twice or skipping it. This canonical-identity tie-break is fixed regardless of which primary field or direction was requested and regardless of agent_id, dataset_id, or run_id nullness. The opaque group_id is deliberately NOT the group tie-break key: it is a non-reversible SHA-derived lookup token that cannot be portably range-bounded, so it cannot back exact SQL-bounded cursor pagination; (agent_id, canonical dataset_id, run_id) is the exact group identity, is fully SQL-orderable, and yields the same deterministic total order. For configuration runs the tie-breaker is configuration_run_id ascending. Equal primary sort keys therefore never yield nondeterministic order or overlapping/skipping cursor windows. (5) No auto cross-page column discovery: the browsable column set is read from the full-group column manifest, never by walking pages and unioning row keys. (6) Missing is absence: an absent or null parameter, measure, or summary stat is absence, never 0 or empty. (7) Browse together, compare selectively: this contract makes no ranking, winner, baseline, or better/worse claim; comparison signatures and compare/rank surfaces are out of scope here.",
   "type": "object",
   "definitions": {
     "OpaqueExperimentGroupId": {
@@ -104,7 +104,7 @@
         "experiment_run_count",
         "configuration_run_count"
       ],
-      "description": "Fixed, closed vocabulary of sortable group-list fields. Sorting is never accepted over tuned variables, KPIs, measures, config hashes, or fingerprints at the group level, and group_id itself is deliberately not a member of this sort vocabulary. Ties on the requested primary sort are broken deterministically - after that primary sort and independent of its direction - by the group's canonical visible identity: agent_id ascending, then canonical dataset_id ascending with nulls ordered first (the explicit no-dataset group sorts before any concrete dataset id), then run_id ascending with nulls ordered first. The run_id term is what keeps the tie-break a total order now that unidentified singletons exist: every unidentified item carries a null agent_id, so two of them would otherwise collide on an identical (null, null) key and yield nondeterministic order with overlapping or skipping cursor windows - the exact defect this tie-break exists to prevent. run_id is null on every identified group, so identified rows still sort ahead of singletons within the same bucket and no pre-existing order changes. The opaque group_id is not the tie-break key: it is a non-reversible SHA-derived token that cannot be portably range-bounded for exact SQL cursor pagination, whereas (agent_id, canonical dataset_id, run_id) is the exact group identity, gives the same deterministic total order, and is exactly range-orderable. The tie-break carries no user-facing semantic value; only deterministic, exact, visible-identity order does."
+      "description": "Fixed, closed vocabulary of sortable group-list fields. Sorting is never accepted over tuned variables, KPIs, measures, config hashes, or fingerprints at the group level, and group_id itself is deliberately not a member of this sort vocabulary. Ties on the requested primary sort are broken deterministically - after that primary sort and independent of its direction - by the group's canonical visible identity: agent_id ascending with nulls ordered last, then canonical dataset_id ascending with nulls ordered first (the explicit no-dataset group sorts before any concrete dataset id within an identified agent), then run_id ascending with nulls ordered first. This order is cross-dialect and must be implemented with portable CASE null-rank terms before each value rather than relying on a database's default null ordering. The agent_id nulls-last term is what puts identified cohorts before unidentified singletons; run_id nulls-first does not establish that cross-state ordering. The run_id term is what keeps the tie-break a total order now that unidentified singletons exist: every unidentified item carries a null agent_id, so two of them would otherwise collide on an identical (null, null) key and yield nondeterministic order with overlapping or skipping cursor windows - the exact defect this tie-break exists to prevent. The opaque group_id is not the tie-break key: it is a non-reversible SHA-derived token that cannot be portably range-bounded for exact SQL cursor pagination, whereas (agent_id, canonical dataset_id, run_id) is the exact group identity, gives the same deterministic total order, and is exactly range-orderable. The tie-break carries no user-facing semantic value; only deterministic, exact, visible-identity order does."
     },
     "ExperimentGroupDatasetScope": {
       "type": "string",
@@ -570,20 +570,32 @@
     },
     "GroupedConfigurationRunProvenance": {
       "type": "object",
-      "description": "Additional group/display context for one browse row. The canonical source-execution identifiers (experiment_id, experiment_run_id, configuration_run_id) are NOT duplicated here: they live once at the row top level and remain the single source of truth for provenance, because JSON Schema Draft 7 cannot assert sibling equality and duplicated ids that only claim equality in prose invite drift. This object carries only the owning group's identity (agent_id, canonical dataset_id) and optional display context (experiment_name) so an exported or flattened row keeps its group identity and a human-readable label without re-joining against the group. Experiment-per-execution provenance is preserved by the row itself: rows from different source experiments or experiment runs are never merged, even when their parameters, measures, or config hashes are identical. Runtime one-row-per-execution and exact scope/agent/dataset partitioning are downstream backend/E2E acceptance criteria, not proven by this schema.",
+      "description": "Additional group/display context for one browse row. The canonical source-execution identifiers (experiment_id, experiment_run_id, configuration_run_id) are NOT duplicated here: they live once at the row top level and remain the single source of truth for provenance, because JSON Schema Draft 7 cannot assert sibling equality and duplicated ids that only claim equality in prose invite drift. This object carries the owning identity using the same discriminator as ExperimentGroupOverview: an identified row carries its real (agent_id, canonical dataset_id) cohort; an unidentified row carries no cohort key (agent_id and dataset_id are both null). The enclosing row's required experiment_run_id is the singleton source-execution identity in that case. The optional experiment_name is display context only, so an exported or flattened row keeps its truthful cohort or singleton identity and a human-readable label without re-joining against the group. Experiment-per-execution provenance is preserved by the row itself: rows from different source experiments or experiment runs are never merged, even when their parameters, measures, or config hashes are identical. Runtime one-row-per-execution and exact scope/agent/dataset partitioning are downstream backend/E2E acceptance criteria, not proven by this schema.",
       "required": [
         "agent_id",
-        "dataset_id"
+        "dataset_id",
+        "identity_state"
       ],
       "properties": {
         "agent_id": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "minLength": 1,
           "maxLength": 255,
-          "description": "Canonical agent id of the owning group, echoed so exported rows retain group identity."
+          "description": "Canonical agent id of the owning cohort, echoed so exported rows retain identity. Null is permitted only when identity_state is 'unidentified'."
         },
         "dataset_id": {
           "$ref": "#/definitions/CanonicalDatasetId"
+        },
+        "identity_state": {
+          "type": "string",
+          "enum": [
+            "identified",
+            "unidentified"
+          ],
+          "description": "'identified' means the row belongs to a real (agent_id, canonical dataset_id) cohort: agent_id is a string and dataset_id is a declared id or null meaning explicit none. 'unidentified' means at least one identity could not be established: agent_id and dataset_id are both null because the row has no cohort key. The enclosing row's required experiment_run_id is the singleton source-execution identity. Null dataset_id therefore means explicit none only when identified; under unidentified it means not known. Unidentified rows are never merged into a shared bucket."
         },
         "experiment_name": {
           "type": [
@@ -594,7 +606,50 @@
           "description": "Display name of the source experiment when available; null when not set. Display-only: never a grouping, dedup, or identity key."
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "identity_state": {
+                "const": "unidentified"
+              }
+            },
+            "required": [
+              "identity_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "agent_id": {
+                "type": "null"
+              },
+              "dataset_id": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "identity_state": {
+                "const": "identified"
+              }
+            },
+            "required": [
+              "identity_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "agent_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
     },
     "ComparisonState": {
       "type": [

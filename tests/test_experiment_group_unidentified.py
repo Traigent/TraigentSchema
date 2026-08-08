@@ -21,6 +21,14 @@ def _validator() -> Draft7Validator:
     return Draft7Validator({**document, "$ref": "#/definitions/ExperimentGroupOverview"})
 
 
+def _provenance_validator() -> Draft7Validator:
+    """Validate a bare browse-row provenance object."""
+    document = _document()
+    return Draft7Validator(
+        {**document, "$ref": "#/definitions/GroupedConfigurationRunProvenance"}
+    )
+
+
 def _identified_group(**overrides: Any) -> dict[str, Any]:
     item: dict[str, Any] = {
         "group_id": "grp_1234",
@@ -45,6 +53,17 @@ def _identified_group(**overrides: Any) -> dict[str, Any]:
     return item
 
 
+def _identified_provenance(**overrides: Any) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "agent_id": "agt_123",
+        "dataset_id": "dset_456",
+        "identity_state": "identified",
+        "experiment_name": "Prompt strategy sweep",
+    }
+    item.update(overrides)
+    return item
+
+
 def test_identified_group_validates() -> None:
     assert list(_validator().iter_errors(_identified_group())) == []
 
@@ -58,6 +77,26 @@ def test_unidentified_singleton_validates() -> None:
     )
 
     assert list(_validator().iter_errors(item)) == []
+
+
+def test_unidentified_provenance_is_a_singleton_not_a_cohort() -> None:
+    """The row-level identity must agree with the group-level discriminator."""
+    singleton = _identified_provenance(
+        agent_id=None,
+        dataset_id=None,
+        identity_state="unidentified",
+    )
+
+    assert list(_provenance_validator().iter_errors(singleton)) == []
+    for field, invalid_value in (
+        ("agent_id", "agt_123"),
+        ("dataset_id", "dset_456"),
+    ):
+        invalid = dict(singleton)
+        invalid[field] = invalid_value
+        assert list(_provenance_validator().iter_errors(invalid)), field
+
+    assert list(_provenance_validator().iter_errors(_identified_provenance(run_id="run_789")))
 
 
 def test_identity_state_rejects_unknown_values() -> None:
@@ -110,10 +149,12 @@ def test_group_list_tie_break_includes_run_id_so_singletons_stay_orderable() -> 
 
     for haystack in (sort_field_description, document["description"]):
         lowered = haystack.lower()
-        assert "agent_id ascending" in lowered
-        assert "canonical dataset_id ascending" in lowered
-        assert "run_id ascending" in lowered, "the tie-break is not a total order"
-        assert "nulls ordered first" in lowered
+        assert "agent_id ascending with nulls ordered last" in lowered
+        assert "canonical dataset_id ascending with nulls ordered first" in lowered
+        assert "run_id ascending with nulls ordered first" in lowered
+        assert "portable case null-rank terms" in lowered
+        assert "agent_id nulls-last term" in lowered
+        assert "run_id nulls-first does not establish" in lowered
 
     # The OpenAPI inline mirror must not drift from the authoritative field.
     spec_path = get_schemas_dir() / "execution" / "execution_endpoints.json"

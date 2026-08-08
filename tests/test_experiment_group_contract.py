@@ -106,6 +106,7 @@ def _provenance(**overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "agent_id": "agent_123",
         "dataset_id": "dataset_456",
+        "identity_state": "identified",
         "experiment_name": "Prompt strategy sweep",
     }
     payload.update(overrides)
@@ -416,18 +417,45 @@ def test_error_state_is_classified_aggregate_safe() -> None:
     assert "error_message" not in error_state["properties"]
 
 
-def test_provenance_carries_group_context_not_duplicated_source_ids() -> None:
+def test_provenance_carries_truthful_identity_not_duplicated_source_ids() -> None:
     assert _errors("GroupedConfigurationRunProvenance", _provenance()) == []
     # The no-dataset group is explicit; empty string still rejected.
     assert _errors("GroupedConfigurationRunProvenance", _provenance(dataset_id=None)) == []
     assert _errors("GroupedConfigurationRunProvenance", _provenance(dataset_id=""))
     assert _errors("GroupedConfigurationRunProvenance", _provenance(experiment_name=None)) == []
 
-    # Only the group's own identity is required here.
-    for field in ("agent_id", "dataset_id"):
+    # Every row carries the discriminated cohort/singleton state.
+    for field in ("agent_id", "dataset_id", "identity_state"):
         incomplete = _provenance()
         incomplete.pop(field)
         assert _errors("GroupedConfigurationRunProvenance", incomplete), field
+
+
+def test_unidentified_browse_row_carries_singleton_provenance() -> None:
+    """A complete browse row must represent an unidentified singleton truthfully."""
+    singleton_provenance = _provenance(
+        agent_id=None,
+        dataset_id=None,
+        identity_state="unidentified",
+    )
+
+    assert _errors(
+        "GroupedConfigurationRunBrowseRow", _browse_row(provenance=singleton_provenance)
+    ) == []
+
+    for field, invalid_value in (
+        ("agent_id", "agent_123"),
+        ("dataset_id", "dataset_456"),
+    ):
+        invalid = dict(singleton_provenance)
+        invalid[field] = invalid_value
+        assert _errors("GroupedConfigurationRunBrowseRow", _browse_row(provenance=invalid)), field
+
+    # Singleton source identity remains at the browse-row top level, where it
+    # is already required as experiment_run_id; provenance must not duplicate
+    # an alias Draft 7 cannot prove equal.
+    assert _browse_row(provenance=singleton_provenance)["experiment_run_id"] == "experiment_run_1"
+    assert _errors("GroupedConfigurationRunProvenance", _provenance(run_id="run_123"))
 
 
 def test_provenance_never_duplicates_the_canonical_source_execution_ids() -> None:
@@ -436,13 +464,18 @@ def test_provenance_never_duplicates_the_canonical_source_execution_ids() -> Non
     stay canonical at the browse-row top level; provenance rejects them outright."""
     schema = _load_schema("execution/experiment_group_schema.json")
     provenance = schema["definitions"]["GroupedConfigurationRunProvenance"]
-    source_ids = {"experiment_id", "experiment_run_id", "configuration_run_id"}
+    disallowed_provenance_ids = {
+        "experiment_id",
+        "experiment_run_id",
+        "configuration_run_id",
+        "run_id",
+    }
 
     # The redundant ids are absent from the provenance object entirely...
-    assert not (set(provenance["properties"]) & source_ids)
+    assert not (set(provenance["properties"]) & disallowed_provenance_ids)
     # ...and additionalProperties:false makes re-introducing them a hard error.
     assert provenance["additionalProperties"] is False
-    for source_id in source_ids:
+    for source_id in disallowed_provenance_ids:
         assert _errors(
             "GroupedConfigurationRunProvenance", _provenance(**{source_id: "x"})
         ), source_id
@@ -451,8 +484,9 @@ def test_provenance_never_duplicates_the_canonical_source_execution_ids() -> Non
     row_required = set(
         schema["definitions"]["GroupedConfigurationRun"]["required"]
     )
-    assert source_ids <= row_required
-    for source_id in source_ids:
+    row_source_ids = {"experiment_id", "experiment_run_id", "configuration_run_id"}
+    assert row_source_ids <= row_required
+    for source_id in row_source_ids:
         incomplete = _browse_row()
         incomplete.pop(source_id)
         assert _errors("GroupedConfigurationRunBrowseRow", incomplete), source_id
@@ -1360,9 +1394,9 @@ def test_group_list_sort_vocabulary_is_closed_and_identity_scoped() -> None:
 
 def test_group_list_tie_break_is_canonical_identity_not_opaque_group_id() -> None:
     """The group-list deterministic tie-break is the group's canonical visible
-    identity - agent_id ascending, then canonical dataset_id ascending with nulls
-    first - applied after the requested primary sort and fixed independent of the
-    primary field, its direction, and dataset_id nullness. The opaque group_id is
+    identity - agent_id ascending nulls last, canonical dataset_id ascending nulls
+    first, then run_id ascending nulls first - applied after the requested primary
+    sort and fixed independent of the primary field and direction. The opaque group_id is
     NOT the mandated sort/tie-break key: it is a non-reversible SHA-derived token
     that cannot back exact SQL-bounded cursor pagination. This regression pins the
     amended contract so a reversion to 'group_id ascending' fails."""
@@ -1379,8 +1413,13 @@ def test_group_list_tie_break_is_canonical_identity_not_opaque_group_id() -> Non
         # (2) The canonical-identity tie-break is spelled out for Backend/Frontend.
         assert "agent_id ascending" in haystack
         assert "canonical dataset_id ascending" in haystack
-        # (3) Explicit, deterministic null placement (NULLS FIRST).
-        assert "nulls ordered first" in haystack
+        # (3) Explicit, cross-dialect null placement for every identity term.
+        assert "agent_id ascending with nulls ordered last" in haystack
+        assert "canonical dataset_id ascending with nulls ordered first" in haystack
+        assert "run_id ascending with nulls ordered first" in haystack
+        assert "portable case null-rank terms" in haystack
+        assert "agent_id nulls-last term" in haystack
+        assert "run_id nulls-first does not establish" in haystack
         # (4) The tie-break is a secondary tie after the primary sort, and is
         #     fixed independent of the requested primary direction.
         assert "independent of" in haystack and "direction" in haystack
@@ -1410,7 +1449,10 @@ def test_group_list_tie_break_is_canonical_identity_not_opaque_group_id() -> Non
     # ...and therefore carries the canonical-identity tie-break, not group_id ascending.
     assert "agent_id ascending" in inline_desc.lower()
     assert "canonical dataset_id ascending" in inline_desc.lower()
-    assert "nulls ordered first" in inline_desc.lower()
+    assert "agent_id ascending with nulls ordered last" in inline_desc.lower()
+    assert "canonical dataset_id ascending with nulls ordered first" in inline_desc.lower()
+    assert "run_id ascending with nulls ordered first" in inline_desc.lower()
+    assert "portable case null-rank terms" in inline_desc.lower()
     assert "group_id ascending" not in inline_desc.lower()
 
     # (7) The row-level configuration-run tie-break is untouched: still

@@ -16,6 +16,48 @@
       "reason": "This intentionally expands the governed extension vocabulary so schemas can declare mechanically checked cross-field equality. It is contract mechanics only, and consumers of the closed registry must update for the new property.",
       "version": "5.6.0",
       "pr": "#377"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "property_added",
+      "reason": "identity_state is an explicit discriminator when present, with a closed enum of identified/unidentified and a strictly validated absent/legacy migration branch (expand-contract); rollout stays flag-off until Backend and strict consumers emit and handle it.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "type",
+      "reason": "agent_id is nullable only in the unidentified branch, with paired-null invariants, because inventing an agent would corrupt provenance; identified rows remain string-valued.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "required",
+      "reason": "Expand-contract: identity_state is dropped from the top-level required list because the active Backend does not yet emit it on every experiment-group item or provenance row. The enum stays closed to identified/unidentified only; absence is handled by a new, strictly validated legacy branch (string agent_id, string-or-null dataset_id, no run_id), never treated as identified or as a certified explicit-none dataset claim. A follow-up MAJOR revision re-tightens this back to required once the Backend backfills the field everywhere.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The allOf branch count on ExperimentGroupOverview goes from 3 to 4 and on GroupedConfigurationRunProvenance goes from 2 to 3 because a new, absence-only branch was added alongside the existing identified/unidentified branches to enforce the legacy no-identity_state shape structurally (string agent_id, string-or-null dataset_id, run_id null-or-absent). The pre-existing branches on each definition are unchanged; the new branch only tightens validation for the newly-optional legacy case, it does not loosen any previously-enforced constraint.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "required",
+      "reason": "Expand-contract: identity_state is dropped from the top-level required list on ExperimentGroupOverview and GroupedConfigurationRunProvenance because the active Backend does not yet emit it on every item or row. The enum stays closed to identified/unidentified only; absence is handled by a new, strictly validated legacy branch (string agent_id, string-or-null dataset_id, no run_id), never treated as identified or as a certified explicit-none dataset claim. A follow-up MAJOR revision re-tightens this back to required once the Backend backfills the field everywhere.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The allOf branch count on ExperimentGroupOverview goes from 3 to 4 and on GroupedConfigurationRunProvenance goes from 2 to 3 because a new, absence-only branch was added alongside the existing identified/unidentified branches to enforce the legacy no-identity_state shape structurally (string agent_id, string-or-null dataset_id, run_id null-or-absent). The pre-existing branches on each definition are unchanged; the new branch only tightens validation for the newly-optional legacy case, it does not loosen any previously-enforced constraint.",
+      "version": "5.6.0",
+      "pr": "#400"
     }
   ]
 }

@@ -56,3 +56,46 @@ def test_codeql_posts_the_two_main_ruleset_contexts() -> None:
     for step in analyze["steps"]:
         if "uses" in step:
             assert FULL_SHA_ACTION.fullmatch(step["uses"]), step["uses"]
+
+
+def _checkout_steps(job: dict) -> list[dict]:
+    return [
+        step
+        for step in job.get("steps", [])
+        if str(step.get("uses", "")).split("@", 1)[0] == "actions/checkout"
+    ]
+
+
+def test_read_only_workflow_checkouts_do_not_persist_credentials() -> None:
+    read_only_jobs = {
+        "auth-taxonomy-parity.yml": ("auth-taxonomy-parity",),
+        "parity-check.yml": ("parity-check",),
+        "schema-orphan-check.yml": ("schema-orphan-check",),
+        "validation-spine-pr.yml": ("spine-pr-scan",),
+        "ci.yml": ("changes", "lint-type", "test", "package", "ci-required"),
+    }
+
+    for workflow_name, job_names in read_only_jobs.items():
+        workflow = _workflow(workflow_name)
+        for job_name in job_names:
+            checkouts = _checkout_steps(workflow["jobs"][job_name])
+            assert checkouts, f"{workflow_name}:{job_name} must check out source"
+            for checkout in checkouts:
+                assert checkout["with"]["persist-credentials"] is False, (
+                    f"{workflow_name}:{job_name} must not leave checkout credentials in git config"
+                )
+
+
+def test_breaking_schema_checkout_retains_credentials_for_its_later_fetch() -> None:
+    workflow = _workflow("ci.yml")
+    job = workflow["jobs"]["breaking-schema-check"]
+    checkout = _checkout_steps(job)
+
+    assert len(checkout) == 1
+    assert "persist-credentials" not in checkout[0].get("with", {})
+    ref_resolution = next(
+        step["run"]
+        for step in job["steps"]
+        if step.get("name") == "Resolve base/head refs for this event"
+    )
+    assert "git fetch origin" in ref_resolution

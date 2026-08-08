@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +35,31 @@ from jsonschema import Draft7Validator
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "breaking_schema_check.py"
+
+
+def _git_local_env_vars() -> frozenset[str]:
+    """The GIT_* variable names git itself considers repo-local (GIT_DIR,
+    GIT_WORK_TREE, GIT_INDEX_FILE, ...) — as opposed to e.g. GIT_AUTHOR_NAME,
+    which travels safely. Queried from git rather than hardcoded so this stays
+    correct across git versions."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--local-env-vars"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return frozenset(result.stdout.split())
+
+
+def _sanitized_git_env() -> dict[str, str]:
+    """A caller of this test module (a pre-push hook, a CI runner, a dev shell
+    mid-rebase) may have GIT_DIR/GIT_WORK_TREE/etc. exported for ITS repo. If we
+    forwarded that environment untouched, `git -C <throwaway-repo>` would still
+    be redirected at the caller's repo — GIT_DIR overrides -C. Strip those names
+    independent of whatever the pre-push hook does, so these tests are safe even
+    invoked directly (pytest tests/, an IDE runner, a foreign CI job)."""
+    local_vars = _git_local_env_vars()
+    return {key: value for key, value in os.environ.items() if key not in local_vars}
 
 
 def _load_gate_module():
@@ -69,7 +95,11 @@ BASELINE_SCHEMA = {
 
 def _run_git(repo: Path, *args: str) -> str:
     result = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=_sanitized_git_env(),
     )
     return result.stdout
 
@@ -616,3 +646,162 @@ def test_real_allowlist_reason_grants_opt_out(widget_repo: Path) -> None:
 
     assert result.returncode == 0, result.stdout
     assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_run_git_ignores_inherited_git_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression for the incident this module's helpers must never repeat: a
+    pre-push hook (or any parent process) can export GIT_DIR/GIT_WORK_TREE for
+    ITS OWN repo. `git -C <path>` does NOT override an inherited GIT_DIR, so a
+    naive `subprocess.run(["git", "-C", tmp_repo, ...])` silently operates on the
+    inherited repo instead of tmp_repo — which is exactly how a previous run of
+    these fixtures wrote 27 baseline commits onto this branch's real ref, index,
+    and config.
+
+    Reproduce the hazard with a SACRIFICIAL repo (created fresh under tmp_path,
+    never this worktree or its common gitdir) standing in for "the caller's
+    repo", poison the process environment with its GIT_DIR/GIT_WORK_TREE, and
+    prove `_run_git` still only ever touches the repo path it was explicitly
+    given — never the sacrificial one."""
+    sacrificial_repo = tmp_path / "sacrificial_repo"
+    sacrificial_repo.mkdir()
+    _run_git(sacrificial_repo, "init", "-q")
+    _run_git(sacrificial_repo, "config", "user.email", "sacrificial@example.com")
+    _run_git(sacrificial_repo, "config", "user.name", "Sacrificial Caller Repo")
+    (sacrificial_repo / "seed.txt").write_text("seed\n", encoding="utf-8")
+    _run_git(sacrificial_repo, "add", "-A")
+    _run_git(sacrificial_repo, "commit", "-q", "-m", "sacrificial baseline")
+
+    sacrificial_head_before = _run_git(sacrificial_repo, "rev-parse", "HEAD").strip()
+    sacrificial_config_before = _run_git(sacrificial_repo, "config", "--local", "--list")
+    sacrificial_log_count_before = _run_git(
+        sacrificial_repo, "rev-list", "--count", "HEAD"
+    ).strip()
+    sacrificial_index_before = (sacrificial_repo / ".git" / "index").read_bytes()
+
+    # Poison the process environment the way an inheriting caller (e.g. an
+    # unsanitized pre-push hook) would: GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE
+    # pinned to the sacrificial repo, for the entire duration of the target
+    # repo's setup.
+    monkeypatch.setenv("GIT_DIR", str(sacrificial_repo / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(sacrificial_repo))
+    monkeypatch.setenv("GIT_INDEX_FILE", str(sacrificial_repo / ".git" / "index"))
+
+    target_repo = tmp_path / "target_repo"
+    target_repo.mkdir()
+    _run_git(target_repo, "init", "-q")
+    _run_git(target_repo, "config", "user.email", "target@example.com")
+    _run_git(target_repo, "config", "user.name", "Target Repo")
+    (target_repo / "file.txt").write_text("hello\n", encoding="utf-8")
+    _run_git(target_repo, "add", "-A")
+    _run_git(target_repo, "commit", "-q", "-m", "target baseline")
+
+    # _run_git must have initialized and committed in tmp_path/target_repo only.
+    assert (target_repo / ".git").is_dir()
+    target_head = _run_git(target_repo, "rev-parse", "HEAD").strip()
+    assert target_head != sacrificial_head_before
+
+    # The sacrificial repo's ref, commit count, and config must be untouched —
+    # not overwritten, not gained a second commit, not reconfigured.
+    assert (
+        _run_git(sacrificial_repo, "rev-parse", "HEAD").strip() == sacrificial_head_before
+    )
+    assert (
+        _run_git(sacrificial_repo, "rev-list", "--count", "HEAD").strip()
+        == sacrificial_log_count_before
+    )
+    assert (
+        _run_git(sacrificial_repo, "config", "--local", "--list")
+        == sacrificial_config_before
+    )
+    # The sacrificial index must be byte-for-byte unchanged -- not just "same
+    # HEAD", but never staged/rewritten by the target repo's add/commit calls.
+    assert (sacrificial_repo / ".git" / "index").read_bytes() == sacrificial_index_before
+    # The target's file must never have landed in the sacrificial working tree.
+    assert not (sacrificial_repo / "file.txt").exists()
+
+
+def test_pre_push_hook_clears_git_local_env_before_exec(tmp_path: Path) -> None:
+    """End-to-end regression at the actual hook boundary (not just the helper):
+    install the real tracked hooks/pre-push into a disposable tmp_path repo,
+    push it to a disposable tmp_path bare remote with GIT_DIR/GIT_WORK_TREE/
+    GIT_INDEX_FILE already pinned to that same source repo -- the "pusher's
+    local Git environment... still exported" scenario the hook's own comment
+    describes -- and prove the hook clears every `git rev-parse
+    --local-env-vars` name before exec'ing the gate.
+
+    A source-repo-local scripts/local_gate.sh stub (this test's own, not the
+    real gate) stands in for the real gate: it fails and writes a "still set"
+    marker if ANY such name is still exported when it starts, and writes "ok"
+    otherwise. This is network-free and touches only tmp_path repos -- the
+    poisoned env vars are set only on the dict passed to this one `git push`
+    subprocess call, never on the test process's own os.environ.
+    """
+    source_repo = tmp_path / "push_source_repo"
+    bare_remote = tmp_path / "push_remote.git"
+    source_repo.mkdir(parents=True)
+    bare_remote.mkdir(parents=True)
+
+    _run_git(source_repo, "init", "-q")
+    _run_git(source_repo, "config", "user.email", "pusher@example.com")
+    _run_git(source_repo, "config", "user.name", "Pusher Repo")
+    (source_repo / "README.md").write_text("hook boundary test\n", encoding="utf-8")
+    _run_git(source_repo, "add", "-A")
+    _run_git(source_repo, "commit", "-q", "-m", "initial commit")
+    current_branch = _run_git(source_repo, "branch", "--show-current").strip()
+
+    _run_git(bare_remote, "init", "--bare", "-q")
+    _run_git(source_repo, "remote", "add", "origin", str(bare_remote))
+
+    hook_src = REPO_ROOT / "hooks" / "pre-push"
+    hook_dst = source_repo / ".git" / "hooks" / "pre-push"
+    hook_dst.write_bytes(hook_src.read_bytes())
+    hook_dst.chmod(0o755)
+
+    marker = tmp_path / "hook_ran_clean.marker"
+    gate_stub = source_repo / "scripts" / "local_gate.sh"
+    gate_stub.parent.mkdir(parents=True)
+    gate_stub.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -uo pipefail\n"
+        'marker="${PRE_PUSH_TEST_MARKER:?PRE_PUSH_TEST_MARKER not set}"\n'
+        "while IFS= read -r name; do\n"
+        '  [[ -z "$name" ]] && continue\n'
+        '  if [[ -n "${!name-}" ]]; then\n'
+        '    printf \'still set: %s=%s\\n\' "$name" "${!name}" > "$marker"\n'
+        "    exit 1\n"
+        "  fi\n"
+        "done <<< \"$(git rev-parse --local-env-vars)\"\n"
+        'echo ok > "$marker"\n',
+        encoding="utf-8",
+    )
+    gate_stub.chmod(0o755)
+
+    repo_root_head_before = _run_git(REPO_ROOT, "rev-parse", "HEAD").strip()
+
+    push_env = dict(_sanitized_git_env())
+    push_env["PRE_PUSH_TEST_MARKER"] = str(marker)
+    # The exact hazard hooks/pre-push's own comment describes: the pusher's
+    # shell already has this repo's local git-env vars exported (e.g. from a
+    # prior script/hook in the same session) when `git push` runs.
+    push_env["GIT_DIR"] = str(source_repo / ".git")
+    push_env["GIT_WORK_TREE"] = str(source_repo)
+    push_env["GIT_INDEX_FILE"] = str(source_repo / ".git" / "index")
+
+    result = subprocess.run(
+        ["git", "push", "origin", current_branch],
+        cwd=source_repo,
+        capture_output=True,
+        text=True,
+        env=push_env,
+    )
+
+    assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert marker.exists(), "scripts/local_gate.sh stub never ran -- hook did not reach exec"
+    assert marker.read_text().strip() == "ok", marker.read_text()
+
+    # No repo/ref/config/index outside tmp_path was touched: this worktree's
+    # own HEAD (read via a call with a sanitized, not poisoned, env) is
+    # unchanged.
+    assert _run_git(REPO_ROOT, "rev-parse", "HEAD").strip() == repo_root_head_before

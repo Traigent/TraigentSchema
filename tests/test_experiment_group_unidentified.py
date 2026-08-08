@@ -252,3 +252,121 @@ def test_null_dataset_means_two_different_things_and_the_state_says_which() -> N
     assert "EXPLICITLY no dataset" in dataset_description
     scope_description = _document()["definitions"]["ExperimentGroupDatasetScope"]["description"]
     assert "does NOT select unidentified singletons" in scope_description
+
+
+# ---- Expand-contract: identity_state is optional; absence means legacy ----
+
+
+def test_identity_state_is_optional_at_the_top_level() -> None:
+    """The active Backend does not yet emit identity_state on every item, so it
+    must not be declared required — a required field the producer can't yet
+    guarantee would make every legacy response invalid."""
+    document = _document()
+    overview_required = document["definitions"]["ExperimentGroupOverview"]["required"]
+    provenance_required = document["definitions"]["GroupedConfigurationRunProvenance"][
+        "required"
+    ]
+
+    assert "identity_state" not in overview_required
+    assert "identity_state" not in provenance_required
+    # agent_id / dataset_id remain required in both places.
+    assert {"agent_id", "dataset_id"} <= set(overview_required)
+    assert {"agent_id", "dataset_id"} <= set(provenance_required)
+
+
+def test_identity_state_absence_is_not_a_third_enum_member() -> None:
+    """The enum stays closed to identified/unidentified; there is no 'legacy'
+    value. Legacy is expressed only by omitting the key entirely, never by a
+    new enum member."""
+    document = _document()
+    identity_state = document["definitions"]["ExperimentGroupOverview"]["properties"][
+        "identity_state"
+    ]
+    assert set(identity_state["enum"]) == {"identified", "unidentified"}
+
+    errors = list(_validator().iter_errors(_identified_group(identity_state="legacy")))
+    assert errors, "an explicit 'legacy' identity_state value must still be rejected"
+
+
+def test_legacy_group_without_identity_state_accepts_string_agent_and_dataset() -> None:
+    """Absence of identity_state is the live legacy cohort shape: a declared
+    string agent_id and a string-or-null dataset_id, with no run_id."""
+    legacy = _identified_group()
+    legacy.pop("identity_state")
+    assert list(_validator().iter_errors(legacy)) == []
+
+    legacy_no_dataset = _identified_group(dataset_id=None)
+    legacy_no_dataset.pop("identity_state")
+    assert list(_validator().iter_errors(legacy_no_dataset)) == []
+
+
+def test_legacy_group_without_identity_state_rejects_null_agent() -> None:
+    """Absence means identity-unqualified legacy, never identified or
+    unidentified: a legacy item never asserts that its agent is unknown."""
+    legacy = _identified_group(agent_id=None)
+    legacy.pop("identity_state")
+
+    assert list(_validator().iter_errors(legacy))
+
+
+def test_legacy_group_without_identity_state_accepts_explicit_null_run_id() -> None:
+    """A legacy item may carry run_id as an explicit null, not only an absent
+    key: run_id must stay null-or-absent, exactly like an identified cohort."""
+    legacy = _identified_group(run_id=None)
+    legacy.pop("identity_state")
+
+    assert list(_validator().iter_errors(legacy)) == []
+
+
+def test_legacy_group_without_identity_state_rejects_populated_run_id() -> None:
+    """A legacy item is never a singleton: run_id must stay null or absent,
+    exactly like an identified cohort."""
+    legacy = _identified_group(run_id="run_789")
+    legacy.pop("identity_state")
+
+    assert list(_validator().iter_errors(legacy))
+
+
+def test_legacy_provenance_without_identity_state_accepts_string_agent_and_dataset() -> None:
+    legacy = _identified_provenance()
+    legacy.pop("identity_state")
+    assert list(_provenance_validator().iter_errors(legacy)) == []
+
+    legacy_no_dataset = _identified_provenance(dataset_id=None)
+    legacy_no_dataset.pop("identity_state")
+    assert list(_provenance_validator().iter_errors(legacy_no_dataset)) == []
+
+
+def test_legacy_provenance_without_identity_state_rejects_null_agent() -> None:
+    legacy = _identified_provenance(agent_id=None)
+    legacy.pop("identity_state")
+
+    assert list(_provenance_validator().iter_errors(legacy))
+
+
+def test_explicit_identified_rejects_null_agent_and_string_run_id() -> None:
+    """An explicit identified item keeps its strict branch: agent_id must stay
+    a string and run_id must stay null, even though identity_state itself is
+    now optional at the top level."""
+    assert list(_validator().iter_errors(_identified_group(agent_id=None)))
+    assert list(_validator().iter_errors(_identified_group(run_id="run_789")))
+
+
+def test_provenance_rejects_copied_run_id_in_every_state() -> None:
+    """Provenance never carries run_id, in the identified, unidentified, or
+    absence-only legacy branch alike — the enclosing row's experiment_run_id
+    stays the single canonical source-execution identity."""
+    identified_with_run_id = _identified_provenance(run_id="run_789")
+    assert list(_provenance_validator().iter_errors(identified_with_run_id))
+
+    unidentified_with_run_id = _identified_provenance(
+        agent_id=None,
+        dataset_id=None,
+        identity_state="unidentified",
+        run_id="run_789",
+    )
+    assert list(_provenance_validator().iter_errors(unidentified_with_run_id))
+
+    legacy_with_run_id = _identified_provenance(run_id="run_789")
+    legacy_with_run_id.pop("identity_state")
+    assert list(_provenance_validator().iter_errors(legacy_with_run_id))

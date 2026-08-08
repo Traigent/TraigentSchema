@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Experiment-group browse-row provenance now represents unidentified runs without inventing a
-  cohort.** `GroupedConfigurationRunProvenance` now carries the same required
+  cohort.** `GroupedConfigurationRunProvenance` now carries the same
   `identity_state` discriminator as `ExperimentGroupOverview`: identified rows carry a real
   `(agent_id, dataset_id)` cohort; an unidentified row carries both cohort fields as `null`.
   The browse row's existing required `experiment_run_id` remains its singleton source-execution
@@ -22,6 +22,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   null-rank terms before each value instead of database-default null ordering. The `agent_id`
   nulls-last term places identified cohorts before unidentified singletons; `run_id` nulls-first is
   not the reason for that cross-state order.
+- **`identity_state` moves to expand-contract instead of being declared required on day one.**
+  The above `identity_state` discriminator landed as required on both `ExperimentGroupOverview`
+  and `GroupedConfigurationRunProvenance`, but the active Backend does not yet emit it on every
+  item or row; a required field the producer can't yet guarantee would make every legacy
+  response fail validation. `identity_state` is now optional at the top level on both objects,
+  while its own enum stays closed to `identified`/`unidentified` only — there is deliberately no
+  third `legacy` enum member. A new, strictly validated absence-only branch enforces the live
+  legacy shape when the field is omitted entirely: a declared string `agent_id`, a string-or-null
+  `dataset_id` (via the existing `CanonicalDatasetId` rules), and, on the overview object,
+  `run_id` null or absent, exactly like an identified cohort — a legacy item is never a
+  singleton. Absence is a third, distinct reading from both explicit states: it must never be
+  treated as `identified`, and a legacy item's null `dataset_id` does not establish the
+  identified branch's explicit-none dataset claim, because it predates the discriminator
+  entirely. The explicit `identified`/`unidentified` branches, and the unidentified
+  per-run-singleton and no-copied-`run_id`-in-provenance invariants from the two fixes above,
+  are unchanged. A follow-up MAJOR revision re-tightens `identity_state` back to required once
+  the Backend backfills it on every item and row.
 
 ## [5.5.0] - 2026-08-01
 

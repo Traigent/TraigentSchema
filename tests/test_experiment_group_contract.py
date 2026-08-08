@@ -424,11 +424,17 @@ def test_provenance_carries_truthful_identity_not_duplicated_source_ids() -> Non
     assert _errors("GroupedConfigurationRunProvenance", _provenance(dataset_id=""))
     assert _errors("GroupedConfigurationRunProvenance", _provenance(experiment_name=None)) == []
 
-    # Every row carries the discriminated cohort/singleton state.
-    for field in ("agent_id", "dataset_id", "identity_state"):
+    # agent_id and dataset_id remain required in every row.
+    for field in ("agent_id", "dataset_id"):
         incomplete = _provenance()
         incomplete.pop(field)
         assert _errors("GroupedConfigurationRunProvenance", incomplete), field
+
+    # identity_state is optional (expand-contract): its absence is the legacy
+    # branch, not a validation error, as long as the legacy shape holds.
+    legacy = _provenance()
+    legacy.pop("identity_state")
+    assert _errors("GroupedConfigurationRunProvenance", legacy) == []
 
 
 def test_unidentified_browse_row_carries_singleton_provenance() -> None:

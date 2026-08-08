@@ -21,13 +21,15 @@
       "file": "execution/execution_endpoints.json",
       "rule": "property_added",
       "reason": "identity_state is the required discriminator preventing clients from treating per-run unidentified singletons as real cohorts; rollout stays flag-off until Backend and strict consumers are updated.",
-      "version": "5.6.0"
+      "version": "5.6.0",
+      "pr": "#400"
     },
     {
       "file": "execution/execution_endpoints.json",
       "rule": "type",
       "reason": "agent_id is nullable only in the unidentified branch, with paired-null invariants, because inventing an agent would corrupt provenance; identified rows remain string-valued.",
-      "version": "5.6.0"
+      "version": "5.6.0",
+      "pr": "#400"
     }
   ]
 }

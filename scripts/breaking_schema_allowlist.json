@@ -1,5 +1,5 @@
 {
-  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
       "file": "smartops_v2/shadow_evaluate_response_schema.json",
@@ -58,6 +58,20 @@
       "reason": "The allOf branch count on ExperimentGroupOverview goes from 3 to 4 and on GroupedConfigurationRunProvenance goes from 2 to 3 because a new, absence-only branch was added alongside the existing identified/unidentified branches to enforce the legacy no-identity_state shape structurally (string agent_id, string-or-null dataset_id, run_id null-or-absent). The pre-existing branches on each definition are unchanged; the new branch only tightens validation for the newly-optional legacy case, it does not loosen any previously-enforced constraint.",
       "version": "5.6.0",
       "pr": "#400"
+    },
+    {
+      "file": "analytics/curation_advice_schema.json",
+      "rule": "enum",
+      "reason": "Retires the subtractive curation vocabulary at the client boundary (#389). `remove_redundant` is removed from the enum because acting on subtractive advice keyed to an observed signal biases the customer's own measurement and is unrepairable -- excluded items carry zero inclusion probability. Measured on a 70-item confirmation set, top-15-by-observed-discrimination pruning gave -0.202 against a true -0.073 (2.77x); random-15 was unbiased at -0.078. Breaking is the intended effect: a consumer still emitting or matching this member must be reconciled rather than silently accepted. Recorded in the disclosure register; reintroducing a subtractive category needs an owner decision.",
+      "version": "5.6.0",
+      "pr": "#389"
+    },
+    {
+      "file": "analytics/run_example_insights_schema.json",
+      "rule": "enum",
+      "reason": "Retires the subtractive curation vocabulary at the client boundary (#389). `remove_redundant` is removed from the enum because acting on subtractive advice keyed to an observed signal biases the customer's own measurement and is unrepairable -- excluded items carry zero inclusion probability. Measured on a 70-item confirmation set, top-15-by-observed-discrimination pruning gave -0.202 against a true -0.073 (2.77x); random-15 was unbiased at -0.078. Breaking is the intended effect: a consumer still emitting or matching this member must be reconciled rather than silently accepted. Recorded in the disclosure register; reintroducing a subtractive category needs an owner decision.",
+      "version": "5.6.0",
+      "pr": "#389"
     }
   ]
 }

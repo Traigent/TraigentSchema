@@ -75,6 +75,7 @@
     },
     "model_usage": {
       "type": "array",
+      "$comment": "cache_read_tokens/cache_creation_tokens below are the SAME logical fields as common_types_schema.json#/definitions/CacheReadTokens and CacheCreationTokens — this contract is where that vocabulary was first established. They are left as non-nullable integers here only because changing an ingest contract is the harness-telemetry owner's decision, NOT because the absent-vs-zero problem is absent on this path: the OTLP reader (src/services/harness_telemetry/otlp_translator.py `_attr_int`) defaults a missing attribute to 0, so a harness that reports no cache dimension is currently recorded as 'zero cache tokens' — indistinguishable from 'no cache was used', which is the exact defect the canonical nullable definitions exist to prevent. Tracked separately; do not read this comment as a claim that the harness path is already correct.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -89,7 +90,8 @@
           },
           "input_tokens": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "description": "DISJOINTNESS CONVENTION: EXCLUDES cache_read_tokens. Providers disagree natively -- Bedrock reports cache reads disjointly from inputTokens while OpenAI reports them as a SUBSET of prompt_tokens -- so producers normalize to the disjoint convention before emitting this field. A consumer multiplying this by a rate is pricing FRESH input only and must price cache_read_tokens separately at the cache-read rate. Records written before 5.7.0 may carry the provider-native convention and are NOT distinguishable by this field alone; see the 5.7.0 CHANGELOG entry."
           },
           "output_tokens": {
             "type": "integer",

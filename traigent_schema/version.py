@@ -2,4 +2,4 @@
 # Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
 """Version information for traigent-schema package."""
 
-__version__ = "5.5.1"
+__version__ = "5.7.0"

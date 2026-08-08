@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 34,
-      "refOrEndpointGraph": 333
+      "refOrEndpointGraph": 334
     },
-    "reachableCount": 367,
-    "schemaFileCount": 386,
-    "unreachableCount": 19
+    "reachableCount": 368,
+    "schemaFileCount": 394,
+    "unreachableCount": 26
   },
   "unreachableSchemas": [
     "auth/rbac_privilege_vocabulary_schema.json",
@@ -27,6 +27,13 @@
     "execution/service_registration_schema.json",
     "mep.json",
     "onboarding/onboarding_funnel_event_schema.json",
+    "optimization/best_config_hash_contract_schema.json",
+    "optimization/best_config_manifest_v2_schema.json",
+    "optimization/best_config_v2_schema.json",
+    "optimization/certificate_subject_schema.json",
+    "optimization/guarantee_certificate_statistical_body_schema.json",
+    "optimization/guarantee_certificate_v2_delta_schema.json",
+    "optimization/guarantee_certificate_v2_schema.json",
     "optimization/optimization_trace_signature_schema.json",
     "optimization/tunable_schema.json",
     "results/comparison_schema.json",

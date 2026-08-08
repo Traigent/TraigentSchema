@@ -665,18 +665,45 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     ),
                 )
         elif name not in old_props and name in new_props:
-            emit(
-                findings,
-                file,
-                child_pointer,
-                "property_added",
-                "INFO",
-                role,
-                (
-                    f"property '{name}' added (optional unless also newly required — "
-                    "see 'required' findings above)"
-                ),
-            )
+            # A request can safely grow an object shape: submissions valid against the
+            # old schema remain valid.  A response is the mirror image only when old
+            # consumers could already accept the new member.  An old closed object
+            # rejects every newly-emitted member; an old constrained map may reject
+            # it depending on its value schema.  Both are a compatibility risk for a
+            # response consumer, so route it through the normal role matrix instead
+            # of unconditionally calling it informational.
+            #
+            # This intentionally applies whether the new property is optional or
+            # required.  ``required`` answers whether the producer promises to emit
+            # it, not whether an old strict consumer can parse it when it does.
+            if old_rank >= 1:
+                _keyword_finding(
+                    findings,
+                    file,
+                    child_pointer,
+                    role,
+                    "property_added",
+                    narrowed=False,
+                    detail=(
+                        f"property '{name}' added while the old schema's "
+                        f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; "
+                        "an old response consumer may reject that newly-emitted member"
+                    ),
+                )
+            else:
+                emit(
+                    findings,
+                    file,
+                    child_pointer,
+                    "property_added",
+                    "INFO",
+                    role,
+                    (
+                        f"property '{name}' added while the old schema was open; "
+                        "old consumers already accepted unknown members (optional unless "
+                        "also newly required — see 'required' findings above)"
+                    ),
+                )
         else:
             compare_node(
                 old_props[name],
@@ -711,15 +738,33 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 detail=f"patternProperties key {pat!r} removed",
             )
         elif pat not in old_pp and pat in new_pp:
-            emit(
-                findings,
-                file,
-                child_pointer,
-                "patternProperties_added",
-                "INFO",
-                role,
-                f"patternProperties key {pat!r} added",
-            )
+            if old_rank >= 1:
+                _keyword_finding(
+                    findings,
+                    file,
+                    child_pointer,
+                    role,
+                    "patternProperties_added",
+                    narrowed=False,
+                    detail=(
+                        f"patternProperties key {pat!r} added while the old schema's "
+                        f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; matching "
+                        "members accepted by the new response may be rejected by an old consumer"
+                    ),
+                )
+            else:
+                emit(
+                    findings,
+                    file,
+                    child_pointer,
+                    "patternProperties_added",
+                    "INFO",
+                    role,
+                    (
+                        f"patternProperties key {pat!r} added while the old schema was open; "
+                        "old consumers already accepted matching unknown members"
+                    ),
+                )
         else:
             compare_node(
                 old_pp[pat],
@@ -794,15 +839,68 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
         old_list, new_list = old.get(combinator), new.get(combinator)
         if old_list is None and new_list is None:
             continue
+        if old_list is None and isinstance(new_list, list):
+            if combinator == "allOf" and not new_list:
+                emit(
+                    findings,
+                    file,
+                    f"{pointer}/{combinator}",
+                    f"{combinator}_added",
+                    "INFO",
+                    role,
+                    (
+                        "empty allOf appeared; it accepts every instance and does not "
+                        "change the contract"
+                    ),
+                )
+            else:
+                _keyword_finding(
+                    findings,
+                    file,
+                    f"{pointer}/{combinator}",
+                    role,
+                    f"{combinator}_added",
+                    narrowed=True,
+                    detail=f"{combinator} constraint appeared ({len(new_list)} branch(es))",
+                )
+            continue
+        if isinstance(old_list, list) and new_list is None:
+            if combinator == "allOf" and not old_list:
+                emit(
+                    findings,
+                    file,
+                    f"{pointer}/{combinator}",
+                    f"{combinator}_removed",
+                    "INFO",
+                    role,
+                    (
+                        "empty allOf disappeared; it accepted every instance and did not "
+                        "constrain the contract"
+                    ),
+                )
+            else:
+                _keyword_finding(
+                    findings,
+                    file,
+                    f"{pointer}/{combinator}",
+                    role,
+                    f"{combinator}_removed",
+                    narrowed=False,
+                    detail=f"{combinator} constraint disappeared ({len(old_list)} branch(es))",
+                )
+            continue
         if not isinstance(old_list, list) or not isinstance(new_list, list):
             emit(
                 findings,
                 file,
                 f"{pointer}/{combinator}",
                 f"{combinator}_shape_changed",
-                "INFO",
+                "BREAKING",
                 role,
-                f"{combinator} appeared/disappeared or isn't a list on one side — manual review",
+                (
+                    f"{combinator} is not a list on one or both sides; direction cannot be "
+                    "established, so the malformed/unsupported change is flagged conservatively"
+                ),
             )
             continue
         if len(old_list) != len(new_list):

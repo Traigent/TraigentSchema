@@ -51,6 +51,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
           path: TraigentSchema
 
       # continue-on-error here does NOT mean "tolerate a broken scan". It exists only so
@@ -71,6 +72,7 @@ jobs:
           ref: ${{ env.SPINE_REF }}
           path: .spine
           token: ${{ env.SPINE_RO_TOKEN }}
+          persist-credentials: false
 
       # Availability is proven by the checkout actually succeeding, not by the token merely
       # being non-empty. Every downstream step keys off SPINE_AVAILABLE.

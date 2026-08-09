@@ -698,10 +698,24 @@ _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH = "agent_lifecycle_record/agent_lifecycle_co
 _AGENT_LIFECYCLE_RECEIPT_SUBMIT_RESPONSE_SCHEMA_PATH = (
     "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json"
 )
+
+# ALR-1105 (row 8, freeze-completion packet): the Route 5 record response
+# schema locally defines EpisodeMeasurementCoverage -- the branch's canonical
+# shared route schemas (Routes 1-4) had not landed on this branch yet, so
+# this document could not $ref a cross-file reason_codes property the way a
+# later integration pass would -- and that local definition needs the same
+# real, closed-vocabulary `reason_codes` property name as
+# agent_lifecycle_common_schema.json's axis types and Route 4's
+# LiveSealedMeasurementCoverage.
+_AGENT_LIFECYCLE_RECORD_RESPONSE_SCHEMA_PATH = (
+    "agent_lifecycle_record/agent_lifecycle_record_response_schema.json"
+)
+
 _AGENT_LIFECYCLE_REASON_CODES_ALLOWED_PATHS = frozenset(
     {
         _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH,
         _AGENT_LIFECYCLE_RECEIPT_SUBMIT_RESPONSE_SCHEMA_PATH,
+        _AGENT_LIFECYCLE_RECORD_RESPONSE_SCHEMA_PATH,
     }
 )
 
@@ -712,21 +726,24 @@ def _is_allowed_agent_lifecycle_reason_codes_occurrence(
     value: str,
     token: str,
 ) -> bool:
-    """ALR-1101 P1-4 repair, widened by ALR-1102: `reason_codes` is a real,
-    closed-vocabulary public property name on every axis type in
-    agent_lifecycle_common_schema.json (the bounded_reason_vocabulary rule) AND
+    """ALR-1101 P1-4 repair, widened by ALR-1102 and ALR-1105: `reason_codes`
+    is a real, closed-vocabulary public property name on every axis type in
+    agent_lifecycle_common_schema.json (the bounded_reason_vocabulary rule),
     on agent_lifecycle_receipt_submit_response_schema.json's
-    LiveSealedMeasurementCoverage (ALR-1102, Route 4's seal response). Unlike a
-    blanket per-file exemption -- which would silently disable the
-    `reason_code` leak check for every raw string in these files, forever,
-    including future ALR-11xx edits -- this allows the literal string ONLY in
-    the two JSON Schema positions it can legitimately appear: as a
-    `properties` key, or as a `required` list entry. A `reason_code`-flavored
-    string anywhere else in either file (a description, a title, a stray
-    sibling key) still fails -- proved by
+    LiveSealedMeasurementCoverage (ALR-1102, Route 4's seal response), and on
+    agent_lifecycle_record_response_schema.json's own coverage shape
+    (ALR-1105, Route 5's record response). Unlike a blanket per-file
+    exemption -- which would silently disable the `reason_code` leak check
+    for every raw string in these files, forever, including future ALR-11xx
+    edits -- this allows the literal string ONLY in the two JSON Schema
+    positions it can legitimately appear: as a `properties` key, or as a
+    `required` list entry, and only in the specific files that legitimately
+    declare it. A `reason_code`-flavored string anywhere else in these files
+    (a description, a title, a stray sibling key), or in any other file,
+    still fails -- proved by
     `test_agent_lifecycle_reason_codes_canary_flags_non_property_occurrence`
-    below, which is file-scoped to the common schema but exercises the same
-    shared allow-function every allowed path uses. Modelled on
+    and its per-file siblings below, which exercise the same shared
+    allow-function every allowed path uses. Modelled on
     `_is_allowed_next_steps_action_category` above, which scopes by
     `json_path` rather than blanket-exempting a whole document.
     """
@@ -2221,11 +2238,66 @@ class TestClientFacingSchemaLeakGuard:
 
         assert findings == []
 
-    def test_agent_lifecycle_reason_codes_allowlist_is_not_a_blanket_exemption_for_a_third_file(
+    # ------------------------------------------------------------------
+    # ALR-1105 (row 8): the same path-scoped allowance, widened to also
+    # cover agent_lifecycle_record_response_schema.json's own coverage
+    # shape. These two canaries mirror the two above for the new path, plus
+    # the negative controls below prove the widened set stays exactly three
+    # paths -- not a fourth, unrelated file.
+    # ------------------------------------------------------------------
+
+    def test_agent_lifecycle_record_response_reason_codes_canary_flags_non_property_occurrence(
         self,
     ):
-        """The widened allowlist names exactly two files. A third, unrelated
-        lifecycle file must not silently inherit the exemption."""
+        """Same non-property-position leak, checked against the Route 5
+        response schema's own path."""
+        leaking_document = {
+            "type": "object",
+            "properties": {
+                "some_field": {
+                    "type": "string",
+                    "description": "an internal reason_code leak in prose, not a property key",
+                }
+            },
+        }
+
+        findings = _find_public_schema_lifecycle_leaks(
+            _AGENT_LIFECYCLE_RECORD_RESPONSE_SCHEMA_PATH,
+            leaking_document,
+        )
+
+        assert any(
+            finding.tier == "TIER-1" and finding.token == "reason_code" for finding in findings
+        ), f"expected the non-property reason_code occurrence to be flagged, got: {findings}"
+
+    def test_agent_lifecycle_record_response_reason_codes_canary_allows_legitimate_slots(
+        self,
+    ):
+        """The literal `reason_codes` property key and its `required` list
+        entry are allowed in the Route 5 response schema's own path too."""
+        legitimate_document = {
+            "type": "object",
+            "required": ["state", "reason_codes"],
+            "properties": {
+                "state": {"type": "string"},
+                "reason_codes": {"type": "array", "items": {"type": "string"}},
+            },
+        }
+
+        findings = _find_public_schema_lifecycle_leaks(
+            _AGENT_LIFECYCLE_RECORD_RESPONSE_SCHEMA_PATH,
+            legitimate_document,
+        )
+
+        assert findings == []
+
+    def test_agent_lifecycle_reason_codes_allowlist_is_not_a_blanket_exemption_for_a_fourth_file(
+        self,
+    ):
+        """The widened allowlist names exactly three files. A fourth,
+        unrelated lifecycle file (Route 3's response schema, which carries
+        no reason_codes producer of its own) must not silently inherit the
+        exemption."""
         leaking_document = {
             "type": "object",
             "required": ["value", "reason_codes"],
@@ -2242,7 +2314,39 @@ class TestClientFacingSchemaLeakGuard:
 
         assert any(
             finding.tier == "TIER-1" and finding.token == "reason_code" for finding in findings
-        ), f"expected the third-file occurrence to be flagged, got: {findings}"
+        ), f"expected the fourth-file occurrence to be flagged, got: {findings}"
+
+    def test_agent_lifecycle_reason_codes_allowance_stays_scoped_to_exactly_three_paths(self):
+        """Negative control: an unrelated fourth file using the identical
+        legitimate `reason_codes` shape must still be flagged -- the
+        allowance is a three-file allowlist, not a substring/prefix match or
+        a fourth silently-added path. Also pins the frozenset's exact
+        membership so a widening slips in only with a matching test update."""
+        legitimate_shaped_document = {
+            "type": "object",
+            "required": ["value", "trust_level", "reason_codes"],
+            "properties": {
+                "value": {"type": "string"},
+                "trust_level": {"type": "string"},
+                "reason_codes": {"type": "array", "items": {"type": "string"}},
+            },
+        }
+
+        findings = _find_public_schema_lifecycle_leaks(
+            "agent_lifecycle_record/some_other_future_schema.json",
+            legitimate_shaped_document,
+        )
+
+        assert any(
+            finding.tier == "TIER-1" and finding.token == "reason_code" for finding in findings
+        ), f"expected the unlisted path to still be flagged, got: {findings}"
+        assert _AGENT_LIFECYCLE_REASON_CODES_ALLOWED_PATHS == frozenset(
+            {
+                _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH,
+                _AGENT_LIFECYCLE_RECEIPT_SUBMIT_RESPONSE_SCHEMA_PATH,
+                _AGENT_LIFECYCLE_RECORD_RESPONSE_SCHEMA_PATH,
+            }
+        )
 
 
 class TestOptimizationTraceInternalSignatureSchemas:

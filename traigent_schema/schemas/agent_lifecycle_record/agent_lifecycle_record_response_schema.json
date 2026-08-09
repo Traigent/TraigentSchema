@@ -1,0 +1,484 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+  "title": "Agent Lifecycle Record Response (Route 5)",
+  "description": "ALR-1105 Route 5 response (PART1_CONTRACT_FREEZE_DRAFT.md:754-791): GET .../agent-lifecycle/agent-revisions/{agent_revision_ref}/record. This document is closed (additionalProperties:false) with exactly the fourteen top-level properties below -- it has no legacy_claims property (guard-killing mutation row 8, corpus case record_response_legacy_claims_property_rejected, PART1_CONTRACT_FREEZE_DRAFT.md:1051/:1146) and deliberately has no qualification, standing, permit, invalidation, decision, or release/release.state field anywhere (PART1_CONTRACT_FREEZE_DRAFT.md:789, :1465 Owner decision card 2 Option A): record truth and product availability have different producers, and release posture is not a lifecycle-record field in Part 1. Route 5 performs no legacy-claim join; the pre-existing legacy CERTIFIED_SELECTION wire (certified_selection_schema.json) is untouched by this document and remains visibly legacy/client-attested/non-authorizing on its own surface (PART1_CONTRACT_FREEZE_DRAFT.md:116, :898, :965) -- this schema does not reference it and never maps it onto lifecycle Qualification or Standing. governance_profile/identity_state/measurement_coverage/comparability_verdict are $ref'd directly from agent_lifecycle_common_schema.json's individually $ref-able axis definitions (never duplicated); ArtifactVersionSlot.state is checked separately from identity_state as Part 1 const UNKNOWN (PART1_CONTRACT_FREEZE_DRAFT.md:1140) via the four named binding slots below. Integration note: StableOpaqueRef/TypedOpaqueRef/OpaqueRefId/EpisodeMeasurementCoverage/AgentLifecycleRecordRef are defined LOCALLY in this document's definitions because this branch was cut before Routes 1-4's schemas (which mint the canonical shared copies per ALR-1102/ALR-1103) landed here; the shapes below intentionally mirror those routes' definitions byte-for-byte so a later integration pass can delete the local copies and repoint these $refs at the shared originals without a shape change. x-disclosure {rule,artifact} annotations below anticipate the versioned client-boundary disclosure register (PART1_CONTRACT_FREEZE_DRAFT.md:376-403, row 17, not yet embedded in agent_lifecycle_common_schema.json on this branch) and are assigned per its published rule vocabulary and exact-override manifest (PART1_CONTRACT_FREEZE_DRAFT.md:404-408, :434-438); they are metadata only and carry no runtime validation effect. Coverage is complete for every property this document declares directly; annotating the internals of $ref'd agent_lifecycle_common_schema.json axis definitions is left to the story that extends that shared file (out of this packet's write scope).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_ref",
+    "agent_ref",
+    "agent_revision_ref",
+    "created_at",
+    "as_of",
+    "governance_profile",
+    "identity_state",
+    "measurement_coverage",
+    "pending_episode",
+    "comparability_verdict",
+    "bindings",
+    "evidence_episodes",
+    "rescorability"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0-beta.1",
+      "description": "Closed public wire-version discriminator (PART1_CONTRACT_FREEZE_DRAFT.md:272, :764); never a product/version claim.",
+      "x-disclosure": {"rule": "wire_contract_version", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "record_ref": {
+      "$ref": "#/definitions/AgentLifecycleRecordRef",
+      "description": "Minted by Route 1 for live registration or by the bounded historical backfill under the same issuance invariants; never minted by this read route (PART1_CONTRACT_FREEZE_DRAFT.md:765).",
+      "x-disclosure": {"rule": "opaque_lifecycle_record_handle", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "agent_ref": {
+      "allOf": [
+        {"$ref": "#/definitions/StableOpaqueRef"},
+        {"properties": {"kind": {"const": "agent"}}}
+      ],
+      "description": "Stable logical longitudinal subject, no version_id (PART1_CONTRACT_FREEZE_DRAFT.md:766).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "agent_revision_ref": {
+      "allOf": [
+        {"$ref": "#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "agent_revision"}}}
+      ],
+      "description": "Exact immutable revision at the record center (PART1_CONTRACT_FREEZE_DRAFT.md:767).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Initial Backend record issuance time; immutable (PART1_CONTRACT_FREEZE_DRAFT.md:768).",
+      "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The single Backend read-snapshot time this entire response was derived against -- every episode state and coverage field is computed relative to this one value, not re-queried per field (PART1_CONTRACT_FREEZE_DRAFT.md:769, :877).",
+      "x-disclosure": {"rule": "backend_snapshot_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "governance_profile": {
+      "$ref": "agent_lifecycle_common_schema.json#/definitions/Part1RecordGovernanceProfile",
+      "description": "Exactly OBSERVED/backend_observed/[]; no Part 1 action authority (PART1_CONTRACT_FREEZE_DRAFT.md:770).",
+      "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "identity_state": {
+      "$ref": "agent_lifecycle_common_schema.json#/definitions/IdentityStateAxisValue",
+      "description": "One exact live/legacy tuple from the orthogonal-axis table; never inferred from another axis (PART1_CONTRACT_FREEZE_DRAFT.md:771). Row 2 guard: this axis vocabulary is structurally separate from ExperimentGroup's identified/unidentified grouping vocabulary in execution/experiment_group_schema.json -- see tests/test_agent_lifecycle_contract.py::test_identity_vocabularies_are_structurally_separate (PART1_CONTRACT_FREEZE_DRAFT.md:1140).",
+      "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "measurement_coverage": {
+      "$ref": "agent_lifecycle_common_schema.json#/definitions/RecordMeasurementCoverage",
+      "description": "Selected under the exact ordered predicates in the coverage inventory: newest live seal uses basis=LATEST_SEALED_EVIDENCE_EPISODE; otherwise a bound private marker uses UNKNOWN_LEGACY_BASIS; otherwise the appropriate no-evidence basis is used (PART1_CONTRACT_FREEZE_DRAFT.md:772, :879).",
+      "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "pending_episode": {
+      "$ref": "#/definitions/PendingEpisodeProjection",
+      "description": "The newest episode that is ISSUED at as_of, or null if none exists. An episode EXPIRED at as_of never appears here, only in evidence_episodes (PART1_CONTRACT_FREEZE_DRAFT.md:773).",
+      "x-disclosure": {"rule": "in_flight_episode_projection", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "comparability_verdict": {
+      "$ref": "agent_lifecycle_common_schema.json#/definitions/Part1RecordComparabilityVerdict",
+      "description": "Exactly NOT_APPLICABLE/backend_observed/[SINGLE_SUBJECT] in Part 1 (PART1_CONTRACT_FREEZE_DRAFT.md:774).",
+      "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "bindings": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/BindingProjection"},
+      "description": "Immutable projections of real live Bindings only. No legacy/null-contract branch exists. A marker-backed record with no live protocol activity returns [] (PART1_CONTRACT_FREEZE_DRAFT.md:775).",
+      "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "evidence_episodes": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/EpisodeProjection"},
+      "description": "Chronological real live episodes only; historical markers never appear in this array (PART1_CONTRACT_FREEZE_DRAFT.md:776).",
+      "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "rescorability": {
+      "$ref": "#/definitions/RescorabilityProjection",
+      "description": "The same newest live SEALED reconciliation selected for top-level measurement_coverage, projected as the Route 4 aggregate; if no live seal exists (including marker-driven UNKNOWN) this is exactly {state:unknown,trust_level:client_attested,authority_effect:NONE} (PART1_CONTRACT_FREEZE_DRAFT.md:777).",
+      "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    }
+  },
+  "definitions": {
+    "OpaqueRefId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$",
+      "maxLength": 128,
+      "description": "Not a name, digest, tenant id, or content-derived public capability (PART1_CONTRACT_FREEZE_DRAFT.md:285, :294-295). Mirrors the canonical shape Route 3 defines once (PART1_CONTRACT_FREEZE_DRAFT.md:626-660 area); local copy pending integration, see top-level description."
+    },
+    "StableOpaqueRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["agent", "experiment_run"],
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "id": {
+          "$ref": "#/definitions/OpaqueRefId",
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "description": "Names a longitudinal, non-versioned resource that outlives any single snapshot of it (PART1_CONTRACT_FREEZE_DRAFT.md:280). Has no version_id field at all -- additionalProperties:false rejects one (corpus case typed_ref_stable_kind_includes_version_id, PART1_CONTRACT_FREEZE_DRAFT.md:287)."
+    },
+    "TypedOpaqueRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "version_id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "agent_revision",
+            "agent_lifecycle_record",
+            "measurement_contract",
+            "dataset_version",
+            "evaluator_version",
+            "slice_definition_version",
+            "governance_scope",
+            "binding",
+            "run_plan",
+            "evidence_item",
+            "reconciliation",
+            "decision",
+            "claim",
+            "qualification",
+            "standing",
+            "dependency",
+            "invalidation"
+          ],
+          "description": "Full Part 1 TypedOpaqueRef kind vocabulary (PART1_CONTRACT_FREEZE_DRAFT.md:293), including reserved kinds with no Part 1 producer; each use site further constrains this to its exact kind. Route 5 never emits a ref whose kind is qualification/standing/decision/dependency/invalidation -- no property on this document's root uses any of those consts.",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "id": {
+          "$ref": "#/definitions/OpaqueRefId",
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "version_id": {
+          "$ref": "#/definitions/OpaqueRefId",
+          "description": "Identifies one immutable version; never latest (PART1_CONTRACT_FREEZE_DRAFT.md:295). version_id==id is required for every immutable-snapshot kind in this beta contract (PART1_CONTRACT_FREEZE_DRAFT.md:299), but that cross-field equality is service_invalid, not schema-decidable, per the same contract paragraph.",
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "description": "Content-free object naming one immutable, once-minted snapshot (PART1_CONTRACT_FREEZE_DRAFT.md:289)."
+    },
+    "AgentLifecycleRecordRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "version_id"],
+      "properties": {
+        "kind": {
+          "const": "agent_lifecycle_record",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "id": {
+          "$ref": "#/definitions/OpaqueRefId",
+          "x-disclosure": {"rule": "opaque_lifecycle_record_handle", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "version_id": {
+          "$ref": "#/definitions/OpaqueRefId",
+          "x-disclosure": {"rule": "opaque_lifecycle_record_handle", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "description": "The lifecycle record's own opaque handle (PART1_CONTRACT_FREEZE_DRAFT.md:434-437, :490): kind receives the ordinary exact-vocabulary assignment, while id/version_id receive the record-handle disclosure override distinct from a generic TypedOpaqueRef -- both public record_ref fields (Route 1's response and this one) reference this same shape."
+    },
+    "ArtifactVersionSlotBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "state", "ref"],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "state": {
+          "const": "UNKNOWN",
+          "description": "Schema const UNKNOWN on every Part 1 public slot; a reserved verified value is a later schema version with no Part 1 producer (PART1_CONTRACT_FREEZE_DRAFT.md:306). Checked independently of identity_state (PART1_CONTRACT_FREEZE_DRAFT.md:1140).",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "ref": {
+          "const": null,
+          "description": "Schema const null on every Part 1 public slot; a non-null ref is forbidden to every Part 1 route and consumer (PART1_CONTRACT_FREEZE_DRAFT.md:307).",
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "description": "The public projection of the existing fp2 ArtifactVersion, not a second digest definition (PART1_CONTRACT_FREEZE_DRAFT.md:301-309). Base shape narrowed per named slot below; no public property name contains the forbidden config-space-fingerprint substring."
+    },
+    "AgentVersionSlot": {
+      "allOf": [
+        {"$ref": "#/definitions/ArtifactVersionSlotBase"},
+        {"properties": {"schema": {"enum": ["afp2", "fp1"]}}}
+      ]
+    },
+    "DatasetVersionSlot": {
+      "allOf": [
+        {"$ref": "#/definitions/ArtifactVersionSlotBase"},
+        {"properties": {"schema": {"enum": ["dfp2o", "fp1"]}}}
+      ]
+    },
+    "EvaluatorVersionSlot": {
+      "allOf": [
+        {"$ref": "#/definitions/ArtifactVersionSlotBase"},
+        {"properties": {"schema": {"enum": ["efp2", "fp1"]}}}
+      ]
+    },
+    "ConfigurationVersionSlot": {
+      "allOf": [
+        {"$ref": "#/definitions/ArtifactVersionSlotBase"},
+        {"properties": {"schema": {"enum": ["cfp2", "fp1"]}}}
+      ]
+    },
+    "BindingProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "binding_ref",
+        "measurement_contract_ref",
+        "governance_scope_ref",
+        "agent_version_slot",
+        "dataset_version_slot",
+        "evaluator_version_slot",
+        "configuration_version_slot"
+      ],
+      "properties": {
+        "origin": {
+          "const": "LIVE",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "binding_ref": {
+          "allOf": [
+            {"$ref": "#/definitions/TypedOpaqueRef"},
+            {"properties": {"kind": {"const": "binding"}}}
+          ],
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "measurement_contract_ref": {
+          "allOf": [
+            {"$ref": "#/definitions/TypedOpaqueRef"},
+            {"properties": {"kind": {"const": "measurement_contract"}}}
+          ],
+          "description": "Non-null; the live-only closed item requires a typed non-null contract ref (corpus case record_live_binding_projects_null_measurement_contract_ref, PART1_CONTRACT_FREEZE_DRAFT.md:1066).",
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "governance_scope_ref": {
+          "allOf": [
+            {"$ref": "#/definitions/TypedOpaqueRef"},
+            {"properties": {"kind": {"const": "governance_scope"}}}
+          ],
+          "description": "Minted in the same Route 3 transaction that mints the Binding; governance_scope has no independent public producer (PART1_CONTRACT_FREEZE_DRAFT.md:652).",
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "agent_version_slot": {"$ref": "#/definitions/AgentVersionSlot"},
+        "dataset_version_slot": {"$ref": "#/definitions/DatasetVersionSlot"},
+        "evaluator_version_slot": {"$ref": "#/definitions/EvaluatorVersionSlot"},
+        "configuration_version_slot": {"$ref": "#/definitions/ConfigurationVersionSlot"}
+      },
+      "description": "Every closed item requires origin=const LIVE and exactly the four named slots (PART1_CONTRACT_FREEZE_DRAFT.md:775, corpus case binding_all_four_version_slots_with_unknowns)."
+    },
+    "EpisodeMeasurementCoverage": {
+      "description": "Used only by evidence_episodes[].measurement_coverage; exactly the live sealed shape (PART1_CONTRACT_FREEZE_DRAFT.md:743). Distinct from (not a duplicate of) agent_lifecycle_common_schema.json's RecordMeasurementCoverage, which is reserved for this document's top-level field only: a sealed episode always produces real accounting, so state is restricted to COMPLETE|PARTIAL (never UNMEASURED/UNKNOWN) and basis is fixed to SEALED_EVIDENCE_EPISODE (never LATEST_SEALED_EVIDENCE_EPISODE, corpus case coverage_seal_response_wrong_basis, PART1_CONTRACT_FREEZE_DRAFT.md:1063). Per the 2026-08-09 owner accounting decision (runs/agent-lifecycle-contract-integration/OWNER_DECISION_ACCOUNTING_20260809.md, Option A): no ninth accounting field, and duplicate is schema-const 0 on every branch.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state", "basis", "trust_level",
+            "expected", "produced", "cached", "missing", "failed", "fallback", "excluded", "duplicate",
+            "reason_codes"
+          ],
+          "properties": {
+            "state": {"const": "COMPLETE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "basis": {"const": "SEALED_EVIDENCE_EPISODE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "expected": {"type": "integer", "minimum": 1, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "produced": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "cached": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "missing": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "failed": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "fallback": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "excluded": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "duplicate": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "reason_codes": {
+              "description": "COMPLETE carries no caveat unless the underlying contract is client-attested: exactly [] or [CLIENT_ATTESTED_ONLY].",
+              "type": "array",
+              "items": {"enum": ["CLIENT_ATTESTED_ONLY"]},
+              "uniqueItems": true,
+              "maxItems": 1,
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state", "basis", "trust_level",
+            "expected", "produced", "cached", "missing", "failed", "fallback", "excluded", "duplicate",
+            "reason_codes"
+          ],
+          "properties": {
+            "state": {"const": "PARTIAL", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "basis": {"const": "SEALED_EVIDENCE_EPISODE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "expected": {"type": "integer", "minimum": 1, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "produced": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "cached": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "missing": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "failed": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "fallback": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "excluded": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "duplicate": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "reason_codes": {
+              "description": "PARTIAL always carries INCOMPLETE_EVIDENCE_EPISODE, optionally alongside CLIENT_ATTESTED_ONLY.",
+              "type": "array",
+              "items": {"enum": ["INCOMPLETE_EVIDENCE_EPISODE", "CLIENT_ATTESTED_ONLY"]},
+              "uniqueItems": true,
+              "minItems": 1,
+              "maxItems": 2,
+              "contains": {"const": "INCOMPLETE_EVIDENCE_EPISODE"},
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+            }
+          }
+        }
+      ]
+    },
+    "EpisodeProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_plan_ref", "binding_ref", "state", "origin", "issued_at", "expires_at", "measurement_coverage"],
+      "properties": {
+        "run_plan_ref": {
+          "allOf": [
+            {"$ref": "#/definitions/TypedOpaqueRef"},
+            {"properties": {"kind": {"const": "run_plan"}}}
+          ],
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "binding_ref": {
+          "allOf": [
+            {"$ref": "#/definitions/TypedOpaqueRef"},
+            {"properties": {"kind": {"const": "binding"}}}
+          ],
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "experiment_run_ref": {
+          "allOf": [
+            {"$ref": "#/definitions/StableOpaqueRef"},
+            {"properties": {"kind": {"const": "experiment_run"}}}
+          ],
+          "description": "Optional; present only when Route 3 accepted the optional same-scope provenance ref. Lifecycle emits existing provenance but does not mint/version it (PART1_CONTRACT_FREEZE_DRAFT.md:776).",
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "state": {
+          "type": "string",
+          "enum": ["SEALED", "ISSUED", "EXPIRED"],
+          "description": "Derived at the single as_of snapshot (PART1_CONTRACT_FREEZE_DRAFT.md:779-786); an unrecognized value is invalid (corpus case episode_unknown_state_value).",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "origin": {
+          "const": "LIVE",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time",
+          "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Required non-null RFC 3339 timestamp; every public episode is live and requires one (corpus case episode_live_origin_null_expires_at, PART1_CONTRACT_FREEZE_DRAFT.md:1067).",
+          "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "sealed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Optional; present only on a SEALED episode.",
+          "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "measurement_coverage": {
+          "type": ["object", "null"],
+          "description": "Required and non-null only for SEALED; null for ISSUED|EXPIRED (PART1_CONTRACT_FREEZE_DRAFT.md:776, corpus case episode_measurement_coverage_present_for_unsealed_state). Narrowed by the sibling if/then below.",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "SEALED"}}, "required": ["state"]},
+          "then": {"properties": {"measurement_coverage": {"$ref": "#/definitions/EpisodeMeasurementCoverage"}}}
+        },
+        {
+          "if": {"properties": {"state": {"enum": ["ISSUED", "EXPIRED"]}}, "required": ["state"]},
+          "then": {"properties": {"measurement_coverage": {"const": null}}}
+        }
+      ],
+      "description": "Chronological real live episode item (PART1_CONTRACT_FREEZE_DRAFT.md:776)."
+    },
+    "PendingEpisodeProjection": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["run_plan_ref", "binding_ref", "issued_at", "expires_at", "state"],
+      "properties": {
+        "run_plan_ref": {
+          "allOf": [
+            {"$ref": "#/definitions/TypedOpaqueRef"},
+            {"properties": {"kind": {"const": "run_plan"}}}
+          ],
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "binding_ref": {
+          "allOf": [
+            {"$ref": "#/definitions/TypedOpaqueRef"},
+            {"properties": {"kind": {"const": "binding"}}}
+          ],
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time",
+          "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "state": {
+          "const": "ISSUED",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "description": "{run_plan_ref,binding_ref,issued_at,expires_at,state} for the newest episode that is ISSUED at as_of; null if no such episode exists (PART1_CONTRACT_FREEZE_DRAFT.md:773)."
+    },
+    "RescorabilityProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "trust_level", "authority_effect"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["available", "unavailable", "unknown"],
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "trust_level": {
+          "const": "client_attested",
+          "description": "Always client_attested regardless of aggregate state; never elevated (corpus case record_client_rescorability_raises_authority).",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "authority_effect": {
+          "const": "NONE",
+          "description": "Always NONE regardless of aggregate state.",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "description": "Route 4's aggregate for the same newest live SEALED reconciliation selected for top-level measurement_coverage; the fixed no-live-seal default is {state:unknown,trust_level:client_attested,authority_effect:NONE} (PART1_CONTRACT_FREEZE_DRAFT.md:777, corpus case record_client_rescorability_no_authority)."
+    }
+  }
+}

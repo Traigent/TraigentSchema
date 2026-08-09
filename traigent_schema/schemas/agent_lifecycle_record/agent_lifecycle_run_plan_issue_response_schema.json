@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+  "title": "Agent Lifecycle Run Plan Issue Response",
+  "description": "ALR-1102 Route 3 response (PART1_CONTRACT_FREEZE_DRAFT.md:643-660): the 201 first-registration or 200 exact-key-replay response for POST .../agent-lifecycle/run-plans. Content-free: lists only expected identities/indexes and contract refs -- no raw predictions, no client content, no digest of content. `nonce` is delivered ONLY by this response: once in the original 201 and again, byte-identical, only in an exact transport-idempotent replay of that same response (PART1_CONTRACT_FREEZE_DRAFT.md:655, :660). This is the Schema half of guard-killing mutation #5 (PART1_CONTRACT_FREEZE_DRAFT.md:1143): `nonce` is REQUIRED here, and this document is the ONLY Part 1 response schema (of the two this story owns) that declares a `nonce` property at all -- agent_lifecycle_receipt_submit_response_schema.json is closed and has no such property, so injecting one there is rejected by additionalProperties:false (corpus case receipt_response_echoes_nonce). `state` is schema-const ISSUED: Route 3 always mints ISSUED at creation, and an exact replay reproduces the HISTORICAL issue response only -- it never reopens a sealed or expired plan (PART1_CONTRACT_FREEZE_DRAFT.md:691), so this response's own state can never legitimately show SEALED/EXPIRED even though the general episode-state enum (Route 5) has three members. `StableOpaqueRef`/`TypedOpaqueRef` live in agent_lifecycle_common_schema.json (Terra review P2-2). Every property below carries its own x-disclosure annotation at its own JSON Pointer (PART1_CONTRACT_FREEZE_DRAFT.md:406-409, :442, :440).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_plan_ref",
+    "agent_revision_ref",
+    "measurement_contract_ref",
+    "binding_ref",
+    "expected_count",
+    "expected_items",
+    "nonce",
+    "issued_at",
+    "expires_at",
+    "state"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0-beta.1",
+      "x-disclosure": {"rule": "wire_contract_version", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "run_plan_ref": {
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "run_plan"}}}
+      ]
+    },
+    "agent_revision_ref": {
+      "description": "Exact resolved request revision (PART1_CONTRACT_FREEZE_DRAFT.md:649).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "agent_revision"}}}
+      ]
+    },
+    "measurement_contract_ref": {
+      "description": "Exact resolved contract (PART1_CONTRACT_FREEZE_DRAFT.md:650).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "measurement_contract"}}}
+      ]
+    },
+    "experiment_run_ref": {
+      "description": "Present iff the optional request ref was accepted; exact replay returns the same optional field (PART1_CONTRACT_FREEZE_DRAFT.md:651).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableOpaqueRef"},
+        {"properties": {"kind": {"const": "experiment_run"}}}
+      ]
+    },
+    "binding_ref": {
+      "description": "Immutable dependency snapshot used by this plan; its governance_scope_ref is minted in this same transaction but is a Route 5 bindings[] projection field, not part of this response (PART1_CONTRACT_FREEZE_DRAFT.md:652).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "binding"}}}
+      ]
+    },
+    "expected_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000,
+      "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Equals expected_items.length and the resolved contract's own expected_count (PART1_CONTRACT_FREEZE_DRAFT.md:653); that cross-field/cross-array-length equality is service_invalid (corpus case issue_response_count_mismatch), not schema-decidable. The beta ceiling (minimum 1 / maximum 10000, closing an all-zero universe -- corpus case issue_response_empty_universe) IS schema-decidable and stated directly here."
+    },
+    "expected_items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "uniqueItems": true,
+      "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Non-empty, strictly contiguous unique indexes from 0 (PART1_CONTRACT_FREEZE_DRAFT.md:654). Contiguity and index/item_ref uniqueness across array entries require comparing sibling array elements by sub-field, which is service_invalid, not schema-decidable (PART1_CONTRACT_FREEZE_DRAFT.md:971; corpus cases issue_response_noncontiguous_indexes, issue_response_duplicate_item_ref). minItems/maxItems (the beta ceiling) and each item's own closed shape ARE schema-decidable and enforced here.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "item_ref"],
+        "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}
+          },
+          "item_ref": {
+            "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "allOf": [
+              {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
+              {"properties": {"kind": {"const": "evidence_item"}}}
+            ]
+          }
+        }
+      }
+    },
+    "nonce": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "maxLength": 43,
+      "x-disclosure": {"rule": "single_consumption_capability", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Exactly 43 URL-safe characters: unpadded base64url of the 32-byte HMAC-SHA-256 nonce derivation output (PART1_CONTRACT_FREEZE_DRAFT.md:655). Delivered only by this response (original 201 and its exact transport-idempotent replay); the Backend never stores or echoes it anywhere else."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Backend time (PART1_CONTRACT_FREEZE_DRAFT.md:656)."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Later than issued_at; fixed at issue (PART1_CONTRACT_FREEZE_DRAFT.md:657). That ordering is a cross-field arithmetic/temporal comparison and is service_invalid, not schema-decidable."
+    },
+    "state": {
+      "const": "ISSUED",
+      "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "ISSUED at creation (PART1_CONTRACT_FREEZE_DRAFT.md:658); an exact replay reproduces the historical issue response only, which was always ISSUED at the time it was minted (PART1_CONTRACT_FREEZE_DRAFT.md:691) -- SEALED/EXPIRED never legitimately appear on this response even though the general Route 5 episode-state enum has three members."
+    }
+  }
+}

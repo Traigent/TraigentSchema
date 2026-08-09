@@ -18,6 +18,14 @@
       "pr": "#377"
     },
     {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/x-disclosure",
+      "reason": "Registers the Agent Lifecycle Record Part 1 client-boundary disclosure annotation (PART1_CONTRACT_FREEZE_DRAFT.md:376-408) in the governed x-* extension vocabulary so agent_lifecycle_record/*.json schemas can carry it, matching the existing x-traigent-invariants precedent immediately above. This file is documentation/governance metadata only -- its own header states it is 'not applied as a JSON Schema validator over other schemas' -- so no real request or response payload is ever validated against x_extensions_meta_schema.json itself; the breaking-check finding is the generic conservative heuristic correctly erring cautious on a bare-named resource file, not evidence of an actual wire-consumer break. Unlocks contract mutation row 17 (PART1_CONTRACT_FREEZE_DRAFT.md:1155), one of the five Schema-owned mutations Internal Contract Freeze requires to be executable.",
+      "version": "5.6.0",
+      "pr": "pending (branch feature/agent-lifecycle-record-part1-receipts, WorkIntent st_1c36bc0e8e53)"
+    },
+    {
       "file": "execution/execution_endpoints.json",
       "rule": "property_added",
       "reason": "identity_state is an explicit discriminator when present, with a closed enum of identified/unidentified and a strictly validated absent/legacy migration branch (expand-contract); rollout stays flag-off until Backend and strict consumers emit and handle it.",

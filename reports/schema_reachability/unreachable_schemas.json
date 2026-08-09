@@ -13,11 +13,15 @@
       "refOrEndpointGraph": 334
     },
     "reachableCount": 368,
-    "schemaFileCount": 395,
-    "unreachableCount": 27
+    "schemaFileCount": 399,
+    "unreachableCount": 31
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
     "auth/rbac_privilege_vocabulary_schema.json",
     "evaluation/evaluation_request_schema.json",
     "evaluation/evaluation_results_schema.json",

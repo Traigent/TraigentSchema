@@ -46,11 +46,21 @@ def test_ci_workflow_uses_pip_cache_for_all_setup_python_jobs() -> None:
         "breaking-schema-check jobs"
     )
 
+    # The rule is "key the cache from the manifest this job actually installs
+    # from", not "key it from pyproject.toml". Those were the same thing until
+    # breaking-schema-check moved to a pinned `-r requirements.txt` install
+    # (SonarCloud githubactions:S8544/S8541 -- an unpinned `pip install -e .[dev]`
+    # resolves versions at runtime and can execute setup scripts). Keying that
+    # job from pyproject.toml would leave its cache stale exactly when the pinned
+    # versions change, which is the failure this test exists to prevent.
+    expected_manifest = {"breaking-schema-check": "requirements.txt"}
+
     for job_name, step in steps:
         config = step.get("with", {})
         assert config.get("cache") == "pip", f"{job_name} must enable setup-python pip caching"
-        assert config.get("cache-dependency-path") == "pyproject.toml", (
-            f"{job_name} must key pip cache from pyproject.toml"
+        expected = expected_manifest.get(job_name, "pyproject.toml")
+        assert config.get("cache-dependency-path") == expected, (
+            f"{job_name} must key pip cache from {expected} -- the manifest it installs from"
         )
 
 

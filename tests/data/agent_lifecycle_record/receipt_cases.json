@@ -1,0 +1,843 @@
+{
+  "$comment": "ALR-1102 positive/negative corpus for the Route 3 (run plan issue) and Route 4 (receipt submit) request/response schemas. Case ids reuse the exact names PART1_CONTRACT_FREEZE_DRAFT.md's 'Exact positive/negative corpus' section gives whenever that section names a schema-decidable Route 3/4 case; ids with no contract citation in their description are supplementary structural guards (additionalProperties/required/enum) this story adds to reach full AC coverage. Every case here is decidable by SchemaValidator alone (kind is 'valid' or 'schema_invalid' only, matching the convention orthogonal_cases.json already established) -- the contract's 'service_invalid' cases for these two routes (cross-array-entry comparisons, arithmetic identities, live Backend state) are NOT reproduced here because they require a running Backend, out of this Schema-only story's scope; see the story report for the exact list of service_invalid ids this corpus deliberately omits.",
+  "target_schemas": {
+    "issue_request": "agent_lifecycle_run_plan_issue_request_schema",
+    "issue_response": "agent_lifecycle_run_plan_issue_response_schema",
+    "receipt_request": "agent_lifecycle_receipt_submit_request_schema",
+    "receipt_response": "agent_lifecycle_receipt_submit_response_schema"
+  },
+  "cases": [
+    {
+      "id": "issue_request_minimal",
+      "kind": "valid",
+      "schema": "issue_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:977 valid case 1. Minimal Route 3 request: schema_version + both required refs, no optional experiment_run_ref.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"}
+      }
+    },
+    {
+      "id": "issue_request_with_experiment_run_provenance",
+      "kind": "valid",
+      "schema": "issue_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:989 valid case 13 (request half): Route 3 accepts one same-scope StableOpaqueRef{kind=experiment_run} as optional provenance.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "experiment_run_ref": {"kind": "experiment_run", "id": "exprun00000000000001"}
+      }
+    },
+    {
+      "id": "issue_response_two_items_nonce_delivery",
+      "kind": "valid",
+      "schema": "issue_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:978 valid case 2. Two expected_items, nonce present once (original 201 shape), state=ISSUED.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "binding_ref": {"kind": "binding", "id": "binding000000000001", "version_id": "binding000000000001"},
+        "expected_count": 2,
+        "expected_items": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}},
+          {"index": 1, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000002", "version_id": "evidenceitem0000002"}}
+        ],
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "issued_at": "2026-08-09T12:00:00Z",
+        "expires_at": "2026-08-09T13:00:00Z",
+        "state": "ISSUED"
+      }
+    },
+    {
+      "id": "issue_response_with_experiment_run_provenance",
+      "kind": "valid",
+      "schema": "issue_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:989 valid case 13 (response half): the optional provenance ref is echoed on exact replay/issue when accepted.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "experiment_run_ref": {"kind": "experiment_run", "id": "exprun00000000000001"},
+        "binding_ref": {"kind": "binding", "id": "binding000000000001", "version_id": "binding000000000001"},
+        "expected_count": 1,
+        "expected_items": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}}
+        ],
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "issued_at": "2026-08-09T12:00:00Z",
+        "expires_at": "2026-08-09T13:00:00Z",
+        "state": "ISSUED"
+      }
+    },
+    {
+      "id": "receipt_all_produced_complete",
+      "kind": "valid",
+      "schema": "receipt_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:979 valid case 3. Two receipts, both outcome=produced.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available"},
+          {"index": 1, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000002", "version_id": "evidenceitem0000002"}, "outcome": "produced", "rescorability_state": "unknown"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_mixed_produced_cached_complete",
+      "kind": "valid",
+      "schema": "receipt_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:980 valid case 4. One produced, one cached receipt.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available"},
+          {"index": 1, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000002", "version_id": "evidenceitem0000002"}, "outcome": "cached", "rescorability_state": "unavailable"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_missing_partial",
+      "kind": "valid",
+      "schema": "receipt_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:981 valid case 5. Client submits fewer receipts than the issued universe; the omitted indexes become 'missing' at Backend derivation -- schema-level this is simply a shorter, still well-formed receipts array.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_failed_partial",
+      "kind": "valid",
+      "schema": "receipt_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:982 valid case 6. outcome=failed paired with the only legal rescorability_state values for that outcome (unavailable/unknown -- never available).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "failed", "rescorability_state": "unavailable"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_fallback_partial",
+      "kind": "valid",
+      "schema": "receipt_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:983 valid case 7. outcome=fallback may truthfully report rescorability_state=available -- fallback is NOT outcome-restricted the way failed/excluded are.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "fallback", "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_excluded_partial",
+      "kind": "valid",
+      "schema": "receipt_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:984 valid case 8. outcome=excluded paired with a legal rescorability_state (unknown).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "excluded", "rescorability_state": "unknown"}
+        ]
+      }
+    },
+    {
+      "id": "rescorability_aggregate_available_all_receipts_available",
+      "kind": "valid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1002 valid case 26. COMPLETE coverage with the aggregate rescorability legitimately available.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 2, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "record_client_rescorability_no_authority",
+      "kind": "valid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:988 valid case 12. Even an 'unknown' aggregate rescorability under PARTIAL coverage remains client_attested/NONE -- rescorability never carries authority regardless of its own state.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "PARTIAL", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 1, "cached": 0, "missing": 1, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["INCOMPLETE_EVIDENCE_EPISODE"]
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "receipt_response_complete_coverage_client_attested_only_reason",
+      "kind": "valid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:752. COMPLETE coverage over a client-attested contract carries CLIENT_ATTESTED_ONLY even alongside COMPLETE.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["CLIENT_ATTESTED_ONLY"]
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "receipt_response_partial_coverage_incomplete_and_client_attested_only_reasons",
+      "kind": "valid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:279 (common schema's mirrored PARTIAL rule), :752. PARTIAL coverage may carry both INCOMPLETE_EVIDENCE_EPISODE and CLIENT_ATTESTED_ONLY together.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "PARTIAL", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 1, "cached": 0, "missing": 1, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["INCOMPLETE_EVIDENCE_EPISODE", "CLIENT_ATTESTED_ONLY"]
+        },
+        "rescorability": {"state": "unavailable", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "issue_unknown_field",
+      "kind": "schema_invalid",
+      "schema": "issue_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1027 schema_invalid case 1. Closed request rejects an unrecognized top-level field.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "raw_prompt": "should not be accepted"
+      }
+    },
+    {
+      "id": "issue_wrong_schema_version",
+      "kind": "schema_invalid",
+      "schema": "issue_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1028 schema_invalid case 2.",
+      "payload": {
+        "schema_version": "1.0.0",
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"}
+      }
+    },
+    {
+      "id": "issue_wrong_agent_ref_kind",
+      "kind": "schema_invalid",
+      "schema": "issue_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1029 schema_invalid case 3. agent_revision_ref carries the wrong TypedOpaqueRef kind.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {"kind": "measurement_contract", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"}
+      }
+    },
+    {
+      "id": "issue_wrong_contract_ref_kind",
+      "kind": "schema_invalid",
+      "schema": "issue_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1030 schema_invalid case 4. measurement_contract_ref carries the wrong TypedOpaqueRef kind.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "agent_revision", "id": "meascontract000001", "version_id": "meascontract000001"}
+      }
+    },
+    {
+      "id": "run_plan_issue_experiment_run_ref_wrong_kind_or_typed_version",
+      "kind": "schema_invalid",
+      "schema": "issue_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1072 schema_invalid case 46. Optional provenance must be exactly StableOpaqueRef{kind=experiment_run}; any other kind is schema-invalid.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "experiment_run_ref": {"kind": "agent", "id": "exprun00000000000001"}
+      }
+    },
+    {
+      "id": "typed_ref_stable_kind_includes_version_id",
+      "kind": "schema_invalid",
+      "schema": "issue_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1058 schema_invalid case 32 (companion to :1072 case 46's 'any version_id property is schema-invalid' clause). StableOpaqueRef has no version_id field at all; supplying one is a schema violation.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "experiment_run_ref": {"kind": "experiment_run", "id": "exprun00000000000001", "version_id": "exprun00000000000001"}
+      }
+    },
+    {
+      "id": "issue_response_empty_universe",
+      "kind": "schema_invalid",
+      "schema": "issue_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1031 schema_invalid case 5. expected_count=0 and an empty expected_items array both violate the beta minimums (>=1).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "binding_ref": {"kind": "binding", "id": "binding000000000001", "version_id": "binding000000000001"},
+        "expected_count": 0,
+        "expected_items": [],
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "issued_at": "2026-08-09T12:00:00Z",
+        "expires_at": "2026-08-09T13:00:00Z",
+        "state": "ISSUED"
+      }
+    },
+    {
+      "id": "issue_response_nonce_missing",
+      "kind": "schema_invalid",
+      "schema": "issue_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1032 schema_invalid case 6. nonce is required on every Route 3 response.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "binding_ref": {"kind": "binding", "id": "binding000000000001", "version_id": "binding000000000001"},
+        "expected_count": 1,
+        "expected_items": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}}
+        ],
+        "issued_at": "2026-08-09T12:00:00Z",
+        "expires_at": "2026-08-09T13:00:00Z",
+        "state": "ISSUED"
+      }
+    },
+    {
+      "id": "issue_response_unknown_field",
+      "kind": "schema_invalid",
+      "schema": "issue_response",
+      "description": "Structural additionalProperties:false guard (not separately numbered in the contract's corpus, which states this response is closed at PART1_CONTRACT_FREEZE_DRAFT.md:643-658).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "binding_ref": {"kind": "binding", "id": "binding000000000001", "version_id": "binding000000000001"},
+        "expected_count": 1,
+        "expected_items": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}}
+        ],
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "issued_at": "2026-08-09T12:00:00Z",
+        "expires_at": "2026-08-09T13:00:00Z",
+        "state": "ISSUED",
+        "governance_scope_ref": {"kind": "governance_scope", "id": "govscope00000000001", "version_id": "govscope00000000001"}
+      }
+    },
+    {
+      "id": "issue_response_wrong_state",
+      "kind": "schema_invalid",
+      "schema": "issue_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:691. state is schema-const ISSUED on this response -- an exact replay reproduces the historical issue response only, which was always ISSUED when minted; SEALED/EXPIRED never legitimately appear here.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "binding_ref": {"kind": "binding", "id": "binding000000000001", "version_id": "binding000000000001"},
+        "expected_count": 1,
+        "expected_items": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}}
+        ],
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "issued_at": "2026-08-09T12:00:00Z",
+        "expires_at": "2026-08-09T13:00:00Z",
+        "state": "SEALED"
+      }
+    },
+    {
+      "id": "issue_response_missing_binding_ref",
+      "kind": "schema_invalid",
+      "schema": "issue_response",
+      "description": "Structural required-field guard: binding_ref is required (PART1_CONTRACT_FREEZE_DRAFT.md:652).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "measurement_contract_ref": {"kind": "measurement_contract", "id": "meascontract000001", "version_id": "meascontract000001"},
+        "expected_count": 1,
+        "expected_items": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}}
+        ],
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "issued_at": "2026-08-09T12:00:00Z",
+        "expires_at": "2026-08-09T13:00:00Z",
+        "state": "ISSUED"
+      }
+    },
+    {
+      "id": "receipt_nonce_missing",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1033 schema_invalid case 7. nonce is required on every Route 4 request.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_unknown_outcome",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1034 schema_invalid case 8. outcome must be one of the five closed values.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "pending", "rescorability_state": "unknown"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_available_on_failed",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "MUTATION #14 witness. PART1_CONTRACT_FREEZE_DRAFT.md:718, :1035 schema_invalid case 9, :1152 guard-killing mutation 14 ('Allow rescorability_state=available for outcome in {failed, excluded}'). outcome=failed with rescorability_state=available must be rejected by the per-receipt if/then.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "failed", "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_available_on_excluded",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "MUTATION #14 witness. PART1_CONTRACT_FREEZE_DRAFT.md:718, :1055 schema_invalid case 29, :1152 guard-killing mutation 14. outcome=excluded with rescorability_state=available must be rejected by the per-receipt if/then.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "excluded", "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_submit_client_expected_count_denominator_rejected",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "PRIMARY NAMED FAILURE MUTATION witness (story ALR-1102: 'Permit client expected_count as a denominator; the consumer contract must reject it'). PART1_CONTRACT_FREEZE_DRAFT.md:1052 schema_invalid case 26 (measurement_contract_register_client_supplied_denominator_rejected is the Route 2 analogue of this same rule; Route 4's own request is equally additionalProperties:false with no expected-count-shaped field). Backend derives every count -- the client cannot supply a denominator (owner accounting decision, AC3).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expected_count": 1,
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_submit_client_commitment_field_rejected",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "Correction guard: the commitment field is removed entirely (owner decision card 3, PART1_CONTRACT_FREEZE_DRAFT.md:720, :1129) -- there is no commitment field, pattern, request-only rule, or Gate-1-dependent behavior in this route anymore. A payload supplying one is rejected by additionalProperties:false.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "commitment": "c2FsdGVkX19zb21lY29tbWl0bWVudA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_unknown_field",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "Structural additionalProperties:false guard: a raw prediction/content field must not be accepted (PART1_CONTRACT_FREEZE_DRAFT.md's receipt-shape rule, :711-718 -- exactly index/item_ref/outcome/rescorability_state).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available", "raw_output": "should not be accepted"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_item_missing_outcome",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "Structural required-field guard: outcome is required per receipt (PART1_CONTRACT_FREEZE_DRAFT.md:713-718).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_wrong_schema_version",
+      "kind": "schema_invalid",
+      "schema": "receipt_request",
+      "description": "Structural schema_version const guard, mirroring issue_wrong_schema_version for Route 4.",
+      "payload": {
+        "schema_version": "0.9.0",
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "receipts": [
+          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available"}
+        ]
+      }
+    },
+    {
+      "id": "receipt_response_echoes_nonce",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "MUTATION #5 witness (negative half). PART1_CONTRACT_FREEZE_DRAFT.md:1036 schema_invalid case 10, :736 ('must not contain nonce'), :1143 guard-killing mutation 5. The only response permitted to carry nonce is Route 3's issue response; this closed Route 4 response has no nonce property and rejects one via additionalProperties:false.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"},
+        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    },
+    {
+      "id": "coverage_negative_count",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1037 schema_invalid case 11.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "PARTIAL", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": -1, "cached": 0, "missing": 1, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["INCOMPLETE_EVIDENCE_EPISODE"]
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_complete_with_missing",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1038 schema_invalid case 12. COMPLETE forces missing=0.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 1, "cached": 0, "missing": 1, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_complete_with_failed",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1039 schema_invalid case 13. COMPLETE forces failed=0.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 1, "cached": 0, "missing": 0, "failed": 1, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_complete_with_fallback",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1040 schema_invalid case 14. COMPLETE forces fallback=0.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 1, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_complete_with_excluded",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1041 schema_invalid case 15. COMPLETE forces excluded=0.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 1,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_duplicate_nonzero",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1042 schema_invalid case 16. duplicate is schema-const 0 on every accepted branch (owner accounting decision).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 2, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 1, "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_seal_response_unmeasured_or_unknown_invalid",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1062 schema_invalid case 36. A seal response's coverage.state is restricted to COMPLETE|PARTIAL only -- sealing always produces real accounting.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "UNMEASURED", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 0, "produced": 0, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_seal_response_wrong_basis",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1063 schema_invalid case 37. A Route 4 seal response claims any basis other than SEALED_EVIDENCE_EPISODE (here the Route-5-only LATEST_SEALED_EVIDENCE_EPISODE).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_null_count_on_non_legacy_basis",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1065 schema_invalid case 39. Any live-sealed branch sets a count to null; null counts are legal only in the (Route 5 only) marker-driven UNKNOWN branch this response can never select.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": null, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "coverage_partial_missing_incomplete_reason",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:279, :752. PARTIAL always carries INCOMPLETE_EVIDENCE_EPISODE; an empty reason_codes array is rejected by minItems:1/contains.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "PARTIAL", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 1, "cached": 0, "missing": 1, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "unknown", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "receipt_response_coverage_observed_unique_field_rejected",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "CORRECTION guard: observed_unique MUST NOT EXIST anywhere (owner accounting decision 2026-08-09, Option A/'P'; PART1_CONTRACT_FREEZE_DRAFT.md:41, :57, :748 'observed_unique remains intentionally absent'). A payload injecting it into measurement_coverage is rejected by additionalProperties:false.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "observed_unique": 1, "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "receipt_response_coverage_commitment_field_rejected",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "CORRECTION guard: commitment MUST NOT EXIST anywhere (owner decision card 3, PART1_CONTRACT_FREEZE_DRAFT.md:720, :1129). A payload injecting it into measurement_coverage is rejected by additionalProperties:false.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "commitment": "c2FsdGVkX19zb21lY29tbWl0bWVudA", "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "record_client_rescorability_raises_authority",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1044 schema_invalid case 18. rescorability.trust_level is schema-const client_attested; elevating it must be rejected.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "backend_observed", "authority_effect": "NONE"}
+      }
+    },
+    {
+      "id": "record_client_rescorability_authority_effect_not_none",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:734 ('trust_level and authority_effect are always client_attested/NONE regardless of the aggregate state'). authority_effect is schema-const NONE; any other value must be rejected.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "GRANTS_QUALIFICATION"}
+      }
+    },
+    {
+      "id": "receipt_response_unknown_field",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "Structural additionalProperties:false guard (PART1_CONTRACT_FREEZE_DRAFT.md:724-736 names exactly seven response properties).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"},
+        "server_principal": "svc-internal-worker-7"
+      }
+    },
+    {
+      "id": "receipt_response_missing_measurement_coverage",
+      "kind": "schema_invalid",
+      "schema": "receipt_response",
+      "description": "Structural required-field guard: measurement_coverage is required (PART1_CONTRACT_FREEZE_DRAFT.md:733).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
+        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
+        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
+        "sealed_at": "2026-08-09T13:05:00Z",
+        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"}
+      }
+    }
+  ]
+}

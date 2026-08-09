@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json",
+  "title": "Agent Lifecycle Receipt Submit Response",
+  "description": "ALR-1102 Route 4 response (PART1_CONTRACT_FREEZE_DRAFT.md:724-736): the 201 first-write or 200 exact-replay response for POST .../agent-lifecycle/run-plans/{run_plan_ref}/receipts. This document is closed with exactly seven properties and MUST NOT contain nonce, a raw prediction/output/input/gold value, a raw artifact digest, an internal policy token, or a caller/server principal (PART1_CONTRACT_FREEZE_DRAFT.md:736). Because this document has no nonce property at all, additionalProperties:false rejects one on sight -- this is the negative half of guard-killing mutation #5 (PART1_CONTRACT_FREEZE_DRAFT.md:1143, corpus case receipt_response_echoes_nonce): the ONLY response that may legally carry nonce is agent_lifecycle_run_plan_issue_response_schema.json (Route 3's original issue response and its exact transport-idempotent replay). measurement_coverage uses the LiveSealedMeasurementCoverage shape defined locally below -- distinct from (not a duplicate of) the common schema's RecordMeasurementCoverage, which is reserved for Route 5's top-level field only (PART1_CONTRACT_FREEZE_DRAFT.md:738-746, 'Coverage schema inventory and predicates'): a seal response always produces real accounting, so state is restricted to COMPLETE|PARTIAL (never UNMEASURED/UNKNOWN -- corpus case coverage_seal_response_unmeasured_or_unknown_invalid) and basis is fixed to SEALED_EVIDENCE_EPISODE (never LATEST_SEALED_EVIDENCE_EPISODE -- corpus case coverage_seal_response_wrong_basis). Per the 2026-08-09 owner accounting decision (runs/agent-lifecycle-contract-integration/OWNER_DECISION_ACCOUNTING_20260809.md, Option A/'P'): the two fields that decision deleted from Part 1 entirely do not appear anywhere on this response, and duplicate is schema-const 0 on every branch -- the complete accepted count set is expected/produced/cached/missing/failed/fallback/excluded/duplicate, never a ninth accounting field. rescorability is the receipt-submission aggregate: client-attested and NO-authority by construction (trust_level and authority_effect are both schema-const), matching the receipt-local ceiling (PART1_CONTRACT_FREEZE_DRAFT.md:734).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reconciliation_ref",
+    "run_plan_ref",
+    "agent_revision_ref",
+    "sealed_at",
+    "measurement_coverage",
+    "rescorability"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0-beta.1"},
+    "reconciliation_ref": {
+      "allOf": [
+        {"$ref": "agent_lifecycle_run_plan_issue_request_schema.json#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "reconciliation"}}}
+      ]
+    },
+    "run_plan_ref": {
+      "description": "Exact plan (PART1_CONTRACT_FREEZE_DRAFT.md:730).",
+      "allOf": [
+        {"$ref": "agent_lifecycle_run_plan_issue_request_schema.json#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "run_plan"}}}
+      ]
+    },
+    "agent_revision_ref": {
+      "description": "Exact parent revision (PART1_CONTRACT_FREEZE_DRAFT.md:731).",
+      "allOf": [
+        {"$ref": "agent_lifecycle_run_plan_issue_request_schema.json#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "agent_revision"}}}
+      ]
+    },
+    "sealed_at": {"type": "string", "format": "date-time", "description": "Backend commit time (PART1_CONTRACT_FREEZE_DRAFT.md:732)."},
+    "measurement_coverage": {"$ref": "#/definitions/LiveSealedMeasurementCoverage"},
+    "rescorability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "trust_level", "authority_effect"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["available", "unavailable", "unknown"],
+          "description": "Aggregate rule (closes Opus P1-4): available only when measurement_coverage.state=COMPLETE and every accepted receipt is individually available; unavailable when any accepted receipt is unavailable; unknown otherwise (PART1_CONTRACT_FREEZE_DRAFT.md:734). Cross-receipt aggregation the response document alone cannot decide (the receipts array is not echoed back) -- proved by a Backend-side test (corpus cases rescorability_aggregate_available_all_receipts_available valid / rescorability_aggregate_falsely_available_with_unavailable_accepted_receipt service_invalid), not this schema."
+        },
+        "trust_level": {"const": "client_attested", "description": "Always client_attested regardless of aggregate state (PART1_CONTRACT_FREEZE_DRAFT.md:734); never elevated (corpus case record_client_rescorability_raises_authority)."},
+        "authority_effect": {"const": "NONE", "description": "Always NONE regardless of aggregate state (PART1_CONTRACT_FREEZE_DRAFT.md:734)."}
+      }
+    }
+  },
+  "definitions": {
+    "LiveSealedMeasurementCoverage": {
+      "description": "Required fields are state, basis, trust_level, all eight counts, and the closed bounded-reason array; state=COMPLETE|PARTIAL, basis=SEALED_EVIDENCE_EPISODE, every count is an integer in 0..10000, expected is in 1..10000, and duplicate is schema const 0 (PART1_CONTRACT_FREEZE_DRAFT.md:742). Mirrors the shape of the common schema's RecordMeasurementCoverage COMPLETE/PARTIAL branches but is a distinct named definition scoped to this response and Route 5's sealed evidence_episodes[] items -- never reused for Route 5's top-level field, which selects among four branches this Route 4 response can never produce (UNKNOWN legacy marker, UNMEASURED). expected=produced+cached+missing+failed+fallback+excluded is a cross-field arithmetic identity and is service_invalid (corpus case coverage_arithmetic_mismatch), not schema-decidable; the two branches below enforce only what a generic JSON Schema validator can decide from this instance alone.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state", "basis", "trust_level",
+            "expected", "produced", "cached", "missing", "failed", "fallback", "excluded", "duplicate",
+            "reason_codes"
+          ],
+          "properties": {
+            "state": {"const": "COMPLETE"},
+            "basis": {"const": "SEALED_EVIDENCE_EPISODE"},
+            "trust_level": {"const": "backend_observed"},
+            "expected": {"type": "integer", "minimum": 1, "maximum": 10000},
+            "produced": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "cached": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "missing": {"const": 0, "description": "COMPLETE forces every non-produced/cached count to zero (corpus case coverage_complete_with_missing)."},
+            "failed": {"const": 0, "description": "corpus case coverage_complete_with_failed."},
+            "fallback": {"const": 0, "description": "corpus case coverage_complete_with_fallback."},
+            "excluded": {"const": 0, "description": "corpus case coverage_complete_with_excluded."},
+            "duplicate": {"const": 0, "description": "Owner accounting decision: fixed at 0 on every accepted branch (corpus case coverage_duplicate_nonzero)."},
+            "reason_codes": {
+              "description": "COMPLETE carries no caveat reason unless the underlying contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262, :752): assignment-free, exactly [] or [CLIENT_ATTESTED_ONLY].",
+              "type": "array",
+              "items": {"enum": ["CLIENT_ATTESTED_ONLY"]},
+              "uniqueItems": true,
+              "maxItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state", "basis", "trust_level",
+            "expected", "produced", "cached", "missing", "failed", "fallback", "excluded", "duplicate",
+            "reason_codes"
+          ],
+          "properties": {
+            "state": {"const": "PARTIAL"},
+            "basis": {"const": "SEALED_EVIDENCE_EPISODE"},
+            "trust_level": {"const": "backend_observed"},
+            "expected": {"type": "integer", "minimum": 1, "maximum": 10000},
+            "produced": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "cached": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "missing": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "failed": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "fallback": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "excluded": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "duplicate": {"const": 0},
+            "reason_codes": {
+              "description": "PARTIAL always carries INCOMPLETE_EVIDENCE_EPISODE, optionally alongside CLIENT_ATTESTED_ONLY when the underlying contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262, :752).",
+              "type": "array",
+              "items": {"enum": ["INCOMPLETE_EVIDENCE_EPISODE", "CLIENT_ATTESTED_ONLY"]},
+              "uniqueItems": true,
+              "minItems": 1,
+              "maxItems": 2,
+              "contains": {"const": "INCOMPLETE_EVIDENCE_EPISODE"}
+            }
+          }
+        }
+      ]
+    }
+  }
+}

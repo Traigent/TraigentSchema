@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/best_config_hash_contract_schema.json",
+  "title": "Traigent Best Config Hash Contract",
+  "description": "Normative definitions for the best-config integrity digests. Before this contract existed the response schema constrained only the digest FORMAT, so each implementation invented its own preimage and canonicalization and they diverged. Every producer and consumer of a best-config digest MUST conform to the definitions here. Threat model: these are bare SHA-256 digests with no signature or MAC, so they detect corruption, truncation, encoding damage, partial writes and wrong-record delivery. They are NOT authentication: an actor able to write storage can rewrite content and digests together. Authenticated tamper evidence would require signatures and is deliberately out of scope.",
+  "type": "object",
+  "definitions": {
+    "hash_algorithm": {
+      "description": "Identifies the canonicalization and preimage rules used to produce every digest on a record. Carried OUTSIDE the hashed spec, alongside the digests, so a record is self-describing without being self-referential. A consumer meeting an unknown value MUST fail closed: never fall back to another algorithm, because that is a downgrade path.",
+      "type": "string",
+      "enum": [
+        "v1"
+      ]
+    },
+    "sha256_digest": {
+      "description": "Lowercase hex SHA-256 with an explicit prefix, so a digest is never mistaken for an opaque token.",
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "domain_tag": {
+      "description": "Domain separator bound into every preimage. The preimage is `domain_tag || 0x00 || canonical_bytes`. The NUL separator is unambiguous because tags are ASCII and fp2 canonical JSON escapes NUL as \\u0000 rather than emitting a raw byte. Domain separation prevents a digest computed for one role being accepted for another (role substitution, cross-protocol comparison, wrong-digest wiring) - all failures within the corruption/wrong-record model above. It adds no authentication. The algorithm version is a component of the tag, so changing hash_algorithm necessarily changes every digest.",
+      "type": "string",
+      "enum": [
+        "traigent.best_config.config.v1",
+        "traigent.best_config.spec.v1"
+      ]
+    },
+    "canonicalization": {
+      "description": "The fp2 canonicalization profile (traigent_schema/fp2.py, normative document docs/fingerprints/fp2.md, conformance corpus tests/data/fp2_conformance.json). fp2 is the single reference implementation: it fixes RFC 8785 number formatting via the ECMAScript Number::toString algorithm, orders object keys by UTF-16 code unit rather than code point, and rejects rather than coerces values it cannot represent identically in every language. Strings preserve their Unicode CODE-POINT sequence; they are not normalized, and the phrase 'byte-for-byte' would be inaccurate because canonicalization does not preserve original JSON escaping or transport bytes.",
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "const": "fp2"
+        },
+        "max_depth": {
+          "description": "Containers from the root. Normative rather than left to each runtime's stack, so implementations agree on which payloads are digestible at all.",
+          "type": "integer",
+          "const": 100
+        },
+        "max_canonical_spec_bytes": {
+          "description": "Upper bound on the UTF-8 length of the canonical spec text. Bounds the cost of recursive key ordering on untrusted input. This is inherently a POST-canonicalization check: the bound is on the canonical text's length, which does not exist until fp2 has already run. fp2 itself (traigent_schema/fp2.py) performs no byte-length check at all - this limit is enforced by the best-config hash profile (traigent_schema/best_config_profile.py) after fp2.canonicalize() returns and before hashing.",
+          "type": "integer",
+          "const": 262144
+        }
+      },
+      "required": [
+        "profile",
+        "max_depth",
+        "max_canonical_spec_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "rejected_values": {
+      "description": "Values that MUST be rejected before a preimage is hashed, in every implementation and every language. Rejection is required rather than resolution: any silent coercion produces a digest that looks verified while depending on one runtime's accident. These rules are enforced at two different layers, and this list intentionally does not distinguish them by keyword - implementers MUST consult both fp2 (traigent_schema/fp2.py, docs/fingerprints/fp2.md) and the best-config hash profile (traigent_schema/best_config_profile.py) to find where a given rule actually lives: non_finite_number and lone_surrogate are enforced BY fp2 canonicalization itself, and only by fp2 - the best-config hash profile's prevalidation does not duplicate these two, because they can only be evaluated inside fp2's own float/string handling; the profile wraps fp2's rejection into its own error type rather than leaving either check unenforced. cycle, exceeds_max_depth, non_string_key and unsupported_type are structural-shape rules that fp2 also enforces internally (an unbounded recursive implementation would eventually hit each of them), but the best-config hash profile independently pre-validates all four BEFORE fp2 ever runs, using the identical depth bound (canonicalization.max_depth) and the identical shared-substructure-safe (path-local, not global) cycle tracking fp2 itself uses - so with the profile in front of fp2, a rejection on any of these four never reaches fp2 at all. unsafe_integral_number is only PARTLY fp2's job: fp2 rejects the unsafe Python int TYPE but, by design, canonicalizes an equal-magnitude float (fp2.digest({'n': 1e20}) succeeds) because ordinary finite floats are otherwise valid fp2 input - the best-config hash profile closes this gap by rejecting the numeric VALUE, across both int and float, before fp2 ever sees it. exceeds_max_canonical_spec_bytes cannot be a canonicalization-time rule at all, because the bound is on the canonical text fp2 produces; the best-config hash profile enforces it after canonicalization and before hashing. duplicate_property_name CANNOT be detected after parsing, because the parser has already collapsed them - detection requires a duplicate-aware decoder at the HTTP or file boundary, before objects are materialized, so neither fp2 nor a parsed-value best-config hash profile function (config_digest, spec_digest) can enforce it from an already-parsed value. traigent_schema/best_config_profile.py's loads_strict() is the reference implementation of that duplicate-aware, non-finite-constant-rejecting parse-boundary decoder; other runtimes MUST implement equivalent behavior at their own parse boundary (a file reader or an HTTP body decoder), because no digest function operating on an already-parsed value can recover a duplicate that decoding has already collapsed.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "duplicate_property_name",
+          "lone_surrogate",
+          "non_finite_number",
+          "unsafe_integral_number",
+          "exceeds_max_depth",
+          "exceeds_max_canonical_spec_bytes",
+          "cycle",
+          "non_string_key",
+          "unsupported_type"
+        ]
+      }
+    },
+    "digest_roles": {
+      "description": "One role per digest. Before this contract, a single digest served several purposes and its meaning drifted between the raw published config, the allowlist-filtered config, and the defaults-merged runtime config.",
+      "type": "object",
+      "properties": {
+        "config_hash": {
+          "description": "Digest of the exact raw spec.config AS PUBLISHED, before any allowlist filtering or default merging. This is the value certificates bind, manifests record and the backend stores. It is the identity of the configuration itself.",
+          "$ref": "#/definitions/sha256_digest"
+        },
+        "spec_hash": {
+          "description": "Digest of the COMPLETE spec object, with no exclusion list. Because certificates bind config_hash plus identity rather than spec_hash, no circularity arises and validation and certificate content are covered. A changed certificate therefore changes spec_hash, which closes a gap where updated certificate evidence was silently discarded when spec_hash was unchanged.",
+          "$ref": "#/definitions/sha256_digest"
+        }
+      },
+      "required": [
+        "config_hash",
+        "spec_hash"
+      ],
+      "additionalProperties": false
+    },
+    "normalization_policy": {
+      "description": "Normalize internal identifiers. Never normalize customer content. Prompts, system messages and configuration values are customer content, where fidelity is the point: NFC-normalizing them changes the bytes sent to a model, and therefore tokenization and output. Internally-constructed identifiers may be normalized, because canonical equality is the point there. Consequently NFC and NFD spellings of visually identical text are DISTINCT values with distinct digests under this contract, and are delivered to the caller unchanged.",
+      "type": "object",
+      "properties": {
+        "customer_content": {
+          "type": "string",
+          "const": "preserve"
+        },
+        "internal_identifiers": {
+          "type": "string",
+          "const": "may_normalize"
+        }
+      },
+      "required": [
+        "customer_content",
+        "internal_identifiers"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

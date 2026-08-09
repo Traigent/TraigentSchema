@@ -1,0 +1,5 @@
+{
+  "allowlistVersion": 1,
+  "description": "Reachability rule 4 (scripts/schema_reachability.py): explicit orphan-gate exemptions. Each entry needs an owner and a reason -- this list is human-curated and is never auto-populated by scripts/schema_reachability.py or scripts/refresh_consumer_schema_references.py.",
+  "entries": []
+}

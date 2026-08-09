@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
-from traigent_schema import SchemaValidator
+from traigent_schema import SchemaValidator, validate_declared_invariants
 from traigent_schema.utils import get_schemas_dir
 
 
@@ -343,9 +344,8 @@ def test_resolved_execution_is_exactly_bound_to_action_economics() -> None:
     assert not validator.validate_json(wrong_argv, "resolve_decision_response_schema")
 
 
-def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
-    validator = SchemaValidator(contract="backend")
-    base = {
+def _valid_shadow_response() -> dict[str, Any]:
+    return {
         "schema_version": "2.0.0",
         "evidence_snapshot_hash": "ev_0123456789abcdefghijklmnopqrstuvwxyzAB",
         "profile": "balanced",
@@ -363,6 +363,31 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
             "certificate_ref": None,
             "cell_fingerprint": None,
         },
+        "evidence_case": {
+            "schema_version": "traigent.smartops.evidence_case.v1",
+            "publication_basis": "OBSERVED_ONLY",
+            "evidence": {
+                "evidence_snapshot_hash": "ev_0123456789abcdefghijklmnopqrstuvwxyzAB",
+                "certified": False,
+                "policy_eligible": False,
+                "certificate_ref": None,
+            },
+            "provenance": {
+                "lifecycle_id": "lifecycle_0123456789abcdef",
+                "lifecycle_revision": 7,
+                "source_hash": "c" * 64,
+                "lineage_hash": "d" * 64,
+                "data_layer_hash": "f" * 64,
+                "data_version_hash": "0" * 64,
+                # Kept equal to pins.artifact_version/artifact_hash below: the
+                # ordinary positive fixture must have zero declared-invariant
+                # violations (see PINS_ARTIFACT_*_MATCHES_EVIDENCE_CASE_POLICY_*
+                # below). For the intentionally mismatched negative case, see
+                # _shadow_response_with_mismatched_pins().
+                "policy_version": "planner-v2-overrides-2026.07.4",
+                "policy_hash": "d" * 64,
+            },
+        },
         "pins": {
             "rules_version": "planner-v2-rules-2026.07.4",
             "rules_hash": "a" * 64,
@@ -375,6 +400,11 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
         },
         "evaluated_at": "2026-07-10T09:00:00Z",
     }
+
+
+def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
+    validator = SchemaValidator(contract="backend")
+    base = _valid_shadow_response()
     assert not validator.validate_json(base, "shadow_evaluate_response_schema")
 
     certified = json.loads(json.dumps(base))
@@ -396,14 +426,10 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
         support_n=127,
         effective_support_n=127,
     )
-    assert validator.validate_json(
-        insufficient_support, "shadow_evaluate_response_schema"
-    )
+    assert validator.validate_json(insufficient_support, "shadow_evaluate_response_schema")
     honest_unknown_ucb = json.loads(json.dumps(certified))
     honest_unknown_ucb["diagnostics"]["advantage_ucb"] = None
-    assert not validator.validate_json(
-        honest_unknown_ucb, "shadow_evaluate_response_schema"
-    )
+    assert not validator.validate_json(honest_unknown_ucb, "shadow_evaluate_response_schema")
 
     global_certified = json.loads(json.dumps(certified))
     global_certified["diagnostics"]["support_status"] = "global"
@@ -414,6 +440,248 @@ def test_shadow_is_exact_support_and_never_certifies_global_backoff() -> None:
     false_agreement = json.loads(json.dumps(certified))
     false_agreement["disagrees"] = False
     assert validator.validate_json(false_agreement, "shadow_evaluate_response_schema")
+
+
+# --- x-traigent-invariants: shadow_evaluate_response declared cross-field equality ---
+#
+# draft-07 JSON Schema has no keyword for sibling/nested-field equality, so
+# JSON Schema alone accepts a structurally valid response where, say, the
+# top-level evidence_snapshot_hash and the one nested inside evidence_case
+# silently diverge -- there is no schema-level rule connecting the two
+# subtrees. Each pair below is first proven schema-valid (documenting that
+# gap), then proven caught by the public semantic interpreter
+# (traigent_schema.validate_declared_invariants), which evaluates the
+# invariants shadow_evaluate_response_schema.json declares in its
+# x-traigent-invariants block.
+
+
+def test_evidence_snapshot_hash_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _valid_shadow_response()
+    payload["evidence_case"]["evidence"]["evidence_snapshot_hash"] = (
+        "ev_ZZZZ56789abcdefghijklmnopqrstuvwxyzAB"
+    )
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert {v.code for v in violations} == {"EVIDENCE_SNAPSHOT_HASH_MATCHES_EVIDENCE_CASE"}
+
+
+def test_evidence_snapshot_hash_match_has_no_violation() -> None:
+    assert (
+        validate_declared_invariants(_valid_shadow_response(), "shadow_evaluate_response_schema")
+        == []
+    )
+
+
+def test_diagnostics_certified_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    """Mutates one fact: diagnostics reports uncertified while evidence_case reports certified.
+
+    Both ``diagnostics`` and ``evidence_case.evidence`` independently
+    require (each via its OWN internal schema rule, not this test) that
+    certified=true be paired with a non-null certificate_ref. Diverging
+    ``certified`` while keeping both subtrees individually schema-valid
+    therefore mechanically forces ``certificate_ref`` to diverge too --
+    this is the single-fact mutation's unavoidable, schema-required
+    consequence, not a second, unrelated fact being changed. See
+    test_diagnostics_certificate_ref_mismatch_is_schema_valid_but_semantically_caught
+    for that invariant isolated on its own, from a baseline where
+    ``certified`` already agrees on both sides.
+    """
+    validator = SchemaValidator(contract="backend")
+    payload = _valid_shadow_response()
+    payload["evidence_case"]["evidence"]["certified"] = True
+    payload["evidence_case"]["evidence"]["certificate_ref"] = "certificate_0123456789abcdef"
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert {v.code for v in violations} == {
+        "DIAGNOSTICS_CERTIFIED_MATCHES_EVIDENCE_CASE",
+        "DIAGNOSTICS_CERTIFICATE_REF_MATCHES_EVIDENCE_CASE",
+    }
+
+
+def test_diagnostics_certified_match_has_no_violation() -> None:
+    assert (
+        validate_declared_invariants(_valid_shadow_response(), "shadow_evaluate_response_schema")
+        == []
+    )
+
+
+def _consistent_certified_shadow_response() -> dict[str, Any]:
+    """A fully certified response with every declared invariant satisfied.
+
+    Starts from _valid_shadow_response() (itself already zero-violation --
+    pins.artifact_version/artifact_hash agree with
+    evidence_case.provenance.policy_version/policy_hash there), then applies
+    the same "certified" transition
+    test_shadow_is_exact_support_and_never_certifies_global_backoff exercises
+    for schema validity, plus the evidence_case update that transition
+    implies. Each single-field mismatch test below mutates exactly one field
+    away from this otherwise-fully-consistent baseline.
+    """
+    payload = _valid_shadow_response()
+    payload.update(policy=_exact_action(optimize=True), disagrees=True)
+    payload["diagnostics"].update(
+        advantage_point=0.2,
+        advantage_lcb=0.1,
+        advantage_ucb=0.3,
+        support_n=128,
+        effective_support_n=128,
+        support_status="exact",
+        certified=True,
+        certificate_ref="certificate_0123456789abcdef",
+        cell_fingerprint="e" * 64,
+    )
+    payload["evidence_case"]["publication_basis"] = "SUPPORTED_RECOMMENDATION"
+    payload["evidence_case"]["evidence"].update(
+        certified=True,
+        policy_eligible=True,
+        certificate_ref="certificate_0123456789abcdef",
+    )
+    return payload
+
+
+def _shadow_response_with_mismatched_pins() -> dict[str, Any]:
+    """Schema-valid but semantically inconsistent: pins vs. evidence_case.provenance diverge.
+
+    Deliberately reintroduces, on top of the otherwise fully-consistent
+    _consistent_certified_shadow_response() baseline, the two independent
+    pin/provenance mismatches draft-07 cannot express a tie for -- exactly
+    the class of drift PINS_ARTIFACT_VERSION_MATCHES_EVIDENCE_CASE_POLICY_VERSION
+    and PINS_ARTIFACT_HASH_MATCHES_EVIDENCE_CASE_POLICY_HASH exist to catch.
+    Every OTHER declared invariant still holds, so this fixture is pinned to
+    EXACTLY those two codes, not "at least" them.
+    """
+    payload = _consistent_certified_shadow_response()
+    payload["evidence_case"]["provenance"]["policy_version"] = "planner-v2-policy-2099.01"
+    payload["evidence_case"]["provenance"]["policy_hash"] = "f" * 64
+    return payload
+
+
+def test_mismatched_pins_fixture_is_schema_valid_but_pinned_to_exactly_two_codes() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _shadow_response_with_mismatched_pins()
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+    assert (
+        payload["pins"]["artifact_version"]
+        != payload["evidence_case"]["provenance"]["policy_version"]
+    )
+    assert payload["pins"]["artifact_hash"] != payload["evidence_case"]["provenance"]["policy_hash"]
+
+    violations = {
+        v.code for v in validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    }
+    assert violations == {
+        "PINS_ARTIFACT_VERSION_MATCHES_EVIDENCE_CASE_POLICY_VERSION",
+        "PINS_ARTIFACT_HASH_MATCHES_EVIDENCE_CASE_POLICY_HASH",
+    }
+
+
+def test_diagnostics_certificate_ref_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _consistent_certified_shadow_response()
+    payload["evidence_case"]["evidence"]["certificate_ref"] = "certificate_abcdef0123456789"
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert {v.code for v in violations} == {"DIAGNOSTICS_CERTIFICATE_REF_MATCHES_EVIDENCE_CASE"}
+
+
+def test_diagnostics_certificate_ref_match_has_no_violation() -> None:
+    assert (
+        validate_declared_invariants(_valid_shadow_response(), "shadow_evaluate_response_schema")
+        == []
+    )
+
+
+def test_pins_artifact_version_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _consistent_certified_shadow_response()
+    payload["evidence_case"]["provenance"]["policy_version"] = "planner-v2-policy-2099.01"
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert {v.code for v in violations} == {
+        "PINS_ARTIFACT_VERSION_MATCHES_EVIDENCE_CASE_POLICY_VERSION"
+    }
+
+
+def test_pins_artifact_version_match_has_no_violation() -> None:
+    assert (
+        validate_declared_invariants(
+            _consistent_certified_shadow_response(), "shadow_evaluate_response_schema"
+        )
+        == []
+    )
+
+
+def test_pins_artifact_hash_mismatch_is_schema_valid_but_semantically_caught() -> None:
+    validator = SchemaValidator(contract="backend")
+    payload = _consistent_certified_shadow_response()
+    payload["evidence_case"]["provenance"]["policy_hash"] = "f" * 64
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert {v.code for v in violations} == {"PINS_ARTIFACT_HASH_MATCHES_EVIDENCE_CASE_POLICY_HASH"}
+
+
+def test_pins_artifact_hash_match_has_no_violation() -> None:
+    assert (
+        validate_declared_invariants(
+            _consistent_certified_shadow_response(), "shadow_evaluate_response_schema"
+        )
+        == []
+    )
+
+
+def test_fully_consistent_response_has_zero_declared_invariant_violations() -> None:
+    assert (
+        validate_declared_invariants(
+            _consistent_certified_shadow_response(), "shadow_evaluate_response_schema"
+        )
+        == []
+    )
+
+
+# --- x-traigent-invariants: disagrees=true implies rules/policy diverge -------
+
+
+def test_disagrees_true_and_diverging_actions_has_no_violation() -> None:
+    payload = _consistent_certified_shadow_response()
+    assert payload["disagrees"] is True
+    assert payload["rules"] != payload["policy"]
+    assert validate_declared_invariants(payload, "shadow_evaluate_response_schema") == []
+
+
+def test_disagrees_false_asserts_nothing_even_when_actions_happen_to_match() -> None:
+    """One-way: the base fixture has disagrees=False and identical rules/policy."""
+    payload = _valid_shadow_response()
+    assert payload["disagrees"] is False
+    assert payload["rules"] == payload["policy"]
+    assert validate_declared_invariants(payload, "shadow_evaluate_response_schema") == []
+
+
+def test_disagrees_true_with_identical_actions_is_schema_valid_but_semantically_caught() -> None:
+    """draft-07 cannot tie the disagrees boolean to an inequality between its siblings.
+
+    A response claiming disagreement while rules and policy are the exact
+    same PlannerAction is internally contradictory but still schema-valid
+    -- only the public semantic interpreter catches it.
+    """
+    validator = SchemaValidator(contract="backend")
+    payload = _consistent_certified_shadow_response()
+    payload["policy"] = payload["rules"]
+
+    assert not validator.validate_json(payload, "shadow_evaluate_response_schema")
+
+    violations = validate_declared_invariants(payload, "shadow_evaluate_response_schema")
+    assert {v.code for v in violations} == {"DISAGREES_IMPLIES_RULES_POLICY_DIVERGE"}
 
 
 def test_receipt_response_status_verification_combinations_are_closed() -> None:

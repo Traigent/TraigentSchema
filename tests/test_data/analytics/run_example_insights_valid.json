@@ -47,7 +47,7 @@
       "suspicious_flags": [
         "redundant_pattern"
       ],
-      "recommended_action": "remove_redundant"
+      "recommended_action": "replace_or_rewrite"
     }
   ],
   "cohorts": [

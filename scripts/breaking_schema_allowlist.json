@@ -1,0 +1,77 @@
+{
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "entries": [
+    {
+      "file": "smartops_v2/shadow_evaluate_response_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/evidence_case",
+      "reason": "EvidenceCase is an intentional coordinated response expansion. Pinning TraigentBackend to this Schema revision before planner emission is necessary but not sufficient: rollout remains blocked until every strict or generated response consumer is reconciled with evidence_case.",
+      "version": "5.6.0",
+      "pr": "#377"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/x-traigent-invariants",
+      "reason": "This intentionally expands the governed extension vocabulary so schemas can declare mechanically checked cross-field equality. It is contract mechanics only, and consumers of the closed registry must update for the new property.",
+      "version": "5.6.0",
+      "pr": "#377"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "property_added",
+      "reason": "identity_state is an explicit discriminator when present, with a closed enum of identified/unidentified and a strictly validated absent/legacy migration branch (expand-contract); rollout stays flag-off until Backend and strict consumers emit and handle it.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "type",
+      "reason": "agent_id is nullable only in the unidentified branch, with paired-null invariants, because inventing an agent would corrupt provenance; identified rows remain string-valued.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "required",
+      "reason": "Expand-contract: identity_state is dropped from the top-level required list because the active Backend does not yet emit it on every experiment-group item or provenance row. The enum stays closed to identified/unidentified only; absence is handled by a new, strictly validated legacy branch (string agent_id, string-or-null dataset_id, no run_id), never treated as identified or as a certified explicit-none dataset claim. A follow-up MAJOR revision re-tightens this back to required once the Backend backfills the field everywhere.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The allOf branch count on ExperimentGroupOverview goes from 3 to 4 and on GroupedConfigurationRunProvenance goes from 2 to 3 because a new, absence-only branch was added alongside the existing identified/unidentified branches to enforce the legacy no-identity_state shape structurally (string agent_id, string-or-null dataset_id, run_id null-or-absent). The pre-existing branches on each definition are unchanged; the new branch only tightens validation for the newly-optional legacy case, it does not loosen any previously-enforced constraint.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "required",
+      "reason": "Expand-contract: identity_state is dropped from the top-level required list on ExperimentGroupOverview and GroupedConfigurationRunProvenance because the active Backend does not yet emit it on every item or row. The enum stays closed to identified/unidentified only; absence is handled by a new, strictly validated legacy branch (string agent_id, string-or-null dataset_id, no run_id), never treated as identified or as a certified explicit-none dataset claim. A follow-up MAJOR revision re-tightens this back to required once the Backend backfills the field everywhere.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The allOf branch count on ExperimentGroupOverview goes from 3 to 4 and on GroupedConfigurationRunProvenance goes from 2 to 3 because a new, absence-only branch was added alongside the existing identified/unidentified branches to enforce the legacy no-identity_state shape structurally (string agent_id, string-or-null dataset_id, run_id null-or-absent). The pre-existing branches on each definition are unchanged; the new branch only tightens validation for the newly-optional legacy case, it does not loosen any previously-enforced constraint.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "analytics/curation_advice_schema.json",
+      "rule": "enum",
+      "reason": "Retires the subtractive curation vocabulary at the client boundary (#389). `remove_redundant` is removed from the enum because acting on subtractive advice keyed to an observed signal biases the customer's own measurement and is unrepairable -- excluded items carry zero inclusion probability. Measured on a 70-item confirmation set, top-15-by-observed-discrimination pruning gave -0.202 against a true -0.073 (2.77x); random-15 was unbiased at -0.078. Breaking is the intended effect: a consumer still emitting or matching this member must be reconciled rather than silently accepted. Recorded in the disclosure register; reintroducing a subtractive category needs an owner decision.",
+      "version": "5.6.0",
+      "pr": "#389"
+    },
+    {
+      "file": "analytics/run_example_insights_schema.json",
+      "rule": "enum",
+      "reason": "Retires the subtractive curation vocabulary at the client boundary (#389). `remove_redundant` is removed from the enum because acting on subtractive advice keyed to an observed signal biases the customer's own measurement and is unrepairable -- excluded items carry zero inclusion probability. Measured on a 70-item confirmation set, top-15-by-observed-discrimination pruning gave -0.202 against a true -0.073 (2.77x); random-15 was unbiased at -0.078. Breaking is the intended effect: a consumer still emitting or matching this member must be reconciled rather than silently accepted. Recorded in the disclosure register; reintroducing a subtractive category needs an owner decision.",
+      "version": "5.6.0",
+      "pr": "#389"
+    }
+  ]
+}

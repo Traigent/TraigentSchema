@@ -8,4 +8,29 @@
 set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# Defense-in-depth: git invokes pre-push with the pusher's local Git environment
+# (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...) still exported. If local_gate.sh
+# — or anything it execs, e.g. a pytest fixture that runs `git -C <tmp-repo>` —
+# ever omits an explicit --git-dir, those inherited vars silently redirect that
+# git invocation at THIS repo instead of the intended one (GIT_DIR overrides
+# -C). Clear every variable git itself calls "local" before handing off, so the
+# gate always starts from a clean Git environment.
+#
+# `set -uo pipefail` alone does NOT make this fail-closed: a `< <(cmd)` process
+# substitution runs in a background subshell whose exit status the `while`
+# loop never observes, so a failing `git rev-parse --local-env-vars` would
+# look identical to "zero local vars" and the hook would silently proceed
+# contaminated. Capture the output first and check the exit status explicitly.
+if ! local_env_vars="$(git rev-parse --local-env-vars)"; then
+  echo "pre-push: 'git rev-parse --local-env-vars' failed -- aborting before" >&2
+  echo "pre-push: exec'ing the gate to avoid running it with a possibly" >&2
+  echo "pre-push: contaminated git environment." >&2
+  exit 1
+fi
+
+while IFS= read -r local_env_var; do
+  [[ -n "$local_env_var" ]] && unset "$local_env_var"
+done <<< "$local_env_vars"
+
 exec "$REPO_ROOT/scripts/local_gate.sh"

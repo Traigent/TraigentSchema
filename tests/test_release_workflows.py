@@ -10,7 +10,9 @@ FULL_SHA_ACTION = re.compile(r"^[^@]+@[0-9a-f]{40}$")
 
 
 def _workflow(name: str) -> dict:
-    data = yaml.safe_load((ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8"))
+    data = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+    )
     assert isinstance(data, dict)
     return data
 
@@ -29,9 +31,14 @@ def test_publish_is_bound_to_the_verified_exact_main_sha() -> None:
 
     checkout = publish["steps"][0]
     assert checkout["with"]["persist-credentials"] is False
-    assert checkout["with"]["ref"] == "${{ needs.verify-release-ref.outputs.verified_sha }}"
+    assert (
+        checkout["with"]["ref"]
+        == "${{ needs.verify-release-ref.outputs.verified_sha }}"
+    )
 
-    recheck = next(step for step in publish["steps"] if step["name"].startswith("Re-verify main"))
+    recheck = next(
+        step for step in publish["steps"] if step["name"].startswith("Re-verify main")
+    )
     assert '"$CURRENT_MAIN_SHA" != "$VERIFIED_SHA"' in recheck["run"]
     assert publish["permissions"] == {"id-token": "write", "contents": "read"}
 
@@ -51,8 +58,42 @@ def test_codeql_posts_the_two_main_ruleset_contexts() -> None:
 
     checkout = analyze["steps"][0]
     assert checkout["with"]["persist-credentials"] is False
-    assert any("github/codeql-action/init@" in step.get("uses", "") for step in analyze["steps"])
-    assert any("github/codeql-action/analyze@" in step.get("uses", "") for step in analyze["steps"])
+    assert any(
+        "github/codeql-action/init@" in step.get("uses", "")
+        for step in analyze["steps"]
+    )
+    assert any(
+        "github/codeql-action/analyze@" in step.get("uses", "")
+        for step in analyze["steps"]
+    )
     for step in analyze["steps"]:
         if "uses" in step:
             assert FULL_SHA_ACTION.fullmatch(step["uses"]), step["uses"]
+
+
+def _checkout_steps(job: dict) -> list[dict]:
+    return [
+        step
+        for step in job.get("steps", [])
+        if str(step.get("uses", "")).split("@", 1)[0] == "actions/checkout"
+    ]
+
+
+def test_all_workflow_checkouts_do_not_persist_credentials() -> None:
+    workflow_paths = sorted((ROOT / ".github" / "workflows").glob("*.y*ml"))
+    checkout_count = 0
+
+    for workflow_path in workflow_paths:
+        workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+        assert isinstance(
+            workflow, dict
+        ), f"{workflow_path.name} must parse as a mapping"
+        for job_name, job in workflow.get("jobs", {}).items():
+            for checkout in _checkout_steps(job):
+                checkout_count += 1
+                assert checkout.get("with", {}).get("persist-credentials") is False, (
+                    f"{workflow_path.name}:{job_name} must not leave checkout credentials "
+                    "in git config"
+                )
+
+    assert checkout_count, "expected at least one actions/checkout workflow step"

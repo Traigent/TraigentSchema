@@ -1,0 +1,77 @@
+name: Schema orphan reachability report freshness
+
+# Ports Azure's "Avocado" rule (a spec file must be referenced by a readme
+# config or by another spec's $ref, or the PR fails validation --
+# https://github.com/Azure/azure-rest-api-specs/wiki/Swagger-Avocado) to this
+# repo's JSON schema tree. scripts/schema_reachability.py computes which
+# schema files are unreachable (not $ref'd, not endpoint-referenced, not named
+# by a consumer repo, not allowlisted) and reports/schema_reachability/
+# unreachable_schemas.json is the checked-in, deterministic record of that.
+#
+# This job ONLY fails on a STALE report (schema files / the consumer-reference
+# manifest / the allowlist changed without regenerating it). It deliberately
+# does NOT fail on a non-empty orphan set yet -- the backlog is non-empty on
+# arrival, and a gate that is red the day it lands gets disabled (this
+# workspace has direct precedent for that). See scripts/schema_reachability.py
+# --max-orphans for the flag that will enforce a ceiling once the backlog is
+# driven down; wiring `--max-orphans 0` into the "Check" step below is the
+# TODO for when reports/schema_reachability/unreachable_schemas.json reaches
+# an empty unreachableSchemas list.
+#
+# If this check fails, run:
+#     python3 scripts/schema_reachability.py --update
+# and commit the updated report.
+
+on:
+  pull_request:
+    paths:
+      - "traigent_schema/schemas/**"
+      - "reports/schema_reachability/**"
+      - "scripts/schema_reachability.py"
+
+permissions:
+  contents: read
+
+jobs:
+  schema-orphan-check:
+    name: Schema reachability report freshness
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      # No `pip install` step: scripts/schema_reachability.py is stdlib-only
+      # (it reads traigent_schema/schemas/ from a relative path rather than
+      # importing the traigent_schema package), so nothing needs installing.
+
+      - name: Check schema reachability report is up-to-date
+        id: reachability
+        run: |
+          python3 scripts/schema_reachability.py --check
+        # Fails only on staleness, not on orphan count -- see the header
+        # comment above. The script itself prints the fix command on failure.
+
+      - name: Show fix instructions on failure
+        if: failure() && steps.reachability.outcome == 'failure'
+        run: |
+          echo "::error title=Schema reachability report stale::traigent_schema/schemas changed (or the consumer-reference manifest / allowlist did) without regenerating reports/schema_reachability/unreachable_schemas.json."
+          echo ""
+          echo "Fix: run the following locally, then commit the result:"
+          echo ""
+          echo "    python3 scripts/schema_reachability.py --update"
+          echo "    git add reports/schema_reachability/unreachable_schemas.json"
+          echo "    git commit -m 'chore(schema): refresh orphan reachability report'"
+          echo ""
+          echo "If you added a schema file that's intentionally not yet wired into"
+          echo "an endpoint contract, it will show up in unreachableSchemas -- that"
+          echo "is expected and does NOT fail this gate. Do not add it to"
+          echo "reports/schema_reachability/allowlist.json just to make it disappear;"
+          echo "the allowlist is for schemas an owner has reviewed and decided are"
+          echo "legitimately reachable through a path this gate cannot see."

@@ -1,0 +1,76 @@
+{
+  "_description": "Conformance vectors for traigent_schema/best_config_profile.py, the best-config hash profile layered on top of fp2 (fp2's own corpus is tests/data/fp2_conformance.json and is untouched by this file). These vectors are value-level, not lexical: JSON has one number literal grammar, and this file's 'unsafe_integral_int' vs 'unsafe_integral_float' distinction survives ONLY because Python's json module happens to parse a JSON number without '.' or 'e'/'E' as int and one with either as float. A JS JSON.parse would collapse both into the same Number and cannot reproduce this int/float split - so these vectors describe what the PARSED PYTHON VALUE must do, not a claim that raw JSON text carries a portable int/float distinction. Canonical-byte-length boundary vectors (exactly MAX_CANONICAL_SPEC_BYTES / +1 / astral-character byte counting) are deliberately NOT stored here: a 256KiB literal fixture would bloat the repo for no benefit, so tests/test_best_config_profile.py generates those cases programmatically against best_config_profile.MAX_CANONICAL_SPEC_BYTES instead.",
+  "safe_integer_boundary": {
+    "description": "abs(n) == 2**53-1 is the largest integral magnitude fp2 and the profile both still accept.",
+    "value": {
+      "n": 9007199254740991
+    },
+    "valid": true
+  },
+  "unsafe_integral_int": {
+    "description": "A Python int exceeding the safe range. Rejected by fp2 itself AND by the profile's prevalidation.",
+    "value": {
+      "n": 100000000000000000000
+    },
+    "valid": false,
+    "error_code": "unsafe_integral_number"
+  },
+  "unsafe_integral_float": {
+    "description": "The same magnitude as unsafe_integral_int, expressed with a JSON literal that parses to a Python float. fp2 canonicalizes this on its own (it is an ordinary finite float to fp2) - only the profile's prevalidation rejects it, which is the entire reason this profile exists.",
+    "value": {
+      "n": 1e20
+    },
+    "valid": false,
+    "error_code": "unsafe_integral_number"
+  },
+  "nested_unsafe_integral": {
+    "description": "The unsafe float is three containers deep; prevalidation must walk the full structure, not just top-level values.",
+    "value": {
+      "a": {
+        "b": [
+          1,
+          2,
+          {
+            "c": 1e20
+          }
+        ]
+      }
+    },
+    "valid": false,
+    "error_code": "unsafe_integral_number"
+  },
+  "config_digest_vectors": [
+    {
+      "config": {
+        "temperature": 0.7,
+        "model": "gpt-4o-mini"
+      },
+      "expected_config_hash": "sha256:9d46530a0a401dd8be21d638ae90f544ae4e5844fdc940896c174f21647236eb"
+    },
+    {
+      "config": {},
+      "expected_config_hash": "sha256:1493879149777275716ea84386fcdfae44cf30654f8d2288db858cc1e67dab8d"
+    },
+    {
+      "config": {
+        "nested": {
+          "a": [1, 2, 3],
+          "b": "café"
+        }
+      },
+      "expected_config_hash": "sha256:dc024a05ac2889a3fcf01beac1d2ad076eab942337691595d5a8811a23e3d556"
+    }
+  ],
+  "spec_digest_vectors": [
+    {
+      "spec": {
+        "schema_version": "traigent.best_config.v2",
+        "config_id": "checkout-router",
+        "config": {
+          "temperature": 0.7
+        }
+      },
+      "expected_spec_hash": "sha256:2f5dfb7162e9ca1ec21e788079700fa9d6fb280dbade27cf6cdf5ba19c47b44d"
+    }
+  ]
+}

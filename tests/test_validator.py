@@ -151,11 +151,89 @@ class TestValidateRequest:
     def planned_validator(self):
         return SchemaValidator(contract="planned_projects")
 
-    def test_unknown_endpoint_passes(self, validator):
-        """Should pass for unknown endpoints (no schema)."""
+    def test_unknown_endpoint_default_policy_does_not_silently_pass(self, validator):
+        """REGRESSION: an endpoint with no registered schema must not return
+        ``[]`` (== "validated and clean") under the default policy.
+
+        Before the fix, ``validate_request`` returned ``[]`` unconditionally
+        for any endpoint with no registered schema -- indistinguishable from
+        "validated and found no errors". That is a fail-open policy surface
+        (Production Safety Rule 1: policy surfaces fail closed in
+        production). The default policy must make this branch produce a
+        non-empty, clearly-flagged signal instead of a silent pass.
+        """
         data = {"any": "data"}
         errors = validator.validate_request("/unknown/endpoint", "POST", data)
+        assert errors != [], (
+            "an unregistered endpoint silently passed validation under the "
+            "default policy -- this is the fail-open regression"
+        )
+        assert any("UNVALIDATED_ENDPOINT" in error for error in errors)
+
+    def test_unknown_endpoint_warn_policy_logs(self, validator, caplog):
+        """The default ('warn') policy must log so the gap is observable."""
+        with caplog.at_level(logging.WARNING):
+            validator.validate_request("/unknown/endpoint", "POST", {"any": "data"})
+
+        assert any(
+            "No schema registered for POST /unknown/endpoint" in message
+            for message in caplog.messages
+        )
+
+    def test_unknown_endpoint_strict_policy_raises(self):
+        """'strict' must fail closed: raise rather than silently pass."""
+        strict_validator = SchemaValidator(unknown_endpoint_policy="strict")
+        with pytest.raises(
+            validator_module.UnvalidatedEndpointError, match="POST /unknown/endpoint"
+        ):
+            strict_validator.validate_request("/unknown/endpoint", "POST", {"any": "data"})
+
+    def test_unknown_endpoint_allow_policy_preserves_legacy_pass(self):
+        """The historical fail-open behaviour is still available, but only
+        when a caller opts into it explicitly via ``unknown_endpoint_policy=
+        "allow"`` -- the escape hatch is deliberate, not the default.
+        """
+        allow_validator = SchemaValidator(unknown_endpoint_policy="allow")
+        errors = allow_validator.validate_request(
+            "/unknown/endpoint", "POST", {"any": "data"}
+        )
         assert errors == []
+
+    def test_unknown_endpoint_policy_resolves_from_env_var(self, monkeypatch):
+        """Policy can be configured via env var when not passed explicitly."""
+        monkeypatch.setenv("TRAIGENT_SCHEMA_UNKNOWN_ENDPOINT_POLICY", "allow")
+        env_validator = SchemaValidator()
+        assert env_validator.unknown_endpoint_policy == "allow"
+        assert (
+            env_validator.validate_request("/unknown/endpoint", "POST", {"x": 1})
+            == []
+        )
+
+    def test_unknown_endpoint_explicit_arg_overrides_env_var(self, monkeypatch):
+        """An explicit constructor argument wins over the env var."""
+        monkeypatch.setenv("TRAIGENT_SCHEMA_UNKNOWN_ENDPOINT_POLICY", "allow")
+        strict_validator = SchemaValidator(unknown_endpoint_policy="strict")
+        assert strict_validator.unknown_endpoint_policy == "strict"
+
+    def test_invalid_unknown_endpoint_policy_raises_value_error(self):
+        with pytest.raises(ValueError, match="Unknown unknown_endpoint_policy"):
+            SchemaValidator(unknown_endpoint_policy="bogus")
+
+    def test_default_unknown_endpoint_policy_is_warn(self, validator):
+        """Document the chosen default explicitly (not 'allow', not 'strict')."""
+        assert validator.unknown_endpoint_policy == "warn"
+
+    def test_registered_endpoint_validation_is_unaffected_by_policy(self):
+        """The policy only governs the *no schema registered* branch --
+        endpoints with a real schema validate identically under every
+        policy, including 'strict'.
+        """
+        for policy in ("strict", "warn", "allow"):
+            v = SchemaValidator(unknown_endpoint_policy=policy)
+            errors = v.validate_request(
+                "/api/v1/agents", "POST", {"name": "Test Agent"}
+            )
+            assert errors, f"registered-endpoint validation should still run under policy={policy}"
 
     def test_returns_list(self, validator):
         """Should always return a list."""
@@ -300,13 +378,20 @@ class TestValidateRequest:
         assert "POST:/safe" in validator._inline_request_schemas
         assert any("escapes" in message for message in caplog.messages)
 
-    def test_default_backend_contract_ignores_planned_project_routes(self, validator):
+    def test_default_backend_contract_warns_on_planned_project_routes(self, validator):
+        """The backend contract has no knowledge of planned-projects-only
+        routes at all (not even as a bodyless/known route) -- that is a
+        genuine unknown-endpoint gap from this validator's point of view, so
+        it goes through ``unknown_endpoint_policy`` like any other
+        unregistered endpoint rather than silently passing.
+        """
         errors = validator.validate_request(
             "/api/v1beta/projects/project_abc/analytics/summary",
             "GET",
             {},
         )
-        assert errors == []
+        assert errors != []
+        assert any("UNVALIDATED_ENDPOINT" in error for error in errors)
 
     def test_default_backend_contract_validates_trace_score_summary_route(self, validator):
         errors = validator.validate_request(
@@ -417,13 +502,20 @@ class TestValidateRequest:
         )
         assert errors == []
 
-    def test_default_backend_contract_ignores_removed_tunable_routes(self, validator):
+    def test_default_backend_contract_warns_on_removed_tunable_routes(self, validator):
+        """A route removed from the contract is genuinely unregistered, not
+        a bodyless known route -- it must go through
+        ``unknown_endpoint_policy`` like any other unmapped endpoint rather
+        than silently passing (this used to be the fail-open bug in
+        disguise: a retired route quietly validated as "clean").
+        """
         errors = validator.validate_request(
             "/api/v1/tunables",
             "POST",
             {"id": "tunable_123", "name": "Support Router"},
         )
-        assert errors == []
+        assert errors != []
+        assert any("UNVALIDATED_ENDPOINT" in error for error in errors)
 
     def test_project_path_normalization_for_analytics_route(self, planned_validator):
         """Concrete project analytics paths should normalize to the OpenAPI template."""

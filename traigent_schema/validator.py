@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
 from referencing import Registry, Resource
@@ -22,6 +23,27 @@ from traigent_schema.utils import ContractName, get_contract_path, get_schemas_d
 
 logger = logging.getLogger(__name__)
 SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
+
+UnknownEndpointPolicy = Literal["strict", "warn", "allow"]
+_UNKNOWN_ENDPOINT_POLICIES: tuple[UnknownEndpointPolicy, ...] = ("strict", "warn", "allow")
+_DEFAULT_UNKNOWN_ENDPOINT_POLICY: UnknownEndpointPolicy = "warn"
+_UNKNOWN_ENDPOINT_POLICY_ENV_VAR = "TRAIGENT_SCHEMA_UNKNOWN_ENDPOINT_POLICY"
+# Prefix on the placeholder message returned in "warn" mode so callers can
+# tell "not validated" apart from "validated and found zero errors" without
+# relying on emptiness alone.
+UNVALIDATED_ENDPOINT_MARKER = "UNVALIDATED_ENDPOINT"
+
+
+class UnvalidatedEndpointError(RuntimeError):
+    """Raised by :meth:`SchemaValidator.validate_request` when no schema is
+    registered for the requested endpoint/method and the validator's
+    ``unknown_endpoint_policy`` is ``"strict"``.
+
+    Production Safety Rule 1 requires policy surfaces to fail closed: a
+    request against an endpoint with no registered contract must not
+    silently pass validation. Callers that need the historical permissive
+    behaviour must opt in explicitly via ``unknown_endpoint_policy="allow"``.
+    """
 _RFC3339_DATE_TIME_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})[Tt]"
     r"(?P<time>\d{2}:\d{2}:\d{2})"
@@ -82,15 +104,67 @@ class SchemaValidator:
         "Bound the nesting depth of recursive structures (e.g. observation children)."
     )
 
-    def __init__(self, contract: ContractName = "backend"):
-        """Initialize the validator with all available schemas."""
+    def __init__(
+        self,
+        contract: ContractName = "backend",
+        unknown_endpoint_policy: UnknownEndpointPolicy | None = None,
+    ):
+        """Initialize the validator with all available schemas.
+
+        Args:
+            contract: Endpoint contract catalog to load.
+            unknown_endpoint_policy: What :meth:`validate_request` does when
+                the endpoint/method pair has no registered schema (neither a
+                ``$ref`` nor an inline request schema):
+
+                - ``"strict"``: raise :class:`UnvalidatedEndpointError`.
+                - ``"warn"`` (default): log a warning and return a
+                  non-empty, distinguishable placeholder message (prefixed
+                  with :data:`UNVALIDATED_ENDPOINT_MARKER`) instead of an
+                  empty list, so callers can't mistake "not validated" for
+                  "validated and clean".
+                - ``"allow"``: return ``[]``, matching the historical
+                  fail-open behaviour. Must be opted into explicitly.
+
+                Resolution order: this argument, then the
+                ``TRAIGENT_SCHEMA_UNKNOWN_ENDPOINT_POLICY`` environment
+                variable, then ``"warn"``.
+        """
         self.contract = contract
+        self.unknown_endpoint_policy = self._resolve_unknown_endpoint_policy(
+            unknown_endpoint_policy
+        )
         self._schemas: dict[str, dict[str, Any]] = {}
         self._endpoint_schemas: dict[str, str] = {}
         self._inline_request_schemas: dict[str, dict[str, Any]] = {}
+        # Every "{METHOD}:{path}" pair present in the loaded OpenAPI contract,
+        # regardless of whether it declares a JSON request body. Lets
+        # validate_request tell "this route is known but structurally has no
+        # body to validate (e.g. GET)" apart from "this route isn't in the
+        # contract at all" -- only the latter is the unknown_endpoint_policy
+        # gap; the former has nothing to validate under any policy.
+        self._known_endpoints: set[str] = set()
         self._registry: Registry | None = None
         self._load_schemas()
         self._load_endpoint_mappings()
+
+    @staticmethod
+    def _resolve_unknown_endpoint_policy(
+        explicit: UnknownEndpointPolicy | None,
+    ) -> UnknownEndpointPolicy:
+        """Resolve the unknown-endpoint policy: argument, then env var, then default."""
+        candidate: str | None = explicit
+        if candidate is None:
+            candidate = os.environ.get(_UNKNOWN_ENDPOINT_POLICY_ENV_VAR)
+        if candidate is None:
+            return _DEFAULT_UNKNOWN_ENDPOINT_POLICY
+        if candidate not in _UNKNOWN_ENDPOINT_POLICIES:
+            valid_policies = ", ".join(_UNKNOWN_ENDPOINT_POLICIES)
+            raise ValueError(
+                f"Unknown unknown_endpoint_policy {candidate!r}; "
+                f"expected one of: {valid_policies}"
+            )
+        return candidate  # type: ignore[return-value]
 
     @staticmethod
     def _resolve_package_relative_path(base_dir: Path, relative_path: str) -> Path | None:
@@ -216,6 +290,7 @@ class SchemaValidator:
                 json_schema = json_content.get("schema", {})
                 schema_ref = json_schema.get("$ref", "")
                 key = f"{method.upper()}:{path}"
+                self._known_endpoints.add(key)
 
                 if schema_ref:
                     schema_name = schema_ref.split("/")[-1]
@@ -241,6 +316,11 @@ class SchemaValidator:
 
         Returns:
             List of validation error messages. Empty if valid.
+
+        Raises:
+            UnvalidatedEndpointError: If no schema is registered for this
+                endpoint/method and ``unknown_endpoint_policy`` is
+                ``"strict"``.
         """
         endpoint = self._normalize_endpoint(method, endpoint)
         key = f"{method.upper()}:{endpoint}"
@@ -248,7 +328,11 @@ class SchemaValidator:
         inline_schema = self._inline_request_schemas.get(key)
 
         if not schema_name and not inline_schema:
-            return []  # No schema defined for this endpoint
+            if key in self._known_endpoints:
+                # Known route (e.g. a GET with no request body) that
+                # structurally has nothing to validate -- not a policy gap.
+                return []
+            return self._handle_unmapped_endpoint(method, endpoint)
 
         if inline_schema:
             return self._validate_inline_schema(data, inline_schema)
@@ -256,6 +340,45 @@ class SchemaValidator:
         if schema_name is None:
             return [f"Schema not found for endpoint: {method.upper()} {endpoint}"]
         return self.validate_json(data, schema_name)
+
+    def _handle_unmapped_endpoint(self, method: str, endpoint: str) -> list[str]:
+        """Apply ``unknown_endpoint_policy`` when no schema is registered.
+
+        This is the branch that historically returned ``[]``
+        unconditionally, which is indistinguishable from "validated and
+        found no errors" -- a fail-open policy surface. Production Safety
+        Rule 1 requires policy surfaces to fail closed, so an unregistered
+        endpoint must never silently pass without someone explicitly
+        choosing that outcome (``unknown_endpoint_policy="allow"``).
+        """
+        key_desc = f"{method.upper()} {endpoint}"
+
+        if self.unknown_endpoint_policy == "strict":
+            raise UnvalidatedEndpointError(
+                f"No schema registered for {key_desc}; validate_request() "
+                "cannot validate this request under the 'strict' "
+                "unknown_endpoint_policy. Register a schema for this "
+                "endpoint, or construct SchemaValidator with "
+                "unknown_endpoint_policy='warn' or 'allow' if bypassing "
+                "validation here is intentional."
+            )
+
+        if self.unknown_endpoint_policy == "warn":
+            logger.warning(
+                "No schema registered for %s; validate_request() did not "
+                "validate this request (unknown_endpoint_policy=warn). "
+                "Register a schema for this endpoint, or set "
+                "unknown_endpoint_policy='allow' to silence this warning.",
+                key_desc,
+            )
+            return [
+                f"{UNVALIDATED_ENDPOINT_MARKER}: no schema registered for "
+                f"{key_desc}; request was NOT validated "
+                "(unknown_endpoint_policy=warn)"
+            ]
+
+        # "allow": explicit opt-in to the historical fail-open behaviour.
+        return []
 
     @staticmethod
     def _template_matches_endpoint(template: str, endpoint: str) -> bool:
@@ -281,13 +404,15 @@ class SchemaValidator:
         if (
             direct_key in self._endpoint_schemas
             or direct_key in self._inline_request_schemas
+            or direct_key in self._known_endpoints
         ):
             return endpoint
 
-        candidate_keys = {
-            **self._endpoint_schemas,
-            **self._inline_request_schemas,
-        }
+        candidate_keys: set[str] = (
+            set(self._endpoint_schemas)
+            | set(self._inline_request_schemas)
+            | self._known_endpoints
+        )
         for candidate_key in candidate_keys:
             candidate_method, candidate_path = candidate_key.split(":", 1)
             if candidate_method != method.upper():

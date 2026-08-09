@@ -41,13 +41,26 @@ def _package_version() -> str:
 
 def test_ci_workflow_uses_pip_cache_for_all_setup_python_jobs() -> None:
     steps = _setup_python_steps()
-    assert len(steps) == 3, "ci.yml should set up Python in lint-type, test, and package jobs"
+    assert len(steps) == 4, (
+        "ci.yml should set up Python in lint-type, test, package, and "
+        "breaking-schema-check jobs"
+    )
+
+    # The rule is "key the cache from the manifest this job actually installs
+    # from", not "key it from pyproject.toml". Those were the same thing until
+    # breaking-schema-check moved to a pinned `-r requirements.txt` install
+    # (SonarCloud githubactions:S8544/S8541 -- an unpinned `pip install -e .[dev]`
+    # resolves versions at runtime and can execute setup scripts). Keying that
+    # job from pyproject.toml would leave its cache stale exactly when the pinned
+    # versions change, which is the failure this test exists to prevent.
+    expected_manifest = {"breaking-schema-check": "requirements.txt"}
 
     for job_name, step in steps:
         config = step.get("with", {})
         assert config.get("cache") == "pip", f"{job_name} must enable setup-python pip caching"
-        assert config.get("cache-dependency-path") == "pyproject.toml", (
-            f"{job_name} must key pip cache from pyproject.toml"
+        expected = expected_manifest.get(job_name, "pyproject.toml")
+        assert config.get("cache-dependency-path") == expected, (
+            f"{job_name} must key pip cache from {expected} -- the manifest it installs from"
         )
 
 
@@ -81,6 +94,58 @@ def test_ci_workflow_caps_all_jobs_with_timeouts() -> None:
     jobs = _ci_workflow()["jobs"]
     missing = [name for name, job in jobs.items() if "timeout-minutes" not in job]
     assert not missing, f"ci.yml jobs missing timeout-minutes: {missing}"
+
+
+def test_ci_workflow_pull_request_trigger_has_no_paths_filter() -> None:
+    """Locks in the fix for TraigentSchema#392.
+
+    A workflow-LEVEL `on.pull_request.paths:` filter means a PR touching none
+    of those paths produces NO check-run at all for every job in this file --
+    unusable for a required context, since a required context that never
+    reports leaves such a PR pending forever. That is exactly what
+    breaking-schema-check.yml did before it was folded into this workflow
+    (see the `breaking-schema-check` job's own history comment). If someone
+    ever re-adds a `paths:` filter here to silence a noisy job, they would
+    silently reintroduce that bug for every job in ci.yml, including
+    `ci-required` itself. `on:` is a PyYAML 1.1 boolean keyword (parses as
+    `True`, not the string `'on'`) -- see https://github.com/yaml/pyyaml/issues/376.
+    """
+    workflow = _ci_workflow()
+    on_block = workflow.get(True, workflow.get("on"))
+    assert on_block is not None, "ci.yml must define an `on:` block"
+    pull_request_trigger = on_block.get("pull_request")
+    assert pull_request_trigger is not None, "ci.yml must trigger on pull_request"
+    assert "paths" not in pull_request_trigger, (
+        "ci.yml's pull_request trigger must NOT have a `paths:` filter -- it would "
+        "silently stop every job in this file (including ci-required) from posting "
+        "a check-run on PRs that don't match, reintroducing TraigentSchema#392"
+    )
+    assert "paths-ignore" not in pull_request_trigger, (
+        "same hazard as `paths:` -- a `paths-ignore:` filter also suppresses "
+        "check-runs for non-matching PRs"
+    )
+
+
+def test_ci_required_gates_breaking_schema_check_via_classifier_not_blanket_skip() -> None:
+    """`breaking-schema-check` must be a real `needs:` dependency of
+    `ci-required`, and its `skipped` result must be verified by
+    `scripts/check_required_gate.py`'s classifier-gated rule -- never
+    accepted by an unconditional allowlist (that was the hole TraigentSchema
+    #392 closed: an unconditional `success|skipped` accept can't tell a
+    classifier bug from a legitimate skip).
+    """
+    jobs = _ci_workflow()["jobs"]
+    ci_required_needs = jobs["ci-required"]["needs"]
+    assert "breaking-schema-check" in ci_required_needs
+    assert "changes" in ci_required_needs
+
+    gate_source = (REPO_ROOT / "scripts" / "check_required_gate.py").read_text(encoding="utf-8")
+    assert '"breaking-schema-check"' not in gate_source.split("UNCONDITIONAL_SKIP_OK")[1].split(
+        "}"
+    )[0], (
+        "breaking-schema-check must not be listed in UNCONDITIONAL_SKIP_OK -- its "
+        "skip must go through verify_breaking_schema_check_skip(), not a blanket accept"
+    )
 
 
 def test_readme_points_to_canonical_x_extension_registry() -> None:

@@ -467,20 +467,6 @@
       }
     },
     {
-      "id": "receipt_submit_client_commitment_field_rejected",
-      "kind": "schema_invalid",
-      "schema": "receipt_request",
-      "description": "Correction guard: the commitment field is removed entirely (owner decision card 3, PART1_CONTRACT_FREEZE_DRAFT.md:720, :1129) -- there is no commitment field, pattern, request-only rule, or Gate-1-dependent behavior in this route anymore. A payload supplying one is rejected by additionalProperties:false.",
-      "payload": {
-        "schema_version": "1.0.0-beta.1",
-        "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        "commitment": "c2FsdGVkX19zb21lY29tbWl0bWVudA",
-        "receipts": [
-          {"index": 0, "item_ref": {"kind": "evidence_item", "id": "evidenceitem0000001", "version_id": "evidenceitem0000001"}, "outcome": "produced", "rescorability_state": "available"}
-        ]
-      }
-    },
-    {
       "id": "receipt_unknown_field",
       "kind": "schema_invalid",
       "schema": "receipt_request",
@@ -730,10 +716,10 @@
       }
     },
     {
-      "id": "receipt_response_coverage_observed_unique_field_rejected",
+      "id": "receipt_response_partial_available_rejected",
       "kind": "schema_invalid",
       "schema": "receipt_response",
-      "description": "CORRECTION guard: observed_unique MUST NOT EXIST anywhere (owner accounting decision 2026-08-09, Option A/'P'; PART1_CONTRACT_FREEZE_DRAFT.md:41, :57, :748 'observed_unique remains intentionally absent'). A payload injecting it into measurement_coverage is rejected by additionalProperties:false.",
+      "description": "Terra review P1-1 (2026-08-10). PART1_CONTRACT_FREEZE_DRAFT.md:734 makes measurement_coverage.state=COMPLETE a necessary condition for rescorability.state=available. A PARTIAL seal cannot claim an available aggregate -- schema-decidable via the root allOf/if/then, closing the AC4 gap.",
       "payload": {
         "schema_version": "1.0.0-beta.1",
         "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
@@ -741,28 +727,9 @@
         "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
         "sealed_at": "2026-08-09T13:05:00Z",
         "measurement_coverage": {
-          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
-          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
-          "duplicate": 0, "observed_unique": 1, "reason_codes": []
-        },
-        "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"}
-      }
-    },
-    {
-      "id": "receipt_response_coverage_commitment_field_rejected",
-      "kind": "schema_invalid",
-      "schema": "receipt_response",
-      "description": "CORRECTION guard: commitment MUST NOT EXIST anywhere (owner decision card 3, PART1_CONTRACT_FREEZE_DRAFT.md:720, :1129). A payload injecting it into measurement_coverage is rejected by additionalProperties:false.",
-      "payload": {
-        "schema_version": "1.0.0-beta.1",
-        "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},
-        "run_plan_ref": {"kind": "run_plan", "id": "runplan00000000001", "version_id": "runplan00000000001"},
-        "agent_revision_ref": {"kind": "agent_revision", "id": "agentrev0000000001", "version_id": "agentrev0000000001"},
-        "sealed_at": "2026-08-09T13:05:00Z",
-        "measurement_coverage": {
-          "state": "COMPLETE", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
-          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
-          "duplicate": 0, "commitment": "c2FsdGVkX19zb21lY29tbWl0bWVudA", "reason_codes": []
+          "state": "PARTIAL", "basis": "SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 2, "produced": 1, "cached": 0, "missing": 1, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["INCOMPLETE_EVIDENCE_EPISODE"]
         },
         "rescorability": {"state": "available", "trust_level": "client_attested", "authority_effect": "NONE"}
       }

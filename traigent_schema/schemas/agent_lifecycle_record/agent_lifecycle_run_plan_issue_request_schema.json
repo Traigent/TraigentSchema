@@ -2,93 +2,39 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
   "title": "Agent Lifecycle Run Plan Issue Request",
-  "description": "ALR-1102 Route 3 request (PART1_CONTRACT_FREEZE_DRAFT.md:626-660): POST .../agent-lifecycle/run-plans. Issues a nonce-bound, content-free run plan against an already-minted AgentRevision (Route 1) and MeasurementContract (Route 2) -- this route never creates either. schema_version is a closed wire-version discriminator, not a product claim. The request carries no denominator, no completeness field, and no raw content: expected_count is computed exclusively from the already-accepted immutable contract membership by Backend, never supplied here. The optional experiment_run_ref is provenance only (never the lifecycle parent or identity) and is resolved same-scope by Backend; this is the only Part 1 writer of that field. `Idempotency-Key` (required, scoped to this route, same durable-replay mechanism as Routes 1-2) is a request HEADER, not a JSON body field, and is therefore out of this document's scope -- a missing/malformed header is `service_invalid` (corpus cases `run_plan_issue_missing_idempotency_key`, `idempotency_key_malformed_pattern_rejected`), decided at the route layer, not by a generic JSON Schema validator (PART1_CONTRACT_FREEZE_DRAFT.md:971). `StableOpaqueRef`/`TypedOpaqueRef` are defined once here (the first Part 1 route in dependency order that needs both ref shapes) and are the canonical shared definitions the sibling agent_lifecycle_run_plan_issue_response_schema.json and agent_lifecycle_receipt_submit_*_schema.json files in this directory $ref cross-file, so the shapes are not duplicated four times.",
+  "description": "ALR-1102 Route 3 request (PART1_CONTRACT_FREEZE_DRAFT.md:626-660): POST .../agent-lifecycle/run-plans. Issues a nonce-bound, content-free run plan against an already-minted AgentRevision (Route 1) and MeasurementContract (Route 2) -- this route never creates either. schema_version is a closed wire-version discriminator, not a product claim. The request carries no denominator, no completeness field, and no raw content: expected_count is computed exclusively from the already-accepted immutable contract membership by Backend, never supplied here. The optional experiment_run_ref is provenance only (never the lifecycle parent or identity) and is resolved same-scope by Backend; this is the only Part 1 writer of that field. `Idempotency-Key` (required, scoped to this route, same durable-replay mechanism as Routes 1-2) is a request HEADER, not a JSON body field, and is therefore out of this document's scope -- a missing/malformed header is `service_invalid` (corpus cases `run_plan_issue_missing_idempotency_key`, `idempotency_key_malformed_pattern_rejected`), decided at the route layer, not by a generic JSON Schema validator (PART1_CONTRACT_FREEZE_DRAFT.md:971). `StableOpaqueRef`/`TypedOpaqueRef` are common types (PART1_CONTRACT_FREEZE_DRAFT.md:276-299) and live in agent_lifecycle_common_schema.json (Terra review P2-2, 2026-08-10) -- this and the sibling agent_lifecycle_run_plan_issue_response_schema.json/agent_lifecycle_receipt_submit_*_schema.json files all $ref them cross-file rather than duplicating the shapes. Every top-level property below carries its own x-disclosure annotation at its own JSON Pointer per PART1_CONTRACT_FREEZE_DRAFT.md:406-409's worked-table convention (use-site rules, not once at the shared type).",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "agent_revision_ref", "measurement_contract_ref"],
   "properties": {
     "schema_version": {
       "const": "1.0.0-beta.1",
+      "x-disclosure": {"rule": "wire_contract_version", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "description": "Closed public wire-version discriminator (PART1_CONTRACT_FREEZE_DRAFT.md:272); never a product/version claim."
     },
     "agent_revision_ref": {
       "description": "Must already exist (minted by Route 1) and resolve in the authenticated tenant/project/owner scope; this route never creates a revision (PART1_CONTRACT_FREEZE_DRAFT.md:639).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
-        {"$ref": "#/definitions/TypedOpaqueRef"},
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
         {"properties": {"kind": {"const": "agent_revision"}}}
       ]
     },
     "measurement_contract_ref": {
       "description": "Must already exist (minted by Route 2) and resolve to one immutable Backend-held expected universe in the same scope (PART1_CONTRACT_FREEZE_DRAFT.md:640).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
-        {"$ref": "#/definitions/TypedOpaqueRef"},
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
         {"properties": {"kind": {"const": "measurement_contract"}}}
       ]
     },
     "experiment_run_ref": {
       "description": "Optional provenance only, never the lifecycle parent or identity (PART1_CONTRACT_FREEZE_DRAFT.md:641, :112). No version_id: StableOpaqueRef names a longitudinal Backend resource lifecycle does not mint or version.",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
-        {"$ref": "#/definitions/StableOpaqueRef"},
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableOpaqueRef"},
         {"properties": {"kind": {"const": "experiment_run"}}}
       ]
-    }
-  },
-  "definitions": {
-    "OpaqueRefId": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$",
-      "maxLength": 128,
-      "description": "Not a name, digest, tenant id, or content-derived public capability (PART1_CONTRACT_FREEZE_DRAFT.md:285, :294-295)."
-    },
-    "StableOpaqueRef": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "id"],
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": ["agent", "experiment_run"],
-          "description": "Part 1 StableOpaqueRef kinds only (PART1_CONTRACT_FREEZE_DRAFT.md:284); each use site further constrains this to its exact kind."
-        },
-        "id": {"$ref": "#/definitions/OpaqueRefId"}
-      },
-      "description": "Names a longitudinal, non-versioned resource that outlives any single snapshot of it (PART1_CONTRACT_FREEZE_DRAFT.md:280). Has no version_id field at all -- additionalProperties:false rejects one (corpus case typed_ref_stable_kind_includes_version_id, PART1_CONTRACT_FREEZE_DRAFT.md:287, :1058)."
-    },
-    "TypedOpaqueRef": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "id", "version_id"],
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "agent_revision",
-            "agent_lifecycle_record",
-            "measurement_contract",
-            "dataset_version",
-            "evaluator_version",
-            "slice_definition_version",
-            "governance_scope",
-            "binding",
-            "run_plan",
-            "evidence_item",
-            "reconciliation",
-            "decision",
-            "claim",
-            "qualification",
-            "standing",
-            "dependency",
-            "invalidation"
-          ],
-          "description": "Full Part 1 TypedOpaqueRef kind vocabulary (PART1_CONTRACT_FREEZE_DRAFT.md:293), including reserved kinds with no Part 1 producer; each use site further constrains this to its exact kind."
-        },
-        "id": {"$ref": "#/definitions/OpaqueRefId"},
-        "version_id": {
-          "$ref": "#/definitions/OpaqueRefId",
-          "description": "Identifies one immutable version; never 'latest' (PART1_CONTRACT_FREEZE_DRAFT.md:295). version_id==id is required for every immutable-snapshot kind in this beta contract (PART1_CONTRACT_FREEZE_DRAFT.md:299), but that cross-field equality is service_invalid, not schema-decidable (PART1_CONTRACT_FREEZE_DRAFT.md:971, corpus case typed_ref_immutable_kind_version_id_mismatch) -- proved by a Backend-side test, not this schema."
-        }
-      },
-      "description": "Content-free object naming one immutable, once-minted snapshot (PART1_CONTRACT_FREEZE_DRAFT.md:289)."
     }
   }
 }

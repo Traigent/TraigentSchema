@@ -1,0 +1,36 @@
+{
+  "$comment": "ALR-1102 (Terra review P1-2, 2026-08-10) scoped disclosure-register override manifest for the four Route 3/Route 4 schemas plus their shared agent_lifecycle_common_schema.json definitions -- the subset of the exact worked table at PART1_CONTRACT_FREEZE_DRAFT.md:412-487 whose named document already exists in this repo. `agent_lifecycle_agent_revision_register_*`, `agent_lifecycle_measurement_contract_register_*`, and `agent_lifecycle_record_response_schema.json` are Route 1/2/5 documents that do not exist yet; their worked-table rows are deliberately NOT reproduced here (a manifest entry naming a nonexistent document would fail this manifest's own literal-resolution requirement, which is exactly the poison class row 17 exists to catch). tests/test_agent_lifecycle_disclosure_register.py resolves `document` relative to traigent_schema/schemas/ and `pointer` as one literal RFC 6901 pointer within that document before any rule assignment. The eventual Route 1/2/5 story extends this file (adding more override rows) rather than replacing it; it is a scoped subset of the canonical tests/data/agent_lifecycle_contract_v1beta.json#/disclosure_manifest named in PART1_CONTRACT_FREEZE_DRAFT.md:410, not a competing structure -- that full nine-root file is created once every property-bearing root exists.",
+  "artifact": "agent_lifecycle_disclosure_register.v1",
+  "disclosure_manifest": [
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+      "pointer": "#/properties/nonce",
+      "rule": "single_consumption_capability",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json",
+      "pointer": "#/properties/nonce",
+      "rule": "single_consumption_capability",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
+      "pointer": "#/properties/experiment_run_ref",
+      "rule": "opaque_lifecycle_reference",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+      "pointer": "#/properties/experiment_run_ref",
+      "rule": "opaque_lifecycle_reference",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+      "pointer": "#/properties/expected_count",
+      "rule": "protocol_accounting_count",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    }
+  ]
+}

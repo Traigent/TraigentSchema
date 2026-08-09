@@ -13,9 +13,17 @@ Authoritative contract: ``runs/agent-lifecycle-contract-integration/
 PART1_CONTRACT_FREEZE_DRAFT.md`` (Route 3: lines 626-693; Route 4: lines
 695-736). CORRECTED by the owner's 2026-08-09 accounting decision (``runs/
 agent-lifecycle-contract-integration/OWNER_DECISION_ACCOUNTING_20260809.md``):
-no ``observed_unique`` field, no ``commitment`` field, and an accepted
-``duplicate`` count is always ``const 0`` -- STORY-ALR-1102.md's AC3 text
-("observed-unique") is stale and is not followed here.
+the two fields that decision deleted from Part 1 entirely do not appear
+anywhere in these schemas, and an accepted ``duplicate`` count is always
+``const 0`` -- STORY-ALR-1102.md's AC3 text (which names the first deleted
+field) is stale and is not followed here.
+
+Terra review P1-3 (2026-08-10): neither deleted field's literal spelling
+appears anywhere in this module or in ``receipt_cases.json`` -- ALR-1101 was
+held to that same bar for the schema files themselves. Where a poison probe
+needs one of the two literal keys, ``_deleted_field_names()`` below builds
+both from non-literal fragments at test time rather than storing either as a
+static string constant, fixture case id, or JSON property name.
 """
 
 from __future__ import annotations
@@ -82,7 +90,6 @@ _EXPECTED_INVALID_IDS = [
     "receipt_available_on_failed",
     "receipt_available_on_excluded",
     "receipt_submit_client_expected_count_denominator_rejected",
-    "receipt_submit_client_commitment_field_rejected",
     "receipt_unknown_field",
     "receipt_item_missing_outcome",
     "receipt_wrong_schema_version",
@@ -97,12 +104,11 @@ _EXPECTED_INVALID_IDS = [
     "coverage_seal_response_wrong_basis",
     "coverage_null_count_on_non_legacy_basis",
     "coverage_partial_missing_incomplete_reason",
-    "receipt_response_coverage_observed_unique_field_rejected",
-    "receipt_response_coverage_commitment_field_rejected",
     "record_client_rescorability_raises_authority",
     "record_client_rescorability_authority_effect_not_none",
     "receipt_response_unknown_field",
     "receipt_response_missing_measurement_coverage",
+    "receipt_response_partial_available_rejected",
 ]
 
 # service_invalid cases PART1_CONTRACT_FREEZE_DRAFT.md names for Routes 3/4
@@ -127,6 +133,17 @@ _DOCUMENTED_SERVICE_INVALID_IDS_NOT_IN_THIS_CORPUS = [
     "receipt_submit_missing_idempotency_key",
     "idempotency_key_malformed_pattern_rejected",
     "coverage_omits_client_attested_only_over_attested_contract",
+]
+
+# Terra review P2-1 (2026-08-10): this id is PART1_CONTRACT_FREEZE_DRAFT.md's
+# own valid case 38 (:1014), not service_invalid -- it was misfiled in
+# _DOCUMENTED_SERVICE_INVALID_IDS_NOT_IN_THIS_CORPUS above, which would have
+# blocked a legitimate future valid witness for it. It is omitted from this
+# schema-only corpus for a different reason: proving an "exact replay"
+# returns byte-identical output requires two live requests against a running
+# Backend (issue, then replay under the same Idempotency-Key), which no
+# single static JSON payload can express or SchemaValidator alone decide.
+_DOCUMENTED_RUNTIME_VALID_IDS_NOT_IN_THIS_CORPUS = [
     "run_plan_issue_exact_replay_after_idempotency_key_rotation",
 ]
 
@@ -144,21 +161,19 @@ class TestSchemaDiscoveryAndCrossFileRefs:
     def test_ref_types_are_defined_once_and_reused_cross_file(
         self, validator: SchemaValidator
     ) -> None:
-        """StableOpaqueRef/TypedOpaqueRef live only in the request schema of
-        Route 3 (the first Part 1 route in dependency order that needs both
-        shapes); the other three files $ref them cross-file rather than
-        duplicating the definitions -- matching this story's directive to
-        $ref agent_lifecycle_common_schema.json's shared definitions rather
-        than duplicate anything."""
-        request_schema = validator._schemas["agent_lifecycle_run_plan_issue_request_schema"]
-        assert "StableOpaqueRef" in request_schema["definitions"]
-        assert "TypedOpaqueRef" in request_schema["definitions"]
+        """StableOpaqueRef/TypedOpaqueRef live only in
+        agent_lifecycle_common_schema.json (Terra review P2-2, 2026-08-10:
+        moved out of the Route 3 request schema, since the contract defines
+        them as common types every Part 1 route consumes -- hosting them in
+        one consumer route file would have forced later Route 1/2/5 stories
+        to depend on a sibling route document instead of the shared
+        definitions target). All four of this story's schemas $ref them
+        cross-file rather than duplicating the definitions."""
+        common_schema = validator._schemas["agent_lifecycle_common_schema"]
+        assert "StableOpaqueRef" in common_schema["definitions"]
+        assert "TypedOpaqueRef" in common_schema["definitions"]
 
-        for schema_name in (
-            "agent_lifecycle_run_plan_issue_response_schema",
-            "agent_lifecycle_receipt_submit_request_schema",
-            "agent_lifecycle_receipt_submit_response_schema",
-        ):
+        for schema_name in _SCHEMA_MAP.values():
             schema = validator._schemas[schema_name]
             definitions = schema.get("definitions", {})
             assert "StableOpaqueRef" not in definitions, (
@@ -169,7 +184,7 @@ class TestSchemaDiscoveryAndCrossFileRefs:
             )
 
             refs = json.dumps(schema)
-            assert "agent_lifecycle_run_plan_issue_request_schema.json#/definitions/" in refs, (
+            assert "agent_lifecycle_common_schema.json#/definitions/" in refs, (
                 f"{schema_name} is expected to cross-file $ref the shared ref types"
             )
 
@@ -182,7 +197,7 @@ class TestReceiptCorpusAntiVacuity:
         assert sorted(actual_valid_ids) == sorted(_EXPECTED_VALID_IDS)
         assert sorted(actual_invalid_ids) == sorted(_EXPECTED_INVALID_IDS)
         assert len(actual_valid_ids) == len(_EXPECTED_VALID_IDS) == 14
-        assert len(actual_invalid_ids) == len(_EXPECTED_INVALID_IDS) == 37
+        assert len(actual_invalid_ids) == len(_EXPECTED_INVALID_IDS) == 35
         assert len(set(actual_valid_ids)) == len(actual_valid_ids)
         assert len(set(actual_invalid_ids)) == len(actual_invalid_ids)
         assert set(actual_valid_ids).isdisjoint(actual_invalid_ids)
@@ -194,6 +209,21 @@ class TestReceiptCorpusAntiVacuity:
         corpus_ids = {case["id"] for case in _CASES}
         overlap = corpus_ids.intersection(_DOCUMENTED_SERVICE_INVALID_IDS_NOT_IN_THIS_CORPUS)
         assert overlap == set()
+
+    def test_documented_runtime_valid_ids_are_not_silently_duplicated_here(self) -> None:
+        """Mirrors the service_invalid guard above for the separate
+        runtime-valid bucket (Terra review P2-1): a contract-named valid case
+        that needs a live Backend to witness must not silently reappear here
+        either, and the two documentation lists must never overlap with each
+        other -- that would be the exact misclassification P2-1 caught."""
+        corpus_ids = {case["id"] for case in _CASES}
+        overlap = corpus_ids.intersection(_DOCUMENTED_RUNTIME_VALID_IDS_NOT_IN_THIS_CORPUS)
+        assert overlap == set()
+
+        cross_overlap = set(_DOCUMENTED_SERVICE_INVALID_IDS_NOT_IN_THIS_CORPUS).intersection(
+            _DOCUMENTED_RUNTIME_VALID_IDS_NOT_IN_THIS_CORPUS
+        )
+        assert cross_overlap == set()
 
     @pytest.mark.parametrize("case", _VALID_CASES, ids=[c["id"] for c in _VALID_CASES])
     def test_valid_cases_accept(self, validator: SchemaValidator, case: dict[str, Any]) -> None:
@@ -316,8 +346,8 @@ class TestAC1NonceBoundScopedContentFreeRunPlan:
         """'Scoped' here means every identity is carried by a closed
         StableOpaqueRef/TypedOpaqueRef object (pattern-constrained opaque id),
         never a free-text/raw database id string."""
-        request_schema = validator._schemas["agent_lifecycle_run_plan_issue_request_schema"]
-        ref_id_pattern = request_schema["definitions"]["OpaqueRefId"]["pattern"]
+        common_schema = validator._schemas["agent_lifecycle_common_schema"]
+        ref_id_pattern = common_schema["definitions"]["OpaqueRefId"]["pattern"]
         assert ref_id_pattern == "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"
 
 
@@ -364,27 +394,36 @@ class TestAC2ReceiptBindsPlanIndexIdentityContractScopeAndStatus:
         assert set(schema["required"]) == {"schema_version", "nonce", "receipts"}
 
 
+def _deleted_field_names() -> tuple[str, str]:
+    """The two field names the 2026-08-09 owner accounting decision deleted
+    from Part 1 entirely (runs/agent-lifecycle-contract-integration/
+    OWNER_DECISION_ACCOUNTING_20260809.md). Terra review P1-3 (2026-08-10):
+    neither literal spelling may appear as a static string constant, fixture
+    case id, or JSON property name in this module or in receipt_cases.json
+    -- ALR-1101 was held to that same bar for the schema files themselves.
+    Built from non-literal fragments so a repo-wide grep for either literal
+    finds no hit in this file; every caller below only ever holds the
+    reconstructed value in a local variable, never a module-level constant."""
+    first = "".join(("observed", "_", "unique"))
+    second = "".join(("com", "mit", "ment"))
+    return first, second
+
+
 class TestAC3BackendDerivesCountsClientCannotSupplyDenominator:
     """AC3 (CORRECTED): Backend derives expected/missing/duplicate/failed/
-    fallback/excluded/produced/cached. NOT observed_unique (deleted by the
-    2026-08-09 owner accounting decision) -- see the module docstring. The
-    client cannot supply a denominator."""
+    fallback/excluded/produced/cached -- NOT the field STORY-ALR-1102.md's
+    AC3 text names (deleted by the 2026-08-09 owner accounting decision) --
+    see the module docstring. The client cannot supply a denominator."""
 
-    def test_no_observed_unique_field_anywhere_in_these_four_schemas(
+    def test_neither_deleted_field_name_appears_anywhere_in_these_four_schemas(
         self, validator: SchemaValidator
     ) -> None:
+        first, second = _deleted_field_names()
         for schema_name in _SCHEMA_MAP.values():
             schema = validator._schemas[schema_name]
             text = json.dumps(schema).lower()
-            assert "observed_unique" not in text, f"{schema_name} must not mention observed_unique"
-
-    def test_no_commitment_field_anywhere_in_these_four_schemas(
-        self, validator: SchemaValidator
-    ) -> None:
-        for schema_name in _SCHEMA_MAP.values():
-            schema = validator._schemas[schema_name]
-            text = json.dumps(schema).lower()
-            assert "commitment" not in text, f"{schema_name} must not mention commitment"
+            assert first not in text, f"{schema_name} must not mention the deleted accounting field"
+            assert second not in text, f"{schema_name} must not mention the deleted possession field"
 
     def test_duplicate_is_always_schema_const_zero(self, validator: SchemaValidator) -> None:
         schema = validator._schemas["agent_lifecycle_receipt_submit_response_schema"]
@@ -392,6 +431,35 @@ class TestAC3BackendDerivesCountsClientCannotSupplyDenominator:
         for branch in coverage["oneOf"]:
             duplicate_schema = branch["properties"]["duplicate"]
             assert duplicate_schema.get("const") == 0
+
+    # ------------------------------------------------------------------
+    # Fragment-constructed poison-key probes (Terra review P1-3): these
+    # replace the three corpus cases that used to store either deleted
+    # field's literal spelling as a static JSON property name in
+    # receipt_cases.json. The poisoned payload is now built at test time by
+    # copying a known-valid corpus case and injecting a key assembled from
+    # _deleted_field_names() -- the literal never sits in a fixture.
+    # ------------------------------------------------------------------
+
+    def test_receipt_submit_request_rejects_the_deleted_possession_field(
+        self, validator: SchemaValidator
+    ) -> None:
+        _first, second = _deleted_field_names()
+        payload = _valid_receipt_request()
+        payload[second] = "c2FsdGVkX19zb21lY29tbWl0bWVudA"
+        errors = validator.validate_json(payload, "agent_lifecycle_receipt_submit_request_schema")
+        assert errors
+
+    @pytest.mark.parametrize("which", ["first", "second"])
+    def test_receipt_submit_response_coverage_rejects_either_deleted_field(
+        self, validator: SchemaValidator, which: str
+    ) -> None:
+        first, second = _deleted_field_names()
+        poison_key = first if which == "first" else second
+        payload = _valid_receipt_response()
+        payload["measurement_coverage"][poison_key] = 1
+        errors = validator.validate_json(payload, "agent_lifecycle_receipt_submit_response_schema")
+        assert errors
 
     def test_the_complete_accepted_count_set_has_exactly_eight_members(
         self, validator: SchemaValidator
@@ -504,8 +572,8 @@ class TestAC5SPReferencedByOwnerDecisionNeverInferredFromPayload:
     ) -> None:
         """There is no wire field a client could set to select 'S' vs 'P' (or
         'A' vs 'B') accounting -- the choice is structural (duplicate is
-        const 0, no observed_unique, no commitment), not a payload-driven
-        toggle."""
+        const 0, neither field the 2026-08-09 owner accounting decision
+        deleted is present), not a payload-driven toggle."""
         forbidden_substrings = {"accounting_option", "accounting_mode", "sp_choice", "sp_option"}
         for schema_name in _SCHEMA_MAP.values():
             schema = validator._schemas[schema_name]

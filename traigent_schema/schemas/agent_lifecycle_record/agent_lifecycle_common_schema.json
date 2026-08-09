@@ -2,9 +2,74 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_common_schema.json",
   "title": "Agent Lifecycle Common Schema",
-  "description": "ALR-1101 (Agent Lifecycle Record, Part 1): the shared closed-vocabulary definitions for the four orthogonal record axes -- governance, identity, coverage, comparability -- plus the trust-level authority ceiling and the bounded reason vocabulary they all draw from. This document is a resolved definitions target: no axis constrains another (each closed type binds its own trust_level/reason-codes independently), unknown/legacy inputs resolve to the least-authority value rather than being echoed, and no client-supplied evidence can ever produce server_verified. The generic AxisValue base is intentionally not referenced by anything else in this file -- it exists only to document the shared shape and to let tests demonstrate why each axis needs its own closed oneOf instead of accepting any value/trust_level/reason-array combination. The root of this document resolves to AgentLifecycleAxisSet purely as a convenient, uniform validation entry point for this story's corpus; every individual axis definition remains independently $ref-able by future route schemas. Reserved-but-producerless values (identity VERIFIED; governance ADVISORY/STRICT; comparability COMPARABLE/NON_COMPARABLE) are intentionally schema-VALID here -- Part 1 has no route that emits them, which is a producer/service-level guarantee owned by later stories, not a schema-level rejection.",
+  "description": "ALR-1101 (Agent Lifecycle Record, Part 1): the shared closed-vocabulary definitions for the four orthogonal record axes -- governance, identity, coverage, comparability -- plus the trust-level authority ceiling and the bounded reason vocabulary they all draw from. This document is a resolved definitions target: no axis constrains another (each closed type binds its own trust_level/reason-codes independently), unknown/legacy inputs resolve to the least-authority value rather than being echoed, and no client-supplied evidence can ever produce server_verified. The generic AxisValue base is intentionally not referenced by anything else in this file -- it exists only to document the shared shape and to let tests demonstrate why each axis needs its own closed oneOf instead of accepting any value/trust_level/reason-array combination. The root of this document resolves to AgentLifecycleAxisSet purely as a convenient, uniform validation entry point for this story's corpus; every individual axis definition remains independently $ref-able by future route schemas. Reserved-but-producerless values (identity VERIFIED; governance ADVISORY/STRICT; comparability COMPARABLE/NON_COMPARABLE) are intentionally schema-VALID here -- Part 1 has no route that emits them, which is a producer/service-level guarantee owned by later stories, not a schema-level rejection. ALR-1102 (Terra review P2-2) adds StableOpaqueRef/TypedOpaqueRef here: PART1_CONTRACT_FREEZE_DRAFT.md:276-299 defines both as common types every Part 1 route consumes, so hosting them in a single route's request file would have forced every later Route 1/2/5 story to depend on a consumer route document instead of this shared definitions target. Every route schema that names an opaque ref field narrows kind at its own use site via allOf and additionally carries its own x-disclosure annotation there (PART1_CONTRACT_FREEZE_DRAFT.md:406-409: the worked disclosure table assigns rules per exact (document, JSON Pointer) use site, not once at the shared type) -- TypedOpaqueRef.kind/id/version_id and StableOpaqueRef.kind/id below carry only the generic deterministic-assignment fallback rule for whichever caller does not override it.",
   "$ref": "#/definitions/AgentLifecycleAxisSet",
   "definitions": {
+    "OpaqueRefId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$",
+      "maxLength": 128,
+      "description": "Not a name, digest, tenant id, or content-derived public capability (PART1_CONTRACT_FREEZE_DRAFT.md:285, :294-295)."
+    },
+    "StableOpaqueRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["agent", "experiment_run"],
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"},
+          "description": "Part 1 StableOpaqueRef kinds only (PART1_CONTRACT_FREEZE_DRAFT.md:284); each use site further constrains this to its exact kind."
+        },
+        "id": {
+          "allOf": [{"$ref": "#/definitions/OpaqueRefId"}],
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "description": "Names a longitudinal, non-versioned resource that outlives any single snapshot of it (PART1_CONTRACT_FREEZE_DRAFT.md:280). Has no version_id field at all -- additionalProperties:false rejects one (corpus case typed_ref_stable_kind_includes_version_id, PART1_CONTRACT_FREEZE_DRAFT.md:287, :1058)."
+    },
+    "TypedOpaqueRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "version_id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "agent_revision",
+            "agent_lifecycle_record",
+            "measurement_contract",
+            "dataset_version",
+            "evaluator_version",
+            "slice_definition_version",
+            "governance_scope",
+            "binding",
+            "run_plan",
+            "evidence_item",
+            "reconciliation",
+            "decision",
+            "claim",
+            "qualification",
+            "standing",
+            "dependency",
+            "invalidation"
+          ],
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"},
+          "description": "Full Part 1 TypedOpaqueRef kind vocabulary (PART1_CONTRACT_FREEZE_DRAFT.md:293), including reserved kinds with no Part 1 producer; each use site further constrains this to its exact kind."
+        },
+        "id": {
+          "allOf": [{"$ref": "#/definitions/OpaqueRefId"}],
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "version_id": {
+          "allOf": [{"$ref": "#/definitions/OpaqueRefId"}],
+          "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+          "description": "Identifies one immutable version; never 'latest' (PART1_CONTRACT_FREEZE_DRAFT.md:295). version_id==id is required for every immutable-snapshot kind in this beta contract (PART1_CONTRACT_FREEZE_DRAFT.md:299), but that cross-field equality is service_invalid, not schema-decidable (PART1_CONTRACT_FREEZE_DRAFT.md:971, corpus case typed_ref_immutable_kind_version_id_mismatch) -- proved by a Backend-side test, not this schema."
+        }
+      },
+      "description": "Content-free object naming one immutable, once-minted snapshot (PART1_CONTRACT_FREEZE_DRAFT.md:289)."
+    },
     "TrustLevel": {
       "type": "string",
       "enum": ["client_attested", "backend_observed", "server_verified"],

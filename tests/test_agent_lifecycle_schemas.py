@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
+from jsonschema import Draft7Validator
 
 from traigent_schema import AnalyticsValidator, SchemaValidator
 from traigent_schema.utils import get_schemas_dir
@@ -123,6 +124,12 @@ PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS = {
     # which a lead's baseline is measured — the onboarding funnel step, not the
     # artifact-state lifecycle "baseline" state this guard protects.
     ("onboarding/onboarding_funnel_event_schema.json", "baseline"),
+    # ALR-1101 (Agent Lifecycle Record, Part 1): every axis-value closed type
+    # (GovernanceProfileAxisValue, IdentityStateAxisValue, ComparabilityVerdictAxisValue,
+    # RecordMeasurementCoverage) requires a public `reason_codes` array property per
+    # PART1_CONTRACT_FREEZE_DRAFT.md:311 -- the bounded-reason-vocabulary axis contract,
+    # unrelated to the internal artifact-lifecycle `reason_code` token this guard protects.
+    ("agent_lifecycle_record/agent_lifecycle_common_schema.json", "reason_code"),
 }
 
 
@@ -1250,6 +1257,289 @@ class TestAgentPlaybookSchema:
         errors = validator.validate_json(payload, "agent_playbook_schema")
         assert errors
         assert any("unexpected" in error or "Additional properties" in error for error in errors)
+
+
+def _load_orthogonal_corpus() -> dict[str, object]:
+    path = Path(__file__).parent / "data" / "agent_lifecycle_record" / "orthogonal_cases.json"
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+_ORTHOGONAL_CORPUS = _load_orthogonal_corpus()
+_ORTHOGONAL_CASES = _ORTHOGONAL_CORPUS["cases"]
+_ORTHOGONAL_VALID_CASES = [case for case in _ORTHOGONAL_CASES if case["kind"] == "valid"]
+_ORTHOGONAL_INVALID_CASES = [case for case in _ORTHOGONAL_CASES if case["kind"] == "schema_invalid"]
+
+
+def _orthogonal_case(case_id: str) -> dict[str, object]:
+    return next(case["payload"] for case in _ORTHOGONAL_CASES if case["id"] == case_id)
+
+
+def _sub_definition_validator(schema: dict[str, object], definition_name: str) -> Draft7Validator:
+    """Build a validator for one ``#/definitions/<name>`` sub-schema in isolation.
+
+    ``agent_lifecycle_common_schema.json`` is a resolved definitions target: every
+    individual axis type must remain independently usable, not only reachable
+    through the root ``AgentLifecycleAxisSet``. Every ``$ref`` in this schema is
+    internal (``#/definitions/...``), so wrapping the target definition with the
+    same ``definitions`` map resolves them without needing SchemaValidator's
+    cross-file registry.
+    """
+    wrapper = {"$ref": f"#/definitions/{definition_name}", "definitions": schema["definitions"]}
+    return Draft7Validator(wrapper)
+
+
+class TestAgentLifecycleCommonSchema:
+    """ALR-1101: orthogonal lifecycle, trust, authority ceilings, and bounded reasons."""
+
+    def test_agent_lifecycle_common_schema_is_discovered(self, validator):
+        assert "agent_lifecycle_common_schema" in validator.available_schemas
+
+    def test_orthogonal_corpus_is_non_trivial(self):
+        """Anti-vacuity: the fixture loader actually found real cases in both buckets."""
+        assert len(_ORTHOGONAL_VALID_CASES) >= 5
+        assert len(_ORTHOGONAL_INVALID_CASES) >= 5
+
+    @pytest.mark.parametrize(
+        "case", _ORTHOGONAL_VALID_CASES, ids=[case["id"] for case in _ORTHOGONAL_VALID_CASES]
+    )
+    def test_orthogonal_corpus_valid_cases_accept(self, validator, case):
+        errors = validator.validate_json(case["payload"], "agent_lifecycle_common_schema")
+        assert errors == [], f"{case['id']}: unexpected errors: {errors}"
+
+    @pytest.mark.parametrize(
+        "case",
+        _ORTHOGONAL_INVALID_CASES,
+        ids=[case["id"] for case in _ORTHOGONAL_INVALID_CASES],
+    )
+    def test_orthogonal_corpus_schema_invalid_cases_reject(self, validator, case):
+        errors = validator.validate_json(case["payload"], "agent_lifecycle_common_schema")
+        assert errors, f"{case['id']}: expected rejection but payload validated cleanly"
+
+    # ------------------------------------------------------------------
+    # AC1: valid record keeps governance, identity, coverage, and
+    # comparability orthogonal -- no axis constrains another.
+    # ------------------------------------------------------------------
+
+    def test_axes_are_orthogonal_governance_swap_does_not_affect_other_axes(self, validator):
+        baseline = _orthogonal_case("record_all_axes_orthogonal_baseline")
+        for governance_value in ("OBSERVED", "ADVISORY", "STRICT"):
+            payload = copy.deepcopy(baseline)
+            payload["governance_profile"] = {
+                "value": governance_value,
+                "trust_level": "backend_observed",
+                "reason_codes": [],
+            }
+            errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+            assert errors == [], (
+                f"governance_profile={governance_value} unexpectedly changed the "
+                f"validity of the untouched identity/coverage/comparability axes: {errors}"
+            )
+
+    def test_axes_are_orthogonal_comparability_swap_does_not_affect_other_axes(self, validator):
+        baseline = _orthogonal_case("record_all_axes_orthogonal_baseline")
+        comparability_branches = {
+            "NOT_APPLICABLE": ["SINGLE_SUBJECT"],
+            "COMPARABLE": ["IDENTICAL_MEASUREMENT_CONTRACT_BASIS"],
+            "NON_COMPARABLE": ["REQUIRED_COMPARISON_INPUT_UNKNOWN"],
+        }
+        for value, reason_codes in comparability_branches.items():
+            payload = copy.deepcopy(baseline)
+            payload["comparability_verdict"] = {
+                "value": value,
+                "trust_level": "backend_observed",
+                "reason_codes": reason_codes,
+            }
+            errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+            assert errors == [], (
+                f"comparability_verdict={value} unexpectedly changed the validity "
+                f"of the untouched governance/identity/coverage axes: {errors}"
+            )
+
+    # ------------------------------------------------------------------
+    # AC2: unknown legacy governance resolves OBSERVED; unknown identity
+    # retains its reason and can never become VERIFIED.
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize("legacy_token", ["UNSET", "LEGACY", "", "unknown"])
+    def test_governance_rejects_every_token_outside_the_closed_vocabulary(
+        self, validator, legacy_token
+    ):
+        payload = copy.deepcopy(_orthogonal_case("record_all_axes_orthogonal_baseline"))
+        payload["governance_profile"] = {
+            "value": legacy_token,
+            "trust_level": "backend_observed",
+            "reason_codes": [],
+        }
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, f"legacy governance token {legacy_token!r} should not validate"
+
+    def test_identity_unknown_can_never_become_verified_by_editing_value_alone(self, validator):
+        """Flipping only ``value`` on a live-UNKNOWN identity to VERIFIED must fail:
+        VERIFIED requires server_verified trust and REGISTERED_PROVENANCE, which an
+        UNKNOWN-shaped record never carries."""
+        payload = copy.deepcopy(_orthogonal_case("record_identity_live_unknown_no_declaration"))
+        payload["identity_state"]["value"] = "VERIFIED"
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, "UNKNOWN identity must not become VERIFIED by relabeling value alone"
+
+    # ------------------------------------------------------------------
+    # AC3: COMPARABLE requires an identical-contract basis; any unknown
+    # required input yields NON_COMPARABLE, never a permissive default.
+    # ------------------------------------------------------------------
+
+    def test_comparable_requires_its_bound_identical_contract_basis_reason(self, validator):
+        payload = copy.deepcopy(
+            _orthogonal_case("record_comparability_reserved_comparable_structurally_valid")
+        )
+        payload["comparability_verdict"]["reason_codes"] = []
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, "COMPARABLE without its bound identical-contract-basis reason must reject"
+
+    def test_non_comparable_is_not_interchangeable_with_comparables_reason(self, validator):
+        payload = copy.deepcopy(
+            _orthogonal_case("record_comparability_reserved_non_comparable_structurally_valid")
+        )
+        # Swapping in COMPARABLE's reason on a NON_COMPARABLE verdict is not a
+        # permissive default -- it is simply a different malformed combination.
+        payload["comparability_verdict"]["reason_codes"] = ["IDENTICAL_MEASUREMENT_CONTRACT_BASIS"]
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, "NON_COMPARABLE with COMPARABLE's reason must reject, not silently pass"
+
+    # ------------------------------------------------------------------
+    # AC4: trust levels are client_attested/backend_observed/server_verified;
+    # client-supplied evidence can never raise authority to server_verified.
+    # ------------------------------------------------------------------
+
+    def test_trust_level_enum_is_exactly_the_three_closed_values(self, validator):
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        trust_level = schema["definitions"]["TrustLevel"]
+        assert trust_level["enum"] == ["client_attested", "backend_observed", "server_verified"]
+
+    @pytest.mark.parametrize(
+        "identity_value,identity_reason",
+        [
+            ("UNKNOWN", "REQUIRED_IDENTITY_UNKNOWN"),
+            ("RECONSTRUCTED", "DECLARED_PROVENANCE"),
+            ("RECONSTRUCTED", "LEGACY_RECONSTRUCTED"),
+        ],
+    )
+    def test_no_client_shaped_identity_can_claim_server_verified_trust(
+        self, validator, identity_value, identity_reason
+    ):
+        """Every identity branch whose reason is client-suppliable is rejected the
+        moment its trust_level is raised to server_verified -- only the single
+        Backend-provenance branch (VERIFIED/REGISTERED_PROVENANCE) may carry it."""
+        payload = copy.deepcopy(_orthogonal_case("record_all_axes_orthogonal_baseline"))
+        payload["identity_state"] = {
+            "value": identity_value,
+            "trust_level": "server_verified",
+            "reason_codes": [identity_reason],
+        }
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, (
+            f"identity value={identity_value} reason={identity_reason} must not be able "
+            "to claim server_verified trust"
+        )
+
+    def test_axis_value_base_would_permit_the_illegal_combo_the_closed_type_forbids(
+        self, validator
+    ):
+        """Demonstrates why the generic AxisValue base is 'not a public escape hatch'
+        (PART1_CONTRACT_FREEZE_DRAFT.md:311): validated directly, it accepts an
+        UNKNOWN/server_verified combination that IdentityStateAxisValue correctly
+        rejects, because AxisValue alone does not bind trust_level per value."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        illegal_combo = {
+            "value": "UNKNOWN",
+            "trust_level": "server_verified",
+            "reason_codes": ["REQUIRED_IDENTITY_UNKNOWN"],
+        }
+
+        base_validator = _sub_definition_validator(schema, "AxisValue")
+        assert list(base_validator.iter_errors(illegal_combo)) == [], (
+            "AxisValue base is expected to accept this combination in isolation -- "
+            "that is exactly why nothing may reference it directly"
+        )
+
+        identity_validator = _sub_definition_validator(schema, "IdentityStateAxisValue")
+        assert list(identity_validator.iter_errors(illegal_combo)), (
+            "IdentityStateAxisValue must reject the same combination AxisValue alone permits"
+        )
+
+    def test_nothing_in_this_schema_references_axis_value_directly(self, validator):
+        """Structural guard for 'No Part 1 route schema references the generic base
+        directly' (PART1_CONTRACT_FREEZE_DRAFT.md:311): scan every ``$ref`` in this
+        file and confirm none of them target ``#/definitions/AxisValue``."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+
+        def iter_refs(node: object):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key == "$ref" and isinstance(value, str):
+                        yield value
+                    else:
+                        yield from iter_refs(value)
+            elif isinstance(node, list):
+                for item in node:
+                    yield from iter_refs(item)
+
+        refs = list(iter_refs(schema))
+        assert refs, "expected this schema to contain internal $refs at all"
+        assert "#/definitions/AxisValue" not in refs
+
+    # ------------------------------------------------------------------
+    # AC5: malformed combinations are rejected; unknown fields either
+    # preserve or fail closed -- never silently pass.
+    # ------------------------------------------------------------------
+
+    def test_every_object_branch_in_this_schema_is_closed_to_additional_properties(
+        self, validator
+    ):
+        """Fail-closed guard: every object branch in every closed axis type sets
+        additionalProperties: false, so an unrecognized field is always rejected
+        rather than silently preserved-and-ignored or accepted."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+
+        def iter_object_branches(node: object, path: str = "$"):
+            if isinstance(node, dict):
+                if node.get("type") == "object" and "properties" in node:
+                    yield path, node
+                for key, value in node.items():
+                    yield from iter_object_branches(value, f"{path}.{key}")
+            elif isinstance(node, list):
+                for index, item in enumerate(node):
+                    yield from iter_object_branches(item, f"{path}[{index}]")
+
+        offenders = [
+            path
+            for path, node in iter_object_branches(schema["definitions"])
+            if node.get("additionalProperties") is not False
+        ]
+        assert offenders == [], f"object branches missing additionalProperties:false: {offenders}"
+
+    def test_no_commitment_or_observed_unique_field_anywhere_in_coverage(self, validator):
+        """Owner accounting decision (2026-08-09, simpler contract): commitment and
+        observed_unique were both deliberately deleted and must never resurface."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        coverage = schema["definitions"]["RecordMeasurementCoverage"]
+        for branch in coverage["oneOf"]:
+            properties = set(branch["properties"])
+            assert "commitment" not in properties
+            assert "observed_unique" not in properties
+
+    def test_accepted_duplicate_is_always_fixed_at_zero_or_null(self, validator):
+        """Owner accounting decision: duplicate is const 0 on every live/unmeasured
+        branch and const null (alongside the other seven counts) on the legacy
+        marker branch -- never an open integer."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        coverage = schema["definitions"]["RecordMeasurementCoverage"]
+        for branch in coverage["oneOf"]:
+            duplicate_schema = branch["properties"]["duplicate"]
+            assert "const" in duplicate_schema, (
+                f"duplicate must be schema-const (0 or null), not an open type: {duplicate_schema}"
+            )
+            assert duplicate_schema["const"] in (0, None), duplicate_schema
 
 
 class TestDatasetVersioning:

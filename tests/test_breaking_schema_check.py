@@ -155,6 +155,7 @@ def _run_gate(repo: Path, base_ref: str, head_ref: str) -> subprocess.CompletedP
             "--allowlist",
             str(repo / "no-such-allowlist.json"),
         ],
+        env=_sanitized_git_env(),
         capture_output=True,
         text=True,
     )
@@ -591,6 +592,7 @@ def test_placeholder_allowlist_reason_does_not_grant_opt_out(widget_repo: Path) 
             "--allowlist",
             str(allowlist),
         ],
+        env=_sanitized_git_env(),
         capture_output=True,
         text=True,
     )
@@ -640,6 +642,7 @@ def test_real_allowlist_reason_grants_opt_out(widget_repo: Path) -> None:
             "--allowlist",
             str(allowlist),
         ],
+        env=_sanitized_git_env(),
         capture_output=True,
         text=True,
     )

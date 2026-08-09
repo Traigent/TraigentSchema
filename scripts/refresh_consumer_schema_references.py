@@ -110,36 +110,20 @@ _SKIP_FILENAMES = {"package-lock.json", "uv.lock", "poetry.lock", "yarn.lock", "
 _MAX_SAMPLE_SITES = 5
 
 _SAFE_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
-_SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-^~]*$")
-_MAX_GIT_REF_LEN = 200
 
+# Shared path/git-ref containment helpers (scripts/_path_safety.py) — see that module's
+# docstring for why these are no longer copy-pasted between the two scripts. Single
+# `import ... as` so isort/ruff-format keeps it to one statement.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-def _is_relative_to(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    return True
+import _path_safety as _ps  # noqa: E402  (deliberately follows the sys.path insert above)
 
-
-def _resolve_path_within(raw_path: str | Path, root: Path, arg_name: str) -> Path:
-    resolved_root = Path(root).expanduser().resolve()
-    resolved_path = Path(raw_path).expanduser().resolve()
-    if (
-        resolved_path != resolved_root
-        and not _is_relative_to(resolved_path, resolved_root)
-    ):
-        raise ValueError(
-            f"{arg_name} must stay inside {resolved_root}, got {resolved_path}"
-        )
-    return resolved_path
-
-
-def _resolve_existing_dir(raw_path: str | Path, arg_name: str) -> Path:
-    path = Path(raw_path).expanduser().resolve()
-    if not path.is_dir():
-        raise ValueError(f"{arg_name} is not a directory: {path}")
-    return path
+_is_relative_to = _ps.is_relative_to
+_resolve_existing_dir = _ps.resolve_existing_dir
+_resolve_path_within = _ps.resolve_path_within
+_safe_git_ref = _ps.safe_git_ref
+_validate_tar_members_stay_within = _ps.validate_tar_members_stay_within
 
 
 def _resolve_git_repo(raw_path: str | Path, arg_name: str) -> Path:
@@ -158,52 +142,6 @@ def _safe_repo_name(raw_name: str) -> str:
     if not _SAFE_REPO_NAME_RE.fullmatch(name):
         raise ValueError(f"--repo NAME contains unsupported characters: {raw_name!r}")
     return name
-
-
-def _safe_git_ref(raw_ref: str, arg_name: str) -> str:
-    ref = raw_ref.strip()
-    if ref != raw_ref or not ref:
-        raise ValueError(
-            f"{arg_name} must be a non-empty git ref without surrounding whitespace"
-        )
-    if len(ref) > _MAX_GIT_REF_LEN:
-        raise ValueError(f"{arg_name} is too long to be accepted as a git ref")
-    if ref.startswith("-"):
-        raise ValueError(f"{arg_name} must not start with '-': {ref!r}")
-    if not _SAFE_GIT_REF_RE.fullmatch(ref):
-        raise ValueError(
-            f"{arg_name} contains characters outside the accepted git-ref set: {ref!r}"
-        )
-    bad_shape = (
-        ".." in ref
-        or "//" in ref
-        or "@{" in ref
-        or ref.endswith(("/", ".", ".lock"))
-    )
-    if bad_shape:
-        raise ValueError(f"{arg_name} is not an accepted git ref shape: {ref!r}")
-    return ref
-
-
-def _validate_tar_members_stay_within(tar: tarfile.TarFile, dest: Path) -> None:
-    for member in tar.getmembers():
-        member_path = (dest / member.name).resolve()
-        if (
-            member_path != dest
-            and not _is_relative_to(member_path, dest)
-        ):
-            raise ValueError(
-                f"git archive member escapes destination: {member.name!r}"
-            )
-        if member.issym() or member.islnk():
-            link_target = (member_path.parent / member.linkname).resolve()
-            if (
-                link_target != dest
-                and not _is_relative_to(link_target, dest)
-            ):
-                raise ValueError(
-                    f"git archive link escapes destination: {member.name!r}"
-                )
 
 
 def _schema_basenames() -> list[str]:

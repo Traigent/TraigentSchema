@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
+from jsonschema import Draft7Validator
 
 from traigent_schema import AnalyticsValidator, SchemaValidator
 from traigent_schema.utils import get_schemas_dir
@@ -684,6 +685,38 @@ def _is_pre_existing_non_lifecycle_public_term(relative_path: str, token: str) -
     return (relative_path, token.lower()) in PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS
 
 
+_AGENT_LIFECYCLE_COMMON_SCHEMA_PATH = "agent_lifecycle_record/agent_lifecycle_common_schema.json"
+
+
+def _is_allowed_agent_lifecycle_reason_codes_occurrence(
+    relative_path: str,
+    json_path: tuple[str, ...],
+    value: str,
+    token: str,
+) -> bool:
+    """ALR-1101 P1-4 repair: `reason_codes` is a real, closed-vocabulary public
+    property name on every axis type in agent_lifecycle_common_schema.json (the
+    bounded_reason_vocabulary rule). Unlike a blanket per-file exemption -- which
+    would silently disable the `reason_code` leak check for every raw string in
+    this file, forever, including future ALR-11xx edits -- this allows the
+    literal string ONLY in the two JSON Schema positions it can legitimately
+    appear: as a `properties` key, or as a `required` list entry. A
+    `reason_code`-flavored string anywhere else in this file (a description, a
+    title, a stray sibling key) still fails. Modelled on
+    `_is_allowed_next_steps_action_category` above, which scopes by `json_path`
+    rather than blanket-exempting a whole document.
+    """
+    if token != "reason_code":
+        return False
+    if relative_path != _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH:
+        return False
+    if value != "reason_codes":
+        return False
+    if len(json_path) >= 2 and json_path[-2] == "properties" and json_path[-1] == "reason_codes":
+        return True
+    return len(json_path) >= 2 and json_path[-2] == "required"
+
+
 def _find_public_schema_lifecycle_leaks(
     relative_path: str,
     document: object,
@@ -693,6 +726,10 @@ def _find_public_schema_lifecycle_leaks(
     for json_path, value in _iter_raw_public_surface_strings(document):
         value_lower = value.lower()
         for token in LIFECYCLE_STATE_SURFACE_TIER_1_RAW_FORBIDDEN_SUBSTRINGS:
+            if _is_allowed_agent_lifecycle_reason_codes_occurrence(
+                relative_path, json_path, value, token
+            ):
+                continue
             if _is_pre_existing_non_lifecycle_public_term(relative_path, token):
                 continue
             if token.lower() in value_lower:
@@ -1252,6 +1289,601 @@ class TestAgentPlaybookSchema:
         assert any("unexpected" in error or "Additional properties" in error for error in errors)
 
 
+def _load_orthogonal_corpus() -> dict[str, object]:
+    path = Path(__file__).parent / "data" / "agent_lifecycle_record" / "orthogonal_cases.json"
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+_ORTHOGONAL_CORPUS = _load_orthogonal_corpus()
+_ORTHOGONAL_CASES = _ORTHOGONAL_CORPUS["cases"]
+_ORTHOGONAL_VALID_CASES = [case for case in _ORTHOGONAL_CASES if case["kind"] == "valid"]
+_ORTHOGONAL_INVALID_CASES = [case for case in _ORTHOGONAL_CASES if case["kind"] == "schema_invalid"]
+
+
+def _orthogonal_case(case_id: str) -> dict[str, object]:
+    return next(case["payload"] for case in _ORTHOGONAL_CASES if case["id"] == case_id)
+
+
+def _sub_definition_validator(schema: dict[str, object], definition_name: str) -> Draft7Validator:
+    """Build a validator for one ``#/definitions/<name>`` sub-schema in isolation.
+
+    ``agent_lifecycle_common_schema.json`` is a resolved definitions target: every
+    individual axis type must remain independently usable, not only reachable
+    through the root ``AgentLifecycleAxisSet``. Every ``$ref`` in this schema is
+    internal (``#/definitions/...``), so wrapping the target definition with the
+    same ``definitions`` map resolves them without needing SchemaValidator's
+    cross-file registry.
+    """
+    wrapper = {"$ref": f"#/definitions/{definition_name}", "definitions": schema["definitions"]}
+    return Draft7Validator(wrapper)
+
+
+_EXPECTED_ORTHOGONAL_VALID_CASE_IDS = [
+    "record_all_axes_orthogonal_baseline",
+    "record_identity_live_unknown_no_declaration",
+    "record_identity_historical_reconstructed_legacy_governance_resolves_observed",
+    "record_coverage_partial_with_incomplete_reason",
+    "record_coverage_unmeasured_no_sealed_evidence_episode",
+    "record_verified_without_provenance",
+    "record_coverage_complete_with_client_attested_only_reason",
+    "record_coverage_partial_with_incomplete_and_client_attested_only_reasons",
+]
+
+_EXPECTED_ORTHOGONAL_INVALID_CASE_IDS = [
+    "axis_value_identity_unknown_with_server_verified_trust",
+    "axis_value_identity_reconstructed_with_backend_observed_trust",
+    "axis_value_missing_trust_level",
+    "identity_unknown_without_reason_baseline",
+    "governance_strict_identity_unknown_without_reason",
+    "governance_unknown_legacy_value_rejected",
+    "governance_client_attested_trust_rejected",
+    "comparability_client_attested_not_applicable_rejected",
+    "comparability_missing_reason_rejected",
+    "coverage_live_partial_missing_incomplete_reason",
+    "coverage_live_duplicate_nonzero_rejected",
+    "coverage_legacy_marker_with_commitment_field_rejected",
+    "coverage_legacy_marker_with_observed_unique_field_rejected",
+    "record_unknown_top_level_field_rejected",
+    "identity_reconstructed_wrong_reason_pairing_rejected",
+    "coverage_marker_all_counts_not_null_rejected",
+    "coverage_unmeasured_basis_reason_mismatch_rejected",
+    "bounded_reason_code_rejects_unlisted_value",
+    "coverage_live_complete_with_unrelated_reason_rejected",
+    "coverage_live_partial_with_disallowed_extra_reason_rejected",
+    "record_governance_advisory_invalid_at_record_level",
+    "record_governance_strict_invalid_at_record_level",
+    "record_comparable_single_subject",
+    "record_non_comparable_invalid_at_record_level",
+]
+
+_EXPECTED_BOUNDED_REASON_CODE_ENUM = [
+    "REGISTERED_PROVENANCE",
+    "DECLARED_PROVENANCE",
+    "LEGACY_RECONSTRUCTED",
+    "REQUIRED_IDENTITY_UNKNOWN",
+    "NO_EVIDENCE_EPISODE",
+    "NO_SEALED_EVIDENCE_EPISODE",
+    "INCOMPLETE_EVIDENCE_EPISODE",
+    "SINGLE_SUBJECT",
+    "CLIENT_ATTESTED_ONLY",
+    "LEGACY_CERTIFIED_SELECTION_NON_AUTHORIZING",
+    "CONTRACT_MISMATCH",
+    "REQUIRED_CONTRACT_UNKNOWN",
+]
+
+
+class TestAgentLifecycleCommonSchema:
+    """ALR-1101: orthogonal lifecycle, trust, authority ceilings, and bounded reasons."""
+
+    def test_agent_lifecycle_common_schema_is_discovered(self, validator):
+        assert "agent_lifecycle_common_schema" in validator.available_schemas
+
+    def test_orthogonal_corpus_matches_the_exact_expected_case_ids_p2_2(self):
+        """P2-2 repair: anti-vacuity by exact membership, not a loose ``>= 5`` floor
+        that a case deletion could silently satisfy. Both the id *sets* and the
+        *counts* must match exactly -- catches deletion, catches accidental
+        duplication, catches a case silently moved between buckets."""
+        actual_valid_ids = [case["id"] for case in _ORTHOGONAL_VALID_CASES]
+        actual_invalid_ids = [case["id"] for case in _ORTHOGONAL_INVALID_CASES]
+
+        assert sorted(actual_valid_ids) == sorted(_EXPECTED_ORTHOGONAL_VALID_CASE_IDS)
+        assert sorted(actual_invalid_ids) == sorted(_EXPECTED_ORTHOGONAL_INVALID_CASE_IDS)
+        assert len(actual_valid_ids) == len(_EXPECTED_ORTHOGONAL_VALID_CASE_IDS) == 8
+        assert len(actual_invalid_ids) == len(_EXPECTED_ORTHOGONAL_INVALID_CASE_IDS) == 24
+        # No id appears in both buckets and no id repeats within a bucket.
+        assert len(set(actual_valid_ids)) == len(actual_valid_ids)
+        assert len(set(actual_invalid_ids)) == len(actual_invalid_ids)
+        assert set(actual_valid_ids).isdisjoint(actual_invalid_ids)
+
+    @pytest.mark.parametrize(
+        "case", _ORTHOGONAL_VALID_CASES, ids=[case["id"] for case in _ORTHOGONAL_VALID_CASES]
+    )
+    def test_orthogonal_corpus_valid_cases_accept(self, validator, case):
+        errors = validator.validate_json(case["payload"], "agent_lifecycle_common_schema")
+        assert errors == [], f"{case['id']}: unexpected errors: {errors}"
+
+    @pytest.mark.parametrize(
+        "case",
+        _ORTHOGONAL_INVALID_CASES,
+        ids=[case["id"] for case in _ORTHOGONAL_INVALID_CASES],
+    )
+    def test_orthogonal_corpus_schema_invalid_cases_reject(self, validator, case):
+        errors = validator.validate_json(case["payload"], "agent_lifecycle_common_schema")
+        assert errors, f"{case['id']}: expected rejection but payload validated cleanly"
+
+    # ------------------------------------------------------------------
+    # AC1: valid record keeps governance, identity, coverage, and
+    # comparability orthogonal -- no axis constrains another. Sol's ruling
+    # on P1-2 (2026-08-09) distinguishes TYPE (the common axis vocabulary,
+    # unconstrained) from PRODUCER (what a Part 1 record may actually carry,
+    # narrowed for governance/comparability). Orthogonality at the record
+    # level is tested through identity/coverage, which genuinely vary in
+    # Part 1; governance/comparability are record-level constants, which is
+    # itself a (trivial) form of orthogonality -- they cannot possibly
+    # correlate with another axis if they never vary.
+    # ------------------------------------------------------------------
+
+    def test_identity_and_coverage_vary_independently_at_record_level(self, validator):
+        """The two axes that genuinely have more than one Part 1 record-legal
+        branch (identity, coverage) validate in every combination the corpus
+        exercises, proving neither one's branch choice narrows the other's."""
+        live_identity = {
+            "value": "RECONSTRUCTED",
+            "trust_level": "client_attested",
+            "reason_codes": ["DECLARED_PROVENANCE"],
+        }
+        unknown_identity = {
+            "value": "UNKNOWN",
+            "trust_level": "client_attested",
+            "reason_codes": ["REQUIRED_IDENTITY_UNKNOWN"],
+        }
+        complete_coverage = {
+            "state": "COMPLETE",
+            "basis": "LATEST_SEALED_EVIDENCE_EPISODE",
+            "trust_level": "backend_observed",
+            "expected": 1, "produced": 1, "cached": 0, "missing": 0,
+            "failed": 0, "fallback": 0, "excluded": 0,
+            "duplicate": 0, "reason_codes": [],
+        }
+        unmeasured_coverage = {
+            "state": "UNMEASURED",
+            "basis": "NO_EVIDENCE_EPISODE",
+            "trust_level": "backend_observed",
+            "expected": 0, "produced": 0, "cached": 0, "missing": 0,
+            "failed": 0, "fallback": 0, "excluded": 0,
+            "duplicate": 0, "reason_codes": ["NO_EVIDENCE_EPISODE"],
+        }
+        base = _orthogonal_case("record_all_axes_orthogonal_baseline")
+
+        for identity, coverage in (
+            (live_identity, complete_coverage),
+            (live_identity, unmeasured_coverage),
+            (unknown_identity, complete_coverage),
+            (unknown_identity, unmeasured_coverage),
+        ):
+            payload = copy.deepcopy(base)
+            payload["identity_state"] = identity
+            payload["measurement_coverage"] = coverage
+            errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+            combo = f"identity={identity['value']} coverage={coverage['state']}"
+            assert errors == [], f"{combo}: {errors}"
+
+    def test_governance_profile_type_stays_a_bounded_three_branch_vocabulary(self, validator):
+        """Sol ruling P1-2 point 1: GovernanceProfileAxisValue itself must remain a
+        wide closed vocabulary (OBSERVED/ADVISORY/STRICT) -- do not collapse to a
+        single const. Proven directly against the axis TYPE, not the record."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        governance_validator = _sub_definition_validator(schema, "GovernanceProfileAxisValue")
+        for value in ("OBSERVED", "ADVISORY", "STRICT"):
+            payload = {"value": value, "trust_level": "backend_observed", "reason_codes": []}
+            errors = list(governance_validator.iter_errors(payload))
+            assert errors == [], f"GovernanceProfileAxisValue must accept {value}: {errors}"
+
+    def test_comparability_verdict_type_stays_a_bounded_vocabulary(self, validator):
+        """Sol ruling P1-2 point 1: ComparabilityVerdictAxisValue itself must remain
+        a wide closed vocabulary (COMPARABLE/NON_COMPARABLE/NOT_APPLICABLE) -- do
+        not collapse to a single const. Proven directly against the axis TYPE."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        comparability_validator = _sub_definition_validator(schema, "ComparabilityVerdictAxisValue")
+        legal_tuples = [
+            {
+                "value": "NOT_APPLICABLE",
+                "trust_level": "backend_observed",
+                "reason_codes": ["SINGLE_SUBJECT"],
+            },
+            {"value": "COMPARABLE", "trust_level": "backend_observed", "reason_codes": []},
+            {
+                "value": "NON_COMPARABLE",
+                "trust_level": "backend_observed",
+                "reason_codes": ["CONTRACT_MISMATCH"],
+            },
+            {
+                "value": "NON_COMPARABLE",
+                "trust_level": "backend_observed",
+                "reason_codes": ["REQUIRED_CONTRACT_UNKNOWN"],
+            },
+        ]
+        for payload in legal_tuples:
+            errors = list(comparability_validator.iter_errors(payload))
+            assert errors == [], f"ComparabilityVerdictAxisValue must accept {payload}: {errors}"
+
+    @pytest.mark.parametrize("reserved_governance_value", ["ADVISORY", "STRICT"])
+    def test_reserved_governance_values_are_invalid_at_the_record_level(
+        self, validator, reserved_governance_value
+    ):
+        """Sol ruling P1-2 point 2: the record composition (AgentLifecycleAxisSet)
+        may only ever carry governance_profile=OBSERVED even though ADVISORY/STRICT
+        remain legal at the type level (proven above)."""
+        payload = copy.deepcopy(_orthogonal_case("record_all_axes_orthogonal_baseline"))
+        payload["governance_profile"] = {
+            "value": reserved_governance_value,
+            "trust_level": "backend_observed",
+            "reason_codes": [],
+        }
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, f"governance_profile={reserved_governance_value}: expected rejection"
+
+    @pytest.mark.parametrize(
+        "reserved_comparability_payload",
+        [
+            {"value": "COMPARABLE", "trust_level": "backend_observed", "reason_codes": []},
+            {
+                "value": "NON_COMPARABLE",
+                "trust_level": "backend_observed",
+                "reason_codes": ["CONTRACT_MISMATCH"],
+            },
+            {
+                "value": "NON_COMPARABLE",
+                "trust_level": "backend_observed",
+                "reason_codes": ["REQUIRED_CONTRACT_UNKNOWN"],
+            },
+        ],
+        ids=[
+            "COMPARABLE",
+            "NON_COMPARABLE-contract_mismatch",
+            "NON_COMPARABLE-required_contract_unknown",
+        ],
+    )
+    def test_reserved_comparability_values_are_invalid_at_the_record_level(
+        self, validator, reserved_comparability_payload
+    ):
+        """Sol ruling P1-2 point 3: a Part 1 record response with
+        comparability_verdict != NOT_APPLICABLE is invalid, even though
+        COMPARABLE/NON_COMPARABLE remain legal at the type level (proven above).
+        This is exactly the corrected 'record_comparable_single_subject' case
+        (PART1_CONTRACT_FREEZE_DRAFT.md schema_invalid #17), generalized to both
+        NON_COMPARABLE reason branches too."""
+        payload = copy.deepcopy(_orthogonal_case("record_all_axes_orthogonal_baseline"))
+        payload["comparability_verdict"] = reserved_comparability_payload
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, f"comparability_verdict={reserved_comparability_payload}: expected rejection"
+
+    def test_record_comparable_single_subject_corpus_case_is_now_invalid_for_the_right_reason(
+        self, validator
+    ):
+        """Regression guard for the Terra-flagged defect: an earlier submission had
+        this exact contract-named case backwards (in the valid bucket, with
+        comparability_verdict=NOT_APPLICABLE). It must now be schema_invalid, and
+        specifically because its comparability_verdict is COMPARABLE -- not because
+        of some unrelated malformation elsewhere in the payload."""
+        case = next(
+            case for case in _ORTHOGONAL_CASES if case["id"] == "record_comparable_single_subject"
+        )
+        assert case["kind"] == "schema_invalid"
+        assert case["payload"]["comparability_verdict"]["value"] == "COMPARABLE"
+
+        errors = validator.validate_json(case["payload"], "agent_lifecycle_common_schema")
+        assert errors
+
+        # Confirm the SAME payload becomes valid once comparability_verdict is
+        # corrected to the only record-legal value, isolating comparability as
+        # the sole cause of the original rejection.
+        corrected = copy.deepcopy(case["payload"])
+        corrected["comparability_verdict"] = {
+            "value": "NOT_APPLICABLE",
+            "trust_level": "backend_observed",
+            "reason_codes": ["SINGLE_SUBJECT"],
+        }
+        assert validator.validate_json(corrected, "agent_lifecycle_common_schema") == []
+
+    # ------------------------------------------------------------------
+    # AC2: unknown legacy governance resolves OBSERVED; unknown identity
+    # retains its reason and can never become VERIFIED.
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize("legacy_token", ["UNSET", "LEGACY", "", "unknown"])
+    def test_governance_rejects_every_token_outside_the_closed_vocabulary(
+        self, validator, legacy_token
+    ):
+        payload = copy.deepcopy(_orthogonal_case("record_all_axes_orthogonal_baseline"))
+        payload["governance_profile"] = {
+            "value": legacy_token,
+            "trust_level": "backend_observed",
+            "reason_codes": [],
+        }
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, f"legacy governance token {legacy_token!r} should not validate"
+
+    def test_identity_unknown_can_never_become_verified_by_editing_value_alone(self, validator):
+        """Flipping only ``value`` on a live-UNKNOWN identity to VERIFIED must fail:
+        VERIFIED requires server_verified trust and REGISTERED_PROVENANCE, which an
+        UNKNOWN-shaped record never carries."""
+        payload = copy.deepcopy(_orthogonal_case("record_identity_live_unknown_no_declaration"))
+        payload["identity_state"]["value"] = "VERIFIED"
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, "UNKNOWN identity must not become VERIFIED by relabeling value alone"
+
+    def test_failure_mutation_target_fails_specifically_on_identity_reason_codes(self, validator):
+        """Sol ruling P1-2 point 4: keep the STRICT+UNKNOWN-identity-without-reason
+        negative (not vacuous), but prove it fails *because a non-default axis
+        value requires non-empty bounded reason codes* (AxisValue rule), not
+        because STRICT is somehow an unknown/illegal enum value. Isolated at the
+        axis-TYPE level, before the Part 1 record-level production narrowing
+        (which would otherwise also reject STRICT governance and confound the
+        assertion)."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        governance_validator = _sub_definition_validator(schema, "GovernanceProfileAxisValue")
+        identity_validator = _sub_definition_validator(schema, "IdentityStateAxisValue")
+
+        strict_governance = {
+            "value": "STRICT", "trust_level": "backend_observed", "reason_codes": [],
+        }
+        unknown_identity_without_reason = {
+            "value": "UNKNOWN", "trust_level": "client_attested", "reason_codes": [],
+        }
+        unknown_identity_with_reason = {
+            "value": "UNKNOWN",
+            "trust_level": "client_attested",
+            "reason_codes": ["REQUIRED_IDENTITY_UNKNOWN"],
+        }
+
+        # STRICT alone is legal at the axis-type level -- not the cause of failure.
+        assert list(governance_validator.iter_errors(strict_governance)) == []
+        # UNKNOWN identity without its bound reason fails on its own, regardless
+        # of governance.
+        assert list(identity_validator.iter_errors(unknown_identity_without_reason))
+        # The identical value/trust with the reason restored is legal -- isolating
+        # the missing reason_codes entry, not the UNKNOWN value itself, as the cause.
+        assert list(identity_validator.iter_errors(unknown_identity_with_reason)) == []
+
+    # ------------------------------------------------------------------
+    # AC3: COMPARABLE requires an identical-contract basis; any unknown
+    # required input yields NON_COMPARABLE, never a permissive default.
+    # Sol's note: the story text is imprecise here -- Part 1's single-record
+    # route cannot produce COMPARABLE/NON_COMPARABLE at all (single-record
+    # reads are exactly NOT_APPLICABLE). AC3 is therefore satisfied at the
+    # common AXIS-TYPE level, where the comparability semantics genuinely
+    # live; the record level is covered separately above by the
+    # NOT_APPLICABLE-only narrowing.
+    # ------------------------------------------------------------------
+
+    def test_comparable_requires_its_bound_reason_at_the_type_level(self, validator):
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        comparability_validator = _sub_definition_validator(schema, "ComparabilityVerdictAxisValue")
+        payload = {
+            "value": "COMPARABLE",
+            "trust_level": "backend_observed",
+            "reason_codes": ["CONTRACT_MISMATCH"],
+        }
+        errors = list(comparability_validator.iter_errors(payload))
+        assert errors, "COMPARABLE must reject CONTRACT_MISMATCH -- a reason bound elsewhere"
+
+    def test_non_comparable_is_not_interchangeable_with_comparables_empty_reason(self, validator):
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        comparability_validator = _sub_definition_validator(schema, "ComparabilityVerdictAxisValue")
+        # Swapping in COMPARABLE's empty reason on a NON_COMPARABLE verdict is not
+        # a permissive default -- it is simply a different malformed combination.
+        payload = {"value": "NON_COMPARABLE", "trust_level": "backend_observed", "reason_codes": []}
+        errors = list(comparability_validator.iter_errors(payload))
+        assert errors, "NON_COMPARABLE with an empty reason array must reject, not silently pass"
+
+    def test_non_comparable_unknown_required_input_yields_non_comparable_not_a_default(
+        self, validator
+    ):
+        """AC3 second half, literally: 'any unknown required input yields
+        NON_COMPARABLE, never a permissive default.' REQUIRED_CONTRACT_UNKNOWN is
+        legal only on NON_COMPARABLE, never on COMPARABLE -- there is no
+        permissive branch that lets an unknown-required-input reason validate
+        against a COMPARABLE verdict."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        comparability_validator = _sub_definition_validator(schema, "ComparabilityVerdictAxisValue")
+
+        non_comparable_payload = {
+            "value": "NON_COMPARABLE",
+            "trust_level": "backend_observed",
+            "reason_codes": ["REQUIRED_CONTRACT_UNKNOWN"],
+        }
+        assert list(comparability_validator.iter_errors(non_comparable_payload)) == []
+
+        comparable_with_unknown_input_payload = {
+            "value": "COMPARABLE",
+            "trust_level": "backend_observed",
+            "reason_codes": ["REQUIRED_CONTRACT_UNKNOWN"],
+        }
+        assert list(comparability_validator.iter_errors(comparable_with_unknown_input_payload)), (
+            "REQUIRED_CONTRACT_UNKNOWN must never validate against COMPARABLE -- "
+            "that would be exactly the permissive default AC3 forbids"
+        )
+
+    # ------------------------------------------------------------------
+    # AC4: trust levels are client_attested/backend_observed/server_verified;
+    # client-supplied evidence can never raise authority to server_verified.
+    # ------------------------------------------------------------------
+
+    def test_trust_level_enum_is_exactly_the_three_closed_values(self, validator):
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        trust_level = schema["definitions"]["TrustLevel"]
+        assert trust_level["enum"] == ["client_attested", "backend_observed", "server_verified"]
+
+    def test_bounded_reason_code_enum_matches_the_frozen_vocabulary_exactly(self, validator):
+        """P1-1 repair: 'bounded' means closed. Assert equality against the frozen
+        Part 1 public reason vocabulary (PART1_CONTRACT_FREEZE_DRAFT.md:260/264),
+        not merely a subset check -- so neither an invented addition nor a
+        silently dropped frozen code can pass."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        bounded_reason_code = schema["definitions"]["BoundedReasonCode"]
+        assert bounded_reason_code["enum"] == _EXPECTED_BOUNDED_REASON_CODE_ENUM
+        assert len(bounded_reason_code["enum"]) == 12
+
+    @pytest.mark.parametrize(
+        "identity_value,identity_reason",
+        [
+            ("UNKNOWN", "REQUIRED_IDENTITY_UNKNOWN"),
+            ("RECONSTRUCTED", "DECLARED_PROVENANCE"),
+            ("RECONSTRUCTED", "LEGACY_RECONSTRUCTED"),
+        ],
+    )
+    def test_no_client_shaped_identity_can_claim_server_verified_trust(
+        self, validator, identity_value, identity_reason
+    ):
+        """Every identity branch whose reason is client-suppliable is rejected the
+        moment its trust_level is raised to server_verified -- only the single
+        Backend-provenance branch (VERIFIED/REGISTERED_PROVENANCE) may carry it."""
+        payload = copy.deepcopy(_orthogonal_case("record_all_axes_orthogonal_baseline"))
+        payload["identity_state"] = {
+            "value": identity_value,
+            "trust_level": "server_verified",
+            "reason_codes": [identity_reason],
+        }
+        errors = validator.validate_json(payload, "agent_lifecycle_common_schema")
+        assert errors, (
+            f"identity value={identity_value} reason={identity_reason} must not be able "
+            "to claim server_verified trust"
+        )
+
+    def test_axis_value_base_would_permit_the_illegal_combo_the_closed_type_forbids(
+        self, validator
+    ):
+        """Demonstrates why the generic AxisValue base is 'not a public escape hatch'
+        (PART1_CONTRACT_FREEZE_DRAFT.md:311): validated directly, it accepts an
+        UNKNOWN/server_verified combination that IdentityStateAxisValue correctly
+        rejects, because AxisValue alone does not bind trust_level per value."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        illegal_combo = {
+            "value": "UNKNOWN",
+            "trust_level": "server_verified",
+            "reason_codes": ["REQUIRED_IDENTITY_UNKNOWN"],
+        }
+
+        base_validator = _sub_definition_validator(schema, "AxisValue")
+        assert list(base_validator.iter_errors(illegal_combo)) == [], (
+            "AxisValue base is expected to accept this combination in isolation -- "
+            "that is exactly why nothing may reference it directly"
+        )
+
+        identity_validator = _sub_definition_validator(schema, "IdentityStateAxisValue")
+        assert list(identity_validator.iter_errors(illegal_combo)), (
+            "IdentityStateAxisValue must reject the same combination AxisValue alone permits"
+        )
+
+    def test_nothing_in_this_schema_references_axis_value_directly(self, validator):
+        """Structural guard for 'No Part 1 route schema references the generic base
+        directly' (PART1_CONTRACT_FREEZE_DRAFT.md:311): scan every ``$ref`` in this
+        file and confirm none of them target ``#/definitions/AxisValue``."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+
+        def iter_refs(node: object):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key == "$ref" and isinstance(value, str):
+                        yield value
+                    else:
+                        yield from iter_refs(value)
+            elif isinstance(node, list):
+                for item in node:
+                    yield from iter_refs(item)
+
+        refs = list(iter_refs(schema))
+        assert refs, "expected this schema to contain internal $refs at all"
+        assert "#/definitions/AxisValue" not in refs
+
+    # ------------------------------------------------------------------
+    # AC5: malformed combinations are rejected; unknown fields either
+    # preserve or fail closed -- never silently pass.
+    # ------------------------------------------------------------------
+
+    def test_every_object_branch_in_this_schema_is_closed_to_additional_properties(
+        self, validator
+    ):
+        """Fail-closed guard: every object branch in every closed axis type sets
+        additionalProperties: false, so an unrecognized field is always rejected
+        rather than silently preserved-and-ignored or accepted."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+
+        def iter_object_branches(node: object, path: str = "$"):
+            if isinstance(node, dict):
+                if node.get("type") == "object" and "properties" in node:
+                    yield path, node
+                for key, value in node.items():
+                    yield from iter_object_branches(value, f"{path}.{key}")
+            elif isinstance(node, list):
+                for index, item in enumerate(node):
+                    yield from iter_object_branches(item, f"{path}[{index}]")
+
+        offenders = [
+            path
+            for path, node in iter_object_branches(schema["definitions"])
+            if node.get("additionalProperties") is not False
+        ]
+        assert offenders == [], f"object branches missing additionalProperties:false: {offenders}"
+
+    def test_no_commitment_or_observed_unique_field_anywhere_in_coverage(self, validator):
+        """Owner accounting decision (2026-08-09, simpler contract): commitment and
+        observed_unique were both deliberately deleted and must never resurface."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        coverage = schema["definitions"]["RecordMeasurementCoverage"]
+        for branch in coverage["oneOf"]:
+            properties = set(branch["properties"])
+            assert "commitment" not in properties
+            assert "observed_unique" not in properties
+
+    def test_deleted_accounting_field_literals_do_not_appear_in_public_schema_text(
+        self, validator
+    ):
+        """P2-1 repair: the literal words 'commitment' and 'observed_unique' must
+        not appear anywhere in this schema file's public text (descriptions,
+        titles, property names) -- not merely be absent as real properties. This
+        scans the schema file only; the corpus's deliberate negative-bait poison
+        payloads (coverage_legacy_marker_with_commitment_field_rejected,
+        coverage_legacy_marker_with_observed_unique_field_rejected) are a
+        separate file and are explicitly exempted from this rule."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+
+        def iter_all_strings(node: object):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if isinstance(key, str):
+                        yield key
+                    yield from iter_all_strings(value)
+            elif isinstance(node, list):
+                for item in node:
+                    yield from iter_all_strings(item)
+            elif isinstance(node, str):
+                yield node
+
+        offenders = [
+            value
+            for value in iter_all_strings(schema)
+            for forbidden in ("commitment", "observed_unique")
+            if forbidden in value.lower()
+        ]
+        assert offenders == [], f"deleted-field literals leaked into schema text: {offenders}"
+
+    def test_accepted_duplicate_is_always_fixed_at_zero_or_null(self, validator):
+        """Owner accounting decision: duplicate is const 0 on every live/unmeasured
+        branch and const null (alongside the other seven counts) on the legacy
+        marker branch -- never an open integer."""
+        schema = validator._schemas["agent_lifecycle_common_schema"]
+        coverage = schema["definitions"]["RecordMeasurementCoverage"]
+        for branch in coverage["oneOf"]:
+            duplicate_schema = branch["properties"]["duplicate"]
+            assert "const" in duplicate_schema, (
+                f"duplicate must be schema-const (0 or null), not an open type: {duplicate_schema}"
+            )
+            assert duplicate_schema["const"] in (0, None), duplicate_schema
+
+
 class TestDatasetVersioning:
     def test_existing_style_dataset_payload_still_validates(self, validator):
         errors = validator.validate_json(_valid_dataset_payload(), "dataset_schema")
@@ -1442,6 +2074,61 @@ class TestClientFacingSchemaLeakGuard:
         findings = _find_public_schema_lifecycle_leaks(
             "analytics/next_steps_schema.json",
             next_steps_category_schema,
+        )
+
+        assert findings == []
+
+    # ------------------------------------------------------------------
+    # ALR-1101 P1-4: the `reason_codes` allowance for
+    # agent_lifecycle_common_schema.json must be path-scoped, not a blanket
+    # per-file exemption. These two canaries prove the narrow helper still
+    # catches a real leak in this exact file while allowing the two
+    # legitimate JSON Schema positions the property name needs.
+    # ------------------------------------------------------------------
+
+    def test_agent_lifecycle_reason_codes_canary_flags_non_property_occurrence(self):
+        """A `reason_code`-bearing string sitting in prose (not a `properties` key
+        or a `required` list entry) must still be caught in this file -- proving
+        the path-scoped allowance does not silently swallow a real leak the way
+        the blanket per-file exemption it replaced did."""
+        leaking_document = {
+            "type": "object",
+            "properties": {
+                "some_field": {
+                    "type": "string",
+                    "description": "an internal reason_code leak in prose, not a property key",
+                }
+            },
+        }
+
+        findings = _find_public_schema_lifecycle_leaks(
+            _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH,
+            leaking_document,
+        )
+
+        assert any(
+            finding.tier == "TIER-1" and finding.token == "reason_code" for finding in findings
+        ), f"expected the non-property reason_code occurrence to be flagged, got: {findings}"
+
+    def test_agent_lifecycle_reason_codes_canary_allows_legitimate_property_and_required_slots(
+        self,
+    ):
+        """The literal `reason_codes` property key and its `required` list entry
+        are the two positions this axis contract actually needs -- both must be
+        allowed, and only those two."""
+        legitimate_document = {
+            "type": "object",
+            "required": ["value", "trust_level", "reason_codes"],
+            "properties": {
+                "value": {"type": "string"},
+                "trust_level": {"type": "string"},
+                "reason_codes": {"type": "array", "items": {"type": "string"}},
+            },
+        }
+
+        findings = _find_public_schema_lifecycle_leaks(
+            _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH,
+            legitimate_document,
         )
 
         assert findings == []

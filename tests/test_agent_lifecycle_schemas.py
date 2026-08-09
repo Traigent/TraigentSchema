@@ -695,6 +695,15 @@ _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH = "agent_lifecycle_record/agent_lifecycle_co
 # "adds entries only for exact new lifecycle files that legitimately use
 # reason_code/reason_codes, then compensates with structural tests that every
 # such occurrence is a closed reason_codes property under the bounded enum".
+#
+# ALR-1105 reconciliation note (post-rebase, 2026-08-10): the Route 5 record
+# response schema (agent_lifecycle_record_response_schema.json) briefly
+# needed a third entry here for its own locally-defined
+# EpisodeMeasurementCoverage, minted before ALR-1102's LiveSealedMeasurementCoverage
+# existed on this branch. Reconciliation confirmed the two were validation-
+# identical and replaced the local definition with a cross-file $ref to this
+# same LiveSealedMeasurementCoverage, so that document no longer contains the
+# literal string `reason_codes` at all and does not need an allowlist entry.
 _AGENT_LIFECYCLE_RECEIPT_SUBMIT_RESPONSE_SCHEMA_PATH = (
     "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json"
 )
@@ -2225,7 +2234,13 @@ class TestClientFacingSchemaLeakGuard:
         self,
     ):
         """The widened allowlist names exactly two files. A third, unrelated
-        lifecycle file must not silently inherit the exemption."""
+        lifecycle file must not silently inherit the exemption -- including
+        agent_lifecycle_record_response_schema.json (ALR-1105's Route 5
+        response), which briefly needed its own entry here before
+        reconciliation replaced its local EpisodeMeasurementCoverage with a
+        $ref to this same LiveSealedMeasurementCoverage; it now carries no
+        literal `reason_codes` text of its own and correctly falls back to
+        this negative-control path."""
         leaking_document = {
             "type": "object",
             "required": ["value", "reason_codes"],
@@ -2236,7 +2251,7 @@ class TestClientFacingSchemaLeakGuard:
         }
 
         findings = _find_public_schema_lifecycle_leaks(
-            "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+            "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
             leaking_document,
         )
 

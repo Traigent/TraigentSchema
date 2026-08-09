@@ -1,5 +1,5 @@
 {
-  "$comment": "ALR-1101 orthogonal-axis corpus. Every payload is validated as a whole against agent_lifecycle_common_schema.json's root (#/definitions/AgentLifecycleAxisSet). 'valid' cases must accept; 'schema_invalid' cases must be rejected by SchemaValidator. Case ids reuse the exact identifiers named in PART1_CONTRACT_FREEZE_DRAFT.md where the document names one (axis_value_identity_unknown_with_server_verified_trust, axis_value_identity_reconstructed_with_backend_observed_trust, axis_value_missing_trust_level, record_comparable_single_subject, record_verified_without_provenance) so this corpus stays traceable to the frozen contract. 'record_verified_without_provenance' is intentionally in the valid bucket: the frozen contract states reserved VERIFIED is 'structurally coherent' (schema-valid) even though it is service-invalid because no Part 1 producer exists -- that producer/service gate is out of ALR-1101's schema-only scope. governance_strict_identity_unknown_without_reason is the story's named failure-mutation target (ALR-1101 Failure mutation: 'Accept STRICT+UNKNOWN identity without reason').",
+  "$comment": "ALR-1101 orthogonal-axis corpus. Every payload is validated as a whole against agent_lifecycle_common_schema.json's root (#/definitions/AgentLifecycleAxisSet). 'valid' cases must accept; 'schema_invalid' cases must be rejected by SchemaValidator. Case ids reuse the exact identifiers named in PART1_CONTRACT_FREEZE_DRAFT.md where the document names one. Revised after Terra review + sol adjudication (2026-08-09, ALR-1101 P1-1/P1-2/P1-3): (1) BoundedReasonCode is pinned to the frozen 12-member vocabulary at :260/264 -- no invented codes; (2) TYPE vs PRODUCER split -- GovernanceProfileAxisValue/ComparabilityVerdictAxisValue stay wide 3/4-branch closed vocabularies at the common-axis-type level, but the record root (AgentLifecycleAxisSet) narrows governance_profile to OBSERVED-only and comparability_verdict to NOT_APPLICABLE-only via Part1RecordGovernanceProfile/Part1RecordComparabilityVerdict, because a Part 1 record can only ever produce those; 'record_comparable_single_subject' is therefore schema_invalid here, exactly matching its listing under the contract's own schema_invalid bucket (#17); (3) live coverage reason_codes are assignment-free -- COMPLETE is exactly [] or [CLIENT_ATTESTED_ONLY], PARTIAL is exactly [INCOMPLETE_EVIDENCE_EPISODE] optionally plus [CLIENT_ATTESTED_ONLY], nothing else. 'record_verified_without_provenance' remains valid: the frozen contract states reserved VERIFIED is 'structurally coherent' (schema-valid) even though it is service-invalid because no Part 1 producer exists -- that producer/service gate is out of ALR-1101's schema-only scope, and sol's ruling did not extend the new record-level narrowing to the identity axis (Part 1 genuinely produces more than one identity branch). The literal strings `commitment` and `observed_unique` inside coverage_legacy_marker_with_commitment_field_rejected and coverage_legacy_marker_with_observed_unique_field_rejected below are deliberate negative bait proving fail-closed additionalProperties rejection, per the 2026-08-09 owner accounting decision that deleted both fields -- they are not a resurfaced field and must not be read as a contract violation by a later grep-based auditor.",
   "target_schema": "agent_lifecycle_common_schema",
   "cases": [
     {
@@ -78,84 +78,9 @@
       }
     },
     {
-      "id": "record_governance_reserved_advisory_orthogonal_to_identity_unknown",
-      "kind": "valid",
-      "description": "AC1: reserved governance ADVISORY is structurally legal and does not constrain identity_state=UNKNOWN's own required reason -- the two axes remain independent.",
-      "payload": {
-        "governance_profile": {"value": "ADVISORY", "trust_level": "backend_observed", "reason_codes": []},
-        "identity_state": {"value": "UNKNOWN", "trust_level": "client_attested", "reason_codes": ["REQUIRED_IDENTITY_UNKNOWN"]},
-        "measurement_coverage": {
-          "state": "UNMEASURED", "basis": "NO_EVIDENCE_EPISODE", "trust_level": "backend_observed",
-          "expected": 0, "produced": 0, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
-          "duplicate": 0, "reason_codes": ["NO_EVIDENCE_EPISODE"]
-        },
-        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
-      }
-    },
-    {
-      "id": "record_governance_strict_identity_verified_structurally_coherent",
-      "kind": "valid",
-      "description": "AC1/AC2 contrast case for the failure mutation: reserved governance STRICT paired with a *correctly reasoned* reserved identity VERIFIED is structurally coherent and must validate -- it is the properly-reasoned twin of the negative mutation case below, proving the schema distinguishes 'reserved but correctly bound' from 'missing its required reason'.",
-      "payload": {
-        "governance_profile": {"value": "STRICT", "trust_level": "backend_observed", "reason_codes": []},
-        "identity_state": {"value": "VERIFIED", "trust_level": "server_verified", "reason_codes": ["REGISTERED_PROVENANCE"]},
-        "measurement_coverage": {
-          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
-          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
-          "duplicate": 0, "reason_codes": []
-        },
-        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
-      }
-    },
-    {
-      "id": "record_comparable_single_subject",
-      "kind": "valid",
-      "description": "Named in PART1_CONTRACT_FREEZE_DRAFT.md:311. A single-record read's comparability_verdict is exactly NOT_APPLICABLE/backend_observed/[SINGLE_SUBJECT].",
-      "payload": {
-        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
-        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
-        "measurement_coverage": {
-          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
-          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
-          "duplicate": 0, "reason_codes": []
-        },
-        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
-      }
-    },
-    {
-      "id": "record_comparability_reserved_comparable_structurally_valid",
-      "kind": "valid",
-      "description": "AC3: COMPARABLE is structurally reachable only through the identical-measurement-contract-basis reason; reserved with no Part 1 producer but schema-valid.",
-      "payload": {
-        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
-        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
-        "measurement_coverage": {
-          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
-          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
-          "duplicate": 0, "reason_codes": []
-        },
-        "comparability_verdict": {"value": "COMPARABLE", "trust_level": "backend_observed", "reason_codes": ["IDENTICAL_MEASUREMENT_CONTRACT_BASIS"]}
-      }
-    },
-    {
-      "id": "record_comparability_reserved_non_comparable_structurally_valid",
-      "kind": "valid",
-      "description": "AC3: NON_COMPARABLE is the verdict bound to an unknown required comparison input; reserved with no Part 1 producer but schema-valid.",
-      "payload": {
-        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
-        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
-        "measurement_coverage": {
-          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
-          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
-          "duplicate": 0, "reason_codes": []
-        },
-        "comparability_verdict": {"value": "NON_COMPARABLE", "trust_level": "backend_observed", "reason_codes": ["REQUIRED_COMPARISON_INPUT_UNKNOWN"]}
-      }
-    },
-    {
       "id": "record_verified_without_provenance",
       "kind": "valid",
-      "description": "Named in PART1_CONTRACT_FREEZE_DRAFT.md:311. Factually unearned but structurally coherent reserved VERIFIED is service-invalid (no Part 1 producer) but schema-valid -- that gate belongs to a later Backend/producer story, not to this schema.",
+      "description": "Named in PART1_CONTRACT_FREEZE_DRAFT.md:311. Factually unearned but structurally coherent reserved VERIFIED is service-invalid (no Part 1 producer) but schema-valid -- that gate belongs to a later Backend/producer story, not to this schema. Sol's record-level narrowing (P1-2 ruling) applies only to governance_profile/comparability_verdict, not identity_state, so this stays valid.",
       "payload": {
         "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
         "identity_state": {"value": "VERIFIED", "trust_level": "server_verified", "reason_codes": ["REGISTERED_PROVENANCE"]},
@@ -163,6 +88,36 @@
           "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
           "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
           "duplicate": 0, "reason_codes": []
+        },
+        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
+      }
+    },
+    {
+      "id": "record_coverage_complete_with_client_attested_only_reason",
+      "kind": "valid",
+      "description": "P1-3: COMPLETE coverage may carry exactly [CLIENT_ATTESTED_ONLY] when the underlying measurement contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262/752) -- still assignment-free, still orthogonal to the other three axes.",
+      "payload": {
+        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["CLIENT_ATTESTED_ONLY"]
+        },
+        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
+      }
+    },
+    {
+      "id": "record_coverage_partial_with_incomplete_and_client_attested_only_reasons",
+      "kind": "valid",
+      "description": "P1-3: PARTIAL coverage may carry both INCOMPLETE_EVIDENCE_EPISODE and CLIENT_ATTESTED_ONLY together (PART1_CONTRACT_FREEZE_DRAFT.md:262) -- still assignment-free (only these two codes are legal on this branch), order-independent.",
+      "payload": {
+        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
+        "measurement_coverage": {
+          "state": "PARTIAL", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 10, "produced": 6, "cached": 1, "missing": 2, "failed": 1, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["INCOMPLETE_EVIDENCE_EPISODE", "CLIENT_ATTESTED_ONLY"]
         },
         "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
       }
@@ -215,7 +170,7 @@
     {
       "id": "identity_unknown_without_reason_baseline",
       "kind": "schema_invalid",
-      "description": "AC2 baseline (governance held at plain OBSERVED): UNKNOWN identity with an empty reason_codes array must be rejected -- the required reason can never be dropped.",
+      "description": "AC2 clean single-cause baseline (governance held at plain OBSERVED, which is itself record-legal): UNKNOWN identity with an empty reason_codes array must be rejected -- the required reason can never be dropped. This is the case used as mutation-test evidence for the story's failure mutation, because it isolates the identity-axis rule without the governance record-level constraint also firing.",
       "payload": {
         "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
         "identity_state": {"value": "UNKNOWN", "trust_level": "client_attested", "reason_codes": []},
@@ -230,7 +185,7 @@
     {
       "id": "governance_strict_identity_unknown_without_reason",
       "kind": "schema_invalid",
-      "description": "ALR-1101 Failure mutation target verbatim: accepting STRICT governance plus UNKNOWN identity without a reason. Governance and identity remain orthogonal (STRICT alone is legal), but identity's own required reason can never be dropped regardless of what governance_profile is.",
+      "description": "ALR-1101 Failure mutation target verbatim: accepting STRICT governance plus UNKNOWN identity without a reason. Since sol's P1-2 ruling, this payload is invalid for TWO independent reasons at the record level: STRICT now fails Part1RecordGovernanceProfile's OBSERVED-only narrowing, AND identity's own required reason is still missing. It is kept for literal traceability to the story text, but it is NOT used alone as mutation-test evidence -- identity_unknown_without_reason_baseline (STRICT-free) and the dedicated isolation test in test_agent_lifecycle_schemas.py prove the identity-axis mechanism specifically, uncontaminated by the governance constraint.",
       "payload": {
         "governance_profile": {"value": "STRICT", "trust_level": "backend_observed", "reason_codes": []},
         "identity_state": {"value": "UNKNOWN", "trust_level": "client_attested", "reason_codes": []},
@@ -245,7 +200,7 @@
     {
       "id": "governance_unknown_legacy_value_rejected",
       "kind": "schema_invalid",
-      "description": "AC2: an arbitrary legacy governance token outside the closed OBSERVED/ADVISORY/STRICT vocabulary is not a legal wire value -- only the resolved OBSERVED (or the other two closed values) may ever appear.",
+      "description": "AC2: an arbitrary legacy governance token outside the closed OBSERVED/ADVISORY/STRICT vocabulary is not a legal wire value at any level -- only the resolved OBSERVED may ever appear on a Part 1 record.",
       "payload": {
         "governance_profile": {"value": "UNSET", "trust_level": "backend_observed", "reason_codes": []},
         "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
@@ -335,7 +290,7 @@
     {
       "id": "coverage_legacy_marker_with_commitment_field_rejected",
       "kind": "schema_invalid",
-      "description": "Owner decision (NON-NEGOTIABLE): there is no commitment field anywhere -- it was deliberately deleted for a privacy/equality-oracle risk. additionalProperties:false on every RecordMeasurementCoverage branch must reject it on sight.",
+      "description": "Owner decision (NON-NEGOTIABLE): there is no commitment field anywhere -- it was deliberately deleted for a privacy/equality-oracle risk. additionalProperties:false on every RecordMeasurementCoverage branch must reject it on sight. The literal string `commitment` below is deliberate negative bait proving that rejection, not a resurfaced field.",
       "payload": {
         "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
         "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["LEGACY_RECONSTRUCTED"]},
@@ -351,7 +306,7 @@
     {
       "id": "coverage_legacy_marker_with_observed_unique_field_rejected",
       "kind": "schema_invalid",
-      "description": "Owner decision (NON-NEGOTIABLE): there is no observed_unique field anywhere -- it has no consumer. additionalProperties:false must reject it on sight.",
+      "description": "Owner decision (NON-NEGOTIABLE): there is no observed_unique field anywhere -- it has no consumer. additionalProperties:false must reject it on sight. The literal string `observed_unique` below is deliberate negative bait proving that rejection, not a resurfaced field.",
       "payload": {
         "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
         "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["LEGACY_RECONSTRUCTED"]},
@@ -423,6 +378,111 @@
           "duplicate": 0, "reason_codes": ["NO_SEALED_EVIDENCE_EPISODE"]
         },
         "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
+      }
+    },
+    {
+      "id": "bounded_reason_code_rejects_unlisted_value",
+      "kind": "schema_invalid",
+      "description": "P1-1: a reason code outside the frozen 12-member BoundedReasonCode enum is not free text -- 'bounded' means closed. This must reject even though the identity axis is otherwise UNKNOWN-shaped.",
+      "payload": {
+        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "UNKNOWN", "trust_level": "client_attested", "reason_codes": ["UNLISTED_REASON_CODE"]},
+        "measurement_coverage": {
+          "state": "UNMEASURED", "basis": "NO_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 0, "produced": 0, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["NO_EVIDENCE_EPISODE"]
+        },
+        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
+      }
+    },
+    {
+      "id": "coverage_live_complete_with_unrelated_reason_rejected",
+      "kind": "schema_invalid",
+      "description": "P1-3: live reason_codes are assignment-free -- COMPLETE with an unrelated coverage-basis reason (NO_EVIDENCE_EPISODE, which belongs to the unmeasured branch) must reject, not silently pass.",
+      "payload": {
+        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["NO_EVIDENCE_EPISODE"]
+        },
+        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
+      }
+    },
+    {
+      "id": "coverage_live_partial_with_disallowed_extra_reason_rejected",
+      "kind": "schema_invalid",
+      "description": "P1-3: PARTIAL reason_codes accepts only INCOMPLETE_EVIDENCE_EPISODE and CLIENT_ATTESTED_ONLY; adding SINGLE_SUBJECT (a comparability-axis reason) must reject.",
+      "payload": {
+        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
+        "measurement_coverage": {
+          "state": "PARTIAL", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 10, "produced": 6, "cached": 1, "missing": 2, "failed": 1, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["INCOMPLETE_EVIDENCE_EPISODE", "SINGLE_SUBJECT"]
+        },
+        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
+      }
+    },
+    {
+      "id": "record_governance_advisory_invalid_at_record_level",
+      "kind": "schema_invalid",
+      "description": "Sol ruling on ALR-1101 P1-2 (2026-08-09), TYPE vs PRODUCER split: governance_profile=ADVISORY is structurally legal at the common GovernanceProfileAxisValue type level (proven directly against that sub-schema in test_agent_lifecycle_schemas.py), but Part 1's record composition may only ever emit OBSERVED (PART1_CONTRACT_FREEZE_DRAFT.md:220) -- so the SAME axis value is invalid once embedded in a full record.",
+      "payload": {
+        "governance_profile": {"value": "ADVISORY", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "UNKNOWN", "trust_level": "client_attested", "reason_codes": ["REQUIRED_IDENTITY_UNKNOWN"]},
+        "measurement_coverage": {
+          "state": "UNMEASURED", "basis": "NO_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 0, "produced": 0, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": ["NO_EVIDENCE_EPISODE"]
+        },
+        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
+      }
+    },
+    {
+      "id": "record_governance_strict_invalid_at_record_level",
+      "kind": "schema_invalid",
+      "description": "Sol ruling on ALR-1101 P1-2 (2026-08-09), explicitly requested case: governance_profile=STRICT is structurally legal at the common GovernanceProfileAxisValue type level, but invalid on a Part 1 record. Paired with a correctly-reasoned reserved identity VERIFIED to isolate governance as the sole cause of rejection here (contrast with governance_strict_identity_unknown_without_reason, which is invalid for two independent reasons).",
+      "payload": {
+        "governance_profile": {"value": "STRICT", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "VERIFIED", "trust_level": "server_verified", "reason_codes": ["REGISTERED_PROVENANCE"]},
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "comparability_verdict": {"value": "NOT_APPLICABLE", "trust_level": "backend_observed", "reason_codes": ["SINGLE_SUBJECT"]}
+      }
+    },
+    {
+      "id": "record_comparable_single_subject",
+      "kind": "schema_invalid",
+      "description": "Reuses the contract's own case id (PART1_CONTRACT_FREEZE_DRAFT.md schema_invalid bucket, item 17, listed near line 358) -- confirmed by direct grep, not by paraphrase. A Part 1 single-record read can only ever be comparability_verdict=NOT_APPLICABLE; COMPARABLE is structurally legal at the common ComparabilityVerdictAxisValue type level (proven directly against that sub-schema) but invalid once embedded in this record. Corrected from an earlier submission that had this case backwards in the valid bucket -- Terra flagged it, sol confirmed against the primary source.",
+      "payload": {
+        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "comparability_verdict": {"value": "COMPARABLE", "trust_level": "backend_observed", "reason_codes": []}
+      }
+    },
+    {
+      "id": "record_non_comparable_invalid_at_record_level",
+      "kind": "schema_invalid",
+      "description": "Sol ruling on ALR-1101 P1-2 (2026-08-09): NON_COMPARABLE is likewise structurally legal at the common ComparabilityVerdictAxisValue type level (both its CONTRACT_MISMATCH and REQUIRED_CONTRACT_UNKNOWN reason branches, proven directly against that sub-schema) but invalid once embedded in a Part 1 record, for the same reason as COMPARABLE above.",
+      "payload": {
+        "governance_profile": {"value": "OBSERVED", "trust_level": "backend_observed", "reason_codes": []},
+        "identity_state": {"value": "RECONSTRUCTED", "trust_level": "client_attested", "reason_codes": ["DECLARED_PROVENANCE"]},
+        "measurement_coverage": {
+          "state": "COMPLETE", "basis": "LATEST_SEALED_EVIDENCE_EPISODE", "trust_level": "backend_observed",
+          "expected": 1, "produced": 1, "cached": 0, "missing": 0, "failed": 0, "fallback": 0, "excluded": 0,
+          "duplicate": 0, "reason_codes": []
+        },
+        "comparability_verdict": {"value": "NON_COMPARABLE", "trust_level": "backend_observed", "reason_codes": ["CONTRACT_MISMATCH"]}
       }
     }
   ]

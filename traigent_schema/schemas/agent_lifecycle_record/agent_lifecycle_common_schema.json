@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_common_schema.json",
   "title": "Agent Lifecycle Common Schema",
-  "description": "ALR-1101 (Agent Lifecycle Record, Part 1): the shared closed-vocabulary definitions for the four orthogonal record axes -- governance, identity, coverage, comparability -- plus the trust-level authority ceiling and the bounded reason-code vocabulary they all draw from. This document is a resolved definitions target: no axis constrains another (each closed type binds its own trust_level/reason_codes independently), unknown/legacy inputs resolve to the least-authority value rather than being echoed, and no client-supplied evidence can ever produce server_verified. The generic AxisValue base is intentionally not referenced by anything else in this file -- it exists only to document the shared shape and to let tests demonstrate why each axis needs its own closed oneOf instead of accepting any value/trust_level/reason_codes combination. The root of this document resolves to AgentLifecycleAxisSet purely as a convenient, uniform validation entry point for this story's corpus; every individual axis definition remains independently $ref-able by future route schemas. Reserved-but-producerless values (identity VERIFIED; governance ADVISORY/STRICT; comparability COMPARABLE/NON_COMPARABLE) are intentionally schema-VALID here -- Part 1 has no route that emits them, which is a producer/service-level guarantee owned by later stories, not a schema-level rejection.",
+  "description": "ALR-1101 (Agent Lifecycle Record, Part 1): the shared closed-vocabulary definitions for the four orthogonal record axes -- governance, identity, coverage, comparability -- plus the trust-level authority ceiling and the bounded reason vocabulary they all draw from. This document is a resolved definitions target: no axis constrains another (each closed type binds its own trust_level/reason-codes independently), unknown/legacy inputs resolve to the least-authority value rather than being echoed, and no client-supplied evidence can ever produce server_verified. The generic AxisValue base is intentionally not referenced by anything else in this file -- it exists only to document the shared shape and to let tests demonstrate why each axis needs its own closed oneOf instead of accepting any value/trust_level/reason-array combination. The root of this document resolves to AgentLifecycleAxisSet purely as a convenient, uniform validation entry point for this story's corpus; every individual axis definition remains independently $ref-able by future route schemas. Reserved-but-producerless values (identity VERIFIED; governance ADVISORY/STRICT; comparability COMPARABLE/NON_COMPARABLE) are intentionally schema-VALID here -- Part 1 has no route that emits them, which is a producer/service-level guarantee owned by later stories, not a schema-level rejection.",
   "$ref": "#/definitions/AgentLifecycleAxisSet",
   "definitions": {
     "TrustLevel": {
@@ -12,7 +12,7 @@
     },
     "BoundedReasonCode": {
       "type": "string",
-      "description": "Closed bounded reason vocabulary for every axis reason_codes array in this file; no free text and no unenumerated codes are legal. The first ten members are pinned by the Part 1 Contract Freeze reason-code inventory. IDENTICAL_MEASUREMENT_CONTRACT_BASIS and REQUIRED_COMPARISON_INPUT_UNKNOWN are ALR-1101 authoring additions for the reserved ComparabilityVerdictAxisValue COMPARABLE/NON_COMPARABLE branches, which the frozen contract structurally reserves (no Part 1 producer) without itself pinning a reason-code tuple for them; this is flagged as a contract gap in the ALR-1101 delivery notes, not treated as a frozen value.",
+      "description": "The frozen Part 1 public reason vocabulary, pinned exactly (PART1_CONTRACT_FREEZE_DRAFT.md:260/264) -- not a superset, not a subset. The first ten members are the emittable allowlist every Part 1 route may actually produce. CONTRACT_MISMATCH and REQUIRED_CONTRACT_UNKNOWN are reserved in this common enum for a future Part 2 comparability/decision producer so that producer can use them without a breaking enum change; Part 1 has no code path that emits either one, but they remain structurally legal on the reserved ComparabilityVerdictAxisValue.NON_COMPARABLE branches this schema defines. No free text and no unenumerated code is legal anywhere reason-codes appear.",
       "enum": [
         "REGISTERED_PROVENANCE",
         "DECLARED_PROVENANCE",
@@ -24,8 +24,8 @@
         "SINGLE_SUBJECT",
         "CLIENT_ATTESTED_ONLY",
         "LEGACY_CERTIFIED_SELECTION_NON_AUTHORIZING",
-        "IDENTICAL_MEASUREMENT_CONTRACT_BASIS",
-        "REQUIRED_COMPARISON_INPUT_UNKNOWN"
+        "CONTRACT_MISMATCH",
+        "REQUIRED_CONTRACT_UNKNOWN"
       ]
     },
     "AxisValue": {
@@ -41,7 +41,7 @@
           "uniqueItems": true
         }
       },
-      "description": "Closed structural base requiring exactly value/trust_level/reason_codes; reason_codes is always a unique array, including when empty. Not a public escape hatch: nothing else in this document references this definition directly, and no route schema may either. Every public governance/identity/comparability/coverage property must use its own axis-specific closed definition below, each of which binds trust_level and reason_codes structurally per legal value instead of accepting any combination this generic base alone would allow."
+      "description": "Closed structural base requiring exactly value/trust_level/reason-codes; the reason array is always unique, including when empty. Not a public escape hatch: nothing else in this document references this definition directly, and no route schema may either. Every public governance/identity/comparability/coverage property must use its own axis-specific closed definition below, each of which binds trust_level and the reason array structurally per legal value instead of accepting any combination this generic base alone would allow."
     },
     "GovernanceProfileAxisValue": {
       "description": "Closed governance-profile axis. OBSERVED is the only value any Part 1 route ever emits: Backend's DB/server default, ORM default, backfill, and read fallback all yield OBSERVED, and unknown or legacy governance inputs resolve to it rather than being echoed back. ADVISORY and STRICT remain reserved -- structurally legal, always backend_observed with no bound reason -- but authorize no Part 1 action and have no Part 1 response producer.",
@@ -159,7 +159,7 @@
       ]
     },
     "ComparabilityVerdictAxisValue": {
-      "description": "Closed oneOf over the three structurally legal comparability tuples. A single-record read is exactly NOT_APPLICABLE/backend_observed/[SINGLE_SUBJECT] -- Part 1's only actively producible branch. COMPARABLE requires an identical measurement-contract basis between the two records under comparison (bound to IDENTICAL_MEASUREMENT_CONTRACT_BASIS) and NON_COMPARABLE is the mandatory verdict whenever a required comparison input is unknown (bound to REQUIRED_COMPARISON_INPUT_UNKNOWN) -- never a permissive default. Both remain reserved with no Part 1 Route 5 producer; no delta or recommendation is emitted in Part 1.",
+      "description": "Closed oneOf over the four structurally legal comparability tuples. A single-record read is exactly NOT_APPLICABLE/backend_observed/[SINGLE_SUBJECT] -- Part 1's only actively producible branch. COMPARABLE requires an identical measurement-contract basis between the two records under comparison and carries no caveat reason (backend_observed/[]). NON_COMPARABLE is the mandatory verdict whenever that basis is not identical -- bound to the reserved CONTRACT_MISMATCH reason -- or whenever a required comparison input is unknown -- bound to the reserved REQUIRED_CONTRACT_UNKNOWN reason -- never a permissive default. All three non-NOT_APPLICABLE branches remain reserved with no Part 1 Route 5 producer; no delta or recommendation is emitted in Part 1.",
       "oneOf": [
         {
           "type": "object",
@@ -187,7 +187,7 @@
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["IDENTICAL_MEASUREMENT_CONTRACT_BASIS"]
+              "const": []
             }
           }
         },
@@ -202,14 +202,29 @@
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["REQUIRED_COMPARISON_INPUT_UNKNOWN"]
+              "const": ["CONTRACT_MISMATCH"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "trust_level", "reason_codes"],
+          "properties": {
+            "value": {"const": "NON_COMPARABLE"},
+            "trust_level": {"const": "backend_observed"},
+            "reason_codes": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "uniqueItems": true,
+              "const": ["REQUIRED_CONTRACT_UNKNOWN"]
             }
           }
         }
       ]
     },
     "RecordMeasurementCoverage": {
-      "description": "Closed oneOf between (a) a selected live reconciliation with eight integer counts and basis=LATEST_SEALED_EVIDENCE_EPISODE, (b) a bound private legacy marker with state=UNKNOWN, basis=UNKNOWN_LEGACY_BASIS, all eight counts exactly null, trust_level=client_attested, and reason_codes const [LEGACY_RECONSTRUCTED], and (c) an unmeasured projection with state=UNMEASURED, all eight counts schema-const 0, and basis NO_EVIDENCE_EPISODE|NO_SEALED_EVIDENCE_EPISODE selected from live episode cardinality. Owner accounting decision (2026-08-09, simpler contract): there is no commitment field and no observed_unique field anywhere in this type; duplicate submissions are rejected before acceptance and every accepted count object carries duplicate as schema-const 0 (const null on the legacy-marker branch, alongside the other seven counts). expected/produced/cached/missing/failed/fallback/excluded/duplicate are the complete eight-count set; no ninth accounting field is legal.",
+      "description": "Closed oneOf between (a) a selected live COMPLETE reconciliation, (b) a selected live PARTIAL reconciliation, (c) a bound private legacy marker with state=UNKNOWN, basis=UNKNOWN_LEGACY_BASIS, all eight counts exactly null, trust_level=client_attested, and a reason array const [LEGACY_RECONSTRUCTED], and (d) an unmeasured projection with state=UNMEASURED, all eight counts schema-const 0, and basis NO_EVIDENCE_EPISODE|NO_SEALED_EVIDENCE_EPISODE selected from live episode cardinality. Every accepted eight-count object carries duplicate as schema-const 0 (const null on the legacy-marker branch, alongside the other seven counts) per the 2026-08-09 owner accounting decision (OWNER_DECISION_ACCOUNTING_20260809.md): expected/produced/cached/missing/failed/fallback/excluded/duplicate are the complete accepted count set; no ninth accounting field is legal on any branch.",
       "oneOf": [
         {
           "type": "object",
@@ -220,7 +235,7 @@
             "reason_codes"
           ],
           "properties": {
-            "state": {"enum": ["COMPLETE", "PARTIAL"]},
+            "state": {"const": "COMPLETE"},
             "basis": {"const": "LATEST_SEALED_EVIDENCE_EPISODE"},
             "trust_level": {"const": "backend_observed"},
             "expected": {"type": "integer", "minimum": 1, "maximum": 10000},
@@ -232,21 +247,42 @@
             "excluded": {"type": "integer", "minimum": 0, "maximum": 10000},
             "duplicate": {"const": 0},
             "reason_codes": {
+              "description": "COMPLETE carries no caveat reason unless the underlying contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262/752): assignment-free, exactly [] or [CLIENT_ATTESTED_ONLY].",
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
-              "uniqueItems": true
+              "items": {"enum": ["CLIENT_ATTESTED_ONLY"]},
+              "uniqueItems": true,
+              "maxItems": 1
             }
-          },
-          "if": {
-            "properties": {"state": {"const": "PARTIAL"}},
-            "required": ["state"]
-          },
-          "then": {
-            "properties": {
-              "reason_codes": {
-                "type": "array",
-                "contains": {"const": "INCOMPLETE_EVIDENCE_EPISODE"}
-              }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state", "basis", "trust_level",
+            "expected", "produced", "cached", "missing", "failed", "fallback", "excluded", "duplicate",
+            "reason_codes"
+          ],
+          "properties": {
+            "state": {"const": "PARTIAL"},
+            "basis": {"const": "LATEST_SEALED_EVIDENCE_EPISODE"},
+            "trust_level": {"const": "backend_observed"},
+            "expected": {"type": "integer", "minimum": 1, "maximum": 10000},
+            "produced": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "cached": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "missing": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "failed": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "fallback": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "excluded": {"type": "integer", "minimum": 0, "maximum": 10000},
+            "duplicate": {"const": 0},
+            "reason_codes": {
+              "description": "PARTIAL always carries INCOMPLETE_EVIDENCE_EPISODE, optionally alongside CLIENT_ATTESTED_ONLY when the underlying contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262/752): assignment-free, no other code is legal here.",
+              "type": "array",
+              "items": {"enum": ["INCOMPLETE_EVIDENCE_EPISODE", "CLIENT_ATTESTED_ONLY"]},
+              "uniqueItems": true,
+              "minItems": 1,
+              "maxItems": 2,
+              "contains": {"const": "INCOMPLETE_EVIDENCE_EPISODE"}
             }
           }
         },
@@ -327,17 +363,31 @@
         }
       ]
     },
+    "Part1RecordGovernanceProfile": {
+      "description": "TYPE vs PRODUCER split (sol ruling on ALR-1101 P1-2, 2026-08-09): GovernanceProfileAxisValue stays the wide 3-branch closed vocabulary (OBSERVED/ADVISORY/STRICT) per PART1_CONTRACT_FREEZE_DRAFT.md:69-78, unconstrained here -- but the field a Part 1 record composition may actually carry is narrower. Per :220, Part 1's record route emits only OBSERVED/backend_observed/[]; ADVISORY and STRICT remain valid at the common axis-type level for a future producer, never on this record.",
+      "allOf": [
+        {"$ref": "#/definitions/GovernanceProfileAxisValue"},
+        {"properties": {"value": {"const": "OBSERVED"}}}
+      ]
+    },
+    "Part1RecordComparabilityVerdict": {
+      "description": "TYPE vs PRODUCER split (sol ruling on ALR-1101 P1-2, 2026-08-09): ComparabilityVerdictAxisValue stays the wide closed vocabulary (COMPARABLE/NON_COMPARABLE/NOT_APPLICABLE) per PART1_CONTRACT_FREEZE_DRAFT.md:69-78, unconstrained here -- but a Part 1 single-record read may only ever emit NOT_APPLICABLE/backend_observed/[SINGLE_SUBJECT] per :223. COMPARABLE and NON_COMPARABLE remain valid at the common axis-type level for a future Part 2 comparison producer, never on this record (corpus case record_comparable_single_subject, PART1_CONTRACT_FREEZE_DRAFT.md schema_invalid #17).",
+      "allOf": [
+        {"$ref": "#/definitions/ComparabilityVerdictAxisValue"},
+        {"properties": {"value": {"const": "NOT_APPLICABLE"}}}
+      ]
+    },
     "AgentLifecycleAxisSet": {
       "type": "object",
       "additionalProperties": false,
       "required": ["governance_profile", "identity_state", "measurement_coverage", "comparability_verdict"],
       "properties": {
-        "governance_profile": {"$ref": "#/definitions/GovernanceProfileAxisValue"},
+        "governance_profile": {"$ref": "#/definitions/Part1RecordGovernanceProfile"},
         "identity_state": {"$ref": "#/definitions/IdentityStateAxisValue"},
         "measurement_coverage": {"$ref": "#/definitions/RecordMeasurementCoverage"},
-        "comparability_verdict": {"$ref": "#/definitions/ComparabilityVerdictAxisValue"}
+        "comparability_verdict": {"$ref": "#/definitions/Part1RecordComparabilityVerdict"}
       },
-      "description": "The reusable set of orthogonal axis fields that a Part 1 record composes from this common schema: governance_profile, identity_state, measurement_coverage, comparability_verdict. Each axis validates independently -- no combination of one axis's legal value narrows what another axis may legally hold -- and the closed object rejects any field this set does not name."
+      "description": "The reusable set of orthogonal axis fields that a Part 1 record composes from this common schema: governance_profile, identity_state, measurement_coverage, comparability_verdict. Each axis validates independently -- no combination of one axis's legal value narrows what another axis may legally hold -- and the closed object rejects any field this set does not name. governance_profile and comparability_verdict are further narrowed to what Part 1 actually produces (Part1RecordGovernanceProfile/Part1RecordComparabilityVerdict); identity_state and measurement_coverage use their full common axis types directly since Part 1 genuinely produces more than one branch of each."
     }
   }
 }

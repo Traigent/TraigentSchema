@@ -158,12 +158,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: 'pip'
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: requirements.txt
 
-      - name: Install package (needed for the traigent_schema.schemas path + referencing)
+      - name: Install locked breaking-gate dependencies
         run: |
-          python -m pip install --upgrade --only-binary :all: pip
-          pip install -e ".[dev]"
+          python -m pip install --only-binary :all: -r requirements.txt
 
       # A branch name is attacker-controlled (branch-create permission on this repo is not
       # the same population as "trusted to write shell"). Interpolating `${{ }}` directly

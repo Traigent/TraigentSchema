@@ -109,16 +109,123 @@ _SKIP_DIRS = {".git", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cach
 _SKIP_FILENAMES = {"package-lock.json", "uv.lock", "poetry.lock", "yarn.lock", "pnpm-lock.yaml"}
 _MAX_SAMPLE_SITES = 5
 
+_SAFE_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+_SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-^~]*$")
+_MAX_GIT_REF_LEN = 200
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _resolve_path_within(raw_path: str | Path, root: Path, arg_name: str) -> Path:
+    resolved_root = Path(root).expanduser().resolve()
+    resolved_path = Path(raw_path).expanduser().resolve()
+    if (
+        resolved_path != resolved_root
+        and not _is_relative_to(resolved_path, resolved_root)
+    ):
+        raise ValueError(
+            f"{arg_name} must stay inside {resolved_root}, got {resolved_path}"
+        )
+    return resolved_path
+
+
+def _resolve_existing_dir(raw_path: str | Path, arg_name: str) -> Path:
+    path = Path(raw_path).expanduser().resolve()
+    if not path.is_dir():
+        raise ValueError(f"{arg_name} is not a directory: {path}")
+    return path
+
+
+def _resolve_git_repo(raw_path: str | Path, arg_name: str) -> Path:
+    repo_path = _resolve_existing_dir(raw_path, arg_name)
+    if not (repo_path / ".git").exists():
+        raise ValueError(f"{arg_name} is not a git checkout: {repo_path}")
+    return repo_path
+
+
+def _safe_repo_name(raw_name: str) -> str:
+    name = raw_name.strip()
+    if name != raw_name or not name:
+        raise ValueError(
+            "--repo NAME must be non-empty and have no surrounding whitespace"
+        )
+    if not _SAFE_REPO_NAME_RE.fullmatch(name):
+        raise ValueError(f"--repo NAME contains unsupported characters: {raw_name!r}")
+    return name
+
+
+def _safe_git_ref(raw_ref: str, arg_name: str) -> str:
+    ref = raw_ref.strip()
+    if ref != raw_ref or not ref:
+        raise ValueError(
+            f"{arg_name} must be a non-empty git ref without surrounding whitespace"
+        )
+    if len(ref) > _MAX_GIT_REF_LEN:
+        raise ValueError(f"{arg_name} is too long to be accepted as a git ref")
+    if ref.startswith("-"):
+        raise ValueError(f"{arg_name} must not start with '-': {ref!r}")
+    if not _SAFE_GIT_REF_RE.fullmatch(ref):
+        raise ValueError(
+            f"{arg_name} contains characters outside the accepted git-ref set: {ref!r}"
+        )
+    bad_shape = (
+        ".." in ref
+        or "//" in ref
+        or "@{" in ref
+        or ref.endswith(("/", ".", ".lock"))
+    )
+    if bad_shape:
+        raise ValueError(f"{arg_name} is not an accepted git ref shape: {ref!r}")
+    return ref
+
+
+def _validate_tar_members_stay_within(tar: tarfile.TarFile, dest: Path) -> None:
+    for member in tar.getmembers():
+        member_path = (dest / member.name).resolve()
+        if (
+            member_path != dest
+            and not _is_relative_to(member_path, dest)
+        ):
+            raise ValueError(
+                f"git archive member escapes destination: {member.name!r}"
+            )
+        if member.issym() or member.islnk():
+            link_target = (member_path.parent / member.linkname).resolve()
+            if (
+                link_target != dest
+                and not _is_relative_to(link_target, dest)
+            ):
+                raise ValueError(
+                    f"git archive link escapes destination: {member.name!r}"
+                )
+
 
 def _schema_basenames() -> list[str]:
     return sorted(p.name for p in _SCHEMAS_DIR.rglob("*.json"))
 
 
 def _iter_text_files(root: Path):
-    for path in root.rglob("*"):
-        if not path.is_file():
+    safe_root = _resolve_existing_dir(root, "scan root")
+    for path in safe_root.rglob("*"):
+        try:
+            resolved_path = path.resolve()
+            rel_parts = path.relative_to(safe_root).parts
+        except (OSError, ValueError):
             continue
-        if any(part in _SKIP_DIRS for part in path.parts):
+        if (
+            resolved_path != safe_root
+            and not _is_relative_to(resolved_path, safe_root)
+        ):
+            continue
+        if path.is_symlink() or not path.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in rel_parts):
             continue
         if path.name in _SKIP_FILENAMES:
             continue
@@ -127,18 +234,21 @@ def _iter_text_files(root: Path):
         yield path
 
 
-def _archive_ref(repo_path: Path, ref: str, dest: Path) -> str:
+def _archive_ref(repo_path: Path, ref: str, dest: Path, archive_root: Path) -> str:
     """git-archive ``origin/<ref>`` into ``dest`` and return its resolved sha."""
-    remote_ref = f"origin/{ref}"
+    safe_repo_path = _resolve_git_repo(repo_path, "--repo PATH")
+    safe_ref = _safe_git_ref(ref, "--ref")
+    remote_ref = _safe_git_ref(f"origin/{safe_ref}", "remote ref")
+    safe_dest = _resolve_path_within(dest, archive_root, "archive destination")
     sha = subprocess.run(
-        ["git", "-C", str(repo_path), "rev-parse", remote_ref],
+        ["git", "-C", str(safe_repo_path), "rev-parse", remote_ref],
         check=True,
         capture_output=True,
         text=True,
     ).stdout.strip()
-    dest.mkdir(parents=True, exist_ok=True)
+    safe_dest.mkdir(parents=True, exist_ok=True)
     archive_proc = subprocess.run(
-        ["git", "-C", str(repo_path), "archive", remote_ref],
+        ["git", "-C", str(safe_repo_path), "archive", remote_ref],
         check=True,
         capture_output=True,
     )
@@ -146,21 +256,23 @@ def _archive_ref(repo_path: Path, ref: str, dest: Path) -> str:
         tmp_tar.write(archive_proc.stdout)
         tmp_tar.flush()
         with tarfile.open(tmp_tar.name) as tar:
-            tar.extractall(dest)  # noqa: S202 -- our own git-archive output, not untrusted input
+            _validate_tar_members_stay_within(tar, safe_dest)
+            tar.extractall(safe_dest)
     return sha
 
 
 def _scan_repo(root: Path, pattern: re.Pattern[str]) -> dict[str, list[str]]:
     """Return basename -> [relpath:line, ...] (capped) for this one repo root."""
     hits: dict[str, list[str]] = {}
-    for path in _iter_text_files(root):
+    safe_root = _resolve_existing_dir(root, "scan root")
+    for path in _iter_text_files(safe_root):
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
         if not text:
             continue
-        rel = path.relative_to(root).as_posix()
+        rel = path.relative_to(safe_root).as_posix()
         for lineno, line in enumerate(text.splitlines(), start=1):
             for match in pattern.finditer(line):
                 basename = match.group(1)
@@ -184,9 +296,9 @@ def _build_pattern(basenames: list[str]) -> re.Pattern[str]:
 
 def _parse_repo_arg(raw: str) -> tuple[str, Path]:
     if "=" not in raw:
-        raise argparse.ArgumentTypeError(f"--repo must be NAME=PATH, got: {raw!r}")
+        raise ValueError(f"--repo must be NAME=PATH, got: {raw!r}")
     name, _, path_str = raw.partition("=")
-    return name, Path(path_str).expanduser()
+    return _safe_repo_name(name), Path(path_str).expanduser().resolve()
 
 
 def main() -> int:
@@ -215,6 +327,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    try:
+        ref = _safe_git_ref(args.ref, "--ref")
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
     basenames = _schema_basenames()
     pattern = _build_pattern(basenames)
 
@@ -222,20 +340,21 @@ def main() -> int:
     all_hits: dict[str, dict[str, list[str]]] = {}
 
     with tempfile.TemporaryDirectory(prefix="consumer-schema-scan-") as tmp_root_str:
-        tmp_root = Path(tmp_root_str)
+        tmp_root = Path(tmp_root_str).resolve()
         for raw in args.repo:
-            name, path = _parse_repo_arg(raw)
-            if not path.is_dir():
-                print(f"ERROR: --repo {name}={path} is not a directory", file=sys.stderr)
-                return 1
-
-            if args.no_archive:
-                scan_root = path
-                sources[name] = {"ref": "(unarchived on-disk path)", "sha": "unknown"}
-            else:
-                scan_root = tmp_root / name
-                sha = _archive_ref(path, args.ref, scan_root)
-                sources[name] = {"ref": f"origin/{args.ref}", "sha": sha}
+            try:
+                name, path = _parse_repo_arg(raw)
+                if args.no_archive:
+                    scan_root = _resolve_existing_dir(path, f"--repo {name}=PATH")
+                    sources[name] = {"ref": "(unarchived on-disk path)", "sha": "unknown"}
+                else:
+                    source_repo = _resolve_git_repo(path, f"--repo {name}=PATH")
+                    scan_root = _resolve_path_within(tmp_root / name, tmp_root, "scan root")
+                    sha = _archive_ref(source_repo, ref, scan_root, tmp_root)
+                    sources[name] = {"ref": f"origin/{ref}", "sha": sha}
+            except ValueError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                return 2
 
             repo_hits = _scan_repo(scan_root, pattern)
             print(f"{name}: {len(repo_hits)} schema basenames referenced", file=sys.stderr)

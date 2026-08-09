@@ -63,7 +63,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
-from urllib.parse import quote, urldefrag, urljoin
+from urllib.parse import quote, urldefrag, urljoin, urlparse
 
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT7
@@ -73,11 +73,74 @@ SCHEMAS_SUBDIR = "traigent_schema/schemas"
 SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
 DEFAULT_ALLOWLIST = REPO_ROOT / "scripts" / "breaking_schema_allowlist.json"
 
+_SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-^~]*$")
+_MAX_GIT_REF_LEN = 200
+
 Role = Literal["request", "response", "conservative"]
 Severity = Literal["BREAKING", "INFO"]
 
 _MAX_KEYS = ("maxLength", "maximum", "maxItems", "maxProperties")
 _MIN_KEYS = ("minLength", "minimum", "minItems", "minProperties")
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _resolve_path_within(raw_path: str | Path, root: Path, arg_name: str) -> Path:
+    resolved_root = Path(root).expanduser().resolve()
+    resolved_path = Path(raw_path).expanduser().resolve()
+    if (
+        resolved_path != resolved_root
+        and not _is_relative_to(resolved_path, resolved_root)
+    ):
+        raise ValueError(
+            f"{arg_name} must stay inside {resolved_root}, got {resolved_path}"
+        )
+    return resolved_path
+
+
+def _resolve_repo_root(raw_path: str | Path) -> Path:
+    repo_root = Path(raw_path).expanduser().resolve()
+    if not repo_root.is_dir():
+        raise ValueError(f"--repo-root is not a directory: {repo_root}")
+    if not (repo_root / ".git").exists():
+        raise ValueError(f"--repo-root is not a git checkout: {repo_root}")
+    schemas_dir = _resolve_path_within(
+        repo_root / SCHEMAS_SUBDIR, repo_root, SCHEMAS_SUBDIR
+    )
+    if not schemas_dir.is_dir():
+        raise ValueError(f"--repo-root does not contain {SCHEMAS_SUBDIR}: {repo_root}")
+    return repo_root
+
+
+def _safe_git_ref(raw_ref: str, arg_name: str) -> str:
+    ref = raw_ref.strip()
+    if ref != raw_ref or not ref:
+        raise ValueError(
+            f"{arg_name} must be a non-empty git ref without surrounding whitespace"
+        )
+    if len(ref) > _MAX_GIT_REF_LEN:
+        raise ValueError(f"{arg_name} is too long to be accepted as a git ref")
+    if ref.startswith("-"):
+        raise ValueError(f"{arg_name} must not start with '-': {ref!r}")
+    if not _SAFE_GIT_REF_RE.fullmatch(ref):
+        raise ValueError(
+            f"{arg_name} contains characters outside the accepted git-ref set: {ref!r}"
+        )
+    bad_shape = (
+        ".." in ref
+        or "//" in ref
+        or "@{" in ref
+        or ref.endswith(("/", ".", ".lock"))
+    )
+    if bad_shape:
+        raise ValueError(f"{arg_name} is not an accepted git ref shape: {ref!r}")
+    return ref
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -220,22 +283,25 @@ def _build_registry(files: dict[str, Any]) -> tuple[Registry, dict[str, str]]:
     return Registry().with_resources(resources), base_uri_for
 
 
-def load_tree_from_ref(repo_root: Path, ref: str, dest: Path) -> SchemaTree:
-    dest.mkdir(parents=True, exist_ok=True)
+def load_tree_from_ref(repo_root: Path, ref: str, dest: Path, extraction_root: Path) -> SchemaTree:
+    safe_repo_root = _resolve_repo_root(repo_root)
+    safe_ref = _safe_git_ref(ref, "git ref")
+    safe_dest = _resolve_path_within(dest, extraction_root, "archive destination")
+    safe_dest.mkdir(parents=True, exist_ok=True)
     archive = subprocess.run(
-        ["git", "-C", str(repo_root), "archive", ref, "--", SCHEMAS_SUBDIR],
+        ["git", "-C", str(safe_repo_root), "archive", safe_ref, "--", SCHEMAS_SUBDIR],
         capture_output=True,
         check=True,
     )
     if archive.stdout:
-        subprocess.run(["tar", "-x", "-C", str(dest)], input=archive.stdout, check=True)
+        subprocess.run(["tar", "-x", "-C", str(safe_dest)], input=archive.stdout, check=True)
     sha = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", "--short=12", ref],
+        ["git", "-C", str(safe_repo_root), "rev-parse", "--short=12", safe_ref],
         capture_output=True,
         text=True,
         check=True,
     ).stdout.strip()
-    return load_tree_from_dir(dest / SCHEMAS_SUBDIR, label=f"{ref}@{sha}")
+    return load_tree_from_dir(safe_dest / SCHEMAS_SUBDIR, label=f"{safe_ref}@{sha}")
 
 
 # ---------------------------------------------------------------------------
@@ -1269,7 +1335,7 @@ def _relpath_from_ref_string(current_file: str, ref: str) -> str | None:
         return None
     if doc_part.startswith(SCHEMA_ID_BASE):
         return doc_part[len(SCHEMA_ID_BASE) :]
-    if doc_part.startswith("http://") or doc_part.startswith("https://"):
+    if urlparse(doc_part).scheme in {"http", "https"}:
         return None
     base_dir = PurePosixPath(current_file).parent
     parts: list[str] = []
@@ -1399,17 +1465,38 @@ def classify_file_role(relpath: str, graph_roles: set[str]) -> tuple[Role, str]:
 # ---------------------------------------------------------------------------
 
 
-def _run(args: list[str]) -> str:
-    return subprocess.run(args, capture_output=True, text=True, check=True).stdout
-
-
 def auto_base_ref(repo_root: Path) -> str:
-    branch = _run(["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"]).strip()
+    safe_repo_root = _resolve_repo_root(repo_root)
+    branch = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(safe_repo_root),
+            "rev-parse",
+            "--abbrev-ref",
+            "HEAD",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     base_branch = "main" if re.match(r"^(release|hotfix)/", branch) else "develop"
-    remote_ref = f"origin/{base_branch}"
+    remote_ref = _safe_git_ref(f"origin/{base_branch}", "remote base ref")
     try:
-        mb = _run(["git", "-C", str(repo_root), "merge-base", "HEAD", remote_ref]).strip()
-        return mb or remote_ref
+        mb = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(safe_repo_root),
+                "merge-base",
+                "HEAD",
+                remote_ref,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        return _safe_git_ref(mb, "merge-base sha") if mb else remote_ref
     except subprocess.CalledProcessError:
         return remote_ref
 
@@ -1427,11 +1514,15 @@ def _relative_to_schemas_dir(repo_relative_path: str) -> str | None:
 def changed_schema_files(
     repo_root: Path, base_ref: str, head_ref: str | None
 ) -> list[tuple[str, str]]:
-    args = ["git", "-C", str(repo_root), "diff", "--name-status", "--find-renames", base_ref]
-    if head_ref:
-        args.append(head_ref)
+    safe_repo_root = _resolve_repo_root(repo_root)
+    safe_base_ref = _safe_git_ref(base_ref, "--base-ref")
+    safe_head_ref = _safe_git_ref(head_ref, "--head-ref") if head_ref else None
+    args = ["git", "-C", str(safe_repo_root), "diff", "--name-status", "--find-renames"]
+    args.append(safe_base_ref)
+    if safe_head_ref:
+        args.append(safe_head_ref)
     args += ["--", SCHEMAS_SUBDIR]
-    out = _run(args)
+    out = subprocess.run(args, capture_output=True, text=True, check=True).stdout
     result: list[tuple[str, str]] = []
     for line in out.splitlines():
         if not line.strip():
@@ -1512,10 +1603,11 @@ def reason_rejection(reason: Any) -> str | None:
     return None
 
 
-def load_allowlist(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
+def load_allowlist(path: Path, repo_root: Path) -> list[dict[str, Any]]:
+    safe_path = _resolve_path_within(path, repo_root, "--allowlist")
+    if not safe_path.exists():
         return []
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(safe_path.read_text(encoding="utf-8"))
     entries: list[dict[str, Any]] = data.get("entries", [])
     return entries
 
@@ -1805,25 +1897,39 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    repo_root = Path(args.repo_root).resolve()
-    base_ref = args.base_ref or auto_base_ref(repo_root)
+    try:
+        repo_root = _resolve_repo_root(args.repo_root)
+        base_ref = (
+            _safe_git_ref(args.base_ref, "--base-ref")
+            if args.base_ref
+            else auto_base_ref(repo_root)
+        )
+        head_ref = _safe_git_ref(args.head_ref, "--head-ref") if args.head_ref else None
+        json_out = (
+            _resolve_path_within(args.json_out, repo_root, "--json")
+            if args.json_out
+            else None
+        )
 
-    with tempfile.TemporaryDirectory(prefix="breaking-schema-check-") as tmp:
-        tmp_path = Path(tmp)
-        base_tree = load_tree_from_ref(repo_root, base_ref, tmp_path / "base")
-        if args.head_ref:
-            head_tree = load_tree_from_ref(repo_root, args.head_ref, tmp_path / "head")
-        else:
-            head_tree = load_tree_from_dir(repo_root / SCHEMAS_SUBDIR, label="working tree")
+        with tempfile.TemporaryDirectory(prefix="breaking-schema-check-") as tmp:
+            tmp_path = Path(tmp).resolve()
+            base_tree = load_tree_from_ref(repo_root, base_ref, tmp_path / "base", tmp_path)
+            if head_ref:
+                head_tree = load_tree_from_ref(repo_root, head_ref, tmp_path / "head", tmp_path)
+            else:
+                head_tree = load_tree_from_dir(repo_root / SCHEMAS_SUBDIR, label="working tree")
 
-        changed = changed_schema_files(repo_root, base_ref, args.head_ref)
-        allow_entries = load_allowlist(Path(args.allowlist))
-        report = compare_trees(base_tree, head_tree, changed, allow_entries)
+            changed = changed_schema_files(repo_root, base_ref, head_ref)
+            allow_entries = load_allowlist(Path(args.allowlist), repo_root)
+            report = compare_trees(base_tree, head_tree, changed, allow_entries)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     print_report(report, quiet_info=args.quiet_info)
 
-    if args.json_out:
-        Path(args.json_out).write_text(
+    if json_out:
+        json_out.write_text(
             json.dumps(
                 {
                     "base": report.base_label,

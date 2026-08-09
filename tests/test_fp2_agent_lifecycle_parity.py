@@ -42,6 +42,13 @@ represent fails the whole manifest closed (`Fp2UnsupportedValue`, never a
 partial digest). `manifest_note` below is a corpus-only fixture key invented
 to exercise this property; it is not proposed as real fp2/lifecycle
 vocabulary and is not referenced by any schema.
+
+Shared scaffolding note: several groups of tests below assert the same shape
+against different corpus slices (an "offenders" filter that must come back
+empty; a value that must fail closed on both fp2 entry points; a mutated
+manifest that must digest differently). Each group shares one small helper or
+one parametrize table rather than repeating the body, so the repeated
+assertion pattern exists in exactly one place in this file.
 """
 
 from __future__ import annotations
@@ -49,7 +56,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pytest
 
@@ -101,6 +108,22 @@ def _cases_by_runtime_for_family(family: str) -> dict[str, dict[str, Any]]:
     return {case["runtime"]: case for case in _cases() if case.get("family") == family}
 
 
+def _case_named(name: str) -> dict[str, Any]:
+    return next(c for c in _cases() if c["name"] == name)
+
+
+def _assert_no_offenders(offenders: list[str], message: str) -> None:
+    assert not offenders, f"{message}: {offenders}"
+
+
+def _assert_fails_closed(value: Any) -> None:
+    """Both fp2 entry points must refuse a manifest they cannot represent."""
+    with pytest.raises(Fp2UnsupportedValue):
+        canonicalize(value)
+    with pytest.raises(Fp2UnsupportedValue):
+        digest(value)
+
+
 def test_corpus_exists_and_is_non_trivial() -> None:
     cases = _cases()
     assert len(cases) >= 15, "a corpus this small cannot pin the fp2 lifecycle parity scope"
@@ -113,7 +136,7 @@ def test_case_names_are_unique() -> None:
 
 def test_every_case_declares_a_recognized_scope() -> None:
     offenders = [case["name"] for case in _cases() if case.get("scope") not in _VALID_SCOPES]
-    assert not offenders, f"cases with an unrecognized scope: {offenders}"
+    _assert_no_offenders(offenders, "cases with an unrecognized scope")
 
 
 def test_every_fp2_kind_used_by_the_lifecycle_record_is_represented() -> None:
@@ -123,7 +146,7 @@ def test_every_fp2_kind_used_by_the_lifecycle_record_is_represented() -> None:
 
 def test_case_kind_matches_the_manifest_kind_property() -> None:
     offenders = [case["name"] for case in _cases() if case["value"].get("kind") != case["kind"]]
-    assert not offenders, f"case.kind disagrees with value.kind: {offenders}"
+    _assert_no_offenders(offenders, "case.kind disagrees with value.kind")
 
 
 @pytest.mark.parametrize("case", _ok_cases(), ids=lambda c: c["name"])
@@ -135,11 +158,7 @@ def test_ok_case_canonicalizes_and_digests_as_recorded(case: dict[str, Any]) -> 
 
 @pytest.mark.parametrize("case", _unsupported_cases(), ids=lambda c: c["name"])
 def test_unsupported_case_fails_closed_on_both_entry_points(case: dict[str, Any]) -> None:
-    value = _substitute(case["value"])
-    with pytest.raises(Fp2UnsupportedValue):
-        canonicalize(value)
-    with pytest.raises(Fp2UnsupportedValue):
-        digest(value)
+    _assert_fails_closed(_substitute(case["value"]))
 
 
 def test_dfp2o_and_cfp2_never_carry_a_runtime_discriminator() -> None:
@@ -151,7 +170,7 @@ def test_dfp2o_and_cfp2_never_carry_a_runtime_discriminator() -> None:
         for case in _cases()
         if case["kind"] in {"dfp2o", "cfp2"} and "runtime" in case["value"]
     ]
-    assert not offenders, f"dfp2o/cfp2 cases smuggling a runtime scope: {offenders}"
+    _assert_no_offenders(offenders, "dfp2o/cfp2 cases smuggling a runtime scope")
 
 
 def test_afp2_and_efp2_always_carry_a_runtime_discriminator() -> None:
@@ -161,9 +180,7 @@ def test_afp2_and_efp2_always_carry_a_runtime_discriminator() -> None:
         if case["kind"] in {"afp2", "efp2"}
         and case["value"].get("runtime") not in ("python", "javascript")
     ]
-    assert not offenders, (
-        f"afp2/efp2 cases with a missing/malformed runtime discriminator: {offenders}"
-    )
+    _assert_no_offenders(offenders, "afp2/efp2 cases with a missing/malformed runtime scope")
 
 
 # ---------------------------------------------------------------------------
@@ -199,8 +216,8 @@ def test_dfp2o_row_order_is_significant_not_convergent() -> None:
     """The deliberate non-convergent case: row order changes the digest
     (fp2.md: 'Row order is significant... An order-independent digest would
     declare those two runs comparable')."""
-    ordered = next(c for c in _cases() if c["name"] == "dfp2o_dataset_convergence_input_first")
-    reversed_ = next(c for c in _cases() if c["name"] == "dfp2o_dataset_row_order_reversed_differs")
+    ordered = _case_named("dfp2o_dataset_convergence_input_first")
+    reversed_ = _case_named("dfp2o_dataset_row_order_reversed_differs")
 
     assert digest(ordered["value"]) != digest(reversed_["value"])
 
@@ -265,16 +282,14 @@ def test_unknown_manifest_field_is_preserved_not_dropped() -> None:
 def test_unsupported_value_fails_the_whole_manifest_closed_across_all_kinds() -> None:
     """The other half of AC4: what fp2 cannot represent it refuses whole --
     never a digest with some fields silently dropped -- for every one of the
-    four manifest kinds, not just one."""
+    four manifest kinds, not just one. Reuses the same _assert_fails_closed
+    helper as test_unsupported_case_fails_closed_on_both_entry_points above;
+    this test's own contribution is the coverage assertion below."""
     fail_closed_cases = [c for c in _cases() if c["scope"] == "fail_closed"]
     assert {c["kind"] for c in fail_closed_cases} == {"afp2", "dfp2o", "efp2", "cfp2"}
 
     for case in fail_closed_cases:
-        value = _substitute(case["value"])
-        with pytest.raises(Fp2UnsupportedValue):
-            canonicalize(value)
-        with pytest.raises(Fp2UnsupportedValue):
-            digest(value)
+        _assert_fails_closed(_substitute(case["value"]))
 
 
 # ---------------------------------------------------------------------------
@@ -283,26 +298,43 @@ def test_unsupported_value_fails_the_whole_manifest_closed_across_all_kinds() ->
 # ---------------------------------------------------------------------------
 
 
-def test_mutating_a_dataset_row_changes_the_digest() -> None:
-    case = next(c for c in _cases() if c["name"] == "dfp2o_dataset_convergence_input_first")
+def _mutate_dataset_row(value: dict[str, Any]) -> None:
+    value["rows"][0]["expected"] = "5"  # was "4"
+
+
+def _mutate_configuration_space(value: dict[str, Any]) -> None:
+    value["space"]["temperature"] = [0.2, 0.9]  # was [0.1, 0.9]
+
+
+def _mutate_agent_source_text(value: dict[str, Any]) -> None:
+    value["source"] = value["source"].replace("1.0", "2.0")
+
+
+# (case name, in-place mutator, also assert the canonical text changed too)
+# The dataset-row case additionally pins canonical-text sensitivity, not just
+# digest sensitivity; the other two only need the digest check to demonstrate
+# AC5.
+_DIGEST_MUTATION_CASES: tuple[tuple[str, Callable[[dict[str, Any]], None], bool], ...] = (
+    ("dfp2o_dataset_convergence_input_first", _mutate_dataset_row, True),
+    ("cfp2_config_convergence_model_first", _mutate_configuration_space, False),
+    ("afp2_agent_basic_python", _mutate_agent_source_text, False),
+)
+
+
+@pytest.mark.parametrize(
+    "case_name,mutate,also_assert_canonical_changed",
+    _DIGEST_MUTATION_CASES,
+    ids=[case_name for case_name, _, _ in _DIGEST_MUTATION_CASES],
+)
+def test_mutating_a_canonical_input_changes_the_digest(
+    case_name: str,
+    mutate: Callable[[dict[str, Any]], None],
+    also_assert_canonical_changed: bool,
+) -> None:
+    case = _case_named(case_name)
     mutated = copy.deepcopy(case["value"])
-    mutated["rows"][0]["expected"] = "5"  # was "4"
+    mutate(mutated)
 
     assert digest(mutated) != case["digest"]
-    assert canonicalize(mutated) != case["canonical"]
-
-
-def test_mutating_the_configuration_space_changes_the_digest() -> None:
-    case = next(c for c in _cases() if c["name"] == "cfp2_config_convergence_model_first")
-    mutated = copy.deepcopy(case["value"])
-    mutated["space"]["temperature"] = [0.2, 0.9]  # was [0.1, 0.9]
-
-    assert digest(mutated) != case["digest"]
-
-
-def test_mutating_agent_source_text_changes_the_digest() -> None:
-    case = next(c for c in _cases() if c["name"] == "afp2_agent_basic_python")
-    mutated = copy.deepcopy(case["value"])
-    mutated["source"] = mutated["source"].replace("1.0", "2.0")
-
-    assert digest(mutated) != case["digest"]
+    if also_assert_canonical_changed:
+        assert canonicalize(mutated) != case["canonical"]

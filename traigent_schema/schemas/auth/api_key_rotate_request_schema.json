@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_rotate_request_schema.json",
+  "title": "API Key Rotate Request",
+  "description": "Request body for POST /api/v1/keys/{key_id}/rotate.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "strategy": {
+      "type": "string",
+      "enum": ["immediate", "gradual", "scheduled", "emergency"],
+      "default": "immediate",
+      "description": "Rotation strategy."
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 255,
+      "description": "Optional client-supplied reason."
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_action_request_schema.json",
+  "title": "API Key Action Request",
+  "description": "Optional request body for the API key suspend action.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "reason": {"type": "string", "maxLength": 512, "description": "Optional client-supplied reason."}
+  }
+}

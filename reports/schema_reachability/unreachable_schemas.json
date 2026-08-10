@@ -13,8 +13,8 @@
       "refOrEndpointGraph": 347
     },
     "reachableCount": 381,
-    "schemaFileCount": 417,
-    "unreachableCount": 36
+    "schemaFileCount": 428,
+    "unreachableCount": 47
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -28,6 +28,17 @@
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
     "auth/rbac_privilege_vocabulary_schema.json",
+    "certification/agent_certificate_v0_schema.json",
+    "certification/certificate_claim_payloads_v0_schema.json",
+    "certification/certificate_claim_templates_v0_schema.json",
+    "certification/certificate_claims_v0_schema.json",
+    "certification/certificate_evidence_refs_v0_schema.json",
+    "certification/certificate_ledger_seals_v0_schema.json",
+    "certification/certificate_registry_agent_revision_v0_schema.json",
+    "certification/certificate_registry_measurement_contract_v0_schema.json",
+    "certification/certificate_rejection_v0_schema.json",
+    "certification/certificate_signatures_v0_schema.json",
+    "certification/certification_common_v0_schema.json",
     "evaluation/evaluation_request_schema.json",
     "evaluation/evaluation_results_schema.json",
     "evaluation/evaluation_schema.json",

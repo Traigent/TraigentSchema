@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_rejection_v0_schema.json",
+  "title": "Agent Certificate v0 Rejection Diagnostic",
+  "description": "The network-boundary rejection diagnostic: 'rejection code plus bounded structural path; no values or arbitrary map keys' (build-item B1 work order, binding). Rejection handling is C1's named most-likely leakage surface — 'the evidence adapter that simultaneously sees current-online tuned free text and constructs failure/non-claim/compiler diagnostics … can leak through values, map keys, exception text, enum selection, counts, ordering, hashes, logs, or traces' — so this shape carries a closed rejection-code vocabulary and a bounded structural path of property NAMES and indices only. No rejected value, no exception text, no message string, and no arbitrary map key is representable. Full local rejection and exception details belong to the CLIENT-LOCAL diagnostics family (client_local/diagnostics), which never crosses this boundary. Root instance is one CertificateRejectionV0.",
+  "definitions": {
+    "RejectionCodeV0": {
+      "description": "Closed rejection-code vocabulary. The first five codes are the operational definition of 'unsupported' (C6 Ruling 3(ii), verbatim: 'unregistered claim, missing/versionless verifier, verifier not run or not PASS, missing evidence binding, or prohibited-register violation'); the remainder are the mandated negative fixture classes (C1 Ruling 4: unknown-field injection, tier inflation, non-claim-to-claim promotion, template-version mismatch, prohibited-register-digest mismatch, legacy-NULL-chain presented as chained; plus signature-scope, cross-certificate replay, co-attestation mismatch, trust-ring substitution, missing-stream, duplicate-ID/claim, numeric-bound, canonicalization). Adding a code is a compatible release only after its meaning and boundary tests are registered.",
+      "type": "string",
+      "enum": [
+        "unregistered_claim_id",
+        "missing_or_versionless_verifier",
+        "verifier_not_run_or_not_pass",
+        "missing_evidence_binding",
+        "prohibited_register_violation",
+        "tier4_emission_attempt",
+        "tier_inflation",
+        "non_claim_promoted_to_claim",
+        "template_version_mismatch",
+        "prohibited_register_digest_mismatch",
+        "legacy_stream_presented_as_sealed",
+        "missing_stream",
+        "unknown_field",
+        "duplicate_claim",
+        "duplicate_identifier",
+        "numeric_bound_violation",
+        "canonicalization_violation",
+        "signature_scope_mismatch",
+        "co_attestation_mismatch",
+        "trust_ring_substitution",
+        "cross_certificate_replay",
+        "legacy_or_unsealed_session_refused"
+      ]
+    },
+    "PathSegmentV0": {
+      "description": "One structural-path segment: a schema property NAME (bounded lowercase token — never a value, never an arbitrary map key) or an array index. The oneOf keeps the two segment kinds disjoint and closed.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "segment_kind",
+            "property_name"
+          ],
+          "properties": {
+            "segment_kind": {
+              "const": "property"
+            },
+            "property_name": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "segment_kind",
+            "index"
+          ],
+          "properties": {
+            "segment_kind": {
+              "const": "index"
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9999
+            }
+          }
+        }
+      ]
+    },
+    "CertificateRejectionV0": {
+      "description": "One rejection: code + bounded structural path locating the offending position. Rejection is terminal for the record — there is no downgrade path from a rejection to a claim, a lower tier, or a non-claim ('rejection, not downgrade').",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "rejection_code",
+        "structural_path"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.certificate_rejection.v0"
+        },
+        "rejection_code": {
+          "$ref": "#/definitions/RejectionCodeV0"
+        },
+        "structural_path": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/definitions/PathSegmentV0"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/CertificateRejectionV0"
+    }
+  ]
+}

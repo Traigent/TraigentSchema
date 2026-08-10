@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_registry_measurement_contract_v0_schema.json",
+  "title": "Agent Certificate v0 MeasurementContract Registry Record",
+  "description": "The MINIMAL blinded commitment record for MeasurementContract registration in the certificate program (C1 Ruling 3, 'Corrected MeasurementContractV0 boundary allowlist', binding): fixed schema discriminator · server-assigned opaque contract ID (response only) · commitment/canonicalization scheme enums · blinded commitment to the COMPLETE client-local measurement contract · server-computed canonical record digest. 'Metric IDs, dataset size, split policy, seed, and decision-rule details remain inside the committed client-local document unless a concrete server function requires them' — none of those fields is representable here, and NO counts or date buckets cross (struck by C1). PRINTED NON-CLAIMS (required at registration): 'No execution, representativeness, preregistration timing, effect, winner, stability, or statistical validity is established' by registration; statistical claims 'remain suspended' (binding P0 — E2 is a mandatory printed non-claim on every certificate); 'Fresh-blinding re-registration and semantic duplicates are not prevented'; 'Registration does not establish that the server lacks the preimage through another channel'; ''Printed at registration' is target behavior, not shipped evidence.' Reversal condition: 'admit a structured field only when a named consumer cannot operate on the commitment alone and its disclosure cost is explicitly approved.' This is a DIFFERENT record family from agent_lifecycle_record/'s ALR-1106 registration routes — the certificate-boundary commitment shape, not a replacement for them. Root instance is one registered record (the response shape); the request shape is #/definitions/RegisterRequestV0.",
+  "definitions": {
+    "RegisterRequestV0": {
+      "description": "Create-once registration request: scheme enums plus the secret-blinded commitment to the complete client-local measurement contract. No metric IDs, dataset sizes, split policies, seeds, counts, date buckets, or free text are representable.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "commitment_scheme",
+        "canonicalization_profile",
+        "blinded_contract_commitment"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.certificate_registry.measurement_contract.v0"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization_profile": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "blinded_contract_commitment": {
+          "description": "Secret-blinded commitment to the complete client-local measurement contract document. Blinding material stays client-local; a public salt would not prevent low-entropy guessing (merged prohibited claim 22).",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "MeasurementContractRegistryRecordV0": {
+      "description": "The immutable registered record (create-once/get-by-ID). canonical_record_digest is server-computed over the canonical RegisterRequestV0 record BEFORE contract_id assignment, excluding the assigned ID. No timestamp field exists: precise timestamps remain server-internal and date buckets are struck.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "contract_id",
+        "commitment_scheme",
+        "canonicalization_profile",
+        "blinded_contract_commitment",
+        "canonical_record_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.certificate_registry.measurement_contract.v0"
+        },
+        "contract_id": {
+          "description": "Server-assigned opaque contract ID (response only; never client-supplied).",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization_profile": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "blinded_contract_commitment": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "canonical_record_digest": {
+          "description": "Server-computed canonical digest over the request record before ID assignment ('excluding the assigned ID' — including it would be circular).",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/MeasurementContractRegistryRecordV0"
+    }
+  ]
+}

@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_signatures_v0_schema.json",
+  "title": "Agent Certificate v0 Signature and Co-Attestation Wire Shapes",
+  "description": "Issuer-signature scope and client co-attestation block for Agent Certificate v0, per C6 Ruling 3(iv) (reconciled, binding): 'the client signs a canonical unsigned-manifest digest covering subject, seal, complete claims and tiers, evidence digests, mandatory NON-claims, privacy mode, SDK identity, compiler/register versions, key/ring identifiers, and freshness data. The issuer then signs that manifest and the client signature.' Spine-digest-only binding was OVERTURNED: 'signing only the spine, privacy mode, SDK identity, and nonce allows the issuer to attach a different claim set, tiers, evidence references, and NON-claims to the same client signature.' This family does NOT reuse ArtifactSignatureEnvelopeV2 — reuse was struck ('not established merely because the existing KMS key matches that envelope. Adding nested signatures and new fields changes the format and verifier'). The v0 issuer path is a new dedicated per-environment certificate-signing key through protected GitHub-OIDC CI (C6 Ruling 4); the trust ring must be a signed, versioned artifact whose root fingerprint is pinned in the independent verifier, failing closed for unknown keys — a mutable ConfigMap is transport only, never authority. Root instance is one CertificateSignaturesV0.",
+  "definitions": {
+    "UnsignedManifestCoverageV0": {
+      "description": "The FIXED coverage list of the canonical unsigned manifest — the eleven sections C6 Ruling 3(iv) enumerates, pinned as a const so a manifest that covers less is unrepresentable. Freshness data is covered material; per-certificate expiry semantics are pinned by the signed semantics manifest.",
+      "const": [
+        "subject",
+        "seal",
+        "claims",
+        "tiers",
+        "evidence_digests",
+        "non_claims",
+        "privacy_mode",
+        "sdk_identity",
+        "compiler_register_versions",
+        "key_ring_identifiers",
+        "freshness"
+      ]
+    },
+    "UnsignedManifestRefV0": {
+      "description": "Reference to the canonical unsigned manifest: its digest plus the pinned coverage list. The digest is computed over the canonical serialization defined by the signed semantics manifest; 'A digest without an archived, authentic bundle and resolver does not preserve verification' (C1 Ruling 6) — archival is a B5/verifier obligation this shape cannot discharge.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_digest",
+        "coverage"
+      ],
+      "properties": {
+        "manifest_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "coverage": {
+          "$ref": "#/definitions/UnsignedManifestCoverageV0"
+        }
+      }
+    },
+    "CoAttestationV0": {
+      "description": "The client co-attestation block. The client signs the FULL canonical unsigned-manifest digest (never a spine digest). Scope carried verbatim from C6 Ruling 3(iv): 'That does not mean the client attests every server assertion as true; it means the client attests that these are the exact bytes it co-signed.' The client key crosses as an OpaqueRef, not a raw public key — tension T3 (print the key, a blinded reference, or nothing) is unresolved between C6 and C1; the linkability-conservative opaque-reference encoding is used pending a Disclosure Register entry for the co-attestation key material (C1 Ruling 5, client->server entry 3).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "client_key_ref",
+        "signed_manifest_digest",
+        "nonce",
+        "signature"
+      ],
+      "properties": {
+        "algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "client_key_ref": {
+          "description": "Opaque reference to the enrolled client signing key. A stable pseudonymous identifier with a linkability cost (C1, tension T3); never raw public-key bytes in v0.",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "signed_manifest_digest": {
+          "description": "MUST equal the unsigned manifest's manifest_digest; the envelope binds the two (mismatch is the co-attestation-mismatch fixture class).",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "nonce": {
+          "description": "Public anti-replay nonce. Register entry 8 wording travels verbatim: a public nonce 'does not prevent dictionary guessing.'",
+          "$ref": "certification_common_v0_schema.json#/definitions/PublicNonce"
+        },
+        "signature": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"
+        }
+      }
+    },
+    "IssuerSignatureV0": {
+      "description": "The issuer signature. Signing order is conceded and binding: 'issuer signature should cover the client signature bytes' — signed_payload names exactly what the issuer signed, and the enclosing CertificateSignaturesV0 forces the covering form whenever a co-attestation is present. The signing workflow 'must verify the finalized manifest and ledger before signing' (C6 Ruling 4); that is a B5 obligation recorded here as scope, not proven by this shape.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "issuer_key_ref",
+        "trust_ring_ref",
+        "signed_payload",
+        "signature"
+      ],
+      "properties": {
+        "algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "issuer_key_ref": {
+          "description": "Opaque reference to the dedicated per-environment certificate-signing key. Never the development Planner key; the general backend pod holds no certificate-signing authority (C6 Ruling 4, binding).",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "trust_ring_ref": {
+          "description": "Opaque reference to the signed, versioned trust-ring artifact (with version) under which the issuer key is published. Offline verification additionally needs 'a compiled minimum checkpoint or another pinned release policy' against rollback (C6 Ruling 4) — a verifier obligation, not representable here.",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "signed_payload": {
+          "description": "Exactly what the issuer signed: the unsigned manifest alone, or the unsigned manifest plus the client co-attestation bytes.",
+          "oneOf": [
+            {
+              "const": [
+                "unsigned_manifest"
+              ]
+            },
+            {
+              "const": [
+                "unsigned_manifest",
+                "co_attestation"
+              ]
+            }
+          ]
+        },
+        "signature": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"
+        }
+      }
+    },
+    "CertificateSignaturesV0": {
+      "description": "The complete signature block: canonical unsigned-manifest reference, optional client co-attestation, and the issuer signature. When a co-attestation is present the issuer signature MUST cover it (signed_payload = [unsigned_manifest, co_attestation]); when absent it MUST NOT claim to. 'Missing co-attestation should refuse issuance' for any tier-1 claim — that refusal is enforced at the certificate envelope (tier-1 claims require this block's co_attestation), not silently downgraded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unsigned_manifest",
+        "issuer_signature"
+      ],
+      "properties": {
+        "unsigned_manifest": {
+          "$ref": "#/definitions/UnsignedManifestRefV0"
+        },
+        "co_attestation": {
+          "$ref": "#/definitions/CoAttestationV0"
+        },
+        "issuer_signature": {
+          "$ref": "#/definitions/IssuerSignatureV0"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "co_attestation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "issuer_signature": {
+                "properties": {
+                  "signed_payload": {
+                    "const": [
+                      "unsigned_manifest",
+                      "co_attestation"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "issuer_signature": {
+                "properties": {
+                  "signed_payload": {
+                    "const": [
+                      "unsigned_manifest"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/CertificateSignaturesV0"
+    }
+  ]
+}

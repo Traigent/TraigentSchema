@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_registry_agent_revision_v0_schema.json",
+  "title": "Agent Certificate v0 AgentRevision Registry Record",
+  "description": "The MINIMAL blinded commitment record for AgentRevision registration in the certificate program (C1 Ruling 3, 'Corrected AgentRevisionV0 boundary allowlist', binding). The complete boundary allowlist is: fixed schema discriminator · server-assigned opaque revision ID (response only) · commitment/canonicalization scheme enums · BLINDED revision commitment · optional parent revision reference 'only if lineage is approved as a disclosure' · server-computed canonical record digest 'excluding the assigned ID'. REMOVED from v0 and unrepresentable here: material_kind_counts, item counts, date buckets ('Precise timestamps remain server-internal' — there is no timestamp field of any kind). The idempotency digest 'must be calculated over the canonical request record before ID assignment' — 'A canonical idempotency digest cannot include a server-assigned ID without becoming circular.' PRINTED NON-CLAIMS (required at registration, C1 Ruling 3): registration does not prove 'ownership, semantic uniqueness, source contents, successful build, testing, deployment, current deployment binding, or drift monitoring'; a parent reference 'asserts a declared link only, not chronology or derivation'; 'Registration does not establish that the server lacks the preimage through another channel' (current-online already discloses tuned free-text configuration values through another channel); 'Fresh-blinding re-registration and semantic duplicates are not prevented' — 'Random salts allow the same underlying object to be re-registered under fresh commitments. A unique digest does not establish semantic uniqueness.' Reversal condition: 'admit a structured field only when a named consumer cannot operate on the commitment alone and its disclosure cost is explicitly approved.' This is a DIFFERENT record family from agent_lifecycle_record/'s ALR-1106 registration routes — it does not replace them; it is the certificate-boundary commitment shape those richer routes must project down to before anything crosses into a certificate. Root instance is one registered record (the response shape); the request shape is #/definitions/RegisterRequestV0.",
+  "definitions": {
+    "RegisterRequestV0": {
+      "description": "Create-once registration request: scheme enums plus the secret-blinded commitment. No counts, no date buckets, no free text, no client-supplied identifiers. parent_revision_ref crosses only because lineage was conditionally approved as a declared-link disclosure; omit it when lineage is not being disclosed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "commitment_scheme",
+        "canonicalization_profile",
+        "blinded_revision_commitment"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.certificate_registry.agent_revision.v0"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization_profile": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "blinded_revision_commitment": {
+          "description": "Secret-blinded commitment to the client-local canonical revision manifest. The blinding material stays client-local; a public salt would not prevent low-entropy guessing (merged prohibited claim 22).",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "parent_revision_ref": {
+          "description": "Optional declared parent revision. 'asserts a declared link only, not chronology or derivation' (printed non-claim).",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        }
+      }
+    },
+    "AgentRevisionRegistryRecordV0": {
+      "description": "The immutable registered record (create-once/get-by-ID; DB-enforced immutability and non-null server-derived idempotency are conceded architecture, enforced server-side). canonical_record_digest is server-computed over the canonical RegisterRequestV0 record BEFORE revision_id assignment, excluding the assigned ID. There is deliberately no created_at: precise timestamps remain server-internal, and no date bucket may cross.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "revision_id",
+        "commitment_scheme",
+        "canonicalization_profile",
+        "blinded_revision_commitment",
+        "canonical_record_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.certificate_registry.agent_revision.v0"
+        },
+        "revision_id": {
+          "description": "Server-assigned opaque revision ID (response only; never client-supplied).",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization_profile": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "blinded_revision_commitment": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "parent_revision_ref": {
+          "description": "Echoed only when the request disclosed lineage. 'asserts a declared link only, not chronology or derivation' (printed non-claim).",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "canonical_record_digest": {
+          "description": "Server-computed canonical digest over the request record before ID assignment ('excluding the assigned ID' — including it would be circular).",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/AgentRevisionRegistryRecordV0"
+    }
+  ]
+}

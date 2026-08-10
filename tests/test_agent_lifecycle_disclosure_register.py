@@ -1,5 +1,6 @@
-"""ALR-1102 (Terra review P1-2, 2026-08-10): the client-boundary disclosure
-register for the four Route 3/Route 4 schemas this story owns.
+"""ALR-1102 (Terra review P1-2, 2026-08-10) / ALR-1106 (Route 1/2 packet,
+2026-08-10): the client-boundary disclosure register for all nine
+property-bearing Part 1 roots named at PART1_CONTRACT_FREEZE_DRAFT.md:406-408.
 
 Authoritative contract: PART1_CONTRACT_FREEZE_DRAFT.md:376-408 ("Versioned
 client-boundary disclosure register"). Every property of every Part 1 public
@@ -7,16 +8,36 @@ request/response schema must carry an ``x-disclosure {rule, artifact}``
 annotation (the closed meta-schema is registered in
 ``traigent_schema/schemas/x_extensions_meta_schema.json``). This module is
 the guard that makes guard-killing mutation row 17
-(PART1_CONTRACT_FREEZE_DRAFT.md:1155) executable and provable red for the
-part of the packet this story owns: the two new producer routes
-(agent_lifecycle_agent_revision_register_*, agent_lifecycle_measurement_
-contract_register_*) and agent_lifecycle_record_response_schema.json are
-Route 1/2/5 documents that do not exist in this repo yet, so this module is
-deliberately SCOPED to the four documents ALR-1102 owns plus their shared
-agent_lifecycle_common_schema.json definitions -- not the full nine-root
-coverage the frozen contract eventually requires. A later Route 1/2/5 story
-extends ``_IN_SCOPE_ROOTS`` and ``tests/data/agent_lifecycle_record/
-disclosure_manifest.json`` rather than replacing either.
+(PART1_CONTRACT_FREEZE_DRAFT.md:1155) executable.
+
+ALR-1102 originally scoped this guard to the four Route 3/Route 4 documents
+it owned, because the two new producer routes (agent_lifecycle_agent_
+revision_register_*, agent_lifecycle_measurement_contract_register_*) and
+agent_lifecycle_record_response_schema.json (Route 5, merged later by
+ALR-1105) did not exist yet -- a manifest entry naming a nonexistent document
+would have failed the manifest's own literal-resolution requirement, exactly
+the poison class row 17 exists to catch. ALR-1106 builds the two missing
+producer routes and extends ``_IN_SCOPE_ROOTS`` to the full nine roots,
+including ``agent_lifecycle_record_response_schema.json`` -- which ALR-1105
+had already annotated but which this guard did not yet walk (its own
+docstring said so explicitly). ``tests/data/agent_lifecycle_record/
+disclosure_manifest.json`` is extended in lockstep with the new exact
+overrides each of the five newly in-scope documents needs.
+
+Known, deliberately out-of-scope limitation (verified, not assumed): this
+traversal resolves ``$ref`` only when it appears inside an ``allOf`` branch
+(an established codebase convention for reference types that need deep
+disclosure walking -- see agent_lifecycle_receipt_submit_response_schema.
+json's ``measurement_coverage``). Several already-merged definitions still
+use a *bare* ``$ref`` at their use site (record_response_schema.json's
+``governance_profile``/``identity_state``/``comparability_verdict``/
+``measurement_coverage``/``pending_episode``/``rescorability``/``bindings``
+items/``evidence_episodes`` items, and the axis-value oneOf branches inside
+``agent_lifecycle_common_schema.json``) and are therefore walked only down to
+their own top-level property position, not into their nested fields. This
+packet does not retrofit that pre-existing (ALR-1101/ALR-1105) authoring gap
+-- see the ALR-1106 story report for the full accounting of what is and is
+not covered.
 
 Two things are proved here, matching the contract's own split:
 1. Coverage -- every reachable property in every in-scope root carries a
@@ -70,17 +91,32 @@ RULE_VOCABULARY = frozenset(
     }
 )
 
-# The four ALR-1102 property-bearing roots, relative to traigent_schema/schemas/.
+# The nine exact property-bearing roots named at
+# PART1_CONTRACT_FREEZE_DRAFT.md:406-408, relative to traigent_schema/schemas/.
 _IN_SCOPE_ROOTS = [
+    "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_response_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
     "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
 ]
 
-# Timestamps that use backend_record_timestamp (Route 5's as_of, which uses
-# backend_snapshot_timestamp instead, is out of this story's scope).
-_TIMESTAMP_PROPERTY_NAMES = {"issued_at", "expires_at", "sealed_at"}
+# Not a traversal root (PART1_CONTRACT_FREEZE_DRAFT.md:406: "the resolved
+# definition target, not a tenth route root"), but a legitimate manifest
+# override document -- the contract's own worked table repeatedly overrides
+# exact pointers inside it (StableSourceRef, AgentLifecycleRecordRef,
+# ClientDeclaredIdentityDescriptor, ClientAttestedArtifactDescriptor).
+_COMMON_SCHEMA_RELATIVE_PATH = "agent_lifecycle_record/agent_lifecycle_common_schema.json"
+
+# Timestamps that use backend_record_timestamp. Route 5's `as_of` is the one
+# named exception (PART1_CONTRACT_FREEZE_DRAFT.md:404: "except Route 5
+# as_of") and is special-cased directly in _deterministic_rule below rather
+# than living in this bucket.
+_TIMESTAMP_PROPERTY_NAMES = {"issued_at", "expires_at", "sealed_at", "created_at"}
 
 # Counted/index integer properties -> protocol_accounting_count.
 _COUNT_PROPERTY_NAMES = {
@@ -97,6 +133,17 @@ _COUNT_PROPERTY_NAMES = {
 }
 
 # Closed enum/const/discriminator/axis scalar properties -> closed_interop_vocabulary.
+# ALR-1106 adds the three record-level axis fields that stay a single
+# consistent rule at every use site across the nine in-scope roots
+# (governance_profile/identity_state also appear on Route 1's response and
+# Route 5's response; comparability_verdict is Route 5 only). Route 5's
+# `measurement_coverage` is NOT added here even though it is also an axis
+# field: unlike the other three, that exact property name is ALSO used by
+# Route 4's response for a structurally different (non-axis) purpose that
+# deterministically maps to closed_public_structure via _CONTAINER_PROPERTY_
+# NAMES below, so the two contexts would collide on one shared bucket. Route
+# 5's occurrence is handled by an exact manifest override instead (see
+# tests/data/agent_lifecycle_record/disclosure_manifest.json).
 _CLOSED_VOCAB_PROPERTY_NAMES = {
     "state",
     "basis",
@@ -105,23 +152,41 @@ _CLOSED_VOCAB_PROPERTY_NAMES = {
     "rescorability_state",
     "authority_effect",
     "kind",
+    "governance_profile",
+    "identity_state",
+    "comparability_verdict",
 }
 
 # Reason-code fields (both the array property and its items) -> bounded_reason_vocabulary.
 _REASON_PROPERTY_NAMES = {"reason_codes"}
 
 # Named *_ref opaque-reference fields, and the id/version_id components of a
-# ref object -> opaque_lifecycle_reference (no record_ref in this story's
-# scope, so there is no exception to the generic ref rule here).
+# ref object -> opaque_lifecycle_reference. record_ref is the one named
+# exception at every site it appears (opaque_lifecycle_record_handle
+# instead) and is handled by an exact manifest override rather than a
+# bucket, since the generic *_ref suffix rule must keep applying to every
+# other *_ref field.
 _REF_SUFFIX = "_ref"
 _REF_ID_COMPONENT_NAMES = {"id", "version_id"}
 
 # Closed structural containers whose children each carry their own rule.
+# ALR-1106 adds the Route 1/2/5 container-shaped properties that are
+# unambiguous (single consistent rule at every use site across the nine
+# in-scope roots): identity_declaration (Route 1 request), identity_
+# descriptor/artifact_descriptor (the two request-only closed descriptor
+# wrappers), item_keys (Route 2 request, both dataset_source and
+# slice_definition branches), and evidence_episodes (Route 5 response).
 _CONTAINER_PROPERTY_NAMES = {
     "expected_items",
     "receipts",
     "measurement_coverage",
     "rescorability",
+    "identity_declaration",
+    "identity_descriptor",
+    "artifact_descriptor",
+    "item_keys",
+    "evidence_episodes",
+    "bindings",
 }
 
 
@@ -200,12 +265,20 @@ def _deterministic_rule(
     in_ref_object: bool,
 ) -> str | None:
     """PART1_CONTRACT_FREEZE_DRAFT.md:404's deterministic-assignment
-    algorithm, scoped to the property-name/shape patterns this story's four
+    algorithm, scoped to the property-name/shape patterns the nine in-scope
     schemas actually contain. Returns None when a property cannot be
-    generically classified (it must then come from the manifest override --
-    exactly `nonce`, which the worked table itself special-cases)."""
+    generically classified -- it must then come from an exact manifest
+    override in tests/data/agent_lifecycle_record/disclosure_manifest.json
+    (e.g. `nonce`, `record_ref`, `pending_episode`, the Route 1/2 request
+    discriminators/selection modes, and the request-only-descriptor scalars
+    living in agent_lifecycle_common_schema.json)."""
     if property_name == "schema_version":
         return "wire_contract_version"
+    if property_name == "as_of":
+        # PART1_CONTRACT_FREEZE_DRAFT.md:404: the one named timestamp
+        # exception -- Route 5's own read-snapshot time, not a Backend
+        # write/issuance timestamp.
+        return "backend_snapshot_timestamp"
     if property_name in _TIMESTAMP_PROPERTY_NAMES:
         return "backend_record_timestamp"
     if property_name in _COUNT_PROPERTY_NAMES:
@@ -385,12 +458,25 @@ class TestDisclosureManifestIsLiteralAndResolvable:
 
     def test_manifest_only_names_documents_this_story_owns(self) -> None:
         """Guards the scoping decision documented in the manifest's own
-        $comment: no entry may point at a Route 1/2/5 document that does not
-        exist yet, which would itself violate the resolvability test above
-        but is worth asserting directly as the intended invariant."""
+        $comment: every entry's document must be either one of the nine
+        exact in-scope roots (PART1_CONTRACT_FREEZE_DRAFT.md:406-408) or
+        agent_lifecycle_common_schema.json -- the resolved definitions
+        target the contract's own worked table (PART1_CONTRACT_FREEZE_DRAFT.
+        md:412-487) repeatedly overrides directly (StableSourceRef,
+        AgentLifecycleRecordRef, ClientDeclaredIdentityDescriptor,
+        ClientAttestedArtifactDescriptor). It is deliberately NOT itself an
+        _IN_SCOPE_ROOTS traversal root (PART1_CONTRACT_FREEZE_DRAFT.md:406:
+        'the resolved definition target, not a tenth route root'), but a
+        manifest override entry naming it is still legitimate: it is
+        reached and checked via allOf/$ref resolution from an in-scope root,
+        not via its own top-level traversal. A stray reference to any OTHER
+        document (a definitions-only or endpoint-catalog file that is
+        neither) would itself violate the resolvability test above but is
+        worth asserting directly as the intended invariant."""
         manifest = _load_manifest()
+        allowed_documents = {*_IN_SCOPE_ROOTS, _COMMON_SCHEMA_RELATIVE_PATH}
         for entry in manifest["disclosure_manifest"]:
-            assert entry["document"] in _IN_SCOPE_ROOTS, entry
+            assert entry["document"] in allowed_documents, entry
 
 
 # ---------------------------------------------------------------------------
@@ -506,8 +592,14 @@ class TestDisclosurePoisonGuardsAreLoadBearing:
         assert not _pointer_is_literal(poisoned_entry["pointer"])
 
     def test_manifest_pointing_at_a_nonexistent_document_is_rejected(self) -> None:
+        """ALR-1106: agent_lifecycle_agent_revision_register_request_schema.json
+        now exists (it was this exact poison example's stand-in for a
+        not-yet-built Route 1/2 document under ALR-1102's four-root scope) --
+        swapped for a document name that remains genuinely nonexistent under
+        the now nine-root scope, so this still exercises real poison
+        detection rather than accidentally validating a real file."""
         poisoned_entry = {
-            "document": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
+            "document": "agent_lifecycle_record/agent_lifecycle_qualification_register_request_schema.json",
             "pointer": "#/properties/agent_ref",
             "rule": "opaque_lifecycle_reference",
             "artifact": REGISTER_ARTIFACT,

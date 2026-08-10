@@ -70,6 +70,80 @@
       },
       "description": "Content-free object naming one immutable, once-minted snapshot (PART1_CONTRACT_FREEZE_DRAFT.md:289)."
     },
+    "AgentLifecycleRecordRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "version_id"],
+      "properties": {
+        "kind": {
+          "const": "agent_lifecycle_record",
+          "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "id": {
+          "$ref": "#/definitions/OpaqueRefId",
+          "x-disclosure": {"rule": "opaque_lifecycle_record_handle", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        },
+        "version_id": {
+          "$ref": "#/definitions/OpaqueRefId",
+          "x-disclosure": {"rule": "opaque_lifecycle_record_handle", "artifact": "agent_lifecycle_disclosure_register.v1"}
+        }
+      },
+      "description": "ALR-1106: moved here from agent_lifecycle_record_response_schema.json's local definitions (Terra-style P2-2 reuse-not-duplicate; the contract's exact-override manifest, PART1_CONTRACT_FREEZE_DRAFT.md:434-437, always named this shared common-schema location as its eventual home -- ALR-1105 could not host it here yet because no Route 1 response schema existed on that branch). The lifecycle record's own opaque handle: kind receives the ordinary closed-vocabulary assignment, while id/version_id receive the record-handle disclosure override distinct from a generic TypedOpaqueRef. Both public record_ref fields (Route 1's agent_lifecycle_agent_revision_register_response_schema.json and Route 5's agent_lifecycle_record_response_schema.json) $ref this same shape rather than duplicating it."
+    },
+    "RequestOnlyRandomLabel": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22,127}$",
+      "maxLength": 127,
+      "not": {
+        "pattern": "^([0-9A-Fa-f]{32}|[0-9A-Fa-f]{40}|[0-9A-Fa-f]{64}|[0-9A-Fa-f]{128})$"
+      },
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:317: the one named scalar used by ClientDeclaredIdentityDescriptor.local_identity_key, ClientAttestedArtifactDescriptor.local_version_key, and every Route 2 dataset/slice RequestOnlyItemKey array item (which $refs this scalar directly at its own use site rather than being a separate named definition -- 'RequestOnlyItemKey' is contract prose for 'an item drawn from this exact grammar', not a second JSON Schema shape). The explicit not-pattern makes the digest-shaped exclusion case-insensitive and rejects exactly the common 32/40/64/128-character all-hex shapes (a caller-chosen random label is never mistakable for a content hash); it does not reject other URL-safe random labels merely because they contain hexadecimal characters. Every use site $refs this scalar rather than re-stating or weakening it (PART1_CONTRACT_FREEZE_DRAFT.md:317)."
+    },
+    "ClientDeclaredIdentityDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["local_identity_key"],
+      "properties": {
+        "local_identity_key": {
+          "allOf": [{"$ref": "#/definitions/RequestOnlyRandomLabel"}],
+          "x-disclosure": {"rule": "request_only_client_attestation", "artifact": "agent_lifecycle_disclosure_register.v1"},
+          "description": "Caller-generated from at least 128 bits of caller-chosen randomness; never a hash/digest, name, path, prompt, source content, database id, existing Agent/Run/ArtifactVersion id, or Backend lookup handle (PART1_CONTRACT_FREEZE_DRAFT.md:319-325). Backend stores only a scoped HMAC verifier, never the plaintext value; never echoed in any response, error, URL, log, analytics event, telemetry event, export, or idempotency replay (PART1_CONTRACT_FREEZE_DRAFT.md:313-315)."
+        }
+      },
+      "description": "Route 1 request-only closed descriptor (PART1_CONTRACT_FREEZE_DRAFT.md:319-325): the sole admitted identity_declaration.client_declared branch payload. A caller-local random declaration label only; it cannot establish or look up canonical Agent identity and therefore earns exactly RECONSTRUCTED/client_attested/[DECLARED_PROVENANCE]."
+    },
+    "ClientAttestedArtifactDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["local_version_key"],
+      "properties": {
+        "local_version_key": {
+          "allOf": [{"$ref": "#/definitions/RequestOnlyRandomLabel"}],
+          "x-disclosure": {"rule": "request_only_client_attestation", "artifact": "agent_lifecycle_disclosure_register.v1"},
+          "description": "Caller-generated content-free local version label for a Route 2 client_attested dataset_source/evaluator_source declaration (PART1_CONTRACT_FREEZE_DRAFT.md:313-317). Backend stores only a scoped HMAC verifier under a dataset/evaluator-specific key family, never the plaintext value; never echoed anywhere (PART1_CONTRACT_FREEZE_DRAFT.md:313-317, :596)."
+        }
+      },
+      "description": "Route 2 request-only closed descriptor used by both dataset_source.client_attested and evaluator_source.client_attested branches (PART1_CONTRACT_FREEZE_DRAFT.md:313-317, :592-593)."
+    },
+    "StableSourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["dataset", "evaluator"],
+          "x-disclosure": {"rule": "discovery_issued_backend_resource_handle", "artifact": "agent_lifecycle_disclosure_register.v1"},
+          "description": "Each Route 2 branch further constrains this to its matching const (PART1_CONTRACT_FREEZE_DRAFT.md:331)."
+        },
+        "id": {
+          "allOf": [{"$ref": "#/definitions/OpaqueRefId"}],
+          "x-disclosure": {"rule": "discovery_issued_backend_resource_handle", "artifact": "agent_lifecycle_disclosure_register.v1"},
+          "description": "A server-issued opaque stable source handle drawn from at least 128 bits of cryptographically secure randomness (PART1_CONTRACT_FREEZE_DRAFT.md:327-334); never a database/example id, name, tenant id, raw digest, label, path, prompt fragment, or content-derived capability. Resolves only through the Backend-private mapping under the authenticated tenant/project/conditional-owner scope; redacted at Route 2 ingress."
+        }
+      },
+      "description": "Discovery-issued, Route 2 request selector, never evidence identity (PART1_CONTRACT_FREEZE_DRAFT.md:327-334). Returned only by the exact authorized dataset/evaluator discovery fields (dataset_schema.json / evaluator_definition_schema.json's additive lifecycle_source_ref); never emitted by any Part 1 lifecycle route, used as evidence identity, or exposed in an error, URL, log, analytics event, telemetry event, export, or idempotency replay."
+    },
     "TrustLevel": {
       "type": "string",
       "enum": ["client_attested", "backend_observed", "server_verified"],

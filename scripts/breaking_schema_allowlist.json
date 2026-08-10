@@ -82,6 +82,30 @@
       "reason": "Retires the subtractive curation vocabulary at the client boundary (#389). `remove_redundant` is removed from the enum because acting on subtractive advice keyed to an observed signal biases the customer's own measurement and is unrepairable -- excluded items carry zero inclusion probability. Measured on a 70-item confirmation set, top-15-by-observed-discrimination pruning gave -0.202 against a true -0.073 (2.77x); random-15 was unbiased at -0.078. Breaking is the intended effect: a consumer still emitting or matching this member must be reconciled rather than silently accepted. Recorded in the disclosure register; reintroducing a subtractive category needs an owner decision. Scoped by pointer_prefix because this file has five enums and only recommended_action carried the retired member; without a prefix the entry would also pre-authorize breaking changes to dataset_quality, review_priority, difficulty_bucket and suspicious_flags.",
       "version": "5.6.0",
       "pr": "#389"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "type",
+      "pointer_prefix": "#/properties/record_ref",
+      "reason": "ALR-1106 (Agent Lifecycle Record Part 1, Route 1/2 packet): moves AgentLifecycleRecordRef out of this file's own local `definitions` block into agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef so Route 1's new agent_lifecycle_agent_revision_register_response_schema.json and this Route 5 response share one definition instead of duplicating it -- the contract's exact-override manifest (PART1_CONTRACT_FREEZE_DRAFT.md:434-437) always named the common schema as this shape's eventual home; ALR-1105 could only leave it local because no Route 1 response schema existed yet on that branch. The wire shape is byte-for-byte unchanged (same type=object, same additionalProperties:false, same required=[kind,id,version_id], same three property schemas -- only the internal $ref target for id/version_id moved from a same-file OpaqueRefId pointer to the identical common-schema OpaqueRefId pointer both files already share). This finding is the breaking-schema-check's generic conservative heuristic correctly erring cautious on a cross-file $ref it does not dereference (record_ref now resolves via `allOf:[{\"$ref\":\"agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef\"}]` instead of an in-file `#/definitions/AgentLifecycleRecordRef`), not evidence of an actual wire-consumer break -- no route has been implemented against this pre-freeze draft contract yet, so there is no live consumer to break. Scoped by pointer_prefix to record_ref only.",
+      "version": "5.6.0",
+      "pr": "pending (branch feature/agent-lifecycle-record-part1-routes12, WorkIntent st_92bfb968e8cb)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "additionalProperties",
+      "pointer_prefix": "#/properties/record_ref",
+      "reason": "Same ALR-1106 AgentLifecycleRecordRef relocation described in the paired 'type' entry immediately above for this same file/pointer -- the breaking-schema-check does not dereference the new cross-file $ref, so it reads record_ref as having gone from additionalProperties:false to open, when the resolved shape (agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef) is still additionalProperties:false, byte-for-byte identical to the local definition it replaced. Scoped by pointer_prefix to record_ref only.",
+      "version": "5.6.0",
+      "pr": "pending (branch feature/agent-lifecycle-record-part1-routes12, WorkIntent st_92bfb968e8cb)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/properties/record_ref",
+      "reason": "Same ALR-1106 AgentLifecycleRecordRef relocation described in the paired 'type' entry above for this same file/pointer -- the breaking-schema-check does not dereference the new cross-file $ref, so it reads record_ref's required=[kind,id,version_id] as dropped entirely, when the resolved shape (agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef) still requires exactly those three fields, byte-for-byte identical to the local definition it replaced. Scoped by pointer_prefix to record_ref only.",
+      "version": "5.6.0",
+      "pr": "pending (branch feature/agent-lifecycle-record-part1-routes12, WorkIntent st_92bfb968e8cb)"
     }
   ]
 }

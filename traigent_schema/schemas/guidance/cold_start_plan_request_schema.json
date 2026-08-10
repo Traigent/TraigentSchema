@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/guidance/cold_start_plan_request_schema.json",
+  "title": "ColdStartPlanRequest",
+  "description": "Content-free local capability and budget descriptor for a cold-start plan. Source material, names, paths, prompts, examples, rows, results, logs, scores, descriptions, and arbitrary metadata are not permitted.",
+  "type": "object",
+  "required": ["protocol_version", "descriptor", "budget"],
+  "properties": {
+    "protocol_version": {"type": "string", "enum": ["cold-start.v1"]},
+    "descriptor": {
+      "type": "object",
+      "description": "Positional type classes and local verifier and generation capabilities only; no code or content.",
+      "required": ["input_arity", "input_kinds", "output_kind", "verifier_kinds", "generation_capabilities"],
+      "properties": {
+        "input_arity": {"type": "integer", "minimum": 0, "maximum": 32},
+        "input_kinds": {"type": "array", "maxItems": 32, "items": {"type": "string", "enum": ["string", "integer", "number", "boolean", "object", "array", "unknown"]}},
+        "output_kind": {"type": "string", "enum": ["string", "integer", "number", "boolean", "object", "array", "unknown"]},
+        "verifier_kinds": {"type": "array", "uniqueItems": true, "items": {"type": "string", "enum": ["deterministic_reference", "executable_property", "state_transition", "human_review", "calibrated_judge"]}},
+        "generation_capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "enum": ["deterministic_contract", "customer_llm"]}}
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "description": "Bounded local request limits only.",
+      "required": ["candidate_limit"],
+      "properties": {
+        "candidate_limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "optimizer_eligible_limit": {"type": "integer", "minimum": 1, "maximum": 1000}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,11 @@
+{
+  "protocol_version": "cold-start.v1",
+  "descriptor": {
+    "input_arity": 2,
+    "input_kinds": ["string", "integer"],
+    "output_kind": "boolean",
+    "verifier_kinds": ["executable_property"],
+    "generation_capabilities": ["deterministic_contract", "customer_llm"]
+  },
+  "budget": {"candidate_limit": 12, "optimizer_eligible_limit": 6}
+}

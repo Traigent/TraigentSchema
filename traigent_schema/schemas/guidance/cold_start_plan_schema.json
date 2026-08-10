@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/guidance/cold_start_plan_schema.json",
+  "title": "ColdStartPlan",
+  "description": "Execution-neutral, content-free cold-start plan with only opaque identity, protocol, descriptor digest, candidate limit, and expiry.",
+  "type": "object",
+  "required": ["plan_id", "protocol_version", "descriptor_digest", "candidate_limit", "expires_at"],
+  "properties": {
+    "plan_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$"},
+    "protocol_version": {"type": "string", "enum": ["cold-start.v1"]},
+    "descriptor_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "candidate_limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "expires_at": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": false
+}

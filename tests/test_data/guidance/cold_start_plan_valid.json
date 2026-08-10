@@ -1,0 +1,7 @@
+{
+  "plan_id": "csp_01HXYZ",
+  "protocol_version": "cold-start.v1",
+  "descriptor_digest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "candidate_limit": 12,
+  "expires_at": "2026-08-02T12:00:00Z"
+}

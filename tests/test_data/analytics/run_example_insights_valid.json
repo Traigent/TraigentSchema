@@ -13,6 +13,7 @@
   "example_rows": [
     {
       "safe_example_ref": "exref_0123456789abcdef",
+      "example_id": "ex_a3f4b2c8_17",
       "review_priority": "high",
       "difficulty_bucket": "high",
       "suspicious_flags": [
@@ -32,6 +33,7 @@
     },
     {
       "safe_example_ref": "exref_abcdef0123456789",
+      "example_id": "customer-eval-042",
       "review_priority": "critical",
       "difficulty_bucket": "unknown",
       "suspicious_flags": [

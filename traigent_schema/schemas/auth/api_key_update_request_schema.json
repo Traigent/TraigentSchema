@@ -8,10 +8,10 @@
   "properties": {
     "key_name": {"type": "string", "minLength": 1, "maxLength": 255},
     "description": {"type": "string", "maxLength": 1000},
-    "permissions": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    "scopes": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "permissions": {"type": "array", "items": {"type": "string", "maxLength": 64}, "minItems": 1},
+    "scopes": {"type": "array", "items": {"type": "string", "maxLength": 64}, "minItems": 1},
     "expires_in_days": {"type": "integer", "minimum": 1, "maximum": 3650},
-    "allowed_ips": {"type": "array", "items": {"type": "string"}},
+    "allowed_ips": {"type": "array", "items": {"type": "string", "maxLength": 64}},
     "rotation_enabled": {"type": "boolean"},
     "rotation_interval_days": {"type": "integer", "minimum": 1, "maximum": 365},
     "auto_rotate": {"type": "boolean"},

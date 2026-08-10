@@ -31,13 +31,13 @@
     },
     "scopes": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {"type": "string", "maxLength": 64},
       "minItems": 1,
       "description": "Requested scope values."
     },
     "permissions": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {"type": "string", "maxLength": 64},
       "minItems": 1,
       "default": ["read"],
       "description": "Requested permission values."
@@ -56,7 +56,7 @@
     },
     "allowed_ips": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {"type": "string", "maxLength": 64},
       "description": "Optional allowed IP address entries."
     },
     "rotation_enabled": {

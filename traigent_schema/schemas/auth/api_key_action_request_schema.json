@@ -6,6 +6,6 @@
   "type": "object",
   "additionalProperties": true,
   "properties": {
-    "reason": {"type": "string", "description": "Optional client-supplied reason."}
+    "reason": {"type": "string", "maxLength": 512, "description": "Optional client-supplied reason."}
   }
 }

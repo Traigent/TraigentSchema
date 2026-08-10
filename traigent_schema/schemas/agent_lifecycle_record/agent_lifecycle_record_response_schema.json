@@ -141,7 +141,11 @@
     "bindings": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/BindingProjection"
+        "$ref": "#/definitions/BindingProjection",
+        "x-disclosure": {
+          "rule": "closed_public_structure",
+          "artifact": "agent_lifecycle_disclosure_register.v1"
+        }
       },
       "description": "Immutable projections of real live Bindings only. No legacy/null-contract branch exists. A marker-backed record with no live protocol activity returns [] (PART1_CONTRACT_FREEZE_DRAFT.md:775).",
       "x-disclosure": {
@@ -152,7 +156,11 @@
     "evidence_episodes": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/EpisodeProjection"
+        "$ref": "#/definitions/EpisodeProjection",
+        "x-disclosure": {
+          "rule": "closed_public_structure",
+          "artifact": "agent_lifecycle_disclosure_register.v1"
+        }
       },
       "description": "Chronological real live episodes only; historical markers never appear in this array (PART1_CONTRACT_FREEZE_DRAFT.md:776).",
       "x-disclosure": {

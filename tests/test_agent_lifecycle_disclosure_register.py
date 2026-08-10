@@ -403,6 +403,7 @@ def _iter_property_positions(
     node: Any,
     schemas_cache: dict[str, dict[str, Any]],
     visited: set[tuple[str, str]],
+    property_name: str | None = None,
 ) -> list[tuple[str, str, dict[str, Any], str]]:
     """Yield (document, pointer, node, property_name) for every reachable
     property position under `node`. Resolves EVERY local or cross-file $ref
@@ -424,7 +425,30 @@ def _iter_property_positions(
     if/then/else fragments that carry no $ref/type/oneOf/anyOf/items of
     their own (pure sibling-narrowing wrappers) are deliberately not walked
     -- see _is_walkable_fragment's docstring for why that is not a loophole
-    but the correct reading of what 'declares a new property' means."""
+    but the correct reading of what 'declares a new property' means.
+
+    ALR-1108 P1 fix (2026-08-10, second blind spot -- found by a different
+    worker while building the privacy sink guard, closed here in its own
+    packet): an array `items` schema is itself a property position that
+    MUST carry its own x-disclosure -- the worked table names exact
+    `.../items` pointers directly (PART1_CONTRACT_FREEZE_DRAFT.md:428-429,
+    :455-458, :465, :472) and the deterministic-assignment rule text itself
+    reads 'reason fields/items use bounded_reason_vocabulary' (:404) -- but
+    the prior revision only ever recursed *through* `items` looking for
+    properties nested inside it, never yielded a position for the items
+    node itself. That hid every array whose element schema carries no
+    nested `properties` of its own -- a bare scalar/enum, or a bare $ref to
+    an object definition -- because nothing recursing into it would ever
+    produce a position, so it was invisible to coverage end to end.
+    `property_name` threads the enclosing property's name through
+    $ref/oneOf/anyOf/allOf/if-then-else structural steps (none of which
+    name a new property) so the items position is classified by the SAME
+    name as its owning array property, matching :404's own reading that an
+    array property and its items share one classification (e.g.
+    reason_codes and reason_codes/items both resolve via the same
+    bounded_reason_vocabulary bucket). The `properties` branch resets it to
+    each child's own key, since that is a real new property name, not a
+    structural pass-through."""
     positions: list[tuple[str, str, dict[str, Any], str]] = []
     if (document, pointer) in visited:
         return positions
@@ -438,7 +462,9 @@ def _iter_property_positions(
             document, node["$ref"], schemas_cache
         )
         positions.extend(
-            _iter_property_positions(target_document, target_pointer, target_node, schemas_cache, visited)
+            _iter_property_positions(
+                target_document, target_pointer, target_node, schemas_cache, visited, property_name
+            )
         )
 
     if "properties" in node and isinstance(node["properties"], dict):
@@ -446,13 +472,17 @@ def _iter_property_positions(
             child_pointer = f"{pointer}/properties/{key}"
             positions.append((document, child_pointer, subnode, key))
             positions.extend(
-                _iter_property_positions(document, child_pointer, subnode, schemas_cache, visited)
+                _iter_property_positions(document, child_pointer, subnode, schemas_cache, visited, key)
             )
 
     if "items" in node and isinstance(node["items"], dict):
         item_pointer = f"{pointer}/items"
+        if property_name is not None:
+            positions.append((document, item_pointer, node["items"], property_name))
         positions.extend(
-            _iter_property_positions(document, item_pointer, node["items"], schemas_cache, visited)
+            _iter_property_positions(
+                document, item_pointer, node["items"], schemas_cache, visited, property_name
+            )
         )
 
     for combiner in ("oneOf", "anyOf"):
@@ -460,7 +490,9 @@ def _iter_property_positions(
             for index, branch in enumerate(node[combiner]):
                 branch_pointer = f"{pointer}/{combiner}/{index}"
                 positions.extend(
-                    _iter_property_positions(document, branch_pointer, branch, schemas_cache, visited)
+                    _iter_property_positions(
+                        document, branch_pointer, branch, schemas_cache, visited, property_name
+                    )
                 )
 
     if "allOf" in node and isinstance(node["allOf"], list):
@@ -469,7 +501,9 @@ def _iter_property_positions(
                 continue
             branch_pointer = f"{pointer}/allOf/{index}"
             positions.extend(
-                _iter_property_positions(document, branch_pointer, branch, schemas_cache, visited)
+                _iter_property_positions(
+                    document, branch_pointer, branch, schemas_cache, visited, property_name
+                )
             )
 
     for keyword in ("if", "then", "else"):
@@ -477,7 +511,9 @@ def _iter_property_positions(
         if isinstance(candidate, dict) and _is_walkable_fragment(candidate):
             kw_pointer = f"{pointer}/{keyword}"
             positions.extend(
-                _iter_property_positions(document, kw_pointer, candidate, schemas_cache, visited)
+                _iter_property_positions(
+                    document, kw_pointer, candidate, schemas_cache, visited, property_name
+                )
             )
 
     return positions

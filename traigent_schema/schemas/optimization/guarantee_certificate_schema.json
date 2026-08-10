@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/guarantee_certificate_schema.json",
   "title": "Guarantee Certificate Schema",
-  "description": "Evidence artifact for a guaranteed optimizer-mode decision: the (delta, epsilon)-PAC non-inferiority cheapest-feasible certificate. Mirrors traigent_smartopt.guarantee.GuaranteeCertificate. Standalone (no $ref into best_config) and aligned to the best-config deploy surface by convention via config_id/spec_hash/config_hash so the backend can fail-closed verify a publish against it.",
+  "description": "Evidence artifact for a guaranteed optimizer-mode decision: the (delta, epsilon)-PAC non-inferiority cheapest-feasible certificate. Mirrors traigent_smartopt.guarantee.GuaranteeCertificate. Standalone (no $ref into best_config) and aligned to the best-config deploy surface by convention via config_id/spec_hash/config_hash so the backend can fail-closed verify a publish against it. Validity scope: the (delta, epsilon) guarantee holds only for a fixed, preregistered evaluation horizon; it is not valid when the campaign adaptively replans, peeks, or selects examples based on interim results. Certificates issued from adaptive campaigns may attest provenance only.",
   "version": "0.1.0",
   "type": "object",
   "additionalProperties": false,

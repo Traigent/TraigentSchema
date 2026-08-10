@@ -70,6 +70,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged. A follow-up MAJOR revision re-tightens `identity_state` back to required once
   the Backend backfills it on every item and row.
 
+## [5.6.0] - 2026-08-11
+
+### Added
+- **Optional `winner_stability` block on the best-config `validation` key.** Post-selection
+  rerun of the winning configuration on the same evaluation set; measured evidence only —
+  carries no stability guarantee. The score a run reports for its winner is a single-pass
+  mean, and no shipped surface re-executes the winner to measure run-to-run dispersion; this
+  block gives that measurement a contract home so producers (SDK opt-in rerun) can record it
+  and downstream consumers can read it. Shape: `{reps, mean, std, scores (bounded),
+  config_hash, evaluated_at}` — every member optional, the block itself closed
+  (`additionalProperties: false`), defined once in
+  `best_config_v2_schema.json#/definitions/winner_stability` and `$ref`ed by the v1 envelope
+  so the shape cannot drift between envelopes. Purely additive: `validation` stays an open
+  object (`additionalProperties: true`), payloads without the block are untouched, and this
+  revision attaches no gating and no claim semantics — recording the measurement is the
+  entire contract.
+
 ## [5.5.0] - 2026-08-01
 
 ### Added

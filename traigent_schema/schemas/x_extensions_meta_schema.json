@@ -54,6 +54,42 @@
       "type": "string",
       "description": "Human-readable deprecation message for a field or definition, including the replacement field name and the removal milestone (e.g. 'Use dataset_id instead. eval_dataset_id will be removed after 2026-Q4.'). Set on the deprecated property."
     },
+    "x-disclosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "artifact"],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "enum": [
+            "wire_contract_version",
+            "closed_measurement_source_declaration",
+            "content_free_request_discriminator",
+            "discovery_issued_backend_resource_handle",
+            "request_only_client_attestation",
+            "request_only_sensitive_membership_selector",
+            "single_consumption_capability",
+            "coarse_selection_mode",
+            "coarse_universe_provenance",
+            "coarse_evaluator_provenance",
+            "opaque_lifecycle_record_handle",
+            "opaque_lifecycle_reference",
+            "backend_snapshot_timestamp",
+            "backend_record_timestamp",
+            "protocol_accounting_count",
+            "in_flight_episode_projection",
+            "bounded_reason_vocabulary",
+            "closed_interop_vocabulary",
+            "closed_public_structure"
+          ]
+        },
+        "artifact": {
+          "type": "string",
+          "const": "agent_lifecycle_disclosure_register.v1"
+        }
+      },
+      "description": "Agent Lifecycle Record Part 1 client-boundary disclosure annotation (PART1_CONTRACT_FREEZE_DRAFT.md:376-408, 'Versioned client-boundary disclosure register'; ALR-1102, Terra review P1-2). Says what a property discloses regardless of where it appears -- never a request/response property itself, purely Schema authoring metadata. Every property of every Part 1 public request/response/envelope schema must carry exactly one of these. `rule` is the closed 19-name deterministic-assignment vocabulary (PART1_CONTRACT_FREEZE_DRAFT.md:382-403); `artifact` pins the exact register version so a poisoned or stale annotation is schema-decidable. tests/test_agent_lifecycle_disclosure_register.py walks every in-scope root, resolves every $ref, and asserts each reached property both carries this annotation and matches the deterministic/worked-table rule for its exact (document, JSON Pointer) -- see that file for the poison-guard and coverage tests. Guard-killing mutation row 17 (PART1_CONTRACT_FREEZE_DRAFT.md:1155) targets exactly this annotation and tests/data/agent_lifecycle_record/disclosure_manifest.json."
+    },
     "x-endpoint-modules": {
       "type": "array",
       "description": "Ordered list of sub-groupings of endpoint paths, each with a 'name', optional 'description', and a 'paths_file' relative path to the JSON file that declares those paths. Used on top-level endpoint-contract schemas to organise large path sets into named modules.",
@@ -248,6 +284,109 @@
         "description": { "type": "string" }
       },
       "additionalProperties": false
+    },
+    "x-traigent-invariants": {
+      "type": "array",
+      "description": "Declares cross-field structural invariants that draft-07 JSON Schema cannot express directly -- there is no sibling/nested-field equality (or inequality, or dynamic-key-lookup) keyword, so a structurally valid instance can still hold fields that are supposed to always agree, always diverge under a condition, or reference each other by a runtime key, and silently fail to. Each item names a stable uppercase CODE, the RELATION being asserted, a human DESCRIPTION, and a closed set of RFC 6901 absolute-JSON-Pointer (and, for one relation, literal-value) fields specific to that relation -- see each relation's own shape below. Three relations exist: 'present_and_equal' (left_pointer and right_pointer must both resolve to a present value and those values must be exactly equal), 'selector_lookup_equals_literal' (the string at selector_pointer is used as a dynamic object key into the mapping at map_pointer; that looked-up value must exactly equal the fixed literal string) and 'condition_implies_unequal' (one-way: only when condition_pointer resolves to exactly the boolean true does anything get asserted -- left_pointer and right_pointer must then both be present and structurally UNEQUAL; condition_pointer resolving to false, missing, or any non-boolean value asserts nothing, and there is no converse rule for false). This is documentation for the public interpreter in traigent_schema/invariants.py (validate_declared_invariants), which evaluates these declarations against an already structurally-valid parsed instance and returns InvariantViolation objects carrying only code/relation/pointers, never the compared values. JSON Schema validation alone does not enforce these; declaring one here is not itself evidence that any payload actually satisfies it. Declares no thresholds or policy formulas -- only structural (in)equality and dynamic-key lookup between named locations, and no cryptographic certificate validity, eligibility, optimality, authorization, or Backend policy/threshold semantics.",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["code", "relation", "left_pointer", "right_pointer", "description"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              },
+              "relation": {
+                "type": "string",
+                "const": "present_and_equal"
+              },
+              "left_pointer": {
+                "type": "string",
+                "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+              },
+              "right_pointer": {
+                "type": "string",
+                "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["code", "relation", "selector_pointer", "map_pointer", "literal", "description"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              },
+              "relation": {
+                "type": "string",
+                "const": "selector_lookup_equals_literal"
+              },
+              "selector_pointer": {
+                "type": "string",
+                "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+              },
+              "map_pointer": {
+                "type": "string",
+                "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+              },
+              "literal": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "code",
+              "relation",
+              "condition_pointer",
+              "left_pointer",
+              "right_pointer",
+              "description"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              },
+              "relation": {
+                "type": "string",
+                "const": "condition_implies_unequal"
+              },
+              "condition_pointer": {
+                "type": "string",
+                "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+              },
+              "left_pointer": {
+                "type": "string",
+                "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+              },
+              "right_pointer": {
+                "type": "string",
+                "pattern": "^(/[^/~]*(~[01][^/~]*)*)*$"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
     },
     "x-traigent-note": {
       "type": "string",

@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/smartops_v2/evidence_case_schema.json",
+  "title": "Planner V2 EvidenceCase",
+  "description": "Internal, deterministic shadow projection of one immutable Planner V2 lifecycle revision. It carries only stable evidence and provenance. It deliberately excludes signatures, live-key material, and wall-clock fields; publication_basis is derived evidence only and does not authorize publishing or execution.",
+  "type": "object",
+  "required": ["schema_version", "publication_basis", "evidence", "provenance"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "traigent.smartops.evidence_case.v1"},
+    "publication_basis": {"type": "string", "enum": ["OBSERVED_ONLY", "SUPPORTED_RECOMMENDATION"]},
+    "evidence": {
+      "type": "object",
+      "required": ["evidence_snapshot_hash", "certified", "policy_eligible", "certificate_ref"],
+      "properties": {
+        "evidence_snapshot_hash": {"type": "string", "pattern": "^ev_[A-Za-z0-9_-]{32,96}$", "maxLength": 99},
+        "certified": {"type": "boolean"},
+        "policy_eligible": {"type": "boolean"},
+        "certificate_ref": {"oneOf": [{"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}, {"type": "null"}]}
+      },
+      "allOf": [{"if": {"properties": {"certified": {"const": true}}, "required": ["certified"]}, "then": {"properties": {"certificate_ref": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"}}}, "else": {"properties": {"certificate_ref": {"type": "null"}}}}],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["lifecycle_id", "lifecycle_revision", "source_hash", "lineage_hash", "data_layer_hash", "data_version_hash", "policy_version", "policy_hash"],
+      "properties": {
+        "lifecycle_id": {"$ref": "./smartops_v2_common_schema.json#/definitions/OpaqueId"},
+        "lifecycle_revision": {"type": "integer", "minimum": 0},
+        "source_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "lineage_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "data_layer_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "data_version_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "policy_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "policy_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"publication_basis": {"const": "SUPPORTED_RECOMMENDATION"}}, "required": ["publication_basis"]}, "then": {"properties": {"evidence": {"properties": {"certified": {"const": true}, "policy_eligible": {"const": true}}, "required": ["certified", "policy_eligible"]}}}},
+    {"description": "The converse direction, completing the iff: whenever both certified and policy_eligible are true, publication_basis MUST be SUPPORTED_RECOMMENDATION -- it may not remain OBSERVED_ONLY. Combined with the rule above and publication_basis's two-value enum, this pins publication_basis to exactly SUPPORTED_RECOMMENDATION when certified && policy_eligible, and to exactly OBSERVED_ONLY otherwise.", "if": {"properties": {"evidence": {"properties": {"certified": {"const": true}, "policy_eligible": {"const": true}}, "required": ["certified", "policy_eligible"]}}, "required": ["evidence"]}, "then": {"properties": {"publication_basis": {"const": "SUPPORTED_RECOMMENDATION"}}}}
+  ],
+  "additionalProperties": false,
+  "x-internal-only": true,
+  "x-privacy-classification": "internal_confidential"
+}

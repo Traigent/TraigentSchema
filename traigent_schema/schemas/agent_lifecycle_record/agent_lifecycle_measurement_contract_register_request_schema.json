@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+  "title": "Agent Lifecycle Measurement Contract Register Request",
+  "description": "ALR-1106 Route 2 request (PART1_CONTRACT_FREEZE_DRAFT.md:579-624): POST /api/v1beta/projects/{project_id}/agent-lifecycle/measurement-contracts. The composite version-and-contract mint: the sole Part 1 minting path for kind=measurement_contract, kind=dataset_version, kind=evaluator_version, and kind=slice_definition_version -- it atomically snapshots lifecycle-owned immutable membership from either a scoped Backend resource (backend_registered) or a bounded content-free client-attested declaration (client_attested), then binds all three into one immutable MeasurementContract in the same transaction. No expected-count, denominator, or completeness field of any kind appears anywhere in this closed request (additionalProperties:false rejects one outright, corpus case measurement_contract_register_client_supplied_denominator_rejected) -- Backend computes expected_count exclusively from the accepted immutable membership in the response. `Idempotency-Key` (required header, same pattern/mechanism as Route 1) is a request HEADER, out of this document's scope (service_invalid case measurement_contract_register_missing_idempotency_key). `mode=ITEM_KEY_SET` is admissible only when dataset_source.source=client_attested (PART1_CONTRACT_FREEZE_DRAFT.md:594, closes Opus Final Contract Review P1-2) -- encoded below as an if/then across the two sibling top-level properties (schema-decidable; corpus case measurement_contract_register_item_key_set_with_backend_registered_dataset). `StableSourceRef`, `ClientAttestedArtifactDescriptor`, and `RequestOnlyRandomLabel` live in agent_lifecycle_common_schema.json (added there in this pass, reused rather than duplicated per the contract's request-only wire-type section, PART1_CONTRACT_FREEZE_DRAFT.md:313-325). None of source_ref/local_version_key/item_keys is ever echoed by this route or exposed in an error, URL, log, analytics event, telemetry event, export, or idempotency replay (PART1_CONTRACT_FREEZE_DRAFT.md:596). Every property below carries its own x-disclosure annotation at its own JSON Pointer (PART1_CONTRACT_FREEZE_DRAFT.md:406-409, :412-431).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_source", "evaluator_source", "slice_definition"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0-beta.1",
+      "x-disclosure": {"rule": "wire_contract_version", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Closed public wire-version discriminator (PART1_CONTRACT_FREEZE_DRAFT.md:272, :591)."
+    },
+    "dataset_source": {
+      "description": "Closed oneOf: backend_registered (an existing scoped Backend dataset, resolved through the discovery-issued StableSourceRef mapping) or client_attested (a bounded content-free membership declaration) (PART1_CONTRACT_FREEZE_DRAFT.md:592).",
+      "x-disclosure": {"rule": "closed_measurement_source_declaration", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "source_ref"],
+          "properties": {
+            "source": {
+              "const": "backend_registered",
+              "x-disclosure": {"rule": "content_free_request_discriminator", "artifact": "agent_lifecycle_disclosure_register.v1"}
+            },
+            "source_ref": {
+              "description": "source_ref.kind=dataset; request-only opaque handle, never evidence identity (PART1_CONTRACT_FREEZE_DRAFT.md:592).",
+              "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+              "allOf": [
+                {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableSourceRef"},
+                {"properties": {"kind": {"const": "dataset", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "artifact_descriptor", "item_keys"],
+          "properties": {
+            "source": {
+              "const": "client_attested",
+              "x-disclosure": {"rule": "content_free_request_discriminator", "artifact": "agent_lifecycle_disclosure_register.v1"}
+            },
+            "artifact_descriptor": {
+              "description": "Exactly ClientAttestedArtifactDescriptor (PART1_CONTRACT_FREEZE_DRAFT.md:592).",
+              "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+              "allOf": [
+                {"$ref": "agent_lifecycle_common_schema.json#/definitions/ClientAttestedArtifactDescriptor"}
+              ]
+            },
+            "item_keys": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 10000,
+              "uniqueItems": true,
+              "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+              "description": "Non-empty, unique, maxItems=10000 (beta ceiling), content-free (PART1_CONTRACT_FREEZE_DRAFT.md:592). corpus case measurement_contract_register_item_keys_empty proves the minItems floor.",
+              "items": {
+                "$ref": "agent_lifecycle_common_schema.json#/definitions/RequestOnlyRandomLabel",
+                "x-disclosure": {"rule": "request_only_sensitive_membership_selector", "artifact": "agent_lifecycle_disclosure_register.v1"},
+                "description": "RequestOnlyItemKey grammar: exactly RequestOnlyRandomLabel (PART1_CONTRACT_FREEZE_DRAFT.md:317). corpus case measurement_contract_register_item_key_digest_shaped proves the digest-shaped exclusion."
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evaluator_source": {
+      "description": "Closed oneOf: backend_registered (an existing scoped Backend evaluator, resolved through the discovery-issued StableSourceRef mapping) or client_attested (a bounded content-free version declaration, no item_keys -- evaluators have no membership dimension) (PART1_CONTRACT_FREEZE_DRAFT.md:593).",
+      "x-disclosure": {"rule": "closed_measurement_source_declaration", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "source_ref"],
+          "properties": {
+            "source": {
+              "const": "backend_registered",
+              "x-disclosure": {"rule": "content_free_request_discriminator", "artifact": "agent_lifecycle_disclosure_register.v1"}
+            },
+            "source_ref": {
+              "description": "source_ref.kind=evaluator; request-only opaque handle, never evidence identity (PART1_CONTRACT_FREEZE_DRAFT.md:593).",
+              "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+              "allOf": [
+                {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableSourceRef"},
+                {"properties": {"kind": {"const": "evaluator", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "artifact_descriptor"],
+          "properties": {
+            "source": {
+              "const": "client_attested",
+              "x-disclosure": {"rule": "content_free_request_discriminator", "artifact": "agent_lifecycle_disclosure_register.v1"}
+            },
+            "artifact_descriptor": {
+              "description": "Exactly ClientAttestedArtifactDescriptor (PART1_CONTRACT_FREEZE_DRAFT.md:593).",
+              "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+              "allOf": [
+                {"$ref": "agent_lifecycle_common_schema.json#/definitions/ClientAttestedArtifactDescriptor"}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "slice_definition": {
+      "description": "Closed oneOf: FULL_DATASET (selects all accepted items) or ITEM_KEY_SET (a client-nameable subset, admissible only over a client_attested dataset_source -- see the root if/then below) (PART1_CONTRACT_FREEZE_DRAFT.md:594).",
+      "x-disclosure": {"rule": "closed_measurement_source_declaration", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": {
+              "const": "FULL_DATASET",
+              "x-disclosure": {"rule": "coarse_selection_mode", "artifact": "agent_lifecycle_disclosure_register.v1"}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "item_keys"],
+          "properties": {
+            "mode": {
+              "const": "ITEM_KEY_SET",
+              "x-disclosure": {"rule": "coarse_selection_mode", "artifact": "agent_lifecycle_disclosure_register.v1"}
+            },
+            "item_keys": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 10000,
+              "uniqueItems": true,
+              "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+              "description": "Non-empty, unique, maxItems=10000; must resolve to a subset of the accepted DatasetVersion's own membership (service_invalid, corpus case measurement_contract_register_slice_item_keys_not_subset_of_dataset) (PART1_CONTRACT_FREEZE_DRAFT.md:594).",
+              "items": {
+                "$ref": "agent_lifecycle_common_schema.json#/definitions/RequestOnlyRandomLabel",
+                "x-disclosure": {"rule": "request_only_sensitive_membership_selector", "artifact": "agent_lifecycle_disclosure_register.v1"},
+                "description": "RequestOnlyItemKey grammar: exactly RequestOnlyRandomLabel (PART1_CONTRACT_FREEZE_DRAFT.md:317)."
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "dataset_source": {
+            "x-disclosure": {"rule": "closed_measurement_source_declaration", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "properties": {"source": {"const": "backend_registered", "x-disclosure": {"rule": "content_free_request_discriminator", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
+            "required": ["source"]
+          }
+        },
+        "required": ["dataset_source"]
+      },
+      "then": {
+        "properties": {
+          "slice_definition": {
+            "x-disclosure": {"rule": "closed_measurement_source_declaration", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "properties": {"mode": {"const": "FULL_DATASET", "x-disclosure": {"rule": "coarse_selection_mode", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
+            "required": ["mode"]
+          }
+        }
+      }
+    }
+  ]
+}

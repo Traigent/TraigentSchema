@@ -1,0 +1,1098 @@
+{
+  "$comment": "ALR-1106 positive/negative corpus for the Route 1 (agent revision register) and Route 2 (measurement contract register) request/response schemas. Case ids reuse the exact names PART1_CONTRACT_FREEZE_DRAFT.md's 'Exact positive/negative corpus' section gives whenever that section names a schema-decidable Route 1/2 case; ids with no contract citation in their description are supplementary structural guards (additionalProperties/required/enum/oneOf-shape-conflict) this story adds to reach full coverage, matching the convention receipt_cases.json already established. Every case here is decidable by SchemaValidator alone (kind is 'valid' or 'schema_invalid' only) -- the contract's service_invalid cases for these two routes (idempotency-header/live-scope/live-membership checks) are NOT reproduced here because they require a running Backend, out of this Schema-only story's scope; see tests/test_agent_lifecycle_agent_revision_measurement_contract_schemas.py for the exact list of service_invalid and runtime-valid ids this corpus deliberately omits, each with a guard preventing it from silently reappearing mislabeled here.",
+  "target_schemas": {
+    "agent_revision_request": "agent_lifecycle_agent_revision_register_request_schema",
+    "agent_revision_response": "agent_lifecycle_agent_revision_register_response_schema",
+    "measurement_contract_request": "agent_lifecycle_measurement_contract_register_request_schema",
+    "measurement_contract_response": "agent_lifecycle_measurement_contract_register_response_schema"
+  },
+  "cases": [
+    {
+      "id": "agent_revision_register_unknown_omitted_declaration",
+      "kind": "valid",
+      "schema": "agent_revision_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:991 valid case 15 (request half). Both agent_ref and identity_declaration are optional and omitted; mints a new logical Agent with identity_state=UNKNOWN.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1"
+      }
+    },
+    {
+      "id": "agent_revision_register_unknown_omitted_declaration_response",
+      "kind": "valid",
+      "schema": "agent_revision_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:991 valid case 15 (response half). Omitted declaration mints UNKNOWN/client_attested/[REQUIRED_IDENTITY_UNKNOWN]; response also carries record_ref (closes Opus P1-1).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {
+          "kind": "agent_revision",
+          "id": "agentrev0000000001",
+          "version_id": "agentrev0000000001"
+        },
+        "record_ref": {
+          "kind": "agent_lifecycle_record",
+          "id": "record00000000000001",
+          "version_id": "record00000000000001"
+        },
+        "agent_ref": {
+          "kind": "agent",
+          "id": "agentaaaaaaaaaaaaaa"
+        },
+        "identity_state": {
+          "value": "UNKNOWN",
+          "trust_level": "client_attested",
+          "reason_codes": [
+            "REQUIRED_IDENTITY_UNKNOWN"
+          ]
+        },
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "agent_revision_register_reconstructed_declared_provenance",
+      "kind": "valid",
+      "schema": "agent_revision_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:992 valid case 16 (request half). Closed ClientDeclaredIdentityDescriptor via the client_declared branch.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "identity_declaration": {
+          "source": "client_declared",
+          "identity_descriptor": {
+            "local_identity_key": "abcDEF0123456789_-abcDEF"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent_revision_register_reconstructed_declared_provenance_response",
+      "kind": "valid",
+      "schema": "agent_revision_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:992 valid case 16 (response half). client_declared mints RECONSTRUCTED/client_attested/[DECLARED_PROVENANCE]; response also carries record_ref.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {
+          "kind": "agent_revision",
+          "id": "agentrev0000000001",
+          "version_id": "agentrev0000000001"
+        },
+        "record_ref": {
+          "kind": "agent_lifecycle_record",
+          "id": "record00000000000001",
+          "version_id": "record00000000000001"
+        },
+        "agent_ref": {
+          "kind": "agent",
+          "id": "agentaaaaaaaaaaaaaa"
+        },
+        "identity_state": {
+          "value": "RECONSTRUCTED",
+          "trust_level": "client_attested",
+          "reason_codes": [
+            "DECLARED_PROVENANCE"
+          ]
+        },
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "typed_ref_stable_agent_ref_has_no_version_id",
+      "kind": "valid",
+      "schema": "agent_revision_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1007 valid case 31. Supplying an existing agent_ref (StableOpaqueRef{kind=agent}) attaches a new revision under an already-known logical Agent; StableOpaqueRef carries no version_id at all.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_ref": {
+          "kind": "agent",
+          "id": "agentaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_backend_sourced_dataset_and_evaluator",
+      "kind": "valid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:993 valid case 17 (replaces the removed measurement_contract_register_nonzero_universe_from_backend_refs). Both dataset_source and evaluator_source are backend_registered; slice_definition is FULL_DATASET (the only mode admissible over a backend_registered dataset).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_backend_sourced_dataset_and_evaluator_response",
+      "kind": "valid",
+      "schema": "measurement_contract_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:993 valid case 17 (response half). Both sources backend_registered -> universe_trust_level and evaluator_trust_level are both backend_observed.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "expected_count": 5,
+        "universe_trust_level": "backend_observed",
+        "evaluator_trust_level": "backend_observed",
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "measurement_contract_register_client_attested_universe",
+      "kind": "valid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:997 valid case 21. dataset_source and evaluator_source are both client_attested; slice_definition is FULL_DATASET.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEF"
+          },
+          "item_keys": [
+            "itemkey0000000000001_A",
+            "itemkey0000000000002_B"
+          ]
+        },
+        "evaluator_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEG"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_client_attested_universe_response",
+      "kind": "valid",
+      "schema": "measurement_contract_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:997 valid case 21 (response half). Both sources client_attested -> both trust fields are client_attested.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "expected_count": 2,
+        "universe_trust_level": "client_attested",
+        "evaluator_trust_level": "client_attested",
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "measurement_contract_register_item_key_set_slice",
+      "kind": "valid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:998 valid case 22. slice_definition.mode=ITEM_KEY_SET is admissible because dataset_source.source=client_attested.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEF"
+          },
+          "item_keys": [
+            "itemkey0000000000001_A",
+            "itemkey0000000000002_B"
+          ]
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "ITEM_KEY_SET",
+          "item_keys": [
+            "itemkey0000000000001_A"
+          ]
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_item_key_set_slice_response",
+      "kind": "valid",
+      "schema": "measurement_contract_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:998 valid case 22 (response half). Client-attested dataset + backend-registered evaluator -> mixed trust.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "expected_count": 1,
+        "universe_trust_level": "client_attested",
+        "evaluator_trust_level": "backend_observed",
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "measurement_contract_trust_levels_differ_universe_backend_evaluator_client",
+      "kind": "valid",
+      "schema": "measurement_contract_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:999 valid case 23. A backend_registered dataset/FULL_DATASET universe yields universe_trust_level=backend_observed while a client-attested evaluator yields evaluator_trust_level=client_attested, proving the two reported trust axes remain independent.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "expected_count": 8,
+        "universe_trust_level": "backend_observed",
+        "evaluator_trust_level": "client_attested",
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "measurement_contract_register_mixed_backend_dataset_client_evaluator",
+      "kind": "valid",
+      "schema": "measurement_contract_request",
+      "description": "Supplementary structural coverage (not separately numbered in the contract's corpus): a backend_registered dataset paired with a client_attested evaluator, request half of the trust_levels_differ pair.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEG"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "agent_revision_register_unknown_field",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_request",
+      "description": "Structural additionalProperties:false guard (PART1_CONTRACT_FREEZE_DRAFT.md:543-549 names exactly schema_version/agent_ref/identity_declaration).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "raw_prompt": "should not be accepted"
+      }
+    },
+    {
+      "id": "agent_revision_register_wrong_schema_version",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_request",
+      "description": "Structural schema_version const guard.",
+      "payload": {
+        "schema_version": "1.0.0"
+      }
+    },
+    {
+      "id": "agent_revision_register_wrong_agent_ref_kind",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_request",
+      "description": "agent_ref carries the wrong StableOpaqueRef kind (experiment_run instead of agent).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_ref": {
+          "kind": "experiment_run",
+          "id": "agentaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "id": "agent_revision_register_stable_agent_ref_includes_version_id",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:287, companion to :1058 case 32 for Route 1's own agent_ref use site. StableOpaqueRef has no version_id field at all; supplying one on agent_ref is a schema violation.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_ref": {
+          "kind": "agent",
+          "id": "agentaaaaaaaaaaaaaa",
+          "version_id": "agentaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "id": "agent_revision_register_unknown_identity_source_or_mode",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1045 schema_invalid case 19. Any identity_declaration.source other than client_declared is rejected by the closed Route 1 schema.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "identity_declaration": {
+          "source": "server_verified",
+          "identity_descriptor": {
+            "local_identity_key": "abcDEF0123456789_-abcDEF"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent_revision_register_identity_declaration_missing_identity_descriptor",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_request",
+      "description": "Structural required-field guard: identity_descriptor is required on the client_declared branch.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "identity_declaration": {
+          "source": "client_declared"
+        }
+      }
+    },
+    {
+      "id": "agent_revision_register_client_declared_local_identity_key_digest_shaped",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1069 schema_invalid case 43. local_identity_key matches the forbidden digest-shaped hexadecimal form (32 hex chars) and is rejected through RequestOnlyRandomLabel's not-pattern.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "identity_declaration": {
+          "source": "client_declared",
+          "identity_descriptor": {
+            "local_identity_key": "0123456789abcdef0123456789abcdef"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent_revision_register_client_declared_local_identity_key_too_short",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1069 schema_invalid case 43 (length half). local_identity_key shorter than RequestOnlyRandomLabel's 22-character floor.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "identity_declaration": {
+          "source": "client_declared",
+          "identity_descriptor": {
+            "local_identity_key": "short_key_1234"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent_revision_register_response_unknown_field",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_response",
+      "description": "Structural additionalProperties:false guard (PART1_CONTRACT_FREEZE_DRAFT.md:564-577 names exactly five response properties).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {
+          "kind": "agent_revision",
+          "id": "agentrev0000000001",
+          "version_id": "agentrev0000000001"
+        },
+        "record_ref": {
+          "kind": "agent_lifecycle_record",
+          "id": "record00000000000001",
+          "version_id": "record00000000000001"
+        },
+        "agent_ref": {
+          "kind": "agent",
+          "id": "agentaaaaaaaaaaaaaa"
+        },
+        "identity_state": {
+          "value": "UNKNOWN",
+          "trust_level": "client_attested",
+          "reason_codes": [
+            "REQUIRED_IDENTITY_UNKNOWN"
+          ]
+        },
+        "created_at": "2026-08-09T12:00:00Z",
+        "server_principal": "svc-internal-worker-7"
+      }
+    },
+    {
+      "id": "agent_revision_register_response_missing_record_ref",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_response",
+      "description": "Structural required-field guard: record_ref is required (closes Opus P1-1, PART1_CONTRACT_FREEZE_DRAFT.md:570).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "agent_revision_ref": {
+          "kind": "agent_revision",
+          "id": "agentrev0000000001",
+          "version_id": "agentrev0000000001"
+        },
+        "agent_ref": {
+          "kind": "agent",
+          "id": "agentaaaaaaaaaaaaaa"
+        },
+        "identity_state": {
+          "value": "UNKNOWN",
+          "trust_level": "client_attested",
+          "reason_codes": [
+            "REQUIRED_IDENTITY_UNKNOWN"
+          ]
+        },
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "agent_revision_register_response_wrong_schema_version",
+      "kind": "schema_invalid",
+      "schema": "agent_revision_response",
+      "description": "Structural schema_version const guard on the response side.",
+      "payload": {
+        "schema_version": "0.9.0",
+        "agent_revision_ref": {
+          "kind": "agent_revision",
+          "id": "agentrev0000000001",
+          "version_id": "agentrev0000000001"
+        },
+        "record_ref": {
+          "kind": "agent_lifecycle_record",
+          "id": "record00000000000001",
+          "version_id": "record00000000000001"
+        },
+        "agent_ref": {
+          "kind": "agent",
+          "id": "agentaaaaaaaaaaaaaa"
+        },
+        "identity_state": {
+          "value": "UNKNOWN",
+          "trust_level": "client_attested",
+          "reason_codes": [
+            "REQUIRED_IDENTITY_UNKNOWN"
+          ]
+        },
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "measurement_contract_register_unknown_field",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "Structural additionalProperties:false guard (PART1_CONTRACT_FREEZE_DRAFT.md:587-594 names exactly schema_version/dataset_source/evaluator_source/slice_definition, 'no expected-count, denominator, or completeness field of any kind').",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        },
+        "raw_note": "should not be accepted"
+      }
+    },
+    {
+      "id": "measurement_contract_register_wrong_schema_version",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "Structural schema_version const guard.",
+      "payload": {
+        "schema_version": "1.0.0",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_client_supplied_denominator_rejected",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1052 schema_invalid case 26 (renamed from service_invalid). The request is additionalProperties:false with no expected-count-shaped field, so a payload carrying one is schema-decidably rejected, not merely 'ignored' -- closes Opus P1-3.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        },
+        "expected_count": 1
+      }
+    },
+    {
+      "id": "measurement_contract_register_dataset_source_shape_conflict",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1053 schema_invalid case 27 (renamed this pass from '..._missing' without splitting into two cases): a oneOf violation where fields from both dataset_source branches are present at once.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          },
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEF"
+          },
+          "item_keys": [
+            "itemkey0000000000001_A"
+          ]
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_evaluator_source_shape_conflict",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "Supplementary structural coverage: the evaluator_source analogue of measurement_contract_register_dataset_source_shape_conflict -- fields from both evaluator_source branches present at once.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          },
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEG"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_slice_definition_shape_conflict",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "Supplementary structural coverage: a slice_definition combining fields from both FULL_DATASET and ITEM_KEY_SET branches at once is a oneOf violation.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEF"
+          },
+          "item_keys": [
+            "itemkey0000000000001_A",
+            "itemkey0000000000002_B"
+          ]
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET",
+          "item_keys": [
+            "itemkey0000000000001_A"
+          ]
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_item_keys_empty",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1054 schema_invalid case 28. client_attested source with an empty item_keys array; minItems violation.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEF"
+          },
+          "item_keys": []
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_item_key_set_with_backend_registered_dataset",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1064 schema_invalid case 38 (closes Opus Final Contract Review P1-2). A request combining dataset_source.source=backend_registered with slice_definition.mode=ITEM_KEY_SET is schema_invalid via the root if/then, not a 409 at step 4.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "ITEM_KEY_SET",
+          "item_keys": [
+            "itemkey0000000000001_A"
+          ]
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_client_local_version_key_digest_shaped",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1070 schema_invalid case 44. local_version_key matches the exact forbidden digest-shaped regex and is rejected through RequestOnlyRandomLabel.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "0123456789abcdef0123456789abcdef"
+          },
+          "item_keys": [
+            "itemkey0000000000001_A"
+          ]
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_item_key_digest_shaped",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1071 schema_invalid case 45. A dataset-membership RequestOnlyItemKey matches the same exact forbidden digest-shaped regex.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEF"
+          },
+          "item_keys": [
+            "0123456789abcdef0123456789abcdef"
+          ]
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_dataset_source_ref_wrong_kind",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "source_ref.kind must be exactly dataset inside dataset_source's backend_registered branch (PART1_CONTRACT_FREEZE_DRAFT.md:592).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_evaluator_source_ref_wrong_kind",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "source_ref.kind must be exactly evaluator inside evaluator_source's backend_registered branch (PART1_CONTRACT_FREEZE_DRAFT.md:593).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_evaluator_source_item_keys_rejected",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "Structural additionalProperties:false guard: evaluators have no membership dimension, so evaluator_source's client_attested branch has no item_keys property at all (PART1_CONTRACT_FREEZE_DRAFT.md:593).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "dataset",
+            "id": "dsrefaaaaaaaaaaaaaa"
+          }
+        },
+        "evaluator_source": {
+          "source": "client_attested",
+          "artifact_descriptor": {
+            "local_version_key": "abcDEF0123456789_-abcDEG"
+          },
+          "item_keys": [
+            "itemkey0000000000001_A"
+          ]
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_dataset_source_backend_registered_missing_source_ref",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_request",
+      "description": "Structural required-field guard: source_ref is required on the backend_registered branch.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "dataset_source": {
+          "source": "backend_registered"
+        },
+        "evaluator_source": {
+          "source": "backend_registered",
+          "source_ref": {
+            "kind": "evaluator",
+            "id": "evrefaaaaaaaaaaaaaa"
+          }
+        },
+        "slice_definition": {
+          "mode": "FULL_DATASET"
+        }
+      }
+    },
+    {
+      "id": "measurement_contract_register_response_unknown_field",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_response",
+      "description": "Structural additionalProperties:false guard (PART1_CONTRACT_FREEZE_DRAFT.md:598-610 names exactly eight response properties -- no source id, item key, raw digest, evaluator instruction/configuration, membership list, or private provenance).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "expected_count": 5,
+        "universe_trust_level": "backend_observed",
+        "evaluator_trust_level": "backend_observed",
+        "created_at": "2026-08-09T12:00:00Z",
+        "dataset_item_keys": [
+          "itemkey0000000000001_A"
+        ]
+      }
+    },
+    {
+      "id": "measurement_contract_register_response_wrong_schema_version",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_response",
+      "description": "Structural schema_version const guard on the response side.",
+      "payload": {
+        "schema_version": "0.9.0",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "expected_count": 5,
+        "universe_trust_level": "backend_observed",
+        "evaluator_trust_level": "backend_observed",
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "measurement_contract_register_response_missing_expected_count",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_response",
+      "description": "Structural required-field guard: expected_count is required.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "universe_trust_level": "backend_observed",
+        "evaluator_trust_level": "backend_observed",
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "measurement_contract_register_zero_universe",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1046 schema_invalid case 20 (response-only instance, closes Opus Final Contract Review P2-5): Route 2's request has no count field, and a registration resolving to zero items is a 409 service outcome -- decidable only against the response schema's expected_count minimum:1.",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "expected_count": 0,
+        "universe_trust_level": "backend_observed",
+        "evaluator_trust_level": "backend_observed",
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    },
+    {
+      "id": "measurement_contract_register_response_expected_count_exceeds_beta_ceiling",
+      "kind": "schema_invalid",
+      "schema": "measurement_contract_response",
+      "description": "PART1_CONTRACT_FREEZE_DRAFT.md:607 beta ceiling: expected_count is schema-bounded to <=10000; a response instance above that is schema-decidably rejected (the service_invalid path -- rejecting the registration before mint -- is a separate Backend-side proof, corpus case measurement_contract_register_backend_membership_exceeds_beta_ceiling).",
+      "payload": {
+        "schema_version": "1.0.0-beta.1",
+        "measurement_contract_ref": {
+          "kind": "measurement_contract",
+          "id": "mc0000000000000000001",
+          "version_id": "mc0000000000000000001"
+        },
+        "dataset_version_ref": {
+          "kind": "dataset_version",
+          "id": "dv0000000000000000001",
+          "version_id": "dv0000000000000000001"
+        },
+        "evaluator_version_ref": {
+          "kind": "evaluator_version",
+          "id": "ev0000000000000000001",
+          "version_id": "ev0000000000000000001"
+        },
+        "slice_definition_version_ref": {
+          "kind": "slice_definition_version",
+          "id": "sv0000000000000000001",
+          "version_id": "sv0000000000000000001"
+        },
+        "expected_count": 10001,
+        "universe_trust_level": "backend_observed",
+        "evaluator_trust_level": "backend_observed",
+        "created_at": "2026-08-09T12:00:00Z"
+      }
+    }
+  ]
+}

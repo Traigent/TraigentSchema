@@ -24,6 +24,8 @@ would reject. Fix what it reports, then push.
 | `mypy traigent_schema/ --ignore-missing-imports` | `CI / test` → *Run type checking* (`ci.yml`) | Same flags as CI. |
 | `pytest tests/` | `CI / test` → *Run tests* (`ci.yml`) | **The structural / contract gate.** Includes `test_structural_validity.py` plus every per-contract test. DB-free, ~5s. |
 | `python3 scripts/refresh_parity.py --check` | `Parity manifest freshness` (`parity-check.yml`) | Fails if schema files changed without re-stamping `parity/python-js-sdk.json`. Fix with `make format` (re-stamp), then commit. |
+| auth-taxonomy parity detector | `auth-taxonomy-parity.yml` | **Non-blocking** (Schema#219 DETECT phase). |
+| `python3 scripts/breaking_schema_check.py --check` | `breaking-schema-check` job (`ci.yml`, fanned into `ci-required`) | Diffs changed `traigent_schema/schemas/**/*.json` against `$base_ref` and fails on un-acknowledged BREAKING contract changes, using request/response mirror-image rules — see the script's module docstring. The failure output names each finding and prints a ready-to-paste `scripts/breaking_schema_allowlist.json` entry for an intentional, reviewed break (placeholder reasons like "TODO"/"see PR" are rejected). Runs only on PRs that touch schema-relevant paths (a `changes` classifier job decides that; `scripts/check_required_gate.py` verifies its skip is legitimate before `ci-required` accepts it — TraigentSchema#392). |
 | spine preflight (reminder) | `spine-trail present` (`spine-trail-gate.yml`) | **Reminder only** — see below. |
 | SonarQube quality gate | `SonarQube Quality Gate` (`sonarqube-local.yml`) | **Only for `release/*` / `hotfix/*` branches** (or `LOCAL_GATE_SONAR=1`). Runs `sonar-scanner -Dsonar.qualitygate.wait=true`. |
 

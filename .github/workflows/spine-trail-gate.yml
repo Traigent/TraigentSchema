@@ -161,7 +161,7 @@ jobs:
         id: spine_checkout
         if: ${{ steps.classify.outputs.need_checkout == 'true' }}
         continue-on-error: true
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Traigent/traigent-validation-spine
           ref: ${{ steps.classify.outputs.spine_commit }}
@@ -174,7 +174,7 @@ jobs:
         id: setup_python
         if: ${{ steps.classify.outputs.need_checkout == 'true' && steps.spine_checkout.outcome == 'success' }}
         continue-on-error: true
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
 
@@ -235,7 +235,7 @@ jobs:
           fi
 
           # (c) install and run the spine's own verifier.
-          python3 -m pip install --quiet --upgrade pip >/dev/null 2>&1
+          python3 -m pip install --quiet --upgrade --only-binary :all: pip >/dev/null 2>&1
           pip install -e "$SPINE_DIR" >/dev/null 2>&1 || true
           VOUT=$(validation change receipt verify "$SESSION" --spine-repo "$SPINE_DIR" 2>/dev/null)
           VRC=$?

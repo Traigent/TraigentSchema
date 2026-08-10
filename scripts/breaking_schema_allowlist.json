@@ -1,0 +1,111 @@
+{
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "entries": [
+    {
+      "file": "smartops_v2/shadow_evaluate_response_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/evidence_case",
+      "reason": "EvidenceCase is an intentional coordinated response expansion. Pinning TraigentBackend to this Schema revision before planner emission is necessary but not sufficient: rollout remains blocked until every strict or generated response consumer is reconciled with evidence_case.",
+      "version": "5.6.0",
+      "pr": "#377"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/x-traigent-invariants",
+      "reason": "This intentionally expands the governed extension vocabulary so schemas can declare mechanically checked cross-field equality. It is contract mechanics only, and consumers of the closed registry must update for the new property.",
+      "version": "5.6.0",
+      "pr": "#377"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/x-disclosure",
+      "reason": "Registers the Agent Lifecycle Record Part 1 client-boundary disclosure annotation (PART1_CONTRACT_FREEZE_DRAFT.md:376-408) in the governed x-* extension vocabulary so agent_lifecycle_record/*.json schemas can carry it, matching the existing x-traigent-invariants precedent immediately above. This file is documentation/governance metadata only -- its own header states it is 'not applied as a JSON Schema validator over other schemas' -- so no real request or response payload is ever validated against x_extensions_meta_schema.json itself; the breaking-check finding is the generic conservative heuristic correctly erring cautious on a bare-named resource file, not evidence of an actual wire-consumer break. Unlocks contract mutation row 17 (PART1_CONTRACT_FREEZE_DRAFT.md:1155), one of the five Schema-owned mutations Internal Contract Freeze requires to be executable.",
+      "version": "5.6.0",
+      "pr": "pending (branch feature/agent-lifecycle-record-part1-receipts, WorkIntent st_1c36bc0e8e53)"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "property_added",
+      "reason": "identity_state is an explicit discriminator when present, with a closed enum of identified/unidentified and a strictly validated absent/legacy migration branch (expand-contract); rollout stays flag-off until Backend and strict consumers emit and handle it.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "type",
+      "reason": "agent_id is nullable only in the unidentified branch, with paired-null invariants, because inventing an agent would corrupt provenance; identified rows remain string-valued.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "required",
+      "reason": "Expand-contract: identity_state is dropped from the top-level required list because the active Backend does not yet emit it on every experiment-group item or provenance row. The enum stays closed to identified/unidentified only; absence is handled by a new, strictly validated legacy branch (string agent_id, string-or-null dataset_id, no run_id), never treated as identified or as a certified explicit-none dataset claim. A follow-up MAJOR revision re-tightens this back to required once the Backend backfills the field everywhere.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The allOf branch count on ExperimentGroupOverview goes from 3 to 4 and on GroupedConfigurationRunProvenance goes from 2 to 3 because a new, absence-only branch was added alongside the existing identified/unidentified branches to enforce the legacy no-identity_state shape structurally (string agent_id, string-or-null dataset_id, run_id null-or-absent). The pre-existing branches on each definition are unchanged; the new branch only tightens validation for the newly-optional legacy case, it does not loosen any previously-enforced constraint.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "required",
+      "reason": "Expand-contract: identity_state is dropped from the top-level required list on ExperimentGroupOverview and GroupedConfigurationRunProvenance because the active Backend does not yet emit it on every item or row. The enum stays closed to identified/unidentified only; absence is handled by a new, strictly validated legacy branch (string agent_id, string-or-null dataset_id, no run_id), never treated as identified or as a certified explicit-none dataset claim. A follow-up MAJOR revision re-tightens this back to required once the Backend backfills the field everywhere.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The allOf branch count on ExperimentGroupOverview goes from 3 to 4 and on GroupedConfigurationRunProvenance goes from 2 to 3 because a new, absence-only branch was added alongside the existing identified/unidentified branches to enforce the legacy no-identity_state shape structurally (string agent_id, string-or-null dataset_id, run_id null-or-absent). The pre-existing branches on each definition are unchanged; the new branch only tightens validation for the newly-optional legacy case, it does not loosen any previously-enforced constraint.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "analytics/curation_advice_schema.json",
+      "rule": "enum",
+      "pointer_prefix": "#/properties/advice/items/properties/category",
+      "reason": "Retires the subtractive curation vocabulary at the client boundary (#389). `remove_redundant` is removed from the enum because acting on subtractive advice keyed to an observed signal biases the customer's own measurement and is unrepairable -- excluded items carry zero inclusion probability. Measured on a 70-item confirmation set, top-15-by-observed-discrimination pruning gave -0.202 against a true -0.073 (2.77x); random-15 was unbiased at -0.078. Breaking is the intended effect: a consumer still emitting or matching this member must be reconciled rather than silently accepted. Recorded in the disclosure register; reintroducing a subtractive category needs an owner decision. Scoped by pointer_prefix to the one enum that actually carried the retired member: an entry with no prefix defaults to matching every enum finding in the file forever (find_allow_entry uses startswith on an empty string), which would silently pre-authorize unrelated future enum breaks.",
+      "version": "5.6.0",
+      "pr": "#389"
+    },
+    {
+      "file": "analytics/run_example_insights_schema.json",
+      "rule": "enum",
+      "pointer_prefix": "#/properties/example_rows/items/properties/recommended_action",
+      "reason": "Retires the subtractive curation vocabulary at the client boundary (#389). `remove_redundant` is removed from the enum because acting on subtractive advice keyed to an observed signal biases the customer's own measurement and is unrepairable -- excluded items carry zero inclusion probability. Measured on a 70-item confirmation set, top-15-by-observed-discrimination pruning gave -0.202 against a true -0.073 (2.77x); random-15 was unbiased at -0.078. Breaking is the intended effect: a consumer still emitting or matching this member must be reconciled rather than silently accepted. Recorded in the disclosure register; reintroducing a subtractive category needs an owner decision. Scoped by pointer_prefix because this file has five enums and only recommended_action carried the retired member; without a prefix the entry would also pre-authorize breaking changes to dataset_quality, review_priority, difficulty_bucket and suspicious_flags.",
+      "version": "5.6.0",
+      "pr": "#389"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "type",
+      "pointer_prefix": "#/properties/record_ref",
+      "reason": "ALR-1106 (Agent Lifecycle Record Part 1, Route 1/2 packet): moves AgentLifecycleRecordRef out of this file's own local `definitions` block into agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef so Route 1's new agent_lifecycle_agent_revision_register_response_schema.json and this Route 5 response share one definition instead of duplicating it -- the contract's exact-override manifest (PART1_CONTRACT_FREEZE_DRAFT.md:434-437) always named the common schema as this shape's eventual home; ALR-1105 could only leave it local because no Route 1 response schema existed yet on that branch. The wire shape is byte-for-byte unchanged (same type=object, same additionalProperties:false, same required=[kind,id,version_id], same three property schemas -- only the internal $ref target for id/version_id moved from a same-file OpaqueRefId pointer to the identical common-schema OpaqueRefId pointer both files already share). This finding is the breaking-schema-check's generic conservative heuristic correctly erring cautious on a cross-file $ref it does not dereference (record_ref now resolves via `allOf:[{\"$ref\":\"agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef\"}]` instead of an in-file `#/definitions/AgentLifecycleRecordRef`), not evidence of an actual wire-consumer break -- no route has been implemented against this pre-freeze draft contract yet, so there is no live consumer to break. Scoped by pointer_prefix to record_ref only.",
+      "version": "5.6.0",
+      "pr": "pending (branch feature/agent-lifecycle-record-part1-routes12, WorkIntent st_92bfb968e8cb)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "additionalProperties",
+      "pointer_prefix": "#/properties/record_ref",
+      "reason": "Same ALR-1106 AgentLifecycleRecordRef relocation described in the paired 'type' entry immediately above for this same file/pointer -- the breaking-schema-check does not dereference the new cross-file $ref, so it reads record_ref as having gone from additionalProperties:false to open, when the resolved shape (agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef) is still additionalProperties:false, byte-for-byte identical to the local definition it replaced. Scoped by pointer_prefix to record_ref only.",
+      "version": "5.6.0",
+      "pr": "pending (branch feature/agent-lifecycle-record-part1-routes12, WorkIntent st_92bfb968e8cb)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/properties/record_ref",
+      "reason": "Same ALR-1106 AgentLifecycleRecordRef relocation described in the paired 'type' entry above for this same file/pointer -- the breaking-schema-check does not dereference the new cross-file $ref, so it reads record_ref's required=[kind,id,version_id] as dropped entirely, when the resolved shape (agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef) still requires exactly those three fields, byte-for-byte identical to the local definition it replaced. Scoped by pointer_prefix to record_ref only.",
+      "version": "5.6.0",
+      "pr": "pending (branch feature/agent-lifecycle-record-part1-routes12, WorkIntent st_92bfb968e8cb)"
+    }
+  ]
+}

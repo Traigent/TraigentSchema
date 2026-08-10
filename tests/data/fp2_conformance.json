@@ -2,38 +2,733 @@
   "spec": "fp2",
   "note": "Markers @@NAN@@/@@INF@@/@@UNDEFINED@@/@@BIGINT@@/@@LONE_SURROGATE@@/@@DATE@@ are substituted with the language's native value by each SDK's harness. @@BIGINT@@ is an integer beyond the IEEE-754 safe range (a JS BigInt, a Python int); it is unsupported in every language rather than language-specific, because a value one SDK can digest and another cannot is exactly the silent divergence this corpus exists to catch. The nesting cases carry no marker because JSON expresses depth natively: the limit is 100 containers from the root in every implementation, never whatever the runtime stack happens to allow.",
   "cases": [
-    {"name": "empty_object", "value": {}, "expect": "ok", "canonical": "{}", "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"},
-    {"name": "empty_array", "value": [], "expect": "ok", "canonical": "[]", "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"},
-    {"name": "flat_object", "value": {"b": 1, "a": 2}, "expect": "ok", "canonical": "{\"a\":2,\"b\":1}", "digest": "sha256:d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772"},
-    {"name": "uppercase_sorts_before_lowercase", "value": {"Z": 1, "a": 2}, "expect": "ok", "canonical": "{\"Z\":1,\"a\":2}", "digest": "sha256:b19fcf144d639e7ba9a9d01385685d8aa19699bff9fa3e916f61935afabcd8e9"},
-    {"name": "nested", "value": {"outer": {"inner": [1, 2, {"k": "v"}]}}, "expect": "ok", "canonical": "{\"outer\":{\"inner\":[1,2,{\"k\":\"v\"}]}}", "digest": "sha256:7edffdd677549aaf2f1b7cbeb4e960359117b3ba495a487f6a207541c79e0a26"},
-    {"name": "null_value_is_kept", "value": {"a": 1, "b": null}, "expect": "ok", "canonical": "{\"a\":1,\"b\":null}", "digest": "sha256:46e0ff59f6164548317489fbea1133a48f7a83c325c3535e44559c9619afb76b"},
-    {"name": "booleans", "value": {"t": true, "f": false}, "expect": "ok", "canonical": "{\"f\":false,\"t\":true}", "digest": "sha256:c22848c47426fcf4d27e55573c22f1d23546315c251e8e4bc384820ba5fae568"},
-    {"name": "negative_zero", "value": {"n": -0.0}, "expect": "ok", "canonical": "{\"n\":0}", "digest": "sha256:f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"},
-    {"name": "integral_float", "value": {"n": 3.0}, "expect": "ok", "canonical": "{\"n\":3}", "digest": "sha256:215ddd5567ca2590efd4ea109b4e56cbe591e2676fbf54a9262692c539166da6"},
-    {"name": "fractional_float", "value": {"n": 0.1}, "expect": "ok", "canonical": "{\"n\":0.1}", "digest": "sha256:c20c34ed16c837e86b4dcdb33f98c274c9f7da1231f64302082d2cd50743f951"},
-    {"name": "non_ascii_literal", "value": {"k": "héllo"}, "expect": "ok", "canonical": "{\"k\":\"héllo\"}", "digest": "sha256:d3352a192f21ed49ab7d14dbc8b24d71f95b178a227b9e2bbb6e10e584bbaa8f"},
-    {"name": "escapes", "value": {"k": "a\"b\\c\nd"}, "expect": "ok", "canonical": "{\"k\":\"a\\\"b\\\\c\\nd\"}", "digest": "sha256:491e4aa6b126ff691599a664d377fa349e3f64663e1ea607a4dec189a317ea78"},
-    {"name": "unicode_key_ordering", "value": {"é": 1, "e": 2}, "expect": "ok", "canonical": "{\"e\":2,\"é\":1}", "digest": "sha256:ae0cc153856ae8fdab2420c8f8e36a9f9cd47c4b1a73531be4bd7dc8092fa69e"},
-    {"name": "astral_key_sorts_before_bmp_key", "value": {"😀": 1, "Ａ": 2}, "expect": "ok", "canonical": "{\"😀\":1,\"Ａ\":2}", "digest": "sha256:d32a9d8cf9fc2943aa81f962af324b88f3cb32e4bb9d40d1d0d67a7d27b1a7d8"},
-    {"name": "astral_key_ordering_after_common_prefix", "value": {"a😀": 1, "aＡ": 2}, "expect": "ok", "canonical": "{\"a😀\":1,\"aＡ\":2}", "digest": "sha256:5062b3b6079bffd64772f8ba7e1c23787a1fbbb6e6dd2200f8b7c395bb36eb3e"},
-    {"name": "number_fixed_upper_boundary", "value": {"n": 1e+16}, "expect": "ok", "canonical": "{\"n\":10000000000000000}", "digest": "sha256:eeaabeef190f1cc3c67e3f9fb3c801baa5703ab64870a35f3f0d404117cc5c0b"},
-    {"name": "number_fixed_upper_boundary_1e20", "value": {"n": 1e+20}, "expect": "ok", "canonical": "{\"n\":100000000000000000000}", "digest": "sha256:58d2d5b8dd4228ab5775ce84f996718fa19ed49872271e9649b70cebaca26a09"},
-    {"name": "number_exponential_at_1e21", "value": {"n": 1e+21}, "expect": "ok", "canonical": "{\"n\":1e+21}", "digest": "sha256:f1ee2b60ee95a3170fdc07a577e5f3514ced26867443d69da265acadead81007"},
-    {"name": "number_fixed_lower_boundary_1e_minus_5", "value": {"n": 1e-05}, "expect": "ok", "canonical": "{\"n\":0.00001}", "digest": "sha256:694af9772b95df9403774a048bc7b0d78618b2af451e2d50378f639027727b2d"},
-    {"name": "number_fixed_lower_boundary_1e_minus_6", "value": {"n": 1e-06}, "expect": "ok", "canonical": "{\"n\":0.000001}", "digest": "sha256:28343867a0be00aee19f81aa90cfd6c646878b9303fa15410d16bfd3f8894578"},
-    {"name": "number_exponential_at_1e_minus_7", "value": {"n": 1e-07}, "expect": "ok", "canonical": "{\"n\":1e-7}", "digest": "sha256:747d6d23b64d1b2d579adb832b44de31c91c875bbef7a8e397f5d183a746b54b"},
-    {"name": "number_max_safe_integer", "value": {"n": 9007199254740991}, "expect": "ok", "canonical": "{\"n\":9007199254740991}", "digest": "sha256:e1da48c6a6089f06ecb4e0a2259e658e3786b2420f52baccdf929ec6460d7b41"},
-    {"name": "number_denormal_min", "value": {"n": 5e-324}, "expect": "ok", "canonical": "{\"n\":5e-324}", "digest": "sha256:cf4df7d2834198d284947133d3ec7a66f3d94e8d447cac6a0783324211b36d43"},
-    {"name": "nesting_at_the_depth_limit", "value": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, "expect": "ok", "canonical": "{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}", "digest": "sha256:50c381d7adfef6bf31af64b9789967e7e18e965d7933db28c85357869387d6dd"},
-    {"name": "dataset_rows_ordered", "value": {"kind": "dfp2o", "rows": [{"input": "a", "expected": "1"}, {"input": "b", "expected": "2"}]}, "expect": "ok", "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"1\",\"input\":\"a\"},{\"expected\":\"2\",\"input\":\"b\"}]}", "digest": "sha256:4322d39db182cb078f5e8efd2b960ccaba8cbaa14cfb19e1678e2504e61f6e15"},
-    {"name": "dataset_rows_reversed_differs", "value": {"kind": "dfp2o", "rows": [{"input": "b", "expected": "2"}, {"input": "a", "expected": "1"}]}, "expect": "ok", "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"2\",\"input\":\"b\"},{\"expected\":\"1\",\"input\":\"a\"}]}", "digest": "sha256:b6fad64456a60a0ebde025c448cc3559e88e31c69dd072bc71cefd21dc025bdb"},
-    {"name": "nan", "value": {"n": "@@NAN@@"}, "expect": "unsupported"},
-    {"name": "infinity", "value": {"n": "@@INF@@"}, "expect": "unsupported"},
-    {"name": "undefined_in_array", "value": {"a": ["@@UNDEFINED@@"]}, "expect": "unsupported"},
-    {"name": "bigint", "value": {"n": "@@BIGINT@@"}, "expect": "unsupported"},
-    {"name": "lone_surrogate", "value": {"k": "@@LONE_SURROGATE@@"}, "expect": "unsupported"},
-    {"name": "nesting_beyond_the_depth_limit", "value": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {"a": {}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, "expect": "unsupported"},
-    {"name": "date", "value": {"d": "@@DATE@@"}, "expect": "unsupported"}
+    {
+      "name": "empty_object",
+      "value": {},
+      "expect": "ok",
+      "canonical": "{}",
+      "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "name": "empty_array",
+      "value": [],
+      "expect": "ok",
+      "canonical": "[]",
+      "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "name": "flat_object",
+      "value": {
+        "b": 1,
+        "a": 2
+      },
+      "expect": "ok",
+      "canonical": "{\"a\":2,\"b\":1}",
+      "digest": "sha256:d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772"
+    },
+    {
+      "name": "uppercase_sorts_before_lowercase",
+      "value": {
+        "Z": 1,
+        "a": 2
+      },
+      "expect": "ok",
+      "canonical": "{\"Z\":1,\"a\":2}",
+      "digest": "sha256:b19fcf144d639e7ba9a9d01385685d8aa19699bff9fa3e916f61935afabcd8e9"
+    },
+    {
+      "name": "nested",
+      "value": {
+        "outer": {
+          "inner": [
+            1,
+            2,
+            {
+              "k": "v"
+            }
+          ]
+        }
+      },
+      "expect": "ok",
+      "canonical": "{\"outer\":{\"inner\":[1,2,{\"k\":\"v\"}]}}",
+      "digest": "sha256:7edffdd677549aaf2f1b7cbeb4e960359117b3ba495a487f6a207541c79e0a26"
+    },
+    {
+      "name": "null_value_is_kept",
+      "value": {
+        "a": 1,
+        "b": null
+      },
+      "expect": "ok",
+      "canonical": "{\"a\":1,\"b\":null}",
+      "digest": "sha256:46e0ff59f6164548317489fbea1133a48f7a83c325c3535e44559c9619afb76b"
+    },
+    {
+      "name": "booleans",
+      "value": {
+        "t": true,
+        "f": false
+      },
+      "expect": "ok",
+      "canonical": "{\"f\":false,\"t\":true}",
+      "digest": "sha256:c22848c47426fcf4d27e55573c22f1d23546315c251e8e4bc384820ba5fae568"
+    },
+    {
+      "name": "negative_zero",
+      "value": {
+        "n": -0.0
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":0}",
+      "digest": "sha256:f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"
+    },
+    {
+      "name": "integral_float",
+      "value": {
+        "n": 3.0
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":3}",
+      "digest": "sha256:215ddd5567ca2590efd4ea109b4e56cbe591e2676fbf54a9262692c539166da6"
+    },
+    {
+      "name": "fractional_float",
+      "value": {
+        "n": 0.1
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":0.1}",
+      "digest": "sha256:c20c34ed16c837e86b4dcdb33f98c274c9f7da1231f64302082d2cd50743f951"
+    },
+    {
+      "name": "non_ascii_literal",
+      "value": {
+        "k": "héllo"
+      },
+      "expect": "ok",
+      "canonical": "{\"k\":\"héllo\"}",
+      "digest": "sha256:d3352a192f21ed49ab7d14dbc8b24d71f95b178a227b9e2bbb6e10e584bbaa8f"
+    },
+    {
+      "name": "escapes",
+      "value": {
+        "k": "a\"b\\c\nd"
+      },
+      "expect": "ok",
+      "canonical": "{\"k\":\"a\\\"b\\\\c\\nd\"}",
+      "digest": "sha256:491e4aa6b126ff691599a664d377fa349e3f64663e1ea607a4dec189a317ea78"
+    },
+    {
+      "name": "unicode_key_ordering",
+      "value": {
+        "é": 1,
+        "e": 2
+      },
+      "expect": "ok",
+      "canonical": "{\"e\":2,\"é\":1}",
+      "digest": "sha256:ae0cc153856ae8fdab2420c8f8e36a9f9cd47c4b1a73531be4bd7dc8092fa69e"
+    },
+    {
+      "name": "astral_key_sorts_before_bmp_key",
+      "value": {
+        "😀": 1,
+        "Ａ": 2
+      },
+      "expect": "ok",
+      "canonical": "{\"😀\":1,\"Ａ\":2}",
+      "digest": "sha256:d32a9d8cf9fc2943aa81f962af324b88f3cb32e4bb9d40d1d0d67a7d27b1a7d8"
+    },
+    {
+      "name": "astral_key_ordering_after_common_prefix",
+      "value": {
+        "a😀": 1,
+        "aＡ": 2
+      },
+      "expect": "ok",
+      "canonical": "{\"a😀\":1,\"aＡ\":2}",
+      "digest": "sha256:5062b3b6079bffd64772f8ba7e1c23787a1fbbb6e6dd2200f8b7c395bb36eb3e"
+    },
+    {
+      "name": "number_fixed_upper_boundary",
+      "value": {
+        "n": 1e+16
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":10000000000000000}",
+      "digest": "sha256:eeaabeef190f1cc3c67e3f9fb3c801baa5703ab64870a35f3f0d404117cc5c0b"
+    },
+    {
+      "name": "number_fixed_upper_boundary_1e20",
+      "value": {
+        "n": 1e+20
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":100000000000000000000}",
+      "digest": "sha256:58d2d5b8dd4228ab5775ce84f996718fa19ed49872271e9649b70cebaca26a09"
+    },
+    {
+      "name": "number_exponential_at_1e21",
+      "value": {
+        "n": 1e+21
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":1e+21}",
+      "digest": "sha256:f1ee2b60ee95a3170fdc07a577e5f3514ced26867443d69da265acadead81007"
+    },
+    {
+      "name": "number_fixed_lower_boundary_1e_minus_5",
+      "value": {
+        "n": 1e-05
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":0.00001}",
+      "digest": "sha256:694af9772b95df9403774a048bc7b0d78618b2af451e2d50378f639027727b2d"
+    },
+    {
+      "name": "number_fixed_lower_boundary_1e_minus_6",
+      "value": {
+        "n": 1e-06
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":0.000001}",
+      "digest": "sha256:28343867a0be00aee19f81aa90cfd6c646878b9303fa15410d16bfd3f8894578"
+    },
+    {
+      "name": "number_exponential_at_1e_minus_7",
+      "value": {
+        "n": 1e-07
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":1e-7}",
+      "digest": "sha256:747d6d23b64d1b2d579adb832b44de31c91c875bbef7a8e397f5d183a746b54b"
+    },
+    {
+      "name": "number_max_safe_integer",
+      "value": {
+        "n": 9007199254740991
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":9007199254740991}",
+      "digest": "sha256:e1da48c6a6089f06ecb4e0a2259e658e3786b2420f52baccdf929ec6460d7b41"
+    },
+    {
+      "name": "number_denormal_min",
+      "value": {
+        "n": 5e-324
+      },
+      "expect": "ok",
+      "canonical": "{\"n\":5e-324}",
+      "digest": "sha256:cf4df7d2834198d284947133d3ec7a66f3d94e8d447cac6a0783324211b36d43"
+    },
+    {
+      "name": "nesting_at_the_depth_limit",
+      "value": {
+        "a": {
+          "a": {
+            "a": {
+              "a": {
+                "a": {
+                  "a": {
+                    "a": {
+                      "a": {
+                        "a": {
+                          "a": {
+                            "a": {
+                              "a": {
+                                "a": {
+                                  "a": {
+                                    "a": {
+                                      "a": {
+                                        "a": {
+                                          "a": {
+                                            "a": {
+                                              "a": {
+                                                "a": {
+                                                  "a": {
+                                                    "a": {
+                                                      "a": {
+                                                        "a": {
+                                                          "a": {
+                                                            "a": {
+                                                              "a": {
+                                                                "a": {
+                                                                  "a": {
+                                                                    "a": {
+                                                                      "a": {
+                                                                        "a": {
+                                                                          "a": {
+                                                                            "a": {
+                                                                              "a": {
+                                                                                "a": {
+                                                                                  "a": {
+                                                                                    "a": {
+                                                                                      "a": {
+                                                                                        "a": {
+                                                                                          "a": {
+                                                                                            "a": {
+                                                                                              "a": {
+                                                                                                "a": {
+                                                                                                  "a": {
+                                                                                                    "a": {
+                                                                                                      "a": {
+                                                                                                        "a": {
+                                                                                                          "a": {
+                                                                                                            "a": {
+                                                                                                              "a": {
+                                                                                                                "a": {
+                                                                                                                  "a": {
+                                                                                                                    "a": {
+                                                                                                                      "a": {
+                                                                                                                        "a": {
+                                                                                                                          "a": {
+                                                                                                                            "a": {
+                                                                                                                              "a": {
+                                                                                                                                "a": {
+                                                                                                                                  "a": {
+                                                                                                                                    "a": {
+                                                                                                                                      "a": {
+                                                                                                                                        "a": {
+                                                                                                                                          "a": {
+                                                                                                                                            "a": {
+                                                                                                                                              "a": {
+                                                                                                                                                "a": {
+                                                                                                                                                  "a": {
+                                                                                                                                                    "a": {
+                                                                                                                                                      "a": {
+                                                                                                                                                        "a": {
+                                                                                                                                                          "a": {
+                                                                                                                                                            "a": {
+                                                                                                                                                              "a": {
+                                                                                                                                                                "a": {
+                                                                                                                                                                  "a": {
+                                                                                                                                                                    "a": {
+                                                                                                                                                                      "a": {
+                                                                                                                                                                        "a": {
+                                                                                                                                                                          "a": {
+                                                                                                                                                                            "a": {
+                                                                                                                                                                              "a": {
+                                                                                                                                                                                "a": {
+                                                                                                                                                                                  "a": {
+                                                                                                                                                                                    "a": {
+                                                                                                                                                                                      "a": {
+                                                                                                                                                                                        "a": {
+                                                                                                                                                                                          "a": {
+                                                                                                                                                                                            "a": {
+                                                                                                                                                                                              "a": {
+                                                                                                                                                                                                "a": {
+                                                                                                                                                                                                  "a": {
+                                                                                                                                                                                                    "a": {
+                                                                                                                                                                                                      "a": {
+                                                                                                                                                                                                        "a": {
+                                                                                                                                                                                                          "a": {
+                                                                                                                                                                                                            "a": {}
+                                                                                                                                                                                                          }
+                                                                                                                                                                                                        }
+                                                                                                                                                                                                      }
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                  }
+                                                                                                                                                                                                }
+                                                                                                                                                                                              }
+                                                                                                                                                                                            }
+                                                                                                                                                                                          }
+                                                                                                                                                                                        }
+                                                                                                                                                                                      }
+                                                                                                                                                                                    }
+                                                                                                                                                                                  }
+                                                                                                                                                                                }
+                                                                                                                                                                              }
+                                                                                                                                                                            }
+                                                                                                                                                                          }
+                                                                                                                                                                        }
+                                                                                                                                                                      }
+                                                                                                                                                                    }
+                                                                                                                                                                  }
+                                                                                                                                                                }
+                                                                                                                                                              }
+                                                                                                                                                            }
+                                                                                                                                                          }
+                                                                                                                                                        }
+                                                                                                                                                      }
+                                                                                                                                                    }
+                                                                                                                                                  }
+                                                                                                                                                }
+                                                                                                                                              }
+                                                                                                                                            }
+                                                                                                                                          }
+                                                                                                                                        }
+                                                                                                                                      }
+                                                                                                                                    }
+                                                                                                                                  }
+                                                                                                                                }
+                                                                                                                              }
+                                                                                                                            }
+                                                                                                                          }
+                                                                                                                        }
+                                                                                                                      }
+                                                                                                                    }
+                                                                                                                  }
+                                                                                                                }
+                                                                                                              }
+                                                                                                            }
+                                                                                                          }
+                                                                                                        }
+                                                                                                      }
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            }
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    }
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "expect": "ok",
+      "canonical": "{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}",
+      "digest": "sha256:50c381d7adfef6bf31af64b9789967e7e18e965d7933db28c85357869387d6dd"
+    },
+    {
+      "name": "dataset_rows_ordered",
+      "value": {
+        "kind": "dfp2o",
+        "rows": [
+          {
+            "input": "a",
+            "expected": "1"
+          },
+          {
+            "input": "b",
+            "expected": "2"
+          }
+        ]
+      },
+      "expect": "ok",
+      "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"1\",\"input\":\"a\"},{\"expected\":\"2\",\"input\":\"b\"}]}",
+      "digest": "sha256:4322d39db182cb078f5e8efd2b960ccaba8cbaa14cfb19e1678e2504e61f6e15"
+    },
+    {
+      "name": "dataset_rows_reversed_differs",
+      "value": {
+        "kind": "dfp2o",
+        "rows": [
+          {
+            "input": "b",
+            "expected": "2"
+          },
+          {
+            "input": "a",
+            "expected": "1"
+          }
+        ]
+      },
+      "expect": "ok",
+      "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"2\",\"input\":\"b\"},{\"expected\":\"1\",\"input\":\"a\"}]}",
+      "digest": "sha256:b6fad64456a60a0ebde025c448cc3559e88e31c69dd072bc71cefd21dc025bdb"
+    },
+    {
+      "name": "nan",
+      "value": {
+        "n": "@@NAN@@"
+      },
+      "expect": "unsupported"
+    },
+    {
+      "name": "infinity",
+      "value": {
+        "n": "@@INF@@"
+      },
+      "expect": "unsupported"
+    },
+    {
+      "name": "undefined_in_array",
+      "value": {
+        "a": [
+          "@@UNDEFINED@@"
+        ]
+      },
+      "expect": "unsupported"
+    },
+    {
+      "name": "bigint",
+      "value": {
+        "n": "@@BIGINT@@"
+      },
+      "expect": "unsupported"
+    },
+    {
+      "name": "lone_surrogate",
+      "value": {
+        "k": "@@LONE_SURROGATE@@"
+      },
+      "expect": "unsupported"
+    },
+    {
+      "name": "nesting_beyond_the_depth_limit",
+      "value": {
+        "a": {
+          "a": {
+            "a": {
+              "a": {
+                "a": {
+                  "a": {
+                    "a": {
+                      "a": {
+                        "a": {
+                          "a": {
+                            "a": {
+                              "a": {
+                                "a": {
+                                  "a": {
+                                    "a": {
+                                      "a": {
+                                        "a": {
+                                          "a": {
+                                            "a": {
+                                              "a": {
+                                                "a": {
+                                                  "a": {
+                                                    "a": {
+                                                      "a": {
+                                                        "a": {
+                                                          "a": {
+                                                            "a": {
+                                                              "a": {
+                                                                "a": {
+                                                                  "a": {
+                                                                    "a": {
+                                                                      "a": {
+                                                                        "a": {
+                                                                          "a": {
+                                                                            "a": {
+                                                                              "a": {
+                                                                                "a": {
+                                                                                  "a": {
+                                                                                    "a": {
+                                                                                      "a": {
+                                                                                        "a": {
+                                                                                          "a": {
+                                                                                            "a": {
+                                                                                              "a": {
+                                                                                                "a": {
+                                                                                                  "a": {
+                                                                                                    "a": {
+                                                                                                      "a": {
+                                                                                                        "a": {
+                                                                                                          "a": {
+                                                                                                            "a": {
+                                                                                                              "a": {
+                                                                                                                "a": {
+                                                                                                                  "a": {
+                                                                                                                    "a": {
+                                                                                                                      "a": {
+                                                                                                                        "a": {
+                                                                                                                          "a": {
+                                                                                                                            "a": {
+                                                                                                                              "a": {
+                                                                                                                                "a": {
+                                                                                                                                  "a": {
+                                                                                                                                    "a": {
+                                                                                                                                      "a": {
+                                                                                                                                        "a": {
+                                                                                                                                          "a": {
+                                                                                                                                            "a": {
+                                                                                                                                              "a": {
+                                                                                                                                                "a": {
+                                                                                                                                                  "a": {
+                                                                                                                                                    "a": {
+                                                                                                                                                      "a": {
+                                                                                                                                                        "a": {
+                                                                                                                                                          "a": {
+                                                                                                                                                            "a": {
+                                                                                                                                                              "a": {
+                                                                                                                                                                "a": {
+                                                                                                                                                                  "a": {
+                                                                                                                                                                    "a": {
+                                                                                                                                                                      "a": {
+                                                                                                                                                                        "a": {
+                                                                                                                                                                          "a": {
+                                                                                                                                                                            "a": {
+                                                                                                                                                                              "a": {
+                                                                                                                                                                                "a": {
+                                                                                                                                                                                  "a": {
+                                                                                                                                                                                    "a": {
+                                                                                                                                                                                      "a": {
+                                                                                                                                                                                        "a": {
+                                                                                                                                                                                          "a": {
+                                                                                                                                                                                            "a": {
+                                                                                                                                                                                              "a": {
+                                                                                                                                                                                                "a": {
+                                                                                                                                                                                                  "a": {
+                                                                                                                                                                                                    "a": {
+                                                                                                                                                                                                      "a": {
+                                                                                                                                                                                                        "a": {
+                                                                                                                                                                                                          "a": {
+                                                                                                                                                                                                            "a": {
+                                                                                                                                                                                                              "a": {}
+                                                                                                                                                                                                            }
+                                                                                                                                                                                                          }
+                                                                                                                                                                                                        }
+                                                                                                                                                                                                      }
+                                                                                                                                                                                                    }
+                                                                                                                                                                                                  }
+                                                                                                                                                                                                }
+                                                                                                                                                                                              }
+                                                                                                                                                                                            }
+                                                                                                                                                                                          }
+                                                                                                                                                                                        }
+                                                                                                                                                                                      }
+                                                                                                                                                                                    }
+                                                                                                                                                                                  }
+                                                                                                                                                                                }
+                                                                                                                                                                              }
+                                                                                                                                                                            }
+                                                                                                                                                                          }
+                                                                                                                                                                        }
+                                                                                                                                                                      }
+                                                                                                                                                                    }
+                                                                                                                                                                  }
+                                                                                                                                                                }
+                                                                                                                                                              }
+                                                                                                                                                            }
+                                                                                                                                                          }
+                                                                                                                                                        }
+                                                                                                                                                      }
+                                                                                                                                                    }
+                                                                                                                                                  }
+                                                                                                                                                }
+                                                                                                                                              }
+                                                                                                                                            }
+                                                                                                                                          }
+                                                                                                                                        }
+                                                                                                                                      }
+                                                                                                                                    }
+                                                                                                                                  }
+                                                                                                                                }
+                                                                                                                              }
+                                                                                                                            }
+                                                                                                                          }
+                                                                                                                        }
+                                                                                                                      }
+                                                                                                                    }
+                                                                                                                  }
+                                                                                                                }
+                                                                                                              }
+                                                                                                            }
+                                                                                                          }
+                                                                                                        }
+                                                                                                      }
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            }
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    }
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "expect": "unsupported"
+    },
+    {
+      "name": "date",
+      "value": {
+        "d": "@@DATE@@"
+      },
+      "expect": "unsupported"
+    },
+    {
+      "name": "unicode_value_nfd_decomposed",
+      "value": {
+        "k": "héllo"
+      },
+      "expect": "ok",
+      "canonical": "{\"k\":\"héllo\"}",
+      "digest": "sha256:30bfbcb6c5be141117b4837ac52f43b165bc1d36e83ca970610e07f1a560f334"
+    },
+    {
+      "name": "unicode_key_nfd_decomposed",
+      "value": {
+        "héllo": 1
+      },
+      "expect": "ok",
+      "canonical": "{\"héllo\":1}",
+      "digest": "sha256:31cd3a7dc5ae00a6138c8b9521df321c484b2f9f6e1ba46e7ab51fcbc67e06aa"
+    }
   ]
 }

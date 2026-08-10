@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Experiment-group browse-row provenance now represents unidentified runs without inventing a
+  cohort.** `GroupedConfigurationRunProvenance` now carries the same
+  `identity_state` discriminator as `ExperimentGroupOverview`: identified rows carry a real
+  `(agent_id, dataset_id)` cohort; an unidentified row carries both cohort fields as `null`.
+  The browse row's existing required `experiment_run_id` remains its singleton source-execution
+  identity. This corrects a contradiction where the group contract allowed an unidentified
+  singleton but the row provenance required a non-null agent id, making a complete truthful browse
+  row impossible. Canonical source-execution ids are not duplicated in provenance.
+- **Group-list identity ordering is now cross-dialect explicit.** After the requested primary sort,
+  the fixed tie-break is `agent_id` ascending with nulls last, canonical `dataset_id` ascending with
+  nulls first, then `run_id` ascending with nulls first. Producers must use portable `CASE`
+  null-rank terms before each value instead of database-default null ordering. The `agent_id`
+  nulls-last term places identified cohorts before unidentified singletons; `run_id` nulls-first is
+  not the reason for that cross-state order.
+- **`identity_state` moves to expand-contract instead of being declared required on day one.**
+  The above `identity_state` discriminator landed as required on both `ExperimentGroupOverview`
+  and `GroupedConfigurationRunProvenance`, but the active Backend does not yet emit it on every
+  item or row; a required field the producer can't yet guarantee would make every legacy
+  response fail validation. `identity_state` is now optional at the top level on both objects,
+  while its own enum stays closed to `identified`/`unidentified` only — there is deliberately no
+  third `legacy` enum member. A new, strictly validated absence-only branch enforces the live
+  legacy shape when the field is omitted entirely: a declared string `agent_id`, a string-or-null
+  `dataset_id` (via the existing `CanonicalDatasetId` rules), and, on the overview object,
+  `run_id` null or absent, exactly like an identified cohort — a legacy item is never a
+  singleton. Absence is a third, distinct reading from both explicit states: it must never be
+  treated as `identified`, and a legacy item's null `dataset_id` does not establish the
+  identified branch's explicit-none dataset claim, because it predates the discriminator
+  entirely. The explicit `identified`/`unidentified` branches, and the unidentified
+  per-run-singleton and no-copied-`run_id`-in-provenance invariants from the two fixes above,
+  are unchanged. A follow-up MAJOR revision re-tightens `identity_state` back to required once
+  the Backend backfills it on every item and row.
+
 ## [5.5.0] - 2026-08-01
 
 ### Added
@@ -791,16 +826,21 @@ loosening, not breaking.
     Runtime one-row-per-execution and exact scope/agent/dataset partitioning remain
     downstream backend/E2E acceptance criteria, not proven by this schema.
   - Group-list deterministic tie-break (unreleased correction): the group-list
-    tie-breaker is the group's canonical visible identity — `agent_id` ascending,
-    then canonical `dataset_id` ascending with nulls ordered first (the explicit
-    no-dataset group sorts before any concrete dataset id) — applied after the
+    tie-breaker is the group's canonical visible identity — `agent_id` ascending
+    with nulls ordered last, then canonical `dataset_id` ascending with nulls
+    ordered first (the explicit no-dataset group sorts before any concrete dataset
+    id within an identified agent), then `run_id` ascending with nulls ordered first
+    — applied after the
     requested primary sort and fixed independent of the primary field, its
     direction, and `dataset_id` nullness. This replaces the earlier `group_id`
     ascending tie-break: `group_id` is a non-reversible SHA-derived lookup token
     that cannot be portably range-bounded, so it cannot back exact SQL-bounded
-    cursor pagination, whereas `(agent_id, canonical dataset_id)` is the exact
+    cursor pagination, whereas `(agent_id, canonical dataset_id, run_id)` is the exact
     group identity, is fully range-orderable, and yields the same deterministic
-    total order. The tie-break has no user-facing semantic value; deterministic,
+    total order. Portable `CASE` null-rank terms before each value make this order
+    independent of database-default null ordering. The `agent_id` nulls-last term,
+    not `run_id` nulls-first, places identified cohorts before unidentified
+    singletons. The tie-break has no user-facing semantic value; deterministic,
     exact, visible-identity order does. The configuration-run row tie-break
     (`configuration_run_id` ascending) is unchanged. The `GET /api/v1/experiment-groups`
     inline `sort_by` parameter description in `execution/execution_endpoints.json` now

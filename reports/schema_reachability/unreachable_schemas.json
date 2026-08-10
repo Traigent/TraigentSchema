@@ -10,10 +10,10 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 34,
-      "refOrEndpointGraph": 334
+      "refOrEndpointGraph": 336
     },
-    "reachableCount": 368,
-    "schemaFileCount": 404,
+    "reachableCount": 370,
+    "schemaFileCount": 406,
     "unreachableCount": 36
   },
   "unreachableSchemas": [

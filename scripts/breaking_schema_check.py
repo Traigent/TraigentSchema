@@ -58,6 +58,7 @@ import json
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 from collections import defaultdict
 from dataclasses import dataclass
@@ -73,35 +74,29 @@ SCHEMAS_SUBDIR = "traigent_schema/schemas"
 SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
 DEFAULT_ALLOWLIST = REPO_ROOT / "scripts" / "breaking_schema_allowlist.json"
 
-_SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-^~]*$")
-_MAX_GIT_REF_LEN = 200
+# Shared path/git-ref containment helpers (scripts/_path_safety.py). These used to be
+# copy-pasted into this file AND refresh_consumer_schema_references.py; the copies drifted
+# and only one of them gained tar-member validation, so they now live in one place.
+#
+# scripts/ is sys.path[0] when this file runs as a script, but not when a test loads it via
+# spec_from_file_location (tests/test_breaking_schema_check.py deliberately avoids putting
+# scripts/ on sys.path), so the directory is added here first. A single `import ... as`
+# keeps this to one statement that isort/ruff-format will not split apart.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import _path_safety as _ps  # noqa: E402  (deliberately follows the sys.path insert above)
+
+_is_relative_to = _ps.is_relative_to
+_resolve_path_within = _ps.resolve_path_within
+_safe_git_ref = _ps.safe_git_ref
+_validate_tar_members_stay_within = _ps.validate_tar_members_stay_within
 
 Role = Literal["request", "response", "conservative"]
 Severity = Literal["BREAKING", "INFO"]
 
 _MAX_KEYS = ("maxLength", "maximum", "maxItems", "maxProperties")
 _MIN_KEYS = ("minLength", "minimum", "minItems", "minProperties")
-
-
-def _is_relative_to(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    return True
-
-
-def _resolve_path_within(raw_path: str | Path, root: Path, arg_name: str) -> Path:
-    resolved_root = Path(root).expanduser().resolve()
-    resolved_path = Path(raw_path).expanduser().resolve()
-    if (
-        resolved_path != resolved_root
-        and not _is_relative_to(resolved_path, resolved_root)
-    ):
-        raise ValueError(
-            f"{arg_name} must stay inside {resolved_root}, got {resolved_path}"
-        )
-    return resolved_path
 
 
 def _resolve_repo_root(raw_path: str | Path) -> Path:
@@ -116,31 +111,6 @@ def _resolve_repo_root(raw_path: str | Path) -> Path:
     if not schemas_dir.is_dir():
         raise ValueError(f"--repo-root does not contain {SCHEMAS_SUBDIR}: {repo_root}")
     return repo_root
-
-
-def _safe_git_ref(raw_ref: str, arg_name: str) -> str:
-    ref = raw_ref.strip()
-    if ref != raw_ref or not ref:
-        raise ValueError(
-            f"{arg_name} must be a non-empty git ref without surrounding whitespace"
-        )
-    if len(ref) > _MAX_GIT_REF_LEN:
-        raise ValueError(f"{arg_name} is too long to be accepted as a git ref")
-    if ref.startswith("-"):
-        raise ValueError(f"{arg_name} must not start with '-': {ref!r}")
-    if not _SAFE_GIT_REF_RE.fullmatch(ref):
-        raise ValueError(
-            f"{arg_name} contains characters outside the accepted git-ref set: {ref!r}"
-        )
-    bad_shape = (
-        ".." in ref
-        or "//" in ref
-        or "@{" in ref
-        or ref.endswith(("/", ".", ".lock"))
-    )
-    if bad_shape:
-        raise ValueError(f"{arg_name} is not an accepted git ref shape: {ref!r}")
-    return ref
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -242,7 +212,20 @@ def load_tree_from_dir(root: Path, label: str) -> SchemaTree:
     files: dict[str, Any] = {}
     bad: list[str] = []
     if root.is_dir():
+        resolved_root = root.resolve()
         for f in sorted(root.rglob("*.json")):
+            # rglob follows directory symlinks and read_text() follows file symlinks, so
+            # a symlinked *.json could pull content from outside the tree into the diff
+            # (and into the CI log). Skip links outright and re-check containment for
+            # everything else.
+            if f.is_symlink():
+                continue
+            try:
+                resolved = f.resolve()
+            except OSError:
+                continue
+            if not _is_relative_to(resolved, resolved_root):
+                continue
             rel = f.relative_to(root).as_posix()
             try:
                 files[rel] = json.loads(f.read_text(encoding="utf-8"))
@@ -294,7 +277,19 @@ def load_tree_from_ref(repo_root: Path, ref: str, dest: Path, extraction_root: P
         check=True,
     )
     if archive.stdout:
-        subprocess.run(["tar", "-x", "-C", str(safe_dest)], input=archive.stdout, check=True)
+        # Extract via tarfile, not `tar -x`, so every member can be checked BEFORE it
+        # lands: a member path containing `..`, or a symlink pointing outside the
+        # destination, would otherwise let a crafted commit place or alias a file
+        # anywhere this process can write, and the *.json reader below would then
+        # happily read through it. refresh_consumer_schema_references.py already did
+        # this; the two hardening passes diverged, which is why the helper now lives in
+        # scripts/_path_safety.py rather than being copied.
+        with tempfile.NamedTemporaryFile(suffix=".tar") as tmp_tar:
+            tmp_tar.write(archive.stdout)
+            tmp_tar.flush()
+            with tarfile.open(tmp_tar.name) as tar:
+                _validate_tar_members_stay_within(tar, safe_dest)
+                tar.extractall(safe_dest)  # noqa: S202 - members validated immediately above
     sha = subprocess.run(
         ["git", "-C", str(safe_repo_root), "rev-parse", "--short=12", safe_ref],
         capture_output=True,

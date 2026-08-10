@@ -49,6 +49,21 @@ empty; a value that must fail closed on both fp2 entry points; a mutated
 manifest that must digest differently). Each group shares one small helper or
 one parametrize table rather than repeating the body, so the repeated
 assertion pattern exists in exactly one place in this file.
+
+Corpus-level indirection: the corpus itself (tests/data/fp2/agent_lifecycle_cases.json)
+carries a top-level "shared" section naming content that is byte-identical
+across two or more cases purely incidentally to what each case tests -- e.g.
+two cases whose whole point is "same content, different runtime" genuinely
+need identical bound/external state, and two "convergence" cases whose whole
+point is "different construction, same expected output" genuinely need an
+identical expected (canonical, digest) pair. `_cases()` below expands both
+forms of reference (`{"$shared": "<name>"}` inside "value"; `"expected_ref":
+"<name>"` at the case level) before any test sees a case, so every test
+function still reads a plain, fully-inlined `case["value"]`/`case["canonical"]`/
+`case["digest"]` exactly as before -- the indirection is a corpus-authoring
+device, not a test-reading one. Content that differs between cases (the
+actual point of the case) is never behind a reference; only incidental,
+byte-identical boilerplate is.
 """
 
 from __future__ import annotations
@@ -82,8 +97,44 @@ _WITHIN_RUNTIME_FAMILIES = (
 )
 
 
+def _resolve_shared_refs(node: Any, shared: dict[str, Any]) -> Any:
+    """Expand {"$shared": "<name>"} pointers against the corpus's top-level
+    "shared" section. A case's "value" may nest one of these anywhere it has
+    a byte-identical sub-object that is incidental to what the case tests
+    (see the corpus's own "note" field) -- the pointer is resolved once here
+    so every test below still sees a plain, fully-inlined manifest and never
+    has to know shared fragments exist."""
+    if isinstance(node, dict):
+        if set(node) == {"$shared"}:
+            return _resolve_shared_refs(copy.deepcopy(shared[node["$shared"]]), shared)
+        return {key: _resolve_shared_refs(item, shared) for key, item in node.items()}
+    if isinstance(node, list):
+        return [_resolve_shared_refs(item, shared) for item in node]
+    return node
+
+
 def _cases() -> list[dict[str, Any]]:
-    return json.loads(CORPUS.read_text(encoding="utf-8"))["cases"]
+    """Load the corpus and resolve its indirection before returning cases.
+
+    Two cases with a shared "expected_ref" are asserting the SAME expected
+    output by design (that shared equality IS the convergence claim under
+    test), so "expected_ref" is expanded into literal "canonical"/"digest"
+    fields here rather than left for every test to resolve individually.
+    """
+    doc = json.loads(CORPUS.read_text(encoding="utf-8"))
+    shared = doc.get("shared", {})
+
+    resolved = []
+    for case in doc["cases"]:
+        case = dict(case)
+        case["value"] = _resolve_shared_refs(case["value"], shared)
+        expected_ref = case.pop("expected_ref", None)
+        if expected_ref is not None:
+            expected = shared[expected_ref]
+            case["canonical"] = expected["canonical"]
+            case["digest"] = expected["digest"]
+        resolved.append(case)
+    return resolved
 
 
 def _substitute(value: Any) -> Any:

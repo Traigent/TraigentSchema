@@ -1,7 +1,32 @@
 {
   "spec": "fp2-agent-lifecycle-parity",
   "story": "ALR-1103",
-  "note": "Extends the pinned tests/data/fp2_conformance.json corpus with full manifest-shaped afp2/dfp2o/efp2/cfp2 cases scoped to fp2's cross-runtime parity contract (docs/fingerprints/fp2.md: 'Comparability scope'). dfp2o/cfp2 carry no runtime field and MUST canonicalize identically regardless of input construction order (scope=cross_runtime). afp2/efp2 carry a mandatory runtime discriminator and are deterministic only WITHIN one runtime (scope=within_runtime_only): same-family cases with different 'runtime' values share source/bound content but MUST NOT digest equal -- asserting otherwise is this story's named failure mutation (PART1_CONTRACT_FREEZE_DRAFT.md:1148, mutation row 10). scope=preserve_unknown demonstrates the canonicalizer keeps a field none of the four fp2 algorithms name, rather than silently dropping it. scope=fail_closed demonstrates the opposite half: a value fp2 cannot represent fails the whole manifest closed. Markers @@NAN@@/@@LONE_SURROGATE@@ are substituted with the language's native unsupported value by each harness, matching tests/data/fp2_conformance.json.",
+  "note": "Extends the pinned tests/data/fp2_conformance.json corpus with full manifest-shaped afp2/dfp2o/efp2/cfp2 cases scoped to fp2's cross-runtime parity contract (docs/fingerprints/fp2.md: 'Comparability scope'). dfp2o/cfp2 carry no runtime field and MUST canonicalize identically regardless of input construction order (scope=cross_runtime). afp2/efp2 carry a mandatory runtime discriminator and are deterministic only WITHIN one runtime (scope=within_runtime_only): same-family cases with different 'runtime' values share source/bound content but MUST NOT digest equal -- asserting otherwise is this story's named failure mutation (PART1_CONTRACT_FREEZE_DRAFT.md:1148, mutation row 10). scope=preserve_unknown demonstrates the canonicalizer keeps a field none of the four fp2 algorithms name, rather than silently dropping it. scope=fail_closed demonstrates the opposite half: a value fp2 cannot represent fails the whole manifest closed. Markers @@NAN@@/@@LONE_SURROGATE@@ are substituted with the language's native unsupported value by each harness, matching tests/data/fp2_conformance.json. The top-level 'shared' section below names two kinds of content that is byte-identical across two or more cases purely incidentally to what each case tests -- never the part a case's name says it varies. A case references a shared fragment two ways, both resolved by the test loader (tests/test_fp2_agent_lifecycle_parity.py:_cases()) before anything touches the corpus: (1) inside 'value', a nested object of exactly {\"$shared\": \"<name>\"} is replaced with a deep copy of shared['<name>']; (2) at the case level, 'expected_ref': '<name>' replaces literal 'canonical'/'digest' fields with shared['<name>'].canonical / .digest. Every case that still carries 'value'/'canonical'/'digest' inline does so because that content is the actual point of the case, not boilerplate.",
+  "shared": {
+    "bound_state_basic": {
+      "partial_args": [
+        "gpt-4o-mini"
+      ],
+      "partial_kwargs": {
+        "temperature": 0.2
+      },
+      "closure": {
+        "threshold": 0.5
+      }
+    },
+    "dataset_convergence_expected": {
+      "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"4\",\"input\":\"what is 2+2\"},{\"expected\":\"paris\",\"input\":\"capital of france\"}]}",
+      "digest": "sha256:37c14267b3eb3603a7c7ce2b6ad06005dda25ca89e5e5a23dc02eb9bf6435c30"
+    },
+    "evaluator_external_basic": {
+      "kind": "http_judge",
+      "revision": "rev-2026-08-01"
+    },
+    "config_convergence_expected": {
+      "canonical": "{\"kind\":\"cfp2\",\"space\":{\"model\":[\"gpt-4o-mini\",\"gpt-4o\"],\"temperature\":[0.1,0.9]}}",
+      "digest": "sha256:91f8e528cc0784a438d8fe98004b522889d3653becb9bdfbecb42011901f70c7"
+    }
+  },
   "cases": [
     {
       "name": "afp2_agent_basic_python",
@@ -43,17 +68,7 @@
         "kind": "afp2",
         "runtime": "python",
         "source": "def score(example, threshold):\n    return example >= threshold",
-        "bound": {
-          "partial_args": [
-            "gpt-4o-mini"
-          ],
-          "partial_kwargs": {
-            "temperature": 0.2
-          },
-          "closure": {
-            "threshold": 0.5
-          }
-        }
+        "bound": {"$shared": "bound_state_basic"}
       },
       "expect": "ok",
       "canonical": "{\"bound\":{\"closure\":{\"threshold\":0.5},\"partial_args\":[\"gpt-4o-mini\"],\"partial_kwargs\":{\"temperature\":0.2}},\"kind\":\"afp2\",\"runtime\":\"python\",\"source\":\"def score(example, threshold):\\n    return example >= threshold\"}",
@@ -69,17 +84,7 @@
         "kind": "afp2",
         "runtime": "javascript",
         "source": "def score(example, threshold):\n    return example >= threshold",
-        "bound": {
-          "partial_args": [
-            "gpt-4o-mini"
-          ],
-          "partial_kwargs": {
-            "temperature": 0.2
-          },
-          "closure": {
-            "threshold": 0.5
-          }
-        }
+        "bound": {"$shared": "bound_state_basic"}
       },
       "expect": "ok",
       "canonical": "{\"bound\":{\"closure\":{\"threshold\":0.5},\"partial_args\":[\"gpt-4o-mini\"],\"partial_kwargs\":{\"temperature\":0.2}},\"kind\":\"afp2\",\"runtime\":\"javascript\",\"source\":\"def score(example, threshold):\\n    return example >= threshold\"}",
@@ -124,10 +129,7 @@
       "value": {
         "kind": "efp2",
         "runtime": "python",
-        "external": {
-          "kind": "http_judge",
-          "revision": "rev-2026-08-01"
-        }
+        "external": {"$shared": "evaluator_external_basic"}
       },
       "expect": "ok",
       "canonical": "{\"external\":{\"kind\":\"http_judge\",\"revision\":\"rev-2026-08-01\"},\"kind\":\"efp2\",\"runtime\":\"python\"}",
@@ -142,10 +144,7 @@
       "value": {
         "kind": "efp2",
         "runtime": "javascript",
-        "external": {
-          "kind": "http_judge",
-          "revision": "rev-2026-08-01"
-        }
+        "external": {"$shared": "evaluator_external_basic"}
       },
       "expect": "ok",
       "canonical": "{\"external\":{\"kind\":\"http_judge\",\"revision\":\"rev-2026-08-01\"},\"kind\":\"efp2\",\"runtime\":\"javascript\"}",
@@ -170,8 +169,7 @@
         ]
       },
       "expect": "ok",
-      "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"4\",\"input\":\"what is 2+2\"},{\"expected\":\"paris\",\"input\":\"capital of france\"}]}",
-      "digest": "sha256:37c14267b3eb3603a7c7ce2b6ad06005dda25ca89e5e5a23dc02eb9bf6435c30"
+      "expected_ref": "dataset_convergence_expected"
     },
     {
       "name": "dfp2o_dataset_convergence_expected_first",
@@ -192,8 +190,7 @@
         ]
       },
       "expect": "ok",
-      "canonical": "{\"kind\":\"dfp2o\",\"rows\":[{\"expected\":\"4\",\"input\":\"what is 2+2\"},{\"expected\":\"paris\",\"input\":\"capital of france\"}]}",
-      "digest": "sha256:37c14267b3eb3603a7c7ce2b6ad06005dda25ca89e5e5a23dc02eb9bf6435c30"
+      "expected_ref": "dataset_convergence_expected"
     },
     {
       "name": "dfp2o_dataset_row_order_reversed_differs",
@@ -235,8 +232,7 @@
         }
       },
       "expect": "ok",
-      "canonical": "{\"kind\":\"cfp2\",\"space\":{\"model\":[\"gpt-4o-mini\",\"gpt-4o\"],\"temperature\":[0.1,0.9]}}",
-      "digest": "sha256:91f8e528cc0784a438d8fe98004b522889d3653becb9bdfbecb42011901f70c7"
+      "expected_ref": "config_convergence_expected"
     },
     {
       "name": "cfp2_config_convergence_temperature_first",
@@ -257,8 +253,7 @@
         }
       },
       "expect": "ok",
-      "canonical": "{\"kind\":\"cfp2\",\"space\":{\"model\":[\"gpt-4o-mini\",\"gpt-4o\"],\"temperature\":[0.1,0.9]}}",
-      "digest": "sha256:91f8e528cc0784a438d8fe98004b522889d3653becb9bdfbecb42011901f70c7"
+      "expected_ref": "config_convergence_expected"
     },
     {
       "name": "afp2_unknown_field_is_preserved",

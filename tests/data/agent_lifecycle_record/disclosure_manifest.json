@@ -1,0 +1,210 @@
+{
+  "$comment": "ALR-1102 (Terra review P1-2, 2026-08-10) originally scoped this override manifest to the four Route 3/Route 4 schemas plus their shared agent_lifecycle_common_schema.json definitions -- the subset of the exact worked table at PART1_CONTRACT_FREEZE_DRAFT.md:412-487 whose named document already existed in this repo at the time. ALR-1106 (Route 1/2 packet, 2026-08-10) builds the two previously-missing producer routes (agent_lifecycle_agent_revision_register_*, agent_lifecycle_measurement_contract_register_*) and extends tests/test_agent_lifecycle_disclosure_register.py's _IN_SCOPE_ROOTS to the full nine roots named at PART1_CONTRACT_FREEZE_DRAFT.md:406-408, including agent_lifecycle_record_response_schema.json (Route 5, merged by ALR-1105 but not previously walked by this guard). This file is extended in lockstep: every entry below is either one of ALR-1102's original five or a new ALR-1106 entry for one of the five newly in-scope documents (the four new Route 1/2 schemas plus Route 5's response schema) or their shared agent_lifecycle_common_schema.json definitions. tests/test_agent_lifecycle_disclosure_register.py resolves `document` relative to traigent_schema/schemas/ and `pointer` as one literal RFC 6901 pointer within that document before any rule assignment. This is a scoped subset of the canonical tests/data/agent_lifecycle_contract_v1beta.json#/disclosure_manifest named in PART1_CONTRACT_FREEZE_DRAFT.md:410 (that full nine-root canonical file does not exist in this repo; the worked table itself lives only in the contract draft), containing exactly the entries this guard's own deterministic-assignment algorithm cannot resolve on its own -- see tests/test_agent_lifecycle_disclosure_register.py::_deterministic_rule for the generic fallback and this guard's docstring for the exact list of new ALR-1106 additions. ALR-1108 (2026-08-10, second blind spot -- the walker never yielded a position for an array `items` node itself) adds the two `.../item_keys/items` entries below: `item_keys` deterministically resolves to `closed_public_structure` via the generic container bucket, but its own items are the one exact-override exception the worked table names directly (PART1_CONTRACT_FREEZE_DRAFT.md:404, :428-429) -- `request_only_sensitive_membership_selector`, not the array property's own container rule. Every OTHER newly-reachable items position (bindings/items, evidence_episodes/items, and all reason_codes/items occurrences) resolves through the existing deterministic buckets with no override needed; see tests/test_agent_lifecycle_disclosure_register.py::_iter_property_positions's own docstring for the walker fix. ALR-1109 (2026-08-10, third and fourth blind spots -- the walker's `_is_walkable_fragment` filter skipped every allOf branch and if/then/else fragment whose only content was `properties`, on an earlier reviewer's now-reversed reading that such fragments only re-state an already-covered property) removes that filter entirely: PART1_CONTRACT_FREEZE_DRAFT.md:406-408 names no such carve-out, and the audit that reversed the earlier ruling found 38 allOf branches and 8 each of if/then branches carrying genuinely undisclosed properties. The four entries below are the ones this guard's deterministic-assignment algorithm cannot resolve on its own: the root allOf/if/then in agent_lifecycle_measurement_contract_register_request_schema.json narrows dataset_source/slice_definition (and their own source/mode discriminators) through fresh JSON object nodes at #/allOf/0/if and #/allOf/0/then rather than reusing the top-level #/properties/dataset_source and #/properties/slice_definition nodes, so each needs its own annotation and this file's own exact-override entries above for the analogous top-level pointers give the matching rule. Every other ALR-1109-newly-reachable position (54 of the 58 total) resolves through the existing deterministic buckets -- kind/schema/value/basis via closed_interop_vocabulary, reason_codes via bounded_reason_vocabulary, measurement_coverage/rescorability/dataset_source/slice_definition-shaped containers via closed_public_structure -- with no override needed.",
+  "artifact": "agent_lifecycle_disclosure_register.v1",
+  "disclosure_manifest": [
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+      "pointer": "#/properties/nonce",
+      "rule": "single_consumption_capability",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json",
+      "pointer": "#/properties/nonce",
+      "rule": "single_consumption_capability",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
+      "pointer": "#/properties/experiment_run_ref",
+      "rule": "opaque_lifecycle_reference",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+      "pointer": "#/properties/experiment_run_ref",
+      "rule": "opaque_lifecycle_reference",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+      "pointer": "#/properties/expected_count",
+      "rule": "protocol_accounting_count",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+      "pointer": "#/definitions/AgentLifecycleRecordRef/properties/id",
+      "rule": "opaque_lifecycle_record_handle",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+      "pointer": "#/definitions/AgentLifecycleRecordRef/properties/version_id",
+      "rule": "opaque_lifecycle_record_handle",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+      "pointer": "#/definitions/ClientDeclaredIdentityDescriptor/properties/local_identity_key",
+      "rule": "request_only_client_attestation",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+      "pointer": "#/definitions/ClientAttestedArtifactDescriptor/properties/local_version_key",
+      "rule": "request_only_client_attestation",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+      "pointer": "#/definitions/StableSourceRef/properties/kind",
+      "rule": "discovery_issued_backend_resource_handle",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+      "pointer": "#/definitions/StableSourceRef/properties/id",
+      "rule": "discovery_issued_backend_resource_handle",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
+      "pointer": "#/properties/identity_declaration/oneOf/0/properties/source",
+      "rule": "content_free_request_discriminator",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+      "pointer": "#/properties/record_ref",
+      "rule": "opaque_lifecycle_record_handle",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/dataset_source",
+      "rule": "closed_measurement_source_declaration",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/evaluator_source",
+      "rule": "closed_measurement_source_declaration",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/slice_definition",
+      "rule": "closed_measurement_source_declaration",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/dataset_source/oneOf/0/properties/source",
+      "rule": "content_free_request_discriminator",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/dataset_source/oneOf/1/properties/source",
+      "rule": "content_free_request_discriminator",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/evaluator_source/oneOf/0/properties/source",
+      "rule": "content_free_request_discriminator",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/evaluator_source/oneOf/1/properties/source",
+      "rule": "content_free_request_discriminator",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/slice_definition/oneOf/0/properties/mode",
+      "rule": "coarse_selection_mode",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/slice_definition/oneOf/1/properties/mode",
+      "rule": "coarse_selection_mode",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_response_schema.json",
+      "pointer": "#/properties/universe_trust_level",
+      "rule": "coarse_universe_provenance",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_response_schema.json",
+      "pointer": "#/properties/evaluator_trust_level",
+      "rule": "coarse_evaluator_provenance",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "pointer": "#/properties/record_ref",
+      "rule": "opaque_lifecycle_record_handle",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "pointer": "#/properties/pending_episode",
+      "rule": "in_flight_episode_projection",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "pointer": "#/properties/measurement_coverage",
+      "rule": "closed_interop_vocabulary",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "pointer": "#/definitions/EpisodeProjection/properties/measurement_coverage",
+      "rule": "closed_interop_vocabulary",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/dataset_source/oneOf/1/properties/item_keys/items",
+      "rule": "request_only_sensitive_membership_selector",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/slice_definition/oneOf/1/properties/item_keys/items",
+      "rule": "request_only_sensitive_membership_selector",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/allOf/0/if/properties/dataset_source",
+      "rule": "closed_measurement_source_declaration",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/allOf/0/if/properties/dataset_source/properties/source",
+      "rule": "content_free_request_discriminator",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/allOf/0/then/properties/slice_definition",
+      "rule": "closed_measurement_source_declaration",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/allOf/0/then/properties/slice_definition/properties/mode",
+      "rule": "coarse_selection_mode",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
+    }
+  ]
+}

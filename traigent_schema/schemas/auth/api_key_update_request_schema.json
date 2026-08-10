@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_update_request_schema.json",
+  "title": "API Key Update Request",
+  "description": "Request body for PUT /api/v1/keys/{key_id}.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key_name": {"type": "string", "minLength": 1, "maxLength": 255},
+    "description": {"type": "string", "maxLength": 1000},
+    "permissions": {"type": "array", "items": {"type": "string", "maxLength": 64}, "minItems": 1},
+    "scopes": {"type": "array", "items": {"type": "string", "maxLength": 64}, "minItems": 1},
+    "expires_in_days": {"type": "integer", "minimum": 1, "maximum": 3650},
+    "allowed_ips": {"type": "array", "items": {"type": "string", "maxLength": 64}},
+    "rotation_enabled": {"type": "boolean"},
+    "rotation_interval_days": {"type": "integer", "minimum": 1, "maximum": 365},
+    "auto_rotate": {"type": "boolean"},
+    "metadata": {"type": "object"}
+  }
+}

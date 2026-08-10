@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/api_key_action_response_schema.json",
+  "title": "API Key Lifecycle Action Response",
+  "description": "Successful response from an API key lifecycle action.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {"type": "boolean", "const": true},
+    "message": {"type": "string", "minLength": 1}
+  },
+  "required": ["success", "message"]
+}

@@ -48,6 +48,18 @@ def _load(name: str) -> dict:
 
 
 class TestGuidanceHappyPath:
+    def test_valid_cold_start_plan_request(self, validator: SchemaValidator) -> None:
+        errors = validator.validate_json(
+            _load("cold_start_plan_request_valid.json"), "cold_start_plan_request_schema"
+        )
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    def test_valid_cold_start_plan(self, validator: SchemaValidator) -> None:
+        errors = validator.validate_json(
+            _load("cold_start_plan_valid.json"), "cold_start_plan_schema"
+        )
+        assert errors == [], f"Unexpected errors: {errors}"
+
     def test_valid_plan(self, validator: SchemaValidator) -> None:
         errors = validator.validate_json(_load("guidance_plan_valid.json"), "guidance_plan_schema")
         assert errors == [], f"Unexpected errors: {errors}"
@@ -139,6 +151,132 @@ class TestGuidanceRequiredFields:
 
 
 class TestGuidancePrivacyStructure:
+    def test_cold_start_plan_public_fields_are_exactly_minimal(self) -> None:
+        schema = json.loads(
+            (_GUIDANCE_DIR / "cold_start_plan_schema.json").read_text(encoding="utf-8")
+        )
+        expected_fields = {
+            "plan_id",
+            "protocol_version",
+            "descriptor_digest",
+            "candidate_limit",
+            "expires_at",
+        }
+
+        assert set(schema["required"]) == expected_fields
+        assert set(schema["properties"]) == expected_fields
+        assert schema["additionalProperties"] is False
+
+    @pytest.mark.parametrize(
+        "field",
+        ["source", "code", "path", "function_name", "prompt", "examples", "generated_rows", "expected_output", "tool_args", "tool_results", "logs", "scores", "description", "metadata"],
+    )
+    def test_cold_start_request_rejects_content_like_fields(
+        self, validator: SchemaValidator, field: str
+    ) -> None:
+        request = _load("cold_start_plan_request_valid.json")
+        request[field] = "content-like value"
+        errors = validator.validate_json(request, "cold_start_plan_request_schema")
+        assert errors, f"cold-start request must reject {field}"
+
+    def test_cold_start_request_rejects_nested_unknown_field(self, validator: SchemaValidator) -> None:
+        request = _load("cold_start_plan_request_valid.json")
+        request["descriptor"]["free_text"] = "not allowed"
+        errors = validator.validate_json(request, "cold_start_plan_request_schema")
+        assert errors
+
+    def test_cold_start_permits_declaring_no_local_scoring_authority(
+        self, validator: SchemaValidator
+    ) -> None:
+        """Empty capability arrays must stay SCHEMA-VALID.
+
+        A caller has to be able to say "I have no verifier" honestly. The refusal
+        belongs to the server (422 no_local_scoring_authority), not to the
+        envelope — if the schema rejected it, the client could never report the
+        discovery-only case and would be pushed toward overclaiming a capability
+        it does not have.
+        """
+        request = _load("cold_start_plan_request_valid.json")
+        request["descriptor"]["verifier_kinds"] = []
+        request["descriptor"]["generation_capabilities"] = []
+        errors = validator.validate_json(request, "cold_start_plan_request_schema")
+        assert errors == [], f"empty capability arrays must be expressible: {errors}"
+
+    def test_cold_start_documents_what_the_envelope_cannot_enforce(self) -> None:
+        """Draft-07 cannot tie input_kinds length to input_arity.
+
+        That constraint is real and server-enforced, so the contract must SAY so
+        rather than leave a reader believing the envelope checks it.
+        """
+        schema = json.loads(
+            (_GUIDANCE_DIR / "cold_start_plan_request_schema.json").read_text(encoding="utf-8")
+        )
+        descriptor_doc = schema["properties"]["descriptor"]["description"]
+
+        assert "descriptor_arity_mismatch" in descriptor_doc
+        assert "no_local_scoring_authority" in descriptor_doc
+        # An arity/kinds mismatch is schema-valid precisely because it cannot be expressed.
+        assert schema["properties"]["descriptor"]["properties"]["input_kinds"]["maxItems"] == 32
+
+    def test_granted_candidate_limit_is_documented_as_a_grant_not_an_echo(self) -> None:
+        """The server ceiling is below the wire bound; a reader must not size to 1000."""
+        schema = json.loads(
+            (_GUIDANCE_DIR / "cold_start_plan_schema.json").read_text(encoding="utf-8")
+        )
+        doc = schema["properties"]["candidate_limit"]["description"]
+
+        assert "GRANT" in doc
+        assert "ceiling" in doc
+
+    def test_cold_start_budget_rejects_withdrawn_optimizer_eligibility_knob(
+        self, validator: SchemaValidator
+    ) -> None:
+        """It was accepted and never read by the server. A no-op control is worse than none."""
+        request = _load("cold_start_plan_request_valid.json")
+        request["budget"]["optimizer_eligible_limit"] = 6
+        errors = validator.validate_json(request, "cold_start_plan_request_schema")
+        assert errors, "budget must reject an optimizer-eligibility knob the server ignores"
+
+    @pytest.mark.parametrize("candidate_limit", [0, 1001, "12"])
+    def test_cold_start_request_rejects_malformed_budget(
+        self, validator: SchemaValidator, candidate_limit: object
+    ) -> None:
+        request = _load("cold_start_plan_request_valid.json")
+        request["budget"]["candidate_limit"] = candidate_limit
+        errors = validator.validate_json(request, "cold_start_plan_request_schema")
+        assert errors
+
+    def test_cold_start_plan_rejects_malformed_digest(self, validator: SchemaValidator) -> None:
+        plan = _load("cold_start_plan_valid.json")
+        plan["descriptor_digest"] = "not-a-sha256"
+        assert validator.validate_json(plan, "cold_start_plan_schema")
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "policy_version",
+            "profile_id",
+            "profile_parameters",
+            "challenge_band",
+            "diversity_mode",
+            "plan_token",
+            "local_verifier_required",
+        ],
+    )
+    def test_cold_start_plan_rejects_removed_response_fields(
+        self, validator: SchemaValidator, field: str
+    ) -> None:
+        plan = _load("cold_start_plan_valid.json")
+        plan[field] = "not permitted"
+        assert validator.validate_json(plan, "cold_start_plan_schema")
+
+    def test_cold_start_plan_rejects_unknown_response_field(
+        self, validator: SchemaValidator
+    ) -> None:
+        plan = _load("cold_start_plan_valid.json")
+        plan["unknown_property"] = True
+        assert validator.validate_json(plan, "cold_start_plan_schema")
+
     def test_plan_rejects_smuggled_signal_field(self, validator: SchemaValidator) -> None:
         plan = _load("guidance_plan_valid.json")
         plan["informativeness"] = 0.87
@@ -204,20 +342,53 @@ class TestGuidanceEndpointWiring:
         )
         assert errors == [], f"Unexpected errors: {errors}"
 
+    def test_backend_contract_validates_cold_start_plan_request(
+        self, validator: SchemaValidator
+    ) -> None:
+        errors = validator.validate_request(
+            "/api/v1/guidance/cold-start-plan",
+            "POST",
+            _load("cold_start_plan_request_valid.json"),
+        )
+        assert errors == [], f"Unexpected errors: {errors}"
+
+    # The 501 description names the feature flag that gates the path, so it is
+    # per-path rather than shared: cold start is gated by its OWN flag
+    # (ENABLE_COLD_START_GENERATION), not by ENABLE_GUIDED_GENERATION. Asserting
+    # one shared string would document the wrong flag for the cold-start route.
     @pytest.mark.parametrize(
-        "path",
+        ("path", "disabled_description"),
         [
-            "/api/v1/sessions/{session_id}/guidance-plan",
-            "/api/v1/sessions/{session_id}/guidance-results",
+            (
+                "/api/v1/guidance/cold-start-plan",
+                "Cold-start generation feature is disabled.",
+            ),
+            (
+                "/api/v1/sessions/{session_id}/guidance-plan",
+                "Guided generation feature is disabled.",
+            ),
+            (
+                "/api/v1/sessions/{session_id}/guidance-results",
+                "Guided generation feature is disabled.",
+            ),
         ],
     )
-    def test_feature_gate_and_global_rate_limit_responses_are_documented(self, path: str) -> None:
+    def test_feature_gate_and_global_rate_limit_responses_are_documented(
+        self, path: str, disabled_description: str
+    ) -> None:
         responses = self._responses(path)
 
         assert responses["401"]["description"] == "Authentication required."
         assert responses["403"]["description"] == "Insufficient permissions."
         assert responses["429"]["description"] == "Too many requests \u2014 rate limit exceeded."
-        assert responses["501"]["description"] == "Guided generation feature is disabled."
+        assert responses["501"]["description"] == disabled_description
+
+    def test_cold_start_documents_the_discovery_only_refusal(self) -> None:
+        """422 is the fail-closed path: schema-valid, but no local scoring authority."""
+        responses = self._responses("/api/v1/guidance/cold-start-plan")
+
+        assert "422" in responses, "the refusal path must be documented, not just implemented"
+        assert "no local scoring authority" in responses["422"]["description"]
 
     def test_guidance_results_not_found_and_conflict_responses_match_backend(self) -> None:
         responses = self._responses("/api/v1/sessions/{session_id}/guidance-results")

@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/guidance/cold_start_plan_request_schema.json",
+  "title": "ColdStartPlanRequest",
+  "description": "Content-free local capability and budget descriptor for a cold-start plan. Source material, names, paths, prompts, examples, rows, results, logs, scores, descriptions, and arbitrary metadata are not permitted. SCOPE OF THE GUARANTEE: 'content-free' means no field can carry customer content — every property is a closed enum or a bounded integer, and additionalProperties is false at every level. It does NOT mean zero bits are disclosed: arity, the ordered type-class vector, declared verifier/generation capabilities, and the requested candidate limit are coarse SHAPE metadata and are necessarily visible to the planner. That residual shape disclosure is accepted deliberately — a planner that learns nothing about the target cannot plan for it. A caller determined to misuse those bounded fields as a covert channel could encode a small number of bits, which is inherent to any API with caller-controlled parameters and is not defended against here.",
+  "type": "object",
+  "required": ["protocol_version", "descriptor", "budget"],
+  "properties": {
+    "protocol_version": {"type": "string", "enum": ["cold-start.v1"]},
+    "descriptor": {
+      "type": "object",
+      "description": "Positional type classes and local verifier and generation capabilities only; no code or content. TWO CONSTRAINTS THIS SCHEMA CANNOT EXPRESS, both enforced server-side and each returning 422: (1) input_kinds MUST have exactly input_arity entries — JSON Schema draft-07 cannot tie an array length to a sibling integer, so a mismatch is schema-valid but refused (reason=descriptor_arity_mismatch); (2) verifier_kinds and generation_capabilities MAY be empty here, and empty is deliberately schema-valid so a caller can honestly declare 'I have no local scoring authority' — the server then refuses to issue a plan (reason=no_local_scoring_authority / no_local_generation_capability) rather than producing rows nothing could score.",
+      "required": ["input_arity", "input_kinds", "output_kind", "verifier_kinds", "generation_capabilities"],
+      "properties": {
+        "input_arity": {"type": "integer", "minimum": 0, "maximum": 32},
+        "input_kinds": {"type": "array", "maxItems": 32, "items": {"type": "string", "enum": ["string", "integer", "number", "boolean", "object", "array", "unknown"]}},
+        "output_kind": {"type": "string", "enum": ["string", "integer", "number", "boolean", "object", "array", "unknown"]},
+        "verifier_kinds": {"type": "array", "uniqueItems": true, "items": {"type": "string", "enum": ["deterministic_reference", "executable_property", "state_transition", "human_review", "calibrated_judge"]}},
+        "generation_capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "enum": ["deterministic_contract", "customer_llm"]}}
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "description": "Bounded local request limits only. candidate_limit is an ASK; the response carries the GRANT. Deliberately has no optimizer-eligibility knob: how many accepted rows become optimizer-eligible is decided locally by the scoring authority, and a server field the server never reads would be a control that does nothing.",
+      "required": ["candidate_limit"],
+      "properties": {
+        "candidate_limit": {"type": "integer", "minimum": 1, "maximum": 1000}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

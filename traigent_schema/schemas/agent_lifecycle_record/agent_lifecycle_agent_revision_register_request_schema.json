@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
+  "title": "Agent Lifecycle Agent Revision Register Request",
+  "description": "ALR-1106 Route 1 request (PART1_CONTRACT_FREEZE_DRAFT.md:535-577): POST /api/v1beta/projects/{project_id}/agent-lifecycle/agent-revisions. Closes the prior draft's open blocker 1 (no producer for agent_revision_ref) -- the sole live public API minting path for kind=agent_revision refs; the bounded historical migration may invoke the same internal opaque-ref/record invariants once per safely resolved legacy revision key, never once per run. Route 3 (issue run-plan) only ever resolves an already-minted ref; it never creates one. `Idempotency-Key` (required header, pattern ^[A-Za-z0-9][A-Za-z0-9_-]{31,127}$, same durable-replay mechanism as Routes 2-3) is a request HEADER, not a JSON body field, and is therefore out of this document's scope -- a missing/malformed header is service_invalid (corpus cases agent_revision_register_missing_idempotency_key, idempotency_key_malformed_pattern_rejected), decided at the route layer, not by a generic JSON Schema validator (PART1_CONTRACT_FREEZE_DRAFT.md:971). `agent_ref`/`identity_declaration` are both optional: omitting agent_ref mints a new logical Agent; omitting identity_declaration mints identity_state=UNKNOWN. `StableOpaqueRef` lives in agent_lifecycle_common_schema.json (ALR-1102 Terra review P2-2); `ClientDeclaredIdentityDescriptor`/`RequestOnlyRandomLabel` are new in this pass, added to the same shared common-schema location because the contract's request-only wire-type section (PART1_CONTRACT_FREEZE_DRAFT.md:313-325) already treats them as reusable across Routes 1-2, not local to this one route file. Every property below carries its own x-disclosure annotation at its own JSON Pointer (PART1_CONTRACT_FREEZE_DRAFT.md:406-409). The reserved VERIFIED/server_verified/[REGISTERED_PROVENANCE] identity tuple is structurally legal only in agent_lifecycle_common_schema.json#/definitions/IdentityStateAxisValue -- this request schema has no field through which a client could ever request or supply it; Route 1 has no Part 1 producer for it (PART1_CONTRACT_FREEZE_DRAFT.md:562, corpus case agent_revision_register_emits_reserved_verified_without_producer, service_invalid, out of this Schema-only corpus's scope).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0-beta.1",
+      "x-disclosure": {"rule": "wire_contract_version", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Closed public wire-version discriminator (PART1_CONTRACT_FREEZE_DRAFT.md:272, :547); never a product/version claim."
+    },
+    "agent_ref": {
+      "description": "Optional. kind=agent, no version_id (PART1_CONTRACT_FREEZE_DRAFT.md:548). Omit to mint a new logical Agent alongside this revision; supply an existing agent_ref to attach a new revision under an already-known logical Agent. The logical Agent has no table or model file of its own -- it is materialized only as the scoped agent_ref column on agent_lifecycle_records.",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableOpaqueRef"},
+        {"properties": {"kind": {"const": "agent", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
+      ]
+    },
+    "identity_declaration": {
+      "description": "Optional. The only admitted branch is the closed client declaration below; omission mints identity_state=UNKNOWN/client_attested/[REQUIRED_IDENTITY_UNKNOWN]. A Backend-managed selector, TypedOpaqueRef, identity-v2 snapshot id, Agent/Run id, ArtifactVersion id, raw fingerprint, database id, name, or path is schema-invalid or rejected before mint -- none is a Part 1 identity issuer (PART1_CONTRACT_FREEZE_DRAFT.md:549, corpus case agent_revision_register_unknown_identity_source_or_mode). Modeled as a closed oneOf of exactly one member (matching the contract's exact-override manifest pointer identity_declaration/oneOf/0/properties/source, PART1_CONTRACT_FREEZE_DRAFT.md:415) so a future schema_version may add a second admitted branch without breaking this pointer.",
+      "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "identity_descriptor"],
+          "properties": {
+            "source": {
+              "const": "client_declared",
+              "x-disclosure": {"rule": "content_free_request_discriminator", "artifact": "agent_lifecycle_disclosure_register.v1"},
+              "description": "The sole admitted discriminator (PART1_CONTRACT_FREEZE_DRAFT.md:551-553); any other value is rejected by this closed branch (corpus case agent_revision_register_unknown_identity_source_or_mode)."
+            },
+            "identity_descriptor": {
+              "description": "Exactly ClientDeclaredIdentityDescriptor (PART1_CONTRACT_FREEZE_DRAFT.md:319-325, :553).",
+              "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+              "allOf": [
+                {"$ref": "agent_lifecycle_common_schema.json#/definitions/ClientDeclaredIdentityDescriptor"}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json",
+  "title": "Agent Lifecycle Receipt Submit Request",
+  "description": "ALR-1102 Route 4 request (PART1_CONTRACT_FREEZE_DRAFT.md:695-722): POST .../agent-lifecycle/run-plans/{run_plan_ref}/receipts. Submits indexed, content-free receipts against a Route-3-issued plan and consumes its one-time nonce. A raw prediction/output/input/gold value is never accepted here -- only index/item_ref/outcome/rescorability_state per receipt (PART1_CONTRACT_FREEZE_DRAFT.md:711-718). This document is closed (additionalProperties:false) with exactly three top-level properties, so it is structurally impossible for a client to supply a denominator/completeness field alongside the receipts: Backend derives every accepted accounting count exclusively from the plan it already issued (owner accounting decision, runs/agent-lifecycle-contract-integration/OWNER_DECISION_ACCOUNTING_20260809.md) -- the two fields that decision deleted from this route entirely (no consumer required the first; the second carried a privacy/equality-oracle risk with no offsetting Part 1 use, PART1_CONTRACT_FREEZE_DRAFT.md:1452) do not appear anywhere in this document, and neither does the field this route's own request-body denominator poison probe targets. The named failure mutation this story proves by hand is exactly 'permit client expected_count as a denominator': widening this schema's properties to accept one is the guard this corpus's receipt_submit_client_expected_count_denominator_rejected case exists to kill. `Idempotency-Key` (required header, pattern ^[A-Za-z0-9][A-Za-z0-9_-]{31,127}$) and `nonce` consumption/replay state are Backend/route concerns outside this JSON body (PART1_CONTRACT_FREEZE_DRAFT.md:701, :722); a missing/malformed header is service_invalid (corpus cases receipt_submit_missing_idempotency_key, idempotency_key_malformed_pattern_rejected), not schema-decidable. Each receipt's rescorability_state is outcome-conditioned (closes Opus P1-4): for produced/cached/fallback it may be available/unavailable/unknown; for failed/excluded, available is invalid -- schema-decidable via if/then on these two sibling fields per receipt (PART1_CONTRACT_FREEZE_DRAFT.md:718). This is the Schema half of guard-killing mutation #14 (PART1_CONTRACT_FREEZE_DRAFT.md:1152): removing/weakening this if/then is exactly what corpus cases receipt_available_on_failed and receipt_available_on_excluded exist to catch. `TypedOpaqueRef` lives in agent_lifecycle_common_schema.json (Terra review P2-2). Every property below carries its own x-disclosure annotation at its own JSON Pointer (PART1_CONTRACT_FREEZE_DRAFT.md:406-409, :443).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "nonce", "receipts"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0-beta.1",
+      "x-disclosure": {"rule": "wire_contract_version", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "nonce": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "maxLength": 43,
+      "x-disclosure": {"rule": "single_consumption_capability", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "The one-time issue nonce from Route 3. Request-only on this route -- never echoed in the response (PART1_CONTRACT_FREEZE_DRAFT.md:708, :736)."
+    },
+    "receipts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "1..expected_count; unique indexes; maxItems=10000 beta ceiling (PART1_CONTRACT_FREEZE_DRAFT.md:709). Omitted expected indexes become missing. The upper bound tied to the plan's own expected_count and cross-entry index/item_ref uniqueness are service_invalid (corpus cases receipt_duplicate_index, receipt_item_ref_mismatch, receipt_index_out_of_universe) -- they require comparing this array against the previously-issued plan or across its own sibling entries, not decidable from this document alone (PART1_CONTRACT_FREEZE_DRAFT.md:971). minItems/maxItems and each receipt's own closed, outcome-conditioned shape ARE schema-decidable and enforced here.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "item_ref", "outcome", "rescorability_state"],
+        "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "description": "Integer in the issued universe (PART1_CONTRACT_FREEZE_DRAFT.md:715); the upper bound is the plan's own expected_count and is service_invalid, not schema-decidable here."
+          },
+          "item_ref": {
+            "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "description": "Exact opaque evidence_item ref issued for that index (PART1_CONTRACT_FREEZE_DRAFT.md:716).",
+            "allOf": [
+              {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
+              {"properties": {"kind": {"const": "evidence_item", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["produced", "cached", "failed", "fallback", "excluded"],
+            "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "description": "PART1_CONTRACT_FREEZE_DRAFT.md:717."
+          },
+          "rescorability_state": {
+            "type": "string",
+            "enum": ["available", "unavailable", "unknown"],
+            "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "description": "Remains client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:718). Outcome-conditioned by the allOf/if/then below: available is invalid when outcome is failed or excluded."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {"outcome": {"const": "failed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
+              "required": ["outcome"]
+            },
+            "then": {
+              "properties": {"rescorability_state": {"enum": ["unavailable", "unknown"], "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}
+            }
+          },
+          {
+            "if": {
+              "properties": {"outcome": {"const": "excluded", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
+              "required": ["outcome"]
+            },
+            "then": {
+              "properties": {"rescorability_state": {"enum": ["unavailable", "unknown"], "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}
+            }
+          }
+        ]
+      }
+    }
+  }
+}

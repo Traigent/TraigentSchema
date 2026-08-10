@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+  "title": "Agent Lifecycle Agent Revision Register Response",
+  "description": "ALR-1106 Route 1 response (PART1_CONTRACT_FREEZE_DRAFT.md:564-577): the 201 first-registration or 200 exact-key-replay response for POST /api/v1beta/projects/{project_id}/agent-lifecycle/agent-revisions. Closed with exactly six properties. `record_ref` is new relative to the prior draft (closes Opus P1-1): minted atomically with `agent_revision_ref` in the same transaction, one-to-one -- each AgentRevision registration mints exactly one new record row and its own independent record_ref, never inferred from the row PK or from agent_revision_ref (PART1_CONTRACT_FREEZE_DRAFT.md:570). It shares the same AgentLifecycleRecordRef shape as agent_lifecycle_record_response_schema.json's own record_ref -- both $ref agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef rather than duplicating the shape (ALR-1106 also moved that definition there from the Route 5 file's prior local copy). identity_state uses the full common IdentityStateAxisValue (not narrowed the way Route 5's record-level axes are): the reserved VERIFIED branch is structurally valid in the common definition but service-invalid from this route because Part 1 has no producer for it (PART1_CONTRACT_FREEZE_DRAFT.md:572, corpus case agent_revision_register_emits_reserved_verified_without_producer, service_invalid, out of this Schema-only corpus's scope). `StableOpaqueRef`/`TypedOpaqueRef`/`IdentityStateAxisValue`/`AgentLifecycleRecordRef` all live in agent_lifecycle_common_schema.json; this document $refs them cross-file rather than duplicating any shape. Every property below carries its own x-disclosure annotation at its own JSON Pointer (PART1_CONTRACT_FREEZE_DRAFT.md:406-409, :434-437).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "agent_revision_ref", "record_ref", "agent_ref", "identity_state", "created_at"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0-beta.1",
+      "x-disclosure": {"rule": "wire_contract_version", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Closed public wire-version discriminator (PART1_CONTRACT_FREEZE_DRAFT.md:272, :568)."
+    },
+    "agent_revision_ref": {
+      "description": "kind=agent_revision, server-random opaque id, version_id==id (PART1_CONTRACT_FREEZE_DRAFT.md:569).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
+        {"properties": {"kind": {"const": "agent_revision", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
+      ]
+    },
+    "record_ref": {
+      "description": "kind=agent_lifecycle_record, server-random opaque id, version_id==id (PART1_CONTRACT_FREEZE_DRAFT.md:570). Minted atomically with agent_revision_ref in the same transaction, one-to-one; never inferred from agent_revision_ref.",
+      "x-disclosure": {"rule": "opaque_lifecycle_record_handle", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef"}
+      ]
+    },
+    "agent_ref": {
+      "description": "Resolved (existing or newly minted) logical Agent; no version_id (PART1_CONTRACT_FREEZE_DRAFT.md:571).",
+      "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableOpaqueRef"},
+        {"properties": {"kind": {"const": "agent", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
+      ]
+    },
+    "identity_state": {
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/IdentityStateAxisValue"}
+      ],
+      "description": "Per the two constructible Route 1 branches (PART1_CONTRACT_FREEZE_DRAFT.md:557-560): client_declared mints RECONSTRUCTED/client_attested/[DECLARED_PROVENANCE]; omission mints UNKNOWN/client_attested/[REQUIRED_IDENTITY_UNKNOWN]. The reserved VERIFIED branch is structurally valid in the common definition but service-invalid from this route because Part 1 has no producer (PART1_CONTRACT_FREEZE_DRAFT.md:572). ALR-1106 P1 fix (Terra review, 2026-08-10): allOf-wrapped rather than a bare $ref -- both forms validate identically, but a bare $ref was the exact shape the disclosure guard's original traversal bug failed to resolve; wrapping it removes the dependency on that bug being fixed to stay covered.",
+      "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "x-disclosure": {"rule": "backend_record_timestamp", "artifact": "agent_lifecycle_disclosure_register.v1"},
+      "description": "Backend commit time; immutable thereafter (PART1_CONTRACT_FREEZE_DRAFT.md:573)."
+    }
+  }
+}

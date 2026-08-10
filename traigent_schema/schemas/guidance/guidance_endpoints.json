@@ -3,9 +3,39 @@
   "info": {
     "title": "Traigent Guided Generation Routes",
     "version": "1.0.0",
-    "description": "Session-based routes that issue an opaque GuidancePlan and ingest content-free generation results. The plan conveys selection (seed, action, coarse priority) but no proprietary tuning signals."
+    "description": "Routes that issue opaque GuidancePlans and ingest content-free generation results. Session guidance conveys selection without proprietary tuning signals; cold-start guidance conveys only content-free local capabilities and bounded budgets."
   },
   "paths": {
+    "/api/v1/guidance/cold-start-plan": {
+      "post": {
+        "summary": "Request a content-free cold-start plan",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "./cold_start_plan_request_schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cold-start plan issued with opaque identity, protocol, descriptor digest, candidate limit, and expiry.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "./cold_start_plan_schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Invalid request."},
+          "401": {"description": "Authentication required."},
+          "403": {"description": "Insufficient permissions."},
+          "422": {"description": "Descriptor is schema-valid but declares no local scoring authority (or no local generation capability), so no plan is issued and cold start is discovery-only."},
+          "429": {"description": "Too many requests — rate limit exceeded."},
+          "501": {"description": "Cold-start generation feature is disabled."},
+          "503": {"description": "Cold-start generation is temporarily unavailable."}
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/guidance-plan": {
       "post": {
         "summary": "Request a GuidancePlan for a session",

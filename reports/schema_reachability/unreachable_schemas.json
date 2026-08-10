@@ -10,13 +10,23 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 34,
-      "refOrEndpointGraph": 334
+      "refOrEndpointGraph": 347
     },
-    "reachableCount": 368,
-    "schemaFileCount": 394,
-    "unreachableCount": 26
+    "reachableCount": 381,
+    "schemaFileCount": 417,
+    "unreachableCount": 36
   },
   "unreachableSchemas": [
+    "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_response_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
+    "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
     "auth/rbac_privilege_vocabulary_schema.json",
     "evaluation/evaluation_request_schema.json",
     "evaluation/evaluation_results_schema.json",

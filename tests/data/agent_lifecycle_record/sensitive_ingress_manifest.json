@@ -1,0 +1,98 @@
+{
+  "$comment": "ALR-1107 (sensitive-source / privacy-capture manifest sink guard, 2026-08-10). PART1_CONTRACT_FREEZE_DRAFT.md:492-533 names four literal arrays -- sensitive_source_manifest, privacy_capture_manifest, response_root_manifest, authorized_source_handle_response_manifest -- consumed directly by a test named exactly test_sensitive_ingress_manifest_has_no_unlisted_sink (implemented in tests/test_agent_lifecycle_disclosure_register.py, which already owns the literal-manifest-grammar and cross-file-$ref-resolving traversal machinery this guard reuses unchanged). PART1_CONTRACT_FREEZE_DRAFT.md:492's own worked example gives sensitive_source_manifest and response_root_manifest verbatim; both arrays below reproduce those six and six entries exactly. Like tests/data/agent_lifecycle_record/disclosure_manifest.json before it, this file is a scoped, explicitly-labeled subset -- NOT the aspirational canonical tests/data/agent_lifecycle_contract_v1beta.json the contract prose imagines (that full multi-purpose corpus file does not exist in this repo; disclosure_manifest.json's own $comment already documents the same scoping decision for the disclosure register). sensitive_source_manifest's six document/pointer pairs are exhaustive: an exhaustive grep of traigent_schema/schemas/agent_lifecycle_record/*.json for every $ref site of RequestOnlyRandomLabel and StableSourceRef (the two common-schema definitions every sensitive source reduces to) finds exactly these six positions and no others (see the ALR-1107 story report for the grep transcript). authorized_source_handle_response_manifest is deliberately empty: PART1_CONTRACT_FREEZE_DRAFT.md:315/327-334 requires StableSourceRef to be returned only via an additive lifecycle_source_ref field on datasets/dataset_schema.json and observability/evaluator_definition_schema.json, but neither document defines that field yet (grepped exhaustively, zero hits) -- building that Route 2 discovery producer is out of this guard's scope. An empty exception list is therefore the correct, maximally-strict reading today, not an oversight; see this file's sibling comment in tests/test_agent_lifecycle_disclosure_register.py for what must happen the day that producer is built. privacy_capture_manifest's ten document/pointer pairs resolve into the separate, explicitly repo-root-relative tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json#/privacy_captures/<name> (matching PART1_CONTRACT_FREEZE_DRAFT.md:505's own literal example convention of a repo-root-relative test-fixture document, distinct from the schema-dir-relative convention every other document string in this file and in disclosure_manifest.json already uses).",
+  "sensitive_source_manifest": [
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+      "pointer": "#/definitions/ClientDeclaredIdentityDescriptor/properties/local_identity_key"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/dataset_source/oneOf/0/properties/source_ref"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/evaluator_source/oneOf/0/properties/source_ref"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_common_schema.json",
+      "pointer": "#/definitions/ClientAttestedArtifactDescriptor/properties/local_version_key"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/dataset_source/oneOf/1/properties/item_keys/items"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
+      "pointer": "#/properties/slice_definition/oneOf/1/properties/item_keys/items"
+    }
+  ],
+  "privacy_capture_manifest": [
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/validation_error_body"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/structured_log"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/application_log"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/audit_log"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/analytics_event"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/telemetry_event"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/export_row"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/idempotency_storage"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/idempotency_replay"
+    },
+    {
+      "document": "tests/data/agent_lifecycle_record/sensitive_ingress_privacy_captures.json",
+      "pointer": "#/privacy_captures/url"
+    }
+  ],
+  "response_root_manifest": [
+    {
+      "document": "error_envelope_schema.json",
+      "pointer": "#"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+      "pointer": "#"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_response_schema.json",
+      "pointer": "#"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+      "pointer": "#"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json",
+      "pointer": "#"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "pointer": "#"
+    }
+  ],
+  "authorized_source_handle_response_manifest": []
+}

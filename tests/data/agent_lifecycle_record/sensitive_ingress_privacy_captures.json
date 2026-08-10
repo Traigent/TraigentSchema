@@ -1,0 +1,75 @@
+{
+  "$comment": "ALR-1107. Resolution targets for tests/data/agent_lifecycle_record/sensitive_ingress_manifest.json#/privacy_capture_manifest's ten #/privacy_captures/<name> pointers. Each entry is closed and honest about what this schema-only repo can prove: 'validation_error_body' and 'idempotency_replay' are schema_owned=true with a real, walkable JSON Schema 'covered_by' target (validation_error_schema.json for the former; the four Idempotency-Key-bearing routes' own response schemas for the latter, since an exact idempotent replay is byte-identical to one of those four responses -- PART1_CONTRACT_FREEZE_DRAFT.md:390 'delivered again with the identical bytes', :577/:585/:632/:722). 'url' is schema_owned=false (no schema defines a URL) but carries its own literal, resolvable path_templates -- the five route paths named at PART1_CONTRACT_FREEZE_DRAFT.md:537/581/628/697/756 -- checked_via a dedicated path-parameter-disjointness check rather than a $ref-graph walk. The remaining seven (structured_log, application_log, audit_log, analytics_event, telemetry_event, export_row, idempotency_storage) are schema_owned=false with no covered_by at all: TraigentSchema defines no JSON Schema for any of these sinks anywhere in this repo (they are TraigentBackend runtime/persistence constructs); PART1_CONTRACT_FREEZE_DRAFT.md:315/596 promises their exclusion in prose only. This file does not, and cannot, structurally prove those seven sinks are clean -- it keeps each one a literal, resolvable, closed-vocabulary entry (so it cannot silently disappear) and names its real owner, so a reader knows exactly which guard is missing and where it belongs. See tests/test_agent_lifecycle_disclosure_register.py's ALR-1107 header comment for the full accounting.",
+  "privacy_captures": {
+    "validation_error_body": {
+      "schema_owned": true,
+      "covered_by": [
+        {
+          "document": "validation_error_schema.json",
+          "pointer": "#"
+        }
+      ]
+    },
+    "structured_log": {
+      "schema_owned": false,
+      "owner": "TraigentBackend structured-logging pipeline -- no JSON Schema in this repo defines a log-line shape"
+    },
+    "application_log": {
+      "schema_owned": false,
+      "owner": "TraigentBackend application logging -- no JSON Schema in this repo defines a log-line shape"
+    },
+    "audit_log": {
+      "schema_owned": false,
+      "owner": "TraigentBackend audit subsystem -- no JSON Schema in this repo defines an audit-record shape"
+    },
+    "analytics_event": {
+      "schema_owned": false,
+      "owner": "TraigentBackend analytics pipeline -- no JSON Schema in this repo defines an analytics-event shape"
+    },
+    "telemetry_event": {
+      "schema_owned": false,
+      "owner": "TraigentBackend observability/telemetry pipeline -- no JSON Schema in this repo defines a telemetry-event shape"
+    },
+    "export_row": {
+      "schema_owned": false,
+      "owner": "TraigentBackend export pipeline -- no JSON Schema in this repo defines an export-row shape"
+    },
+    "idempotency_storage": {
+      "schema_owned": false,
+      "owner": "TraigentBackend persistence layer (agent_lifecycle_idempotency_operations table, PART1_CONTRACT_FREEZE_DRAFT.md:808) -- a markdown table description is not a JSON Schema artifact this repo owns"
+    },
+    "idempotency_replay": {
+      "schema_owned": true,
+      "covered_by": [
+        {
+          "document": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+          "pointer": "#"
+        },
+        {
+          "document": "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_response_schema.json",
+          "pointer": "#"
+        },
+        {
+          "document": "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+          "pointer": "#"
+        },
+        {
+          "document": "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json",
+          "pointer": "#"
+        }
+      ]
+    },
+    "url": {
+      "schema_owned": false,
+      "owner": "TraigentBackend route layer -- path templates are fixed contract text, not JSON Schema",
+      "checked_via": "route_path_templates",
+      "path_templates": [
+        "/api/v1beta/projects/{project_id}/agent-lifecycle/agent-revisions",
+        "/api/v1beta/projects/{project_id}/agent-lifecycle/measurement-contracts",
+        "/api/v1beta/projects/{project_id}/agent-lifecycle/run-plans",
+        "/api/v1beta/projects/{project_id}/agent-lifecycle/run-plans/{run_plan_ref}/receipts",
+        "/api/v1beta/projects/{project_id}/agent-lifecycle/agent-revisions/{agent_revision_ref}/record"
+      ]
+    }
+  }
+}

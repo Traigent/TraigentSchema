@@ -22,11 +22,10 @@
     },
     "budget": {
       "type": "object",
-      "description": "Bounded local request limits only.",
+      "description": "Bounded local request limits only. candidate_limit is an ASK; the response carries the GRANT. Deliberately has no optimizer-eligibility knob: how many accepted rows become optimizer-eligible is decided locally by the scoring authority, and a server field the server never reads would be a control that does nothing.",
       "required": ["candidate_limit"],
       "properties": {
-        "candidate_limit": {"type": "integer", "minimum": 1, "maximum": 1000},
-        "optimizer_eligible_limit": {"type": "integer", "minimum": 1, "maximum": 1000}
+        "candidate_limit": {"type": "integer", "minimum": 1, "maximum": 1000}
       },
       "additionalProperties": false
     }

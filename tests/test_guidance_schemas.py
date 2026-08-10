@@ -185,6 +185,15 @@ class TestGuidancePrivacyStructure:
         errors = validator.validate_json(request, "cold_start_plan_request_schema")
         assert errors
 
+    def test_cold_start_budget_rejects_withdrawn_optimizer_eligibility_knob(
+        self, validator: SchemaValidator
+    ) -> None:
+        """It was accepted and never read by the server. A no-op control is worse than none."""
+        request = _load("cold_start_plan_request_valid.json")
+        request["budget"]["optimizer_eligible_limit"] = 6
+        errors = validator.validate_json(request, "cold_start_plan_request_schema")
+        assert errors, "budget must reject an optimizer-eligibility knob the server ignores"
+
     @pytest.mark.parametrize("candidate_limit", [0, 1001, "12"])
     def test_cold_start_request_rejects_malformed_budget(
         self, validator: SchemaValidator, candidate_limit: object

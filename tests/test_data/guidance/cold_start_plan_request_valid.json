@@ -7,5 +7,5 @@
     "verifier_kinds": ["executable_property"],
     "generation_capabilities": ["deterministic_contract", "customer_llm"]
   },
-  "budget": {"candidate_limit": 12, "optimizer_eligible_limit": 6}
+  "budget": {"candidate_limit": 12}
 }

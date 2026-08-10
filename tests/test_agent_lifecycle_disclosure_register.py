@@ -474,7 +474,63 @@ def _iter_property_positions(
     reason_codes and reason_codes/items both resolve via the same
     bounded_reason_vocabulary bucket). The `properties` branch resets it to
     each child's own key, since that is a real new property name, not a
-    structural pass-through."""
+    structural pass-through.
+
+    ALR-1110 (2026-08-10, forward-risk packet, not a live defect -- the
+    2026-08-10 audit measured 311/311 positions annotated with zero drift
+    either way on the unmodified corpus): two more constructs closed
+    defensively before a future schema author trips them, neither of which
+    changes today's 311-position count.
+
+    1. `contains` was completely unwalked. Two live occurrences today
+       (agent_lifecycle_common_schema.json's RecordMeasurementCoverage
+       PARTIAL branch and agent_lifecycle_receipt_submit_response_schema.
+       json's LiveSealedMeasurementCoverage PARTIAL branch), both a bare
+       `{"const": "INCOMPLETE_EVIDENCE_EPISODE"}` restating a value already
+       covered by the sibling `items` enum -- so recursing into `contains`
+       adds zero positions today (a bare `const` has no `properties`,
+       `items`, `$ref`, or combiner to recurse into). But nothing stopped a
+       property-bearing sub-schema being added inside a `contains` node,
+       where it would have been invisible to both the coverage test and the
+       poison tests. `contains` is now recursed into exactly like an
+       `allOf`/`if`/`then`/`else` branch -- structurally walked so any
+       nested `properties` it later grows are caught, but (deliberately,
+       unlike `items`) NOT itself required to carry its own x-disclosure:
+       requiring that would demand editing the two frozen, already-shipped
+       `contains` nodes above, which carry no annotation today and sit
+       under the Contract Freeze this test module may not touch. The named
+       risk is specifically "a property-bearing sub-schema added inside"
+       `contains` (properties, not a bare scalar), and recursing (without
+       self-yielding) closes exactly that risk.
+
+    2. Tuple-form `items` (a JSON array of per-index item schemas, as
+       opposed to the single-schema dict form already handled above) was
+       silently skipped by the `isinstance(node["items"], dict)` guard --
+       excluded, not merely unannotated, so a per-index item schema would
+       go unchecked with no warning at all. No ALR schema uses tuple form
+       today (grepped exhaustively across this corpus), so handling it adds
+       zero positions to the current 311 -- this closes a forward risk, not
+       a present gap. Each list element that is itself a dict is walked the
+       same way the single-schema form is: a position is appended at
+       `.../items/{index}` under the enclosing property's own name (same
+       structural-pass-through reasoning as the dict form), then recursed
+       into for further nested properties/combiners.
+
+    3. Schema-form `additionalProperties` was unwalked. The corpus has 49
+       occurrences today, all boolean `false` (grepped exhaustively), so
+       this adds zero positions to the current 311 -- but flipping one to a
+       schema (`additionalProperties: {...}`) would turn a closed object
+       "open but typed," and the walker would have had no path to notice.
+       Handled exactly like the dict form of `items` above (append a
+       position at `.../additionalProperties`, self-yielding under the
+       enclosing property's own name -- an open key space has no single new
+       property name of its own to classify by, so it inherits the
+       containing object's, the same structural-pass-through reasoning
+       `items` already uses -- then recurse for further nested
+       properties/combiners). Cost: one more isinstance-gated branch,
+       symmetric to the two above; no new manifest entries or deterministic-
+       rule buckets needed since it never fires against the current, all-
+       boolean corpus."""
     positions: list[tuple[str, str, dict[str, Any], str]] = []
     if (document, pointer) in visited:
         return positions
@@ -508,6 +564,56 @@ def _iter_property_positions(
         positions.extend(
             _iter_property_positions(
                 document, item_pointer, node["items"], schemas_cache, visited, property_name
+            )
+        )
+    elif "items" in node and isinstance(node["items"], list):
+        # ALR-1110 P2 fix: tuple-form items (list of per-index schemas).
+        # Zero live occurrences today -- adds no positions to the 311
+        # baseline -- but a future per-index item schema must not be
+        # silently excluded the way the prior dict-only guard excluded it.
+        for index, item_schema in enumerate(node["items"]):
+            if not isinstance(item_schema, dict):
+                continue
+            item_pointer = f"{pointer}/items/{index}"
+            if property_name is not None:
+                positions.append((document, item_pointer, item_schema, property_name))
+            positions.extend(
+                _iter_property_positions(
+                    document, item_pointer, item_schema, schemas_cache, visited, property_name
+                )
+            )
+
+    if "contains" in node and isinstance(node["contains"], dict):
+        # ALR-1110 P1 fix: recurse into `contains` (no self-yield -- see
+        # this function's own docstring for why not, and
+        # _find_orphan_definitions'/the disclosure-manifest hard rule for
+        # why the two live `contains` nodes cannot be retrofitted with
+        # x-disclosure directly). A bare `{"const": ...}` contains no
+        # `properties`/`items`/`$ref`/combiner, so this adds zero positions
+        # against the current corpus; it exists to catch a FUTURE
+        # property-bearing sub-schema placed inside `contains`.
+        contains_pointer = f"{pointer}/contains"
+        contains_node = node["contains"]
+        positions.extend(
+            _iter_property_positions(
+                document, contains_pointer, contains_node, schemas_cache, visited, property_name
+            )
+        )
+
+    if "additionalProperties" in node and isinstance(node["additionalProperties"], dict):
+        # ALR-1110 P3 fix: schema-form additionalProperties (as opposed to
+        # today's universal boolean form). Zero live occurrences -- adds no
+        # positions to the 311 baseline -- handled exactly like the dict
+        # form of `items` above: self-yields under the enclosing property's
+        # own name (an open key space names no new property of its own),
+        # then recurses for further nested properties/combiners.
+        ap_pointer = f"{pointer}/additionalProperties"
+        ap_node = node["additionalProperties"]
+        if property_name is not None:
+            positions.append((document, ap_pointer, ap_node, property_name))
+        positions.extend(
+            _iter_property_positions(
+                document, ap_pointer, ap_node, schemas_cache, visited, property_name
             )
         )
 
@@ -730,6 +836,117 @@ class TestDisclosurePoisonGuardsAreLoadBearing:
             )
         missing = [(doc, ptr) for doc, ptr, node, _name in all_positions if "x-disclosure" not in node]
         assert (target_document, "#/properties/nonce") in missing
+
+    def test_property_bearing_contains_subschema_is_caught_by_coverage(self) -> None:
+        """ALR-1110 P1 negative control: inject a property-bearing
+        sub-schema (no x-disclosure) inside a real `contains` node -- the
+        exact shape the forward-risk audit warned about -- and prove the
+        coverage scan now sees and flags the nested position. Before the
+        ALR-1110 fix, `_iter_property_positions` never recursed into
+        `contains` at all, so this exact mutation was structurally
+        invisible (demonstrated ephemerally against the unfixed walker; see
+        the ALR-1110 story report for the transcript)."""
+        schemas_cache: dict[str, dict[str, Any]] = {
+            root: _load_json(root) for root in _IN_SCOPE_ROOTS
+        }
+        target_document = (
+            "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json"
+        )
+        live_sealed_defs = schemas_cache[target_document]["definitions"]
+        live_sealed = live_sealed_defs["LiveSealedMeasurementCoverage"]
+        contains_node = live_sealed["oneOf"][1]["properties"]["reason_codes"]["contains"]
+        assert contains_node == {"const": "INCOMPLETE_EVIDENCE_EPISODE"}
+        contains_node.clear()
+        contains_node.update(
+            {"type": "object", "properties": {"debug_smuggled_field": {"type": "string"}}}
+        )
+
+        visited: set[tuple[str, str]] = set()
+        all_positions: list[tuple[str, str, dict[str, Any], str]] = []
+        for root in _IN_SCOPE_ROOTS:
+            all_positions.extend(
+                _iter_property_positions(root, "#", schemas_cache[root], schemas_cache, visited)
+            )
+        missing = [
+            (doc, ptr) for doc, ptr, node, _name in all_positions if "x-disclosure" not in node
+        ]
+        expected_pointer = (
+            "#/definitions/LiveSealedMeasurementCoverage/oneOf/1/properties/reason_codes"
+            "/contains/properties/debug_smuggled_field"
+        )
+        assert (target_document, expected_pointer) in missing
+
+    def test_tuple_form_items_with_an_unannotated_property_is_caught_by_coverage(self) -> None:
+        """ALR-1110 P2 negative control: no ALR schema uses tuple-form
+        `items` today, so this synthesizes one on an in-memory copy of a
+        real in-scope root and proves an unannotated nested property inside
+        a per-index item schema is now caught. Before the ALR-1110 fix, the
+        `isinstance(node["items"], dict)` guard excluded list-form `items`
+        outright, so this position was never generated at all (demonstrated
+        ephemerally against the unfixed walker; see the ALR-1110 story
+        report)."""
+        schemas_cache: dict[str, dict[str, Any]] = {
+            root: _load_json(root) for root in _IN_SCOPE_ROOTS
+        }
+        target_document = (
+            "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json"
+        )
+        schemas_cache[target_document]["properties"]["debug_tuple_probe"] = {
+            "type": "array",
+            "items": [
+                {"type": "object", "properties": {"nested_unannotated": {"type": "string"}}}
+            ],
+        }
+
+        visited: set[tuple[str, str]] = set()
+        all_positions: list[tuple[str, str, dict[str, Any], str]] = []
+        for root in _IN_SCOPE_ROOTS:
+            all_positions.extend(
+                _iter_property_positions(root, "#", schemas_cache[root], schemas_cache, visited)
+            )
+        missing = [
+            (doc, ptr) for doc, ptr, node, _name in all_positions if "x-disclosure" not in node
+        ]
+        assert (
+            target_document,
+            "#/properties/debug_tuple_probe/items/0/properties/nested_unannotated",
+        ) in missing
+
+    def test_schema_form_additional_properties_is_caught_by_coverage(self) -> None:
+        """ALR-1110 P3 negative control: no ALR schema uses schema-form
+        `additionalProperties` today (all 49 occurrences are boolean
+        `false`), so this flips a real closed object's `additionalProperties:
+        false` to an open, typed, property-bearing schema and proves both
+        the self-yielded `additionalProperties` position itself AND its
+        nested unannotated property are now caught. Before the ALR-1110
+        fix, neither position existed in the walk at all."""
+        schemas_cache: dict[str, dict[str, Any]] = {
+            root: _load_json(root) for root in _IN_SCOPE_ROOTS
+        }
+        target_document = (
+            "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json"
+        )
+        receipt_item_schema = schemas_cache[target_document]["properties"]["receipts"]["items"]
+        assert receipt_item_schema["additionalProperties"] is False
+        receipt_item_schema["additionalProperties"] = {
+            "type": "object",
+            "properties": {"debug_smuggled_extra": {"type": "string"}},
+        }
+
+        visited: set[tuple[str, str]] = set()
+        all_positions: list[tuple[str, str, dict[str, Any], str]] = []
+        for root in _IN_SCOPE_ROOTS:
+            all_positions.extend(
+                _iter_property_positions(root, "#", schemas_cache[root], schemas_cache, visited)
+            )
+        missing = [
+            (doc, ptr) for doc, ptr, node, _name in all_positions if "x-disclosure" not in node
+        ]
+        assert (target_document, "#/properties/receipts/items/additionalProperties") in missing
+        assert (
+            target_document,
+            "#/properties/receipts/items/additionalProperties/properties/debug_smuggled_extra",
+        ) in missing
 
     def test_poisoning_a_rule_is_detected_as_a_mismatch(self) -> None:
         schemas_cache: dict[str, dict[str, Any]] = {
@@ -975,13 +1192,20 @@ def _resolve_entry(document: str, pointer: str) -> dict[str, Any]:
     return _resolve_pointer(_load_json(document), pointer)
 
 
-def _collect_all_positions_and_visited() -> tuple[
-    list[tuple[str, str, dict[str, Any], str]], set[tuple[str, str]]
+def _collect_all_positions_visited_and_cache() -> tuple[
+    list[tuple[str, str, dict[str, Any], str]],
+    set[tuple[str, str]],
+    dict[str, dict[str, Any]],
 ]:
     """The exact body of _collect_all_positions above, except it also
-    returns the `visited` set that function discards. Not a second
-    traversal engine -- same _IN_SCOPE_ROOTS, same _iter_property_positions,
-    same loop; the only difference is which local survives the return."""
+    returns `visited` and the `schemas_cache` populated along the way (every
+    document $ref-loaded during the walk -- today the nine in-scope roots
+    plus agent_lifecycle_common_schema.json, added the first time any root
+    $refs into it). Not a second traversal engine -- same _IN_SCOPE_ROOTS,
+    same _iter_property_positions, same loop; the only difference is which
+    locals survive the return. `_collect_all_positions_and_visited` and
+    `_find_orphan_definitions` below both build on this instead of
+    triplicating the loop."""
     schemas_cache: dict[str, dict[str, Any]] = {root: _load_json(root) for root in _IN_SCOPE_ROOTS}
     visited: set[tuple[str, str]] = set()
     all_positions: list[tuple[str, str, dict[str, Any], str]] = []
@@ -989,7 +1213,124 @@ def _collect_all_positions_and_visited() -> tuple[
         all_positions.extend(
             _iter_property_positions(root, "#", schemas_cache[root], schemas_cache, visited)
         )
+    return all_positions, visited, schemas_cache
+
+
+def _collect_all_positions_and_visited() -> tuple[
+    list[tuple[str, str, dict[str, Any], str]], set[tuple[str, str]]
+]:
+    all_positions, visited, _schemas_cache = _collect_all_positions_visited_and_cache()
     return all_positions, visited
+
+
+# ALR-1110 P3 fix: orphaned `definitions` are invisible to every guard in
+# this module, because coverage is $ref-reachability-scoped (it walks what a
+# real route schema can reach), not a scan of `definitions` keys -- a
+# definition added but never wired via a reachable $ref is never checked for
+# x-disclosure, poisoning, or anything else. Two orphans are documented,
+# intentional scaffolding in agent_lifecycle_common_schema.json's own prose:
+# AxisValue ("intentionally not referenced by anything else in this file")
+# and AgentLifecycleAxisSet ("purely as a convenient, uniform validation
+# entry point for this story's corpus" -- its $id root points at it, but no
+# in-scope root ever $refs the *whole* common-schema document without a
+# `#/definitions/...` fragment, so that root-level pointer is never reached
+# either). A THIRD, second-order orphan was found while building this exact
+# lint (measured, not assumed from the two named in the forward-risk
+# packet): TrustLevel is $ref'd only from AxisValue#/properties/trust_level
+# -- once AxisValue itself is unreachable, so is everything AxisValue alone
+# references. It is scaffolding-of-scaffolding, not an independent gap, so
+# it is allowlisted for the same reason -- not a silent widening of what
+# counts as intentional. Adding an entry here must be a deliberate,
+# commented edit: it is read literally by the exact-equality test below,
+# never grown implicitly, and a later change that wires any of these three
+# in via a real reachable $ref must remove it from here in the same PR (the
+# allowlist-staleness half of that same test enforces this).
+_ALLOWED_ORPHAN_DEFINITIONS: frozenset[tuple[str, str]] = frozenset(
+    {
+        (_COMMON_SCHEMA_RELATIVE_PATH, "AxisValue"),
+        (_COMMON_SCHEMA_RELATIVE_PATH, "AgentLifecycleAxisSet"),
+        (_COMMON_SCHEMA_RELATIVE_PATH, "TrustLevel"),
+    }
+)
+
+
+def _find_orphan_definitions() -> list[tuple[str, str]]:
+    """Every `definitions` key, across every document the coverage
+    traversal actually touches (the nine in-scope roots plus any cross-file
+    $ref target they pull in), whose own `#/definitions/<name>` pointer
+    never appears in `visited`. Scoped to `schemas_cache` rather than a
+    hardcoded document list so this lint tracks the real corpus instead of
+    drifting from it."""
+    _positions, visited, schemas_cache = _collect_all_positions_visited_and_cache()
+    orphans: list[tuple[str, str]] = []
+    for document, data in schemas_cache.items():
+        for name in data.get("definitions", {}):
+            if (document, f"#/definitions/{name}") not in visited:
+                orphans.append((document, name))
+    return orphans
+
+
+class TestNoUnexpectedOrphanDefinitions:
+    """ALR-1110 P3: guards the forward risk that a `definitions` entry gets
+    added but never wired via a reachable $ref, so no guard in this module
+    ever checks it. Exact-equality (not "no unexpected orphan") on purpose,
+    matching TestDisclosureCoverage's own two-way style: it catches BOTH a
+    new unexpected orphan (something in `orphans` not on the allowlist) AND
+    a stale allowlist entry (something on the allowlist that a later change
+    has actually wired in and is therefore no longer orphaned)."""
+
+    def test_orphan_definitions_match_the_explicit_allowlist_exactly(self) -> None:
+        orphans = set(_find_orphan_definitions())
+        assert orphans == _ALLOWED_ORPHAN_DEFINITIONS, (
+            f"orphan-definition drift -- found {orphans}, allowlisted "
+            f"{_ALLOWED_ORPHAN_DEFINITIONS}. A NEW orphan not on the allowlist "
+            "must be added there as a deliberate, commented edit (or the "
+            "definition wired in via a reachable $ref instead); an allowlist "
+            "entry that no longer appears in `orphans` must be removed -- it "
+            "is now a stale claim of orphanhood."
+        )
+
+    def test_allowlisted_orphans_still_exist_as_real_definitions(self) -> None:
+        """Anti-staleness companion: every allowlisted name must still be a
+        real `definitions` key in its named document -- a rename or removal
+        must not leave a dangling, permanently-vacuous allowlist entry."""
+        for document, name in _ALLOWED_ORPHAN_DEFINITIONS:
+            data = _load_json(document)
+            assert name in data.get("definitions", {}), (
+                f"{document}: allowlisted orphan {name!r} no longer exists as a definition"
+            )
+
+
+class TestOrphanDefinitionLintIsLoadBearing:
+    def test_an_unexpected_new_orphan_definition_is_detected_and_named(self) -> None:
+        """Canary: inject a brand-new definition into an in-memory copy of
+        the common schema, never $ref'd from anywhere, and prove the scan
+        both finds it and names it -- not just a raw count mismatch."""
+        document = _COMMON_SCHEMA_RELATIVE_PATH
+        schemas_cache: dict[str, dict[str, Any]] = {
+            root: _load_json(root) for root in _IN_SCOPE_ROOTS
+        }
+        mutated_common = _load_json(document)
+        mutated_common["definitions"]["DebugScratchDefinition"] = {"type": "string"}
+        schemas_cache[document] = mutated_common
+        visited: set[tuple[str, str]] = set()
+        for root in _IN_SCOPE_ROOTS:
+            _iter_property_positions(root, "#", schemas_cache[root], schemas_cache, visited)
+        orphans: list[tuple[str, str]] = []
+        for doc, data in schemas_cache.items():
+            for name in data.get("definitions", {}):
+                if (doc, f"#/definitions/{name}") not in visited:
+                    orphans.append((doc, name))
+        assert (document, "DebugScratchDefinition") in orphans
+        unexpected = [pair for pair in orphans if pair not in _ALLOWED_ORPHAN_DEFINITIONS]
+        assert unexpected == [(document, "DebugScratchDefinition")]
+
+    def test_clean_corpus_has_no_unexpected_orphan(self) -> None:
+        """Negative control for the canary above: the untouched corpus must
+        NOT trip the same check."""
+        orphans = _find_orphan_definitions()
+        unexpected = [pair for pair in orphans if pair not in _ALLOWED_ORPHAN_DEFINITIONS]
+        assert unexpected == []
 
 
 def _scan_corpus_for_sensitive_positions() -> set[tuple[str, str]]:

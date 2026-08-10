@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
   "title": "Agent Lifecycle Record Response (Route 5)",
-  "description": "ALR-1105 Route 5 response (PART1_CONTRACT_FREEZE_DRAFT.md:754-791): GET .../agent-lifecycle/agent-revisions/{agent_revision_ref}/record. This document is closed (additionalProperties:false) with exactly the fourteen top-level properties below -- it has no legacy_claims property (guard-killing mutation row 8, corpus case record_response_legacy_claims_property_rejected, PART1_CONTRACT_FREEZE_DRAFT.md:1051/:1146) and deliberately has no qualification, standing, permit, invalidation, decision, or release/release.state field anywhere (PART1_CONTRACT_FREEZE_DRAFT.md:789, :1465 Owner decision card 2 Option A): record truth and product availability have different producers, and release posture is not a lifecycle-record field in Part 1. Route 5 performs no legacy-claim join; the pre-existing legacy CERTIFIED_SELECTION wire (certified_selection_schema.json) is untouched by this document and remains visibly legacy/client-attested/non-authorizing on its own surface (PART1_CONTRACT_FREEZE_DRAFT.md:116, :898, :965) -- this schema does not reference it and never maps it onto lifecycle Qualification or Standing. governance_profile/identity_state/measurement_coverage/comparability_verdict are $ref'd directly from agent_lifecycle_common_schema.json's individually $ref-able axis definitions (never duplicated); ArtifactVersionSlot.state is checked separately from identity_state as Part 1 const UNKNOWN (PART1_CONTRACT_FREEZE_DRAFT.md:1140) via the four named binding slots below. Reconciliation note (post ALR-1102 merge, 2026-08-10): StableOpaqueRef/TypedOpaqueRef/OpaqueRefId now $ref agent_lifecycle_common_schema.json's shared copies (ALR-1102 Terra P2-2 moved them there) instead of duplicating them locally; evidence_episodes[] items' sealed measurement_coverage now $refs agent_lifecycle_receipt_submit_response_schema.json#/definitions/LiveSealedMeasurementCoverage instead of a local EpisodeMeasurementCoverage -- a diff proved the two were validation-identical (same oneOf branches, same required fields, same COMPLETE/PARTIAL constraints; only prose differed), and that file's own description already anticipated Route 5 reuse ('scoped to this response and Route 5's sealed evidence_episodes[] items'). AgentLifecycleRecordRef remains local: no Route 1 response schema exists on this branch yet to host the shared copy the contract's exact-override manifest (PART1_CONTRACT_FREEZE_DRAFT.md:434-437) names as its eventual home. x-disclosure {rule,artifact} annotations below are assigned per the versioned client-boundary disclosure register's published rule vocabulary and exact-override manifest (PART1_CONTRACT_FREEZE_DRAFT.md:376-408, :434-438; the register itself now ships embedded in agent_lifecycle_common_schema.json and its guard in tests/test_agent_lifecycle_disclosure_register.py, ALR-1102 row 17). That guard's _IN_SCOPE_ROOTS is still deliberately scoped to the four ALR-1102 request/response roots only (its own docstring: 'a later Route 1/2/5 story extends _IN_SCOPE_ROOTS ... rather than replacing'); this document's annotations are not yet walked/verified by that executable guard -- extending it is out of this reconciliation's scope. They are metadata only and carry no runtime validation effect.",
+  "description": "ALR-1105 Route 5 response (PART1_CONTRACT_FREEZE_DRAFT.md:754-791): GET .../agent-lifecycle/agent-revisions/{agent_revision_ref}/record. This document is closed (additionalProperties:false) with exactly the fourteen top-level properties below -- it has no legacy_claims property (guard-killing mutation row 8, corpus case record_response_legacy_claims_property_rejected, PART1_CONTRACT_FREEZE_DRAFT.md:1051/:1146) and deliberately has no qualification, standing, permit, invalidation, decision, or release/release.state field anywhere (PART1_CONTRACT_FREEZE_DRAFT.md:789, :1465 Owner decision card 2 Option A): record truth and product availability have different producers, and release posture is not a lifecycle-record field in Part 1. Route 5 performs no legacy-claim join; the pre-existing legacy CERTIFIED_SELECTION wire (certified_selection_schema.json) is untouched by this document and remains visibly legacy/client-attested/non-authorizing on its own surface (PART1_CONTRACT_FREEZE_DRAFT.md:116, :898, :965) -- this schema does not reference it and never maps it onto lifecycle Qualification or Standing. governance_profile/identity_state/measurement_coverage/comparability_verdict are $ref'd directly from agent_lifecycle_common_schema.json's individually $ref-able axis definitions (never duplicated); ArtifactVersionSlot.state is checked separately from identity_state as Part 1 const UNKNOWN (PART1_CONTRACT_FREEZE_DRAFT.md:1140) via the four named binding slots below. Reconciliation note (post ALR-1102 merge, 2026-08-10): StableOpaqueRef/TypedOpaqueRef/OpaqueRefId now $ref agent_lifecycle_common_schema.json's shared copies (ALR-1102 Terra P2-2 moved them there) instead of duplicating them locally; evidence_episodes[] items' sealed measurement_coverage now $refs agent_lifecycle_receipt_submit_response_schema.json#/definitions/LiveSealedMeasurementCoverage instead of a local EpisodeMeasurementCoverage -- a diff proved the two were validation-identical (same oneOf branches, same required fields, same COMPLETE/PARTIAL constraints; only prose differed), and that file's own description already anticipated Route 5 reuse ('scoped to this response and Route 5's sealed evidence_episodes[] items'). ALR-1106 reconciliation (Route 1/2 packet, 2026-08-10): AgentLifecycleRecordRef moved out of this file's local definitions into agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef -- Route 1's new agent_lifecycle_agent_revision_register_response_schema.json now exists and shares the same record_ref shape, so both response schemas $ref the one common-schema copy instead of this document holding a local original. x-disclosure {rule,artifact} annotations below are assigned per the versioned client-boundary disclosure register's published rule vocabulary and exact-override manifest (PART1_CONTRACT_FREEZE_DRAFT.md:376-408, :434-438; the register itself ships embedded in agent_lifecycle_common_schema.json and its guard in tests/test_agent_lifecycle_disclosure_register.py, row 17). ALR-1106 extends that guard's _IN_SCOPE_ROOTS to the full nine property-bearing roots named at PART1_CONTRACT_FREEZE_DRAFT.md:406-408, including this document -- its top-level annotations are now walked/verified by that executable guard (see tests/data/agent_lifecycle_record/disclosure_manifest.json's record-response entries for the exact overrides this file needed: record_ref -> opaque_lifecycle_record_handle, pending_episode -> in_flight_episode_projection, measurement_coverage -> closed_interop_vocabulary). P1 correction (Terra review, 2026-08-10): this document's governance_profile/identity_state/comparability_verdict/measurement_coverage/pending_episode/rescorability properties, and bindings[]/evidence_episodes[] items, use bare (non-allOf-wrapped) $ref to their common-schema and local-definition targets (BindingProjection, EpisodeProjection, PendingEpisodeProjection, RescorabilityProjection). An earlier revision of the disclosure guard resolved $ref only inside allOf branches, so those interiors -- including RecordMeasurementCoverage's and the axis-value types' own fields in agent_lifecycle_common_schema.json, and BindingProjection's four version-slot properties -- were walked only down to this document's own top-level property position, not into their nested fields, meaning a genuinely undisclosed property there could have hidden with no guard noticing. The guard's traversal now resolves $ref wherever it appears (not only inside allOf); every position it newly discovers across this file and agent_lifecycle_common_schema.json now carries a real x-disclosure annotation -- see tests/test_agent_lifecycle_disclosure_register.py and the ALR-1106 story report for the complete enumeration.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -31,8 +31,12 @@
       }
     },
     "record_ref": {
-      "$ref": "#/definitions/AgentLifecycleRecordRef",
-      "description": "Minted by Route 1 for live registration or by the bounded historical backfill under the same issuance invariants; never minted by this read route (PART1_CONTRACT_FREEZE_DRAFT.md:765).",
+      "allOf": [
+        {
+          "$ref": "agent_lifecycle_common_schema.json#/definitions/AgentLifecycleRecordRef"
+        }
+      ],
+      "description": "Minted by Route 1 for live registration or by the bounded historical backfill under the same issuance invariants; never minted by this read route (PART1_CONTRACT_FREEZE_DRAFT.md:765). ALR-1106: AgentLifecycleRecordRef moved to agent_lifecycle_common_schema.json so this field and Route 1's response record_ref share one definition instead of duplicating it (reuse-not-duplicate, PART1_CONTRACT_FREEZE_DRAFT.md:434-437's named eventual home).",
       "x-disclosure": {
         "rule": "opaque_lifecycle_record_handle",
         "artifact": "agent_lifecycle_disclosure_register.v1"
@@ -166,39 +170,6 @@
     }
   },
   "definitions": {
-    "AgentLifecycleRecordRef": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "kind",
-        "id",
-        "version_id"
-      ],
-      "properties": {
-        "kind": {
-          "const": "agent_lifecycle_record",
-          "x-disclosure": {
-            "rule": "closed_interop_vocabulary",
-            "artifact": "agent_lifecycle_disclosure_register.v1"
-          }
-        },
-        "id": {
-          "$ref": "agent_lifecycle_common_schema.json#/definitions/OpaqueRefId",
-          "x-disclosure": {
-            "rule": "opaque_lifecycle_record_handle",
-            "artifact": "agent_lifecycle_disclosure_register.v1"
-          }
-        },
-        "version_id": {
-          "$ref": "agent_lifecycle_common_schema.json#/definitions/OpaqueRefId",
-          "x-disclosure": {
-            "rule": "opaque_lifecycle_record_handle",
-            "artifact": "agent_lifecycle_disclosure_register.v1"
-          }
-        }
-      },
-      "description": "The lifecycle record's own opaque handle (PART1_CONTRACT_FREEZE_DRAFT.md:434-437, :490): kind receives the ordinary exact-vocabulary assignment, while id/version_id receive the record-handle disclosure override distinct from a generic TypedOpaqueRef -- both public record_ref fields (Route 1's response and this one) reference this same shape."
-    },
     "ArtifactVersionSlotBase": {
       "type": "object",
       "additionalProperties": false,
@@ -380,19 +351,23 @@
           }
         },
         "agent_version_slot": {
-          "$ref": "#/definitions/AgentVersionSlot"
+          "$ref": "#/definitions/AgentVersionSlot",
+          "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"}
         },
         "dataset_version_slot": {
-          "$ref": "#/definitions/DatasetVersionSlot"
+          "$ref": "#/definitions/DatasetVersionSlot",
+          "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"}
         },
         "evaluator_version_slot": {
-          "$ref": "#/definitions/EvaluatorVersionSlot"
+          "$ref": "#/definitions/EvaluatorVersionSlot",
+          "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"}
         },
         "configuration_version_slot": {
-          "$ref": "#/definitions/ConfigurationVersionSlot"
+          "$ref": "#/definitions/ConfigurationVersionSlot",
+          "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"}
         }
       },
-      "description": "Every closed item requires origin=const LIVE and exactly the four named slots (PART1_CONTRACT_FREEZE_DRAFT.md:775, corpus case binding_all_four_version_slots_with_unknowns)."
+      "description": "Every closed item requires origin=const LIVE and exactly the four named slots (PART1_CONTRACT_FREEZE_DRAFT.md:775, corpus case binding_all_four_version_slots_with_unknowns). ALR-1106 P1 fix (Terra review, 2026-08-10): the four slot properties now carry x-disclosure -- the prior guard reached this definition only through bindings[]'s bare $ref item schema, so this position was never checked for one at all."
     },
     "EpisodeProjection": {
       "type": "object",

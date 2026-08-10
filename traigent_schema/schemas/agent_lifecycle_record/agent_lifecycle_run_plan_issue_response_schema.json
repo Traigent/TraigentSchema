@@ -27,7 +27,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "run_plan"}}}
+        {"properties": {"kind": {"const": "run_plan", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "agent_revision_ref": {
@@ -35,7 +35,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "agent_revision"}}}
+        {"properties": {"kind": {"const": "agent_revision", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "measurement_contract_ref": {
@@ -43,7 +43,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "measurement_contract"}}}
+        {"properties": {"kind": {"const": "measurement_contract", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "experiment_run_ref": {
@@ -51,7 +51,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableOpaqueRef"},
-        {"properties": {"kind": {"const": "experiment_run"}}}
+        {"properties": {"kind": {"const": "experiment_run", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "binding_ref": {
@@ -59,7 +59,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "binding"}}}
+        {"properties": {"kind": {"const": "binding", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "expected_count": {
@@ -91,7 +91,7 @@
             "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
             "allOf": [
               {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-              {"properties": {"kind": {"const": "evidence_item"}}}
+              {"properties": {"kind": {"const": "evidence_item", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
             ]
           }
         }

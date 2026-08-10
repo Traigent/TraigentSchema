@@ -50,7 +50,11 @@
         {
           "properties": {
             "kind": {
-              "const": "agent"
+              "const": "agent",
+              "x-disclosure": {
+                "rule": "closed_interop_vocabulary",
+                "artifact": "agent_lifecycle_disclosure_register.v1"
+              }
             }
           }
         }
@@ -69,7 +73,11 @@
         {
           "properties": {
             "kind": {
-              "const": "agent_revision"
+              "const": "agent_revision",
+              "x-disclosure": {
+                "rule": "closed_interop_vocabulary",
+                "artifact": "agent_lifecycle_disclosure_register.v1"
+              }
             }
           }
         }
@@ -224,7 +232,11 @@
               "enum": [
                 "afp2",
                 "fp1"
-              ]
+              ],
+              "x-disclosure": {
+                "rule": "closed_interop_vocabulary",
+                "artifact": "agent_lifecycle_disclosure_register.v1"
+              }
             }
           }
         }
@@ -241,7 +253,11 @@
               "enum": [
                 "dfp2o",
                 "fp1"
-              ]
+              ],
+              "x-disclosure": {
+                "rule": "closed_interop_vocabulary",
+                "artifact": "agent_lifecycle_disclosure_register.v1"
+              }
             }
           }
         }
@@ -258,7 +274,11 @@
               "enum": [
                 "efp2",
                 "fp1"
-              ]
+              ],
+              "x-disclosure": {
+                "rule": "closed_interop_vocabulary",
+                "artifact": "agent_lifecycle_disclosure_register.v1"
+              }
             }
           }
         }
@@ -275,7 +295,11 @@
               "enum": [
                 "cfp2",
                 "fp1"
-              ]
+              ],
+              "x-disclosure": {
+                "rule": "closed_interop_vocabulary",
+                "artifact": "agent_lifecycle_disclosure_register.v1"
+              }
             }
           }
         }
@@ -310,7 +334,11 @@
             {
               "properties": {
                 "kind": {
-                  "const": "binding"
+                  "const": "binding",
+                  "x-disclosure": {
+                    "rule": "closed_interop_vocabulary",
+                    "artifact": "agent_lifecycle_disclosure_register.v1"
+                  }
                 }
               }
             }
@@ -328,7 +356,11 @@
             {
               "properties": {
                 "kind": {
-                  "const": "measurement_contract"
+                  "const": "measurement_contract",
+                  "x-disclosure": {
+                    "rule": "closed_interop_vocabulary",
+                    "artifact": "agent_lifecycle_disclosure_register.v1"
+                  }
                 }
               }
             }
@@ -347,7 +379,11 @@
             {
               "properties": {
                 "kind": {
-                  "const": "governance_scope"
+                  "const": "governance_scope",
+                  "x-disclosure": {
+                    "rule": "closed_interop_vocabulary",
+                    "artifact": "agent_lifecycle_disclosure_register.v1"
+                  }
                 }
               }
             }
@@ -398,7 +434,11 @@
             {
               "properties": {
                 "kind": {
-                  "const": "run_plan"
+                  "const": "run_plan",
+                  "x-disclosure": {
+                    "rule": "closed_interop_vocabulary",
+                    "artifact": "agent_lifecycle_disclosure_register.v1"
+                  }
                 }
               }
             }
@@ -416,7 +456,11 @@
             {
               "properties": {
                 "kind": {
-                  "const": "binding"
+                  "const": "binding",
+                  "x-disclosure": {
+                    "rule": "closed_interop_vocabulary",
+                    "artifact": "agent_lifecycle_disclosure_register.v1"
+                  }
                 }
               }
             }
@@ -434,7 +478,11 @@
             {
               "properties": {
                 "kind": {
-                  "const": "experiment_run"
+                  "const": "experiment_run",
+                  "x-disclosure": {
+                    "rule": "closed_interop_vocabulary",
+                    "artifact": "agent_lifecycle_disclosure_register.v1"
+                  }
                 }
               }
             }
@@ -508,7 +556,11 @@
           "if": {
             "properties": {
               "state": {
-                "const": "SEALED"
+                "const": "SEALED",
+                "x-disclosure": {
+                  "rule": "closed_interop_vocabulary",
+                  "artifact": "agent_lifecycle_disclosure_register.v1"
+                }
               }
             },
             "required": [
@@ -518,7 +570,11 @@
           "then": {
             "properties": {
               "measurement_coverage": {
-                "$ref": "agent_lifecycle_receipt_submit_response_schema.json#/definitions/LiveSealedMeasurementCoverage"
+                "$ref": "agent_lifecycle_receipt_submit_response_schema.json#/definitions/LiveSealedMeasurementCoverage",
+                "x-disclosure": {
+                  "rule": "closed_public_structure",
+                  "artifact": "agent_lifecycle_disclosure_register.v1"
+                }
               }
             }
           }
@@ -530,7 +586,11 @@
                 "enum": [
                   "ISSUED",
                   "EXPIRED"
-                ]
+                ],
+                "x-disclosure": {
+                  "rule": "closed_interop_vocabulary",
+                  "artifact": "agent_lifecycle_disclosure_register.v1"
+                }
               }
             },
             "required": [
@@ -540,7 +600,11 @@
           "then": {
             "properties": {
               "measurement_coverage": {
-                "const": null
+                "const": null,
+                "x-disclosure": {
+                  "rule": "closed_public_structure",
+                  "artifact": "agent_lifecycle_disclosure_register.v1"
+                }
               }
             }
           }
@@ -570,7 +634,11 @@
             {
               "properties": {
                 "kind": {
-                  "const": "run_plan"
+                  "const": "run_plan",
+                  "x-disclosure": {
+                    "rule": "closed_interop_vocabulary",
+                    "artifact": "agent_lifecycle_disclosure_register.v1"
+                  }
                 }
               }
             }
@@ -588,7 +656,11 @@
             {
               "properties": {
                 "kind": {
-                  "const": "binding"
+                  "const": "binding",
+                  "x-disclosure": {
+                    "rule": "closed_interop_vocabulary",
+                    "artifact": "agent_lifecycle_disclosure_register.v1"
+                  }
                 }
               }
             }

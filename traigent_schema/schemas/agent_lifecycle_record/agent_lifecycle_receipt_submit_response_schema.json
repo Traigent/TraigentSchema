@@ -23,7 +23,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "reconciliation"}}}
+        {"properties": {"kind": {"const": "reconciliation", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "run_plan_ref": {
@@ -31,7 +31,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "run_plan"}}}
+        {"properties": {"kind": {"const": "run_plan", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "agent_revision_ref": {
@@ -39,7 +39,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "agent_revision"}}}
+        {"properties": {"kind": {"const": "agent_revision", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "sealed_at": {
@@ -82,7 +82,8 @@
       "if": {
         "properties": {
           "rescorability": {
-            "properties": {"state": {"const": "available"}},
+            "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "properties": {"state": {"const": "available", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
             "required": ["state"]
           }
         },
@@ -91,7 +92,8 @@
       "then": {
         "properties": {
           "measurement_coverage": {
-            "properties": {"state": {"const": "COMPLETE"}},
+            "x-disclosure": {"rule": "closed_public_structure", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "properties": {"state": {"const": "COMPLETE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
             "required": ["state"]
           }
         },

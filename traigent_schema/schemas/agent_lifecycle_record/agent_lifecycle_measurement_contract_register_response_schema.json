@@ -27,7 +27,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "measurement_contract"}}}
+        {"properties": {"kind": {"const": "measurement_contract", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "dataset_version_ref": {
@@ -35,7 +35,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "dataset_version"}}}
+        {"properties": {"kind": {"const": "dataset_version", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "evaluator_version_ref": {
@@ -43,7 +43,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "evaluator_version"}}}
+        {"properties": {"kind": {"const": "evaluator_version", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "slice_definition_version_ref": {
@@ -51,7 +51,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "slice_definition_version"}}}
+        {"properties": {"kind": {"const": "slice_definition_version", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "expected_count": {

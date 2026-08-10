@@ -37,11 +37,9 @@ never into its nested fields. That was not a narrow caveat: those nested
 fields could carry no annotation at all and this guard would not notice, so
 row 17 was not actually executable across nine roots, only nine top-level
 positions with unguarded interiors. ``_iter_property_positions`` now
-resolves ``$ref`` wherever it appears (see its own docstring and
-``_is_walkable_fragment`` for the allOf/if-then-else narrowing-fragment
-distinction, which is real and preserved, not a loophole reintroducing the
-same hole). Every position the corrected walker newly discovers now carries
-a real ``x-disclosure`` annotation -- see the ALR-1106 story report for the
+resolves ``$ref`` wherever it appears (see its own docstring). Every
+position the corrected walker newly discovers now carries a real
+``x-disclosure`` annotation -- see the ALR-1106 story report for the
 complete enumeration of what was missing and where it was added.
 
 Two things are proved here, matching the contract's own split:
@@ -63,12 +61,38 @@ export, URL, or response sink". It reuses this module's traversal machinery
 that section's own header comment for what it proves, what it deliberately
 cannot prove (TraigentBackend-owned sinks with no JSON Schema in this repo),
 and why ``authorized_source_handle_response_manifest`` is empty today.
+
+ALR-1108 (2026-08-10, second blind spot, found by a different worker while
+building the ALR-1107 sink guard): ``_iter_property_positions`` recursed
+*through* array ``items`` schemas looking for nested properties but never
+yielded a position for the ``items`` node itself, hiding every array whose
+element schema carried no nested ``properties`` of its own. Fixed in the
+same walker function -- see its own docstring.
+
+ALR-1109 (2026-08-10, third and fourth blind spots, found by a systematic
+construct-by-construct audit rather than by accident): the walker's
+``_is_walkable_fragment`` filter skipped every ``allOf`` branch and
+``if``/``then``/``else`` fragment whose only content was a bare
+``{"properties": {...}}`` narrowing wrapper, on an earlier reviewer's
+now-reversed reading that such a fragment only re-states an
+already-covered property through a different JSON Pointer path rather than
+declaring a new one. PART1_CONTRACT_FREEZE_DRAFT.md:406-408 names no such
+carve-out, and the audit found 38 property-bearing ``allOf`` branches and 8
+each of property-bearing ``if``/``then`` branches that were genuinely
+undisclosed -- 58 newly reachable property positions in total, all in this
+already-merged corpus. The filter is removed entirely (not narrowed): every
+``allOf`` branch and every ``if``/``then``/``else`` fragment that is a dict
+is now walked unconditionally, exactly like ``oneOf``/``anyOf``. See
+``_iter_property_positions``'s own docstring for the full account and the
+disclosure manifest's ``$comment`` for the four positions that needed a
+manifest override rather than resolving through the deterministic buckets.
 """
 
 from __future__ import annotations
 
 import copy
 import json
+import posixpath
 import re
 from pathlib import Path
 from typing import Any
@@ -373,30 +397,6 @@ def _is_ref_definition_document_pointer(document: str, pointer: str) -> bool:
     )
 
 
-_WALKABLE_FRAGMENT_SIGNAL_KEYS = frozenset({"$ref", "type", "oneOf", "anyOf", "items"})
-
-
-def _is_walkable_fragment(node: dict[str, Any]) -> bool:
-    """PART1_CONTRACT_FREEZE_DRAFT.md:406-408's traversal rule descends
-    through allOf and if/then/else, but neither construct is used in this
-    corpus to ever declare a NEW property -- both are used exclusively to
-    layer an additional constraint on top of a property whose authoritative
-    home (where its x-disclosure annotation actually lives) is elsewhere: a
-    $ref target, or a sibling directly on the containing object's own
-    `properties`. A branch/if/then/else fragment is genuinely walkable (may
-    introduce a position worth checking) only when it is self-contained --
-    carries its own $ref, type, oneOf, anyOf, or items. A bare
-    {"properties": {...}, "required": [...]} wrapper with none of those
-    (a kind=const narrowing branch, an if/then sibling-value check) is
-    re-stating an already-covered property's legal values through a
-    different JSON Pointer path, not declaring a new one; walking it would
-    manufacture a disclosure requirement for a pointer that is not a
-    property's real home. Applied uniformly to allOf branches and
-    if/then/else because both are the same JSON Schema layered-composition
-    mechanism, just spelled differently."""
-    return bool(_WALKABLE_FRAGMENT_SIGNAL_KEYS & node.keys())
-
-
 def _iter_property_positions(
     document: str,
     pointer: str,
@@ -421,11 +421,37 @@ def _iter_property_positions(
     resolved (document, pointer) pair so a cycle (e.g. a self-referential
     or mutually-referential $ref graph) neither skips a branch it hasn't
     seen from THIS path nor recurses forever -- each unique pair is walked
-    exactly once, from wherever it is first reached. allOf branches and
-    if/then/else fragments that carry no $ref/type/oneOf/anyOf/items of
-    their own (pure sibling-narrowing wrappers) are deliberately not walked
-    -- see _is_walkable_fragment's docstring for why that is not a loophole
-    but the correct reading of what 'declares a new property' means.
+    exactly once, from wherever it is first reached. Every allOf branch and
+    every if/then/else fragment that is a dict is walked unconditionally,
+    with no self-containment filter.
+
+    ALR-1109 P1 fix (2026-08-10, third and fourth blind spots, found by a
+    systematic construct-by-construct audit rather than by accident): a
+    prior revision gated allOf branches and if/then/else fragments behind
+    an `_is_walkable_fragment` filter that skipped any branch whose only
+    content was a bare `{"properties": {...}, "required": [...]}` wrapper
+    (a kind=const narrowing branch, an if/then sibling-value check) on the
+    reasoning that such a fragment only re-states an already-covered
+    property's legal values through a different JSON Pointer path rather
+    than declaring a new one. That reasoning does not survive contact with
+    the corpus: PART1_CONTRACT_FREEZE_DRAFT.md:406-408 names no such
+    carve-out ("descends recursively through properties, array items,
+    oneOf, anyOf, allOf, and if/then/else" -- unconditionally, exactly like
+    oneOf/anyOf above), and the audit found 38 allOf branches (e.g.
+    agent_lifecycle_agent_revision_register_request_schema.json's
+    `#/properties/agent_ref/allOf/1/properties/kind`) and 8 each of if/then
+    branches (e.g. agent_lifecycle_measurement_contract_register_request_
+    schema.json's `#/allOf/0/if/properties/dataset_source` and
+    `#/allOf/0/then/properties/slice_definition`, and agent_lifecycle_
+    record_response_schema.json's `#/definitions/EpisodeProjection/allOf/0/
+    then/properties/measurement_coverage`) that are their own distinct JSON
+    object nodes -- not the same node as any sibling `properties` entry --
+    and therefore require (and, until this fix, lacked) their own
+    x-disclosure annotation. The filter and its docstring
+    (`_is_walkable_fragment`/`_WALKABLE_FRAGMENT_SIGNAL_KEYS`) are removed
+    rather than narrowed: an earlier reviewer explicitly approved this
+    exact carve-out from a spot-check, but a systematic audit is the higher
+    authority here, and it disproved the premise outright.
 
     ALR-1108 P1 fix (2026-08-10, second blind spot -- found by a different
     worker while building the privacy sink guard, closed here in its own
@@ -497,7 +523,7 @@ def _iter_property_positions(
 
     if "allOf" in node and isinstance(node["allOf"], list):
         for index, branch in enumerate(node["allOf"]):
-            if not isinstance(branch, dict) or not _is_walkable_fragment(branch):
+            if not isinstance(branch, dict):
                 continue
             branch_pointer = f"{pointer}/allOf/{index}"
             positions.extend(
@@ -508,7 +534,7 @@ def _iter_property_positions(
 
     for keyword in ("if", "then", "else"):
         candidate = node.get(keyword)
-        if isinstance(candidate, dict) and _is_walkable_fragment(candidate):
+        if isinstance(candidate, dict):
             kw_pointer = f"{pointer}/{keyword}"
             positions.extend(
                 _iter_property_positions(
@@ -522,10 +548,29 @@ def _iter_property_positions(
 def _resolve_ref(
     current_document: str, ref: str, schemas_cache: dict[str, dict[str, Any]]
 ) -> tuple[str, str, Any]:
+    """Resolve `ref` (as it appears at `current_document`) to a canonical
+    (document, pointer, node) triple. `target_document` is run through
+    `posixpath.normpath` (P2 fix, ALR-1109 audit): a bare `Path.__truediv__`
+    join already collapses a leading `./` segment on construction (pathlib
+    drops single-dot components), but does NOT collapse `..` -- a `$ref`
+    spelled with a `../` segment would join to a path like
+    `"agent_lifecycle_record/../agent_lifecycle_record/foo.json"`, a
+    different STRING from the canonical `"agent_lifecycle_record/foo.json"`
+    even though both name the same on-disk file. Since `visited` and
+    `schemas_cache` are keyed by this string, an aliased `../` spelling
+    would evade the cycle-safety `visited` dedup (a mutually-referential
+    $ref cycle using inconsistent spellings could recurse without ever
+    hitting the same key twice) and load the same file into the cache
+    twice under two different keys. No `$ref` in this guard's actual
+    traversal (the nine in-scope roots + agent_lifecycle_common_schema.json)
+    uses `./` or `../` today -- grepped exhaustively -- so this was a latent
+    gap, not a live bug; normalizing closes it defensively rather than
+    leaving the canonicalization implicit and fragile."""
     file_part, _, pointer_part = ref.partition("#")
     pointer = "#" + pointer_part if not pointer_part.startswith("#") else pointer_part
     if file_part:
-        target_document = str((Path(current_document).parent / file_part).as_posix())
+        joined = posixpath.join(posixpath.dirname(current_document), file_part)
+        target_document = posixpath.normpath(joined)
     else:
         target_document = current_document
     if target_document not in schemas_cache:

@@ -497,20 +497,20 @@
           "allOf": [
             {
               "if": {
-                "properties": {"basis": {"const": "NO_EVIDENCE_EPISODE"}},
+                "properties": {"basis": {"const": "NO_EVIDENCE_EPISODE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
                 "required": ["basis"]
               },
               "then": {
-                "properties": {"reason_codes": {"const": ["NO_EVIDENCE_EPISODE"]}}
+                "properties": {"reason_codes": {"const": ["NO_EVIDENCE_EPISODE"], "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}
               }
             },
             {
               "if": {
-                "properties": {"basis": {"const": "NO_SEALED_EVIDENCE_EPISODE"}},
+                "properties": {"basis": {"const": "NO_SEALED_EVIDENCE_EPISODE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
                 "required": ["basis"]
               },
               "then": {
-                "properties": {"reason_codes": {"const": ["NO_SEALED_EVIDENCE_EPISODE"]}}
+                "properties": {"reason_codes": {"const": ["NO_SEALED_EVIDENCE_EPISODE"], "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}
               }
             }
           ]
@@ -521,14 +521,14 @@
       "description": "TYPE vs PRODUCER split (sol ruling on ALR-1101 P1-2, 2026-08-09): GovernanceProfileAxisValue stays the wide 3-branch closed vocabulary (OBSERVED/ADVISORY/STRICT) per PART1_CONTRACT_FREEZE_DRAFT.md:69-78, unconstrained here -- but the field a Part 1 record composition may actually carry is narrower. Per :220, Part 1's record route emits only OBSERVED/backend_observed/[]; ADVISORY and STRICT remain valid at the common axis-type level for a future producer, never on this record.",
       "allOf": [
         {"$ref": "#/definitions/GovernanceProfileAxisValue"},
-        {"properties": {"value": {"const": "OBSERVED"}}}
+        {"properties": {"value": {"const": "OBSERVED", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "Part1RecordComparabilityVerdict": {
       "description": "TYPE vs PRODUCER split (sol ruling on ALR-1101 P1-2, 2026-08-09): ComparabilityVerdictAxisValue stays the wide closed vocabulary (COMPARABLE/NON_COMPARABLE/NOT_APPLICABLE) per PART1_CONTRACT_FREEZE_DRAFT.md:69-78, unconstrained here -- but a Part 1 single-record read may only ever emit NOT_APPLICABLE/backend_observed/[SINGLE_SUBJECT] per :223. COMPARABLE and NON_COMPARABLE remain valid at the common axis-type level for a future Part 2 comparison producer, never on this record (corpus case record_comparable_single_subject, PART1_CONTRACT_FREEZE_DRAFT.md schema_invalid #17).",
       "allOf": [
         {"$ref": "#/definitions/ComparabilityVerdictAxisValue"},
-        {"properties": {"value": {"const": "NOT_APPLICABLE"}}}
+        {"properties": {"value": {"const": "NOT_APPLICABLE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "AgentLifecycleAxisSet": {

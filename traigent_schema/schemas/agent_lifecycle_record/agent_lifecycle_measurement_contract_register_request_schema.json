@@ -30,7 +30,7 @@
               "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
               "allOf": [
                 {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableSourceRef"},
-                {"properties": {"kind": {"const": "dataset"}}}
+                {"properties": {"kind": {"const": "dataset", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
               ]
             }
           }
@@ -86,7 +86,7 @@
               "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
               "allOf": [
                 {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableSourceRef"},
-                {"properties": {"kind": {"const": "evaluator"}}}
+                {"properties": {"kind": {"const": "evaluator", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
               ]
             }
           }
@@ -158,7 +158,8 @@
       "if": {
         "properties": {
           "dataset_source": {
-            "properties": {"source": {"const": "backend_registered"}},
+            "x-disclosure": {"rule": "closed_measurement_source_declaration", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "properties": {"source": {"const": "backend_registered", "x-disclosure": {"rule": "content_free_request_discriminator", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
             "required": ["source"]
           }
         },
@@ -167,7 +168,8 @@
       "then": {
         "properties": {
           "slice_definition": {
-            "properties": {"mode": {"const": "FULL_DATASET"}},
+            "x-disclosure": {"rule": "closed_measurement_source_declaration", "artifact": "agent_lifecycle_disclosure_register.v1"},
+            "properties": {"mode": {"const": "FULL_DATASET", "x-disclosure": {"rule": "coarse_selection_mode", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
             "required": ["mode"]
           }
         }

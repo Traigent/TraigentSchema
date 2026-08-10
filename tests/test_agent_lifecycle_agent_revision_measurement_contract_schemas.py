@@ -290,6 +290,35 @@ def _valid_measurement_contract_response() -> dict[str, Any]:
     )
 
 
+# Anti-vacuity by exact membership (mirrors
+# TestRoute5ClosedResponseSchema::test_route5_schema_top_level_properties_are_exact
+# in test_agent_lifecycle_contract.py). Both Route 1's and Route 2's response
+# schema *descriptions* state a literal top-level property count in prose --
+# these pin the real schema so the two can never silently diverge again the
+# way Route 1's did (`record_ref` was added to the wire and the prose count
+# was never bumped to match).
+_EXPECTED_ROUTE1_RESPONSE_TOP_LEVEL_PROPERTIES = {
+    "schema_version",
+    "agent_revision_ref",
+    "record_ref",
+    "agent_ref",
+    "identity_state",
+    "created_at",
+}
+
+_EXPECTED_ROUTE2_RESPONSE_TOP_LEVEL_PROPERTIES = {
+    "schema_version",
+    "measurement_contract_ref",
+    "dataset_version_ref",
+    "evaluator_version_ref",
+    "slice_definition_version_ref",
+    "expected_count",
+    "universe_trust_level",
+    "evaluator_trust_level",
+    "created_at",
+}
+
+
 class TestRoute1AgentRevisionRegisterProducer:
     """Closes the prior draft's open blocker 1: AgentRevisionRef had no
     producer. This class proves the Schema half exists and is shaped exactly
@@ -310,6 +339,23 @@ class TestRoute1AgentRevisionRegisterProducer:
         agent_revision_ref, one-to-one, in the same response."""
         schema = validator._schemas["agent_lifecycle_agent_revision_register_response_schema"]
         assert {"agent_revision_ref", "record_ref"} <= set(schema["required"])
+
+    def test_route1_schema_top_level_properties_are_exact(
+        self, validator: SchemaValidator
+    ) -> None:
+        """Anti-vacuity by exact membership (mirrors the Route 5 precedent,
+        test_agent_lifecycle_contract.py::TestRoute5ClosedResponseSchema::
+        test_route5_schema_top_level_properties_are_exact): this response
+        schema's own description states the literal property count in prose
+        (PART1_CONTRACT_FREEZE_DRAFT.md:564-577). `record_ref` was added to
+        the wire after that count was first written and the prose went
+        stale without anyone noticing -- a mutation that adds or removes ANY
+        top-level property must trip this test, not rely on the prose
+        staying accurate."""
+        schema = validator._schemas["agent_lifecycle_agent_revision_register_response_schema"]
+        assert set(schema["properties"]) == _EXPECTED_ROUTE1_RESPONSE_TOP_LEVEL_PROPERTIES
+        assert set(schema["required"]) == _EXPECTED_ROUTE1_RESPONSE_TOP_LEVEL_PROPERTIES
+        assert schema["additionalProperties"] is False
 
     def test_identity_declaration_has_exactly_one_admitted_branch(
         self, validator: SchemaValidator
@@ -351,6 +397,21 @@ class TestRoute2MeasurementContractRegisterProducer:
             "evaluator_source",
             "slice_definition",
         }
+        assert schema["additionalProperties"] is False
+
+    def test_route2_schema_top_level_properties_are_exact(
+        self, validator: SchemaValidator
+    ) -> None:
+        """Anti-vacuity by exact membership (mirrors the Route 5 precedent,
+        test_agent_lifecycle_contract.py::TestRoute5ClosedResponseSchema::
+        test_route5_schema_top_level_properties_are_exact): this response
+        schema's own description states the literal property count in prose
+        (PART1_CONTRACT_FREEZE_DRAFT.md:598-612). A mutation that adds or
+        removes ANY top-level property must trip this test, not rely on the
+        prose staying accurate."""
+        schema = validator._schemas["agent_lifecycle_measurement_contract_register_response_schema"]
+        assert set(schema["properties"]) == _EXPECTED_ROUTE2_RESPONSE_TOP_LEVEL_PROPERTIES
+        assert set(schema["required"]) == _EXPECTED_ROUTE2_RESPONSE_TOP_LEVEL_PROPERTIES
         assert schema["additionalProperties"] is False
 
     def test_real_schema_rejects_a_client_supplied_expected_count(

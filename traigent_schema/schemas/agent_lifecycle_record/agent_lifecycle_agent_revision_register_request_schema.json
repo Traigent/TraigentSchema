@@ -17,7 +17,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableOpaqueRef"},
-        {"properties": {"kind": {"const": "agent"}}}
+        {"properties": {"kind": {"const": "agent", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "identity_declaration": {

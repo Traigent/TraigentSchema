@@ -41,7 +41,7 @@
             "description": "Exact opaque evidence_item ref issued for that index (PART1_CONTRACT_FREEZE_DRAFT.md:716).",
             "allOf": [
               {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-              {"properties": {"kind": {"const": "evidence_item"}}}
+              {"properties": {"kind": {"const": "evidence_item", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
             ]
           },
           "outcome": {
@@ -60,20 +60,20 @@
         "allOf": [
           {
             "if": {
-              "properties": {"outcome": {"const": "failed"}},
+              "properties": {"outcome": {"const": "failed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
               "required": ["outcome"]
             },
             "then": {
-              "properties": {"rescorability_state": {"enum": ["unavailable", "unknown"]}}
+              "properties": {"rescorability_state": {"enum": ["unavailable", "unknown"], "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}
             }
           },
           {
             "if": {
-              "properties": {"outcome": {"const": "excluded"}},
+              "properties": {"outcome": {"const": "excluded", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}},
               "required": ["outcome"]
             },
             "then": {
-              "properties": {"rescorability_state": {"enum": ["unavailable", "unknown"]}}
+              "properties": {"rescorability_state": {"enum": ["unavailable", "unknown"], "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}
             }
           }
         ]

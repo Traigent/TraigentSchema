@@ -17,7 +17,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "agent_revision"}}}
+        {"properties": {"kind": {"const": "agent_revision", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "measurement_contract_ref": {
@@ -25,7 +25,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/TypedOpaqueRef"},
-        {"properties": {"kind": {"const": "measurement_contract"}}}
+        {"properties": {"kind": {"const": "measurement_contract", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     },
     "experiment_run_ref": {
@@ -33,7 +33,7 @@
       "x-disclosure": {"rule": "opaque_lifecycle_reference", "artifact": "agent_lifecycle_disclosure_register.v1"},
       "allOf": [
         {"$ref": "agent_lifecycle_common_schema.json#/definitions/StableOpaqueRef"},
-        {"properties": {"kind": {"const": "experiment_run"}}}
+        {"properties": {"kind": {"const": "experiment_run", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}}}}
       ]
     }
   }

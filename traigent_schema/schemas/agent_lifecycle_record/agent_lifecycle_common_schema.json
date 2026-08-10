@@ -194,7 +194,7 @@
             "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": [],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -210,7 +210,7 @@
             "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": [],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -226,7 +226,7 @@
             "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": [],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -247,7 +247,7 @@
             "trust_level": {"const": "server_verified", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": ["REGISTERED_PROVENANCE"],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -263,7 +263,7 @@
             "trust_level": {"const": "client_attested", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": ["DECLARED_PROVENANCE"],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -279,7 +279,7 @@
             "trust_level": {"const": "client_attested", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": ["LEGACY_RECONSTRUCTED"],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -295,7 +295,7 @@
             "trust_level": {"const": "client_attested", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": ["REQUIRED_IDENTITY_UNKNOWN"],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -316,7 +316,7 @@
             "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": ["SINGLE_SUBJECT"],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -332,7 +332,7 @@
             "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": [],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -348,7 +348,7 @@
             "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": ["CONTRACT_MISMATCH"],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -364,7 +364,7 @@
             "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": ["REQUIRED_CONTRACT_UNKNOWN"],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -399,7 +399,7 @@
             "reason_codes": {
               "description": "COMPLETE carries no caveat reason unless the underlying contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262/752): assignment-free, exactly [] or [CLIENT_ATTESTED_ONLY].",
               "type": "array",
-              "items": {"enum": ["CLIENT_ATTESTED_ONLY"]},
+              "items": {"enum": ["CLIENT_ATTESTED_ONLY"], "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "maxItems": 1,
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -429,7 +429,7 @@
             "reason_codes": {
               "description": "PARTIAL always carries INCOMPLETE_EVIDENCE_EPISODE, optionally alongside CLIENT_ATTESTED_ONLY when the underlying contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262/752): assignment-free, no other code is legal here.",
               "type": "array",
-              "items": {"enum": ["INCOMPLETE_EVIDENCE_EPISODE", "CLIENT_ATTESTED_ONLY"]},
+              "items": {"enum": ["INCOMPLETE_EVIDENCE_EPISODE", "CLIENT_ATTESTED_ONLY"], "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "minItems": 1,
               "maxItems": 2,
@@ -460,7 +460,7 @@
             "duplicate": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "const": ["LEGACY_RECONSTRUCTED"],
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
@@ -489,7 +489,7 @@
             "duplicate": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
-              "items": {"$ref": "#/definitions/BoundedReasonCode"},
+              "items": {"$ref": "#/definitions/BoundedReasonCode", "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
               "uniqueItems": true,
               "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/guaranteed_selection_request_schema.json",
   "title": "Guaranteed Selection Request Schema",
-  "description": "Request parameters for a guaranteed optimizer mode. selection_mode keep_accuracy_reduce_cost requires a baseline_ref; accuracy_then_cost selects the empirical accuracy peak as the anchor. delta is the accuracy non-inferiority margin; epsilon is the failure probability of the whole guarantee (allocated across accuracy and cost as a single global event).",
+  "description": "Request parameters for a guaranteed optimizer mode. selection_mode keep_accuracy_reduce_cost requires a baseline_ref; accuracy_then_cost selects the empirical accuracy peak as the anchor. delta is the accuracy non-inferiority margin; epsilon is the failure probability of the whole guarantee (allocated across accuracy and cost as a single global event). Validity scope: the (delta, epsilon) guarantee holds only for a fixed, preregistered evaluation horizon; it is not valid when the campaign adaptively replans, peeks, or selects examples based on interim results. Certificates issued from adaptive campaigns may attest provenance only.",
   "version": "0.1.0",
   "type": "object",
   "additionalProperties": false,

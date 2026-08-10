@@ -185,6 +185,49 @@ class TestGuidancePrivacyStructure:
         errors = validator.validate_json(request, "cold_start_plan_request_schema")
         assert errors
 
+    def test_cold_start_permits_declaring_no_local_scoring_authority(
+        self, validator: SchemaValidator
+    ) -> None:
+        """Empty capability arrays must stay SCHEMA-VALID.
+
+        A caller has to be able to say "I have no verifier" honestly. The refusal
+        belongs to the server (422 no_local_scoring_authority), not to the
+        envelope — if the schema rejected it, the client could never report the
+        discovery-only case and would be pushed toward overclaiming a capability
+        it does not have.
+        """
+        request = _load("cold_start_plan_request_valid.json")
+        request["descriptor"]["verifier_kinds"] = []
+        request["descriptor"]["generation_capabilities"] = []
+        errors = validator.validate_json(request, "cold_start_plan_request_schema")
+        assert errors == [], f"empty capability arrays must be expressible: {errors}"
+
+    def test_cold_start_documents_what_the_envelope_cannot_enforce(self) -> None:
+        """Draft-07 cannot tie input_kinds length to input_arity.
+
+        That constraint is real and server-enforced, so the contract must SAY so
+        rather than leave a reader believing the envelope checks it.
+        """
+        schema = json.loads(
+            (_GUIDANCE_DIR / "cold_start_plan_request_schema.json").read_text(encoding="utf-8")
+        )
+        descriptor_doc = schema["properties"]["descriptor"]["description"]
+
+        assert "descriptor_arity_mismatch" in descriptor_doc
+        assert "no_local_scoring_authority" in descriptor_doc
+        # An arity/kinds mismatch is schema-valid precisely because it cannot be expressed.
+        assert schema["properties"]["descriptor"]["properties"]["input_kinds"]["maxItems"] == 32
+
+    def test_granted_candidate_limit_is_documented_as_a_grant_not_an_echo(self) -> None:
+        """The server ceiling is below the wire bound; a reader must not size to 1000."""
+        schema = json.loads(
+            (_GUIDANCE_DIR / "cold_start_plan_schema.json").read_text(encoding="utf-8")
+        )
+        doc = schema["properties"]["candidate_limit"]["description"]
+
+        assert "GRANT" in doc
+        assert "ceiling" in doc
+
     def test_cold_start_budget_rejects_withdrawn_optimizer_eligibility_knob(
         self, validator: SchemaValidator
     ) -> None:

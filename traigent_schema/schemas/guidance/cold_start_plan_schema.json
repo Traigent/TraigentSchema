@@ -9,7 +9,7 @@
     "plan_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$"},
     "protocol_version": {"type": "string", "enum": ["cold-start.v1"]},
     "descriptor_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "candidate_limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "candidate_limit": {"type": "integer", "minimum": 1, "maximum": 1000, "description": "The GRANT, not the ask. Always <= the requested candidate_limit and <= the server's policy ceiling, which is lower than this wire bound (200 at time of writing). The wire bound stays 1000 so the ceiling can be retuned as policy without a contract change; clients MUST size against this returned value and never against their own request."},
     "expires_at": {"type": "string", "format": "date-time"}
   },
   "additionalProperties": false

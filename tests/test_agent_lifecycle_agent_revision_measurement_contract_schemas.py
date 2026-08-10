@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -210,7 +211,9 @@ class TestSchemaDiscoveryAndCrossFileRefs:
         record_response_schema = validator._schemas["agent_lifecycle_record_response_schema"]
         assert "AgentLifecycleRecordRef" not in record_response_schema.get("definitions", {})
 
-        route1_response = validator._schemas["agent_lifecycle_agent_revision_register_response_schema"]
+        route1_response = validator._schemas[
+            "agent_lifecycle_agent_revision_register_response_schema"
+        ]
         assert "AgentLifecycleRecordRef" not in route1_response.get("definitions", {})
 
         for schema_name in (
@@ -261,12 +264,18 @@ class TestCorpusAntiVacuity:
     ) -> None:
         schema_name = _SCHEMA_MAP[case["schema"]]
         errors = validator.validate_json(case["payload"], schema_name)
-        assert errors, f"{case['id']}: expected rejection against {schema_name} but validated cleanly"
+        assert errors, (
+            f"{case['id']}: expected rejection against {schema_name} but validated cleanly"
+        )
 
 
 def _valid_agent_revision_request() -> dict[str, Any]:
     return copy.deepcopy(
-        next(c["payload"] for c in _CASES if c["id"] == "agent_revision_register_reconstructed_declared_provenance")
+        next(
+            c["payload"]
+            for c in _CASES
+            if c["id"] == "agent_revision_register_reconstructed_declared_provenance"
+        )
     )
 
 
@@ -285,7 +294,8 @@ def _valid_measurement_contract_response() -> dict[str, Any]:
         next(
             c["payload"]
             for c in _CASES
-            if c["id"] == "measurement_contract_register_backend_sourced_dataset_and_evaluator_response"
+            if c["id"]
+            == "measurement_contract_register_backend_sourced_dataset_and_evaluator_response"
         )
     )
 
@@ -340,9 +350,7 @@ class TestRoute1AgentRevisionRegisterProducer:
         schema = validator._schemas["agent_lifecycle_agent_revision_register_response_schema"]
         assert {"agent_revision_ref", "record_ref"} <= set(schema["required"])
 
-    def test_route1_schema_top_level_properties_are_exact(
-        self, validator: SchemaValidator
-    ) -> None:
+    def test_route1_schema_top_level_properties_are_exact(self, validator: SchemaValidator) -> None:
         """Anti-vacuity by exact membership (mirrors the Route 5 precedent,
         test_agent_lifecycle_contract.py::TestRoute5ClosedResponseSchema::
         test_route5_schema_top_level_properties_are_exact): this response
@@ -399,9 +407,7 @@ class TestRoute2MeasurementContractRegisterProducer:
         }
         assert schema["additionalProperties"] is False
 
-    def test_route2_schema_top_level_properties_are_exact(
-        self, validator: SchemaValidator
-    ) -> None:
+    def test_route2_schema_top_level_properties_are_exact(self, validator: SchemaValidator) -> None:
         """Anti-vacuity by exact membership (mirrors the Route 5 precedent,
         test_agent_lifecycle_contract.py::TestRoute5ClosedResponseSchema::
         test_route5_schema_top_level_properties_are_exact): this response
@@ -458,7 +464,8 @@ class TestRoute2MeasurementContractRegisterProducer:
         poisoned_payload = next(
             c["payload"]
             for c in _CASES
-            if c["id"] == "measurement_contract_register_item_key_set_with_backend_registered_dataset"
+            if c["id"]
+            == "measurement_contract_register_item_key_set_with_backend_registered_dataset"
         )
         real_errors = validator.validate_json(
             poisoned_payload, "agent_lifecycle_measurement_contract_register_request_schema"
@@ -527,10 +534,102 @@ class TestOwnerAccountingConstraintDoesNotLeakIntoRoutes1And2:
             schema = validator._schemas[schema_name]
             text = json.dumps(schema).lower()
             assert first not in text, f"{schema_name} must not mention the deleted accounting field"
-            assert second not in text, f"{schema_name} must not mention the deleted possession field"
+            assert second not in text, (
+                f"{schema_name} must not mention the deleted possession field"
+            )
 
     def test_neither_forbidden_field_name_appears_in_the_corpus_file(self) -> None:
         first, second = _forbidden_field_names()
         text = json.dumps(_CORPUS).lower()
         assert first not in text
         assert second not in text
+
+
+# Number words a schema description might use to state a property count. Kept
+# explicit rather than parsed with a library so an unrecognised word is a loud
+# KeyError-shaped failure, not a silently skipped schema.
+_NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+}
+
+# Matches "exactly six properties", "exactly three top-level properties",
+# "exactly the fourteen top-level properties".
+_PROSE_COUNT_RE = re.compile(
+    r"exactly (?:the )?([a-z]+) (?:top-level )?propert(?:y|ies)", re.IGNORECASE
+)
+
+# Schemas known to state a top-level property count in prose today. This floor
+# is the anti-vacuity guard: if a description is reworded so the regex stops
+# matching, the loop below would silently check nothing and pass. Asserting the
+# expected set means "the prose no longer states a count" fails loudly and gets
+# a deliberate decision, instead of quietly retiring the check.
+_SCHEMAS_STATING_A_PROSE_PROPERTY_COUNT = {
+    "agent_lifecycle_agent_revision_register_response_schema",
+    "agent_lifecycle_measurement_contract_register_response_schema",
+    "agent_lifecycle_receipt_submit_request_schema",
+    "agent_lifecycle_receipt_submit_response_schema",
+    "agent_lifecycle_record_response_schema",
+}
+
+
+class TestProseStatedPropertyCountsMatchTheSchema:
+    """A schema's prose must not drift from the schema it describes.
+
+    The structural tests above pin `properties`/`required` to an exact set, so a
+    change to the SCHEMA trips them. They do not, however, catch drift in the
+    other direction -- prose silently disagreeing with a schema that never
+    changed. That is precisely the defect this PR exists to fix: `record_ref`
+    was added to Route 1's wire, and the description went on saying "exactly
+    five properties" for as long as nobody read both halves at once. A guard
+    that only covers one direction would not have caught the bug it was written
+    in response to.
+    """
+
+    def test_every_prose_stated_count_matches_the_actual_property_count(
+        self, validator: SchemaValidator
+    ) -> None:
+        checked: dict[str, tuple[int, int]] = {}
+        for name, schema in validator._schemas.items():
+            if not name.startswith("agent_lifecycle"):
+                continue
+            match = _PROSE_COUNT_RE.search(schema.get("description", ""))
+            if match is None:
+                continue
+            word = match.group(1).lower()
+            assert word in _NUMBER_WORDS, (
+                f"{name}: description states a property count as {word!r}, which is not a "
+                f"recognised number word -- extend _NUMBER_WORDS or reword the description"
+            )
+            checked[name] = (_NUMBER_WORDS[word], len(schema.get("properties", {})))
+
+        assert set(checked) == _SCHEMAS_STATING_A_PROSE_PROPERTY_COUNT, (
+            "the set of agent-lifecycle schemas stating a prose property count changed; "
+            "update _SCHEMAS_STATING_A_PROSE_PROPERTY_COUNT deliberately rather than letting "
+            f"this check silently cover less. got={sorted(checked)} "
+            f"expected={sorted(_SCHEMAS_STATING_A_PROSE_PROPERTY_COUNT)}"
+        )
+
+        mismatches = {n: v for n, v in checked.items() if v[0] != v[1]}
+        assert not mismatches, "prose property count disagrees with the schema: " + ", ".join(
+            f"{n} says {stated} but has {actual}"
+            for n, (stated, actual) in sorted(mismatches.items())
+        )

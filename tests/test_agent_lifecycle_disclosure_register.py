@@ -24,20 +24,25 @@ docstring said so explicitly). ``tests/data/agent_lifecycle_record/
 disclosure_manifest.json`` is extended in lockstep with the new exact
 overrides each of the five newly in-scope documents needs.
 
-Known, deliberately out-of-scope limitation (verified, not assumed): this
-traversal resolves ``$ref`` only when it appears inside an ``allOf`` branch
-(an established codebase convention for reference types that need deep
-disclosure walking -- see agent_lifecycle_receipt_submit_response_schema.
-json's ``measurement_coverage``). Several already-merged definitions still
-use a *bare* ``$ref`` at their use site (record_response_schema.json's
+P1 correction (Terra review, 2026-08-10): an earlier revision of this module
+resolved ``$ref`` only when it appeared inside an ``allOf`` branch, so every
+*bare* ``$ref`` use site -- record_response_schema.json's
 ``governance_profile``/``identity_state``/``comparability_verdict``/
 ``measurement_coverage``/``pending_episode``/``rescorability``/``bindings``
-items/``evidence_episodes`` items, and the axis-value oneOf branches inside
-``agent_lifecycle_common_schema.json``) and are therefore walked only down to
-their own top-level property position, not into their nested fields. This
-packet does not retrofit that pre-existing (ALR-1101/ALR-1105) authoring gap
--- see the ALR-1106 story report for the full accounting of what is and is
-not covered.
+items/``evidence_episodes`` items, Route 1's own ``identity_state``, and (one
+level deeper) the axis-value oneOf branches inside ``agent_lifecycle_common_
+schema.json`` and ``BindingProjection``'s four version-slot properties in
+this file -- was walked only down to its own top-level property position,
+never into its nested fields. That was not a narrow caveat: those nested
+fields could carry no annotation at all and this guard would not notice, so
+row 17 was not actually executable across nine roots, only nine top-level
+positions with unguarded interiors. ``_iter_property_positions`` now
+resolves ``$ref`` wherever it appears (see its own docstring and
+``_is_walkable_fragment`` for the allOf/if-then-else narrowing-fragment
+distinction, which is real and preserved, not a loophole reintroducing the
+same hole). Every position the corrected walker newly discovers now carries
+a real ``x-disclosure`` annotation -- see the ALR-1106 story report for the
+complete enumeration of what was missing and where it was added.
 
 Two things are proved here, matching the contract's own split:
 1. Coverage -- every reachable property in every in-scope root carries a
@@ -155,6 +160,21 @@ _CLOSED_VOCAB_PROPERTY_NAMES = {
     "governance_profile",
     "identity_state",
     "comparability_verdict",
+    # ALR-1106 P1 fix (Terra review, 2026-08-10): the closed-vocabulary
+    # discriminator scalar inside every axis-value oneOf branch
+    # (GovernanceProfileAxisValue/IdentityStateAxisValue/
+    # ComparabilityVerdictAxisValue.value), newly reachable now the walker
+    # resolves bare $ref -- e.g. {"const": "OBSERVED"}. Used only in that
+    # one context across the nine in-scope roots.
+    "value",
+    # ALR-1106 P1 fix: BindingProjection.origin / EpisodeProjection.origin
+    # (both const "LIVE"), newly reachable now bindings[]/evidence_
+    # episodes[]'s bare $ref item schemas are resolved.
+    "origin",
+    # ALR-1106 P1 fix: ArtifactVersionSlotBase.schema (the fp2 schema-name
+    # discriminator: afp2/fp1/dfp2o/efp2/cfp2), newly reachable now the
+    # four named version-slot properties' bare $ref is resolved.
+    "schema",
 }
 
 # Reason-code fields (both the array property and its items) -> bounded_reason_vocabulary.
@@ -187,6 +207,14 @@ _CONTAINER_PROPERTY_NAMES = {
     "item_keys",
     "evidence_episodes",
     "bindings",
+    # ALR-1106 P1 fix (Terra review, 2026-08-10): BindingProjection's four
+    # named fp2 version slots, newly reachable now the walker resolves
+    # bare $ref -- each is a closed structural container (schema/state/ref
+    # fields, already independently annotated on ArtifactVersionSlotBase).
+    "agent_version_slot",
+    "dataset_version_slot",
+    "evaluator_version_slot",
+    "configuration_version_slot",
 }
 
 
@@ -289,7 +317,10 @@ def _deterministic_rule(
         return "closed_interop_vocabulary"
     if property_name in _REF_ID_COMPONENT_NAMES and in_ref_object:
         return "opaque_lifecycle_reference"
-    if property_name.endswith(_REF_SUFFIX):
+    if property_name == "ref" or property_name.endswith(_REF_SUFFIX):
+        # ALR-1106 P1 fix: the bare "ref" property name (ArtifactVersionSlot
+        # Base.ref, const null) is the fp2 slot's own ref field -- the same
+        # rule as every *_ref-suffixed field, just not suffixed itself.
         return "opaque_lifecycle_reference"
     if property_name in _CONTAINER_PROPERTY_NAMES:
         return "closed_public_structure"
@@ -330,6 +361,30 @@ def _is_ref_definition_document_pointer(document: str, pointer: str) -> bool:
     )
 
 
+_WALKABLE_FRAGMENT_SIGNAL_KEYS = frozenset({"$ref", "type", "oneOf", "anyOf", "items"})
+
+
+def _is_walkable_fragment(node: dict[str, Any]) -> bool:
+    """PART1_CONTRACT_FREEZE_DRAFT.md:406-408's traversal rule descends
+    through allOf and if/then/else, but neither construct is used in this
+    corpus to ever declare a NEW property -- both are used exclusively to
+    layer an additional constraint on top of a property whose authoritative
+    home (where its x-disclosure annotation actually lives) is elsewhere: a
+    $ref target, or a sibling directly on the containing object's own
+    `properties`. A branch/if/then/else fragment is genuinely walkable (may
+    introduce a position worth checking) only when it is self-contained --
+    carries its own $ref, type, oneOf, anyOf, or items. A bare
+    {"properties": {...}, "required": [...]} wrapper with none of those
+    (a kind=const narrowing branch, an if/then sibling-value check) is
+    re-stating an already-covered property's legal values through a
+    different JSON Pointer path, not declaring a new one; walking it would
+    manufacture a disclosure requirement for a pointer that is not a
+    property's real home. Applied uniformly to allOf branches and
+    if/then/else because both are the same JSON Schema layered-composition
+    mechanism, just spelled differently."""
+    return bool(_WALKABLE_FRAGMENT_SIGNAL_KEYS & node.keys())
+
+
 def _iter_property_positions(
     document: str,
     pointer: str,
@@ -338,12 +393,26 @@ def _iter_property_positions(
     visited: set[tuple[str, str]],
 ) -> list[tuple[str, str, dict[str, Any], str]]:
     """Yield (document, pointer, node, property_name) for every reachable
-    property position under `node`, resolving cross-file $refs and following
-    oneOf/anyOf branches and $ref-only/typed allOf branches. Pure narrowing
-    allOf branches (no 'type' and no '$ref' -- e.g. {"properties": {"kind":
-    {"const": ...}}}) are deliberately NOT walked for coverage purposes: they
-    narrow an already-covered position, they do not declare a new one (the
-    real annotation for a narrowed sub-field lives at the $ref target)."""
+    property position under `node`. Resolves EVERY local or cross-file $ref
+    wherever it appears -- not only inside allOf branches (ALR-1106 P1 fix,
+    Terra review 2026-08-10: the prior version only resolved $ref inside
+    allOf, so record_response_schema.json's governance_profile/identity_
+    state/measurement_coverage/pending_episode/comparability_verdict/
+    bindings-items/evidence_episodes-items (all bare $ref), Route 1's own
+    identity_state, and the common-schema axis/coverage definitions those
+    bare refs point to were never walked past their own top-level property
+    position -- a real, undisclosed-property-shaped hole, not a narrow
+    caveat) -- and descends recursively through properties, array items,
+    oneOf, anyOf, allOf, and if/then/else, exactly matching PART1_CONTRACT_
+    FREEZE_DRAFT.md:406-408's traversal rule. `visited` tracks every
+    resolved (document, pointer) pair so a cycle (e.g. a self-referential
+    or mutually-referential $ref graph) neither skips a branch it hasn't
+    seen from THIS path nor recurses forever -- each unique pair is walked
+    exactly once, from wherever it is first reached. allOf branches and
+    if/then/else fragments that carry no $ref/type/oneOf/anyOf/items of
+    their own (pure sibling-narrowing wrappers) are deliberately not walked
+    -- see _is_walkable_fragment's docstring for why that is not a loophole
+    but the correct reading of what 'declares a new property' means."""
     positions: list[tuple[str, str, dict[str, Any], str]] = []
     if (document, pointer) in visited:
         return positions
@@ -351,6 +420,14 @@ def _iter_property_positions(
 
     if not isinstance(node, dict):
         return positions
+
+    if "$ref" in node and isinstance(node["$ref"], str):
+        target_document, target_pointer, target_node = _resolve_ref(
+            document, node["$ref"], schemas_cache
+        )
+        positions.extend(
+            _iter_property_positions(target_document, target_pointer, target_node, schemas_cache, visited)
+        )
 
     if "properties" in node and isinstance(node["properties"], dict):
         for key, subnode in node["properties"].items():
@@ -375,25 +452,21 @@ def _iter_property_positions(
                 )
 
     if "allOf" in node and isinstance(node["allOf"], list):
-        for branch in node["allOf"]:
-            if not isinstance(branch, dict):
+        for index, branch in enumerate(node["allOf"]):
+            if not isinstance(branch, dict) or not _is_walkable_fragment(branch):
                 continue
-            if "$ref" in branch:
-                target_document, target_pointer, target_node = _resolve_ref(
-                    document, branch["$ref"], schemas_cache
-                )
-                positions.extend(
-                    _iter_property_positions(
-                        target_document, target_pointer, target_node, schemas_cache, visited
-                    )
-                )
-            elif "type" in branch:
-                # A genuine (non-narrowing) inline schema fragment.
-                positions.extend(
-                    _iter_property_positions(document, pointer, branch, schemas_cache, visited)
-                )
-            # else: a pure narrowing fragment (properties/required only, no
-            # type, no $ref) -- deliberately not walked; see docstring.
+            branch_pointer = f"{pointer}/allOf/{index}"
+            positions.extend(
+                _iter_property_positions(document, branch_pointer, branch, schemas_cache, visited)
+            )
+
+    for keyword in ("if", "then", "else"):
+        candidate = node.get(keyword)
+        if isinstance(candidate, dict) and _is_walkable_fragment(candidate):
+            kw_pointer = f"{pointer}/{keyword}"
+            positions.extend(
+                _iter_property_positions(document, kw_pointer, candidate, schemas_cache, visited)
+            )
 
     return positions
 

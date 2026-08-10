@@ -36,8 +36,10 @@
       ]
     },
     "identity_state": {
-      "$ref": "agent_lifecycle_common_schema.json#/definitions/IdentityStateAxisValue",
-      "description": "Per the two constructible Route 1 branches (PART1_CONTRACT_FREEZE_DRAFT.md:557-560): client_declared mints RECONSTRUCTED/client_attested/[DECLARED_PROVENANCE]; omission mints UNKNOWN/client_attested/[REQUIRED_IDENTITY_UNKNOWN]. The reserved VERIFIED branch is structurally valid in the common definition but service-invalid from this route because Part 1 has no producer (PART1_CONTRACT_FREEZE_DRAFT.md:572).",
+      "allOf": [
+        {"$ref": "agent_lifecycle_common_schema.json#/definitions/IdentityStateAxisValue"}
+      ],
+      "description": "Per the two constructible Route 1 branches (PART1_CONTRACT_FREEZE_DRAFT.md:557-560): client_declared mints RECONSTRUCTED/client_attested/[DECLARED_PROVENANCE]; omission mints UNKNOWN/client_attested/[REQUIRED_IDENTITY_UNKNOWN]. The reserved VERIFIED branch is structurally valid in the common definition but service-invalid from this route because Part 1 has no producer (PART1_CONTRACT_FREEZE_DRAFT.md:572). ALR-1106 P1 fix (Terra review, 2026-08-10): allOf-wrapped rather than a bare $ref -- both forms validate identically, but a bare $ref was the exact shape the disclosure guard's original traversal bug failed to resolve; wrapping it removes the dependency on that bug being fixed to stay covered.",
       "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
     },
     "created_at": {

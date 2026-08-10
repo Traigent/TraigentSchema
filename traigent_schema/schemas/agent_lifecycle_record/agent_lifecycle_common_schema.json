@@ -183,20 +183,21 @@
       "description": "Closed structural base requiring exactly value/trust_level/reason-codes; the reason array is always unique, including when empty. Not a public escape hatch: nothing else in this document references this definition directly, and no route schema may either. Every public governance/identity/comparability/coverage property must use its own axis-specific closed definition below, each of which binds trust_level and the reason array structurally per legal value instead of accepting any combination this generic base alone would allow."
     },
     "GovernanceProfileAxisValue": {
-      "description": "Closed governance-profile axis. OBSERVED is the only value any Part 1 route ever emits: Backend's DB/server default, ORM default, backfill, and read fallback all yield OBSERVED, and unknown or legacy governance inputs resolve to it rather than being echoed back. ADVISORY and STRICT remain reserved -- structurally legal, always backend_observed with no bound reason -- but authorize no Part 1 action and have no Part 1 response producer.",
+      "description": "Closed governance-profile axis. OBSERVED is the only value any Part 1 route ever emits: Backend's DB/server default, ORM default, backfill, and read fallback all yield OBSERVED, and unknown or legacy governance inputs resolve to it rather than being echoed back. ADVISORY and STRICT remain reserved -- structurally legal, always backend_observed with no bound reason -- but authorize no Part 1 action and have no Part 1 response producer. ALR-1106 P1 fix (Terra review, 2026-08-10): every field in every branch below now carries x-disclosure -- the prior disclosure-guard revision reached this definition only through a bare $ref it did not resolve, so those fields could carry no annotation at all with no guard noticing.",
       "oneOf": [
         {
           "type": "object",
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "OBSERVED"},
-            "trust_level": {"const": "backend_observed"},
+            "value": {"const": "OBSERVED", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": []
+              "const": [],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -205,13 +206,14 @@
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "ADVISORY"},
-            "trust_level": {"const": "backend_observed"},
+            "value": {"const": "ADVISORY", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": []
+              "const": [],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -220,33 +222,35 @@
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "STRICT"},
-            "trust_level": {"const": "backend_observed"},
+            "value": {"const": "STRICT", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": []
+              "const": [],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         }
       ]
     },
     "IdentityStateAxisValue": {
-      "description": "Closed oneOf over the four structurally legal identity tuples. Reserved VERIFIED is exactly server_verified/[REGISTERED_PROVENANCE] but has no Part 1 producer. Live RECONSTRUCTED is exactly client_attested/[DECLARED_PROVENANCE]; historical RECONSTRUCTED is exactly client_attested/[LEGACY_RECONSTRUCTED] -- the historical trust floor is deliberate: the join is Backend-observed but the underlying provenance originated client-side. Live UNKNOWN is exactly client_attested/[REQUIRED_IDENTITY_UNKNOWN] and always retains that reason; it can never become VERIFIED, and no other tuple is legal.",
+      "description": "Closed oneOf over the four structurally legal identity tuples. Reserved VERIFIED is exactly server_verified/[REGISTERED_PROVENANCE] but has no Part 1 producer. Live RECONSTRUCTED is exactly client_attested/[DECLARED_PROVENANCE]; historical RECONSTRUCTED is exactly client_attested/[LEGACY_RECONSTRUCTED] -- the historical trust floor is deliberate: the join is Backend-observed but the underlying provenance originated client-side. Live UNKNOWN is exactly client_attested/[REQUIRED_IDENTITY_UNKNOWN] and always retains that reason; it can never become VERIFIED, and no other tuple is legal. ALR-1106 P1 fix (Terra review, 2026-08-10): see GovernanceProfileAxisValue's note immediately above -- the same bare-$ref guard gap applied here.",
       "oneOf": [
         {
           "type": "object",
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "VERIFIED"},
-            "trust_level": {"const": "server_verified"},
+            "value": {"const": "VERIFIED", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "server_verified", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["REGISTERED_PROVENANCE"]
+              "const": ["REGISTERED_PROVENANCE"],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -255,13 +259,14 @@
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "RECONSTRUCTED"},
-            "trust_level": {"const": "client_attested"},
+            "value": {"const": "RECONSTRUCTED", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "client_attested", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["DECLARED_PROVENANCE"]
+              "const": ["DECLARED_PROVENANCE"],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -270,13 +275,14 @@
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "RECONSTRUCTED"},
-            "trust_level": {"const": "client_attested"},
+            "value": {"const": "RECONSTRUCTED", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "client_attested", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["LEGACY_RECONSTRUCTED"]
+              "const": ["LEGACY_RECONSTRUCTED"],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -285,33 +291,35 @@
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "UNKNOWN"},
-            "trust_level": {"const": "client_attested"},
+            "value": {"const": "UNKNOWN", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "client_attested", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["REQUIRED_IDENTITY_UNKNOWN"]
+              "const": ["REQUIRED_IDENTITY_UNKNOWN"],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         }
       ]
     },
     "ComparabilityVerdictAxisValue": {
-      "description": "Closed oneOf over the four structurally legal comparability tuples. A single-record read is exactly NOT_APPLICABLE/backend_observed/[SINGLE_SUBJECT] -- Part 1's only actively producible branch. COMPARABLE requires an identical measurement-contract basis between the two records under comparison and carries no caveat reason (backend_observed/[]). NON_COMPARABLE is the mandatory verdict whenever that basis is not identical -- bound to the reserved CONTRACT_MISMATCH reason -- or whenever a required comparison input is unknown -- bound to the reserved REQUIRED_CONTRACT_UNKNOWN reason -- never a permissive default. All three non-NOT_APPLICABLE branches remain reserved with no Part 1 Route 5 producer; no delta or recommendation is emitted in Part 1.",
+      "description": "Closed oneOf over the four structurally legal comparability tuples. A single-record read is exactly NOT_APPLICABLE/backend_observed/[SINGLE_SUBJECT] -- Part 1's only actively producible branch. COMPARABLE requires an identical measurement-contract basis between the two records under comparison and carries no caveat reason (backend_observed/[]). NON_COMPARABLE is the mandatory verdict whenever that basis is not identical -- bound to the reserved CONTRACT_MISMATCH reason -- or whenever a required comparison input is unknown -- bound to the reserved REQUIRED_CONTRACT_UNKNOWN reason -- never a permissive default. All three non-NOT_APPLICABLE branches remain reserved with no Part 1 Route 5 producer; no delta or recommendation is emitted in Part 1. ALR-1106 P1 fix (Terra review, 2026-08-10): see GovernanceProfileAxisValue's note above -- the same bare-$ref guard gap applied here.",
       "oneOf": [
         {
           "type": "object",
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "NOT_APPLICABLE"},
-            "trust_level": {"const": "backend_observed"},
+            "value": {"const": "NOT_APPLICABLE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["SINGLE_SUBJECT"]
+              "const": ["SINGLE_SUBJECT"],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -320,13 +328,14 @@
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "COMPARABLE"},
-            "trust_level": {"const": "backend_observed"},
+            "value": {"const": "COMPARABLE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": []
+              "const": [],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -335,13 +344,14 @@
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "NON_COMPARABLE"},
-            "trust_level": {"const": "backend_observed"},
+            "value": {"const": "NON_COMPARABLE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["CONTRACT_MISMATCH"]
+              "const": ["CONTRACT_MISMATCH"],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -350,20 +360,21 @@
           "additionalProperties": false,
           "required": ["value", "trust_level", "reason_codes"],
           "properties": {
-            "value": {"const": "NON_COMPARABLE"},
-            "trust_level": {"const": "backend_observed"},
+            "value": {"const": "NON_COMPARABLE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["REQUIRED_CONTRACT_UNKNOWN"]
+              "const": ["REQUIRED_CONTRACT_UNKNOWN"],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         }
       ]
     },
     "RecordMeasurementCoverage": {
-      "description": "Closed oneOf between (a) a selected live COMPLETE reconciliation, (b) a selected live PARTIAL reconciliation, (c) a bound private legacy marker with state=UNKNOWN, basis=UNKNOWN_LEGACY_BASIS, all eight counts exactly null, trust_level=client_attested, and a reason array const [LEGACY_RECONSTRUCTED], and (d) an unmeasured projection with state=UNMEASURED, all eight counts schema-const 0, and basis NO_EVIDENCE_EPISODE|NO_SEALED_EVIDENCE_EPISODE selected from live episode cardinality. Every accepted eight-count object carries duplicate as schema-const 0 (const null on the legacy-marker branch, alongside the other seven counts) per the 2026-08-09 owner accounting decision (OWNER_DECISION_ACCOUNTING_20260809.md): expected/produced/cached/missing/failed/fallback/excluded/duplicate are the complete accepted count set; no ninth accounting field is legal on any branch.",
+      "description": "Closed oneOf between (a) a selected live COMPLETE reconciliation, (b) a selected live PARTIAL reconciliation, (c) a bound private legacy marker with state=UNKNOWN, basis=UNKNOWN_LEGACY_BASIS, all eight counts exactly null, trust_level=client_attested, and a reason array const [LEGACY_RECONSTRUCTED], and (d) an unmeasured projection with state=UNMEASURED, all eight counts schema-const 0, and basis NO_EVIDENCE_EPISODE|NO_SEALED_EVIDENCE_EPISODE selected from live episode cardinality. Every accepted eight-count object carries duplicate as schema-const 0 (const null on the legacy-marker branch, alongside the other seven counts) per the 2026-08-09 owner accounting decision (OWNER_DECISION_ACCOUNTING_20260809.md): expected/produced/cached/missing/failed/fallback/excluded/duplicate are the complete accepted count set; no ninth accounting field is legal on any branch. ALR-1106 P1 fix (Terra review, 2026-08-10): every field below now carries x-disclosure -- the prior guard reached this definition only through Route 5's bare $ref, so a genuinely undisclosed property here could have hidden with no guard noticing (this is the same-shaped twin of agent_lifecycle_receipt_submit_response_schema.json's LiveSealedMeasurementCoverage, which already carried these annotations because it is always reached via an allOf-wrapped $ref).",
       "oneOf": [
         {
           "type": "object",
@@ -374,23 +385,24 @@
             "reason_codes"
           ],
           "properties": {
-            "state": {"const": "COMPLETE"},
-            "basis": {"const": "LATEST_SEALED_EVIDENCE_EPISODE"},
-            "trust_level": {"const": "backend_observed"},
-            "expected": {"type": "integer", "minimum": 1, "maximum": 10000},
-            "produced": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "cached": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "missing": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "failed": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "fallback": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "excluded": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "duplicate": {"const": 0},
+            "state": {"const": "COMPLETE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "basis": {"const": "LATEST_SEALED_EVIDENCE_EPISODE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "expected": {"type": "integer", "minimum": 1, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "produced": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "cached": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "missing": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "failed": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "fallback": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "excluded": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "duplicate": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "description": "COMPLETE carries no caveat reason unless the underlying contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262/752): assignment-free, exactly [] or [CLIENT_ATTESTED_ONLY].",
               "type": "array",
               "items": {"enum": ["CLIENT_ATTESTED_ONLY"]},
               "uniqueItems": true,
-              "maxItems": 1
+              "maxItems": 1,
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -403,17 +415,17 @@
             "reason_codes"
           ],
           "properties": {
-            "state": {"const": "PARTIAL"},
-            "basis": {"const": "LATEST_SEALED_EVIDENCE_EPISODE"},
-            "trust_level": {"const": "backend_observed"},
-            "expected": {"type": "integer", "minimum": 1, "maximum": 10000},
-            "produced": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "cached": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "missing": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "failed": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "fallback": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "excluded": {"type": "integer", "minimum": 0, "maximum": 10000},
-            "duplicate": {"const": 0},
+            "state": {"const": "PARTIAL", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "basis": {"const": "LATEST_SEALED_EVIDENCE_EPISODE", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "expected": {"type": "integer", "minimum": 1, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "produced": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "cached": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "missing": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "failed": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "fallback": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "excluded": {"type": "integer", "minimum": 0, "maximum": 10000, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "duplicate": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "description": "PARTIAL always carries INCOMPLETE_EVIDENCE_EPISODE, optionally alongside CLIENT_ATTESTED_ONLY when the underlying contract is client-attested (PART1_CONTRACT_FREEZE_DRAFT.md:262/752): assignment-free, no other code is legal here.",
               "type": "array",
@@ -421,7 +433,8 @@
               "uniqueItems": true,
               "minItems": 1,
               "maxItems": 2,
-              "contains": {"const": "INCOMPLETE_EVIDENCE_EPISODE"}
+              "contains": {"const": "INCOMPLETE_EVIDENCE_EPISODE"},
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -434,22 +447,23 @@
             "reason_codes"
           ],
           "properties": {
-            "state": {"const": "UNKNOWN"},
-            "basis": {"const": "UNKNOWN_LEGACY_BASIS"},
-            "trust_level": {"const": "client_attested"},
-            "expected": {"const": null},
-            "produced": {"const": null},
-            "cached": {"const": null},
-            "missing": {"const": null},
-            "failed": {"const": null},
-            "fallback": {"const": null},
-            "excluded": {"const": null},
-            "duplicate": {"const": null},
+            "state": {"const": "UNKNOWN", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "basis": {"const": "UNKNOWN_LEGACY_BASIS", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "client_attested", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "expected": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "produced": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "cached": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "missing": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "failed": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "fallback": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "excluded": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "duplicate": {"const": null, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
               "uniqueItems": true,
-              "const": ["LEGACY_RECONSTRUCTED"]
+              "const": ["LEGACY_RECONSTRUCTED"],
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           }
         },
@@ -462,21 +476,22 @@
             "reason_codes"
           ],
           "properties": {
-            "state": {"const": "UNMEASURED"},
-            "basis": {"enum": ["NO_EVIDENCE_EPISODE", "NO_SEALED_EVIDENCE_EPISODE"]},
-            "trust_level": {"const": "backend_observed"},
-            "expected": {"const": 0},
-            "produced": {"const": 0},
-            "cached": {"const": 0},
-            "missing": {"const": 0},
-            "failed": {"const": 0},
-            "fallback": {"const": 0},
-            "excluded": {"const": 0},
-            "duplicate": {"const": 0},
+            "state": {"const": "UNMEASURED", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "basis": {"enum": ["NO_EVIDENCE_EPISODE", "NO_SEALED_EVIDENCE_EPISODE"], "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "trust_level": {"const": "backend_observed", "x-disclosure": {"rule": "closed_interop_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "expected": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "produced": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "cached": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "missing": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "failed": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "fallback": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "excluded": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
+            "duplicate": {"const": 0, "x-disclosure": {"rule": "protocol_accounting_count", "artifact": "agent_lifecycle_disclosure_register.v1"}},
             "reason_codes": {
               "type": "array",
               "items": {"$ref": "#/definitions/BoundedReasonCode"},
-              "uniqueItems": true
+              "uniqueItems": true,
+              "x-disclosure": {"rule": "bounded_reason_vocabulary", "artifact": "agent_lifecycle_disclosure_register.v1"}
             }
           },
           "allOf": [

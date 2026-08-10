@@ -163,6 +163,12 @@
       "pointer": "#/properties/measurement_coverage",
       "rule": "closed_interop_vocabulary",
       "artifact": "agent_lifecycle_disclosure_register.v1"
+    },
+    {
+      "document": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "pointer": "#/definitions/EpisodeProjection/properties/measurement_coverage",
+      "rule": "closed_interop_vocabulary",
+      "artifact": "agent_lifecycle_disclosure_register.v1"
     }
   ]
 }

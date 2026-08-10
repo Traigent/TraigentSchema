@@ -22,12 +22,14 @@ PART1_CONTRACT_FREEZE_DRAFT.md (Route 1: lines 535-577; Route 2: lines
 579-624).
 
 Binding owner constraint (runs/agent-lifecycle-contract-integration/
-OWNER_DECISION_ACCOUNTING_20260809.md, Option A): no `commitment`, no
-`observed_unique` -- not as properties, not as literal strings, anywhere in
-this module (including fixtures/case ids). Neither field exists on these two
-routes' schemas at all (they are Route 3/4 concerns), but this module proves
-that negatively rather than assuming it, using the same fragment-construction
-technique ALR-1102 established so neither literal spelling sits in this file
+OWNER_DECISION_ACCOUNTING_20260809.md, Option A): neither field the
+2026-08-09 owner accounting decision deleted from Part 1 may appear as a
+property or as a literal string anywhere in this module (including
+fixtures/case ids). Neither field exists on these two routes' schemas at all
+(they are Route 3/4 concerns), but this module proves that negatively rather
+than assuming it, using the same fragment-construction technique ALR-1102
+established (see `_forbidden_field_names()` below) so neither literal
+spelling sits in this file
 as a static string.
 """
 

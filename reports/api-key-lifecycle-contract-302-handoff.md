@@ -27,9 +27,6 @@ This is Schema-only.  It does not change Backend or Frontend behavior, add a
 workflow, or describe implementation details.  Existing Backend routes are the
 source for names, enumerations, and defaults.
 
-The lockfile was updated because `pyproject.toml` already pins ruff 0.16.0
-while the checked-in lock still selected 0.15.20; `uv lock --check` now passes.
-
 ## Verification
 
 - `uv run --extra dev python -m pytest tests/test_admin_onboarding_contract.py -q -p no:cacheprovider`

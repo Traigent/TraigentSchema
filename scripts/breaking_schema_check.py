@@ -56,14 +56,13 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
 from collections import defaultdict
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 from urllib.parse import quote, urldefrag, urljoin, urlparse
 
@@ -89,9 +88,9 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 import _path_safety as _ps  # noqa: E402  (deliberately follows the sys.path insert above)
 
 _is_relative_to = _ps.is_relative_to
+_extract_validated_tar_members = _ps.extract_validated_tar_members
 _resolve_path_within = _ps.resolve_path_within
 _safe_git_ref = _ps.safe_git_ref
-_validate_tar_members_stay_within = _ps.validate_tar_members_stay_within
 
 Role = Literal["request", "response", "conservative"]
 Severity = Literal["BREAKING", "INFO"]
@@ -106,9 +105,7 @@ def _resolve_repo_root(raw_path: str | Path) -> Path:
         raise ValueError(f"--repo-root is not a directory: {repo_root}")
     if not (repo_root / ".git").exists():
         raise ValueError(f"--repo-root is not a git checkout: {repo_root}")
-    schemas_dir = _resolve_path_within(
-        repo_root / SCHEMAS_SUBDIR, repo_root, SCHEMAS_SUBDIR
-    )
+    schemas_dir = _resolve_path_within(repo_root / SCHEMAS_SUBDIR, repo_root, SCHEMAS_SUBDIR)
     if not schemas_dir.is_dir():
         raise ValueError(f"--repo-root does not contain {SCHEMAS_SUBDIR}: {repo_root}")
     return repo_root
@@ -277,19 +274,19 @@ def load_tree_from_ref(repo_root: Path, ref: str, dest: Path, extraction_root: P
         capture_output=True,
         check=True,
     )
-    if archive.stdout:
-        # Extract via tarfile, not `tar -x`, so every member can be checked BEFORE it
-        # lands: a member path containing `..`, or a symlink pointing outside the
-        # destination, would otherwise let a crafted commit place or alias a file
-        # anywhere this process can write, and the *.json reader below would then
-        # happily read through it. refresh_consumer_schema_references.py already did
-        # this; the two hardening passes diverged, which is why the helper now lives in
-        # scripts/_path_safety.py rather than being copied.
-        with tempfile.NamedTemporaryFile(suffix=".tar") as tmp_tar:
-            tmp_tar.write(archive.stdout)
-            tmp_tar.flush()
-            with tarfile.open(tmp_tar.name) as tar:
-                _extract_validated_tar_members(tar, safe_dest)
+    if not archive.stdout:
+        raise ValueError(f"git archive contains no {SCHEMAS_SUBDIR}: {safe_ref}")
+    # Extract via tarfile, not `tar -x`, so every member can be checked BEFORE it
+    # lands: a member path containing `..`, or a symlink pointing outside the
+    # destination, would otherwise let a crafted commit place or alias a file
+    # anywhere this process can write, and the *.json reader below would then
+    # happily read through it. The shared helper keeps this materialization rule
+    # identical for both archive-consuming scripts.
+    with tempfile.NamedTemporaryFile(suffix=".tar") as tmp_tar:
+        tmp_tar.write(archive.stdout)
+        tmp_tar.flush()
+        with tarfile.open(tmp_tar.name) as tar:
+            _extract_validated_tar_members(tar, safe_dest, required_paths=(SCHEMAS_SUBDIR,))
     sha = subprocess.run(
         ["git", "-C", str(safe_repo_root), "rev-parse", "--short=12", safe_ref],
         capture_output=True,
@@ -297,50 +294,6 @@ def load_tree_from_ref(repo_root: Path, ref: str, dest: Path, extraction_root: P
         check=True,
     ).stdout.strip()
     return load_tree_from_dir(safe_dest / SCHEMAS_SUBDIR, label=f"{safe_ref}@{sha}")
-
-
-def _extract_validated_tar_members(tar: tarfile.TarFile, dest: Path) -> None:
-    """Materialize a git archive using only regular files and directories.
-
-    ``git archive`` output is normally trusted, but the ref is still an input to this CLI.
-    Validate all members before writing anything, then copy regular-file payloads ourselves
-    instead of delegating extraction to ``tarfile``.  This deliberately rejects links,
-    devices, FIFOs, and other special entries: schema JSON needs none of them, and accepting
-    them would make the safety argument depend on platform-specific extraction behaviour.
-    """
-    resolved_dest = dest.resolve()
-    _validate_tar_members_stay_within(tar, resolved_dest)
-
-    for member in tar.getmembers():
-        posix_name = PurePosixPath(member.name)
-        windows_name = PureWindowsPath(member.name)
-        if (
-            not member.name
-            or "\\" in member.name
-            or posix_name.is_absolute()
-            or windows_name.is_absolute()
-            or windows_name.drive
-            or ".." in posix_name.parts
-            or ".." in windows_name.parts
-        ):
-            raise ValueError(f"unsafe tar member path: {member.name!r}")
-
-        member_path = (resolved_dest / posix_name).resolve()
-        if member_path != resolved_dest and not _is_relative_to(member_path, resolved_dest):
-            raise ValueError(f"tar member escapes destination: {member.name!r}")
-        if member.issym() or member.islnk() or not (member.isfile() or member.isdir()):
-            raise ValueError(f"unsafe tar member type: {member.name!r}")
-
-        if member.isdir():
-            member_path.mkdir(parents=True, exist_ok=True)
-            continue
-
-        payload = tar.extractfile(member)
-        if payload is None:
-            raise ValueError(f"tar member has no readable payload: {member.name!r}")
-        member_path.parent.mkdir(parents=True, exist_ok=True)
-        with payload, member_path.open("xb") as output:
-            shutil.copyfileobj(payload, output)
 
 
 # ---------------------------------------------------------------------------
@@ -1945,9 +1898,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         head_ref = _safe_git_ref(args.head_ref, "--head-ref") if args.head_ref else None
         json_out = (
-            _resolve_path_within(args.json_out, repo_root, "--json")
-            if args.json_out
-            else None
+            _resolve_path_within(args.json_out, repo_root, "--json") if args.json_out else None
         )
 
         with tempfile.TemporaryDirectory(prefix="breaking-schema-check-") as tmp:

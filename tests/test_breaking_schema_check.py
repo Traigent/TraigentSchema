@@ -27,6 +27,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -241,6 +242,22 @@ def test_tar_extraction_materializes_a_valid_schema_archive(tmp_path: Path) -> N
     ) == '{"type": "object"}\n'
 
 
+def test_gate_rejects_a_historical_ref_with_file_at_schema_target(widget_repo: Path) -> None:
+    """A historical ``schemas`` file must fail the CLI before an empty tree can pass."""
+    _run_git(widget_repo, "checkout", "-q", "-b", "schemas-is-a-file")
+    schema_target = widget_repo / "traigent_schema" / "schemas"
+    shutil.rmtree(schema_target)
+    schema_target.write_text("not a schema directory\n", encoding="utf-8")
+    _run_git(widget_repo, "add", "-A")
+    _run_git(widget_repo, "commit", "-q", "-m", "replace schemas directory with file")
+    _run_git(widget_repo, "checkout", "-q", "master")
+
+    result = _run_gate(widget_repo, "schemas-is-a-file", "master")
+
+    assert result.returncode == 2, result.stdout
+    assert "required tar directory is missing" in result.stderr
+
+
 def test_removing_a_property_fails_and_names_it(widget_repo: Path) -> None:
     changed = dict(BASELINE_SCHEMA)
     baseline_properties: dict = BASELINE_SCHEMA["properties"]
@@ -341,9 +358,7 @@ def _closed_response_schema(filename: str = "widget_response_schema.json") -> di
 
 
 @pytest.mark.parametrize("make_required", [False, True], ids=["optional", "required"])
-def test_closed_response_added_property_is_breaking(
-    tmp_path: Path, make_required: bool
-) -> None:
+def test_closed_response_added_property_is_breaking(tmp_path: Path, make_required: bool) -> None:
     """Both optional and required new response members can be emitted to an old strict
     consumer, so both must be classified as a response compatibility break."""
     filename = "widget_response_schema.json"
@@ -518,9 +533,7 @@ def test_nested_closed_response_added_pattern_property_is_breaking(tmp_path: Pat
     baseline["required"].append("payload")
     repo = _response_schema_repo(tmp_path, filename, baseline)
     changed = json.loads(json.dumps(baseline))
-    changed["properties"]["payload"]["patternProperties"] = {
-        "^x-": {"type": "string"}
-    }
+    changed["properties"]["payload"]["patternProperties"] = {"^x-": {"type": "string"}}
     _commit_schema_change(
         repo, "add-pattern", changed, "add nested response pattern property", filename
     )
@@ -567,9 +580,11 @@ def test_combinator_appearance_and_disappearance_follow_role_direction(
     )
 
     result = _run_gate(repo, "master", f"{direction}-{combinator}")
-    expected_breaking = role == "conservative" or (
-        role == "request" and direction == "added"
-    ) or (role == "response" and direction == "removed")
+    expected_breaking = (
+        role == "conservative"
+        or (role == "request" and direction == "added")
+        or (role == "response" and direction == "removed")
+    )
 
     assert result.returncode == int(expected_breaking), result.stdout
     assert f"{combinator}_{direction}, role={role}" in result.stdout
@@ -731,9 +746,7 @@ def test_real_allowlist_reason_grants_opt_out(widget_repo: Path) -> None:
     assert "BREAKING (unacked):   0" in result.stdout
 
 
-def test_run_git_ignores_inherited_git_dir(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_git_ignores_inherited_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Regression for the incident this module's helpers must never repeat: a
     pre-push hook (or any parent process) can export GIT_DIR/GIT_WORK_TREE for
     ITS OWN repo. `git -C <path>` does NOT override an inherited GIT_DIR, so a
@@ -758,9 +771,7 @@ def test_run_git_ignores_inherited_git_dir(
 
     sacrificial_head_before = _run_git(sacrificial_repo, "rev-parse", "HEAD").strip()
     sacrificial_config_before = _run_git(sacrificial_repo, "config", "--local", "--list")
-    sacrificial_log_count_before = _run_git(
-        sacrificial_repo, "rev-list", "--count", "HEAD"
-    ).strip()
+    sacrificial_log_count_before = _run_git(sacrificial_repo, "rev-list", "--count", "HEAD").strip()
     sacrificial_index_before = (sacrificial_repo / ".git" / "index").read_bytes()
 
     # Poison the process environment the way an inheriting caller (e.g. an
@@ -787,17 +798,12 @@ def test_run_git_ignores_inherited_git_dir(
 
     # The sacrificial repo's ref, commit count, and config must be untouched —
     # not overwritten, not gained a second commit, not reconfigured.
-    assert (
-        _run_git(sacrificial_repo, "rev-parse", "HEAD").strip() == sacrificial_head_before
-    )
+    assert _run_git(sacrificial_repo, "rev-parse", "HEAD").strip() == sacrificial_head_before
     assert (
         _run_git(sacrificial_repo, "rev-list", "--count", "HEAD").strip()
         == sacrificial_log_count_before
     )
-    assert (
-        _run_git(sacrificial_repo, "config", "--local", "--list")
-        == sacrificial_config_before
-    )
+    assert _run_git(sacrificial_repo, "config", "--local", "--list") == sacrificial_config_before
     # The sacrificial index must be byte-for-byte unchanged -- not just "same
     # HEAD", but never staged/rewritten by the target repo's add/commit calls.
     assert (sacrificial_repo / ".git" / "index").read_bytes() == sacrificial_index_before
@@ -855,7 +861,7 @@ def test_pre_push_hook_clears_git_local_env_before_exec(tmp_path: Path) -> None:
         '    printf \'still set: %s=%s\\n\' "$name" "${!name}" > "$marker"\n'
         "    exit 1\n"
         "  fi\n"
-        "done <<< \"$(git rev-parse --local-env-vars)\"\n"
+        'done <<< "$(git rev-parse --local-env-vars)"\n'
         'echo ok > "$marker"\n',
         encoding="utf-8",
     )

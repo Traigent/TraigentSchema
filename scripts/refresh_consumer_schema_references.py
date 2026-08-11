@@ -100,8 +100,23 @@ _SCHEMAS_DIR = _REPO_ROOT / "traigent_schema" / "schemas"
 _OUT_PATH = _REPO_ROOT / "reports" / "schema_reachability" / "consumer_references.json"
 
 _TEXT_EXT = {
-    ".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".yaml", ".yml",
-    ".toml", ".cfg", ".ini", ".txt", ".sh", ".mjs", ".cjs", ".graphql",
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".json",
+    ".md",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".cfg",
+    ".ini",
+    ".txt",
+    ".sh",
+    ".mjs",
+    ".cjs",
+    ".graphql",
 }
 _SKIP_DIRS = {".git", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", "node_modules"}
 # Lock files are hash/version ledgers, not source code choosing to load a
@@ -123,7 +138,11 @@ _is_relative_to = _ps.is_relative_to
 _resolve_existing_dir = _ps.resolve_existing_dir
 _resolve_path_within = _ps.resolve_path_within
 _safe_git_ref = _ps.safe_git_ref
-_validate_tar_members_stay_within = _ps.validate_tar_members_stay_within
+
+
+def _extract_validated_tar_members(tar: tarfile.TarFile, dest: Path) -> None:
+    """Materialize consumer source while skipping never-followed nonregular members."""
+    _ps.extract_validated_tar_members(tar, dest, special_member_policy="skip")
 
 
 def _resolve_git_repo(raw_path: str | Path, arg_name: str) -> Path:
@@ -136,9 +155,7 @@ def _resolve_git_repo(raw_path: str | Path, arg_name: str) -> Path:
 def _safe_repo_name(raw_name: str) -> str:
     name = raw_name.strip()
     if name != raw_name or not name:
-        raise ValueError(
-            "--repo NAME must be non-empty and have no surrounding whitespace"
-        )
+        raise ValueError("--repo NAME must be non-empty and have no surrounding whitespace")
     if not _SAFE_REPO_NAME_RE.fullmatch(name):
         raise ValueError(f"--repo NAME contains unsupported characters: {raw_name!r}")
     return name
@@ -156,10 +173,7 @@ def _iter_text_files(root: Path):
             rel_parts = path.relative_to(safe_root).parts
         except (OSError, ValueError):
             continue
-        if (
-            resolved_path != safe_root
-            and not _is_relative_to(resolved_path, safe_root)
-        ):
+        if resolved_path != safe_root and not _is_relative_to(resolved_path, safe_root):
             continue
         if path.is_symlink() or not path.is_file():
             continue
@@ -194,8 +208,7 @@ def _archive_ref(repo_path: Path, ref: str, dest: Path, archive_root: Path) -> s
         tmp_tar.write(archive_proc.stdout)
         tmp_tar.flush()
         with tarfile.open(tmp_tar.name) as tar:
-            _validate_tar_members_stay_within(tar, safe_dest)
-            tar.extractall(safe_dest)
+            _extract_validated_tar_members(tar, safe_dest)
     return sha
 
 

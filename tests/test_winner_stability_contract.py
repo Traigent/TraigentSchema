@@ -70,36 +70,24 @@ def _winner_stability() -> dict[str, Any]:
     }
 
 
-def _best_config_v1(validation: dict[str, Any] | None = None) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "schema_version": "traigent.best_config.v1",
-        "config_id": "support-answerer",
-        "function_ref": "tests.best_config:answer",
-        "environment": "default",
-        "config": {"model": "gpt-4o-mini", "temperature": 0.2},
-        "provenance": {"algorithm": "tpe", "optimization_id": "opt_cloud_123"},
-    }
-    if validation is not None:
-        payload["validation"] = validation
-    return payload
-
-
-def _best_config_v2(validation: dict[str, Any] | None = None) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "schema_version": "traigent.best_config.v2",
-        "config_id": "support-answerer",
-        "function_ref": "tests.best_config:answer",
-        "environment": "default",
-        "config": {"model": "gpt-4o-mini", "temperature": 0.2},
-        "provenance": {"algorithm": "tpe", "optimization_id": "opt_cloud_123"},
-    }
-    if validation is not None:
-        payload["validation"] = validation
-    return payload
-
-
 _V1 = "optimization/best_config_schema.json"
 _V2 = "optimization/best_config_v2_schema.json"
+
+
+def _best_config(schema_path: str, validation: dict[str, Any] | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_version": "traigent.best_config.v1"
+        if schema_path == _V1
+        else "traigent.best_config.v2",
+        "config_id": "support-answerer",
+        "function_ref": "tests.best_config:answer",
+        "environment": "default",
+        "config": {"model": "gpt-4o-mini", "temperature": 0.2},
+        "provenance": {"algorithm": "tpe", "optimization_id": "opt_cloud_123"},
+    }
+    if validation is not None:
+        payload["validation"] = validation
+    return payload
 
 
 # --- the block is optional ----------------------------------------------------
@@ -107,16 +95,14 @@ _V2 = "optimization/best_config_v2_schema.json"
 
 @pytest.mark.parametrize("schema_path", [_V1, _V2])
 def test_payload_without_winner_stability_still_validates(schema_path: str) -> None:
-    builder = _best_config_v1 if schema_path == _V1 else _best_config_v2
-    assert list(_validator(schema_path).iter_errors(builder())) == []
-    assert list(_validator(schema_path).iter_errors(builder(validation={}))) == []
+    assert list(_validator(schema_path).iter_errors(_best_config(schema_path))) == []
+    assert list(_validator(schema_path).iter_errors(_best_config(schema_path, validation={}))) == []
 
 
 @pytest.mark.parametrize("schema_path", [_V1, _V2])
 def test_validation_remains_open_for_foreign_evidence_keys(schema_path: str) -> None:
-    builder = _best_config_v1 if schema_path == _V1 else _best_config_v2
-    payload = builder(
-        validation={"guaranteed_selection": {"certificate_id": "cert_1"}}
+    payload = _best_config(
+        schema_path, validation={"guaranteed_selection": {"certificate_id": "cert_1"}}
     )
     assert list(_validator(schema_path).iter_errors(payload)) == []
 
@@ -126,33 +112,29 @@ def test_validation_remains_open_for_foreign_evidence_keys(schema_path: str) -> 
 
 @pytest.mark.parametrize("schema_path", [_V1, _V2])
 def test_well_formed_winner_stability_validates(schema_path: str) -> None:
-    builder = _best_config_v1 if schema_path == _V1 else _best_config_v2
-    payload = builder(validation={"winner_stability": _winner_stability()})
+    payload = _best_config(schema_path, validation={"winner_stability": _winner_stability()})
     assert list(_validator(schema_path).iter_errors(payload)) == []
 
 
 @pytest.mark.parametrize("schema_path", [_V1, _V2])
 def test_every_winner_stability_member_is_optional(schema_path: str) -> None:
-    builder = _best_config_v1 if schema_path == _V1 else _best_config_v2
     full = _winner_stability()
     for member in full:
         partial = {k: v for k, v in full.items() if k != member}
-        payload = builder(validation={"winner_stability": partial})
+        payload = _best_config(schema_path, validation={"winner_stability": partial})
         errors = list(_validator(schema_path).iter_errors(payload))
         assert errors == [], f"dropping optional member {member!r} must not fail"
-    empty = builder(validation={"winner_stability": {}})
+    empty = _best_config(schema_path, validation={"winner_stability": {}})
     assert list(_validator(schema_path).iter_errors(empty)) == []
 
 
 def test_publish_request_closure_resolves_winner_stability_refs_locally() -> None:
     payload = {
-        "spec": _best_config_v1(validation={"winner_stability": _winner_stability()}),
+        "spec": _best_config(_V1, validation={"winner_stability": _winner_stability()}),
         "environment": "default",
     }
     errors = list(
-        _validator("execution/best_config_publish_request_schema.json").iter_errors(
-            payload
-        )
+        _validator("execution/best_config_publish_request_schema.json").iter_errors(payload)
     )
     assert errors == []
 
@@ -175,29 +157,24 @@ def test_publish_request_closure_resolves_winner_stability_refs_locally() -> Non
     ],
 )
 @pytest.mark.parametrize("schema_path", [_V1, _V2])
-def test_malformed_winner_stability_is_rejected(
-    schema_path: str, mutation: dict[str, Any]
-) -> None:
-    builder = _best_config_v1 if schema_path == _V1 else _best_config_v2
+def test_malformed_winner_stability_is_rejected(schema_path: str, mutation: dict[str, Any]) -> None:
     block = {**_winner_stability(), **mutation}
-    payload = builder(validation={"winner_stability": block})
+    payload = _best_config(schema_path, validation={"winner_stability": block})
     errors = list(_validator(schema_path).iter_errors(payload))
     assert errors != [], f"mutation {mutation!r} must be rejected"
 
 
 @pytest.mark.parametrize("schema_path", [_V1, _V2])
 def test_scores_over_the_bound_are_rejected(schema_path: str) -> None:
-    builder = _best_config_v1 if schema_path == _V1 else _best_config_v2
     block = {**_winner_stability(), "scores": [0.5] * 1001}
-    payload = builder(validation={"winner_stability": block})
+    payload = _best_config(schema_path, validation={"winner_stability": block})
     assert list(_validator(schema_path).iter_errors(payload)) != []
 
 
 @pytest.mark.parametrize("schema_path", [_V1, _V2])
 def test_winner_stability_block_is_closed(schema_path: str) -> None:
-    builder = _best_config_v1 if schema_path == _V1 else _best_config_v2
     block = {**_winner_stability(), "guaranteed": True}
-    payload = builder(validation={"winner_stability": block})
+    payload = _best_config(schema_path, validation={"winner_stability": block})
     assert list(_validator(schema_path).iter_errors(payload)) != []
 
 
@@ -210,9 +187,9 @@ def test_v1_refs_the_v2_normative_definition_rather_than_repeating_it() -> None:
     v2 = _load(schemas_dir / _V2)
 
     v1_ref = v1["properties"]["validation"]["properties"]["winner_stability"]
-    assert v1_ref == {
-        "$ref": "./best_config_v2_schema.json#/definitions/winner_stability"
-    }, "v1 must $ref the single normative definition, not repeat the shape"
+    assert v1_ref == {"$ref": "./best_config_v2_schema.json#/definitions/winner_stability"}, (
+        "v1 must $ref the single normative definition, not repeat the shape"
+    )
 
     definition = v2["definitions"]["winner_stability"]
     assert definition["additionalProperties"] is False

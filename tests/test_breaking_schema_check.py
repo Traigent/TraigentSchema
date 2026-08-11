@@ -24,10 +24,12 @@ function.
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -159,6 +161,84 @@ def _run_gate(repo: Path, base_ref: str, head_ref: str) -> subprocess.CompletedP
         capture_output=True,
         text=True,
     )
+
+
+def _write_tar(archive_path: Path, members: list[tarfile.TarInfo]) -> None:
+    with tarfile.open(archive_path, "w") as archive:
+        for member in members:
+            payload = io.BytesIO(b'{"type": "object"}\n') if member.isfile() else None
+            archive.addfile(member, payload)
+
+
+def _regular_tar_member(name: str) -> tarfile.TarInfo:
+    member = tarfile.TarInfo(name)
+    member.size = len(b'{"type": "object"}\n')
+    return member
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        _regular_tar_member("../escaped.json"),
+        _regular_tar_member("/etc/passwd"),
+        _regular_tar_member(r"C:\windows\escaped.json"),
+        _regular_tar_member(r"\windows\escaped.json"),
+        tarfile.TarInfo("safe-link"),
+        tarfile.TarInfo("safe-hard-link"),
+        tarfile.TarInfo("special-device"),
+        tarfile.TarInfo("special-fifo"),
+    ],
+    ids=[
+        "posix-traversal",
+        "posix-absolute",
+        "windows-drive-traversal",
+        "windows-rooted-traversal",
+        "symlink",
+        "hardlink",
+        "device",
+        "fifo",
+    ],
+)
+def test_tar_extraction_rejects_unsafe_members(tmp_path: Path, member: tarfile.TarInfo) -> None:
+    if member.name == "safe-link":
+        member.type = tarfile.SYMTYPE
+        member.linkname = "inside.json"
+    elif member.name == "safe-hard-link":
+        member.type = tarfile.LNKTYPE
+        member.linkname = "inside.json"
+    elif member.name == "special-device":
+        member.type = tarfile.CHRTYPE
+    elif member.name == "special-fifo":
+        member.type = tarfile.FIFOTYPE
+
+    archive_path = tmp_path / "unsafe.tar"
+    destination = tmp_path / "destination"
+    destination.mkdir()
+    _write_tar(archive_path, [member])
+
+    with tarfile.open(archive_path) as archive, pytest.raises(ValueError, match="(escapes|unsafe)"):
+        gate._extract_validated_tar_members(archive, destination)
+
+    assert not (tmp_path / "escaped.json").exists()
+
+
+def test_tar_extraction_materializes_a_valid_schema_archive(tmp_path: Path) -> None:
+    archive_path = tmp_path / "valid.tar"
+    destination = tmp_path / "destination"
+    destination.mkdir()
+    directory = tarfile.TarInfo("traigent_schema/schemas/widgets")
+    directory.type = tarfile.DIRTYPE
+    _write_tar(
+        archive_path,
+        [directory, _regular_tar_member("traigent_schema/schemas/widgets/widget_schema.json")],
+    )
+
+    with tarfile.open(archive_path) as archive:
+        gate._extract_validated_tar_members(archive, destination)
+
+    assert (destination / "traigent_schema/schemas/widgets/widget_schema.json").read_text(
+        encoding="utf-8"
+    ) == '{"type": "object"}\n'
 
 
 def test_removing_a_property_fails_and_names_it(widget_repo: Path) -> None:

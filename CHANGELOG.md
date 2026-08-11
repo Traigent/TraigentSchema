@@ -86,6 +86,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   object (`additionalProperties: true`), payloads without the block are untouched, and this
   revision attaches no gating and no claim semantics — recording the measurement is the
   entire contract.
+  - Semantics per the C3/C5 committee rulings: `std` is the **sample** SD and is always shown
+    when computable (no small-replicate suppression; undefined for a single replicate, hence
+    optional); no numeric stability thresholds and no "flip" concept ship in v0; the
+    description marks pairwise per-example comparisons as clustered/dependent (same frozen
+    example set), prohibits feeding contrast selection or any noise floor, names the S2
+    verdict path as the block's consumer (absent stability evidence the affected metric
+    verdict is INDETERMINATE; a single execution may still be reported descriptively), and
+    carries the two verbatim claim / NON-claim strings that any rendering of these numbers
+    must ship together.
 
 ## [5.5.0] - 2026-08-01
 

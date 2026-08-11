@@ -81,6 +81,11 @@
     "validation": {
       "type": "object",
       "maxProperties": 128,
+      "properties": {
+        "winner_stability": {
+          "$ref": "./best_config_v2_schema.json#/definitions/winner_stability"
+        }
+      },
       "additionalProperties": true
     },
     "forward_compat": {

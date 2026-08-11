@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_claim_templates_v0_schema.json",
+  "title": "Agent Certificate v0 Claim Template Catalog",
+  "description": "The pinned v0 claim-template catalog record shape. Claim sentences are VERSIONED TEMPLATES, never user-controlled prose: a claim instance carries only a template_id plus bounded enum/numeric/digest parameters, and a renderer substitutes them into the template_text pinned here. Templates are 'create-once resources inside a signed, archived semantics bundle' (C1 Ruling 1); a catalog digest alone is insufficient — 'A catalog digest alone cannot render or verify semantics. The immutable catalog and its authenticity path must remain available.' This document pins the exact seven v0 template records as const definitions so the wire format and the human-readable sentence cannot drift apart; the signed semantics manifest binds this file's canonical digest. Adding a template is a new compatible schema release ONLY 'after its meaning, information channel, prohibited-claim interaction, and boundary tests are registered' (C1 Ruling 1 reversal condition). A root instance is one catalog record: exactly one of the seven pinned templates.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/TemplateB1V1"
+    },
+    {
+      "$ref": "#/definitions/TemplateREG1V1"
+    },
+    {
+      "$ref": "#/definitions/TemplateC1V1"
+    },
+    {
+      "$ref": "#/definitions/TemplateD2V1"
+    },
+    {
+      "$ref": "#/definitions/TemplateF1V1"
+    },
+    {
+      "$ref": "#/definitions/TemplateG1V1"
+    },
+    {
+      "$ref": "#/definitions/TemplateG3V1"
+    }
+  ],
+  "definitions": {
+    "TemplateB1V1": {
+      "description": "Claim B1 (ledger integrity) — deliberately the NARROW C1 wording, adopted over C6's broader 'sealed-ledger structural integrity' form as the captain's resolution of tension T2: 'In v0, the projection may support only \"the issuer signed this seal statement.\" Ledger completeness, ordering, splice resistance, and event inclusion remain non-claims' (C1 Ruling 2). The template asserts ONLY that the issuer signed a named seal statement; it does not say the sealed history is intact, complete, ordered, or splice-resistant — 'terminal commitments without recomputable evidence prove commitment existence, not the committed history.'",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_id", "template_text", "parameter_slots"],
+      "properties": {
+        "template_id": {
+          "const": "tmpl.cert.b1.issuer_signed_seal_statement.v1"
+        },
+        "template_text": {
+          "const": "The issuer signed this seal statement: seal {seal_ref}, canonical seal-statement digest {seal_statement_digest}."
+        },
+        "parameter_slots": {
+          "const": ["seal_ref", "seal_statement_digest"]
+        }
+      }
+    },
+    "TemplateREG1V1": {
+      "description": "Claim REG1 (registry commitment receipt; the C6 rulings' 'B3', re-keyed because matrix B3 is the different adverse-history claim — see certificate_claims_v0_schema.json#/definitions/ClaimIdV0), scope conceded to the proposer by C6 Ruling 3(iii): 'registry receipt can attest bytes, identifier, and server-recorded time—not truth, authorship, or completeness.' The template text carries that limitation inline so no renderer can print the receipt without it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_id", "template_text", "parameter_slots"],
+      "properties": {
+        "template_id": {
+          "const": "tmpl.cert.reg1.registry_commitment_receipt.v1"
+        },
+        "template_text": {
+          "const": "Registry record {registry_record_ref} of kind {registry_kind} holds a commitment under scheme {commitment_scheme} with canonical record digest {canonical_record_digest}. This receipt attests bytes, identifier, and server-recorded time only — not truth, authorship, or completeness."
+        },
+        "parameter_slots": {
+          "const": ["registry_record_ref", "registry_kind", "commitment_scheme", "canonical_record_digest"]
+        }
+      }
+    },
+    "TemplateC1V1": {
+      "description": "Claim C1 (artifact-scoped compiler provenance). The GLOBAL form — any sentence asserting the agent itself contains no unsupported claims — 'remains prohibited' (C6 Ruling 3(ii); merged prohibited claim 17). This template is the ARTIFACT-scoped sentence, printable only after the independent relying-party verifier gate passes; 'unsupported' is operationally defined as 'unregistered claim, missing/versionless verifier, verifier not run or not PASS, missing evidence binding, or prohibited-register violation.'",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_id", "template_text", "parameter_slots"],
+      "properties": {
+        "template_id": {
+          "const": "tmpl.cert.c1.artifact_scoped_no_unsupported_claims.v1"
+        },
+        "template_text": {
+          "const": "Within this certificate artifact only: every printed claim resolved to a registered template, a versioned verifier run recording PASS, and bound evidence digests, under compiler {compiler_version}, semantics manifest {semantics_manifest_digest}, prohibited-claims register {prohibited_register_digest}, and verifier catalog {verifier_catalog_digest}. This sentence says nothing about the agent, its outputs, or any content outside this artifact."
+        },
+        "parameter_slots": {
+          "const": ["compiler_version", "semantics_manifest_digest", "prohibited_register_digest", "verifier_catalog_digest"]
+        }
+      }
+    },
+    "TemplateD2V1": {
+      "description": "Claim D2 (offline zero-Traigent-backend-egress), 'the sole runtime-witnessed row in the supplied evidence, and even it must remain precisely scoped to the attestation mode and SDK witness identified' (C6 v0 set). Scoped to a pinned SDK ref and declared workload class; merged prohibited claim 16 bars any offline zero-egress wording 'beyond the exact attested run or pinned SDK witness scope', and real-model runs necessarily egress to the model provider — the claim is about Traigent-backend egress only.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_id", "template_text", "parameter_slots"],
+      "properties": {
+        "template_id": {
+          "const": "tmpl.cert.d2.offline_backend_egress_witness.v1"
+        },
+        "template_text": {
+          "const": "Runs referenced by this certificate declared data-flow mode offline. Zero Traigent-backend egress was witnessed by {witness_kind} at SDK ref {sdk_ref} for workload class {workload_class}, witness bundle {witness_bundle_digest}. This witnesses that workload shape at that ref only; it is not a claim about other code paths, other refs, or egress to model providers."
+        },
+        "parameter_slots": {
+          "const": ["witness_kind", "sdk_ref", "workload_class", "witness_bundle_digest"]
+        }
+      }
+    },
+    "TemplateF1V1": {
+      "description": "Claim F1 (issuer-signature validity — matrix row F1, 'Issuer signature and attribution'; the C6 rulings called it 'D5', and the matrix's row IDs are canonical on the wire — see certificate_claims_v0_schema.json#/definitions/ClaimIdV0). A valid signature 'proves who issued this document and that it has not been altered since. It proves nothing about whether the claims inside it are true or complete.'",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_id", "template_text", "parameter_slots"],
+      "properties": {
+        "template_id": {
+          "const": "tmpl.cert.f1.issuer_signature_validity.v1"
+        },
+        "template_text": {
+          "const": "The issuer signature over unsigned-manifest digest {signed_manifest_digest} verifies under {signature_scheme} with key {issuer_key_ref} in trust ring {trust_ring_ref}. It proves issuance and post-issuance integrity only, not the truth or completeness of any claim."
+        },
+        "parameter_slots": {
+          "const": ["signed_manifest_digest", "signature_scheme", "issuer_key_ref", "trust_ring_ref"]
+        }
+      }
+    },
+    "TemplateG1V1": {
+      "description": "Claim G1 (client evidence-manifest commitment). A commitment proves possession at commit time only; completeness of the committed manifest is NOT claimed (standing non-claim NC_STEP_CAPTURE), and low-entropy preimages are guessable without secret blinding — the only registered scheme is secret-blinded (certification_common_v0_schema.json#/definitions/CommitmentSchemeV0).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_id", "template_text", "parameter_slots"],
+      "properties": {
+        "template_id": {
+          "const": "tmpl.cert.g1.client_evidence_manifest_commitment.v1"
+        },
+        "template_text": {
+          "const": "The client committed evidence-manifest root {manifest_root_digest} under scheme {commitment_scheme} using client attestor version {client_attestor_version}. The commitment proves the client held this manifest at commit time; it does not prove the manifest is complete."
+        },
+        "parameter_slots": {
+          "const": ["manifest_root_digest", "commitment_scheme", "client_attestor_version"]
+        }
+      }
+    },
+    "TemplateG3V1": {
+      "description": "Claim G3 (co-signer identity binding), C6 Ruling 3(iv) reconciled scope carried verbatim: 'That does not mean the client attests every server assertion as true; it means the client attests that these are the exact bytes it co-signed.' The client key crosses as an OpaqueRef, not a raw public key (tension T3 is unresolved between C6 and C1; the linkability-conservative encoding is chosen pending a Disclosure Register ruling).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_id", "template_text", "parameter_slots"],
+      "properties": {
+        "template_id": {
+          "const": "tmpl.cert.g3.cosigner_identity_binding.v1"
+        },
+        "template_text": {
+          "const": "Client key {client_key_ref} co-signed unsigned-manifest digest {cosigned_manifest_digest}. The client attests that these are the exact bytes it co-signed — not that any server assertion covered by them is true."
+        },
+        "parameter_slots": {
+          "const": ["client_key_ref", "cosigned_manifest_digest"]
+        }
+      }
+    }
+  }
+}

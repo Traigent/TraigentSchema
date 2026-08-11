@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_evidence_refs_v0_schema.json",
+  "title": "Agent Certificate v0 Evidence References",
+  "description": "Typed, bounded, unique evidence references for Agent Certificate v0 claims (build-item B1 work order: 'typed, bounded, unique evidence references'). An evidence reference binds a claim to a committed artifact by kind + digest; it never carries content, counts, free text, or arbitrary map keys. Root instance is one EvidenceRefV0.",
+  "definitions": {
+    "EvidenceKindV0": {
+      "description": "Closed evidence-kind vocabulary for v0. Each kind names the artifact family the digest commits to; adding a kind is a new compatible schema release with its own Disclosure Register entry (C1 Ruling 1 reversal condition).",
+      "type": "string",
+      "enum": [
+        "ledger_entry_commitment",
+        "seal_statement",
+        "registry_record_digest",
+        "sdk_witness_bundle",
+        "verifier_report_digest",
+        "trust_ring_artifact"
+      ]
+    },
+    "EvidenceRefV0": {
+      "description": "One typed evidence reference: kind + commitment digest + optional opaque locator. The digest is the binding; the locator is an operational convenience only — 'verification must not depend exclusively on mutable rows remaining present' (C6 Ruling 1), so a resolvable locator is never required for the reference to be well-formed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_kind",
+        "evidence_digest"
+      ],
+      "properties": {
+        "evidence_kind": {
+          "$ref": "#/definitions/EvidenceKindV0"
+        },
+        "evidence_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evidence_ref": {
+          "description": "Optional opaque operational locator (server- or issuer-assigned). Presence is a disclosure of existence and cardinality, registered in the issuer->relying-party Disclosure Register section.",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/EvidenceRefV0"
+    }
+  ]
+}

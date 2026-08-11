@@ -1,0 +1,328 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_claim_payloads_v0_schema.json",
+  "title": "Agent Certificate v0 Per-Claim Payload Types",
+  "description": "ONE EXPLICIT PAYLOAD TYPE PER CLAIM ID — the generic slot map is overturned (C1 Ruling 1, binding): 'Replace the generic slot map with one explicit payload type per claim ID. Every field has a semantic bound, canonical encoding, cardinality limit, and Disclosure Register entry', because 'A generic slot map remains a high-capacity channel even when its values are enums, integers, or digests.' The seven types below are the complete conditional v0 allowlist, keyed by the V4 matrix's CANONICAL row IDs after the claim-ID reconciliation recorded in certificate_claims_v0_schema.json#/definitions/ClaimIdV0 (the C6 rulings named the set 'B1 · B3 · C1 · D2 · D5 · G1 · G3'; on the wire that is B1 · C1 · D2 · F1 · G1 · G3 · REG1, where rulings-'D5' = matrix F1 issuer-signature validity and rulings-'B3' registry receipt = extension ID REG1 because matrix B3 is the DIFFERENT adverse-history claim, committee-gated and not silently dropped) — every one conditional, not shippable today: 'Current evidence supports no presently issuable signed v0 certificate.' The invented IDs B1c and D6a are struck as unregistered and are deliberately absent. Every payload carries template_id (a versioned template pinned in certificate_claim_templates_v0_schema.json) plus bounded enum/digest/ref parameters ONLY — no user-controlled free text is representable. Adding a payload type is 'a new compatible schema release … after its meaning, information channel, prohibited-claim interaction, and boundary tests are registered' (C1 Ruling 1 reversal condition). Root instance is one ClaimPayloadV0.",
+  "definitions": {
+    "ClaimPayloadV0": {
+      "description": "Discriminated union of the seven v0 payload types; the claim_id const inside each branch is the discriminator, so exactly one branch can validate.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ClaimPayloadB1V0"
+        },
+        {
+          "$ref": "#/definitions/ClaimPayloadREG1V0"
+        },
+        {
+          "$ref": "#/definitions/ClaimPayloadC1V0"
+        },
+        {
+          "$ref": "#/definitions/ClaimPayloadD2V0"
+        },
+        {
+          "$ref": "#/definitions/ClaimPayloadF1V0"
+        },
+        {
+          "$ref": "#/definitions/ClaimPayloadG1V0"
+        },
+        {
+          "$ref": "#/definitions/ClaimPayloadG3V0"
+        }
+      ]
+    },
+    "ClaimPayloadB1V0": {
+      "description": "Claim B1 — ledger integrity, encoded with C1's NARROWER wording per the captain's tension-T2 resolution: the claim is 'the issuer signed this seal statement', NOT 'the sealed history is intact'. Scope per C6 Ruling 3(i): 'print only a claim about the entries committed by a named seal. Do not call them the complete build history.' Params bind the named seal and its statement digest; nothing else may cross.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "template_id",
+        "params"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "B1"
+        },
+        "template_id": {
+          "const": "tmpl.cert.b1.issuer_signed_seal_statement.v1"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "seal_ref",
+            "seal_statement_digest"
+          ],
+          "properties": {
+            "seal_ref": {
+              "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+            },
+            "seal_statement_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          }
+        }
+      }
+    },
+    "ClaimPayloadREG1V0": {
+      "description": "Claim REG1 — registry commitment receipt. The C6 rulings called this claim 'B3', but the V4 matrix's B3 row is 'Adverse history captured' — a different claim — and no matrix row registers a registry receipt, so this payload carries the non-colliding extension ID REG1, explicitly pending V4-matrix registration (a REG1 claim may not print until that row is registered; see ClaimIdV0). Conceded scope: 'registry receipt can attest bytes, identifier, and server-recorded time—not truth, authorship, or completeness' (C6 Ruling 3(iii)). NO counts and NO date buckets cross (C1 Ruling 3 struck them from the registry allowlists); precise timestamps remain server-internal, so no timestamp parameter exists.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "template_id",
+        "params"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "REG1"
+        },
+        "template_id": {
+          "const": "tmpl.cert.reg1.registry_commitment_receipt.v1"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "registry_kind",
+            "registry_record_ref",
+            "commitment_scheme",
+            "canonical_record_digest"
+          ],
+          "properties": {
+            "registry_kind": {
+              "type": "string",
+              "enum": [
+                "agent_revision",
+                "measurement_contract"
+              ]
+            },
+            "registry_record_ref": {
+              "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+            },
+            "commitment_scheme": {
+              "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+            },
+            "canonical_record_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          }
+        }
+      }
+    },
+    "ClaimPayloadC1V0": {
+      "description": "Claim C1 — artifact-scoped compiler provenance. 'unsupported' means 'unregistered claim, missing/versionless verifier, verifier not run or not PASS, missing evidence binding, or prohibited-register violation' (C6 Ruling 3(ii), binding). The artifact-scoped sentence is printable ONLY after the independent relying-party verifier gate; the global form — any sentence asserting the agent itself contains no unsupported claims — remains prohibited (merged prohibited claim 17). Params pin the compiler and every register/catalog digest the sentence is scoped to.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "template_id",
+        "params"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "C1"
+        },
+        "template_id": {
+          "const": "tmpl.cert.c1.artifact_scoped_no_unsupported_claims.v1"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "compiler_version",
+            "semantics_manifest_digest",
+            "prohibited_register_digest",
+            "verifier_catalog_digest"
+          ],
+          "properties": {
+            "compiler_version": {
+              "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+            },
+            "semantics_manifest_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            },
+            "prohibited_register_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            },
+            "verifier_catalog_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          }
+        }
+      }
+    },
+    "ClaimPayloadD2V0": {
+      "description": "Claim D2 — per-run client privacy-mode attestation plus 'the precisely scoped SDK e97b030f strace witness' (C6 Ruling 5, committee-gated adapter). 'D2 is the sole runtime-witnessed row in the supplied evidence, and even it must remain precisely scoped to the attestation mode and SDK witness identified.' The witness does not carry to other refs: it 'must be rerun at the new pinned implementation ref' (C1 Ruling 4) — hence the mandatory full-SHA sdk_ref pin. Offline zero-egress wording beyond the exact attested run or pinned SDK witness scope is prohibited (merged prohibited claim 16).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "template_id",
+        "params"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "D2"
+        },
+        "template_id": {
+          "const": "tmpl.cert.d2.offline_backend_egress_witness.v1"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "declared_mode",
+            "witness_kind",
+            "sdk_ref",
+            "workload_class",
+            "witness_bundle_digest"
+          ],
+          "properties": {
+            "declared_mode": {
+              "const": "offline"
+            },
+            "witness_kind": {
+              "const": "strace_network_trace"
+            },
+            "sdk_ref": {
+              "$ref": "certification_common_v0_schema.json#/definitions/GitCommitSha"
+            },
+            "workload_class": {
+              "description": "Closed workload-class vocabulary. The only witnessed class today is the mock-mode grid-search shape with no integrations, no analytics clients, and no Langfuse (the truth-test scope, carried verbatim as the class definition).",
+              "type": "string",
+              "enum": [
+                "mock_grid_no_integrations_no_analytics_no_langfuse"
+              ]
+            },
+            "witness_bundle_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          }
+        }
+      }
+    },
+    "ClaimPayloadF1V0": {
+      "description": "Claim F1 — issuer-signature validity (matrix row F1, 'Issuer signature and attribution'). The C6 rulings called this claim 'D5' (borrowing a locked decision ID); the V4 matrix's row IDs are canonical on the wire, so it is encoded as F1 (see ClaimIdV0's reconciliation table). Params bind the exact signature scope: manifest digest, scheme, key and ring references.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "template_id",
+        "params"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "F1"
+        },
+        "template_id": {
+          "const": "tmpl.cert.f1.issuer_signature_validity.v1"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "signed_manifest_digest",
+            "signature_scheme",
+            "issuer_key_ref",
+            "trust_ring_ref"
+          ],
+          "properties": {
+            "signed_manifest_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            },
+            "signature_scheme": {
+              "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+            },
+            "issuer_key_ref": {
+              "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+            },
+            "trust_ring_ref": {
+              "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+            }
+          }
+        }
+      }
+    },
+    "ClaimPayloadG1V0": {
+      "description": "Claim G1 — client evidence-manifest commitment (C6 Ruling 5 core kernel: exact client signature bindings). The commitment proves possession at commit time, never completeness; the only registered scheme is secret-blinded (C1 Ruling 4 binding rule).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "template_id",
+        "params"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "G1"
+        },
+        "template_id": {
+          "const": "tmpl.cert.g1.client_evidence_manifest_commitment.v1"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manifest_root_digest",
+            "commitment_scheme",
+            "client_attestor_version"
+          ],
+          "properties": {
+            "manifest_root_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            },
+            "commitment_scheme": {
+              "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+            },
+            "client_attestor_version": {
+              "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+            }
+          }
+        }
+      }
+    },
+    "ClaimPayloadG3V0": {
+      "description": "Claim G3 — co-signer identity binding. Scope carried verbatim (C6 Ruling 3(iv)): the client 'attests that these are the exact bytes it co-signed', never that every server assertion is true. client_key_ref is an OpaqueRef, not a raw public key (tension T3 unresolved; linkability-conservative encoding pending a Disclosure Register ruling). enrollment_record_digest is optional because the enrolment process is planned, not evidenced (C6 Ruling 4).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "template_id",
+        "params"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "G3"
+        },
+        "template_id": {
+          "const": "tmpl.cert.g3.cosigner_identity_binding.v1"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "client_key_ref",
+            "cosigned_manifest_digest"
+          ],
+          "properties": {
+            "client_key_ref": {
+              "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+            },
+            "cosigned_manifest_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            },
+            "enrollment_record_digest": {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/ClaimPayloadV0"
+    }
+  ]
+}

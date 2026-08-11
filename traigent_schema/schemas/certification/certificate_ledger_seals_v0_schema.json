@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_ledger_seals_v0_schema.json",
+  "title": "Agent Certificate v0 Ledger Seal Wire Shapes",
+  "description": "The NETWORK-BOUNDARY wire shapes for the dedicated certificate build-ledger's seals, per C1 Ruling 2. Server-internal ledger persistence (raw chain_id, seq, previous/event/payload HMACs, HMAC key IDs, and raw seal roots) NEVER crosses this boundary and is deliberately unrepresentable here — those fields belong to build-item B2 under the single BE integration owner, not to this schema family. What crosses is the FIXED EXPECTED-STREAM PROJECTION: 'one entry for every expected stream family — three families, derived from the three supplied chain-enabled tables — with explicit states … Absence is invalid.' In v0 this projection supports ONLY claim B1's narrow sentence ('the issuer signed this seal statement'); 'Ledger completeness, ordering, splice resistance, and event inclusion remain non-claims' — 'terminal commitments without recomputable evidence prove commitment existence, not the committed history' (C1 Ruling 2, binding). Event counts and terminal sequence values are EXCLUDED from the v0 wire shape: they 'cross only after Disclosure Register approval', which has not been granted. NOTE (tension T1, unreconciled): C6's dedicated ledger specifies 'a single sequence per chain' internally while C1's boundary projection carries three stream families; this file encodes only the C1 boundary side and takes no position on the internal chain topology — cross-family ordering is not claimable (merged prohibited claim 18). Root instance is one SealStatementV0.",
+  "definitions": {
+    "StreamFamilyV0": {
+      "description": "Closed vocabulary of the three expected stream families, derived from the three supplied chain-enabled Planner-V2 table families. The evidence establishes 'missing cross-table uniqueness/order enforcement, not exactly three logical chains' (C6 Ruling 1 struck the 'exactly three parallel chains' inference); this enum fixes the EXPECTED projection universe at the boundary, not the internal chain count.",
+      "type": "string",
+      "enum": [
+        "decision",
+        "receipt_event",
+        "transition"
+      ]
+    },
+    "StreamStateV0": {
+      "description": "Explicit per-stream chain status. NEVER null or absent — 'chain_status must be an explicit enum, never NULL/absent (absence is indistinguishable from omitted, one of the mandated fixtures)' (C1 Ruling 2, conceded). legacy_unsealed labels pre-chain sessions ('legacy NULL rows remain legacy/unsealed, as binding evidence requires'); legacy/unsealed sessions are REFUSED issuance, never silently downgraded (C6 Ruling 1, conceded). not_applicable is narrowly defined: admissible only where the stream family is structurally absent for the session type per the declared certificate-scope manifest, never as a default.",
+      "type": "string",
+      "enum": [
+        "sealed",
+        "empty_sealed",
+        "legacy_unsealed",
+        "not_applicable"
+      ]
+    },
+    "StreamProjectionEntryV0": {
+      "description": "One expected-stream projection entry: family + explicit state + (when sealed) the opaque root commitment. A root commitment is an OPAQUE issuer-committed value: 'Signing a hash of an HMAC root lets a relying party verify that the issuer signed an opaque value. It does not prove deletion, truncation, reordering, or omission resistance' (C1 Ruling 2). root_commitment is REQUIRED for sealed/empty_sealed states and FORBIDDEN for legacy_unsealed/not_applicable, so a legacy stream can never masquerade as sealed (fixture class: legacy-NULL-chain presented as chained).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream_family",
+        "chain_status"
+      ],
+      "properties": {
+        "stream_family": {
+          "$ref": "#/definitions/StreamFamilyV0"
+        },
+        "chain_status": {
+          "$ref": "#/definitions/StreamStateV0"
+        },
+        "root_commitment": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "chain_status": {
+                "enum": [
+                  "sealed",
+                  "empty_sealed"
+                ]
+              }
+            },
+            "required": [
+              "chain_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "root_commitment"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "root_commitment"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ExpectedStreamProjectionV0": {
+      "description": "The fixed expected-stream projection: EXACTLY one entry per expected stream family, keyed so absence is schema-invalid ('Absence is invalid'). A missing stream is the 'missing-stream' relying-party fixture class and must be unrepresentable, not merely discouraged.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_stream",
+        "receipt_event_stream",
+        "transition_stream"
+      ],
+      "properties": {
+        "decision_stream": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/StreamProjectionEntryV0"
+            },
+            {
+              "properties": {
+                "stream_family": {
+                  "const": "decision"
+                }
+              }
+            }
+          ]
+        },
+        "receipt_event_stream": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/StreamProjectionEntryV0"
+            },
+            {
+              "properties": {
+                "stream_family": {
+                  "const": "receipt_event"
+                }
+              }
+            }
+          ]
+        },
+        "transition_stream": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/StreamProjectionEntryV0"
+            },
+            {
+              "properties": {
+                "stream_family": {
+                  "const": "transition"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "SealStatementV0": {
+      "description": "The terminal seal statement wire shape — the exact object claim B1's template refers to ('The issuer signed this seal statement'). Binds subject/session, the chain schema version, and the fixed expected-stream projection into one canonical statement whose digest the issuer signs. Session binding uses an opaque build-session ref; issuer/environment/tenant scoping of the namespace 'were not supplied' (C1 Ruling 2), so this shape does NOT claim the ref alone is a globally safe namespace — splice resistance is a non-claim (merged prohibited claim 18).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seal_ref",
+        "chain_schema_version",
+        "build_session_ref",
+        "expected_stream_projection",
+        "seal_statement_digest"
+      ],
+      "properties": {
+        "seal_ref": {
+          "description": "Server-assigned opaque seal identifier; the named seal of claim B1's 'ledger entries committed by seal X' scope (C6 Ruling 3(i)).",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "chain_schema_version": {
+          "description": "Explicit chain schema version for new-session rows ('New-session rows carry an explicit chain schema version', C1 Ruling 2).",
+          "const": "traigent.cert_ledger.v0"
+        },
+        "build_session_ref": {
+          "description": "Opaque subject/session binding for the sealed streams.",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "expected_stream_projection": {
+          "$ref": "#/definitions/ExpectedStreamProjectionV0"
+        },
+        "seal_statement_digest": {
+          "description": "Canonical digest over this seal statement (all fields above, canonicalized under the semantics manifest's rules). This is the digest claim B1 binds and the unsigned manifest covers.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "LedgerEntryCommitmentV0": {
+      "description": "A typed canonical event commitment reference for evidence binding: stream family + entry commitment digest. Carries NO raw chain_id, seq, HMAC, or HMAC key ID (server-internal, C1 Ruling 2). An entry commitment proves the issuer committed to a canonical event encoding; it does not prove the event's content is true nor that neighbouring events exist.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream_family",
+        "entry_commitment_digest"
+      ],
+      "properties": {
+        "stream_family": {
+          "$ref": "#/definitions/StreamFamilyV0"
+        },
+        "entry_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/SealStatementV0"
+    }
+  ]
+}

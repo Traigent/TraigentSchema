@@ -97,7 +97,13 @@
             "type": "string",
             "pattern": "^exref_[0-9a-f]{16}$",
             "maxLength": 64,
-            "description": "Safe, opaque backend reference (exref_ + 16 hex). Fail-closed to opaque refs; NEVER a raw id or prompt/response text."
+            "description": "Safe, opaque backend reference (exref_ + 16 hex). Fail-closed to opaque refs; this field itself NEVER carries a raw id or prompt/response text (the client-owned identity, when resolvable, travels in the separate optional example_id field)."
+          },
+          "example_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "Client-owned example identifier as submitted in the evaluation dataset; enables local content join; carries no signal values. Optional: present only when the backend can resolve the row to a submitted example; identity already crosses the boundary on /scores keys and GuidancePlan seed_ref, so this widens no signal disclosure. Identity only, NEVER a score, rank, or signal channel."
           },
           "review_priority": {
             "type": "string",

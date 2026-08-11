@@ -362,6 +362,14 @@
       "reason": "Not a removal: the 500 body moved from a duplicated inline schema to $ref #/components/responses/InternalError in this same file, and that pointer was verified to resolve. The breaking-check does not follow $ref, so it reports the inline schema as gone; the contract this status code presents to a consumer is unchanged.",
       "version": "5.6.0",
       "pr": "#376"
+    },
+    {
+      "file": "analytics/run_example_insights_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/example_rows/items/properties/example_id",
+      "reason": "Adds the client-owned example_id (optional string, 1-255 chars) to example-insights rows so the coarse enums (priority, difficulty bucket, suspicious flags, recommended action) finally connect to the customer's OWN examples instead of only server-keyed HMAC exref_ hashes. Identity already crosses the client boundary today as /example-scoring/{run_id}/scores dict keys and as GuidancePlan seed_ref, so this widens no signal disclosure: the field is identity only, never a score, rank, or signal channel, and rows the backend cannot resolve simply omit it. Acknowledged as property_added on a closed object because an old strict response consumer that pinned the previous row shape may reject the newly-emitted member; that consumer must upgrade its schema rather than have the producer stay silent. safe_example_ref remains required and unchanged for joins.",
+      "version": "5.6.0",
+      "pr": "pending (branch feat/example-insights-example-id, Spine-Trail st_4f05c04c9f41; fill PR # at open)"
     }
   ]
 }

@@ -70,6 +70,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged. A follow-up MAJOR revision re-tightens `identity_state` back to required once
   the Backend backfills it on every item and row.
 
+## [5.7.0] - 2026-08-11
+
+### Added
+- **Client-owned `example_id` on example-insights rows.** The flagship
+  `run_example_insights` table showed only coarse enums (priority, difficulty bucket,
+  suspicious flags, recommended action) attached to server-keyed HMAC `exref_` refs the
+  customer cannot map back to their own data — so "we know which of YOUR examples are
+  broken" could not be demoed end-to-end. Each `example_rows` item now carries an
+  optional `example_id` (string, 1–255 chars): the client-owned example identifier as
+  submitted in the evaluation dataset, enabling a local content join. This widens no
+  signal disclosure — example identity already crosses the client boundary as
+  `/example-scoring/{run_id}/scores` keys and as GuidancePlan `seed_ref`; the field is
+  identity only and carries no signal values, scores, or ranks. `safe_example_ref`
+  stays required and unchanged for joins across insights surfaces; rows the backend
+  cannot resolve to a submitted example simply omit `example_id` (purely additive;
+  `additionalProperties: false` preserved by declaring the property).
+
 ## [5.6.0] - 2026-08-11
 
 ### Added

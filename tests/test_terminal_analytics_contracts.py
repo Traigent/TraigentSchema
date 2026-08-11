@@ -626,3 +626,43 @@ class TestRunExampleInsights:
         data["raw_signal_debug"] = {"composite_score": 0.91}
         errors = validator.validate_json(data, RUN_EXAMPLE_INSIGHTS_SCHEMA)
         assert any("raw_signal_debug" in e or "Additional properties" in e for e in errors)
+
+    def test_example_id_is_optional_client_owned_identity(
+        self, validator: SchemaValidator, data_dir: Path
+    ) -> None:
+        # example_id connects a row to the customer's own submitted example
+        # (identity only — the same identity that already crosses on /scores
+        # keys and GuidancePlan seed_ref). It must be OPTIONAL: rows the
+        # backend cannot resolve stay exref_-only.
+        data = _load_fixture(data_dir, "run_example_insights_valid.json")
+        rows_with = [r for r in data["example_rows"] if "example_id" in r]
+        rows_without = [r for r in data["example_rows"] if "example_id" not in r]
+        assert rows_with, "fixture must exercise the example_id-bearing shape"
+        assert rows_without, "fixture must keep an exref_-only row (field is optional)"
+        errors = validator.validate_json(data, RUN_EXAMPLE_INSIGHTS_SCHEMA)
+        assert errors == [], f"Unexpected errors: {errors}"
+        # Removing it everywhere must still validate (pure additive contract).
+        for row in data["example_rows"]:
+            row.pop("example_id", None)
+        errors = validator.validate_json(data, RUN_EXAMPLE_INSIGHTS_SCHEMA)
+        assert errors == [], f"Unexpected errors without example_id: {errors}"
+
+    @pytest.mark.parametrize(
+        "bad_value",
+        [
+            0.91,  # a number here would be a covert signal channel
+            17,
+            True,
+            None,
+            "",  # empty string is not an identity
+            "x" * 256,  # bounded length
+            {"id": "ex_a3f4b2c8_17"},
+        ],
+    )
+    def test_example_id_rejects_non_identity_values(
+        self, validator: SchemaValidator, data_dir: Path, bad_value: object
+    ) -> None:
+        data = _load_fixture(data_dir, "run_example_insights_valid.json")
+        data["example_rows"][0]["example_id"] = bad_value
+        errors = validator.validate_json(data, RUN_EXAMPLE_INSIGHTS_SCHEMA)
+        assert len(errors) > 0, f"example_id={bad_value!r} should be rejected"

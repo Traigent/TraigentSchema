@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Canonical cached-token usage vocabulary** in `common_types_schema.json`:
+  `CacheReadTokens`, `CacheCreationTokens`, `CacheCreationTokensByTtl`, and
+  `UnreportedUsageFields`. Optional nullable counts preserve the difference between a provider
+  reporting zero and not reporting the dimension at all. The vocabulary is applied to observation
+  read/write schemas and aggregate cost usage; cache-write totals may also carry the provider's
+  5-minute/1-hour TTL split so pricing code need not silently assume the cheaper tier. All new
+  properties remain optional, closed objects reject misspelled tiers, and existing payloads remain
+  valid. This schema-first addition targets **5.8.0**. The ingest additions are explicitly
+  `x-asserted-against-backend: false`: land Schema first, then Backend acceptance/parity
+  ([TraigentBackend#2511]), then SDK producer emission. SDKs must not send the new fields to the
+  live route until the Backend step lands.
+- **`input_tokens` disjointness migration (target 5.8.0)** on observation ingest/read, aggregate
+  cost usage, and the harness usage description: new producers normalize `input_tokens` to fresh
+  input only and carry cache reads separately in `cache_read_tokens`. Records written before each
+  producer adopts the contract may retain its provider-native convention and have no wire-visible
+  discriminator. Consumers must partition by a known producer rollout or ingest-time boundary and
+  refuse to combine an unbounded mixed-convention window for cost calculation. The harness remains
+  structurally non-nullable and must not subtract cache reads unless it can preserve a reliable
+  separate cache-read count; otherwise it retains the provider-native input total. This semantic
+  migration is not represented as a universally compatible description-only edit.
 - **Agent Certificate v0 contract family** (`certification/`, network-boundary family, per the
   Wave-C C6/C1 reconciled rulings): the `Agent Certificate` envelope with a const title and a
   mandatory build-session scope line; a discriminated `Claim | NonClaim` union in which a claim
@@ -36,8 +56,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lint (every string const/enum/pattern-bound, every object closed, every array bounded) and a
   free-text quarantine test proving the family's transitive `$ref` closure reaches no
   `x-content`/`user_content` carrier.
-
 ### Fixed
+- **Relative `$ref`s now resolve from their declaring schema.** 169 schema files reference
+  siblings through `./x.json` or `../x.json`, while inline endpoint-catalog schemas carry no
+  `$id` of their own. `Draft7Validator(schema, registry=...)` previously started from an empty
+  base URI, so populated `$ref` fields were rejected and omitted fields silently bypassed the
+  referenced constraint. Validation now enters each standalone schema through its registered
+  `$id`; inline request schemas are anchored at the schemas root. A static regression resolves
+  every `$ref` in every schema, and unresolved references are reported as contract defects rather
+  than misleading payload errors. No schema content or accepted payload contract changes.
 - **Experiment-group browse-row provenance now represents unidentified runs without inventing a
   cohort.** `GroupedConfigurationRunProvenance` now carries the same
   `identity_state` discriminator as `ExperimentGroupOverview`: identified rows carry a real
@@ -112,7 +139,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     verdict is INDETERMINATE; a single execution may still be reported descriptively), and
     carries the two verbatim claim / NON-claim strings that any rendering of these numbers
     must ship together.
-
 ## [5.5.0] - 2026-08-01
 
 ### Added

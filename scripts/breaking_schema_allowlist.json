@@ -370,6 +370,230 @@
       "reason": "Adds the client-owned example_id (optional string, 1-255 chars) to example-insights rows so the coarse enums (priority, difficulty bucket, suspicious flags, recommended action) finally connect to the customer's OWN examples instead of only server-keyed HMAC exref_ hashes. Identity already crosses the client boundary today as /example-scoring/{run_id}/scores dict keys and as GuidancePlan seed_ref, so this widens no signal disclosure: the field is identity only, never a score, rank, or signal channel, and rows the backend cannot resolve simply omit it. Acknowledged as property_added on a closed object because an old strict response consumer that pinned the previous row shape may reject the newly-emitted member; that consumer must upgrade its schema rather than have the producer stay silent. safe_example_ref remains required and unchanged for joins.",
       "version": "5.7.0",
       "pr": "#424 (branch feat/example-insights-example-id, Spine-Trail st_4f05c04c9f41)"
+    },
+    {
+      "file": "costs/cost_user_usage_item_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/cache_read_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed aggregate usage response for target release 5.8.0. Accurate cached-token pricing requires nullable unknown-vs-zero counts and the TTL split rather than a guessed write rate. Existing producers need not emit it, but a strict response consumer must adopt the 5.8 contract before producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "costs/cost_user_usage_item_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/cache_creation_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed aggregate usage response for target release 5.8.0. Accurate cached-token pricing requires nullable unknown-vs-zero counts and the TTL split rather than a guessed write rate. Existing producers need not emit it, but a strict response consumer must adopt the 5.8 contract before producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "costs/cost_user_usage_item_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/cache_creation_tokens_by_ttl",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed aggregate usage response for target release 5.8.0. Accurate cached-token pricing requires nullable unknown-vs-zero counts and the TTL split rather than a guessed write rate. Existing producers need not emit it, but a strict response consumer must adopt the 5.8 contract before producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "costs/cost_user_usage_item_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/unreported_usage_fields",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed aggregate usage response for target release 5.8.0. Accurate cached-token pricing requires nullable unknown-vs-zero counts and the TTL split rather than a guessed write rate. Existing producers need not emit it, but a strict response consumer must adopt the 5.8 contract before producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/cache_read_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/cache_creation_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/cache_creation_tokens_by_ttl",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/unreported_usage_fields",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/cache_read_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/cache_creation_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/cache_creation_tokens_by_ttl",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/unreported_usage_fields",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/cache_read_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/cache_creation_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/cache_creation_tokens_by_ttl",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/unreported_usage_fields",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/cache_read_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/cache_creation_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/cache_creation_tokens_by_ttl",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/cache_read_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/cache_creation_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/cache_creation_tokens_by_ttl",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/cache_read_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/cache_creation_tokens",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/cache_creation_tokens_by_ttl",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields",
+      "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
+      "version": "5.8.0",
+      "pr": "#379"
     }
   ]
 }

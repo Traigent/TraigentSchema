@@ -369,7 +369,7 @@
       "pointer_prefix": "#/properties/example_rows/items/properties/example_id",
       "reason": "Adds the client-owned example_id (optional string, 1-255 chars) to example-insights rows so the coarse enums (priority, difficulty bucket, suspicious flags, recommended action) finally connect to the customer's OWN examples instead of only server-keyed HMAC exref_ hashes. Identity already crosses the client boundary today as /example-scoring/{run_id}/scores dict keys and as GuidancePlan seed_ref, so this widens no signal disclosure: the field is identity only, never a score, rank, or signal channel, and rows the backend cannot resolve simply omit it. Acknowledged as property_added on a closed object because an old strict response consumer that pinned the previous row shape may reject the newly-emitted member; that consumer must upgrade its schema rather than have the producer stay silent. safe_example_ref remains required and unchanged for joins.",
       "version": "5.7.0",
-      "pr": "#424"
+      "pr": "#424 (branch feat/example-insights-example-id, Spine-Trail st_4f05c04c9f41)"
     }
   ]
 }

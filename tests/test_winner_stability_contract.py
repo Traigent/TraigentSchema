@@ -72,13 +72,15 @@ def _winner_stability() -> dict[str, Any]:
 
 _V1 = "optimization/best_config_schema.json"
 _V2 = "optimization/best_config_v2_schema.json"
+_SCHEMA_VERSION_BY_PATH = {
+    _V1: "traigent.best_config.v1",
+    _V2: "traigent.best_config.v2",
+}
 
 
 def _best_config(schema_path: str, validation: dict[str, Any] | None = None) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "schema_version": "traigent.best_config.v1"
-        if schema_path == _V1
-        else "traigent.best_config.v2",
+        "schema_version": _SCHEMA_VERSION_BY_PATH[schema_path],
         "config_id": "support-answerer",
         "function_ref": "tests.best_config:answer",
         "environment": "default",
@@ -88,6 +90,11 @@ def _best_config(schema_path: str, validation: dict[str, Any] | None = None) -> 
     if validation is not None:
         payload["validation"] = validation
     return payload
+
+
+def test_best_config_builder_rejects_an_unknown_schema_path() -> None:
+    with pytest.raises(KeyError):
+        _best_config("optimization/best_config_v3_schema.json")
 
 
 # --- the block is optional ----------------------------------------------------

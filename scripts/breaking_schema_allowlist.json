@@ -594,6 +594,14 @@
       "reason": "Intentionally adds this optional cached-token dimension to the closed observation-ingest request at this exact bounded nesting depth for target release 5.8.0. Existing requests remain valid, but a newer SDK request would be rejected by the current backend ObservationPayload (extra=forbid) until TraigentBackend#2511 lands. Schema therefore lands first; Backend acceptance and parity must land before SDK producer emission. This acknowledgement is scoped to the exact property so unrelated future additions remain breaking.",
       "version": "5.8.0",
       "pr": "#379"
+    },
+    {
+      "file": "optimization/objective_definition_schema.json",
+      "rule": "minimum",
+      "pointer_prefix": "#/properties/weight",
+      "reason": "Replaces minimum: 0 with exclusiveMinimum: 0 to correctly enforce that objective weights must be strictly positive (>0, not >=0). Zero weight on an objective is meaningless in multi-objective optimization and should be rejected; this change prevents silent validation of invalid weight configurations. The breaking-schema-check tool does not dereference the substitution, reporting it as a constraint removal rather than a tightening, but the wire behavior is tightened as intended.",
+      "version": "5.9.0",
+      "pr": "#307"
     }
   ]
 }

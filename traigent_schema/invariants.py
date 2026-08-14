@@ -373,7 +373,7 @@ def _compare_validated(left: Any, right: Any) -> bool:
         elif node_type is list:
             if len(node_left) != len(node_right):
                 return False
-            work.extend(zip(node_left, node_right))
+            work.extend(zip(node_left, node_right, strict=True))
         elif node_left != node_right:
             return False
 

@@ -94,9 +94,9 @@ jobs:
       - name: Install dependencies + run tests with coverage
         continue-on-error: true
         run: |
-          python -m pip install --quiet --upgrade --only-binary :all: pip
-          pip install --quiet -e ".[dev]" 2>/dev/null || pip install --quiet -e .
-          pip install --quiet --only-binary :all: pytest pytest-cov pytest-timeout
+          python -m pip install --quiet --only-binary :all: pip==26.2.1
+          python -m pip install --quiet --only-binary :all: -r requirements-dev.txt
+          python -m pip install --quiet --only-binary :all: pytest-timeout==2.4.0
           mkdir -p reports
           # pure-pytest schema lib: no DB/redis/services needed. timeout bounds any hang.
           pytest tests/ -q --timeout=120 --timeout-method=thread \

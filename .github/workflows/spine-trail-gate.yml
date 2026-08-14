@@ -235,9 +235,11 @@ jobs:
           fi
 
           # (c) install and run the spine's own verifier.
-          python3 -m pip install --quiet --upgrade --only-binary :all: pip >/dev/null 2>&1
-          pip install -e "$SPINE_DIR" >/dev/null 2>&1 || true
-          VOUT=$(validation change receipt verify "$SESSION" --spine-repo "$SPINE_DIR" 2>/dev/null)
+          python3 -m pip install --quiet --only-binary :all: uv==0.12.4 >/dev/null 2>&1
+          (cd "$SPINE_DIR" && uv sync --frozen --no-dev --no-build --no-install-project >/dev/null 2>&1) || true
+          VOUT=$(PYTHONPATH="$SPINE_DIR/src:$SPINE_DIR/incubator/plan-compiler/src" \
+            "$SPINE_DIR/.venv/bin/python" -m validation_spine.cli \
+            change receipt verify "$SESSION" --spine-repo "$SPINE_DIR" 2>/dev/null)
           VRC=$?
           if [ "$VRC" -ne 0 ] || [ -z "$VOUT" ]; then
             emit error "verifier_unavailable;rc=${VRC}"; exit 0

@@ -9,7 +9,7 @@ description = "Traigent Schema Library - Data contracts and validation for the T
 readme = "README.md"
 license = "AGPL-3.0-only OR LicenseRef-Traigent-Commercial"
 license-files = ["LICENSE", "NOTICE", "COMMERCIAL-LICENSE.md", "LICENSING.md"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Traigent Team", email = "dev@traigent.ai" }
 ]
@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -34,10 +33,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    # pytest 9.x requires Python >=3.10. Keep the Python 3.9 CI lane on the
-    # newest compatible pytest while newer interpreters use the 9.x floor.
-    "pytest>=8.4.2,<9; python_version < '3.10'",
-    "pytest>=9.0.3; python_version >= '3.10'",  # CVE-2025-71176
+    "pytest>=9.0.3",  # CVE-2025-71176
     "pytest-cov>=4.0",
     "ruff==0.16.0",  # Exact pin (parity with TraigentBackend/traigent-smartopt): reproducible `ruff check` across machines/CI. Lint-only gate; not format-gated.
     "mypy>=1.0,<3",
@@ -69,13 +65,13 @@ include = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 

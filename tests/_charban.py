@@ -30,6 +30,9 @@ for _lo, _hi in [
     (0x00AD, 0x00AD),   # SOFT HYPHEN (Cf — belt-and-braces; also caught by category)
     (0x034F, 0x034F),   # COMBINING GRAPHEME JOINER (Mn)
     (0x061C, 0x061C),   # ARABIC LETTER MARK (Cf — belt-and-braces)
+    (0x0890, 0x0891),   # ARABIC POUND MARK ABOVE/BELOW, added in Unicode 14
+                         # (Cf on Py>=3.11; Cn/unassigned on Py3.10's Unicode 13
+                         # tables). Pinned so pattern() stays stable on 3.10.
     (0x115F, 0x1160),   # HANGUL CHOSEONG/JUNGSEONG FILLER (Lo)
     (0x17B4, 0x17B5),   # KHMER VOWEL INHERENT AQ/AA (Mn)
     (0x180B, 0x180F),   # MONGOLIAN FVS1-4 + VOWEL SEPARATOR (Mn/Cf)

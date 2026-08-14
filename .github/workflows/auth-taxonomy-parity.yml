@@ -49,8 +49,8 @@ jobs:
 
       - name: Install package (needed for traigent_schema schema path + pyyaml)
         run: |
-          python -m pip install --upgrade --only-binary :all: pip
-          pip install -e ".[dev]"
+          python -m pip install --only-binary :all: pip==26.2.1
+          python -m pip install --only-binary :all: -r requirements-dev.txt
 
       - name: Run the auth-taxonomy parity detector (DETECT mode)
         run: |

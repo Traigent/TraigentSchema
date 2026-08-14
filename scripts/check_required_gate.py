@@ -41,9 +41,11 @@ job PROVES the skip was legitimate:
         trigger of ci.yml), an unforgeable ``github.event_name`` fact, OR
      b. ``changes.outputs.schema_relevant`` is the LITERAL string ``'false'``
         — not empty, not missing, not any other value — AND
-        ``changes.outputs.changed_file_count`` is a NON-ZERO integer. A diff
+        ``changes.outputs.changed_file_count`` is a NON-ZERO integer. A
         range that produced zero files is a broken/empty range, not a
-        "nothing schema-relevant changed" verdict.
+        "nothing schema-relevant changed" verdict -- except when the trusted
+        classifier proves the narrowly-defined ancestry-only topology and emits
+        the literal ``ancestry_only='true'``.
 
 Any of those failing -> the gate fails, naming which condition broke. All
 holding -> the gate passes, and the log states the output value that
@@ -96,6 +98,9 @@ BREAKING_SCHEMA_JOB = "breaking-schema-check"
 EVENT_APPLICABLE_OUTPUT = "event_applicable"
 SCHEMA_RELEVANT_OUTPUT = "schema_relevant"
 FILE_COUNT_OUTPUT = "changed_file_count"
+# Emitted only after the changes job proves an immutable, same-repository
+# ancestry-only topology. It is not a caller-controlled waiver.
+ANCESTRY_ONLY_OUTPUT = "ancestry_only"
 
 
 @dataclass
@@ -165,13 +170,36 @@ def verify_breaking_schema_check_skip(needs: dict) -> tuple[bool, str]:
             f"{BREAKING_SCHEMA_JOB}=skipped, but '{CHANGES_JOB}.outputs."
             f"{FILE_COUNT_OUTPUT}'={count_raw!r} is not a valid integer"
         )
-    if count <= 0:
+    if count < 0:
         return False, (
             f"{BREAKING_SCHEMA_JOB}=skipped, and '{CHANGES_JOB}.outputs."
-            f"{FILE_COUNT_OUTPUT}'={count} -- the classifier saw zero "
-            "changed files in a PR/merge_group range, which is a "
-            "broken/empty diff range, not a legitimate 'nothing "
-            "schema-relevant changed' verdict"
+            f"{FILE_COUNT_OUTPUT}'={count} -- the classifier saw a negative "
+            "changed-file count, which is invalid"
+        )
+
+    if count == 0:
+        ancestry_only = outputs.get(ANCESTRY_ONLY_OUTPUT)
+        if ancestry_only != "true":
+            return False, (
+                f"{BREAKING_SCHEMA_JOB}=skipped, and '{CHANGES_JOB}.outputs."
+                f"{FILE_COUNT_OUTPUT}'={count} -- the classifier saw zero "
+                "changed files in a PR/merge_group range, which is a "
+                "broken/empty range, not a legitimate 'nothing "
+                "schema-relevant changed' verdict"
+            )
+        return True, (
+            f"{BREAKING_SCHEMA_JOB}: skip verified safe for declared "
+            f"ancestry-only topology ({CHANGES_JOB}.outputs."
+            f"{ANCESTRY_ONLY_OUTPUT}='true', {CHANGES_JOB}.outputs."
+            f"{FILE_COUNT_OUTPUT}=0)"
+        )
+
+    ancestry_only = outputs.get(ANCESTRY_ONLY_OUTPUT)
+    if ancestry_only not in (None, "false"):
+        return False, (
+            f"{BREAKING_SCHEMA_JOB}=skipped, but '{CHANGES_JOB}.outputs."
+            f"{ANCESTRY_ONLY_OUTPUT}'={ancestry_only!r} with a non-zero "
+            f"{FILE_COUNT_OUTPUT}"
         )
 
     return True, (

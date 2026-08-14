@@ -31,6 +31,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      pull-requests: read
     outputs:
       # 'true' only for pull_request/merge_group -- the only events with a base/head
       # diff range to classify. A push/schedule/workflow_dispatch trigger of this
@@ -45,6 +46,9 @@ jobs:
       # false` skip ONLY when this is > 0 -- a range that produced ZERO files is a
       # broken/empty range, not a "nothing schema-relevant changed" verdict.
       changed_file_count: ${{ steps.changed.outputs.changed_file_count }}
+      # This is emitted as true only after the step proves the immutable,
+      # same-repository ancestry-only topology below. It is not a waiver input.
+      ancestry_only: ${{ steps.changed.outputs.ancestry_only }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -53,12 +57,21 @@ jobs:
       - name: Classify changed files
         id: changed
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          MG_BASE_SHA: ${{ github.event.merge_group.base_sha || '' }}
+          MG_HEAD_SHA: ${{ github.event.merge_group.head_sha || '' }}
+          REPOSITORY: ${{ github.repository }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "merge_group" ]; then
-            base_sha="${{ github.event.merge_group.base_sha }}"
-            head_sha="${{ github.event.merge_group.head_sha }}"
+          if [ "$EVENT_NAME" = "merge_group" ]; then
+            base_sha="$MG_BASE_SHA"
+            head_sha="$MG_HEAD_SHA"
             if [ -z "$base_sha" ] || [ -z "$head_sha" ]; then
               # Fail closed: an empty range would classify everything as
               # unchanged and let an untested candidate merge silently.
@@ -67,8 +80,14 @@ jobs:
             fi
             range="${base_sha}...${head_sha}"
             event_applicable=true
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            range="${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
+            base_sha="$PR_BASE_SHA"
+            head_sha="$PR_HEAD_SHA"
+            if [ -z "$base_sha" ] || [ -z "$head_sha" ]; then
+              echo "::error::pull_request event missing base/head sha; refusing to classify"
+              exit 1
+            fi
+            range="${base_sha}...${head_sha}"
             event_applicable=true
           else
             # push / schedule / workflow_dispatch: no PR diff range exists. The
@@ -84,6 +103,7 @@ jobs:
           if [ "$event_applicable" != "true" ]; then
             echo "changed_file_count=0" >> "$GITHUB_OUTPUT"
             echo "schema_relevant=false" >> "$GITHUB_OUTPUT"
+            echo "ancestry_only=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -101,6 +121,70 @@ jobs:
             echo "schema_relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "schema_relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Default deny: a zero-file PR/merge_group range is accepted only
+          # after all immutable topology and tree checks below succeed.
+          echo "ancestry_only=false" >> "$GITHUB_OUTPUT"
+          if [ "$changed_file_count" -ne 0 ]; then
+            exit 0
+          fi
+
+          git fetch --no-tags origin main
+          expected_main_sha="$(git rev-parse FETCH_HEAD)"
+          base_tree="$(git rev-parse "${base_sha}^{tree}")"
+          expected_main_tree="$(git rev-parse "${expected_main_sha}^{tree}")"
+
+          verify_declared_ancestry_head() {
+            local declared_head="$1"
+            local declared_tree
+            local declared_trailer
+            local -a head_parents
+
+            if ! git merge-base --is-ancestor "$base_sha" "$declared_head"; then
+              return 1
+            fi
+            read -r -a head_parents <<< "$(git show -s --format=%P "$declared_head")"
+            if [ "${#head_parents[@]}" -ne 2 ]; then
+              return 1
+            fi
+            if [ "${head_parents[0]}" != "$base_sha" ]; then
+              return 1
+            fi
+            if [ "${head_parents[1]}" != "$expected_main_sha" ]; then
+              return 1
+            fi
+            declared_tree="$(git rev-parse "${declared_head}^{tree}")"
+            if [ "$declared_tree" != "$base_tree" ] || [ "$expected_main_tree" != "$base_tree" ]; then
+              return 1
+            fi
+            declared_trailer="$(git show -s --format=%B "$declared_head" | git interpret-trailers --parse | sed -n 's/^Traigent-Ancestry-Only: //p')"
+            [ "$declared_trailer" = "true" ]
+          }
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Fork PRs are never eligible for this exception. The trailer is
+            # in the pinned head commit, not mutable PR body text.
+            if [ "$PR_HEAD_REPOSITORY" = "$REPOSITORY" ] && verify_declared_ancestry_head "$head_sha"; then
+              echo "ancestry_only=true" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ "$EVENT_NAME" = "merge_group" ]; then
+            read -r -a candidate_parents <<< "$(git show -s --format=%P "$head_sha")"
+            candidate_tree="$(git rev-parse "${head_sha}^{tree}")"
+            if [ "${#candidate_parents[@]}" -eq 2 ] && [ "${candidate_parents[0]}" = "$base_sha" ]; then
+              pr_head_sha="${candidate_parents[1]}"
+              pr_head_tree="$(git rev-parse "${pr_head_sha}^{tree}")"
+              # The merge_group payload does not carry the PR source repo.
+              # Resolve the immutable PR association by commit and require a
+              # single same-repository source; forks fail closed.
+              pr_head_repository="$(gh api "repos/${REPOSITORY}/commits/${pr_head_sha}/pulls" --jq 'if length == 1 then .[0].head.repo.full_name else "" end' 2>/dev/null || true)"
+              if [ "$pr_head_repository" = "$REPOSITORY" ] \
+                && [ "$candidate_tree" = "$base_tree" ] \
+                && [ "$pr_head_tree" = "$base_tree" ] \
+                && verify_declared_ancestry_head "$pr_head_sha"; then
+                echo "ancestry_only=true" >> "$GITHUB_OUTPUT"
+              fi
+            fi
           fi
 
   # Contract breaking-change check — scripts/breaking_schema_check.py, Azure's

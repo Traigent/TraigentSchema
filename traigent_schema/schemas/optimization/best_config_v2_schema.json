@@ -66,6 +66,11 @@
       "description": "Validation evidence, including any guaranteed-selection result. Covered by spec_hash in full: v1 stripped guaranteed-selection claims here because the certificate contained spec_hash, which was circular. v2 rebinds the certificate to config_hash plus identity, so nothing needs stripping.",
       "type": "object",
       "maxProperties": 128,
+      "properties": {
+        "winner_stability": {
+          "$ref": "#/definitions/winner_stability"
+        }
+      },
       "additionalProperties": true
     },
     "forward_compat": {
@@ -102,6 +107,47 @@
       "minLength": 3,
       "maxLength": 512,
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*:[A-Za-z_][A-Za-z0-9_]*(\\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$"
+    },
+    "winner_stability": {
+      "description": "Post-selection rerun of the winning configuration on the same evaluation set; measured evidence only — carries no stability guarantee. The single normative definition: best_config_schema.json (v1) $refs this rather than repeating the shape, so the constraint cannot drift between envelopes. All members are optional; a producer records what it measured and nothing more. Pairwise per-example comparisons between replicates are clustered/dependent — every replicate re-runs the same frozen example set, so pairs do not add independent replications. This block must not feed contrast selection or any noise floor; its consumer is the S2 verdict path — absent stability evidence, the affected metric verdict is INDETERMINATE (a single execution may still be reported descriptively). Supported claim wording (verbatim, C3/C5): 'On the frozen example set and recorded execution environment, this selected configuration was run three times. The aggregate scores had mean M, sample SD S, and range A–B; per-example agreement under tolerance T was X/Y.' Required NON-claim, rendered in the same visual block as any use of these numbers (verbatim, C3/C5): 'Three reruns are a descriptive stability check, not a reproducibility rate, confidence interval, guarantee about future runs, or evidence that this configuration is better than alternatives. Pairwise per-example comparisons are dependent and do not add independent replications.'",
+      "type": "object",
+      "properties": {
+        "reps": {
+          "description": "Number of post-selection rerun replicates actually executed. The count is a cost choice, not an evidence-derived default; no replicate count establishes stability.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "mean": {
+          "description": "Mean primary-objective score across the rerun replicates.",
+          "type": "number"
+        },
+        "std": {
+          "description": "Sample standard deviation of the primary-objective score across the rerun replicates. Always shown when >= 2 replicates were measured — never suppressed for small replicate counts (undefined for a single replicate, hence optional); small-sample values are descriptive only.",
+          "type": "number",
+          "minimum": 0
+        },
+        "scores": {
+          "description": "Per-replicate primary-objective scores, in execution order.",
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 1000
+        },
+        "config_hash": {
+          "description": "Hash of the exact configuration the rerun executed, binding the measurement to the promoted config.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "evaluated_at": {
+          "description": "When the rerun completed.",
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
     },
     "nullable_function_ref": {
       "description": "function_ref, required as a member but explicitly nullable: a config need not be bound to a function. null is a deliberate assertion that there is no function binding, distinct from the field being absent, so a config or certificate subject can never be silently under-specified about its function binding. The single normative definition of the required-but-nullable shape: best_config_v2_schema.json's own function_ref property and certificate_subject_schema.json's function_ref property both $ref this exact definition, so 'a certificate can bind to a function_ref value the config envelope itself would reject' is syntactically impossible rather than merely policed by convention.",

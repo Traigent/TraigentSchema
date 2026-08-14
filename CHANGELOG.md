@@ -7,7 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Canonical cached-token usage vocabulary** in `common_types_schema.json`:
+  `CacheReadTokens`, `CacheCreationTokens`, `CacheCreationTokensByTtl`, and
+  `UnreportedUsageFields`. Optional nullable counts preserve the difference between a provider
+  reporting zero and not reporting the dimension at all. The vocabulary is applied to observation
+  read/write schemas and aggregate cost usage; cache-write totals may also carry the provider's
+  5-minute/1-hour TTL split so pricing code need not silently assume the cheaper tier. All new
+  properties remain optional, closed objects reject misspelled tiers, and existing payloads remain
+  valid. This schema-first addition targets **5.8.0**. The ingest additions are explicitly
+  `x-asserted-against-backend: false`: land Schema first, then Backend acceptance/parity
+  ([TraigentBackend#2511]), then SDK producer emission. SDKs must not send the new fields to the
+  live route until the Backend step lands.
+- **`input_tokens` disjointness migration (target 5.8.0)** on observation ingest/read, aggregate
+  cost usage, and the harness usage description: new producers normalize `input_tokens` to fresh
+  input only and carry cache reads separately in `cache_read_tokens`. Records written before each
+  producer adopts the contract may retain its provider-native convention and have no wire-visible
+  discriminator. Consumers must partition by a known producer rollout or ingest-time boundary and
+  refuse to combine an unbounded mixed-convention window for cost calculation. The harness remains
+  structurally non-nullable and must not subtract cache reads unless it can preserve a reliable
+  separate cache-read count; otherwise it retains the provider-native input total. This semantic
+  migration is not represented as a universally compatible description-only edit.
+- **Agent Certificate v0 contract family** (`certification/`, network-boundary family, per the
+  Wave-C C6/C1 reconciled rulings): the `Agent Certificate` envelope with a const title and a
+  mandatory build-session scope line; a discriminated `Claim | NonClaim` union in which a claim
+  requires a populated versioned PASS verifier and a non-claim structurally forbids one
+  (rejection, not downgrade); ONE explicit payload type per conditional v0 claim ID, keyed by
+  the V4 claim-matrix's CANONICAL row IDs after reconciling the C6 rulings' colliding
+  namespace — wire IDs `B1/C1/D2/F1/G1/G3/REG1`, where the rulings' "D5" (issuer-signature
+  validity) maps to matrix `F1` and the rulings' "B3" (registry commitment receipt) becomes
+  extension ID `REG1` pending matrix registration, because matrix `B3` is the *different*
+  adverse-history claim (documented as committee-gated, not silently dropped); no generic
+  slot map; the struck invented IDs B1c/D6a and the raw aliases "D5"/"B3" are not
+  representable; tier 4 kept in the `ClaimTier` enum but unconstructible in any v0 claim
+  (`EmittableClaimTierV0` conjoins the enum with `not: {const: 4}`); claim sentences as
+  versioned templates (`certificate_claim_templates_v0_schema.json` pins all seven v0 template
+  texts — claim B1 deliberately uses the narrower "the issuer signed this seal statement"
+  wording); a FOURTEEN-item tuple-validated mandatory NON-claim print list; sealed-ledger wire
+  shapes (fixed three-stream expected projection with explicit `chain_status` states, no
+  counts/terminal sequence values, server-internal HMAC material unrepresentable); issuer
+  signature + full-manifest client co-attestation shapes (issuer covers the co-attestation
+  bytes when present; tier-1 claims require a co-attestation); minimal blinded
+  AgentRevision/MeasurementContract registry commitment records (no counts, no date buckets,
+  no timestamps, printed non-claims in the schema descriptions); and a bounded rejection
+  diagnostic (closed code vocabulary + structural path of property names/indices only).
+  Additive only — no existing schema changed. New tests:
+  `tests/test_agent_certificate_v0_schemas.py` (59 cases), including a family-wide boundary
+  lint (every string const/enum/pattern-bound, every object closed, every array bounded) and a
+  free-text quarantine test proving the family's transitive `$ref` closure reaches no
+  `x-content`/`user_content` carrier.
 ### Fixed
+- **Relative `$ref`s now resolve from their declaring schema.** 169 schema files reference
+  siblings through `./x.json` or `../x.json`, while inline endpoint-catalog schemas carry no
+  `$id` of their own. `Draft7Validator(schema, registry=...)` previously started from an empty
+  base URI, so populated `$ref` fields were rejected and omitted fields silently bypassed the
+  referenced constraint. Validation now enters each standalone schema through its registered
+  `$id`; inline request schemas are anchored at the schemas root. A static regression resolves
+  every `$ref` in every schema, and unresolved references are reported as contract defects rather
+  than misleading payload errors. No schema content or accepted payload contract changes.
 - **Experiment-group browse-row provenance now represents unidentified runs without inventing a
   cohort.** `GroupedConfigurationRunProvenance` now carries the same
   `identity_state` discriminator as `ExperimentGroupOverview`: identified rows carry a real
@@ -40,6 +97,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged. A follow-up MAJOR revision re-tightens `identity_state` back to required once
   the Backend backfills it on every item and row.
 
+## [5.7.0] - 2026-08-11
+
+### Added
+- **Client-owned `example_id` on example-insights rows.** The flagship
+  `run_example_insights` table showed only coarse enums (priority, difficulty bucket,
+  suspicious flags, recommended action) attached to server-keyed HMAC `exref_` refs the
+  customer cannot map back to their own data — so "we know which of YOUR examples are
+  broken" could not be demoed end-to-end. Each `example_rows` item now carries an
+  optional `example_id` (string, 1–255 chars): the client-owned example identifier as
+  submitted in the evaluation dataset, enabling a local content join. This widens no
+  signal disclosure — example identity already crosses the client boundary as
+  `/example-scoring/{run_id}/scores` keys and as GuidancePlan `seed_ref`; the field is
+  identity only and carries no signal values, scores, or ranks. `safe_example_ref`
+  stays required and unchanged for joins across insights surfaces; rows the backend
+  cannot resolve to a submitted example simply omit `example_id` (purely additive;
+  `additionalProperties: false` preserved by declaring the property).
+
+## [5.6.0] - 2026-08-11
+
+### Added
+- **Optional `winner_stability` block on the best-config `validation` key.** Post-selection
+  rerun of the winning configuration on the same evaluation set; measured evidence only —
+  carries no stability guarantee. The score a run reports for its winner is a single-pass
+  mean, and no shipped surface re-executes the winner to measure run-to-run dispersion; this
+  block gives that measurement a contract home so producers (SDK opt-in rerun) can record it
+  and downstream consumers can read it. Shape: `{reps, mean, std, scores (bounded),
+  config_hash, evaluated_at}` — every member optional, the block itself closed
+  (`additionalProperties: false`), defined once in
+  `best_config_v2_schema.json#/definitions/winner_stability` and `$ref`ed by the v1 envelope
+  so the shape cannot drift between envelopes. Purely additive: `validation` stays an open
+  object (`additionalProperties: true`), payloads without the block are untouched, and this
+  revision attaches no gating and no claim semantics — recording the measurement is the
+  entire contract.
+  - Semantics per the C3/C5 committee rulings: `std` is the **sample** SD and is always shown
+    when computable (no small-replicate suppression; undefined for a single replicate, hence
+    optional); no numeric stability thresholds and no "flip" concept ship in v0; the
+    description marks pairwise per-example comparisons as clustered/dependent (same frozen
+    example set), prohibits feeding contrast selection or any noise floor, names the S2
+    verdict path as the block's consumer (absent stability evidence the affected metric
+    verdict is INDETERMINATE; a single execution may still be reported descriptively), and
+    carries the two verbatim claim / NON-claim strings that any rendering of these numbers
+    must ship together.
 ## [5.5.0] - 2026-08-01
 
 ### Added

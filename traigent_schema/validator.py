@@ -15,14 +15,20 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
 from referencing import Registry, Resource
+from referencing.exceptions import Unresolvable
+from referencing.jsonschema import DRAFT7
 
 from traigent_schema.utils import ContractName, get_contract_path, get_schemas_dir
 
 logger = logging.getLogger(__name__)
 SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
+# Fallback base for caller-supplied schemas that have no usable absolute ``$id``.
+# Inline endpoint schemas use a catalog-relative variant recorded at load time.
+_INLINE_SCHEMA_BASE_ID = f"{SCHEMA_ID_BASE}__inline_request_schema__"
 
 UnknownEndpointPolicy = Literal["strict", "warn", "allow"]
 _UNKNOWN_ENDPOINT_POLICIES: tuple[UnknownEndpointPolicy, ...] = ("strict", "warn", "allow")
@@ -44,6 +50,8 @@ class UnvalidatedEndpointError(RuntimeError):
     silently pass validation. Callers that need the historical permissive
     behaviour must opt in explicitly via ``unknown_endpoint_policy="allow"``.
     """
+
+
 _RFC3339_DATE_TIME_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})[Tt]"
     r"(?P<time>\d{2}:\d{2}:\d{2})"
@@ -137,6 +145,7 @@ class SchemaValidator:
         self._schemas: dict[str, dict[str, Any]] = {}
         self._endpoint_schemas: dict[str, str] = {}
         self._inline_request_schemas: dict[str, dict[str, Any]] = {}
+        self._inline_request_schema_base_ids: dict[str, str] = {}
         # Every "{METHOD}:{path}" pair present in the loaded OpenAPI contract,
         # regardless of whether it declares a JSON request body. Lets
         # validate_request tell "this route is known but structurally has no
@@ -226,7 +235,7 @@ class SchemaValidator:
             with open(openapi_path, encoding='utf-8') as f:
                 openapi = json.load(f)
 
-            self._parse_openapi(openapi)
+            self._parse_openapi(openapi, openapi_path)
             self._load_endpoint_modules(openapi, openapi_path.parent)
         except (OSError, json.JSONDecodeError) as exc:
             logger.warning(
@@ -270,13 +279,34 @@ class SchemaValidator:
             try:
                 with open(module_path, encoding="utf-8") as f:
                     module_openapi = json.load(f)
-                    self._parse_openapi(module_openapi)
+                    self._parse_openapi(module_openapi, module_path)
             except (OSError, json.JSONDecodeError) as exc:
                 logger.warning("Failed to load endpoint module %s: %s", module_path, exc)
                 continue
 
-    def _parse_openapi(self, openapi: dict[str, Any]) -> None:
+    def _parse_openapi(
+        self,
+        openapi: dict[str, Any],
+        catalog_path: Path | None = None,
+    ) -> None:
         """Parse OpenAPI spec to extract endpoint-schema mappings."""
+        catalog_dir = ""
+        if catalog_path is not None:
+            try:
+                relative_parent = catalog_path.parent.relative_to(get_schemas_dir())
+                catalog_dir = relative_parent.as_posix()
+                if catalog_dir == ".":
+                    catalog_dir = ""
+            except ValueError:
+                logger.warning(
+                    "Endpoint catalog %s is outside the schema root; inline refs use root base",
+                    catalog_path,
+                )
+        inline_base_id = (
+            f"{SCHEMA_ID_BASE}{catalog_dir}/__inline_request_schema__"
+            if catalog_dir
+            else _INLINE_SCHEMA_BASE_ID
+        )
         paths = openapi.get("paths", {})
         for path, methods in paths.items():
             if not isinstance(methods, dict):
@@ -299,6 +329,7 @@ class SchemaValidator:
                     self._endpoint_schemas[key] = schema_name
                 elif isinstance(json_schema, dict) and json_schema:
                     self._inline_request_schemas[key] = json_schema
+                    self._inline_request_schema_base_ids[key] = inline_base_id
 
     def validate_request(
         self,
@@ -335,7 +366,11 @@ class SchemaValidator:
             return self._handle_unmapped_endpoint(method, endpoint)
 
         if inline_schema:
-            return self._validate_inline_schema(data, inline_schema)
+            return self._validate_inline_schema(
+                data,
+                inline_schema,
+                self._inline_request_schema_base_ids.get(key, _INLINE_SCHEMA_BASE_ID),
+            )
 
         if schema_name is None:
             return [f"Schema not found for endpoint: {method.upper()} {endpoint}"]
@@ -451,6 +486,7 @@ class SchemaValidator:
         self,
         data: dict[str, Any],
         schema: dict[str, Any],
+        base_uri: str | None = None,
     ) -> list[str]:
         """Run a Draft7 validator over ``data`` against ``schema``.
 
@@ -458,27 +494,80 @@ class SchemaValidator:
         :meth:`_validate_inline_schema`: builds the registry/format-checker
         aware validator, collects errors, and maps recursion / unexpected
         failures to stable messages.
+
+        The validator is anchored on the schema's own ``$id`` (see
+        :meth:`_anchored_validator`) so that relative ``$ref``s resolve. Passing
+        the schema dict straight to ``Draft7Validator`` leaves the resolver with an
+        empty base URI, which makes every ``./x.json`` and ``../x.json`` reference
+        in the library unresolvable.
         """
         try:
-            validator = Draft7Validator(
-                schema,
-                registry=self._registry,
-                format_checker=_FORMAT_CHECKER,
-            )
+            validator = self._anchored_validator(schema, base_uri=base_uri)
             errors = list(validator.iter_errors(data))
             return [self._format_error(e) for e in errors]
         except RecursionError:
             return [self._RECURSION_ERROR_MESSAGE]
+        except Unresolvable as e:
+            # A dangling reference is a broken contract, not a property of the
+            # payload. Say so, instead of letting it read as "this data is invalid"
+            # -- that laundering is what hid the empty-base-URI bug in the first
+            # place, because every affected schema reported a plausible-looking
+            # per-payload validation error.
+            return [f"Schema reference error (contract defect, not payload): {e}"]
         except Exception as e:
             return [f"Validation error: {str(e)}"]
+
+    def _anchored_validator(
+        self,
+        schema: dict[str, Any],
+        base_uri: str | None = None,
+    ) -> Draft7Validator:
+        """Build a validator whose resolver knows where ``schema`` lives.
+
+        Relative ``$ref``s are resolved against the base URI of the referring
+        schema. ``Draft7Validator(schema, registry=...)`` does not derive that base
+        from ``$id``, so the reference target is looked up under an empty base and
+        raises ``Unresolvable``. Validating through a ``$ref`` to the schema's
+        registered ``$id`` instead makes resolution start *inside* that resource,
+        which is where the relative refs are written to resolve from.
+        """
+        schema_id = schema.get("$id")
+
+        if isinstance(schema_id, str) and urlsplit(schema_id).scheme:
+            # Register the actual object passed to this call, even when its $id
+            # matches a schema loaded during initialization. Tests and callers use
+            # _run_validator with deliberately mutated schema copies; resolving the
+            # $id only through the original registry would silently validate the
+            # pristine copy instead of the supplied contract.
+            registry = self._registry or Registry()
+            anchored_resource: Resource[dict[str, Any]] = DRAFT7.create_resource(schema)
+            return Draft7Validator(
+                {"$ref": schema_id},
+                registry=registry.with_resource(schema_id, anchored_resource),
+                format_checker=_FORMAT_CHECKER,
+            )
+
+        # Inline request schemas have no absolute $id of their own. Anchor each
+        # endpoint schema at the directory of the catalog that declared it; a
+        # caller-supplied schema without catalog provenance falls back to the
+        # schemas root. A relative/non-URI $id must not override that usable base.
+        anchor_id = base_uri or _INLINE_SCHEMA_BASE_ID
+        registry = self._registry or Registry()
+        inline_resource: Resource[dict[str, Any]] = DRAFT7.create_resource(schema)
+        return Draft7Validator(
+            {"$ref": anchor_id},
+            registry=registry.with_resource(anchor_id, inline_resource),
+            format_checker=_FORMAT_CHECKER,
+        )
 
     def _validate_inline_schema(
         self,
         data: dict[str, Any],
         schema: dict[str, Any],
+        base_uri: str,
     ) -> list[str]:
         """Validate JSON data against an inline request schema."""
-        return self._run_validator(data, schema)
+        return self._run_validator(data, schema, base_uri=base_uri)
 
     def _format_error(self, error: ValidationError) -> str:
         """Format a validation error into a readable message."""

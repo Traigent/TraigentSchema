@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certification_common_v0_schema.json",
+  "title": "Agent Certificate v0 Common Types",
+  "description": "Shared bounded semantic types for the Agent Certificate v0 contract family (Wave-C C6/C1 reconciled rulings, 2026-08-11). Design rules this family encodes: (1) no user-controlled free text is reachable from any certificate or registry record — every string is const, enum, or pattern-anchored; (2) cryptographic material crosses only through NAMED semantic types defined here (per C1 Ruling 1: 'Permit fixed-size cryptographic material only through named semantic types … do not pretend these types are content-free' — each such type is a disclosed information channel and carries a Disclosure Register audience note in its description); (3) tier 4 is present in the ClaimTier enum but structurally unconstructible in any v0 claim (C6 Ruling 5: 'Keep tier 4 in the schema, but make v0 emission of it a compile error'). This is a definitions-only document; it has no root instance shape.",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "Sha256Digest": {
+      "description": "Named semantic type: a lowercase-hex SHA-256 commitment digest with explicit scheme prefix (same surface rule as optimization/best_config_hash_contract_schema.json#/definitions/sha256_digest). NOT content-free: a digest over an enumerable preimage is guessable unless the commitment used secret blinding (C1 Ruling 4: 'commitments over enumerable preimages require secret blinding, not public salt'). Every field of this type is an issuer->relying-party or client->server disclosure and must have a Disclosure Register entry before a new use site ships.",
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "OpaqueRef": {
+      "description": "Named semantic type: a namespaced opaque reference token (server- or issuer-assigned; never client free text). The namespace prefix is a closed lowercase token; the identifier body is bounded base64url-safe material. An OpaqueRef is a stable identifier and therefore a linkability channel, not content-free (C1 tension T3): raw public keys are NOT represented — key references cross only as OpaqueRef.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$"
+    },
+    "GitCommitSha": {
+      "description": "Named semantic type: a full 40-hex git commit SHA pinning an implementation ref (used by the D2 payload to pin the SDK witness ref; C1 Ruling 4: the e97b030f strace witness 'does not automatically cover newly added certificate code. It must be rerun at the new pinned implementation ref').",
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "BoundedSemver": {
+      "description": "Named semantic type: a bounded semantic-version token (no pre-release/build free text — those would be an uncontrolled string channel).",
+      "type": "string",
+      "pattern": "^[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}$"
+    },
+    "SignatureBytes": {
+      "description": "Named semantic type: bounded base64 signature material. NOT content-free — signature bytes are cryptographic material with their own Disclosure Register entry (C1 Ruling 5, client->server entry 3 / issuer->relying-party section).",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{64,1024}={0,2}$"
+    },
+    "PublicNonce": {
+      "description": "Named semantic type: a bounded lowercase-hex public nonce. Register entry 8 wording is BINDING and travels with every use site: a public salt or nonce 'does not prevent dictionary guessing' (C1 Ruling 5, entry 8; Ruling 4: guessing resistance requires secret blinding, a keyed commitment, or a deliberately expensive construction).",
+      "type": "string",
+      "pattern": "^[a-f0-9]{32,64}$"
+    },
+    "ClaimTier": {
+      "description": "The full four-tier claim scale, present in the schema as owner-resolved (C6 Ruling 5: removing tier 4 'violates the tiered owner resolution'). 1 = client-attested; 2 = server-record-backed (HMAC trust boundary; not externally verifiable); 3 = asymmetrically issuer-signed; 4 = client-co-signed, gap-checked. Tier semantics are pinned by the signed semantics manifest. Tier is a property of each CLAIM, never of a certificate ('is this certificate tier 3?' is a malformed question). v0 claim instances MUST use EmittableClaimTierV0, which keeps tier 4 in this enum while making its emission unconstructible.",
+      "type": "integer",
+      "enum": [1, 2, 3, 4]
+    },
+    "EmittableClaimTierV0": {
+      "description": "The v0 emission constraint (C6 Ruling 5, reconciled): 'Keep tier 4 in the schema, but make v0 emission of it a compile error.' Tier 4 remains a member of the ClaimTier enum above; this type conjoins that enum with a structural exclusion, so NO valid v0 claim instance can carry tier 4 — a tier-4 claim is schema-invalid, i.e. a compile error, not a runtime policy. Enabling tier 4 is a MAJOR version event with fresh verifier evidence (C1 Ruling 1: 'Tier 4 is rejected in v0. Enabling it requires a major version and fresh verifier evidence'; 'Enabling a previously impossible tier changes accepted semantics').",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ClaimTier"
+        },
+        {
+          "not": {
+            "const": 4
+          }
+        }
+      ]
+    },
+    "CommitmentSchemeV0": {
+      "description": "Closed commitment-scheme vocabulary. v0 registers exactly one scheme: SHA-256 over a canonical preimage with SECRET random blinding held client-local (C1 Ruling 4 binding rule: 'commitments over enumerable preimages require secret blinding, not public salt'). A public-salt scheme is deliberately NOT registered; per the same ruling there is 'none for public-salt guessing' as a reversal condition.",
+      "type": "string",
+      "enum": [
+        "sha256_secret_blinded_v1"
+      ]
+    },
+    "CanonicalizationProfileV0": {
+      "description": "Closed canonicalization-profile vocabulary for commitment preimages. jcs_v1 = RFC 8785 JSON Canonicalization Scheme, floats banned from preimages (C1 Ruling 4: 'Banning floats is sensible for canonicalization' — the float64 covert-channel arithmetic was struck, the canonicalization ban stands).",
+      "type": "string",
+      "enum": [
+        "jcs_v1"
+      ]
+    },
+    "SignatureAlgorithmV0": {
+      "description": "Closed signature-algorithm vocabulary for the v0 issuer and co-attestation paths. The v0 issuer path is a NEW dedicated per-environment certificate-signing key through protected GitHub-OIDC CI (C6 Ruling 4); this vocabulary deliberately does NOT reuse ArtifactSignatureEnvelopeV2 — 'Adding nested signatures and new fields changes the format and verifier' (C6 Ruling 3(iv), struck reuse).",
+      "type": "string",
+      "enum": [
+        "ecdsa_p256_sha256",
+        "ed25519"
+      ]
+    }
+  }
+}

@@ -84,9 +84,9 @@ jobs:
 
       - name: Install build and test dependencies
         run: |
-          python -m pip install --upgrade --only-binary :all: pip
-          python -m pip install --only-binary :all: build twine
-          python -m pip install -e ".[dev]"
+          python -m pip install --only-binary :all: pip==26.2.1
+          python -m pip install --only-binary :all: -r requirements-dev.txt
+          python -m pip install --only-binary :all: build==1.5.0 twine==7.0.0
 
       - name: Read package version
         id: package_version
@@ -133,8 +133,31 @@ jobs:
         run: |
           python -m venv test_env
           source test_env/bin/activate
-          pip install --upgrade --only-binary :all: pip
-          pip install --only-binary :all: dist/*.whl
+          python -m pip install --only-binary :all: pip==26.2.1
+          python -m pip install --only-binary :all: -r requirements-dev.txt
+
+          mapfile -t WHEELS < <(find dist -maxdepth 1 -type f -name '*.whl' -print)
+          if [ "${#WHEELS[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one built wheel, found ${#WHEELS[@]}"
+            exit 1
+          fi
+          WHEEL_PATH="${WHEELS[0]}"
+          WHEEL_HASH=$(python - "$WHEEL_PATH" <<'PY'
+          import hashlib
+          import sys
+          from pathlib import Path
+
+          print(hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest())
+          PY
+          )
+          printf 'traigent-schema==%s --hash=sha256:%s\n' \
+            '${{ steps.package_version.outputs.package_version }}' "$WHEEL_HASH" \
+            > "$RUNNER_TEMP/built-wheel-requirements.txt"
+          python -m pip install --no-index --find-links "$PWD/dist" --no-deps \
+            --only-binary :all: --require-hashes \
+            -r "$RUNNER_TEMP/built-wheel-requirements.txt"
+
+          cd "$RUNNER_TEMP"
           python - <<'PY'
           import traigent_schema
           from traigent_schema import SchemaValidator, load_schema
@@ -187,13 +210,36 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   verify-publication:
-    needs: publish
+    needs: [verify-release-ref, publish]
     runs-on: ubuntu-latest
-    if: always() && needs.publish.result == 'success'
+    if: >-
+      always() &&
+      needs.verify-release-ref.result == 'success' &&
+      needs.publish.result == 'success'
     permissions:
       contents: read
 
     steps:
+      - name: Checkout verified main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify checkout matches the approved dispatch
+        env:
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          if [ "$DISPATCH_REF" != "refs/heads/main" ] || [ "$CHECKED_OUT_SHA" != "$DISPATCH_SHA" ]; then
+            echo "::error::Publication verification must use the exact approved main dispatch"
+            echo "dispatch_ref=$DISPATCH_REF dispatch_sha=$DISPATCH_SHA checkout=$CHECKED_OUT_SHA"
+            exit 1
+          fi
+
       - name: Wait for package propagation
         run: sleep 60
 
@@ -210,36 +256,62 @@ jobs:
           if [ "$INPUT_ENVIRONMENT" = "testpypi" ]; then
             PACKAGE_LABEL="TestPyPI"
             PACKAGE_API_URL="https://test.pypi.org/pypi/traigent-schema/json"
-            INSTALL_ARGS=(--index-url "https://test.pypi.org/simple/" --extra-index-url "https://pypi.org/simple/")
           else
             PACKAGE_LABEL="PyPI"
             PACKAGE_API_URL="https://pypi.org/pypi/traigent-schema/json"
-            INSTALL_ARGS=()
           fi
 
           VERSION="$EXPECTED_VERSION"
           echo "Testing installation of traigent-schema==$VERSION from $PACKAGE_LABEL"
 
-          curl --proto '=https' --proto-redir '=https' -fsSL "$PACKAGE_API_URL" -o package.json
-          python - "$VERSION" package.json <<'PY'
+          PACKAGE_JSON="$RUNNER_TEMP/package.json"
+          LOCKED_REQUIREMENT="$RUNNER_TEMP/published-package-requirements.txt"
+          curl --proto '=https' --proto-redir '=https' -fsSL "$PACKAGE_API_URL" -o "$PACKAGE_JSON"
+          python - "$VERSION" "$PACKAGE_JSON" "$LOCKED_REQUIREMENT" <<'PY'
           import json
+          import re
           import sys
+          from pathlib import Path
 
           version = sys.argv[1]
           path = sys.argv[2]
+          requirement_path = Path(sys.argv[3])
           with open(path, encoding="utf-8") as handle:
               data = json.load(handle)
           releases = data.get("releases", {})
-          if version not in releases or not releases[version]:
-              raise SystemExit(f"Version {version} not found on package index")
-          print(f"Verified version {version} exists on package index")
+          artifacts = releases.get(version, [])
+          wheels = [
+              artifact
+              for artifact in artifacts
+              if artifact.get("packagetype") == "bdist_wheel"
+              and artifact.get("filename", "").endswith("py3-none-any.whl")
+          ]
+          if len(wheels) != 1:
+              raise SystemExit(
+                  f"Expected one universal wheel for {version}, found {len(wheels)}"
+              )
+          artifact = wheels[0]
+          url = artifact.get("url", "")
+          digest = artifact.get("digests", {}).get("sha256", "")
+          if not url.startswith("https://"):
+              raise SystemExit("Package artifact URL must use HTTPS")
+          if not re.fullmatch(r"[0-9a-f]{64}", digest):
+              raise SystemExit("Package artifact is missing a valid SHA-256 digest")
+          requirement_path.write_text(
+              f"traigent-schema @ {url} --hash=sha256:{digest}\n",
+              encoding="utf-8",
+          )
+          print(f"Locked version {version} to {artifact['filename']} ({digest[:12]}...)")
           PY
 
-          python -m venv test_env
-          source test_env/bin/activate
-          pip install --upgrade --only-binary :all: pip
-          pip install --only-binary :all: "${INSTALL_ARGS[@]}" "traigent-schema==$VERSION"
-          python - <<'PY'
+          python -m pip install --only-binary :all: uv==0.12.4
+          uv sync --frozen --no-dev --no-build --no-install-project
+          VERIFY_PYTHON="$PWD/.venv/bin/python"
+          uv pip install --python "$VERIFY_PYTHON" --no-deps --no-build \
+            --require-hashes -r "$LOCKED_REQUIREMENT"
+
+          cd "$RUNNER_TEMP"
+          "$VERIFY_PYTHON" - <<'PY'
           import traigent_schema
           from traigent_schema import SchemaValidator, load_schema
 

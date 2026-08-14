@@ -73,10 +73,9 @@ def _load_manifest() -> dict:
 
 
 def _save_manifest(manifest: dict) -> None:
-    _MANIFEST_PATH.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    serialized = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+    with _MANIFEST_PATH.open("w", encoding="utf-8") as manifest_file:
+        manifest_file.write(serialized)
 
 
 def cmd_check() -> int:
@@ -136,8 +135,7 @@ def cmd_update() -> int:
     manifest[_REFRESH_KEY]["lastSchemaFileSha"] = current_digest
     manifest[_REFRESH_KEY]["schemaFileCount"] = current_count
     manifest[_REFRESH_KEY]["note"] = (
-        "Auto-stamped by scripts/refresh_parity.py. "
-        "Do not hand-edit this block."
+        "Auto-stamped by scripts/refresh_parity.py." + " Do not hand-edit this block."
     )
 
     _save_manifest(manifest)

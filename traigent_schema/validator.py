@@ -423,7 +423,9 @@ class SchemaValidator:
         if len(template_parts) != len(endpoint_parts):
             return False
 
-        for template_part, endpoint_part in zip(template_parts, endpoint_parts):
+        for template_part, endpoint_part in zip(
+            template_parts, endpoint_parts, strict=True
+        ):
             if template_part.startswith("{") and template_part.endswith("}"):
                 if not endpoint_part:
                     return False

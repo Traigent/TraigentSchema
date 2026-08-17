@@ -141,13 +141,31 @@ def test_submit_results_legacy_metadata_measures_is_constrained():
 
 
 def test_submit_results_measures_reference_canonical_definition():
-    """#119: the bounds are inherited from the single canonical MeasuresDict, not duplicated."""
+    """#119: the bounds are inherited from the single canonical MeasuresDict, not duplicated.
+
+    ``metrics`` stays a bare $ref -- it only ever accepts the flat dict form. ``measures``
+    and ``metadata.measures`` accept EITHER the flat dict form OR a list of per-example
+    ExampleMetrics results (Schema#437: the backend dispatches both shapes at
+    TraigentBackend's _validate_submission_measures), so each is a oneOf of the two
+    canonical definitions rather than a bare $ref -- but each branch still references the
+    single canonical definition, not a duplicated inline copy of its bounds.
+    """
     with open(
         get_schemas_dir() / "optimization" / "session_submit_results_request_schema.json",
         encoding="utf-8",
     ) as fh:
         spec = json.load(fh)
-    ref = "../evaluation/configuration_run_schema.json#/definitions/MeasureResults"
-    assert spec["properties"]["metrics"]["$ref"] == ref
-    assert spec["properties"]["measures"]["$ref"] == ref
-    assert spec["properties"]["metadata"]["properties"]["measures"]["$ref"] == ref
+    dict_ref = "../evaluation/configuration_run_schema.json#/definitions/MeasureResults"
+    list_item_ref = "../evaluation/configuration_run_schema.json#/definitions/ExampleMetrics"
+
+    assert spec["properties"]["metrics"]["$ref"] == dict_ref
+
+    for measures_spec in (
+        spec["properties"]["measures"],
+        spec["properties"]["metadata"]["properties"]["measures"],
+    ):
+        branches = measures_spec["oneOf"]
+        assert len(branches) == 2
+        assert branches[0]["$ref"] == dict_ref
+        assert branches[1]["type"] == "array"
+        assert branches[1]["items"]["$ref"] == list_item_ref

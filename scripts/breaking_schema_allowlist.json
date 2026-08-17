@@ -615,7 +615,7 @@
       "file": "evaluation/configuration_run_schema.json",
       "rule": "property_added",
       "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/example_digest",
-      "reason": "Adds the optional one-way, client-computed identity digest sibling that TraigentBackend#2821 and Traigent#2191 (paired PRs) already exchange as a preserved sibling key under #1334 read-back fidelity; TraigentBackend#2821's own PR checklist states no TraigentSchema change is required for the wire behavior to work because unknown siblings already round-trip. This closes the documentation gap only. additionalProperties stays false -- every sibling the client may send is now enumerated, not loosened.",
+      "reason": "Adds the optional keyed, one-way, client-computed identity digest sibling that TraigentBackend#2821 and Traigent#2191 (paired PRs) already exchange as a preserved sibling key under #1334 read-back fidelity; TraigentBackend#2821's own PR checklist states no TraigentSchema change is required for the wire behavior to work because unknown siblings already round-trip. This closes the documentation gap only. additionalProperties stays false -- every sibling the client may send is now enumerated, not loosened.",
       "version": "5.8.0",
       "pr": "#437"
     },
@@ -623,7 +623,7 @@
       "file": "evaluation/configuration_run_schema.json",
       "rule": "property_added",
       "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/output_digest",
-      "reason": "Adds the optional one-way, client-computed identity digest sibling for the produced output, paired with example_digest above and shipped by the same TraigentBackend#2821 / Traigent#2191 pair under #1334 read-back fidelity. Documentation-only closure of the same gap; additionalProperties stays false.",
+      "reason": "Adds the optional keyed, one-way, client-computed identity digest sibling for the produced output, paired with example_digest above and shipped by the same TraigentBackend#2821 / Traigent#2191 pair under #1334 read-back fidelity. Documentation-only closure of the same gap; additionalProperties stays false.",
       "version": "5.8.0",
       "pr": "#437"
     },
@@ -632,6 +632,14 @@
       "rule": "property_added",
       "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/verified_match",
       "reason": "Adds the optional 0.0/1.0 match-indicator sibling shipped by TraigentBackend#2821 / Traigent#2191 under #1334 read-back fidelity. Its absence (never null, never a default 0.0) is semantically load-bearing -- an example with no usable expected answer omits the key entirely rather than being scored as a mismatch -- so it is declared as an optional enum [0.0, 1.0], not a required or nullable field. Documentation-only closure of an already-accepted sibling; additionalProperties stays false.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/signal_key_id",
+      "reason": "Adds the optional 12-char lowercase-hex sibling that tags which client key version example_digest/output_digest were computed under, shipped by Traigent#2191 (commit 7559b983, landed after this PR's initial description) under #1334 read-back fidelity. Present only alongside the two digests it tags; its own absence carries no separate meaning beyond 'no keyed digests were produced for this row' (e.g. no project API key configured). Documentation-only closure of an already-accepted sibling; additionalProperties stays false.",
       "version": "5.8.0",
       "pr": "#437"
     }

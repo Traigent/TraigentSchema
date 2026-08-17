@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`ExampleMetrics` sibling identity fields** in `evaluation/configuration_run_schema.json`:
+  `input_id`, `example_digest`, `output_digest`, and `verified_match`. This documents fields the
+  runtime contract already accepts rather than loosening it: the backend has preserved unknown
+  sibling keys on a per-example measure since #1334 (`_collect_sibling_keys` /
+  `validate_example_result` in `TraigentBackend/src/models/workflow_metadata.py`), and the SDK
+  already ships `input_id` today — the schema's `additionalProperties: false` on `ExampleMetrics`
+  simply never enumerated it. `example_digest`/`output_digest` are one-way, client-computed
+  64-character lowercase-hex identity digests; `verified_match` is `0.0`/`1.0` and MUST be omitted
+  entirely (not sent as `null` or `0.0`) when an example has no usable expected answer, since
+  absence ("not checked") is semantically distinct from `0.0` ("checked and failed"). Unblocks
+  the paired `TraigentBackend#2821` / `Traigent#2191`. `additionalProperties: false` is kept —
+  every sibling the client may send is now enumerated, not the constraint loosened. This
+  schema-first addition targets **5.8.0**.
 - **Canonical cached-token usage vocabulary** in `common_types_schema.json`:
   `CacheReadTokens`, `CacheCreationTokens`, `CacheCreationTokensByTtl`, and
   `UnreportedUsageFields`. Optional nullable counts preserve the difference between a provider

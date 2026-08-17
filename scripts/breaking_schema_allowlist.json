@@ -602,6 +602,38 @@
       "reason": "Replaces minimum: 0 with exclusiveMinimum: 0 to correctly enforce that objective weights must be strictly positive (>0, not >=0). Zero weight on an objective is meaningless in multi-objective optimization and should be rejected; this change prevents silent validation of invalid weight configurations. The breaking-schema-check tool does not dereference the substitution, reporting it as a constraint removal rather than a tightening, but the wire behavior is tightened as intended.",
       "version": "5.9.0",
       "pr": "#431"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/input_id",
+      "reason": "Documents a sibling key the SDK already sends today and the backend already preserves rather than drops (#1334, _collect_sibling_keys/validate_example_result in TraigentBackend/src/models/workflow_metadata.py) -- the runtime contract already accepts input_id on a per-example measure; ExampleMetrics's additionalProperties: false simply never enumerated it. A hypothetical old STRICT response consumer that pinned the previous ExampleMetrics shape could reject the field, but no such consumer is known to exist for this producer-side field; the acknowledgement exists so the gap is closed loudly rather than silently. additionalProperties stays false: this enumerates reality, it does not loosen the contract.",
+      "version": "5.8.0",
+      "pr": "pending (branch feature/example-signal-contract-fields)"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/example_digest",
+      "reason": "Adds the optional one-way, client-computed identity digest sibling that TraigentBackend#2821 and Traigent#2191 (paired PRs) already exchange as a preserved sibling key under #1334 read-back fidelity; TraigentBackend#2821's own PR checklist states no TraigentSchema change is required for the wire behavior to work because unknown siblings already round-trip. This closes the documentation gap only. additionalProperties stays false -- every sibling the client may send is now enumerated, not loosened.",
+      "version": "5.8.0",
+      "pr": "pending (branch feature/example-signal-contract-fields)"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/output_digest",
+      "reason": "Adds the optional one-way, client-computed identity digest sibling for the produced output, paired with example_digest above and shipped by the same TraigentBackend#2821 / Traigent#2191 pair under #1334 read-back fidelity. Documentation-only closure of the same gap; additionalProperties stays false.",
+      "version": "5.8.0",
+      "pr": "pending (branch feature/example-signal-contract-fields)"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/verified_match",
+      "reason": "Adds the optional 0.0/1.0 match-indicator sibling shipped by TraigentBackend#2821 / Traigent#2191 under #1334 read-back fidelity. Its absence (never null, never a default 0.0) is semantically load-bearing -- an example with no usable expected answer omits the key entirely rather than being scored as a mismatch -- so it is declared as an optional enum [0.0, 1.0], not a required or nullable field. Documentation-only closure of an already-accepted sibling; additionalProperties stays false.",
+      "version": "5.8.0",
+      "pr": "pending (branch feature/example-signal-contract-fields)"
     }
   ]
 }

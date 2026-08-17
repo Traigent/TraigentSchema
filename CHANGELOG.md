@@ -23,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from `0.0` ("checked and failed"). Unblocks the paired `TraigentBackend#2821` / `Traigent#2191`.
   `additionalProperties: false` is kept — every sibling the client may send is now enumerated, not
   the constraint loosened. This schema-first addition targets **5.8.0**.
+- **`measures` / `metadata.measures` in `session_submit_results_request_schema.json` now express
+  both backend-accepted shapes.** Previously a bare `$ref` to the flat `MeasureResults` dict, which
+  only documented half of what `_validate_submission_measures`
+  (`TraigentBackend/src/routes/traigent_session_routes.py`) actually dispatches: the flat dict
+  (`validate_measures_dict`) or a list of per-example `ExampleMetrics` results
+  (`validate_measures_list`) — the list form is what carries the new `ExampleMetrics` sibling
+  fields above. Both properties are now `oneOf: [MeasureResults, array<ExampleMetrics>]`, each
+  branch still referencing the single canonical definition (no duplicated bounds). Existing
+  flat-dict producers are unaffected — confirmed by the pre-existing
+  `test_submit_results_measures_inherit_measuresdict_contract` /
+  `test_submit_results_legacy_metadata_measures_is_constrained` tests continuing to pass, plus a
+  direct `SchemaValidator` check of both shapes on both properties. Targets **5.8.0**.
 - **Canonical cached-token usage vocabulary** in `common_types_schema.json`:
   `CacheReadTokens`, `CacheCreationTokens`, `CacheCreationTokensByTtl`, and
   `UnreportedUsageFields`. Optional nullable counts preserve the difference between a provider

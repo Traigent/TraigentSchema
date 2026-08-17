@@ -642,6 +642,20 @@
       "reason": "Adds the optional 12-char lowercase-hex sibling that tags which client key version example_digest/output_digest were computed under, shipped by Traigent#2191 (commit 7559b983, landed after this PR's initial description) under #1334 read-back fidelity. Present only alongside the two digests it tags; its own absence carries no separate meaning beyond 'no keyed digests were produced for this row' (e.g. no project API key configured). Documentation-only closure of an already-accepted sibling; additionalProperties stays false.",
       "version": "5.8.0",
       "pr": "#437"
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "oneOf_added",
+      "reason": "measures and metadata.measures were a bare $ref to the flat MeasureResults dict, which only ever described HALF of what the backend's _validate_submission_measures dispatcher actually accepts -- it also routes a list of per-example ExampleMetrics results (the form carrying input_id/example_digest/output_digest/verified_match/signal_key_id) to validate_measures_list. A generated strict consumer built from the bare $ref would reject that list form even though the live backend accepts it. Replacing the bare $ref with oneOf [MeasureResults, array<ExampleMetrics>] makes the schema match the real dispatch contract instead of only documenting one branch of it. Confirmed non-breaking for existing map-form producers: test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained (both pre-existing, unmodified) continue to pass -- a flat dict still validates via oneOf branch 0, and its bounds (max 50 keys, identifier keys, numeric|null values) are unchanged and still sourced from the single canonical MeasureResults definition, not duplicated.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "type",
+      "reason": "Reported as 'type no longer allows object' because the breaking-check tool does not resolve oneOf branches back to their member types; the actual behavior is additive, not a narrowing -- the object (MeasureResults) branch is unchanged and a second, array (ExampleMetrics list), branch is now also accepted. Same change and same evidence as the paired oneOf_added acknowledgement immediately above for this file.",
+      "version": "5.8.0",
+      "pr": "#437"
     }
   ]
 }

@@ -178,7 +178,7 @@
             }
           }
         },
-        "x-wrap-status": "unclassified — economics telemetry is not in the #136 wrap-map; the documented response is the bare ingest-result shape. Reconcile envelope status when backend ingestion lands.",
+        "x-wrap-status": "unclassified — economics telemetry is not in the #136 wrap-map; the implemented route's documented response is the bare ingest-result shape. Reconcile the envelope classification against current backend behavior.",
         "x-traigent-note": "Tenant scoping is resolved from the authenticated request context. The contract carries no tenant field precisely so a client cannot assert one."
       }
     }

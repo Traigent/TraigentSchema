@@ -12,6 +12,5 @@
       "description": "Bound false on the 201 initial-ingest path: this response reflects state written now, not a replay."
     }
   },
-  "x-stability": "pre-release",
-  "x-asserted-against-backend": false
+  "x-stability": "pre-release"
 }

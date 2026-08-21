@@ -108,6 +108,11 @@
       "paths_file": "./costs/costs_endpoints.json"
     },
     {
+      "name": "Economics",
+      "description": "Current backend economics telemetry routes and the contract-first recommendation route.",
+      "paths_file": "./economics/economics_endpoints.json"
+    },
+    {
       "name": "MFA",
       "description": "Current backend multi-factor authentication routes.",
       "paths_file": "./mfa/mfa_endpoints.json"

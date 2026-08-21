@@ -166,15 +166,20 @@ def test_route_binds_the_recommendation_request_schema() -> None:
     assert validator.validate_request(ENDPOINT, "POST", {}) != []
 
 
-def test_route_is_not_claimed_as_canonical_backend_truth() -> None:
-    """Contract-first honesty: no backend serves this yet, so it must not sit in
-    the canonical `backend` root (which means 'current backend truth')."""
-    assert (
-        SchemaValidator(contract="backend")._endpoint_schemas.get(f"POST:{ENDPOINT}") is None
-    )
+def test_route_remains_contract_first_at_operation_level() -> None:
+    """#365 — recommendation alone remains unasserted against backend parity.
+
+    `SchemaValidator` currently loads every operation in a canonical module; it does
+    not filter endpoint mappings by `x-asserted-against-backend`. Its mapping here is
+    therefore catalog discovery, not evidence that this contract-first route has
+    backend parity.
+    """
+    assert SchemaValidator(contract="backend")._endpoint_schemas.get(f"POST:{ENDPOINT}") == REQUEST
     catalog = _load("economics_endpoints.json")
-    assert catalog["x-stability"] == "pre-release"
-    assert catalog["x-asserted-against-backend"] is False
+    assert "x-stability" not in catalog
+    assert "x-asserted-against-backend" not in catalog
+    operation = catalog["paths"][ENDPOINT]["post"]
+    assert operation["x-asserted-against-backend"] is False
 
 
 def test_endpoint_documents_success_auth_validation_and_unavailable() -> None:

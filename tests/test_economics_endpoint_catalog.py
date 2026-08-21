@@ -47,7 +47,9 @@ def test_economics_catalog_is_discoverable_with_operation_scoped_assertions() ->
         "economics_recommendation_request_schema"
     )
 
-    with open(schemas_dir / "economics" / "economics_endpoints.json", encoding="utf-8") as handle:
+    with open(
+        schemas_dir / "economics" / "economics_endpoints.json", encoding="utf-8"
+    ) as handle:
         catalog = json.load(handle)
 
     assert "x-stability" not in catalog
@@ -58,7 +60,9 @@ def test_economics_catalog_is_discoverable_with_operation_scoped_assertions() ->
         for path, operation in operations.items()
         if operation.get("x-asserted-against-backend") is False
     ] == ["/api/v1/economics/recommendation"]
-    assert operations["/api/v1/economics/telemetry"]["x-asserted-against-backend"] is True
+    assert (
+        operations["/api/v1/economics/telemetry"]["x-asserted-against-backend"] is True
+    )
 
 
 def test_operation_scope_is_the_only_telemetry_assertion_authority() -> None:
@@ -68,8 +72,13 @@ def test_operation_scope_is_the_only_telemetry_assertion_authority() -> None:
     catalog = _load_json(economics_dir / "economics_endpoints.json")
     operations = {path: item["post"] for path, item in catalog["paths"].items()}
 
-    assert operations["/api/v1/economics/telemetry"]["x-asserted-against-backend"] is True
-    assert operations["/api/v1/economics/recommendation"]["x-asserted-against-backend"] is False
+    assert (
+        operations["/api/v1/economics/telemetry"]["x-asserted-against-backend"] is True
+    )
+    assert (
+        operations["/api/v1/economics/recommendation"]["x-asserted-against-backend"]
+        is False
+    )
 
     for filename in _TELEMETRY_BOUND_LEAVES:
         leaf = _load_json(economics_dir / filename)

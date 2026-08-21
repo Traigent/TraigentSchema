@@ -1026,11 +1026,12 @@ def test_a_settled_run_meters_its_usage_explicitly() -> None:
 
 
 def test_a_settled_run_records_the_measured_effect_support_and_exclusions() -> None:
-    """run_economics is emitted only for a run whose effect WAS measured (a failure is a
-    funnel exit), so the measured evidence is not optional: without effect_estimate,
-    support, exclusions, and the objective weights in force, the record names an
-    evidence identity that measures nothing — the evidence half of a blank settlement.
-    """
+    (
+        "run_economics is emitted only for a run whose effect WAS measured (a failure is a\n"
+        "    funnel exit), so the measured evidence is not optional: without effect_estimate,\n"
+        "    support, exclusions, and the objective weights in force, the record names an\n"
+        "    evidence identity that measures nothing — the evidence half of a blank settlement."
+    )
     for field in ("effect_estimate", "support", "exclusions", "objective_weights"):
         event = _run_event()
         del event["evidence_identity"][field]
@@ -1055,12 +1056,13 @@ def test_a_settled_run_records_the_measured_effect_support_and_exclusions() -> N
 def test_the_composed_blank_settlement_shell_is_rejected_and_the_honest_exit_is_not() -> (
     None
 ):
-    """Defect 1 in one payload: a run_economics event that combines every empty shell —
-    zero-metering usage, an evidence identity with no measured effect, and a
-    characterization whose only report is a `shared` alibi with no value — must be
-    rejected as a body, and its honest alternative (report the drop as a funnel exit
-    carrying a closed reason) must stay valid. The strictness costs no expressiveness.
-    """
+    (
+        "Defect 1 in one payload: a run_economics event that combines every empty shell —\n"
+        "    zero-metering usage, an evidence identity with no measured effect, and a\n"
+        "    characterization whose only report is a `shared` alibi with no value — must be\n"
+        "    rejected as a body, and its honest alternative (report the drop as a funnel exit\n"
+        "    carrying a closed reason) must stay valid. The strictness costs no expressiveness."
+    )
     shell = _run_event()
     shell["usage"] = {}
     del shell["evidence_identity"]["effect_estimate"]
@@ -1945,18 +1947,20 @@ def test_boundary_support_counts_are_not_related_to_each_other() -> None:
 def test_boundary_a_contradictory_winner_receipt_is_schema_valid_and_pins_the_backend() -> (
     None
 ):
-    """A winner receipt's load-bearing fields — actual_cost_usd, paired_delta,
-    selected_config_hash, the immutable run identity, and the promotion evidence — are
-    only CLAIMS until reconciled, as a set, against the immutable stored run. Draft-07
-    validates one payload in isolation and has no stored run to compare against, so a
-    STRUCTURALLY valid winner receipt whose fields contradict the real run is
-    contract-valid. This receipt is internally well-formed but mutually incoherent as a
-    claim: a strongly positive paired delta on a run that cost almost nothing, against a
-    config/run hash that need correspond to nothing stored, promoted with a follow-up
-    already 'confirmed' in its favour. The contract accepts it; only cross-record
-    reconciliation can reject it.
-    Backend obligation: WINNER RECEIPT RECONCILIATION / winner_receipt_reconciliation_failed.
-    """
+    (
+        "A winner receipt's load-bearing fields — actual_cost_usd, paired_delta,\n"
+        "    selected_config_hash, the immutable run identity, and the promotion evidence — are\n"
+        "    only CLAIMS until reconciled, as a set, against the immutable stored run. Draft-07\n"
+        "    validates one payload in isolation and has no stored run to compare against, so a\n"
+        "    STRUCTURALLY valid winner receipt whose fields contradict the real run is\n"
+        "    contract-valid. This receipt is internally well-formed but mutually incoherent as a\n"
+        "    claim: a strongly positive paired delta on a run that cost almost nothing, against a\n"
+        "    config/run hash that need correspond to nothing stored, promoted with a follow-up\n"
+        "    already 'confirmed' in its favour. The contract accepts it; only cross-record\n"
+        "    reconciliation can reject it.\n"
+        "    Backend obligation: WINNER RECEIPT RECONCILIATION / "
+        "winner_receipt_reconciliation_failed."
+    )
     contradictory = _winner_receipt()
     contradictory["winner"]["actual_cost_usd"] = 0.01
     contradictory["winner"]["paired_delta"] = _interval(
@@ -2054,9 +2058,10 @@ def test_unenforceable_invariants_are_declared_as_backend_obligations() -> None:
 
 
 def test_survey_vocabulary_is_not_a_survey_submission_contract() -> None:
-    """WI-B publishes the characterization VOCABULARY for telemetry only. The closed
-    survey submission + calculator response contract is a later, separate deliverable.
-    """
+    (
+        "WI-B publishes the characterization VOCABULARY for telemetry only. The closed\n"
+        "    survey submission + calculator response contract is a later, separate deliverable."
+    )
     vocab = _load("economics_characterization_vocabulary_schema.json")
     assert vocab["x-source-of-truth"] == "economics_characterization_vocabulary"
     assert "type" not in vocab, "a vocabulary declares definitions, not a payload shape"

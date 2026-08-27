@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft7Validator
 
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
@@ -17,6 +19,7 @@ CATALOG = SCHEMAS / "certification" / "certification_endpoints_v0.json"
 MEP = SCHEMAS / "mep_endpoints.json"
 BUILD_REF = "bsn:" + "A" * 43
 DIGEST = "sha256:" + "a" * 64
+ZERO_DIGEST = "sha256:" + "0" * 64
 OPAQUE_REF = "clientkey:contract001"
 
 
@@ -29,6 +32,44 @@ def _request_schema(catalog: dict, path: str, method: str) -> dict:
     return catalog["paths"][path][method.lower()]["requestBody"]["content"]["application/json"][
         "schema"
     ]
+
+
+def _g1_response_validator() -> Draft7Validator:
+    catalog = _load(CATALOG)
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://schemas.traigent.ai/certification/_g1_response_test.json",
+        "components": copy.deepcopy(catalog["components"]),
+        "$ref": "#/components/schemas/G1BindingResponseV0",
+    }
+
+    def absolutize_refs(value: object) -> None:
+        if isinstance(value, dict):
+            reference = value.get("$ref")
+            if isinstance(reference, str) and reference.startswith("./"):
+                value["$ref"] = "https://schemas.traigent.ai/certification/" + reference[2:]
+            for nested in value.values():
+                absolutize_refs(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                absolutize_refs(nested)
+
+    absolutize_refs(schema["components"]["schemas"]["G1BindingResponseV0"])
+    return Draft7Validator(schema, registry=SchemaValidator(contract="backend")._registry)
+
+
+def _valid_g1_response() -> dict:
+    return {
+        "binding_id": "binding_contract001",
+        "tenant_id": "tenant_contract001",
+        "project_id": "project_contract001",
+        "build_session_ref": BUILD_REF,
+        "session_commitment_digest": DIGEST,
+        "manifest_root_digest": DIGEST,
+        "seal_ref": "seal:contract001",
+        "seal_statement_digest": DIGEST,
+        "has_g1_binding": True,
+    }
 
 
 def test_certificate_catalog_is_wired_as_a_canonical_backend_module() -> None:
@@ -161,6 +202,31 @@ def test_finalize_co_attestation_is_the_existing_content_free_signature_shape() 
         "./certificate_signatures_v0_schema.json#/definitions/CoAttestationV0"
     }
     assert "private_key" not in json.dumps(catalog).lower()
+
+
+def test_bind_g1_request_rejects_zero_manifest_root_digest() -> None:
+    request = {
+        "build_session_ref": BUILD_REF,
+        "manifest_root_digest": ZERO_DIGEST,
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "client_attestor_version": "1.0.0",
+        "client_key_ref": OPAQUE_REF,
+        "client_signature_algorithm": "ed25519",
+        "declared_mode": "offline",
+        "sdk_ref": "a" * 40,
+        "sdk_version": "1.0.0",
+    }
+    assert SchemaValidator(contract="backend").validate_request(
+        "/api/v1beta/certificate-build-sessions/bind-g1", "POST", request
+    )
+
+
+def test_g1_binding_response_rejects_zero_manifest_root_digest() -> None:
+    validator = _g1_response_validator()
+    assert not list(validator.iter_errors(_valid_g1_response()))
+    response = _valid_g1_response()
+    response["manifest_root_digest"] = ZERO_DIGEST
+    assert list(validator.iter_errors(response))
 
 
 def test_success_responses_bind_to_typed_content_free_projections() -> None:

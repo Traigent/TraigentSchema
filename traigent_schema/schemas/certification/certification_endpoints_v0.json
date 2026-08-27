@@ -89,7 +89,10 @@
                     "pattern": "^bsn:[A-Za-z0-9_-]{43}$"
                   },
                   "manifest_root_digest": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"
+                    "allOf": [
+                      {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+                      {"not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}}
+                    ]
                   },
                   "commitment_scheme": {
                     "const": "sha256_secret_blinded_v1"
@@ -475,7 +478,12 @@
           "project_id": {"$ref": "#/components/schemas/IdV0"},
           "build_session_ref": {"type": "string", "pattern": "^bsn:[A-Za-z0-9_-]{43}$"},
           "session_commitment_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
-          "manifest_root_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+          "manifest_root_digest": {
+            "allOf": [
+              {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+              {"not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}}
+            ]
+          },
           "seal_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
           "seal_statement_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
           "has_g1_binding": {"const": true}

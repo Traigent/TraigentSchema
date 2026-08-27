@@ -17,10 +17,7 @@ from referencing import Registry, Resource
 from traigent_schema import fp2
 
 SCHEMA_NAME = "certificate_verification_materials_v0_schema.json"
-SCHEMA_PATH = (
-    resources.files("traigent_schema")
-    .joinpath("schemas", "certification", SCHEMA_NAME)
-)
+SCHEMA_PATH = resources.files("traigent_schema").joinpath("schemas", "certification", SCHEMA_NAME)
 DOMAIN = b"traigent.agent_certificate.verification_materials.v0"
 
 
@@ -53,8 +50,14 @@ def _digest(value: object) -> str:
     return "sha256:" + hashlib.sha256(DOMAIN + b"\0" + fp2.canonicalize(value).encode()).hexdigest()
 
 
-def _valid_materials(*, client_algorithm: str = "ed25519") -> dict:
-    issuer_public = ec.generate_private_key(ec.SECP256R1()).public_key()
+def _valid_materials(
+    *, client_algorithm: str = "ed25519", issuer_algorithm: str = "ecdsa_p256_sha256"
+) -> dict:
+    issuer_public = (
+        ed25519.Ed25519PrivateKey.generate().public_key()
+        if issuer_algorithm == "ed25519"
+        else ec.generate_private_key(ec.SECP256R1()).public_key()
+    )
     client_public = (
         ed25519.Ed25519PrivateKey.generate().public_key()
         if client_algorithm == "ed25519"
@@ -68,7 +71,7 @@ def _valid_materials(*, client_algorithm: str = "ed25519") -> dict:
         "issuer": {
             "key_ref": "issuer-key:opaque0001",
             "trust_ring_ref": "trust-ring:opaque001",
-            "algorithm": "ecdsa_p256_sha256",
+            "algorithm": issuer_algorithm,
             "public_key_der_b64": _der(issuer_public),
             "public_key_digest": "sha256:" + "a" * 64,
         },
@@ -113,6 +116,11 @@ def test_schema_is_packaged_and_validates_ed25519_and_p256_clients() -> None:
     assert SCHEMA_PATH.is_file()
     assert _errors(_valid_materials(client_algorithm="ed25519")) == []
     assert _errors(_valid_materials(client_algorithm="ecdsa_p256_sha256")) == []
+
+
+@pytest.mark.parametrize("issuer_algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_schema_validates_both_supported_issuer_algorithms(issuer_algorithm: str) -> None:
+    assert _errors(_valid_materials(issuer_algorithm=issuer_algorithm)) == []
 
 
 def test_materials_digest_is_domain_separated_fp2_digest_of_bundle_without_it() -> None:
@@ -163,7 +171,7 @@ def test_hard_banned_fields_are_rejected_at_any_object_level(field: str) -> None
         lambda d: d.update(distribution_role="authenticated"),
         lambda d: d.update(requires_independent_pins=False),
         lambda d: d.update(materials_digest="not-a-digest"),
-        lambda d: d["issuer"].update(algorithm="ed25519"),
+        lambda d: d["issuer"].update(algorithm="rsa4096"),
         lambda d: d["issuer"].update(public_key_der_b64="not-base64"),
         lambda d: d["issuer"].update(public_key_der_b64="A" * 61),
         lambda d: d["client"].update(algorithm="rsa"),

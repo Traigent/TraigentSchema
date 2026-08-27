@@ -103,7 +103,7 @@
           "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
         },
         "algorithm": {
-          "const": "ecdsa_p256_sha256"
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
         },
         "public_key_der_b64": {
           "$ref": "#/definitions/CanonicalSpkiDerBase64V0"

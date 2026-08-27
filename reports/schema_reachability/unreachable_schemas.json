@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 34,
-      "refOrEndpointGraph": 348
+      "refOrEndpointGraph": 360
     },
-    "reachableCount": 382,
-    "schemaFileCount": 432,
-    "unreachableCount": 50
+    "reachableCount": 394,
+    "schemaFileCount": 433,
+    "unreachableCount": 39
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -28,21 +28,11 @@
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
     "auth/rbac_privilege_vocabulary_schema.json",
-    "certification/agent_certificate_v0_schema.json",
-    "certification/certificate_audit_report_v0_schema.json",
-    "certification/certificate_claim_payloads_v0_schema.json",
     "certification/certificate_claim_templates_v0_schema.json",
-    "certification/certificate_claims_v0_schema.json",
     "certification/certificate_client_evidence_manifest_v0_schema.json",
-    "certification/certificate_evidence_refs_v0_schema.json",
-    "certification/certificate_ledger_seals_v0_schema.json",
     "certification/certificate_registry_agent_revision_v0_schema.json",
     "certification/certificate_registry_measurement_contract_v0_schema.json",
     "certification/certificate_rejection_v0_schema.json",
-    "certification/certificate_signatures_v0_schema.json",
-    "certification/certificate_unsigned_manifest_v0_schema.json",
-    "certification/certificate_verification_materials_v0_schema.json",
-    "certification/certification_common_v0_schema.json",
     "evaluation/evaluation_request_schema.json",
     "evaluation/evaluation_results_schema.json",
     "evaluation/evaluation_schema.json",
@@ -52,7 +42,6 @@
     "execution/service_registration_schema.json",
     "mep.json",
     "onboarding/onboarding_funnel_event_schema.json",
-    "optimization/best_config_hash_contract_schema.json",
     "optimization/best_config_manifest_v2_schema.json",
     "optimization/certificate_subject_schema.json",
     "optimization/guarantee_certificate_statistical_body_schema.json",

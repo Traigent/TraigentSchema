@@ -420,6 +420,7 @@ def verify_certificate_with_materials(
             status = wrapper.get("certificate_status")
             if (
                 not isinstance(status, dict)
+                or set(status) != {"status", "revoked_at", "reason"}
                 or status.get("status") != "active"
                 or status.get("revoked_at") is not None
                 or status.get("reason") is not None

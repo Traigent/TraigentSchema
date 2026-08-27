@@ -368,7 +368,7 @@ def test_non_active_retrieval_wrapper_is_rejected(status: str) -> None:
     materials = _materials_fixture(cert, issuer, context, policy)
     wrapper = {
         "certificate_ref": materials["certificate_ref"],
-        "certificate_status": {"status": status},
+        "certificate_status": {"status": status, "revoked_at": None, "reason": None},
         "signed_certificate": cert,
     }
 
@@ -399,6 +399,52 @@ def test_active_retrieval_wrapper_is_verified() -> None:
         context=context,
     )
     assert result.valid
+
+
+@pytest.mark.parametrize("missing", ["status", "revoked_at", "reason"])
+def test_active_retrieval_wrapper_rejects_missing_status_field(missing: str) -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    status = {"status": "active", "revoked_at": None, "reason": None}
+    del status[missing]
+    wrapper = {
+        "certificate_ref": materials["certificate_ref"],
+        "certificate_status": status,
+        "signed_certificate": cert,
+    }
+
+    with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS$"):
+        verify_certificate_with_materials(
+            wrapper,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=context,
+        )
+
+
+def test_active_retrieval_wrapper_rejects_unexpected_status_field() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = {
+        "certificate_ref": materials["certificate_ref"],
+        "certificate_status": {
+            "status": "active",
+            "revoked_at": None,
+            "reason": None,
+            "unexpected": "sentinel",
+        },
+        "signed_certificate": cert,
+    }
+
+    with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS$"):
+        verify_certificate_with_materials(
+            wrapper,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=context,
+        )
 
 
 def test_zero_claim_certificate_verifies_with_issuer_only_materials() -> None:

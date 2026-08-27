@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/certificate_audit_report_v0_schema.json",
   "title": "Agent Certificate v0 Pre-Issuance Audit Report",
-  "description": "SCHEMA-1 typed, content-free pre-issuance audit report. Its load-bearing digest is role-separated: `sha256:` plus lowercase SHA-256 over UTF8(`traigent.agent_certificate.audit_report.v1`) || 0x00 || jcs_v1(this report). It binds build session, client-evidence root, ledger seal, compiler/register identities, and the fixed seven-row support-or-abstention tuple. Unsupported current-v0 IDs B1, REG1, C1, F1, and G3 are structurally abstained; only D2/G1 may have supported rows. A supported row binds the exact claim-material projection using the distinct claim-material role domain, excluding the claim's audit_report_digest entry to avoid a fixed point. The report is built before that entry and before the final unsigned manifest; its digest is referenced by each printed claim when present and by the manifest's leading evidence_digests audit entry even for zero claims. It contains no private content, counts, names, paths, signatures, or self-reference.",
+  "description": "SCHEMA-1 typed, content-free pre-issuance audit report. Its load-bearing digest is role-separated: `sha256:` plus lowercase SHA-256 over UTF8(`traigent.agent_certificate.audit_report.v1`) || 0x00 || jcs_v1(this report). It binds build session, client-evidence root, ledger seal, compiler/register identities, and the fixed seven-row support-or-abstention tuple. Unsupported current-v0 IDs B1, REG1, C1, D2, F1, and G3 are structurally abstained; only G1 may have a supported row. A supported row binds the exact claim-material projection using the distinct claim-material role domain, excluding the claim's audit_report_digest entry to avoid a fixed point. The report is built before that entry and before the final unsigned manifest; its digest is referenced by each printed claim when present and by the manifest's leading evidence_digests audit entry even for zero claims. It contains no private content, counts, names, paths, signatures, or self-reference.",
   "definitions": {
     "AbstentionCodeV0": {
       "description": "Closed abstention vocabulary: the operational definition of 'unsupported' (C6 Ruling 3(ii), verbatim: 'unregistered claim, missing/versionless verifier, verifier not run or not PASS, missing evidence binding, or prohibited-register violation'). Deliberately the same five values as the first five members of certificate_rejection_v0_schema.json#/definitions/RejectionCodeV0 — tests/test_agent_certificate_v0_schemas.py asserts this enum stays a subset of that one so the two vocabularies cannot drift apart, without coupling this file to the rejection-diagnostic file's broader (network-boundary-specific) vocabulary via $ref. Named AbstentionCodeV0 rather than the more literal 'AbstentionReasonCodeV0' solely to keep this public certification schema clear of an unrelated server-internal Agent-Build-Lifecycle raw-token guard (tests/test_agent_lifecycle_schemas.py's TIER-1 forbidden-substring list) that has no bearing on certificate semantics.",
@@ -95,7 +95,7 @@
         {
           "allOf": [
             {"$ref": "#/definitions/ClaimSupportRowV0"},
-            {"properties": {"claim_id": {"const": "D2"}}}
+            {"properties": {"claim_id": {"const": "D2"}, "support_status": {"const": "abstained"}}}
           ]
         },
         {

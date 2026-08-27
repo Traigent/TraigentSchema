@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/certificate_claim_templates_v0_schema.json",
   "title": "Agent Certificate v0 Claim Template Catalog",
-  "description": "The pinned v0 claim-template catalog record shape. Claim sentences are versioned templates, never user-controlled prose. Seven bounded future-evolution templates remain pinned here, while current ClaimV0 emission is fail-closed to D2 and G1 tier 1; B1, REG1, C1, F1, and G3 template records are retained for isolated payload/template tests but are unprintable until registered verifier evidence and policy gates exist. A renderer substitutes bounded parameters into these immutable template_text constants; no private artifact content or free text crosses.",
+  "description": "The pinned v0 claim-template catalog record shape. Claim sentences are versioned templates, never user-controlled prose. Seven bounded future-evolution templates remain pinned here, while current ClaimV0 emission is fail-closed to G1 tier 1; B1, REG1, C1, D2, F1, and G3 template records are retained for isolated payload/template tests but are unprintable until registered verifier evidence and policy gates exist. A renderer substitutes bounded parameters into these immutable template_text constants; no private artifact content or free text crosses.",
   "oneOf": [
     {
       "$ref": "#/definitions/TemplateB1V1"

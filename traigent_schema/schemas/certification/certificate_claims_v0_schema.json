@@ -202,7 +202,7 @@
       ]
     },
     "ClaimV0": {
-      "description": "A printable v0 claim. The payload and template schemas retain the complete registered family for future evolution, but current v0 emission is deliberately limited to substantive D2 and G1 only: B1, C1, F1, and G3 are self-referential because their PASS verifier runs only after the manifest/signature/audit cycle is finalized, and REG1 remains pending registration. ClaimV0 therefore structurally rejects those IDs; their isolated payload/template/audit-row shapes remain available for a later registered release. D2 and G1 are fixed tier 1 and require co-attestation at the envelope. Every printed claim carries a PASS verifier and audit_report_digest evidence reference. No free-text field exists anywhere in this shape.",
+      "description": "A printable v0 claim. The payload and template schemas retain the complete registered family for future evolution, but current v0 emission is deliberately limited to substantive G1 only: B1, REG1, C1, D2, F1, and G3 are unsupported and abstain because their PASS verifier evidence is not registered for this frozen policy. ClaimV0 therefore structurally rejects those IDs; their isolated payload/template/audit-row shapes remain available for a later registered release. G1 is fixed tier 1 and requires co-attestation at the envelope. Every printed claim carries a PASS verifier and audit_report_digest evidence reference. No free-text field exists anywhere in this shape.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -383,30 +383,13 @@
           }
         },
         {
-          "description": "Conservative v0 unsupported-claims-abstain rule: only D2 and G1 may be emitted as ClaimV0 records. REG1 is pending registration; B1/C1/F1/G3 are withheld until their post-finalization verifier evidence is independently registered.",
+          "description": "Conservative frozen v0 unsupported-claims-abstain rule: only G1 may be emitted as a ClaimV0 record. B1, REG1, C1, D2, F1, and G3 are unsupported and withheld until independently registered verifier evidence exists.",
           "properties": {
             "claim_id": {
-              "enum": ["D2", "G1"]
+              "const": "G1"
             }
           },
           "required": ["claim_id"]
-        },
-        {
-          "if": {
-            "properties": {
-              "claim_id": {
-                "const": "D2"
-              }
-            },
-            "required": ["claim_id"]
-          },
-          "then": {
-            "properties": {
-              "tier": {
-                "const": 1
-              }
-            }
-          }
         },
         {
           "if": {
@@ -421,23 +404,6 @@
             "properties": {
               "tier": {
                 "const": 1
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "claim_id": {
-                "const": "D2"
-              }
-            },
-            "required": ["claim_id"]
-          },
-          "then": {
-            "properties": {
-              "evidence_refs": {
-                "$ref": "#/definitions/ClaimEvidenceRefsD2V0"
               }
             }
           }

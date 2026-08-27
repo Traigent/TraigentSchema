@@ -56,7 +56,7 @@ _COMPILER_REGISTER_KEYS = (
     "non_claim_reason_catalog_digest",
 )
 _SEMANTICS_KEYS = _COMPILER_REGISTER_KEYS[1:]
-_VERIFIER_POLICY_IDS = ("D2", "G1")
+_VERIFIER_POLICY_IDS = ("G1",)
 _BUILD_LEDGER_CHAIN_SCHEMA_VERSION = "traigent.cert_build_ledger.v0"
 _BUILD_LEDGER_STREAM_STATUSES = {
     "decision_stream": "empty_sealed",
@@ -443,7 +443,7 @@ def _check_claims_and_audit(
 ) -> None:
     claims = certificate["claims"]
     by_id = {claim["claim_id"]: claim for claim in claims}
-    if len(by_id) != len(claims) or set(by_id) - {"D2", "G1"}:
+    if len(by_id) != len(claims) or set(by_id) - {"G1"}:
         _fail("CLAIM_ID")
     for claim in claims:
         audit_refs = [
@@ -454,46 +454,28 @@ def _check_claims_and_audit(
         if claim["tier"] != 1 or claim["verifier"]["result"] != "PASS":
             _fail("CLAIM_STATUS")
         params = claim["payload"]["params"]
-        if claim["claim_id"] == "D2":
-            if (
-                params["declared_mode"] != "offline"
-                or params["witness_kind"] != "strace_network_trace"
-                or params["sdk_ref"] != "e97b030f88d78a22dddb482d2aecf94a515b1938"
-                or params["workload_class"] != "mock_grid_no_integrations_no_analytics_no_langfuse"
-                or params["declared_mode"] != unsigned["privacy_mode"]["declared_mode"]
-                or params["sdk_ref"] != unsigned["sdk_identity"]["sdk_ref"]
-            ):
-                _fail("PRIVACY_MODE")
-            refs = [
-                ref
-                for ref in claim["evidence_refs"]
-                if ref["evidence_kind"] != "audit_report_digest"
-            ]
-            if (
-                len(refs) != 1
-                or refs[0]["evidence_kind"] != "sdk_witness_bundle"
-                or refs[0]["evidence_digest"] != params["witness_bundle_digest"]
-            ):
-                _fail("SDK_WITNESS")
-        else:
-            root = params["manifest_root_digest"]
-            if root == _ZERO_DIGEST or root != audit["client_evidence_manifest_root"]:
-                _fail("CLIENT_ROOT")
-            refs = [
-                ref
-                for ref in claim["evidence_refs"]
-                if ref["evidence_kind"] != "audit_report_digest"
-            ]
-            if (
-                len(refs) != 1
-                or refs[0]["evidence_kind"] != "client_commitment_digest"
-                or refs[0]["evidence_digest"] != root
-            ):
-                _fail("CLIENT_ROOT")
+        root = params["manifest_root_digest"]
+        if root == _ZERO_DIGEST or root != audit["client_evidence_manifest_root"]:
+            _fail("CLIENT_ROOT")
+        refs = [
+            ref for ref in claim["evidence_refs"] if ref["evidence_kind"] != "audit_report_digest"
+        ]
+        if (
+            len(refs) != 1
+            or refs[0]["evidence_kind"] != "client_commitment_digest"
+            or refs[0]["evidence_digest"] != root
+        ):
+            _fail("CLIENT_ROOT")
     rows = audit["claim_support_rows"]
     if [row["claim_id"] for row in rows] != list(_AUDIT_ROWS):
         _fail("AUDIT_ROWS")
     for row in rows:
+        if row["claim_id"] == "D2":
+            if (
+                row["support_status"] != "abstained"
+                or row["abstention_code"] != _ABSTENTION_CODES["D2"]
+            ):
+                _fail("AUDIT_STATUS")
         claim = by_id.get(row["claim_id"])
         if claim is None:
             if (

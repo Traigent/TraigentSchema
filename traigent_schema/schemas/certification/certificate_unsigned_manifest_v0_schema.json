@@ -56,7 +56,7 @@
       }
     },
     "PrivacyModeSectionV0": {
-      "description": "The `privacy_mode` coverage section (gap C1: previously unrepresented). The build session's declared data-flow mode, signed regardless of whether a D2 claim is printed. When a D2 claim IS printed, its params.declared_mode MUST equal this section's declared_mode (verifier equality obligation; the two live in different parts of the document and Draft-07 cannot cross-check them once only manifest_digest crosses).",
+      "description": "The `privacy_mode` coverage section (gap C1: previously unrepresented). The build session's declared data-flow mode, signed even though D2 is unsupported and cannot be printed in frozen v0.",
       "type": "object",
       "additionalProperties": false,
       "required": ["declared_mode"],

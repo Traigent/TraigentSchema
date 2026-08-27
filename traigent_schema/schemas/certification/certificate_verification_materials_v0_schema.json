@@ -44,7 +44,7 @@
   },
   "definitions": {
     "CanonicalSpkiDerBase64V0": {
-      "description": "Canonical standard RFC 4648 base64 of a bounded X.509 SubjectPublicKeyInfo DER public key. The schema constrains the alphabet, padding, and bounds; a verifier MUST additionally decode and validate the DER SPKI and declared algorithm, then re-encode to reject non-canonical aliases. Private-key encodings are not valid SPKI material.",
+      "description": "Canonical standard RFC 4648 base64 of a bounded X.509 SubjectPublicKeyInfo DER public key. The repository validator decodes and validates the DER SPKI and rejects private-key encodings and non-canonical aliases; algorithm-specific projections additionally enforce the declared Ed25519 or ECDSA-P256-SHA256 algorithm.",
       "type": "string",
       "oneOf": [
         {
@@ -56,7 +56,8 @@
         {
           "pattern": "^(?:[A-Za-z0-9+/]{4}){11,127}$"
         }
-      ]
+      ],
+      "format": "canonical-spki-der-base64"
     },
     "PublicKeyProjectionV0": {
       "type": "object",
@@ -83,7 +84,17 @@
         "public_key_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"algorithm": {"const": "ed25519"}}, "required": ["algorithm"]},
+          "then": {"properties": {"public_key_der_b64": {"format": "canonical-ed25519-spki-der-base64"}}}
+        },
+        {
+          "if": {"properties": {"algorithm": {"const": "ecdsa_p256_sha256"}}, "required": ["algorithm"]},
+          "then": {"properties": {"public_key_der_b64": {"format": "canonical-ecdsa-p256-spki-der-base64"}}}
+        }
+      ]
     },
     "IssuerVerificationKeyV0": {
       "type": "object",
@@ -111,7 +122,17 @@
         "public_key_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"algorithm": {"const": "ed25519"}}, "required": ["algorithm"]},
+          "then": {"properties": {"public_key_der_b64": {"format": "canonical-ed25519-spki-der-base64"}}}
+        },
+        {
+          "if": {"properties": {"algorithm": {"const": "ecdsa_p256_sha256"}}, "required": ["algorithm"]},
+          "then": {"properties": {"public_key_der_b64": {"format": "canonical-ecdsa-p256-spki-der-base64"}}}
+        }
+      ]
     },
     "ClientVerificationKeyV0": {
       "$ref": "#/definitions/PublicKeyProjectionV0"
@@ -123,7 +144,7 @@
       "properties": {
         "verifier_id": {
           "type": "string",
-          "pattern": "^(D2|G1)$"
+          "const": "G1"
         },
         "verifier_ref": {
           "type": "string",
@@ -144,24 +165,10 @@
         },
         "verifier_bindings": {
           "type": "array",
-          "minItems": 2,
-          "maxItems": 2,
+          "minItems": 1,
+          "maxItems": 1,
           "additionalItems": false,
           "items": [
-            {
-              "allOf": [
-                {
-                  "$ref": "#/definitions/VerifierBindingV0"
-                },
-                {
-                  "properties": {
-                    "verifier_id": {
-                      "const": "D2"
-                    }
-                  }
-                }
-              ]
-            },
             {
               "allOf": [
                 {

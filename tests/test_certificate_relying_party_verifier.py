@@ -1,8 +1,8 @@
 """Deterministic offline relying-party verifier controls.
 
-The fixtures are the same typed G1/D2 shapes used by the Schema contract tests.  They
-is signed locally with deterministic Ed25519 keys; no Backend module or
-network service is imported by the verifier under test.
+The fixtures are the same typed G1 shapes used by the Schema contract tests. They
+are signed locally with deterministic keys; no Backend module or network service is
+imported by the verifier under test.
 """
 
 from __future__ import annotations
@@ -11,20 +11,21 @@ import base64
 import copy
 import hashlib
 import struct
+import subprocess
+import sys
 from collections.abc import Callable
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 
 from tests.test_agent_certificate_v0_schemas import (
-    _apply_claim_mutation,
     _build_valid_fixture,
     _d2_claim,
     _g1_claim,
     _rebind_audit_report_digest,
-    _rebind_claim_material_and_audit,
 )
 from traigent_schema import fp2
 from traigent_schema.certification import (
@@ -42,6 +43,46 @@ _ISSUER_DOMAIN = b"traigent.agent_certificate.issuer_signature.v0"
 _SESSION = "bsn:abcdef0123456789"
 _NONCE = "ab" * 16
 _ECDSA_ORDER = int("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551", 16)
+
+
+def _run_without_cryptography(source: str) -> subprocess.CompletedProcess[str]:
+    block_import = """
+import builtins
+
+_real_import = builtins.__import__
+
+def _without_cryptography(name, *args, **kwargs):
+    if name == "cryptography" or name.startswith("cryptography."):
+        raise ModuleNotFoundError("cryptography intentionally unavailable", name="cryptography")
+    return _real_import(name, *args, **kwargs)
+
+builtins.__import__ = _without_cryptography
+"""
+    return subprocess.run(
+        [sys.executable, "-c", block_import + "\n" + source],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_plain_package_import_does_not_require_cryptography() -> None:
+    result = _run_without_cryptography("import traigent_schema")
+    assert result.returncode == 0, result.stderr
+
+
+def test_lazy_certification_export_reports_missing_cryptography() -> None:
+    result = _run_without_cryptography("from traigent_schema import RelyingPartyPolicy")
+    assert result.returncode != 0
+    assert "cryptography" in result.stderr.lower()
+    assert "optional" in result.stderr.lower()
+
+
+def test_root_certification_exports_preserve_public_api() -> None:
+    from traigent_schema import RelyingPartyPolicy as RootRelyingPartyPolicy
+
+    assert RootRelyingPartyPolicy is RelyingPartyPolicy
 
 
 def _digest(domain: bytes, value: object) -> str:
@@ -150,10 +191,7 @@ def _sign_fixture(
     )
     policy = RelyingPartyPolicy(
         tuple(unsigned["compiler_register_versions"].items()),
-        (
-            ("D2", "ver.cert.offline_egress_witness", "0.1.0"),
-            ("G1", "ver.cert.manifest_commitment", "0.1.0"),
-        ),
+        (("G1", "ver.cert.manifest_commitment", "0.1.0"),),
     )
     return cert, issuer_key.public_key(), context, policy
 
@@ -212,31 +250,29 @@ def test_c1_truthful_abstention_is_required() -> None:
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
 
 
-def test_d2_certificate_is_verified_by_production_verifier() -> None:
+def test_d2_certificate_is_rejected_by_production_verifier() -> None:
     cert, issuer, context, policy = _sign_fixture(claim_factory=_d2_claim)
-    result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
-    assert result.valid and result.code == "VERIFIED"
-
-
-def test_d2_sdk_witness_digest_mismatch_is_rejected_after_resigning() -> None:
-    cert, issuer, context, policy = _sign_fixture(claim_factory=_d2_claim)
-
-    def _mutate_witness_digest(claim: dict) -> None:
-        claim["payload"]["params"]["witness_bundle_digest"] = "sha256:" + "f" * 64
-
-    _apply_claim_mutation(cert, 0, _mutate_witness_digest)
-    _rebind_claim_material_and_audit(cert)
-    _resign_fixture(cert, "ed25519")
-    with pytest.raises(VerificationError, match="^SDK_WITNESS$"):
+    with pytest.raises(VerificationError, match="^SCHEMA$"):
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
 
 
-def test_d2_privacy_mode_mismatch_is_rejected_after_resigning() -> None:
-    cert, issuer, context, policy = _sign_fixture(claim_factory=_d2_claim)
-    unsigned = cert["signatures"]["unsigned_manifest"]["document"]
-    unsigned["privacy_mode"]["declared_mode"] = "current_online"
-    _resign_fixture(cert, "ed25519")
-    with pytest.raises(VerificationError, match="^PRIVACY_MODE$"):
+def test_forged_non_abstained_d2_audit_row_is_rejected() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    d2_row = next(
+        row for row in cert["audit_report"]["claim_support_rows"] if row["claim_id"] == "D2"
+    )
+    d2_row.update(
+        {
+            "support_status": "supported",
+            "verifier": {
+                "verifier_id": "ver.cert.offline_egress_witness",
+                "verifier_version": "0.1.0",
+                "result": "PASS",
+            },
+            "claim_material_digest": "sha256:" + "f" * 64,
+        }
+    )
+    with pytest.raises(VerificationError, match="^SCHEMA$"):
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
 
 
@@ -323,13 +359,7 @@ def test_omitted_mandatory_non_claim_is_rejected() -> None:
 
 def test_wrong_policy_is_rejected() -> None:
     cert, issuer, context, policy = _sign_fixture()
-    wrong_policy = replace(
-        policy,
-        verifier_bindings=(
-            policy.verifier_bindings[0],
-            ("G1", "ver.cert.other", "0.1.0"),
-        ),
-    )
+    wrong_policy = replace(policy, verifier_bindings=(("G1", "ver.cert.other", "0.1.0"),))
     with pytest.raises(VerificationError, match="^POLICY$"):
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=wrong_policy)
 

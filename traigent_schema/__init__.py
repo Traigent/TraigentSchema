@@ -14,17 +14,9 @@ Example:
     validator.validate_request('/api/v1/agents', 'POST', request_data)
 """
 
+import importlib
+
 from traigent_schema.analytics_validators import AnalyticsValidator
-from traigent_schema.certification import (
-    RelyingPartyPolicy,
-    RelyingPartyVerificationError,
-    VerificationContext,
-    VerificationError,
-    VerificationResult,
-    verify,
-    verify_agent_certificate,
-    verify_certificate,
-)
 from traigent_schema.invariants import (
     InvariantComparisonBoundError,
     InvariantDeclarationError,
@@ -42,6 +34,36 @@ from traigent_schema.utils import (
 )
 from traigent_schema.validator import SchemaValidator, UnvalidatedEndpointError
 from traigent_schema.version import __version__
+
+_CERTIFICATION_EXPORTS = frozenset(
+    {
+        "RelyingPartyPolicy",
+        "RelyingPartyVerificationError",
+        "VerificationContext",
+        "VerificationError",
+        "VerificationResult",
+        "verify",
+        "verify_agent_certificate",
+        "verify_certificate",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    """Load optional certification exports only when they are requested."""
+    if name not in _CERTIFICATION_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    try:
+        certification = importlib.import_module("traigent_schema.certification")
+    except ModuleNotFoundError as exc:
+        if exc.name == "cryptography" or (exc.name or "").startswith("cryptography."):
+            raise ImportError(
+                "Certification exports require the optional 'cryptography' dependency."
+            ) from exc
+        raise
+    value = getattr(certification, name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "AnalyticsValidator",

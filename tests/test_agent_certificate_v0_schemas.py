@@ -306,7 +306,7 @@ def _signatures(
     # and (when a co-attestation is requested) the co-attestation's nonce and
     # signed_manifest_digest are drawn from that same manifest -- exactly the
     # bindings a relying-party verifier checks.
-    claims = claims if claims is not None else [_d2_claim(tier=1)]
+    claims = claims if claims is not None else [_g1_claim(tier=1)]
     # Deep-copy so the embedded document's `claims` section is an
     # independent copy of the certificate's own `claims` field, not the
     # same aliased list -- a compiler copies verbatim at construction time,
@@ -346,7 +346,7 @@ def _certificate(
     with_co: bool = True,
     audit_report: dict | None = None,
 ) -> dict:
-    claims = claims if claims is not None else [_d2_claim(tier=1)]
+    claims = claims if claims is not None else [_g1_claim(tier=1)]
     if audit_report is None:
         # SCHEMA-1 FINAL fix (2026-08-24): the envelope now requires the
         # complete typed audit report, not merely a claim-side digest.
@@ -579,7 +579,7 @@ def _unsigned_manifest(
     with_co: bool = False,
     audit_report_digest: str | None = None,
 ) -> dict:
-    claims = claims if claims is not None else [_d2_claim(tier=1)]
+    claims = claims if claims is not None else [_g1_claim(tier=1)]
     return {
         "subject": {
             "subject_kind": "build_session",
@@ -670,10 +670,7 @@ def _replace_row(rows: list, claim_id: str, replacement: dict) -> list:
 
 def _audit_report(rows: list | None = None) -> dict:
     if rows is None:
-        rows = [
-            _audit_row_supported("D2", _SHA) if cid == "D2" else _audit_row_abstained(cid)
-            for cid in _AUDIT_ROW_ORDER
-        ]
+        rows = [_audit_row_abstained(cid) for cid in _AUDIT_ROW_ORDER]
     return {
         "schema_version": "traigent.certificate_audit_report.v0",
         "build_session_ref": "bsn:abcdef0123456789",
@@ -717,7 +714,7 @@ def _audit_report_for_claims(claims: list) -> dict:
     material_digests = {c["claim_id"]: _claim_material_digest(c) for c in claims}
     rows = [
         _audit_row_supported(cid, material_digests[cid])
-        if cid in material_digests
+        if cid in material_digests and cid != "D2"
         else _audit_row_abstained(cid)
         for cid in _AUDIT_ROW_ORDER
     ]
@@ -960,27 +957,6 @@ def _verify_certificate_contract(cert: dict) -> None:
             if params["seal_statement_digest"] != seal["seal_statement_digest"]:
                 raise ContractViolation(
                     "B1 claim seal_statement_digest != ledger_seal_projection.seal_statement_digest"
-                )
-        if claim["claim_id"] == "D2":
-            params = claim["payload"]["params"]
-            if params["declared_mode"] != manifest["privacy_mode"]["declared_mode"]:
-                raise ContractViolation(
-                    "D2 claim declared_mode != manifest.privacy_mode.declared_mode"
-                )
-            if params["sdk_ref"] != manifest["sdk_identity"]["sdk_ref"]:
-                raise ContractViolation("D2 claim sdk_ref != manifest.sdk_identity.sdk_ref")
-            sdk_refs = [
-                ref
-                for ref in claim["evidence_refs"]
-                if ref["evidence_kind"] == "sdk_witness_bundle"
-            ]
-            if len(sdk_refs) != 1:
-                raise ContractViolation(
-                    "D2 claim must carry exactly one sdk_witness_bundle evidence reference"
-                )
-            if sdk_refs[0]["evidence_digest"] != params["witness_bundle_digest"]:
-                raise ContractViolation(
-                    "D2 claim sdk_witness_bundle digest != payload.witness_bundle_digest"
                 )
         if claim["claim_id"] == "C1":
             params = claim["payload"]["params"]
@@ -1257,8 +1233,8 @@ class TestTierFour:
     def test_tier_four_certificate_is_unconstructible(self) -> None:
         assert _errors(ENVELOPE, _certificate(claims=[_b1_claim(tier=4)]))
 
-    def test_only_d2_and_g1_tier_one_constructible(self) -> None:
-        assert not _errors(CLAIMS, _d2_claim(tier=1))
+    def test_only_g1_tier_one_constructible(self) -> None:
+        assert _errors(CLAIMS, _d2_claim(tier=1))
         assert not _errors(CLAIMS, _g1_claim(tier=1))
         for claim in (_d2_claim(tier=2), _d2_claim(tier=3), _g1_claim(tier=2), _g1_claim(tier=3)):
             assert _errors(CLAIMS, claim)
@@ -1939,6 +1915,9 @@ class TestClaimIdAllowlist:
     @pytest.mark.parametrize("claim_id", ["D2", "G1"])
     def test_current_v0_rejects_tier_inflation(self, claim_id) -> None:
         claim_factory = _d2_claim if claim_id == "D2" else _g1_claim
+        if claim_id == "D2":
+            assert _errors(CLAIMS, claim_factory(tier=1))
+            return
         assert not _errors(CLAIMS, claim_factory(tier=1))
         for tier in (2, 3, 4):
             assert _errors(CLAIMS, claim_factory(tier=tier))
@@ -1985,9 +1964,9 @@ class TestUnsignedManifest:
         assert sorted(required) == sorted(_COVERAGE)
 
     def test_evidence_projection_order_is_audit_then_claim_first_occurrence(self) -> None:
-        first = _d2_claim(tier=1)
+        first = _g1_claim(tier=1)
         first["evidence_refs"] = [
-            {"evidence_kind": "sdk_witness_bundle", "evidence_digest": _SHA},
+            {"evidence_kind": "client_commitment_digest", "evidence_digest": _SHA},
             {"evidence_kind": "audit_report_digest", "evidence_digest": _SHA_B},
         ]
         second = _g1_claim(tier=1)
@@ -1998,15 +1977,11 @@ class TestUnsignedManifest:
         projection = _evidence_digests_projection([first, second], audit_report_digest=_SHA_B)
         assert projection == [
             {"evidence_kind": "audit_report_digest", "evidence_digest": _SHA_B},
-            {"evidence_kind": "sdk_witness_bundle", "evidence_digest": _SHA},
             {"evidence_kind": "client_commitment_digest", "evidence_digest": _SHA},
         ]
-        manifest = _unsigned_manifest(claims=[first, second], audit_report_digest=_SHA_B)
+        manifest = _unsigned_manifest(claims=[first], audit_report_digest=_SHA_B)
         assert not _errors(UNSIGNED_MANIFEST, manifest)
-        manifest["evidence_digests"][1], manifest["evidence_digests"][2] = (
-            manifest["evidence_digests"][2],
-            manifest["evidence_digests"][1],
-        )
+        manifest["evidence_digests"].reverse()
         assert _errors(UNSIGNED_MANIFEST, manifest) is not None
 
     def test_privacy_mode_enum_is_closed(self) -> None:
@@ -2429,7 +2404,7 @@ class TestAuditReport:
         digest = _audit_report_digest(report)
         assert _DIGEST_PATTERN.match(digest)
 
-        claim = _d2_claim(tier=1)
+        claim = _g1_claim(tier=1)
         # Replace (not append to) the placeholder audit_report_digest ref
         # _d2_claim() carries by default, so the claim ends up with exactly
         # one such reference, bound to this real report's digest.
@@ -2543,7 +2518,7 @@ class TestCanonicalizationConformance:
         # performed, now extended (SCHEMA-1 P0/P1 fix pass) to cover the
         # embedded document and the audit-report binding, not just the bare
         # digest.
-        cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
+        cert = _build_valid_fixture([_g1_claim(tier=1)], with_co=True)
         manifest = cert["signatures"]["unsigned_manifest"]["document"]
         assert not _errors(UNSIGNED_MANIFEST, manifest)
         assert not _errors(AUDIT_REPORT, cert["audit_report"])
@@ -2779,7 +2754,7 @@ class TestContractVerifier:
             _verify_certificate_contract(cert)
 
     def test_bare_fp2_manifest_digest_rejected_at_signature_surface(self) -> None:
-        cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
+        cert = _build_valid_fixture([_g1_claim(tier=1)], with_co=True)
         bare_digest = fp2.digest(cert["signatures"]["unsigned_manifest"]["document"])
         assert bare_digest != cert["signatures"]["unsigned_manifest"]["manifest_digest"]
         cert["signatures"]["unsigned_manifest"]["manifest_digest"] = bare_digest
@@ -2791,7 +2766,7 @@ class TestContractVerifier:
             _verify_certificate_contract(cert)
 
     def test_bare_fp2_audit_digest_rejected_at_audit_reference_surface(self) -> None:
-        cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
+        cert = _build_valid_fixture([_g1_claim(tier=1)], with_co=True)
         bare_digest = fp2.digest(cert["audit_report"])
         for claims in (
             cert["claims"],
@@ -2809,7 +2784,7 @@ class TestContractVerifier:
         assert not _errors(ENVELOPE, cert)
         with pytest.raises(
             ContractViolation,
-            match="claim D2 audit_report_digest does not match the audit report",
+            match="claim G1 audit_report_digest does not match the audit report",
         ):
             _verify_certificate_contract(cert)
 
@@ -2864,7 +2839,7 @@ class TestContractVerifier:
             _verify_certificate_contract(cert)
 
     def test_subject_ledger_build_session_rebind_detected(self) -> None:
-        cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
+        cert = _build_valid_fixture([_g1_claim(tier=1)], with_co=True)
         cert["subject"]["build_session_ref"] = "bsn:fedcba9876543210"
         cert["signatures"]["unsigned_manifest"]["document"]["subject"] = copy.deepcopy(
             cert["subject"]
@@ -2907,15 +2882,15 @@ class TestContractVerifier:
             _verify_certificate_contract(cert)
 
     def test_supported_row_verifier_rebind_detected(self) -> None:
-        cert = _build_valid_fixture([_d2_claim(tier=1)])
+        cert = _build_valid_fixture([_g1_claim(tier=1)])
         row = next(
-            row for row in cert["audit_report"]["claim_support_rows"] if row["claim_id"] == "D2"
+            row for row in cert["audit_report"]["claim_support_rows"] if row["claim_id"] == "G1"
         )
         row["verifier"]["verifier_version"] = "9.9.9"
         _rebind_audit_report_digest(cert)
         with pytest.raises(
             ContractViolation,
-            match="audit row D2 verifier != printed claim verifier",
+            match="audit row G1 verifier != printed claim verifier",
         ):
             _verify_certificate_contract(cert)
 
@@ -2929,15 +2904,15 @@ class TestContractVerifier:
             _verify_certificate_contract(cert)
 
     def test_printed_claim_requires_supported_row_not_abstention(self) -> None:
-        cert = _build_valid_fixture([_d2_claim(tier=1)])
+        cert = _build_valid_fixture([_g1_claim(tier=1)])
         rows = _replace_row(
             cert["audit_report"]["claim_support_rows"],
-            "D2",
-            _audit_row_abstained("D2"),
+            "G1",
+            _audit_row_abstained("G1"),
         )
         cert["audit_report"]["claim_support_rows"] = rows
         _rebind_audit_report_digest(cert)
-        with pytest.raises(ContractViolation, match="printed claim D2 has no supporting audit row"):
+        with pytest.raises(ContractViolation, match="printed claim G1 has no supporting audit row"):
             _verify_certificate_contract(cert)
 
     def test_nonce_mismatch_detected(self) -> None:
@@ -2959,7 +2934,7 @@ class TestContractVerifier:
             _verify_certificate_contract(cert)
 
     def test_issuer_algorithm_substitution_detected_with_schema_valid_shape(self) -> None:
-        cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
+        cert = _build_valid_fixture([_g1_claim(tier=1)], with_co=True)
         cert["signatures"]["issuer_signature"]["algorithm"] = "ecdsa_p256_sha256"
         assert not _errors(ENVELOPE, cert)
         with pytest.raises(
@@ -2979,7 +2954,7 @@ class TestContractVerifier:
             _verify_certificate_contract(cert)
 
     def test_algorithm_presence_asymmetry_detected(self) -> None:
-        cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
+        cert = _build_valid_fixture([_g1_claim(tier=1)], with_co=True)
         del cert["signatures"]["unsigned_manifest"]["document"]["key_ring_identifiers"][
             "client_signature_algorithm"
         ]
@@ -2996,7 +2971,7 @@ class TestContractVerifier:
         ):
             _verify_certificate_contract(cert)
 
-        cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=False)
+        cert = _build_valid_fixture([_g1_claim(tier=1)], with_co=False)
         cert["signatures"]["unsigned_manifest"]["document"]["key_ring_identifiers"][
             "client_signature_algorithm"
         ] = "ed25519"
@@ -3163,7 +3138,7 @@ class TestContractVerifier:
         # A structurally different (schema-valid on its own) report swapped
         # into a valid certificate: not merely mismatched bytes, but a
         # complete report for the WRONG build session.
-        cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
+        cert = _build_valid_fixture([_g1_claim(tier=1)], with_co=True)
         substitute = _audit_report_for_claims([_d2_claim(tier=1)])
         substitute["build_session_ref"] = "bsn:fedcba9876543210"
         assert not _errors(AUDIT_REPORT, substitute)
@@ -3184,39 +3159,19 @@ class TestContractVerifier:
         ):
             _verify_certificate_contract(cert)
 
-    def test_d2_declared_mode_mismatch_detected(self) -> None:
-        # D2's payload is const-pinned to offline. Mutate only the signed
-        # session-level declaration, then recompute the manifest digest and
-        # co-attestation reference so the fixture remains schema-valid and
-        # the named cross-field violation is the first failing obligation.
+    def test_d2_claim_is_not_supported_by_contract_verifier(self) -> None:
         cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
-        manifest = cert["signatures"]["unsigned_manifest"]["document"]
-        manifest["privacy_mode"]["declared_mode"] = "current_online"
-        manifest_digest = _unsigned_manifest_digest(manifest)
-        cert["signatures"]["unsigned_manifest"]["manifest_digest"] = manifest_digest
-        cert["signatures"]["co_attestation"]["signed_manifest_digest"] = manifest_digest
-        assert not _errors(ENVELOPE, cert)
-        with pytest.raises(
-            ContractViolation,
-            match="D2 claim declared_mode != manifest.privacy_mode.declared_mode",
-        ):
+        with pytest.raises(ContractViolation, match="printed claim D2 has no supporting audit row"):
             _verify_certificate_contract(cert)
 
-    def test_d2_witness_digest_mismatch_detected_after_full_rebind(self) -> None:
+    def test_d2_claim_remains_unrepresentable_after_payload_mutation(self) -> None:
         cert = _build_valid_fixture([_d2_claim(tier=1)], with_co=True)
-
-        def _mutate_sdk_evidence(claim: dict) -> None:
-            for ref in claim["evidence_refs"]:
-                if ref["evidence_kind"] == "sdk_witness_bundle":
-                    ref["evidence_digest"] = _SHA_B
-
-        _apply_claim_mutation(cert, 0, _mutate_sdk_evidence)
-        _rebind_claim_material_and_audit(cert)
-        assert not _errors(ENVELOPE, cert)
-        with pytest.raises(
-            ContractViolation,
-            match="D2 claim sdk_witness_bundle digest != payload.witness_bundle_digest",
-        ):
+        _apply_claim_mutation(
+            cert,
+            0,
+            lambda claim: claim["payload"]["params"].update(declared_mode="current_online"),
+        )
+        with pytest.raises(ContractViolation, match="printed claim D2 has no supporting audit row"):
             _verify_certificate_contract(cert)
 
     def test_d2_duplicate_sdk_witness_refs_fail_closed_at_schema(self) -> None:
@@ -3234,7 +3189,7 @@ class TestContractVerifier:
 
     @pytest.mark.parametrize(
         ("claim_factory", "extra_kind"),
-        [(_g1_claim, "ledger_entry_commitment"), (_d2_claim, "ledger_entry_commitment")],
+        [(_g1_claim, "ledger_entry_commitment")],
     )
     def test_printable_claim_rejects_extra_ledger_reference_in_envelope_and_manifest(
         self, claim_factory, extra_kind: str
@@ -3256,10 +3211,7 @@ class TestContractVerifier:
             claim["payload"]["params"]["sdk_ref"] = "f" * 40
 
         _apply_claim_mutation(cert, 0, _mutate_sdk_ref)
-        with pytest.raises(
-            ContractViolation,
-            match="D2 claim sdk_ref != manifest.sdk_identity.sdk_ref",
-        ):
+        with pytest.raises(ContractViolation, match="printed claim D2 has no supporting audit row"):
             _verify_certificate_contract(cert)
 
     @pytest.mark.parametrize(
@@ -3382,8 +3334,8 @@ class TestContractVerifier:
             _verify_certificate_contract(cert)
 
     def test_d2_c1_f1_printed_together_positive_fixture(self) -> None:
-        # Positive control: D2 + C1 + F1 printed on the same certificate,
-        # every cross-field obligation (B2/B3/B4 above) satisfied at once.
+        # Unsupported claims remain rejected even when combined with other
+        # isolated future-evolution payloads.
         cert = _build_valid_fixture([_d2_claim(tier=3), _c1_claim(tier=3), _f1_claim(tier=3)])
         assert _errors(ENVELOPE, cert)
 

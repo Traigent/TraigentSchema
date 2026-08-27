@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import json
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from jsonschema import Draft7Validator
 
 from traigent_schema import SchemaValidator
@@ -21,11 +24,31 @@ BUILD_REF = "bsn:" + "A" * 43
 DIGEST = "sha256:" + "a" * 64
 ZERO_DIGEST = "sha256:" + "0" * 64
 OPAQUE_REF = "clientkey:contract001"
+PUBLIC_KEY_DER_B64 = base64.b64encode(
+    ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+    .public_key()
+    .public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+).decode("ascii")
 
 
 def _load(path: Path) -> dict:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def _private_der_b64(algorithm: str) -> str:
+    key = (
+        ed25519.Ed25519PrivateKey.generate()
+        if algorithm == "ed25519"
+        else ec.generate_private_key(ec.SECP256R1())
+    )
+    return base64.b64encode(
+        key.private_bytes(
+            serialization.Encoding.DER,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    ).decode("ascii")
 
 
 def _request_schema(catalog: dict, path: str, method: str) -> dict:
@@ -163,12 +186,12 @@ def test_catalog_matches_the_nine_backend_certificate_operations() -> None:
             {
                 "client_key_ref": OPAQUE_REF,
                 "algorithm": "ed25519",
-                "public_key_der_b64": "A" * 44,
+                "public_key_der_b64": PUBLIC_KEY_DER_B64,
             },
             {
                 "client_key_ref": OPAQUE_REF,
                 "algorithm": "ed25519",
-                "public_key_der_b64": "A" * 44,
+                "public_key_der_b64": PUBLIC_KEY_DER_B64,
                 "private_key": "must not cross",
             },
         ),
@@ -218,6 +241,34 @@ def test_bind_g1_request_rejects_zero_manifest_root_digest() -> None:
     }
     assert SchemaValidator(contract="backend").validate_request(
         "/api/v1beta/certificate-build-sessions/bind-g1", "POST", request
+    )
+
+
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_client_key_request_rejects_fresh_pkcs8_private_der_without_echoing_key_bytes(
+    algorithm: str,
+) -> None:
+    encoded = _private_der_b64(algorithm)
+    request = {
+        "client_key_ref": OPAQUE_REF,
+        "algorithm": algorithm,
+        "public_key_der_b64": encoded,
+    }
+    errors = SchemaValidator(contract="backend").validate_request(
+        "/api/v1beta/certificate-client-keys", "POST", request
+    )
+    assert errors
+    assert encoded not in str(errors)
+
+
+def test_client_key_request_requires_declared_algorithm_to_match_public_spki() -> None:
+    request = {
+        "client_key_ref": OPAQUE_REF,
+        "algorithm": "ecdsa_p256_sha256",
+        "public_key_der_b64": PUBLIC_KEY_DER_B64,
+    }
+    assert SchemaValidator(contract="backend").validate_request(
+        "/api/v1beta/certificate-client-keys", "POST", request
     )
 
 

@@ -161,9 +161,20 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 512,
-                    "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+                    "pattern": "^[A-Za-z0-9+/]+={0,2}$",
+                    "format": "canonical-spki-der-base64"
                   }
-                }
+                },
+                "allOf": [
+                  {
+                    "if": {"properties": {"algorithm": {"const": "ed25519"}}, "required": ["algorithm"]},
+                    "then": {"properties": {"public_key_der_b64": {"format": "canonical-ed25519-spki-der-base64"}}}
+                  },
+                  {
+                    "if": {"properties": {"algorithm": {"const": "ecdsa_p256_sha256"}}, "required": ["algorithm"]},
+                    "then": {"properties": {"public_key_der_b64": {"format": "canonical-ecdsa-p256-spki-der-base64"}}}
+                  }
+                ]
               }
             }
           }

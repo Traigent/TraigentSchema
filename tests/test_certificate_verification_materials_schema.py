@@ -15,6 +15,7 @@ from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
 from traigent_schema import fp2
+from traigent_schema.validator import _FORMAT_CHECKER
 
 SCHEMA_NAME = "certificate_verification_materials_v0_schema.json"
 SCHEMA_PATH = resources.files("traigent_schema").joinpath("schemas", "certification", SCHEMA_NAME)
@@ -34,7 +35,9 @@ def _registry() -> Registry:
 
 def _validator() -> Draft7Validator:
     return Draft7Validator(
-        json.loads(SCHEMA_PATH.read_text(encoding="utf-8")), registry=_registry()
+        json.loads(SCHEMA_PATH.read_text(encoding="utf-8")),
+        registry=_registry(),
+        format_checker=_FORMAT_CHECKER,
     )
 
 
@@ -42,6 +45,15 @@ def _der(public_key: object) -> str:
     encoded = public_key.public_bytes(
         serialization.Encoding.DER,
         serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return base64.b64encode(encoded).decode("ascii")
+
+
+def _private_der(private_key: object) -> str:
+    encoded = private_key.private_bytes(
+        serialization.Encoding.DER,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
     )
     return base64.b64encode(encoded).decode("ascii")
 
@@ -92,11 +104,6 @@ def _valid_materials(
             },
             "verifier_bindings": [
                 {
-                    "verifier_id": "D2",
-                    "verifier_ref": "ver.cert.offline_mode_witness",
-                    "verifier_version": "1.0.0",
-                },
-                {
                     "verifier_id": "G1",
                     "verifier_ref": "ver.cert.client_manifest_commitment",
                     "verifier_version": "1.0.0",
@@ -109,7 +116,13 @@ def _valid_materials(
 
 
 def _errors(document: object) -> list:
-    return list(_validator().iter_errors(document))
+    errors = []
+    for error in _validator().iter_errors(document):
+        if error.validator == "format" and str(error.validator_value).startswith("canonical-"):
+            errors.append("invalid public-key encoding")
+        else:
+            errors.append(error)
+    return errors
 
 
 def test_schema_is_packaged_and_validates_ed25519_and_p256_clients() -> None:
@@ -121,6 +134,31 @@ def test_schema_is_packaged_and_validates_ed25519_and_p256_clients() -> None:
 @pytest.mark.parametrize("issuer_algorithm", ["ed25519", "ecdsa_p256_sha256"])
 def test_schema_validates_both_supported_issuer_algorithms(issuer_algorithm: str) -> None:
     assert _errors(_valid_materials(issuer_algorithm=issuer_algorithm)) == []
+
+
+@pytest.mark.parametrize("location", ["issuer", "client"])
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_fresh_pkcs8_private_der_is_rejected_without_echoing_key_bytes(
+    location: str, algorithm: str
+) -> None:
+    document = _valid_materials()
+    private_key = (
+        ed25519.Ed25519PrivateKey.generate()
+        if algorithm == "ed25519"
+        else ec.generate_private_key(ec.SECP256R1())
+    )
+    encoded = _private_der(private_key)
+    document[location]["algorithm"] = algorithm
+    document[location]["public_key_der_b64"] = encoded
+    errors = _errors(document)
+    assert errors
+    assert encoded not in str(errors)
+
+
+def test_public_spki_must_match_declared_algorithm() -> None:
+    document = _valid_materials(client_algorithm="ed25519")
+    document["client"]["algorithm"] = "ecdsa_p256_sha256"
+    assert _errors(document)
 
 
 def test_materials_digest_is_domain_separated_fp2_digest_of_bundle_without_it() -> None:
@@ -175,7 +213,7 @@ def test_hard_banned_fields_are_rejected_at_any_object_level(field: str) -> None
         lambda d: d["issuer"].update(public_key_der_b64="not-base64"),
         lambda d: d["issuer"].update(public_key_der_b64="A" * 61),
         lambda d: d["client"].update(algorithm="rsa"),
-        lambda d: d["relying_party_policy"]["verifier_bindings"].reverse(),
+        lambda d: d["relying_party_policy"]["verifier_bindings"][0].update(verifier_id="D2"),
         lambda d: d["relying_party_policy"]["verifier_bindings"].append(
             {
                 "verifier_id": "D2",

@@ -100,7 +100,7 @@
       }
     },
     "DataFlowModeV0": {
-      "description": "Closed data-flow-mode vocabulary, grounded in the two modes already named elsewhere in this contract family: 'offline' (claim D2's params.declared_mode, C6 Ruling 5) and 'current_online' (mandatory non-claim NC_CURRENT_ONLINE_FREETEXT: 'Current-online mode discloses tuned free-text configuration values'). No third mode is added here — inventing one would be a policy selection between competing registers this packet is not authorized to make (SCHEMA-1 stop condition). Used by the unsigned manifest's privacy_mode coverage section as the session-level declaration that any printed D2 claim's declared_mode must equal (verifier equality obligation; Draft-07 cannot check it because the manifest crosses only as an opaque digest).",
+      "description": "Closed data-flow-mode vocabulary, grounded in the two modes already named elsewhere in this contract family: 'offline' (the retained future D2 payload shape, C6 Ruling 5) and 'current_online' (mandatory non-claim NC_CURRENT_ONLINE_FREETEXT: 'Current-online mode discloses tuned free-text configuration values'). No third mode is added here — inventing one would be a policy selection between competing registers this packet is not authorized to make (SCHEMA-1 stop condition). Used by the unsigned manifest's privacy_mode coverage section as the session-level declaration; D2 is unsupported in frozen v0.",
       "type": "string",
       "enum": [
         "offline",
@@ -108,7 +108,7 @@
       ]
     },
     "SdkIdentityV0": {
-      "description": "The build session's SDK identity: the pinned implementation ref plus its release version. Grounded in claim D2's existing sdk_ref parameter (C1 Ruling 4: 'the e97b030f strace witness ... must be rerun at the new pinned implementation ref'), generalized to a session-level coverage section so the signed manifest binds SDK identity even on certificates that print no D2 claim. When a D2 claim IS printed, its params.sdk_ref MUST equal this section's sdk_ref (verifier equality obligation).",
+      "description": "The build session's SDK identity: the pinned implementation ref plus its release version. Grounded in the retained future D2 payload's sdk_ref parameter (C1 Ruling 4), generalized to a session-level coverage section so the signed manifest binds SDK identity; D2 is unsupported in frozen v0.",
       "type": "object",
       "additionalProperties": false,
       "required": ["sdk_ref", "sdk_version"],

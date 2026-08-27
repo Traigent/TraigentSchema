@@ -8,6 +8,7 @@ Provides validation of API requests and JSON data against Traigent schemas.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -89,6 +90,51 @@ def _is_rfc3339_date_time(value: object) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _load_canonical_public_key(value: object) -> object | None:
+    """Decode a canonical public-key SPKI, without echoing key material."""
+    from cryptography.exceptions import UnsupportedAlgorithm
+    from cryptography.hazmat.primitives import serialization
+
+    if not isinstance(value, str):
+        return None
+    try:
+        der = base64.b64decode(value, validate=True)
+        if base64.b64encode(der).decode("ascii") != value:
+            return None
+        key = serialization.load_der_public_key(der)
+        canonical = key.public_bytes(
+            serialization.Encoding.DER,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+    except (ValueError, TypeError, IndexError, UnsupportedAlgorithm):
+        return None
+    if canonical != der:
+        return None
+    return key
+
+
+@_FORMAT_CHECKER.checks("canonical-spki-der-base64")
+def _is_canonical_spki_der_base64(value: object) -> bool:
+    """Reject private-key DER and non-SPKI/non-canonical public material."""
+    return _load_canonical_public_key(value) is not None
+
+
+@_FORMAT_CHECKER.checks("canonical-ed25519-spki-der-base64")
+def _is_canonical_ed25519_spki_der_base64(value: object) -> bool:
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+
+    key = _load_canonical_public_key(value)
+    return isinstance(key, ed25519.Ed25519PublicKey)
+
+
+@_FORMAT_CHECKER.checks("canonical-ecdsa-p256-spki-der-base64")
+def _is_canonical_ecdsa_p256_spki_der_base64(value: object) -> bool:
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    key = _load_canonical_public_key(value)
+    return isinstance(key, ec.EllipticCurvePublicKey) and isinstance(key.curve, ec.SECP256R1)
 
 
 class SchemaValidator:
@@ -574,6 +620,10 @@ class SchemaValidator:
     def _format_error(self, error: ValidationError) -> str:
         """Format a validation error into a readable message."""
         path = ".".join(str(p) for p in error.absolute_path) or "root"
+        if error.validator == "format" and str(error.validator_value).startswith(
+            "canonical-"
+        ):
+            return f"{path}: invalid public-key encoding"
         return f"{path}: {error.message}"
 
     @property

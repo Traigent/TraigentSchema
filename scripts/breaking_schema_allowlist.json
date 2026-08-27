@@ -7,7 +7,7 @@
       "pointer_prefix": "#",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -15,7 +15,7 @@
       "pointer_prefix": "#/allOf",
       "reason": "The conditional branch expansion encodes the reconciled v0 claim and binding cases instead of accepting an ambiguous legacy shape at #/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -23,7 +23,7 @@
       "pointer_prefix": "#/properties/audit_report",
       "reason": "The added closed-boundary member carries the complete signed certificate evidence needed by the v0 verifier at #/properties/audit_report. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -31,7 +31,7 @@
       "pointer_prefix": "#/properties/claims/items/allOf",
       "reason": "The conditional branch expansion encodes the reconciled v0 claim and binding cases instead of accepting an ambiguous legacy shape at #/properties/claims/items/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -39,7 +39,7 @@
       "pointer_prefix": "#/properties/claims/items/properties/evidence_refs/items/properties/evidence_kind",
       "reason": "The vocabulary expansion registers the role-separated audit/client evidence kinds required by the v0 certificate projection at #/properties/claims/items/properties/evidence_refs/items/properties/evidence_kind. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -47,7 +47,7 @@
       "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/4/properties/params",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/properties/claims/items/properties/payload/oneOf/4/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -55,7 +55,7 @@
       "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/4/properties/params/properties/signed_manifest_digest",
       "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/properties/claims/items/properties/payload/oneOf/4/properties/params/properties/signed_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -63,7 +63,7 @@
       "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -71,7 +71,7 @@
       "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest",
       "reason": "The type tightening makes the load-bearing digest binding explicit and rejects the previously ambiguous legacy representation at #/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -79,7 +79,7 @@
       "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest/allOf",
       "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -87,7 +87,7 @@
       "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/6/properties/params",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/properties/claims/items/properties/payload/oneOf/6/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -95,7 +95,7 @@
       "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/cosigned_manifest_digest",
       "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/cosigned_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -103,7 +103,7 @@
       "pointer_prefix": "#/properties/ledger_seal_projection/allOf",
       "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/properties/ledger_seal_projection/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -111,7 +111,7 @@
       "pointer_prefix": "#/properties/ledger_seal_projection/properties/expected_stream_projection/properties/decision_stream/allOf/0/properties/root_commitment",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/ledger_seal_projection/properties/expected_stream_projection/properties/decision_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -119,7 +119,7 @@
       "pointer_prefix": "#/properties/ledger_seal_projection/properties/expected_stream_projection/properties/receipt_event_stream/allOf/0/properties/root_commitment",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/ledger_seal_projection/properties/expected_stream_projection/properties/receipt_event_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -127,7 +127,7 @@
       "pointer_prefix": "#/properties/ledger_seal_projection/properties/expected_stream_projection/properties/transition_stream/allOf/0/properties/root_commitment",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/ledger_seal_projection/properties/expected_stream_projection/properties/transition_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -135,7 +135,7 @@
       "pointer_prefix": "#/properties/signatures/properties/co_attestation/properties/signature",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/signatures/properties/co_attestation/properties/signature. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -143,7 +143,7 @@
       "pointer_prefix": "#/properties/signatures/properties/issuer_signature/properties/signature",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/signatures/properties/issuer_signature/properties/signature. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -151,7 +151,7 @@
       "pointer_prefix": "#/properties/signatures/properties/unsigned_manifest",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/properties/signatures/properties/unsigned_manifest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -159,7 +159,7 @@
       "pointer_prefix": "#/properties/signatures/properties/unsigned_manifest/properties/document",
       "reason": "The added closed-boundary member carries the complete signed certificate evidence needed by the v0 verifier at #/properties/signatures/properties/unsigned_manifest/properties/document. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
@@ -167,7 +167,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/4/properties/params",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/oneOf/4/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
@@ -175,7 +175,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/4/properties/params/properties/signed_manifest_digest",
       "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/allOf/0/oneOf/4/properties/params/properties/signed_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
@@ -183,7 +183,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
@@ -191,7 +191,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest",
       "reason": "The type tightening makes the load-bearing digest binding explicit and rejects the previously ambiguous legacy representation at #/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
@@ -199,7 +199,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest/allOf",
       "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
@@ -207,7 +207,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/6/properties/params",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/oneOf/6/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
@@ -215,7 +215,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/6/properties/params/properties/cosigned_manifest_digest",
       "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/allOf/0/oneOf/6/properties/params/properties/cosigned_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -223,7 +223,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/allOf",
       "reason": "The conditional branch expansion encodes the reconciled v0 claim and binding cases instead of accepting an ambiguous legacy shape at #/allOf/0/oneOf/0/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -231,7 +231,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/properties/evidence_refs/items/properties/evidence_kind",
       "reason": "The vocabulary expansion registers the role-separated audit/client evidence kinds required by the v0 certificate projection at #/allOf/0/oneOf/0/properties/evidence_refs/items/properties/evidence_kind. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -239,7 +239,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/4/properties/params",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/oneOf/0/properties/payload/oneOf/4/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -247,7 +247,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/4/properties/params/properties/signed_manifest_digest",
       "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/allOf/0/oneOf/0/properties/payload/oneOf/4/properties/params/properties/signed_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -255,7 +255,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -263,7 +263,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest",
       "reason": "The type tightening makes the load-bearing digest binding explicit and rejects the previously ambiguous legacy representation at #/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -271,7 +271,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest/allOf",
       "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -279,7 +279,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_claims_v0_schema.json",
@@ -287,7 +287,7 @@
       "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params/properties/cosigned_manifest_digest",
       "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params/properties/cosigned_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_evidence_refs_v0_schema.json",
@@ -295,7 +295,7 @@
       "pointer_prefix": "#/allOf/0/properties/evidence_kind",
       "reason": "The vocabulary expansion registers the role-separated audit/client evidence kinds required by the v0 certificate projection at #/allOf/0/properties/evidence_kind. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_ledger_seals_v0_schema.json",
@@ -303,7 +303,7 @@
       "pointer_prefix": "#/allOf/0/allOf",
       "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/allOf/0/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_ledger_seals_v0_schema.json",
@@ -311,7 +311,7 @@
       "pointer_prefix": "#/allOf/0/properties/expected_stream_projection/properties/decision_stream/allOf/0/properties/root_commitment",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/expected_stream_projection/properties/decision_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_ledger_seals_v0_schema.json",
@@ -319,7 +319,7 @@
       "pointer_prefix": "#/allOf/0/properties/expected_stream_projection/properties/receipt_event_stream/allOf/0/properties/root_commitment",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/expected_stream_projection/properties/receipt_event_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_ledger_seals_v0_schema.json",
@@ -327,7 +327,7 @@
       "pointer_prefix": "#/allOf/0/properties/expected_stream_projection/properties/transition_stream/allOf/0/properties/root_commitment",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/expected_stream_projection/properties/transition_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_signatures_v0_schema.json",
@@ -335,7 +335,7 @@
       "pointer_prefix": "#/allOf/0/properties/co_attestation/properties/signature",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/co_attestation/properties/signature. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_signatures_v0_schema.json",
@@ -343,7 +343,7 @@
       "pointer_prefix": "#/allOf/0/properties/issuer_signature/properties/signature",
       "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/issuer_signature/properties/signature. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_signatures_v0_schema.json",
@@ -351,7 +351,7 @@
       "pointer_prefix": "#/allOf/0/properties/unsigned_manifest",
       "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/properties/unsigned_manifest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "certification/certificate_signatures_v0_schema.json",
@@ -359,7 +359,7 @@
       "pointer_prefix": "#/allOf/0/properties/unsigned_manifest/properties/document",
       "reason": "The added closed-boundary member carries the complete signed certificate evidence needed by the v0 verifier at #/allOf/0/properties/unsigned_manifest/properties/document. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
       "version": "5.7.0",
-      "pr": "pending (branch agent/cert-v0-schema-contract-20260824, ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd, WorkIntent st_4d0c90b807a1)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },
     {
       "file": "smartops_v2/shadow_evaluate_response_schema.json",

@@ -26,6 +26,7 @@ classifiers = [
 keywords = ["traigent", "schema", "validation", "json-schema", "api"]
 
 dependencies = [
+    "cryptography>=46.0.0,<51.0.0",
     "jsonschema>=4.17.0",
     "referencing>=0.30.0",
     "pyyaml>=6.0",

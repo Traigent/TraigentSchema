@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/agent_certificate_v0_schema.json",
   "title": "Agent Certificate",
-  "description": "The Agent Certificate v0 envelope (Wave-C C6/C1 reconciled rulings, 2026-08-11). Ships under the name 'Agent Certificate' — the rename to 'Agent Build Certificate' was struck ('The owner resolution says ship under the certificate name') — with the mandatory page-one scope box: the title and the build-session scope line are const fields printed 'immediately below it: no deployment identity, deployment binding, drift detection, or deployed-runtime claim' (C6 Ruling 3(v)). STATUS, verbatim and binding: 'Current evidence supports no presently issuable signed v0 certificate. The following is the conditional v0 allowlist after implementation and verifier gates.' Why nothing prints today, verbatim: 'The dedicated ledger does not exist. The dedicated certificate key does not exist. Production signing is unwired. The signed/pinned ring does not exist. Client co-signing is not evidenced. The independent verifier has not been shown to pass. B1c and D6a are unregistered inventions.' Structure: claims are a bounded array of the discriminated Claim|NonClaim family's ClaimV0 (only the seven conditional IDs are representable; tier 4 is unconstructible; every claim requires a PASS verifier and bound evidence); non_claims is a FOURTEEN-item tuple that pins all fourteen mandatory printed NON-claims in order — a certificate printing fewer, more, or reordered non-claims is schema-invalid. Disclosure: all-or-nothing refusal is overturned — 'The certificate must not refuse merely because some data is omitted from its disclosure profile. It must instead identify the profile and state that selective disclosure is not proven' — encoded as the required disclosure_profile with its const selective-disclosure line. Exact version dispatch: verifiers dispatch 'by exact schema major/minor and signed semantics-manifest digest'; 'Old verifiers reject unknown newer versions and digests. They never ignore unknown certificate fields or claims' (C1 Ruling 6) — additionalProperties:false throughout makes unknown-field tolerance unrepresentable. Duplicate claim IDs within the claims array are a compiler rejection (certificate_rejection_v0_schema.json: duplicate_claim); draft-07 cannot express cross-item uniqueness by claim_id, so that single check is compiler-enforced rather than schema-enforced.",
+  "description": "The Agent Certificate v0 envelope (Wave-C C6/C1 reconciled rulings, 2026-08-11). Ships under the name 'Agent Certificate' — the rename to 'Agent Build Certificate' was struck ('The owner resolution says ship under the certificate name') — with the mandatory page-one scope box: the title and the build-session scope line are const fields printed 'immediately below it: no deployment identity, deployment binding, drift detection, or deployed-runtime claim' (C6 Ruling 3(v)). STATUS, verbatim and binding: 'Current v0 emission is fail-closed: only substantive D2 and G1 claims may print, fixed at tier 1 with client co-attestation; unsupported claims abstain.' B-v0 status, current and binding: 'The v0 contract defines a signed, opaque build-ledger seal projection used in the signed unsigned-manifest chain and G1 evidence binding. It does not independently prove ledger completeness, event truth, ordering, or omission resistance. B1 remains abstained; only D2 and G1 print in v0.' Structure: claims are a bounded array of the discriminated Claim|NonClaim family's ClaimV0 (only substantive D2 and G1 claims are emittable, fixed at tier 1 with co-attestation; B1/C1/F1/G3 and pending REG1 remain unprintable; tier 4 is unconstructible; every claim requires a PASS verifier and bound evidence); non_claims is a FOURTEEN-item tuple that pins all fourteen mandatory printed NON-claims in order — a certificate printing fewer, more, or reordered non-claims is schema-invalid. Disclosure: all-or-nothing refusal is overturned — 'The certificate must not refuse merely because some data is omitted from its disclosure profile. It must instead identify the profile and state that selective disclosure is not proven' — encoded as the required disclosure_profile with its const selective-disclosure line. Exact version dispatch: verifiers dispatch 'by exact schema major/minor and signed semantics-manifest digest'; 'Old verifiers reject unknown newer versions and digests. They never ignore unknown certificate fields or claims' (C1 Ruling 6) — additionalProperties:false throughout makes unknown-field tolerance unrepresentable. Duplicate claim IDs within the claims array are a compiler rejection (certificate_rejection_v0_schema.json: duplicate_claim); draft-07 cannot express cross-item uniqueness by claim_id, so that single check is compiler-enforced rather than schema-enforced. PRE-ISSUANCE CORRECTION (SCHEMA-1, 2026-08-24): before this correction no schema-valid signed v0 certificate was issuable — the compiler's default hash_algorithm value did not match this schema's pinned enum (gap C0), the eleven-section signed-manifest coverage named by certificate_signatures_v0_schema.json#/definitions/UnsignedManifestCoverageV0 had no executable typed preimage for five of its sections (gap C1), the co-attestation nonce was not bound into the signed material (gap C2), and claims F1/G3 required a digest fixed-point (gap C3). This is a compatible correction, not a new version: schema_version stays `traigent.agent_certificate.v0` because nothing was ever issuable under the prior shape for a corrected verifier to need to reject as legacy. certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0 is now the typed canonical document that UnsignedManifestCoverageV0's manifest_digest is computed over; this envelope's `subject`, `claims`, and `non_claims` fields share their exact type with that document's matching coverage sections (certification_common_v0_schema.json#/definitions/BuildSessionSubjectV0, certificate_claims_v0_schema.json#/definitions/ClaimsArrayV0, certificate_claims_v0_schema.json#/definitions/NonClaimsFixedTupleV0) so a compiler that copies verbatim, rather than re-deriving, produces a printed certificate that is structurally guaranteed to match what was signed. FINAL PRE-ISSUANCE FIX (SCHEMA-1, 2026-08-24, third pass): before this fix an independent relying-party verifier could not obtain the pre-issuance audit report named by the signed manifest's leading audit_report_digest evidence entry (always present, including zero claims), while printed claims additionally carry that same value — each claim carried only the opaque digest, and the test helper resolved the actual report out-of-band from the issuer's own build state, exactly the 'a digest without an archived, authentic bundle and resolver does not preserve verification' failure mode (C1 Ruling 6) this family otherwise closes for the unsigned manifest. `audit_report` is now a required top-level envelope field carrying the complete typed certificate_audit_report_v0_schema.json#/definitions/AuditReportV0 record — required even when `claims` is empty, in which case every one of its seven rows abstains. This does not reintroduce the fixed point the audit-report schema itself documents: the report stays pre-issuance and acyclic because its rows bind claim_material_digest over a projection that excludes the claim's own audit_report_digest reference, and the report is bound into the signed material by its role-separated digest as the FIRST `evidence_digests` entry of the unsigned manifest, always present including zero claims; every printed claim additionally carries the same `audit_report_digest` value. That exact digest is `sha256:` plus lowercase SHA-256 over UTF8(`traigent.agent_certificate.audit_report.v1`) || 0x00 || jcs_v1(audit_report), so tampering with this plaintext field after signing changes the signed leading entry and claim references and cannot silently validate. `audit_report` itself is NOT one of the eleven signed unsigned-manifest coverage sections and is not embedded inside `signatures.unsigned_manifest.document` — it sits alongside the manifest as a sibling envelope field, referenced by digest FROM inside the signed claims, never the other way around.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,7 +15,8 @@
     "ledger_seal_projection",
     "claims",
     "non_claims",
-    "signatures"
+    "signatures",
+    "audit_report"
   ],
   "properties": {
     "schema_version": {
@@ -31,7 +32,7 @@
       "const": "Build-session scope: this certificate concerns a build session, not the deployed agent. It makes no deployment-identity, deployment-binding, drift-detection, or deployed-runtime claim."
     },
     "subject": {
-      "$ref": "#/definitions/BuildSessionSubjectV0"
+      "$ref": "certification_common_v0_schema.json#/definitions/BuildSessionSubjectV0"
     },
     "semantics": {
       "$ref": "#/definitions/SemanticsBindingV0"
@@ -44,264 +45,19 @@
       "$ref": "certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"
     },
     "claims": {
-      "description": "The printed claims — possibly empty, since every v0 claim is conditional and 'Current evidence supports no presently issuable signed v0 certificate.' An early certificate has fewer and lower-tier claims, never absent caveats.",
-      "type": "array",
-      "minItems": 0,
-      "maxItems": 16,
-      "uniqueItems": true,
-      "items": {
-        "$ref": "certificate_claims_v0_schema.json#/definitions/ClaimV0"
-      }
+      "description": "The printed claims — possibly empty, since every v0 claim is conditional and 'Current evidence supports no presently issuable signed v0 certificate.' An early certificate has fewer and lower-tier claims, never absent caveats. This field MUST be copied verbatim into the signed unsigned-manifest's `claims` coverage section (certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0); both reference certificate_claims_v0_schema.json#/definitions/ClaimsArrayV0 (SCHEMA-1, 2026-08-24) so the two copies are structurally the identical type, not merely described as such.",
+      "$ref": "certificate_claims_v0_schema.json#/definitions/ClaimsArrayV0"
     },
     "non_claims": {
-      "description": "The FOURTEEN mandatory printed NON-claims, tuple-validated in canonical print order: A3, A4, B2, E2, E3, F3, G2, H1, then the six standing non-claims. All fourteen are required; additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid. Non-claims are printed, never implied by absence.",
-      "type": "array",
-      "minItems": 14,
-      "maxItems": 14,
-      "additionalItems": false,
-      "items": [
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "A3"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.a3_no_deployment_binding.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "A4"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.a4_no_drift_detection.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "B2"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.b2_no_closeout_reconciliation.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "E2"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.e2_statistical_validity_suspended.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "E3"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.e3_winner_stability_suspended.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "F3"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.f3_no_offline_verifiability.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "G2"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.g2_no_selective_disclosure.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "H1"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.h1_no_criteria_epochs.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "NC_STEP_CAPTURE"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.nc_step_capture.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "NC_PRESEAL_RECORDER"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.nc_preseal_recorder.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "NC_TIER4_GAPCHECKED"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.nc_tier4_gapchecked.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "NC_TARGET_MINIMIZED"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.nc_target_minimized.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "NC_CURRENT_ONLINE_FREETEXT"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.nc_current_online_freetext.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimV0"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "NC_BUILD_SESSION_SCOPE"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.nc_build_session_scope.v1"
-                }
-              }
-            }
-          ]
-        }
-      ]
+      "description": "The FOURTEEN mandatory printed NON-claims, tuple-validated in canonical print order: A3, A4, B2, E2, E3, F3, G2, H1, then the six standing non-claims. All fourteen are required; additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid. Non-claims are printed, never implied by absence. This field MUST be copied verbatim into the signed unsigned-manifest's `non_claims` coverage section (certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0); both reference certificate_claims_v0_schema.json#/definitions/NonClaimsFixedTupleV0 (SCHEMA-1, 2026-08-24) so the two copies are structurally the identical type, not merely described as such.",
+      "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimsFixedTupleV0"
     },
     "signatures": {
       "$ref": "certificate_signatures_v0_schema.json#/definitions/CertificateSignaturesV0"
+    },
+    "audit_report": {
+      "description": "The complete typed pre-issuance audit report (SCHEMA-1 FINAL fix, 2026-08-24), whose role-separated digest is always the FIRST signed unsigned-manifest `evidence_digests` entry, including when `claims` is empty (all seven rows abstain); each printed claim additionally carries the same `audit_report_digest` evidence value. An independent verifier obtains it directly from this certificate, never from an out-of-band issuer database. The exact digest is `sha256:` plus lowercase SHA-256 over UTF8(`traigent.agent_certificate.audit_report.v1`) || 0x00 || jcs_v1(this field); that equality, and the report's own cross-field bindings to subject/seal/semantics/claims, are verifier obligations Draft-07 cannot check directly, exercised by tests/test_agent_certificate_v0_schemas.py's contract-verifier helper.",
+      "$ref": "certificate_audit_report_v0_schema.json#/definitions/AuditReportV0"
     }
   },
   "allOf": [
@@ -329,32 +85,43 @@
           }
         }
       }
+    },
+    {
+      "description": "v0 issuance is fail-closed for every expected ledger stream: legacy_unsealed and not_applicable remain historical ledger vocabulary but are not admissible in an Agent Certificate envelope. All three stream entries must be explicitly sealed or empty_sealed, each with its root commitment.",
+      "properties": {
+        "ledger_seal_projection": {
+          "properties": {
+            "expected_stream_projection": {
+              "properties": {
+                "decision_stream": {
+                  "properties": {
+                    "chain_status": {
+                      "enum": ["sealed", "empty_sealed"]
+                    }
+                  }
+                },
+                "receipt_event_stream": {
+                  "properties": {
+                    "chain_status": {
+                      "enum": ["sealed", "empty_sealed"]
+                    }
+                  }
+                },
+                "transition_stream": {
+                  "properties": {
+                    "chain_status": {
+                      "enum": ["sealed", "empty_sealed"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {
-    "BuildSessionSubjectV0": {
-      "description": "The machine-readable build_session subject (conceded to the proposer: 'the mandatory page-one scope box and machine-readable build_session subject'). The certificate is ABOUT a build session and nothing else. This REUSES the orphaned optimization/certificate_subject_schema.json subject-binding SHAPE — a self-describing hash_algorithm carried outside the hashed content, a commitment digest, and exact envelope-version pinning, with that schema's own scope discipline ('It does not certify provenance') restated here for the build session. The full certificate_subject RECORD is deliberately NOT embedded: its config_id is a caller-chosen string (bounded at 128 chars but otherwise free), and embedding it would open a user-controlled free-text channel into a certificate record, which the boundary rule forbids ('certificate and registry records contain no user-controlled free-text fields'). The reuse is therefore of the shape's constituent normative definitions (hash_algorithm) and its binding pattern, not of the whole record; binding to an evaluated configuration is a later compatible release once its disclosure is Register-approved. SCOPE, stated so it is not over-read: this subject identifies WHICH build session the certificate concerns. It does not certify the session's provenance, contents, or completeness.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["subject_kind", "hash_algorithm", "build_session_ref", "session_commitment_digest"],
-      "properties": {
-        "subject_kind": {
-          "const": "build_session"
-        },
-        "hash_algorithm": {
-          "description": "The algorithm under which session_commitment_digest was computed — reused from the certificate-subject shape's single normative definition so a subject can never be compared across algorithms; an unknown value fails closed.",
-          "$ref": "../optimization/best_config_hash_contract_schema.json#/definitions/hash_algorithm"
-        },
-        "build_session_ref": {
-          "description": "Opaque build-session reference; MUST match ledger_seal_projection.build_session_ref (compiler-checked equality; cross-field equality is not expressible in draft-07 across $ref boundaries).",
-          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
-        },
-        "session_commitment_digest": {
-          "description": "Canonical commitment digest binding the subject to the sealed session content.",
-          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-        }
-      }
-    },
     "SemanticsBindingV0": {
       "description": "The signed semantics reference for exact-version dispatch (C1 Ruling 6): the semantics manifest 'binds canonical schema definitions, claim templates, prohibited register, verifier catalog, tier semantics, signature scope, and canonicalization rules.' Each digest names one pinned, signed, ARCHIVED artifact — 'A digest without an archived, authentic bundle and resolver does not preserve verification', so archives and trust-manifest authority are B5/verifier obligations recorded here as scope.",
       "type": "object",

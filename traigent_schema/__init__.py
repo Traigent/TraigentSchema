@@ -15,6 +15,16 @@ Example:
 """
 
 from traigent_schema.analytics_validators import AnalyticsValidator
+from traigent_schema.certification import (
+    RelyingPartyPolicy,
+    RelyingPartyVerificationError,
+    VerificationContext,
+    VerificationError,
+    VerificationResult,
+    verify,
+    verify_agent_certificate,
+    verify_certificate,
+)
 from traigent_schema.invariants import (
     InvariantComparisonBoundError,
     InvariantDeclarationError,
@@ -35,6 +45,11 @@ from traigent_schema.version import __version__
 
 __all__ = [
     "AnalyticsValidator",
+    "RelyingPartyPolicy",
+    "RelyingPartyVerificationError",
+    "VerificationContext",
+    "VerificationError",
+    "VerificationResult",
     "InvariantComparisonBoundError",
     "InvariantDeclarationError",
     "InvariantNoncanonicalPayloadError",
@@ -48,5 +63,8 @@ __all__ = [
     "get_openapi_path",
     "load_schema",
     "validate_declared_invariants",
+    "verify_certificate",
+    "verify_agent_certificate",
+    "verify",
     "__version__",
 ]

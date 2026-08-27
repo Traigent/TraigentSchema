@@ -1,0 +1,203 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_unsigned_manifest_v0_schema.json",
+  "title": "Agent Certificate v0 Canonical Unsigned Manifest",
+  "description": "SCHEMA-1 (2026-08-25) typed, transmitted canonical unsigned manifest. Its load-bearing digest is role-separated: `sha256:` plus lowercase SHA-256 over UTF8(`traigent.agent_certificate.unsigned_manifest.v1`) || 0x00 || jcs_v1(this document). `manifest_digest` is computed over those exact canonical bytes. This document is produced before any signature exists and crosses the wire in full, embedded verbatim as CertificateSignaturesV0.unsigned_manifest.document. Every one of the TWELVE coverage labels is a required property with concrete typed content, including the disclosure profile identifier that is printed on the envelope. Subject, seal, claims, non_claims, tiers, and evidence_digests are deterministic projections whose order and equality a verifier MUST check; evidence_digests begins with the audit_report_digest binding even when claims is empty, then follows first occurrence while scanning claims and each evidence_refs array. The remaining sections bind disclosure, privacy, SDK, compiler/register, key-ring, and freshness context. No private artifact content, counts, names, paths, or free text are representable.",
+  "definitions": {
+    "TierProjectionEntryV0": {
+      "description": "One deterministic tier projection entry, mirroring one claim in the manifest's `claims` section: claim_id + its per-claim tier. A verifier MUST check this equals `(claim.claim_id, claim.tier)` for every claim in the `claims` section, with no entry left over and none missing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "tier"],
+      "properties": {
+        "claim_id": {
+          "$ref": "certificate_claims_v0_schema.json#/definitions/ClaimIdV0"
+        },
+        "tier": {
+          "$ref": "certification_common_v0_schema.json#/definitions/EmittableClaimTierV0"
+        }
+      }
+    },
+    "TiersProjectionV0": {
+      "description": "The `tiers` coverage section: one TierProjectionEntryV0 per claim printed in `claims`, same cardinality bound as ClaimsArrayV0. A verifier MUST reject a manifest whose entry count differs from `claims`'s length, or whose (claim_id, tier) pairs disagree with the claims actually printed — this is what makes 'tiers' a binding rather than a duplicate label (gap C1).",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/TierProjectionEntryV0"
+      }
+    },
+    "EvidenceDigestsProjectionV0": {
+      "description": "The `evidence_digests` coverage section is a bounded unique tuple whose FIRST entry is always the `audit_report_digest` binding (including when `claims` is empty), followed by the first occurrence of every other evidence reference while scanning claims-array order and each claim's evidence_refs order. Duplicate references collapse. The first digest MUST equal `sha256:` plus lowercase SHA-256 over UTF8(`traigent.agent_certificate.audit_report.v1`) || 0x00 || jcs_v1(audit_report) under the audit-report role domain; a verifier MUST reject omission, reordering, or substitution. Bounded at 16 claims * 64 evidence_refs each.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "uniqueItems": true,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+            },
+            {
+              "properties": {
+                "evidence_kind": {
+                  "const": "audit_report_digest"
+                }
+              },
+              "required": ["evidence_kind"]
+            }
+          ]
+        }
+      ],
+      "additionalItems": {
+        "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+      }
+    },
+    "PrivacyModeSectionV0": {
+      "description": "The `privacy_mode` coverage section (gap C1: previously unrepresented). The build session's declared data-flow mode, signed regardless of whether a D2 claim is printed. When a D2 claim IS printed, its params.declared_mode MUST equal this section's declared_mode (verifier equality obligation; the two live in different parts of the document and Draft-07 cannot cross-check them once only manifest_digest crosses).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["declared_mode"],
+      "properties": {
+        "declared_mode": {
+          "$ref": "certification_common_v0_schema.json#/definitions/DataFlowModeV0"
+        }
+      }
+    },
+    "DisclosureProfileSectionV0": {
+      "description": "The `disclosure_profile` coverage section pins the exact bounded disclosure profile identifier and its mandatory selective-disclosure non-claim. It is covered by the issuer signature so the plaintext envelope field cannot be changed after signing without invalidating the manifest digest.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "selective_disclosure_line"],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "enum": ["public", "customer_internal", "auditor_only"]
+        },
+        "selective_disclosure_line": {
+          "const": "Data omitted from this disclosure profile is simply absent; selective disclosure is not proven."
+        }
+      }
+    },
+    "KeyRingIdentifiersV0": {
+      "description": "The `key_ring_identifiers` coverage section pins the exact issuer key, trust ring, and issuer signature algorithm before signing. When client co-attestation is expected it also pins the exact client key and client signature algorithm. A verifier MUST check issuer_key_ref/trust_ring_ref/issuer_signature_algorithm here equal the issuer signature block, and when co_attestation is present client_key_ref/client_signature_algorithm here equal that block; client key and algorithm are an iff pair. Signature bytes themselves are never fields of this section or the manifest, avoiding algorithm/signature self-reference.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issuer_key_ref", "trust_ring_ref", "issuer_signature_algorithm"],
+      "properties": {
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "issuer_signature_algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "client_key_ref": {
+          "description": "Present only when a client co-attestation is expected; its presence/absence is itself part of what the signature covers.",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "client_signature_algorithm": {
+          "description": "Present iff client_key_ref is present; it is fixed in the manifest before client signing and must equal co_attestation.algorithm.",
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["client_key_ref"]
+          },
+          "then": {
+            "required": ["client_signature_algorithm"]
+          },
+          "else": {
+            "not": {
+              "required": ["client_signature_algorithm"]
+            }
+          }
+        }
+      ]
+    },
+    "FreshnessV0": {
+      "description": "The `freshness` coverage section (gap C1/C2: previously unrepresented, and the root cause of C2 — 'co-attestation does not bind its nonce'). Carries ONLY the already-public anti-replay nonce; per this packet's explicit boundary, freshness does NOT carry a precise public timestamp or any other policy-sensitive disclosure pending its own Disclosure Register ruling — see certification_common_v0_schema.json#/definitions/PublicNonce ('Register entry 8': a public nonce 'does not prevent dictionary guessing' on its own, but binding it into the signed digest is what stops the nonce from being swapped after co-signing). A verifier MUST check this section's nonce equals certificate.signatures.co_attestation.nonce when co_attestation is present — closing gap C2, since the nonce now crosses in two places (this signed section, and the plaintext co_attestation.nonce field a server can look up without decoding the manifest) and their equality is exactly what a replay/substitution check verifies.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nonce"],
+      "properties": {
+        "nonce": {
+          "$ref": "certification_common_v0_schema.json#/definitions/PublicNonce"
+        }
+      }
+    },
+    "UnsignedManifestV0": {
+      "description": "The complete canonical unsigned manifest: exactly the twelve sections UnsignedManifestCoverageV0 pins, each required, additionalProperties:false so no thirteenth section — signed or otherwise — can be smuggled in without changing the coverage label list to match.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "seal",
+        "claims",
+        "tiers",
+        "evidence_digests",
+        "non_claims",
+        "disclosure_profile",
+        "privacy_mode",
+        "sdk_identity",
+        "compiler_register_versions",
+        "key_ring_identifiers",
+        "freshness"
+      ],
+      "properties": {
+        "subject": {
+          "description": "Deterministic projection: MUST equal certificate.subject verbatim.",
+          "$ref": "certification_common_v0_schema.json#/definitions/BuildSessionSubjectV0"
+        },
+        "seal": {
+          "description": "Deterministic projection: MUST equal certificate.ledger_seal_projection verbatim.",
+          "$ref": "certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"
+        },
+        "claims": {
+          "description": "Deterministic projection: MUST equal certificate.claims verbatim.",
+          "$ref": "certificate_claims_v0_schema.json#/definitions/ClaimsArrayV0"
+        },
+        "tiers": {
+          "$ref": "#/definitions/TiersProjectionV0"
+        },
+        "evidence_digests": {
+          "$ref": "#/definitions/EvidenceDigestsProjectionV0"
+        },
+        "non_claims": {
+          "description": "Deterministic projection: MUST equal certificate.non_claims verbatim.",
+          "$ref": "certificate_claims_v0_schema.json#/definitions/NonClaimsFixedTupleV0"
+        },
+        "disclosure_profile": {
+          "$ref": "#/definitions/DisclosureProfileSectionV0"
+        },
+        "privacy_mode": {
+          "$ref": "#/definitions/PrivacyModeSectionV0"
+        },
+        "sdk_identity": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SdkIdentityV0"
+        },
+        "compiler_register_versions": {
+          "description": "Deterministic projection: this section's five register-digest fields MUST equal certificate.semantics's five fields exactly (agent_certificate_v0_schema.json#/definitions/SemanticsBindingV0).",
+          "$ref": "certification_common_v0_schema.json#/definitions/CompilerRegisterVersionsV0"
+        },
+        "key_ring_identifiers": {
+          "$ref": "#/definitions/KeyRingIdentifiersV0"
+        },
+        "freshness": {
+          "$ref": "#/definitions/FreshnessV0"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/UnsignedManifestV0"
+    }
+  ]
+}

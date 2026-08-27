@@ -1,5 +1,50 @@
 # Traigent Schema Library
 
+## Agent Certificate v0 offline verification
+
+`traigent_schema.certification` contains the distributable relying-party
+verifier for the Agent Certificate v0 envelope. A relying party supplies the
+certificate JSON, the issuer P-256 or Ed25519 public key, a fresh
+`VerificationContext` (nonce, build-session reference, issuer key/trust-ring
+references, and—when claims are present—the client public key), and an
+explicit pinned `RelyingPartyPolicy` containing the compiler-register digests
+and verifier bindings it accepts. Verification performs JSON-Schema
+validation, fp2/JCS role-separated digest checks, projection/audit bindings,
+and low-S P-256 or Ed25519 signature checks without network, Backend, database,
+issuer callbacks, or private evidence.
+
+The B-v0 build-ledger profile is identified by the exact seal
+`chain_schema_version` `traigent.cert_build_ledger.v0`. Its public projection
+contains only the opaque seal reference, build-session reference, fixed stream
+family/status/root entries, and a role-separated seal-statement digest. The
+fixed mapping is `transition=sealed`, `receipt_event=sealed`, and
+`decision=empty_sealed`; all-zero synthetic roots and unsupported profiles are
+rejected. The verifier authenticates the exact signed projection, but cannot
+independently recompute Backend HMAC history or prove ledger completeness or
+omission resistance from public roots.
+
+```python
+from traigent_schema.certification import (
+    RelyingPartyPolicy, VerificationContext, verify_certificate,
+)
+
+result = verify_certificate(
+    certificate,
+    issuer_public_key=issuer_public_key,
+    context=context,
+    policy=pinned_policy,
+)
+```
+
+Failures raise `RelyingPartyVerificationError`; its `.code` and string form
+are bounded, content-free values intended for safe logging. A successful
+result proves the supplied envelope, signatures, projections, and declared
+bindings are internally consistent and match the relying party's pins. It
+does not prove that a G1 commitment is truthful or complete, recover the
+committed client artifacts, establish deployment identity/runtime behavior, or
+interpret opaque issuer ledger roots. The Backend endpoint/distribution
+integration remains a separate concern.
+
 The official contract package for the Traigent AI optimization platform. This
 repository is the shared source of truth for JSON Schema definitions, endpoint
 mappings, and validation utilities used across the backend, SDK, and frontend.

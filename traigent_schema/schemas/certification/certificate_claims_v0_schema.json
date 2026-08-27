@@ -79,8 +79,130 @@
         }
       }
     },
+    "ClaimEvidenceRefsG1V0": {
+      "description": "The exact evidence-reference tuple for printable claim G1: one audit_report_digest and one client_commitment_digest, in either order. The generic evidence-kind vocabulary remains available for non-printable and historical records, but a current v0 G1 claim cannot carry a ledger-entry commitment or any other reference.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+              },
+              {
+                "properties": {
+                  "evidence_kind": {
+                    "const": "audit_report_digest"
+                  }
+                },
+                "required": ["evidence_kind"]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+              },
+              {
+                "properties": {
+                  "evidence_kind": {
+                    "const": "client_commitment_digest"
+                  }
+                },
+                "required": ["evidence_kind"]
+              }
+            ]
+          }
+        ]
+      },
+      "contains": {
+        "properties": {
+          "evidence_kind": {
+            "const": "audit_report_digest"
+          }
+        },
+        "required": ["evidence_kind"]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "evidence_kind": {
+                "const": "client_commitment_digest"
+              }
+            },
+            "required": ["evidence_kind"]
+          }
+        }
+      ]
+    },
+    "ClaimEvidenceRefsD2V0": {
+      "description": "The exact evidence-reference tuple for printable claim D2: one audit_report_digest and one sdk_witness_bundle, in either order. No ledger-entry commitment, duplicate kind, or additional evidence reference is representable.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+              },
+              {
+                "properties": {
+                  "evidence_kind": {
+                    "const": "audit_report_digest"
+                  }
+                },
+                "required": ["evidence_kind"]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+              },
+              {
+                "properties": {
+                  "evidence_kind": {
+                    "const": "sdk_witness_bundle"
+                  }
+                },
+                "required": ["evidence_kind"]
+              }
+            ]
+          }
+        ]
+      },
+      "contains": {
+        "properties": {
+          "evidence_kind": {
+            "const": "audit_report_digest"
+          }
+        },
+        "required": ["evidence_kind"]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "evidence_kind": {
+                "const": "sdk_witness_bundle"
+              }
+            },
+            "required": ["evidence_kind"]
+          }
+        }
+      ]
+    },
     "ClaimV0": {
-      "description": "A printable claim: registered claim ID, per-claim tier (tier 4 unconstructible), exactly one explicit payload type, a populated PASS verifier, and at least one bound evidence reference. The per-claim if/then branches force payload/claim_id agreement, so a B1 claim can never smuggle a D2 payload. No free-text field exists anywhere in this shape.",
+      "description": "A printable v0 claim. The payload and template schemas retain the complete registered family for future evolution, but current v0 emission is deliberately limited to substantive D2 and G1 only: B1, C1, F1, and G3 are self-referential because their PASS verifier runs only after the manifest/signature/audit cycle is finalized, and REG1 remains pending registration. ClaimV0 therefore structurally rejects those IDs; their isolated payload/template/audit-row shapes remain available for a later registered release. D2 and G1 are fixed tier 1 and require co-attestation at the envelope. Every printed claim carries a PASS verifier and audit_report_digest evidence reference. No free-text field exists anywhere in this shape.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -108,12 +230,21 @@
           "$ref": "#/definitions/VerifierRefV0"
         },
         "evidence_refs": {
+          "description": "Bounded evidence references. MUST include at least one evidence_kind=audit_report_digest reference (SCHEMA-1 P1 fix, 2026-08-24) binding this claim to the pre-issuance audit report that supported it (certificate_audit_report_v0_schema.json#/definitions/AuditReportV0) — Draft-07's `contains` expresses 'at least one'; that a printed claim carries EXACTLY one such reference, and that every printed claim in one certificate references the SAME audit_report_digest value, are verifier obligations this array shape cannot itself enforce (exercised by tests/test_agent_certificate_v0_schemas.py's contract-verifier helper, not merely documented).",
           "type": "array",
           "minItems": 1,
           "maxItems": 64,
           "uniqueItems": true,
           "items": {
             "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+          },
+          "contains": {
+            "properties": {
+              "evidence_kind": {
+                "const": "audit_report_digest"
+              }
+            },
+            "required": ["evidence_kind"]
           }
         }
       },
@@ -250,6 +381,83 @@
               }
             }
           }
+        },
+        {
+          "description": "Conservative v0 unsupported-claims-abstain rule: only D2 and G1 may be emitted as ClaimV0 records. REG1 is pending registration; B1/C1/F1/G3 are withheld until their post-finalization verifier evidence is independently registered.",
+          "properties": {
+            "claim_id": {
+              "enum": ["D2", "G1"]
+            }
+          },
+          "required": ["claim_id"]
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "D2"
+              }
+            },
+            "required": ["claim_id"]
+          },
+          "then": {
+            "properties": {
+              "tier": {
+                "const": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "G1"
+              }
+            },
+            "required": ["claim_id"]
+          },
+          "then": {
+            "properties": {
+              "tier": {
+                "const": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "D2"
+              }
+            },
+            "required": ["claim_id"]
+          },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "$ref": "#/definitions/ClaimEvidenceRefsD2V0"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "G1"
+              }
+            },
+            "required": ["claim_id"]
+          },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "$ref": "#/definitions/ClaimEvidenceRefsG1V0"
+              }
+            }
+          }
         }
       ]
     },
@@ -287,6 +495,263 @@
         },
         {
           "$ref": "#/definitions/NonClaimV0"
+        }
+      ]
+    },
+    "ClaimsArrayV0": {
+      "description": "The bounded claims array shape (SCHEMA-1, 2026-08-24 pre-issuance correction), factored out of agent_certificate_v0_schema.json so the printed certificate's `claims` field and the signed unsigned-manifest's `claims` coverage section (certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0) reference the identical bounded-array type rather than two independently-maintained copies that could silently diverge. Possibly empty, since every v0 claim is conditional. Compiler-checked equality obligation: the manifest's claims section MUST be copied verbatim from the certificate's claims field (never independently re-derived); Draft-07 cannot check this once only manifest_digest crosses.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/ClaimV0"
+      }
+    },
+    "NonClaimsFixedTupleV0": {
+      "description": "The FOURTEEN mandatory printed NON-claims, tuple-validated in canonical print order (SCHEMA-1, 2026-08-24 pre-issuance correction: factored out of agent_certificate_v0_schema.json for the same single-source-of-truth reason as ClaimsArrayV0 above — the printed certificate's `non_claims` field and the unsigned manifest's `non_claims` coverage section both reference this one tuple type). All fourteen are required; additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid. Non-claims are printed, never implied by absence.",
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "additionalItems": false,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "A3"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.a3_no_deployment_binding.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "A4"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.a4_no_drift_detection.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "B2"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.b2_no_closeout_reconciliation.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "E2"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.e2_statistical_validity_suspended.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "E3"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.e3_winner_stability_suspended.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "F3"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.f3_no_offline_verifiability.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "G2"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.g2_no_selective_disclosure.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "H1"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.h1_no_criteria_epochs.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_STEP_CAPTURE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.nc_step_capture.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_PRESEAL_RECORDER"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.nc_preseal_recorder.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_TIER4_GAPCHECKED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.nc_tier4_gapchecked.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_TARGET_MINIMIZED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.nc_target_minimized.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_CURRENT_ONLINE_FREETEXT"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.nc_current_online_freetext.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/NonClaimV0"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_BUILD_SESSION_SCOPE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.nc_build_session_scope.v1"
+                }
+              }
+            }
+          ]
         }
       ]
     }

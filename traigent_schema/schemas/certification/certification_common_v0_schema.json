@@ -27,9 +27,9 @@
       "pattern": "^[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}$"
     },
     "SignatureBytes": {
-      "description": "Named semantic type: bounded base64 signature material. NOT content-free — signature bytes are cryptographic material with their own Disclosure Register entry (C1 Ruling 5, client->server entry 3 / issuer->relying-party section).",
+      "description": "Named semantic type: canonical RFC 4648 base64 of exactly 64 raw signature bytes (86 base64 data characters followed by `==`). Ed25519 uses its 64-byte raw encoding; ECDSA P-256 uses fixed IEEE-P1363 `r || s`, 32 bytes each. The verifier MUST enforce low-S for ECDSA before accepting the raw signature. NOT content-free — signature bytes are cryptographic material with their own Disclosure Register entry (C1 Ruling 5, client->server entry 3 / issuer->relying-party section).",
       "type": "string",
-      "pattern": "^[A-Za-z0-9+/]{64,1024}={0,2}$"
+      "pattern": "^[A-Za-z0-9+/]{85}[AQgw]==$"
     },
     "PublicNonce": {
       "description": "Named semantic type: a bounded lowercase-hex public nonce. Register entry 8 wording is BINDING and travels with every use site: a public salt or nonce 'does not prevent dictionary guessing' (C1 Ruling 5, entry 8; Ruling 4: guessing resistance requires secret blinding, a keyed commitment, or a deliberately expensive construction).",
@@ -55,14 +55,14 @@
       ]
     },
     "CommitmentSchemeV0": {
-      "description": "Closed commitment-scheme vocabulary. v0 registers exactly one scheme: SHA-256 over a canonical preimage with SECRET random blinding held client-local (C1 Ruling 4 binding rule: 'commitments over enumerable preimages require secret blinding, not public salt'). A public-salt scheme is deliberately NOT registered; per the same ruling there is 'none for public-salt guessing' as a reversal condition.",
+      "description": "Closed commitment-scheme vocabulary. For sha256_secret_blinded_v1, each slot_commitment_digest MUST be `sha256:` followed by lowercase hexadecimal HMAC-SHA-256, with key=blind and data=UTF8(\"traigent.cert.v0.slot_commitment.v1\") || 0x00 || UTF8(artifact_kind) || 0x00 || jcs_v1(artifact_document). The domain tag is fixed, artifact_kind is one of the four fixed slot enum values, and artifact_document is a client-local JSON object accepted only by jcs_v1 (no floats). Blind is exactly 32 cryptographically random bytes, independently generated per slot per build, client-local, never transmitted, logged, or reused; opening and recomputation are client-local operations. (C1 Ruling 4 binding rule: 'commitments over enumerable preimages require secret blinding, not public salt'.) A public-salt scheme is deliberately NOT registered; per the same ruling there is 'none for public-salt guessing' as a reversal condition.",
       "type": "string",
       "enum": [
         "sha256_secret_blinded_v1"
       ]
     },
     "CanonicalizationProfileV0": {
-      "description": "Closed canonicalization-profile vocabulary for commitment preimages. jcs_v1 = RFC 8785 JSON Canonicalization Scheme, floats banned from preimages (C1 Ruling 4: 'Banning floats is sensible for canonicalization' — the float64 covert-channel arithmetic was struck, the canonicalization ban stands).",
+      "description": "Closed canonicalization-profile vocabulary for commitment preimages. jcs_v1 = RFC 8785 JSON Canonicalization Scheme, floats banned from preimages (C1 Ruling 4: 'Banning floats is sensible for canonicalization' — the float64 covert-channel arithmetic was struck, the canonicalization ban stands). PINNED REFERENCE IMPLEMENTATION (SCHEMA-1, 2026-08-24, gap C6: 'the declared JCS is not implemented'): traigent_schema/fp2.py (normative document docs/fingerprints/fp2.md, packaged conformance corpus traigent_schema/data/fp2_conformance.json) fixes RFC 8785 number formatting via the ECMAScript Number::toString algorithm and orders object keys by UTF-16 code unit rather than code point — the two rules RFC 8785 needs and Python's own json.dumps(sort_keys=True) does not provide, which is exactly the divergence gap C6 identified. Every unsigned-manifest digest (certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0) and every client-local commitment digest (certificate_client_evidence_manifest_v0_schema.json) MUST be computed with this implementation (or an implementation proven byte-identical against traigent_schema/data/fp2_conformance.json); every value entering a jcs_v1 preimage MUST already satisfy fp2's own rejection rules (no float, no non-finite number, no unsafe integer, no lone surrogate) in addition to this contract family's float ban.",
       "type": "string",
       "enum": [
         "jcs_v1"
@@ -74,6 +74,102 @@
       "enum": [
         "ecdsa_p256_sha256",
         "ed25519"
+      ]
+    },
+    "BuildSessionSubjectV0": {
+      "description": "The machine-readable build_session subject (conceded to the proposer: 'the mandatory page-one scope box and machine-readable build_session subject'). The certificate is ABOUT a build session and nothing else. MOVED HERE (SCHEMA-1, 2026-08-24 pre-issuance correction) from agent_certificate_v0_schema.json so both the printed certificate's `subject` field and the signed unsigned-manifest's `subject` coverage section (certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0) reference the identical type — a compiler that copies the same object into both places, verified structurally identical rather than merely described as such (closes gap C1: 'coverage is a label, not a binding'). This REUSES the orphaned optimization/certificate_subject_schema.json subject-binding SHAPE — a self-describing hash_algorithm carried outside the hashed content, a commitment digest, and exact envelope-version pinning, with that schema's own scope discipline ('It does not certify provenance') restated here for the build session. The full certificate_subject RECORD is deliberately NOT embedded: its config_id is a caller-chosen string (bounded at 128 chars but otherwise free), and embedding it would open a user-controlled free-text channel into a certificate record, which the boundary rule forbids ('certificate and registry records contain no user-controlled free-text fields'). SCOPE, stated so it is not over-read: this subject identifies WHICH build session the certificate concerns. It does not certify the session's provenance, contents, or completeness.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_kind", "hash_algorithm", "build_session_ref", "session_commitment_digest"],
+      "properties": {
+        "subject_kind": {
+          "const": "build_session"
+        },
+        "hash_algorithm": {
+          "description": "The algorithm under which session_commitment_digest was computed — reused from the certificate-subject shape's single normative definition so a subject can never be compared across algorithms; an unknown value fails closed. The pinned enum is `v1`, NOT `sha256` (C0: the pre-correction compiler defaulted to the wrong value and thereby produced a schema-invalid document — see test_hash_algorithm_rejects_sha256_default).",
+          "$ref": "../optimization/best_config_hash_contract_schema.json#/definitions/hash_algorithm"
+        },
+        "build_session_ref": {
+          "description": "Opaque build-session reference; MUST match ledger_seal_projection.build_session_ref and, inside the signed unsigned manifest, seal.build_session_ref (compiler-checked equality; cross-field equality is not expressible in draft-07 across $ref boundaries).",
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "session_commitment_digest": {
+          "description": "Canonical commitment digest binding the subject to the sealed session content.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DataFlowModeV0": {
+      "description": "Closed data-flow-mode vocabulary, grounded in the two modes already named elsewhere in this contract family: 'offline' (claim D2's params.declared_mode, C6 Ruling 5) and 'current_online' (mandatory non-claim NC_CURRENT_ONLINE_FREETEXT: 'Current-online mode discloses tuned free-text configuration values'). No third mode is added here — inventing one would be a policy selection between competing registers this packet is not authorized to make (SCHEMA-1 stop condition). Used by the unsigned manifest's privacy_mode coverage section as the session-level declaration that any printed D2 claim's declared_mode must equal (verifier equality obligation; Draft-07 cannot check it because the manifest crosses only as an opaque digest).",
+      "type": "string",
+      "enum": [
+        "offline",
+        "current_online"
+      ]
+    },
+    "SdkIdentityV0": {
+      "description": "The build session's SDK identity: the pinned implementation ref plus its release version. Grounded in claim D2's existing sdk_ref parameter (C1 Ruling 4: 'the e97b030f strace witness ... must be rerun at the new pinned implementation ref'), generalized to a session-level coverage section so the signed manifest binds SDK identity even on certificates that print no D2 claim. When a D2 claim IS printed, its params.sdk_ref MUST equal this section's sdk_ref (verifier equality obligation).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sdk_ref", "sdk_version"],
+      "properties": {
+        "sdk_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/GitCommitSha"
+        },
+        "sdk_version": {
+          "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+        }
+      }
+    },
+    "CompilerRegisterVersionsV0": {
+      "description": "The build session's compiler and pinned-register identities: the compiler build that will emit the certificate plus the five digests SemanticsBindingV0 already prints on the certificate face (agent_certificate_v0_schema.json#/definitions/SemanticsBindingV0). This is a SEPARATE, structurally independent definition rather than a $ref to SemanticsBindingV0 — referencing it would make certification_common_v0_schema.json depend on agent_certificate_v0_schema.json, which already depends on certification_common_v0_schema.json (for BuildSessionSubjectV0), a file cycle. Compiler-checked equality obligation instead: this section's five digest fields MUST equal certificate.semantics's five fields exactly, and compiler_version MUST equal any printed C1 claim's params.compiler_version. Draft-07 cannot check either equality once only the manifest_digest crosses.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compiler_version",
+        "semantics_manifest_digest",
+        "claim_template_catalog_digest",
+        "prohibited_register_digest",
+        "verifier_catalog_digest",
+        "non_claim_reason_catalog_digest"
+      ],
+      "properties": {
+        "compiler_version": {
+          "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+        },
+        "semantics_manifest_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "claim_template_catalog_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "prohibited_register_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "verifier_catalog_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "non_claim_reason_catalog_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "SignedMaterialDomainTagV0": {
+      "description": "Closed domain-separator vocabulary for the two v0 signature roles. Domain separation prevents material for one role being accepted for another. The exact signed bytes are: client = UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes; issuer = UTF8(`traigent.agent_certificate.issuer_signature.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes || uint64be(len(co_signature_raw)) || co_signature_raw. `co_signature_raw` is strict RFC 4648 base64-decoded signature bytes and is empty when no co-attestation exists. The issuer's signed_payload discriminator MUST agree with that zero/nonzero co-signature length. The tag is a fixed property of the signing role, not a wire field of the signature record. Signature bytes are computed from, never included in, the manifest document, so no digest fixed point exists.",
+      "type": "string",
+      "enum": [
+        "traigent.agent_certificate.client_co_attestation.v0",
+        "traigent.agent_certificate.issuer_signature.v0"
+      ]
+    },
+    "DigestRoleDomainTagV0": {
+      "description": "Closed role-domain vocabulary for load-bearing certificate digests. Each digest is `sha256:` plus lowercase SHA-256 over UTF8(role_domain_v1) || 0x00 || jcs_v1(document). Distinct role tags MUST be used for unsigned manifests, pre-issuance audit reports, claim-material projections, and the client-local evidence-manifest root; the slot HMAC commitment formula is separate and unchanged.",
+      "type": "string",
+      "enum": [
+        "traigent.agent_certificate.unsigned_manifest.v1",
+        "traigent.agent_certificate.audit_report.v1",
+        "traigent.agent_certificate.claim_material.v1",
+        "traigent.agent_certificate.client_evidence_manifest_root.v1"
       ]
     }
   }

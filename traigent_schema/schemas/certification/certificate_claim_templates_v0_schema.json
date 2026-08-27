@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/certificate_claim_templates_v0_schema.json",
   "title": "Agent Certificate v0 Claim Template Catalog",
-  "description": "The pinned v0 claim-template catalog record shape. Claim sentences are VERSIONED TEMPLATES, never user-controlled prose: a claim instance carries only a template_id plus bounded enum/numeric/digest parameters, and a renderer substitutes them into the template_text pinned here. Templates are 'create-once resources inside a signed, archived semantics bundle' (C1 Ruling 1); a catalog digest alone is insufficient — 'A catalog digest alone cannot render or verify semantics. The immutable catalog and its authenticity path must remain available.' This document pins the exact seven v0 template records as const definitions so the wire format and the human-readable sentence cannot drift apart; the signed semantics manifest binds this file's canonical digest. Adding a template is a new compatible schema release ONLY 'after its meaning, information channel, prohibited-claim interaction, and boundary tests are registered' (C1 Ruling 1 reversal condition). A root instance is one catalog record: exactly one of the seven pinned templates.",
+  "description": "The pinned v0 claim-template catalog record shape. Claim sentences are versioned templates, never user-controlled prose. Seven bounded future-evolution templates remain pinned here, while current ClaimV0 emission is fail-closed to D2 and G1 tier 1; B1, REG1, C1, F1, and G3 template records are retained for isolated payload/template tests but are unprintable until registered verifier evidence and policy gates exist. A renderer substitutes bounded parameters into these immutable template_text constants; no private artifact content or free text crosses.",
   "oneOf": [
     {
       "$ref": "#/definitions/TemplateB1V1"
@@ -28,7 +28,7 @@
   ],
   "definitions": {
     "TemplateB1V1": {
-      "description": "Claim B1 (ledger integrity) — deliberately the NARROW C1 wording, adopted over C6's broader 'sealed-ledger structural integrity' form as the captain's resolution of tension T2: 'In v0, the projection may support only \"the issuer signed this seal statement.\" Ledger completeness, ordering, splice resistance, and event inclusion remain non-claims' (C1 Ruling 2). The template asserts ONLY that the issuer signed a named seal statement; it does not say the sealed history is intact, complete, ordered, or splice-resistant — 'terminal commitments without recomputable evidence prove commitment existence, not the committed history.'",
+      "description": "Future registered B1 template shape. Current v0 ClaimV0 rejects B1 because the PASS verifier is unavailable until the manifest/signature/audit cycle is finalized. If registered later, the sentence remains limited to the issuer signing a named seal statement, never sealed-history integrity.",
       "type": "object",
       "additionalProperties": false,
       "required": ["template_id", "template_text", "parameter_slots"],
@@ -45,7 +45,7 @@
       }
     },
     "TemplateREG1V1": {
-      "description": "Claim REG1 (registry commitment receipt; the C6 rulings' 'B3', re-keyed because matrix B3 is the different adverse-history claim — see certificate_claims_v0_schema.json#/definitions/ClaimIdV0), scope conceded to the proposer by C6 Ruling 3(iii): 'registry receipt can attest bytes, identifier, and server-recorded time—not truth, authorship, or completeness.' The template text carries that limitation inline so no renderer can print the receipt without it.",
+      "description": "Future registered REG1 template shape. REG1 is pending matrix registration and current v0 ClaimV0 rejects it. The pinned sentence retains the bounded receipt scope and cannot be emitted until registration lands.",
       "type": "object",
       "additionalProperties": false,
       "required": ["template_id", "template_text", "parameter_slots"],
@@ -62,7 +62,7 @@
       }
     },
     "TemplateC1V1": {
-      "description": "Claim C1 (artifact-scoped compiler provenance). The GLOBAL form — any sentence asserting the agent itself contains no unsupported claims — 'remains prohibited' (C6 Ruling 3(ii); merged prohibited claim 17). This template is the ARTIFACT-scoped sentence, printable only after the independent relying-party verifier gate passes; 'unsupported' is operationally defined as 'unregistered claim, missing/versionless verifier, verifier not run or not PASS, missing evidence binding, or prohibited-register violation.'",
+      "description": "Future registered C1 template shape. Current v0 ClaimV0 rejects C1 because its PASS verifier depends on the finalized manifest/signature/audit cycle. The artifact-scoped sentence remains distinct from the prohibited global unsupported-claims form.",
       "type": "object",
       "additionalProperties": false,
       "required": ["template_id", "template_text", "parameter_slots"],
@@ -96,7 +96,7 @@
       }
     },
     "TemplateF1V1": {
-      "description": "Claim F1 (issuer-signature validity — matrix row F1, 'Issuer signature and attribution'; the C6 rulings called it 'D5', and the matrix's row IDs are canonical on the wire — see certificate_claims_v0_schema.json#/definitions/ClaimIdV0). A valid signature 'proves who issued this document and that it has not been altered since. It proves nothing about whether the claims inside it are true or complete.'",
+      "description": "Future registered F1 template shape. Current v0 ClaimV0 rejects F1 because its PASS verifier depends on the finalized manifest/signature/audit cycle. The sentence refers to the sibling signature block rather than creating a self-referential digest fixed point.",
       "type": "object",
       "additionalProperties": false,
       "required": ["template_id", "template_text", "parameter_slots"],
@@ -105,10 +105,10 @@
           "const": "tmpl.cert.f1.issuer_signature_validity.v1"
         },
         "template_text": {
-          "const": "The issuer signature over unsigned-manifest digest {signed_manifest_digest} verifies under {signature_scheme} with key {issuer_key_ref} in trust ring {trust_ring_ref}. It proves issuance and post-issuance integrity only, not the truth or completeness of any claim."
+          "const": "The issuer signature over this certificate's declared unsigned-manifest digest verifies under {signature_scheme} with key {issuer_key_ref} in trust ring {trust_ring_ref}. It proves issuance and post-issuance integrity only, not the truth or completeness of any claim."
         },
         "parameter_slots": {
-          "const": ["signed_manifest_digest", "signature_scheme", "issuer_key_ref", "trust_ring_ref"]
+          "const": ["signature_scheme", "issuer_key_ref", "trust_ring_ref"]
         }
       }
     },
@@ -130,7 +130,7 @@
       }
     },
     "TemplateG3V1": {
-      "description": "Claim G3 (co-signer identity binding), C6 Ruling 3(iv) reconciled scope carried verbatim: 'That does not mean the client attests every server assertion as true; it means the client attests that these are the exact bytes it co-signed.' The client key crosses as an OpaqueRef, not a raw public key (tension T3 is unresolved between C6 and C1; the linkability-conservative encoding is chosen pending a Disclosure Register ruling).",
+      "description": "Future registered G3 template shape. Current v0 ClaimV0 rejects G3 because its PASS verifier depends on the finalized manifest/signature/audit cycle. The sentence remains limited to co-signed bytes and does not assert server truth.",
       "type": "object",
       "additionalProperties": false,
       "required": ["template_id", "template_text", "parameter_slots"],
@@ -139,10 +139,10 @@
           "const": "tmpl.cert.g3.cosigner_identity_binding.v1"
         },
         "template_text": {
-          "const": "Client key {client_key_ref} co-signed unsigned-manifest digest {cosigned_manifest_digest}. The client attests that these are the exact bytes it co-signed — not that any server assertion covered by them is true."
+          "const": "Client key {client_key_ref} co-signed this certificate's declared unsigned-manifest digest. The client attests that these are the exact bytes it co-signed — not that any server assertion covered by them is true."
         },
         "parameter_slots": {
-          "const": ["client_key_ref", "cosigned_manifest_digest"]
+          "const": ["client_key_ref"]
         }
       }
     }

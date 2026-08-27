@@ -1,7 +1,7 @@
 """fp2 agent-lifecycle-record parity corpus (ALR-1103).
 
 ALR-1103's scope is narrow and deliberate: extend the *pinned* generic fp2
-corpus (`tests/data/fp2_conformance.json`, `docs/fingerprints/fp2.md`,
+corpus (`traigent_schema/data/fp2_conformance.json`, `docs/fingerprints/fp2.md`,
 `traigent_schema/fp2.py` -- none of which this story touches) with a second,
 separately-scoped corpus of full manifest-shaped afp2/dfp2o/efp2/cfp2 cases
 that pin the *parity scope* PART1_CONTRACT_FREEZE_DRAFT.md defines:
@@ -50,7 +50,7 @@ manifest that must digest differently). Each group shares one small helper or
 one parametrize table rather than repeating the body, so the repeated
 assertion pattern exists in exactly one place in this file.
 
-Corpus-level indirection: the corpus itself (tests/data/fp2/agent_lifecycle_cases.json)
+Corpus-level indirection: the corpus itself (traigent_schema/data/agent_lifecycle_cases.json)
 carries a top-level "shared" section naming content that is byte-identical
 across two or more cases purely incidentally to what each case tests -- e.g.
 two cases whose whole point is "same content, different runtime" genuinely
@@ -70,14 +70,15 @@ from __future__ import annotations
 
 import copy
 import json
-from pathlib import Path
-from typing import Any, Callable
+from collections.abc import Callable
+from importlib import resources
+from typing import Any
 
 import pytest
 
 from traigent_schema.fp2 import Fp2UnsupportedValue, canonicalize, digest
 
-CORPUS = Path(__file__).resolve().parent / "data" / "fp2" / "agent_lifecycle_cases.json"
+CORPUS = resources.files("traigent_schema").joinpath("data", "agent_lifecycle_cases.json")
 
 # Same substitution convention as tests/test_fp2_conformance.py: markers let
 # JSON express values it cannot natively hold, substituted by each harness

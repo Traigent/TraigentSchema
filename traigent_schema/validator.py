@@ -15,7 +15,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlsplit
 
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
@@ -124,7 +124,10 @@ def _load_canonical_public_key(value: object) -> object | None:
         return None
     if canonical != der:
         return None
-    return key
+    # ``load_der_public_key`` is untyped in cryptography's runtime API.  The
+    # returned value is intentionally kept opaque here; format-specific
+    # callers narrow it with ``isinstance`` below before using it.
+    return cast(object, key)
 
 
 @_FORMAT_CHECKER.checks("canonical-spki-der-base64")

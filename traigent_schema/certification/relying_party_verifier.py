@@ -35,7 +35,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
-from traigent_schema import fp2
+import traigent_schema.fp2 as fp2
 from traigent_schema.validator import _FORMAT_CHECKER, SchemaDependencyError, SchemaValidator
 
 _CERT_DIR = Path(__file__).resolve().parent.parent / "schemas" / "certification"
@@ -225,7 +225,7 @@ def _role_digest(role: bytes, document: Any) -> str:
         _fail("DIGEST_ROLE")
     try:
         role.decode("ascii")
-        canonical = fp2.canonicalize(document).encode("utf-8")
+        canonical = cast(str, fp2.canonicalize(document)).encode("utf-8")
     except Exception:
         _fail("CANONICALIZATION")
     return _SHA256_PREFIX + hashlib.sha256(role + b"\x00" + canonical).hexdigest()
@@ -257,7 +257,7 @@ def _manifest_bytes(manifest: dict[str, Any]) -> bytes:
     if errors:
         _fail("MANIFEST_SCHEMA")
     try:
-        return fp2.canonicalize(manifest).encode("utf-8")
+        return cast(str, fp2.canonicalize(manifest)).encode("utf-8")
     except Exception:
         _fail("MANIFEST_NOT_FP2")
 
@@ -567,7 +567,7 @@ def _compute_seal_digest(seal: dict[str, Any]) -> str:
     projection = dict(seal)
     projection.pop("seal_statement_digest")
     try:
-        encoded = fp2.canonicalize(projection).encode("utf-8")
+        encoded = cast(str, fp2.canonicalize(projection)).encode("utf-8")
     except Exception:
         _fail("SEAL_DIGEST")
     return _SHA256_PREFIX + hashlib.sha256(_SEAL_DOMAIN + b"\x00" + encoded).hexdigest()

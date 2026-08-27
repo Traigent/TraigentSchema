@@ -11,7 +11,6 @@
     "requires_independent_pins",
     "certificate_ref",
     "issuer",
-    "client",
     "relying_party_policy",
     "materials_digest"
   ],
@@ -32,6 +31,7 @@
       "$ref": "#/definitions/IssuerVerificationKeyV0"
     },
     "client": {
+      "description": "The client public-key projection is present iff the referenced certificate has claims or a co-attestation. Zero-claim certificates without co-attestation omit this member and use issuer-only materials.",
       "$ref": "#/definitions/ClientVerificationKeyV0"
     },
     "relying_party_policy": {
@@ -82,7 +82,7 @@
           "$ref": "#/definitions/CanonicalSpkiDerBase64V0"
         },
         "public_key_digest": {
-          "description": "Role-separated issuer SPKI digest: sha256: plus lowercase SHA-256 of UTF8(traigent.agent_certificate.issuer_spki_der.v0) || 0x00 || the canonical SubjectPublicKeyInfo DER bytes in public_key_der_b64. The verifier MUST recompute and compare this value before using the key.",
+          "description": "Role-separated client SPKI digest: sha256: plus lowercase SHA-256 of UTF8(traigent.agent_certificate.client_spki_der.v0) || 0x00 || the canonical SubjectPublicKeyInfo DER bytes in public_key_der_b64. The verifier MUST recompute and compare this value before using the key.",
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         }
       },
@@ -121,7 +121,7 @@
           "$ref": "#/definitions/CanonicalSpkiDerBase64V0"
         },
         "public_key_digest": {
-          "description": "Role-separated client SPKI digest: sha256: plus lowercase SHA-256 of UTF8(traigent.agent_certificate.client_spki_der.v0) || 0x00 || the canonical SubjectPublicKeyInfo DER bytes in public_key_der_b64. The verifier MUST recompute and compare this value before using the key.",
+          "description": "Role-separated issuer SPKI digest: sha256: plus lowercase SHA-256 of UTF8(traigent.agent_certificate.issuer_spki_der.v0) || 0x00 || the canonical SubjectPublicKeyInfo DER bytes in public_key_der_b64. The verifier MUST recompute and compare this value before using the key.",
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         }
       },

@@ -53,6 +53,10 @@ class UnvalidatedEndpointError(RuntimeError):
     """
 
 
+class SchemaDependencyError(RuntimeError):
+    """Raised when a schema format checker needs an unavailable dependency."""
+
+
 _RFC3339_DATE_TIME_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})[Tt]"
     r"(?P<time>\d{2}:\d{2}:\d{2})"
@@ -94,8 +98,16 @@ def _is_rfc3339_date_time(value: object) -> bool:
 
 def _load_canonical_public_key(value: object) -> object | None:
     """Decode a canonical public-key SPKI, without echoing key material."""
-    from cryptography.exceptions import UnsupportedAlgorithm
-    from cryptography.hazmat.primitives import serialization
+    try:
+        from cryptography.exceptions import UnsupportedAlgorithm
+        from cryptography.hazmat.primitives import serialization
+    except ModuleNotFoundError as exc:
+        if exc.name == "cryptography" or (exc.name or "").startswith("cryptography."):
+            raise SchemaDependencyError(
+                "canonical public-key format validation requires the optional "
+                "'cryptography' dependency"
+            ) from exc
+        raise
 
     if not isinstance(value, str):
         return None
@@ -123,17 +135,17 @@ def _is_canonical_spki_der_base64(value: object) -> bool:
 
 @_FORMAT_CHECKER.checks("canonical-ed25519-spki-der-base64")
 def _is_canonical_ed25519_spki_der_base64(value: object) -> bool:
+    key = _load_canonical_public_key(value)
     from cryptography.hazmat.primitives.asymmetric import ed25519
 
-    key = _load_canonical_public_key(value)
     return isinstance(key, ed25519.Ed25519PublicKey)
 
 
 @_FORMAT_CHECKER.checks("canonical-ecdsa-p256-spki-der-base64")
 def _is_canonical_ecdsa_p256_spki_der_base64(value: object) -> bool:
+    key = _load_canonical_public_key(value)
     from cryptography.hazmat.primitives.asymmetric import ec
 
-    key = _load_canonical_public_key(value)
     return isinstance(key, ec.EllipticCurvePublicKey) and isinstance(key.curve, ec.SECP256R1)
 
 
@@ -555,6 +567,8 @@ class SchemaValidator:
             return [self._format_error(e) for e in errors]
         except RecursionError:
             return [self._RECURSION_ERROR_MESSAGE]
+        except SchemaDependencyError:
+            raise
         except Unresolvable as e:
             # A dangling reference is a broken contract, not a property of the
             # payload. Say so, instead of letting it read as "this data is invalid"

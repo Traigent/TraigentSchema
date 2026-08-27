@@ -36,7 +36,7 @@ from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
 from traigent_schema import fp2
-from traigent_schema.validator import SchemaValidator
+from traigent_schema.validator import _FORMAT_CHECKER, SchemaDependencyError, SchemaValidator
 
 _CERT_DIR = Path(__file__).resolve().parent.parent / "schemas" / "certification"
 _SCHEMAS_DIR = _CERT_DIR.parent
@@ -199,7 +199,7 @@ def _certificate_validator() -> Draft7Validator:
     schema = json.loads(
         (_CERT_DIR / "agent_certificate_v0_schema.json").read_text(encoding="utf-8")
     )
-    return Draft7Validator(schema, registry=registry)
+    return Draft7Validator(schema, registry=registry, format_checker=_FORMAT_CHECKER)
 
 
 def _fail(code: str) -> NoReturn:
@@ -259,7 +259,7 @@ def _unsigned_manifest_validator() -> Draft7Validator:
     schema = json.loads(
         (_CERT_DIR / "certificate_unsigned_manifest_v0_schema.json").read_text(encoding="utf-8")
     )
-    return Draft7Validator(schema, registry=registry)
+    return Draft7Validator(schema, registry=registry, format_checker=_FORMAT_CHECKER)
 
 
 @lru_cache(maxsize=1)
@@ -301,7 +301,8 @@ def _material_public_key(projection: dict[str, Any], digest_domain: bytes) -> ob
 def _materials_policy(document: dict[str, Any]) -> RelyingPartyPolicy:
     try:
         policy = document["relying_party_policy"]
-        registers = tuple(policy["compiler_register_versions"].items())
+        register_versions = policy["compiler_register_versions"]
+        registers = tuple((key, register_versions[key]) for key in _COMPILER_REGISTER_KEYS)
         bindings = tuple(
             (
                 binding["verifier_id"],
@@ -334,30 +335,55 @@ def _check_materials_bindings(
     certificate_ref: str,
     context: VerificationContext,
 ) -> None:
-    if document["certificate_ref"] != certificate_ref:
-        _fail("CERTIFICATE_REF")
-    issuer = document["issuer"]
-    client = document["client"]
-    if (
-        issuer["key_ref"] != context.expected_issuer_key_ref
-        or issuer["algorithm"] != context.expected_issuer_algorithm
-        or issuer["trust_ring_ref"] != context.expected_trust_ring_ref
-        or client["key_ref"] != context.expected_client_key_ref
-        or client["algorithm"] != context.expected_client_algorithm
-    ):
-        _fail("MATERIALS_BINDING")
     try:
+        if document["certificate_ref"] != certificate_ref:
+            _fail("CERTIFICATE_REF")
+        issuer = document["issuer"]
         unsigned = certificate["signatures"]["unsigned_manifest"]["document"]
         ring = unsigned["key_ring_identifiers"]
-        co = certificate["signatures"]["co_attestation"]
+        signatures = certificate["signatures"]
+        has_claims = bool(unsigned["claims"])
+        has_co = "co_attestation" in signatures
+        requires_client = has_claims or has_co
+        client = document.get("client")
+        if requires_client != (client is not None):
+            _fail("MATERIALS_BINDING")
+        if (
+            issuer["key_ref"] != context.expected_issuer_key_ref
+            or issuer["algorithm"] != context.expected_issuer_algorithm
+            or issuer["trust_ring_ref"] != context.expected_trust_ring_ref
+        ):
+            _fail("MATERIALS_BINDING")
+        if requires_client:
+            if (
+                not isinstance(client, dict)
+                or client["key_ref"] != context.expected_client_key_ref
+                or client["algorithm"] != context.expected_client_algorithm
+            ):
+                _fail("MATERIALS_BINDING")
+            co = signatures["co_attestation"]
+            client_bindings_match = (
+                ring["client_key_ref"] == client["key_ref"]
+                and ring["client_signature_algorithm"] == client["algorithm"]
+                and co["client_key_ref"] == client["key_ref"]
+                and co["algorithm"] == client["algorithm"]
+            )
+        else:
+            if (
+                context.expected_client_key_ref is not None
+                or context.expected_client_algorithm is not None
+                or context.client_public_key is not None
+            ):
+                _fail("MATERIALS_BINDING")
+            client_bindings_match = (
+                "client_key_ref" not in ring
+                and "client_signature_algorithm" not in ring
+            )
         if (
             ring["issuer_key_ref"] != issuer["key_ref"]
             or ring["issuer_signature_algorithm"] != issuer["algorithm"]
             or ring["trust_ring_ref"] != issuer["trust_ring_ref"]
-            or ring["client_key_ref"] != client["key_ref"]
-            or ring["client_signature_algorithm"] != client["algorithm"]
-            or co["client_key_ref"] != client["key_ref"]
-            or co["algorithm"] != client["algorithm"]
+            or not client_bindings_match
         ):
             _fail("MATERIALS_BINDING")
     except (KeyError, TypeError):
@@ -369,7 +395,7 @@ def verify_certificate_with_materials(
     verification_materials: object,
     *,
     expected_materials_digest: str,
-    certificate_ref: str | None = None,
+    certificate_ref: str,
     context: VerificationContext,
 ) -> VerificationResult:
     """Verify a certificate using a validated discovery-materials bundle.
@@ -377,39 +403,55 @@ def verify_certificate_with_materials(
     The caller still supplies the certificate reference and fresh context pins;
     the bundle supplies only the matching public keys and frozen G1 policy.
     """
-    if type(verification_materials) is not dict:
-        _fail("MATERIALS_SCHEMA")
-    document = cast(dict[str, Any], verification_materials)
     try:
+        if not isinstance(context, VerificationContext):
+            _fail("CONTEXT")
+        if type(verification_materials) is not dict:
+            _fail("MATERIALS_SCHEMA")
+        if type(certificate_ref) is not str:
+            _fail("ENVELOPE_SHAPE")
+        document = cast(dict[str, Any], verification_materials)
         if _verification_materials_validator().validate_json(
             document, "certificate_verification_materials_v0_schema"
         ):
             _fail("MATERIALS_SCHEMA")
-    except RelyingPartyVerificationError:
+        if type(certificate) is dict and "signed_certificate" in certificate:
+            wrapper = cast(dict[str, Any], certificate)
+            status = wrapper.get("certificate_status")
+            if (
+                not isinstance(status, dict)
+                or status.get("status") != "active"
+                or status.get("revoked_at") is not None
+                or status.get("reason") is not None
+            ):
+                _fail("CERTIFICATE_STATUS")
+            if wrapper.get("certificate_ref") != certificate_ref:
+                _fail("CERTIFICATE_REF")
+            certificate = wrapper.get("signed_certificate")
+        if type(certificate) is not dict:
+            _fail("ENVELOPE_SHAPE")
+        envelope = cast(dict[str, Any], certificate)
+        _check_materials_digest(document, expected_materials_digest)
+        _check_materials_bindings(envelope, document, certificate_ref, context)
+        issuer_public_key = _material_public_key(document["issuer"], _ISSUER_SPKI_DOMAIN)
+        client_projection = document.get("client")
+        client_public_key = (
+            _material_public_key(client_projection, _CLIENT_SPKI_DOMAIN)
+            if client_projection is not None
+            else None
+        )
+        bound_context = replace(context, client_public_key=client_public_key)
+        policy = _materials_policy(document)
+        return verify_certificate(
+            envelope,
+            issuer_public_key=issuer_public_key,
+            context=bound_context,
+            policy=policy,
+        )
+    except (RelyingPartyVerificationError, SchemaDependencyError):
         raise
     except Exception:
-        _fail("MATERIALS_SCHEMA")
-    if type(certificate) is dict and "signed_certificate" in certificate:
-        wrapper = cast(dict[str, Any], certificate)
-        if certificate_ref is not None and wrapper.get("certificate_ref") != certificate_ref:
-            _fail("CERTIFICATE_REF")
-        certificate_ref = wrapper.get("certificate_ref")
-        certificate = wrapper.get("signed_certificate")
-    if type(certificate) is not dict or type(certificate_ref) is not str:
-        _fail("ENVELOPE_SHAPE")
-    envelope = cast(dict[str, Any], certificate)
-    _check_materials_digest(document, expected_materials_digest)
-    _check_materials_bindings(envelope, document, certificate_ref, context)
-    issuer_public_key = _material_public_key(document["issuer"], _ISSUER_SPKI_DOMAIN)
-    client_public_key = _material_public_key(document["client"], _CLIENT_SPKI_DOMAIN)
-    bound_context = replace(context, client_public_key=client_public_key)
-    policy = _materials_policy(document)
-    return verify_certificate(
-        envelope,
-        issuer_public_key=issuer_public_key,
-        context=bound_context,
-        policy=policy,
-    )
+        raise RelyingPartyVerificationError("VERIFICATION_FAILED") from None
 
 
 def _decode_signature(encoded: object) -> bytes:
@@ -866,5 +908,6 @@ __all__ = [
     "VerificationResult",
     "verify_certificate",
     "verify_agent_certificate",
+    "verify_certificate_with_materials",
     "verify",
 ]

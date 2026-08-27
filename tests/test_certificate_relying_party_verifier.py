@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import copy
 import hashlib
+import json
 import struct
 import subprocess
 import sys
@@ -35,6 +36,7 @@ from traigent_schema.certification import (
     verify_certificate,
     verify_certificate_with_materials,
 )
+from traigent_schema.certification import relying_party_verifier as verifier_impl
 
 _SEAL_DOMAIN = b"traigent.agent_certificate.seal_statement.v1"
 _AUDIT_DOMAIN = b"traigent.agent_certificate.audit_report.v1"
@@ -83,6 +85,36 @@ def test_lazy_certification_export_reports_missing_cryptography() -> None:
     assert "optional" in result.stderr.lower()
 
 
+def test_base_install_star_import_does_not_load_optional_certification() -> None:
+    result = _run_without_cryptography("from traigent_schema import *; print('ok')")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"
+
+
+def test_missing_certification_format_dependency_is_configuration_error() -> None:
+    result = _run_without_cryptography(
+        """
+from traigent_schema import SchemaDependencyError, SchemaValidator
+
+validator = SchemaValidator()
+try:
+    validator._run_validator(
+        {"public_key_der_b64": "not-a-key"},
+        {
+            "type": "object",
+            "properties": {"public_key_der_b64": {"format": "canonical-spki-der-base64"}},
+        },
+    )
+except SchemaDependencyError:
+    print("configuration-error")
+else:
+    raise AssertionError("missing cryptography was downgraded to payload validation")
+"""
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "configuration-error"
+
+
 def test_root_certification_exports_preserve_public_api() -> None:
     from traigent_schema import RelyingPartyPolicy as RootRelyingPartyPolicy
 
@@ -123,9 +155,16 @@ def _high_s(encoded: str) -> str:
 
 
 def _sign_fixture(
-    algorithm: str = "ed25519", claim_factory: Callable[[], dict] = _g1_claim
+    algorithm: str = "ed25519",
+    claim_factory: Callable[[], dict] = _g1_claim,
+    *,
+    claims: list[dict] | None = None,
+    with_co: bool = True,
 ) -> tuple[dict, object, VerificationContext, RelyingPartyPolicy]:
-    cert = _build_valid_fixture([claim_factory()], with_co=True)
+    cert = _build_valid_fixture(
+        [claim_factory()] if claims is None else claims,
+        with_co=with_co,
+    )
     seal = cert["ledger_seal_projection"]
     seal["seal_statement_digest"] = _digest(
         _SEAL_DOMAIN,
@@ -149,35 +188,48 @@ def _sign_fixture(
             for ref in claim["evidence_refs"]:
                 if ref["evidence_kind"] == "audit_report_digest":
                     ref["evidence_digest"] = audit_digest
-    claim_ref = next(
-        ref
-        for ref in unsigned["claims"][0]["evidence_refs"]
-        if ref["evidence_kind"] != "audit_report_digest"
-    )
-    unsigned["evidence_digests"] = [
-        {"evidence_kind": "audit_report_digest", "evidence_digest": audit_digest},
-        copy.deepcopy(claim_ref),
-    ]
+    if unsigned["claims"]:
+        claim_ref = next(
+            ref
+            for ref in unsigned["claims"][0]["evidence_refs"]
+            if ref["evidence_kind"] != "audit_report_digest"
+        )
+        unsigned["evidence_digests"] = [
+            {"evidence_kind": "audit_report_digest", "evidence_digest": audit_digest},
+            copy.deepcopy(claim_ref),
+        ]
+    else:
+        unsigned["evidence_digests"] = [
+            {"evidence_kind": "audit_report_digest", "evidence_digest": audit_digest}
+        ]
     issuer_key, client_key = _private_keys(algorithm)
     unsigned["key_ring_identifiers"]["issuer_signature_algorithm"] = algorithm
-    unsigned["key_ring_identifiers"]["client_signature_algorithm"] = algorithm
     cert["signatures"]["issuer_signature"]["algorithm"] = algorithm
-    co = cert["signatures"]["co_attestation"]
-    co["algorithm"] = algorithm
+    co = cert["signatures"].get("co_attestation")
+    if with_co:
+        unsigned["key_ring_identifiers"]["client_signature_algorithm"] = algorithm
+        assert co is not None
+        co["algorithm"] = algorithm
     manifest_digest = _digest(_UNSIGNED_DOMAIN, unsigned)
     unsigned_ref = cert["signatures"]["unsigned_manifest"]
     unsigned_ref["manifest_digest"] = manifest_digest
     manifest_bytes = fp2.canonicalize(unsigned).encode()
-    co["signed_manifest_digest"] = manifest_digest
-    co_material = _CLIENT_DOMAIN + b"\0" + struct.pack(">Q", len(manifest_bytes)) + manifest_bytes
-    co["signature"] = _sign(client_key, algorithm, co_material)
+    co_raw = b""
+    if with_co:
+        assert co is not None
+        co["signed_manifest_digest"] = manifest_digest
+        co_material = (
+            _CLIENT_DOMAIN + b"\0" + struct.pack(">Q", len(manifest_bytes)) + manifest_bytes
+        )
+        co["signature"] = _sign(client_key, algorithm, co_material)
+        co_raw = base64.b64decode(co["signature"])
     issuer_material = (
         _ISSUER_DOMAIN
         + b"\0"
         + struct.pack(">Q", len(manifest_bytes))
         + manifest_bytes
-        + struct.pack(">Q", 64)
-        + base64.b64decode(co["signature"])
+        + struct.pack(">Q", len(co_raw))
+        + co_raw
     )
     cert["signatures"]["issuer_signature"]["signature"] = _sign(
         issuer_key, algorithm, issuer_material
@@ -189,9 +241,9 @@ def _sign_fixture(
         expected_issuer_key_ref=issuer["issuer_key_ref"],
         expected_issuer_algorithm=algorithm,
         expected_trust_ring_ref=issuer["trust_ring_ref"],
-        expected_client_key_ref=co["client_key_ref"],
-        expected_client_algorithm=algorithm,
-        client_public_key=client_key.public_key(),
+        expected_client_key_ref=co["client_key_ref"] if co is not None else None,
+        expected_client_algorithm=algorithm if co is not None else None,
+        client_public_key=client_key.public_key() if co is not None else None,
     )
     policy = RelyingPartyPolicy(
         tuple(unsigned["compiler_register_versions"].items()),
@@ -230,14 +282,6 @@ def _materials_fixture(
             "public_key_der_b64": _public_key_der_b64(issuer),
             "public_key_digest": _public_key_digest(issuer, _ISSUER_SPKI_DOMAIN),
         },
-        "client": {
-            "key_ref": context.expected_client_key_ref,
-            "algorithm": context.expected_client_algorithm,
-            "public_key_der_b64": _public_key_der_b64(context.client_public_key),
-            "public_key_digest": _public_key_digest(
-                context.client_public_key, _CLIENT_SPKI_DOMAIN
-            ),
-        },
         "relying_party_policy": {
             "compiler_register_versions": dict(policy.compiler_register_versions),
             "verifier_bindings": [
@@ -250,6 +294,15 @@ def _materials_fixture(
             ],
         },
     }
+    if context.client_public_key is not None:
+        document["client"] = {
+            "key_ref": context.expected_client_key_ref,
+            "algorithm": context.expected_client_algorithm,
+            "public_key_der_b64": _public_key_der_b64(context.client_public_key),
+            "public_key_digest": _public_key_digest(
+                context.client_public_key, _CLIENT_SPKI_DOMAIN
+            ),
+        }
     document["materials_digest"] = _digest(_MATERIALS_DOMAIN, document)
     return document
 
@@ -307,6 +360,113 @@ def test_discovered_materials_bundle_verifies_end_to_end() -> None:
     assert result.valid
 
 
+@pytest.mark.parametrize(
+    "status", ["revoked_after_issuance", "untrusted_compromise", "untrusted_issuance_order"]
+)
+def test_non_active_retrieval_wrapper_is_rejected(status: str) -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = {
+        "certificate_ref": materials["certificate_ref"],
+        "certificate_status": {"status": status},
+        "signed_certificate": cert,
+    }
+
+    with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS$"):
+        verify_certificate_with_materials(
+            wrapper,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=context,
+        )
+
+
+def test_active_retrieval_wrapper_is_verified() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = {
+        "certificate_ref": materials["certificate_ref"],
+        "certificate_status": {"status": "active", "revoked_at": None, "reason": None},
+        "signed_certificate": cert,
+    }
+
+    result = verify_certificate_with_materials(
+        wrapper,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+    )
+    assert result.valid
+
+
+def test_zero_claim_certificate_verifies_with_issuer_only_materials() -> None:
+    cert, issuer, context, policy = _sign_fixture(claims=[], with_co=False)
+    materials = _materials_fixture(cert, issuer, context, policy)
+    assert "client" not in materials
+
+    result = verify_certificate_with_materials(
+        cert,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+    )
+    assert result.valid
+
+
+def test_schema_abstention_codes_match_verifier_constants() -> None:
+    schema_path = Path(__file__).resolve().parents[1] / (
+        "traigent_schema/schemas/certification/certificate_audit_report_v0_schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    expected = verifier_impl._ABSTENTION_CODES
+    for row in schema["definitions"]["ClaimSupportRowsV0"]["items"]:
+        claim_id = row["allOf"][1]["properties"]["claim_id"]["const"]
+        if claim_id == "G1":
+            abstention_code = row["allOf"][2]["then"]["properties"]["abstention_code"]["const"]
+        else:
+            abstention_code = row["allOf"][1]["properties"]["abstention_code"]["const"]
+        assert abstention_code == expected[claim_id]
+
+
+def test_discovered_materials_reversed_register_mapping_uses_canonical_order() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    registers = materials["relying_party_policy"]["compiler_register_versions"]
+    materials["relying_party_policy"]["compiler_register_versions"] = dict(
+        reversed(tuple(registers.items()))
+    )
+    materials["materials_digest"] = _digest(
+        _MATERIALS_DOMAIN,
+        {key: value for key, value in materials.items() if key != "materials_digest"},
+    )
+
+    result = verify_certificate_with_materials(
+        cert,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+    )
+    assert result.valid
+
+
+def test_discovered_materials_rejects_non_context_before_material_binding() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+
+    with pytest.raises(VerificationError, match="^CONTEXT$"):
+        verify_certificate_with_materials(
+            cert,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=object(),  # type: ignore[arg-type]
+        )
+
+
 def test_discovered_materials_digest_mutation_is_rejected() -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
@@ -328,6 +488,14 @@ def test_discovered_materials_expected_digest_is_required_and_pinned() -> None:
 
     with pytest.raises(TypeError):
         verify_certificate_with_materials(cert, materials, context=context)
+
+    with pytest.raises(TypeError):
+        verify_certificate_with_materials(
+            cert,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            context=context,
+        )
 
     with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
         verify_certificate_with_materials(
@@ -442,7 +610,7 @@ def test_c1_truthful_abstention_is_required() -> None:
     c1_row["abstention_code"] = "prohibited_register_violation"
     _rebind_audit_report_digest(cert)
     _resign_fixture(cert, "ed25519")
-    with pytest.raises(VerificationError, match="^AUDIT_STATUS$"):
+    with pytest.raises(VerificationError, match="^SCHEMA$"):
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
 
 

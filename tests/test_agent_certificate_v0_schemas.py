@@ -630,6 +630,15 @@ def _client_evidence_manifest() -> dict:
 # Canonical claim_support_rows tuple order pinned by
 # certificate_audit_report_v0_schema.json#/definitions/ClaimSupportRowsV0.
 _AUDIT_ROW_ORDER = ["B1", "REG1", "C1", "D2", "F1", "G1", "G3"]
+_ABSTENTION_CODE_BY_ID = {
+    "B1": "verifier_not_run_or_not_pass",
+    "REG1": "unregistered_claim_id",
+    "C1": "verifier_not_run_or_not_pass",
+    "D2": "verifier_not_run_or_not_pass",
+    "F1": "verifier_not_run_or_not_pass",
+    "G1": "verifier_not_run_or_not_pass",
+    "G3": "verifier_not_run_or_not_pass",
+}
 
 
 def _audit_row_supported(claim_id: str, claim_material_digest: str = _SHA) -> dict:
@@ -654,11 +663,11 @@ def _audit_row_supported(claim_id: str, claim_material_digest: str = _SHA) -> di
     }
 
 
-def _audit_row_abstained(claim_id: str, code: str = "missing_evidence_binding") -> dict:
+def _audit_row_abstained(claim_id: str, code: str | None = None) -> dict:
     return {
         "claim_id": claim_id,
         "support_status": "abstained",
-        "abstention_code": code,
+        "abstention_code": _ABSTENTION_CODE_BY_ID[claim_id] if code is None else code,
     }
 
 

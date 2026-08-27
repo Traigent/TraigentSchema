@@ -32,7 +32,11 @@ from traigent_schema.utils import (
     get_schemas_dir,
     load_schema,
 )
-from traigent_schema.validator import SchemaValidator, UnvalidatedEndpointError
+from traigent_schema.validator import (
+    SchemaDependencyError,
+    SchemaValidator,
+    UnvalidatedEndpointError,
+)
 from traigent_schema.version import __version__
 
 _CERTIFICATION_EXPORTS = frozenset(
@@ -66,13 +70,11 @@ def __getattr__(name: str) -> object:
     globals()[name] = value
     return value
 
+# Optional certification names remain available through explicit lazy imports above,
+# but stay out of ``__all__`` so base-install wildcard imports do not require cryptography.
 __all__ = [
     "AnalyticsValidator",
-    "RelyingPartyPolicy",
-    "RelyingPartyVerificationError",
-    "VerificationContext",
-    "VerificationError",
-    "VerificationResult",
+    "SchemaDependencyError",
     "InvariantComparisonBoundError",
     "InvariantDeclarationError",
     "InvariantNoncanonicalPayloadError",
@@ -86,9 +88,5 @@ __all__ = [
     "get_openapi_path",
     "load_schema",
     "validate_declared_invariants",
-    "verify_certificate",
-    "verify_agent_certificate",
-    "verify",
-    "verify_certificate_with_materials",
     "__version__",
 ]

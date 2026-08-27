@@ -36,6 +36,27 @@ result = verify_certificate(
 )
 ```
 
+For a discovery bundle returned by the verification-materials endpoint, use
+`verify_certificate_with_materials`. The relying party must provide both the
+explicit `certificate_ref` and an independently pinned `expected_materials_digest`;
+the verifier never trusts a wrapper's reference or status by default:
+
+```python
+from traigent_schema.certification import verify_certificate_with_materials
+
+result = verify_certificate_with_materials(
+    certificate_or_retrieval_wrapper,
+    verification_materials,
+    certificate_ref=certificate_ref,
+    expected_materials_digest=expected_materials_digest,
+    context=context,
+)
+```
+
+The optional `certification` extra is required for either offline verifier:
+`pip install "traigent-schema[certification]"`. Current v0 emits only G1;
+B1, REG1, C1, D2, F1, and G3 are the six fixed abstentions.
+
 Failures raise `RelyingPartyVerificationError`; its `.code` and string form
 are bounded, content-free values intended for safe logging. A successful
 result proves the supplied envelope, signatures, projections, and declared
@@ -62,6 +83,12 @@ For published package consumers:
 
 ```bash
 pip install traigent-schema
+```
+
+For the offline Agent Certificate verifier (including its optional cryptography dependency):
+
+```bash
+pip install "traigent-schema[certification]"
 ```
 
 For coordinated workspace development or release validation from GitHub

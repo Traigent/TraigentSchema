@@ -77,43 +77,54 @@
         {
           "allOf": [
             {"$ref": "#/definitions/ClaimSupportRowV0"},
-            {"properties": {"claim_id": {"const": "B1"}, "support_status": {"const": "abstained"}}}
+            {"properties": {"claim_id": {"const": "B1"}, "support_status": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}
           ]
         },
         {
           "allOf": [
             {"$ref": "#/definitions/ClaimSupportRowV0"},
-            {"properties": {"claim_id": {"const": "REG1"}, "support_status": {"const": "abstained"}}}
+            {"properties": {"claim_id": {"const": "REG1"}, "support_status": {"const": "abstained"}, "abstention_code": {"const": "unregistered_claim_id"}}}
           ]
         },
         {
           "allOf": [
             {"$ref": "#/definitions/ClaimSupportRowV0"},
-            {"properties": {"claim_id": {"const": "C1"}, "support_status": {"const": "abstained"}}}
+            {"properties": {"claim_id": {"const": "C1"}, "support_status": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}
           ]
         },
         {
           "allOf": [
             {"$ref": "#/definitions/ClaimSupportRowV0"},
-            {"properties": {"claim_id": {"const": "D2"}, "support_status": {"const": "abstained"}}}
+            {"properties": {"claim_id": {"const": "D2"}, "support_status": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}
           ]
         },
         {
           "allOf": [
             {"$ref": "#/definitions/ClaimSupportRowV0"},
-            {"properties": {"claim_id": {"const": "F1"}, "support_status": {"const": "abstained"}}}
+            {"properties": {"claim_id": {"const": "F1"}, "support_status": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}
           ]
         },
         {
           "allOf": [
             {"$ref": "#/definitions/ClaimSupportRowV0"},
-            {"properties": {"claim_id": {"const": "G1"}}}
+            {"properties": {"claim_id": {"const": "G1"}}},
+            {
+              "if": {
+                "properties": {"support_status": {"const": "abstained"}},
+                "required": ["support_status"]
+              },
+              "then": {
+                "properties": {
+                  "abstention_code": {"const": "verifier_not_run_or_not_pass"}
+                }
+              }
+            }
           ]
         },
         {
           "allOf": [
             {"$ref": "#/definitions/ClaimSupportRowV0"},
-            {"properties": {"claim_id": {"const": "G3"}, "support_status": {"const": "abstained"}}}
+            {"properties": {"claim_id": {"const": "G3"}, "support_status": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}
           ]
         }
       ]

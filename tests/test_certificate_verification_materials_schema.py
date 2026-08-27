@@ -15,6 +15,7 @@ from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
 from traigent_schema import SchemaValidator, fp2
+from traigent_schema.certification import relying_party_verifier as verifier_impl
 from traigent_schema.validator import _FORMAT_CHECKER
 
 SCHEMA_NAME = "certificate_verification_materials_v0_schema.json"
@@ -143,6 +144,31 @@ def test_schema_is_packaged_and_validates_ed25519_and_p256_clients() -> None:
 @pytest.mark.parametrize("issuer_algorithm", ["ed25519", "ecdsa_p256_sha256"])
 def test_schema_validates_both_supported_issuer_algorithms(issuer_algorithm: str) -> None:
     assert _errors(_valid_materials(issuer_algorithm=issuer_algorithm)) == []
+
+
+def test_zero_claim_materials_can_omit_client_projection() -> None:
+    document = _valid_materials()
+    document.pop("client")
+    document["materials_digest"] = _digest(
+        {key: value for key, value in document.items() if key != "materials_digest"}
+    )
+    assert _errors(document) == []
+
+
+def test_spki_digest_descriptions_match_verifier_role_domains() -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    role_definitions = {
+        "issuer": "IssuerVerificationKeyV0",
+        "client": "PublicKeyProjectionV0",
+    }
+
+    for role, definition_name in role_definitions.items():
+        description = schema["definitions"][definition_name]["properties"][
+            "public_key_digest"
+        ]["description"]
+        domain = getattr(verifier_impl, f"_{role.upper()}_SPKI_DOMAIN").decode("ascii")
+        assert f"Role-separated {role} SPKI digest" in description
+        assert domain in description
 
 
 @pytest.mark.parametrize("location", ["issuer", "client"])

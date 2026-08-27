@@ -68,7 +68,7 @@ _AUDIT_ROWS = ("B1", "REG1", "C1", "D2", "F1", "G1", "G3")
 _ABSTENTION_CODES = {
     "B1": "verifier_not_run_or_not_pass",
     "REG1": "unregistered_claim_id",
-    "C1": "prohibited_register_violation",
+    "C1": "verifier_not_run_or_not_pass",
     "D2": "verifier_not_run_or_not_pass",
     "F1": "verifier_not_run_or_not_pass",
     "G1": "verifier_not_run_or_not_pass",

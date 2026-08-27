@@ -23,6 +23,7 @@ from tests.test_agent_certificate_v0_schemas import (
     _build_valid_fixture,
     _d2_claim,
     _g1_claim,
+    _rebind_audit_report_digest,
     _rebind_claim_material_and_audit,
 )
 from traigent_schema import fp2
@@ -93,7 +94,7 @@ def _sign_fixture(
             row["abstention_code"] = (
                 "unregistered_claim_id"
                 if row["claim_id"] == "REG1"
-                else "prohibited_register_violation"
+                else "verifier_not_run_or_not_pass"
                 if row["claim_id"] == "C1"
                 else "verifier_not_run_or_not_pass"
             )
@@ -193,6 +194,22 @@ def test_g1_certificate_is_verified_offline(algorithm: str) -> None:
     cert, issuer, context, policy = _sign_fixture(algorithm)
     result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
     assert result.valid and result.code == "VERIFIED"
+
+
+def test_c1_truthful_abstention_is_required() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    c1_row = next(
+        row for row in cert["audit_report"]["claim_support_rows"] if row["claim_id"] == "C1"
+    )
+    assert c1_row["abstention_code"] == "verifier_not_run_or_not_pass"
+    result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
+    assert result.valid and result.code == "VERIFIED"
+
+    c1_row["abstention_code"] = "prohibited_register_violation"
+    _rebind_audit_report_digest(cert)
+    _resign_fixture(cert, "ed25519")
+    with pytest.raises(VerificationError, match="^AUDIT_STATUS$"):
+        verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
 
 
 def test_d2_certificate_is_verified_by_production_verifier() -> None:

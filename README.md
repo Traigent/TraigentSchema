@@ -38,8 +38,13 @@ result = verify_certificate(
 
 For a discovery bundle returned by the verification-materials endpoint, use
 `verify_certificate_with_materials`. The relying party must provide both the
-explicit `certificate_ref` and an independently pinned `expected_materials_digest`;
-the verifier never trusts a wrapper's reference or status by default:
+explicit `certificate_ref` and an independently pinned `expected_materials_digest`.
+Status-aware verification is the safe default: pass the complete retrieval
+response (all fields from `CertificateRetrievalResponseV0`), and verification
+requires `certificate_status.status == "active"` with both revocation fields
+set to `null`. A bare signed certificate is rejected with
+`CERTIFICATE_STATUS_UNKNOWN`; it can be used only for explicitly declared,
+offline signature-only verification with `require_status=False`:
 
 ```python
 from traigent_schema.certification import verify_certificate_with_materials
@@ -52,6 +57,10 @@ result = verify_certificate_with_materials(
     context=context,
 )
 ```
+
+Do not set `require_status=False` when revocation status is relevant. A supplied
+retrieval wrapper is always checked for the exact status shape and active/null
+status, even when that opt-out is set.
 
 The optional `certification` extra is required for either offline verifier:
 `pip install "traigent-schema[certification]"`. Current v0 emits only G1;

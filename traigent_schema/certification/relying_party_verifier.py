@@ -119,6 +119,20 @@ _ECDSA_ORDER = int("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC63
 _ECDSA_HALF_ORDER = _ECDSA_ORDER // 2
 _SIG_RE = re.compile(r"^[A-Za-z0-9+/]{86}==$")
 _REF_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$")
+_CERTIFICATE_RETRIEVAL_KEYS = frozenset(
+    {
+        "id",
+        "tenant_id",
+        "project_id",
+        "build_session_ref",
+        "certificate_ref",
+        "schema_version",
+        "manifest_digest",
+        "created_at",
+        "certificate_status",
+        "signed_certificate",
+    }
+)
 
 
 class RelyingPartyVerificationError(ValueError):
@@ -397,15 +411,24 @@ def verify_certificate_with_materials(
     expected_materials_digest: str,
     certificate_ref: str,
     context: VerificationContext,
+    require_status: bool = True,
 ) -> VerificationResult:
     """Verify a certificate using a validated discovery-materials bundle.
 
     The caller still supplies the certificate reference and fresh context pins;
     the bundle supplies only the matching public keys and frozen G1 policy.
+
+    By default, ``certificate`` must be the complete retrieval response and its
+    status must be ``active`` with null revocation fields.  Passing
+    ``require_status=False`` is an explicit opt-out for offline signature-only
+    verification of a bare certificate; a supplied retrieval wrapper is still
+    checked and cannot bypass revocation status.
     """
     try:
         if not isinstance(context, VerificationContext):
             _fail("CONTEXT")
+        if type(require_status) is not bool:
+            _fail("CERTIFICATE_STATUS")
         if type(verification_materials) is not dict:
             _fail("MATERIALS_SCHEMA")
         if type(certificate_ref) is not str:
@@ -415,8 +438,16 @@ def verify_certificate_with_materials(
             document, "certificate_verification_materials_v0_schema"
         ):
             _fail("MATERIALS_SCHEMA")
-        if type(certificate) is dict and "signed_certificate" in certificate:
+        if type(certificate) is not dict:
+            _fail("ENVELOPE_SHAPE")
+        # These two members are disjoint from the signed certificate envelope,
+        # so they are the unambiguous marker for a retrieval wrapper.  A
+        # wrapper missing either one still takes the status path and fails its
+        # exact-key check rather than being treated as an offline certificate.
+        if "signed_certificate" in certificate or "certificate_status" in certificate:
             wrapper = cast(dict[str, Any], certificate)
+            if set(wrapper) != _CERTIFICATE_RETRIEVAL_KEYS:
+                _fail("CERTIFICATE_STATUS")
             status = wrapper.get("certificate_status")
             if (
                 not isinstance(status, dict)
@@ -429,6 +460,8 @@ def verify_certificate_with_materials(
             if wrapper.get("certificate_ref") != certificate_ref:
                 _fail("CERTIFICATE_REF")
             certificate = wrapper.get("signed_certificate")
+        elif require_status:
+            _fail("CERTIFICATE_STATUS_UNKNOWN")
         if type(certificate) is not dict:
             _fail("ENVELOPE_SHAPE")
         envelope = cast(dict[str, Any], certificate)

@@ -307,6 +307,33 @@ def _materials_fixture(
     return document
 
 
+def _retrieval_wrapper(
+    cert: dict,
+    materials: dict,
+    *,
+    status: str = "active",
+    revoked_at: str | None = None,
+    reason: str | None = None,
+) -> dict:
+    """Build the complete certificate retrieval response consumed by the verifier."""
+    return {
+        "id": "ca_" + "a" * 32,
+        "tenant_id": "tenant_001",
+        "project_id": "project_001",
+        "build_session_ref": _SESSION,
+        "certificate_ref": materials["certificate_ref"],
+        "schema_version": "traigent.agent_certificate.v0",
+        "manifest_digest": cert["signatures"]["unsigned_manifest"]["manifest_digest"],
+        "created_at": "2026-08-24T00:00:00Z",
+        "certificate_status": {
+            "status": status,
+            "revoked_at": revoked_at,
+            "reason": reason,
+        },
+        "signed_certificate": cert,
+    }
+
+
 def _resign_issuer(cert: dict, algorithm: str) -> None:
     issuer_key, _ = _private_keys(algorithm)
     unsigned = cert["signatures"]["unsigned_manifest"]["document"]
@@ -351,7 +378,7 @@ def test_discovered_materials_bundle_verifies_end_to_end() -> None:
     materials = _materials_fixture(cert, issuer, context, policy)
 
     result = verify_certificate_with_materials(
-        cert,
+        _retrieval_wrapper(cert, materials),
         materials,
         expected_materials_digest=materials["materials_digest"],
         certificate_ref=materials["certificate_ref"],
@@ -366,11 +393,7 @@ def test_discovered_materials_bundle_verifies_end_to_end() -> None:
 def test_non_active_retrieval_wrapper_is_rejected(status: str) -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
-    wrapper = {
-        "certificate_ref": materials["certificate_ref"],
-        "certificate_status": {"status": status, "revoked_at": None, "reason": None},
-        "signed_certificate": cert,
-    }
+    wrapper = _retrieval_wrapper(cert, materials, status=status)
 
     with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS$"):
         verify_certificate_with_materials(
@@ -385,11 +408,7 @@ def test_non_active_retrieval_wrapper_is_rejected(status: str) -> None:
 def test_active_retrieval_wrapper_is_verified() -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
-    wrapper = {
-        "certificate_ref": materials["certificate_ref"],
-        "certificate_status": {"status": "active", "revoked_at": None, "reason": None},
-        "signed_certificate": cert,
-    }
+    wrapper = _retrieval_wrapper(cert, materials)
 
     result = verify_certificate_with_materials(
         wrapper,
@@ -401,17 +420,84 @@ def test_active_retrieval_wrapper_is_verified() -> None:
     assert result.valid
 
 
+@pytest.mark.parametrize("mutation", ["missing", "extra"])
+def test_retrieval_wrapper_requires_exact_complete_top_level_shape(mutation: str) -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = _retrieval_wrapper(cert, materials)
+    if mutation == "missing":
+        del wrapper["id"]
+    else:
+        wrapper["unexpected"] = "sentinel"
+
+    with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS$"):
+        verify_certificate_with_materials(
+            wrapper,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=context,
+        )
+
+
+def test_bare_certificate_is_rejected_when_status_is_required() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+
+    with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS_UNKNOWN$"):
+        verify_certificate_with_materials(
+            cert,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=context,
+        )
+
+
+def test_bare_certificate_requires_explicit_signature_only_opt_out() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+
+    result = verify_certificate_with_materials(
+        cert,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+        require_status=False,
+    )
+    assert result.valid
+
+
+def test_revoked_retrieval_wrapper_is_rejected_even_with_signature_only_opt_out() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = _retrieval_wrapper(
+        cert,
+        materials,
+        status="revoked_after_issuance",
+        revoked_at="2026-08-24T00:00:00Z",
+        reason="rotation",
+    )
+
+    with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS$"):
+        verify_certificate_with_materials(
+            wrapper,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=context,
+            require_status=False,
+        )
+
+
 @pytest.mark.parametrize("missing", ["status", "revoked_at", "reason"])
 def test_active_retrieval_wrapper_rejects_missing_status_field(missing: str) -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
-    status = {"status": "active", "revoked_at": None, "reason": None}
+    wrapper = _retrieval_wrapper(cert, materials)
+    status = wrapper["certificate_status"]
     del status[missing]
-    wrapper = {
-        "certificate_ref": materials["certificate_ref"],
-        "certificate_status": status,
-        "signed_certificate": cert,
-    }
 
     with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS$"):
         verify_certificate_with_materials(
@@ -426,16 +512,8 @@ def test_active_retrieval_wrapper_rejects_missing_status_field(missing: str) -> 
 def test_active_retrieval_wrapper_rejects_unexpected_status_field() -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
-    wrapper = {
-        "certificate_ref": materials["certificate_ref"],
-        "certificate_status": {
-            "status": "active",
-            "revoked_at": None,
-            "reason": None,
-            "unexpected": "sentinel",
-        },
-        "signed_certificate": cert,
-    }
+    wrapper = _retrieval_wrapper(cert, materials)
+    wrapper["certificate_status"]["unexpected"] = "sentinel"
 
     with pytest.raises(VerificationError, match="^CERTIFICATE_STATUS$"):
         verify_certificate_with_materials(
@@ -453,7 +531,7 @@ def test_zero_claim_certificate_verifies_with_issuer_only_materials() -> None:
     assert "client" not in materials
 
     result = verify_certificate_with_materials(
-        cert,
+        _retrieval_wrapper(cert, materials),
         materials,
         expected_materials_digest=materials["materials_digest"],
         certificate_ref=materials["certificate_ref"],
@@ -490,7 +568,7 @@ def test_discovered_materials_reversed_register_mapping_uses_canonical_order() -
     )
 
     result = verify_certificate_with_materials(
-        cert,
+        _retrieval_wrapper(cert, materials),
         materials,
         expected_materials_digest=materials["materials_digest"],
         certificate_ref=materials["certificate_ref"],
@@ -505,7 +583,7 @@ def test_discovered_materials_rejects_non_context_before_material_binding() -> N
 
     with pytest.raises(VerificationError, match="^CONTEXT$"):
         verify_certificate_with_materials(
-            cert,
+            _retrieval_wrapper(cert, materials),
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref=materials["certificate_ref"],
@@ -520,7 +598,7 @@ def test_discovered_materials_digest_mutation_is_rejected() -> None:
 
     with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
         verify_certificate_with_materials(
-            cert,
+            _retrieval_wrapper(cert, materials),
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref="certificate:opaque0001",
@@ -537,7 +615,7 @@ def test_discovered_materials_expected_digest_is_required_and_pinned() -> None:
 
     with pytest.raises(TypeError):
         verify_certificate_with_materials(
-            cert,
+            _retrieval_wrapper(cert, materials),
             materials,
             expected_materials_digest=materials["materials_digest"],
             context=context,
@@ -545,7 +623,7 @@ def test_discovered_materials_expected_digest_is_required_and_pinned() -> None:
 
     with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
         verify_certificate_with_materials(
-            cert,
+            _retrieval_wrapper(cert, materials),
             materials,
             expected_materials_digest="sha256:" + "0" * 64,
             certificate_ref="certificate:opaque0001",
@@ -571,7 +649,7 @@ def test_discovered_materials_whole_bundle_replacement_is_rejected() -> None:
 
     with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
         verify_certificate_with_materials(
-            cert,
+            _retrieval_wrapper(cert, replacement),
             replacement,
             expected_materials_digest=trusted["materials_digest"],
             certificate_ref=trusted["certificate_ref"],
@@ -590,7 +668,7 @@ def test_discovered_materials_issuer_key_ref_binding_is_rejected() -> None:
 
     with pytest.raises(VerificationError, match="^MATERIALS_BINDING$"):
         verify_certificate_with_materials(
-            cert,
+            _retrieval_wrapper(cert, materials),
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref="certificate:opaque0001",
@@ -612,7 +690,7 @@ def test_discovered_materials_issuer_der_mismatch_is_rejected() -> None:
 
     with pytest.raises(VerificationError):
         verify_certificate_with_materials(
-            cert,
+            _retrieval_wrapper(cert, materials),
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref="certificate:opaque0001",
@@ -635,7 +713,7 @@ def test_discovered_materials_stale_spki_digest_is_rejected(location: str, seed:
 
     with pytest.raises(VerificationError, match="^MATERIALS_KEY$"):
         verify_certificate_with_materials(
-            cert,
+            _retrieval_wrapper(cert, materials),
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref="certificate:opaque0001",

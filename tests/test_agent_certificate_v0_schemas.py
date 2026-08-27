@@ -1993,6 +1993,41 @@ class TestUnsignedManifest:
         manifest["evidence_digests"].reverse()
         assert _errors(UNSIGNED_MANIFEST, manifest) is not None
 
+    def test_schema_oracle_rejects_locator_on_leading_audit_entry(self) -> None:
+        # Build the two item instances independently of the fixture/projection
+        # helpers, then ask Draft-07 to oracle the loaded schema directly.
+        schema = _load(CERT_DIR / UNSIGNED_MANIFEST)
+        first_item = copy.deepcopy(
+            schema["definitions"]["EvidenceDigestsProjectionV0"]["items"][0]
+        )
+        first_item["allOf"][0]["$ref"] = (
+            "https://schemas.traigent.ai/certification/"
+            "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+        )
+        first_validator = Draft7Validator(first_item, registry=_REGISTRY)
+        leading = {
+            "evidence_kind": "audit_report_digest",
+            "evidence_digest": _SHA,
+            "evidence_ref": "evidence:locator001",
+        }
+        assert list(first_validator.iter_errors(leading))
+
+        generic_validator = Draft7Validator(
+            {
+                "$ref": (
+                    "https://schemas.traigent.ai/certification/"
+                    "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+                )
+            },
+            registry=_REGISTRY,
+        )
+        later = {
+            "evidence_kind": "client_commitment_digest",
+            "evidence_digest": _SHA,
+            "evidence_ref": "evidence:locator001",
+        }
+        assert not list(generic_validator.iter_errors(later))
+
     def test_privacy_mode_enum_is_closed(self) -> None:
         manifest = _unsigned_manifest()
         manifest["privacy_mode"]["declared_mode"] = "hybrid"

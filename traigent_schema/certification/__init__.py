@@ -17,6 +17,7 @@ from traigent_schema.certification.relying_party_verifier import (
     verify,
     verify_agent_certificate,
     verify_certificate,
+    verify_certificate_with_materials,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "verify_certificate",
     "verify_agent_certificate",
     "verify",
+    "verify_certificate_with_materials",
 ]

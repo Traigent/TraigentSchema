@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import tomllib
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -44,3 +46,16 @@ def test_development_lock_uses_only_patched_pytest() -> None:
     assert 'name = "pytest"\nversion = "9.1.1"' in uv_lock
     assert 'version = "8.4.2"' not in uv_lock
     assert "python_full_version < '3.10'" not in uv_lock
+
+
+def test_cryptography_is_only_a_certification_extra() -> None:
+    metadata = tomllib.loads(_read("pyproject.toml"))
+    dependencies = metadata["project"]["dependencies"]
+    extras = metadata["project"]["optional-dependencies"]
+
+    assert not any(dependency.startswith("cryptography") for dependency in dependencies)
+    assert extras["certification"] == ["cryptography>=46.0.0,<51.0.0"]
+    assert "cryptography==50.0.1" in _read("requirements-dev.txt")
+    assert not any(
+        line.startswith("cryptography") for line in _read("requirements.txt").splitlines()
+    )

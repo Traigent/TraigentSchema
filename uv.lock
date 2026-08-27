@@ -1031,14 +1031,17 @@ wheels = [
 name = "traigent-schema"
 source = { editable = "." }
 dependencies = [
-    { name = "cryptography" },
     { name = "jsonschema" },
     { name = "pyyaml" },
     { name = "referencing" },
 ]
 
 [package.optional-dependencies]
+certification = [
+    { name = "cryptography" },
+]
 dev = [
+    { name = "cryptography" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -1047,7 +1050,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=46.0.0,<51.0.0" },
+    { name = "cryptography", marker = "extra == 'certification'", specifier = ">=46.0.0,<51.0.0" },
+    { name = "cryptography", marker = "extra == 'dev'", specifier = ">=46.0.0,<51.0.0" },
     { name = "jsonschema", specifier = ">=4.17.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },
@@ -1056,7 +1060,7 @@ requires-dist = [
     { name = "referencing", specifier = ">=0.30.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.16.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["certification", "dev"]
 
 [[package]]
 name = "typing-extensions"

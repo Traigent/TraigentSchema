@@ -10,16 +10,18 @@ from importlib import resources
 
 import pytest
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec, ed25519
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
-from traigent_schema import fp2
+from traigent_schema import SchemaValidator, fp2
 from traigent_schema.validator import _FORMAT_CHECKER
 
 SCHEMA_NAME = "certificate_verification_materials_v0_schema.json"
 SCHEMA_PATH = resources.files("traigent_schema").joinpath("schemas", "certification", SCHEMA_NAME)
 DOMAIN = b"traigent.agent_certificate.verification_materials.v0"
+ISSUER_SPKI_DOMAIN = b"traigent.agent_certificate.issuer_spki_der.v0"
+CLIENT_SPKI_DOMAIN = b"traigent.agent_certificate.client_spki_der.v0"
 
 
 def _registry() -> Registry:
@@ -42,11 +44,18 @@ def _validator() -> Draft7Validator:
 
 
 def _der(public_key: object) -> str:
-    encoded = public_key.public_bytes(
+    return base64.b64encode(_der_bytes(public_key)).decode("ascii")
+
+
+def _der_bytes(public_key: object) -> bytes:
+    return public_key.public_bytes(
         serialization.Encoding.DER,
         serialization.PublicFormat.SubjectPublicKeyInfo,
     )
-    return base64.b64encode(encoded).decode("ascii")
+
+
+def _spki_digest(public_key: object, domain: bytes) -> str:
+    return "sha256:" + hashlib.sha256(domain + b"\0" + _der_bytes(public_key)).hexdigest()
 
 
 def _private_der(private_key: object) -> str:
@@ -85,13 +94,13 @@ def _valid_materials(
             "trust_ring_ref": "trust-ring:opaque001",
             "algorithm": issuer_algorithm,
             "public_key_der_b64": _der(issuer_public),
-            "public_key_digest": "sha256:" + "a" * 64,
+            "public_key_digest": _spki_digest(issuer_public, ISSUER_SPKI_DOMAIN),
         },
         "client": {
             "key_ref": "client-key:opaque0001",
             "algorithm": client_algorithm,
             "public_key_der_b64": _der(client_public),
-            "public_key_digest": "sha256:" + "b" * 64,
+            "public_key_digest": _spki_digest(client_public, CLIENT_SPKI_DOMAIN),
         },
         "relying_party_policy": {
             "compiler_register_versions": {
@@ -153,6 +162,19 @@ def test_fresh_pkcs8_private_der_is_rejected_without_echoing_key_bytes(
     errors = _errors(document)
     assert errors
     assert encoded not in str(errors)
+
+
+def test_long_rsa_pkcs8_private_der_is_redacted_from_all_validator_errors() -> None:
+    document = _valid_materials()
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
+    encoded = _private_der(private_key)
+    document["issuer"]["public_key_der_b64"] = encoded
+    errors = SchemaValidator(contract="backend").validate_json(
+        document, "certificate_verification_materials_v0_schema"
+    )
+    assert errors
+    assert encoded not in str(errors)
+    assert any("invalid public-key encoding" in error for error in errors)
 
 
 def test_public_spki_must_match_declared_algorithm() -> None:

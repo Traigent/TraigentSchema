@@ -24,18 +24,19 @@ import hashlib
 import json
 import re
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
 from traigent_schema import fp2
+from traigent_schema.validator import SchemaValidator
 
 _CERT_DIR = Path(__file__).resolve().parent.parent / "schemas" / "certification"
 _SCHEMAS_DIR = _CERT_DIR.parent
@@ -46,6 +47,10 @@ _UNSIGNED_DOMAIN = b"traigent.agent_certificate.unsigned_manifest.v1"
 _SEAL_DOMAIN = b"traigent.agent_certificate.seal_statement.v1"
 _CLIENT_DOMAIN = b"traigent.agent_certificate.client_co_attestation.v0"
 _ISSUER_DOMAIN = b"traigent.agent_certificate.issuer_signature.v0"
+_SHA256_PREFIX = "sha256:"
+_MATERIALS_DOMAIN = b"traigent.agent_certificate.verification_materials.v0"
+_ISSUER_SPKI_DOMAIN = b"traigent.agent_certificate.issuer_spki_der.v0"
+_CLIENT_SPKI_DOMAIN = b"traigent.agent_certificate.client_spki_der.v0"
 
 _COMPILER_REGISTER_KEYS = (
     "compiler_version",
@@ -63,7 +68,7 @@ _BUILD_LEDGER_STREAM_STATUSES = {
     "receipt_event_stream": "sealed",
     "transition_stream": "sealed",
 }
-_ZERO_DIGEST = "sha256:" + "0" * 64
+_ZERO_DIGEST = _SHA256_PREFIX + "0" * 64
 _AUDIT_ROWS = ("B1", "REG1", "C1", "D2", "F1", "G1", "G3")
 _ABSTENTION_CODES = {
     "B1": "verifier_not_run_or_not_pass",
@@ -209,7 +214,7 @@ def _role_digest(role: bytes, document: Any) -> str:
         canonical = fp2.canonicalize(document).encode("utf-8")
     except Exception:
         _fail("CANONICALIZATION")
-    return "sha256:" + hashlib.sha256(role + b"\x00" + canonical).hexdigest()
+    return _SHA256_PREFIX + hashlib.sha256(role + b"\x00" + canonical).hexdigest()
 
 
 def _manifest_bytes(manifest: dict[str, Any]) -> bytes:
@@ -257,13 +262,163 @@ def _unsigned_manifest_validator() -> Draft7Validator:
     return Draft7Validator(schema, registry=registry)
 
 
+@lru_cache(maxsize=1)
+def _verification_materials_validator() -> SchemaValidator:
+    return SchemaValidator(contract="backend")
+
+
+def _material_public_key(projection: dict[str, Any], digest_domain: bytes) -> object:
+    encoded = projection["public_key_der_b64"]
+    try:
+        der = base64.b64decode(encoded.encode("ascii"), validate=True)
+        if base64.b64encode(der).decode("ascii") != encoded:
+            _fail("MATERIALS_KEY")
+        key = serialization.load_der_public_key(der)
+        canonical = key.public_bytes(
+            serialization.Encoding.DER,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+    except (UnicodeEncodeError, ValueError, TypeError, IndexError, UnsupportedAlgorithm):
+        _fail("MATERIALS_KEY")
+    if canonical != der:
+        _fail("MATERIALS_KEY")
+    if projection["public_key_digest"] != _SHA256_PREFIX + hashlib.sha256(
+        digest_domain + b"\x00" + der
+    ).hexdigest():
+        _fail("MATERIALS_KEY")
+    algorithm = projection["algorithm"]
+    if algorithm == "ed25519" and not isinstance(key, ed25519.Ed25519PublicKey):
+        _fail("MATERIALS_KEY")
+    curve = getattr(key, "curve", None)
+    if algorithm == "ecdsa_p256_sha256" and (
+        not isinstance(key, ec.EllipticCurvePublicKey)
+        or not isinstance(curve, ec.SECP256R1)
+    ):
+        _fail("MATERIALS_KEY")
+    return key
+
+
+def _materials_policy(document: dict[str, Any]) -> RelyingPartyPolicy:
+    try:
+        policy = document["relying_party_policy"]
+        registers = tuple(policy["compiler_register_versions"].items())
+        bindings = tuple(
+            (
+                binding["verifier_id"],
+                binding["verifier_ref"],
+                binding["verifier_version"],
+            )
+            for binding in policy["verifier_bindings"]
+        )
+        return RelyingPartyPolicy(registers, bindings)
+    except (KeyError, TypeError, ValueError):
+        _fail("MATERIALS_POLICY")
+
+
+def _check_materials_digest(document: dict[str, Any], expected_materials_digest: str) -> None:
+    recomputed = _role_digest(
+        _MATERIALS_DOMAIN,
+        {key: value for key, value in document.items() if key != "materials_digest"},
+    )
+    if (
+        type(expected_materials_digest) is not str
+        or document.get("materials_digest") != expected_materials_digest
+        or recomputed != expected_materials_digest
+    ):
+        _fail("MATERIALS_DIGEST")
+
+
+def _check_materials_bindings(
+    certificate: dict[str, Any],
+    document: dict[str, Any],
+    certificate_ref: str,
+    context: VerificationContext,
+) -> None:
+    if document["certificate_ref"] != certificate_ref:
+        _fail("CERTIFICATE_REF")
+    issuer = document["issuer"]
+    client = document["client"]
+    if (
+        issuer["key_ref"] != context.expected_issuer_key_ref
+        or issuer["algorithm"] != context.expected_issuer_algorithm
+        or issuer["trust_ring_ref"] != context.expected_trust_ring_ref
+        or client["key_ref"] != context.expected_client_key_ref
+        or client["algorithm"] != context.expected_client_algorithm
+    ):
+        _fail("MATERIALS_BINDING")
+    try:
+        unsigned = certificate["signatures"]["unsigned_manifest"]["document"]
+        ring = unsigned["key_ring_identifiers"]
+        co = certificate["signatures"]["co_attestation"]
+        if (
+            ring["issuer_key_ref"] != issuer["key_ref"]
+            or ring["issuer_signature_algorithm"] != issuer["algorithm"]
+            or ring["trust_ring_ref"] != issuer["trust_ring_ref"]
+            or ring["client_key_ref"] != client["key_ref"]
+            or ring["client_signature_algorithm"] != client["algorithm"]
+            or co["client_key_ref"] != client["key_ref"]
+            or co["algorithm"] != client["algorithm"]
+        ):
+            _fail("MATERIALS_BINDING")
+    except (KeyError, TypeError):
+        _fail("MATERIALS_BINDING")
+
+
+def verify_certificate_with_materials(
+    certificate: object,
+    verification_materials: object,
+    *,
+    expected_materials_digest: str,
+    certificate_ref: str | None = None,
+    context: VerificationContext,
+) -> VerificationResult:
+    """Verify a certificate using a validated discovery-materials bundle.
+
+    The caller still supplies the certificate reference and fresh context pins;
+    the bundle supplies only the matching public keys and frozen G1 policy.
+    """
+    if type(verification_materials) is not dict:
+        _fail("MATERIALS_SCHEMA")
+    document = cast(dict[str, Any], verification_materials)
+    try:
+        if _verification_materials_validator().validate_json(
+            document, "certificate_verification_materials_v0_schema"
+        ):
+            _fail("MATERIALS_SCHEMA")
+    except RelyingPartyVerificationError:
+        raise
+    except Exception:
+        _fail("MATERIALS_SCHEMA")
+    if type(certificate) is dict and "signed_certificate" in certificate:
+        wrapper = cast(dict[str, Any], certificate)
+        if certificate_ref is not None and wrapper.get("certificate_ref") != certificate_ref:
+            _fail("CERTIFICATE_REF")
+        certificate_ref = wrapper.get("certificate_ref")
+        certificate = wrapper.get("signed_certificate")
+    if type(certificate) is not dict or type(certificate_ref) is not str:
+        _fail("ENVELOPE_SHAPE")
+    envelope = cast(dict[str, Any], certificate)
+    _check_materials_digest(document, expected_materials_digest)
+    _check_materials_bindings(envelope, document, certificate_ref, context)
+    issuer_public_key = _material_public_key(document["issuer"], _ISSUER_SPKI_DOMAIN)
+    client_public_key = _material_public_key(document["client"], _CLIENT_SPKI_DOMAIN)
+    bound_context = replace(context, client_public_key=client_public_key)
+    policy = _materials_policy(document)
+    return verify_certificate(
+        envelope,
+        issuer_public_key=issuer_public_key,
+        context=bound_context,
+        policy=policy,
+    )
+
+
 def _decode_signature(encoded: object) -> bytes:
     if type(encoded) is not str or not _SIG_RE.fullmatch(encoded):
         _fail("SIGNATURE_BASE64")
     encoded_text = cast(str, encoded)
     try:
         raw = base64.b64decode(encoded_text.encode("ascii"), validate=True)
-    except (UnicodeEncodeError, ValueError):
+    except UnicodeEncodeError:
         _fail("SIGNATURE_BASE64")
     if len(raw) != 64 or base64.b64encode(raw).decode("ascii") != encoded_text:
         _fail("SIGNATURE_BASE64")
@@ -339,7 +494,7 @@ def _compute_seal_digest(seal: dict[str, Any]) -> str:
         encoded = fp2.canonicalize(projection).encode("utf-8")
     except Exception:
         _fail("SEAL_DIGEST")
-    return "sha256:" + hashlib.sha256(_SEAL_DOMAIN + b"\x00" + encoded).hexdigest()
+    return _SHA256_PREFIX + hashlib.sha256(_SEAL_DOMAIN + b"\x00" + encoded).hexdigest()
 
 
 def _check_streams(seal: dict[str, Any]) -> None:
@@ -438,9 +593,9 @@ def _check_projections(
         _fail("EVIDENCE_PROJECTION")
 
 
-def _check_claims_and_audit(
-    certificate: dict[str, Any], unsigned: dict[str, Any], audit: dict[str, Any], audit_digest: str
-) -> None:
+def _check_printed_claims(
+    certificate: dict[str, Any], audit: dict[str, Any], audit_digest: str
+) -> dict[str, dict[str, Any]]:
     claims = certificate["claims"]
     by_id = {claim["claim_id"]: claim for claim in claims}
     if len(by_id) != len(claims) or set(by_id) - {"G1"}:
@@ -466,16 +621,19 @@ def _check_claims_and_audit(
             or refs[0]["evidence_digest"] != root
         ):
             _fail("CLIENT_ROOT")
+    return by_id
+
+
+def _check_audit_rows(audit: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> None:
     rows = audit["claim_support_rows"]
     if [row["claim_id"] for row in rows] != list(_AUDIT_ROWS):
         _fail("AUDIT_ROWS")
     for row in rows:
-        if row["claim_id"] == "D2":
-            if (
-                row["support_status"] != "abstained"
-                or row["abstention_code"] != _ABSTENTION_CODES["D2"]
-            ):
-                _fail("AUDIT_STATUS")
+        if row["claim_id"] == "D2" and (
+            row["support_status"] != "abstained"
+            or row["abstention_code"] != _ABSTENTION_CODES["D2"]
+        ):
+            _fail("AUDIT_STATUS")
         claim = by_id.get(row["claim_id"])
         if claim is None:
             if (
@@ -490,6 +648,14 @@ def _check_claims_and_audit(
                 _CLAIM_MATERIAL_DOMAIN, _claim_material(claim)
             ):
                 _fail("CLAIM_MATERIAL")
+
+
+def _check_audit_bindings(
+    certificate: dict[str, Any],
+    unsigned: dict[str, Any],
+    audit: dict[str, Any],
+    by_id: dict[str, dict[str, Any]],
+) -> None:
     if audit["build_session_ref"] != certificate["subject"]["build_session_ref"]:
         _fail("SESSION_REF")
     if (
@@ -507,6 +673,14 @@ def _check_claims_and_audit(
             _fail("CLIENT_ROOT")
     elif audit["client_evidence_manifest_root"] is not None:
         _fail("CLIENT_ROOT")
+
+
+def _check_claims_and_audit(
+    certificate: dict[str, Any], unsigned: dict[str, Any], audit: dict[str, Any], audit_digest: str
+) -> None:
+    by_id = _check_printed_claims(certificate, audit, audit_digest)
+    _check_audit_rows(audit, by_id)
+    _check_audit_bindings(certificate, unsigned, audit, by_id)
 
 
 def _check_context(
@@ -542,12 +716,9 @@ def _check_context(
         _fail("CLIENT_KEY_CONTEXT")
 
 
-def _verify(
-    certificate: object,
-    issuer_public_key: object,
-    context: VerificationContext,
-    policy: RelyingPartyPolicy,
-) -> None:
+def _validated_document(
+    certificate: object, policy: RelyingPartyPolicy
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], bytes, str, str]:
     if type(certificate) is not dict:
         _fail("ENVELOPE_SHAPE")
     try:
@@ -586,52 +757,75 @@ def _verify(
     _check_streams(document["ledger_seal_projection"])
     _check_projections(document, unsigned, audit_digest)
     _check_claims_and_audit(document, unsigned, audit, audit_digest)
-    _check_context(unsigned, signatures, context)
+    return document, signatures, unsigned, manifest_bytes, expected_manifest_digest, audit_digest
+
+
+def _verify_co_attestation(
+    document: dict[str, Any],
+    signatures: dict[str, Any],
+    unsigned: dict[str, Any],
+    manifest_bytes: bytes,
+    expected_manifest_digest: str,
+    context: VerificationContext,
+) -> tuple[bytes, list[str]]:
     has_claims = bool(document["claims"])
     has_co = "co_attestation" in signatures
     if has_claims != has_co:
         _fail("CO_REQUIRED" if has_claims else "CO_ZERO_CLAIMS")
-    if not has_claims:
-        if (
-            any(
-                key in unsigned["key_ring_identifiers"]
-                for key in ("client_key_ref", "client_signature_algorithm")
-            )
-            or context.expected_client_key_ref is not None
-            or context.expected_client_algorithm is not None
-            or context.client_public_key is not None
-        ):
-            _fail("CLIENT_KEY_CONTEXT")
-    if has_co:
-        co = signatures["co_attestation"]
-        if context.client_public_key is None:
-            _fail("CLIENT_KEY_REQUIRED")
-        if co["client_key_ref"] != unsigned["key_ring_identifiers"]["client_key_ref"]:
-            _fail("KEY_REF")
-        if (
-            co["algorithm"] != unsigned["key_ring_identifiers"]["client_signature_algorithm"]
-            or co["algorithm"] != context.expected_client_algorithm
-        ):
-            _fail("ALGORITHM")
-        if co["nonce"] != unsigned["freshness"]["nonce"] or co["nonce"] != context.expected_nonce:
-            _fail("NONCE")
-        if co["signed_manifest_digest"] != expected_manifest_digest:
-            _fail("MANIFEST_DIGEST")
-        co_raw = _decode_signature(co["signature"])
-        if co["algorithm"] == "ecdsa_p256_sha256":
-            s = int.from_bytes(co_raw[32:], "big")
-            if s > _ECDSA_HALF_ORDER:
-                _fail("CLIENT_SIGNATURE_NON_CANONICAL")
-        _verify_signature(
-            context.client_public_key,
-            co["algorithm"],
-            _client_material(manifest_bytes),
-            co["signature"],
+    if not has_claims and (
+        any(
+            key in unsigned["key_ring_identifiers"]
+            for key in ("client_key_ref", "client_signature_algorithm")
         )
-        expected_payload = ["unsigned_manifest", "co_attestation"]
-    else:
-        co_raw = b""
-        expected_payload = ["unsigned_manifest"]
+        or context.expected_client_key_ref is not None
+        or context.expected_client_algorithm is not None
+        or context.client_public_key is not None
+    ):
+        _fail("CLIENT_KEY_CONTEXT")
+    if not has_co:
+        return b"", ["unsigned_manifest"]
+    co = signatures["co_attestation"]
+    if context.client_public_key is None:
+        _fail("CLIENT_KEY_REQUIRED")
+    if co["client_key_ref"] != unsigned["key_ring_identifiers"]["client_key_ref"]:
+        _fail("KEY_REF")
+    if (
+        co["algorithm"] != unsigned["key_ring_identifiers"]["client_signature_algorithm"]
+        or co["algorithm"] != context.expected_client_algorithm
+    ):
+        _fail("ALGORITHM")
+    if co["nonce"] != unsigned["freshness"]["nonce"] or co["nonce"] != context.expected_nonce:
+        _fail("NONCE")
+    if co["signed_manifest_digest"] != expected_manifest_digest:
+        _fail("MANIFEST_DIGEST")
+    co_raw = _decode_signature(co["signature"])
+    if (
+        co["algorithm"] == "ecdsa_p256_sha256"
+        and int.from_bytes(co_raw[32:], "big") > _ECDSA_HALF_ORDER
+    ):
+        _fail("CLIENT_SIGNATURE_NON_CANONICAL")
+    _verify_signature(
+        context.client_public_key,
+        co["algorithm"],
+        _client_material(manifest_bytes),
+        co["signature"],
+    )
+    return co_raw, ["unsigned_manifest", "co_attestation"]
+
+
+def _verify(
+    certificate: object,
+    issuer_public_key: object,
+    context: VerificationContext,
+    policy: RelyingPartyPolicy,
+) -> None:
+    document, signatures, unsigned, manifest_bytes, manifest_digest, _ = _validated_document(
+        certificate, policy
+    )
+    _check_context(unsigned, signatures, context)
+    co_raw, expected_payload = _verify_co_attestation(
+        document, signatures, unsigned, manifest_bytes, manifest_digest, context
+    )
     issuer_signature = signatures["issuer_signature"]
     if issuer_signature["signed_payload"] != expected_payload:
         _fail("SIGNED_PAYLOAD")

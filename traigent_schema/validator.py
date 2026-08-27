@@ -620,6 +620,8 @@ class SchemaValidator:
     def _format_error(self, error: ValidationError) -> str:
         """Format a validation error into a readable message."""
         path = ".".join(str(p) for p in error.absolute_path) or "root"
+        if "public_key_der_b64" in error.absolute_path:
+            return f"{path}: invalid public-key encoding"
         if error.validator == "format" and str(error.validator_value).startswith(
             "canonical-"
         ):

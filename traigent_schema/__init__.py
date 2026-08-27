@@ -45,6 +45,7 @@ _CERTIFICATION_EXPORTS = frozenset(
         "verify",
         "verify_agent_certificate",
         "verify_certificate",
+        "verify_certificate_with_materials",
     }
 )
 
@@ -88,5 +89,6 @@ __all__ = [
     "verify_certificate",
     "verify_agent_certificate",
     "verify",
+    "verify_certificate_with_materials",
     "__version__",
 ]

@@ -104,7 +104,7 @@ def test_certificate_catalog_is_wired_as_a_canonical_backend_module() -> None:
         "status": "canonical",
         "description": catalog["x-traigent-contract"]["description"],
     }
-    assert catalog["x-asserted-against-backend"] is True
+    assert catalog["x-asserted-against-backend"] is False
     assert any(
         module.get("paths_file") == "./certification/certification_endpoints_v0.json"
         for module in mep["x-endpoint-modules"]

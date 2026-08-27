@@ -18,7 +18,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 
 from tests.test_agent_certificate_v0_schemas import (
@@ -33,6 +33,7 @@ from traigent_schema.certification import (
     VerificationContext,
     VerificationError,
     verify_certificate,
+    verify_certificate_with_materials,
 )
 
 _SEAL_DOMAIN = b"traigent.agent_certificate.seal_statement.v1"
@@ -40,6 +41,9 @@ _AUDIT_DOMAIN = b"traigent.agent_certificate.audit_report.v1"
 _UNSIGNED_DOMAIN = b"traigent.agent_certificate.unsigned_manifest.v1"
 _CLIENT_DOMAIN = b"traigent.agent_certificate.client_co_attestation.v0"
 _ISSUER_DOMAIN = b"traigent.agent_certificate.issuer_signature.v0"
+_MATERIALS_DOMAIN = b"traigent.agent_certificate.verification_materials.v0"
+_ISSUER_SPKI_DOMAIN = b"traigent.agent_certificate.issuer_spki_der.v0"
+_CLIENT_SPKI_DOMAIN = b"traigent.agent_certificate.client_spki_der.v0"
 _SESSION = "bsn:abcdef0123456789"
 _NONCE = "ab" * 16
 _ECDSA_ORDER = int("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551", 16)
@@ -196,6 +200,60 @@ def _sign_fixture(
     return cert, issuer_key.public_key(), context, policy
 
 
+def _public_key_der_b64(public_key: object) -> str:
+    return base64.b64encode(_public_key_der(public_key)).decode("ascii")
+
+
+def _public_key_der(public_key: object) -> bytes:
+    return public_key.public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+
+def _public_key_digest(public_key: object, domain: bytes) -> str:
+    return "sha256:" + hashlib.sha256(domain + b"\0" + _public_key_der(public_key)).hexdigest()
+
+
+def _materials_fixture(
+    cert: dict, issuer: object, context: VerificationContext, policy: RelyingPartyPolicy
+) -> dict:
+    document = {
+        "schema_version": "traigent.certificate_verification_materials.v0",
+        "distribution_role": "discovery_only",
+        "requires_independent_pins": True,
+        "certificate_ref": "certificate:opaque0001",
+        "issuer": {
+            "key_ref": context.expected_issuer_key_ref,
+            "trust_ring_ref": context.expected_trust_ring_ref,
+            "algorithm": context.expected_issuer_algorithm,
+            "public_key_der_b64": _public_key_der_b64(issuer),
+            "public_key_digest": _public_key_digest(issuer, _ISSUER_SPKI_DOMAIN),
+        },
+        "client": {
+            "key_ref": context.expected_client_key_ref,
+            "algorithm": context.expected_client_algorithm,
+            "public_key_der_b64": _public_key_der_b64(context.client_public_key),
+            "public_key_digest": _public_key_digest(
+                context.client_public_key, _CLIENT_SPKI_DOMAIN
+            ),
+        },
+        "relying_party_policy": {
+            "compiler_register_versions": dict(policy.compiler_register_versions),
+            "verifier_bindings": [
+                {
+                    "verifier_id": claim_id,
+                    "verifier_ref": verifier_ref,
+                    "verifier_version": verifier_version,
+                }
+                for claim_id, verifier_ref, verifier_version in policy.verifier_bindings
+            ],
+        },
+    }
+    document["materials_digest"] = _digest(_MATERIALS_DOMAIN, document)
+    return document
+
+
 def _resign_issuer(cert: dict, algorithm: str) -> None:
     issuer_key, _ = _private_keys(algorithm)
     unsigned = cert["signatures"]["unsigned_manifest"]["document"]
@@ -231,7 +289,144 @@ def _resign_fixture(cert: dict, algorithm: str) -> None:
 def test_g1_certificate_is_verified_offline(algorithm: str) -> None:
     cert, issuer, context, policy = _sign_fixture(algorithm)
     result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
-    assert result.valid and result.code == "VERIFIED"
+    assert result.valid
+    assert result.code == "VERIFIED"
+
+
+def test_discovered_materials_bundle_verifies_end_to_end() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+
+    result = verify_certificate_with_materials(
+        cert,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+    )
+    assert result.valid
+
+
+def test_discovered_materials_digest_mutation_is_rejected() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    materials["client"]["key_ref"] = "client-key:mutated01"
+
+    with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
+        verify_certificate_with_materials(
+            cert,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref="certificate:opaque0001",
+            context=context,
+        )
+
+
+def test_discovered_materials_expected_digest_is_required_and_pinned() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+
+    with pytest.raises(TypeError):
+        verify_certificate_with_materials(cert, materials, context=context)
+
+    with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
+        verify_certificate_with_materials(
+            cert,
+            materials,
+            expected_materials_digest="sha256:" + "0" * 64,
+            certificate_ref="certificate:opaque0001",
+            context=context,
+        )
+
+
+def test_discovered_materials_whole_bundle_replacement_is_rejected() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    trusted = _materials_fixture(cert, issuer, context, policy)
+    replacement = _materials_fixture(cert, issuer, context, policy)
+    replacement_issuer = ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(64, 96)))
+    replacement["issuer"]["public_key_der_b64"] = _public_key_der_b64(
+        replacement_issuer.public_key()
+    )
+    replacement["issuer"]["public_key_digest"] = _public_key_digest(
+        replacement_issuer.public_key(), _ISSUER_SPKI_DOMAIN
+    )
+    replacement["materials_digest"] = _digest(
+        _MATERIALS_DOMAIN,
+        {key: value for key, value in replacement.items() if key != "materials_digest"},
+    )
+
+    with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
+        verify_certificate_with_materials(
+            cert,
+            replacement,
+            expected_materials_digest=trusted["materials_digest"],
+            certificate_ref=trusted["certificate_ref"],
+            context=context,
+        )
+
+
+def test_discovered_materials_issuer_key_ref_binding_is_rejected() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    materials["issuer"]["key_ref"] = "issuer-key:mutated01"
+    materials["materials_digest"] = _digest(
+        _MATERIALS_DOMAIN,
+        {key: value for key, value in materials.items() if key != "materials_digest"},
+    )
+
+    with pytest.raises(VerificationError, match="^MATERIALS_BINDING$"):
+        verify_certificate_with_materials(
+            cert,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref="certificate:opaque0001",
+            context=context,
+        )
+
+
+def test_discovered_materials_issuer_der_mismatch_is_rejected() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrong_issuer, _ = _private_keys("ecdsa_p256_sha256")
+    materials["issuer"]["public_key_der_b64"] = _public_key_der_b64(
+        wrong_issuer.public_key()
+    )
+    materials["materials_digest"] = _digest(
+        _MATERIALS_DOMAIN,
+        {key: value for key, value in materials.items() if key != "materials_digest"},
+    )
+
+    with pytest.raises(VerificationError):
+        verify_certificate_with_materials(
+            cert,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref="certificate:opaque0001",
+            context=context,
+        )
+
+
+@pytest.mark.parametrize("location, seed", [("issuer", 64), ("client", 96)])
+def test_discovered_materials_stale_spki_digest_is_rejected(location: str, seed: int) -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    replacement_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(seed, seed + 32)))
+    materials[location]["public_key_der_b64"] = _public_key_der_b64(
+        replacement_key.public_key()
+    )
+    materials["materials_digest"] = _digest(
+        _MATERIALS_DOMAIN,
+        {key: value for key, value in materials.items() if key != "materials_digest"},
+    )
+
+    with pytest.raises(VerificationError, match="^MATERIALS_KEY$"):
+        verify_certificate_with_materials(
+            cert,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref="certificate:opaque0001",
+            context=context,
+        )
 
 
 def test_c1_truthful_abstention_is_required() -> None:
@@ -241,7 +436,8 @@ def test_c1_truthful_abstention_is_required() -> None:
     )
     assert c1_row["abstention_code"] == "verifier_not_run_or_not_pass"
     result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
-    assert result.valid and result.code == "VERIFIED"
+    assert result.valid
+    assert result.code == "VERIFIED"
 
     c1_row["abstention_code"] = "prohibited_register_violation"
     _rebind_audit_report_digest(cert)
@@ -282,10 +478,11 @@ def test_wrong_issuer_key_is_rejected(algorithm: str) -> None:
     wrong_issuer, _ = _private_keys(
         "ed25519" if algorithm == "ecdsa_p256_sha256" else "ecdsa_p256_sha256"
     )
+    wrong_issuer_public_key = wrong_issuer.public_key()
     with pytest.raises(VerificationError):
         verify_certificate(
             cert,
-            issuer_public_key=wrong_issuer.public_key(),
+            issuer_public_key=wrong_issuer_public_key,
             context=context,
             policy=policy,
         )
@@ -322,6 +519,14 @@ def test_high_s_client_signature_is_rejected() -> None:
     co["signature"] = _high_s(co["signature"])
     _resign_issuer(cert, "ecdsa_p256_sha256")
     with pytest.raises(VerificationError, match="^CLIENT_SIGNATURE_NON_CANONICAL$"):
+        verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
+
+
+def test_signed_payload_discriminator_mismatch_is_rejected() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    cert["signatures"]["issuer_signature"]["signed_payload"] = ["unsigned_manifest"]
+
+    with pytest.raises(VerificationError, match="^SCHEMA$"):
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
 
 

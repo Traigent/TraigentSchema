@@ -10,7 +10,7 @@
     "status": "canonical",
     "description": "Backend-asserted Agent Certificate v0 route shapes; certificate validity and claim eligibility remain verifier/compiler responsibilities."
   },
-  "x-asserted-against-backend": true,
+  "x-asserted-against-backend": false,
   "x-wrap-map": {
     "certificate_v0": "bare"
   },

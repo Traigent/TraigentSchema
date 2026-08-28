@@ -8,11 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Agent Certificate v0 signing and certification API** now use an issuer-first
+  prepare/finalize protocol: the issuer signs the length-prefixed canonical
+  unsigned manifest, `prepare` returns that single complete pre-co-attestation
+  certificate projection, and the client signs the complete issuer-signed
+  projection excluding only the outer co-attestation. Finalize conditionally
+  requires co-attestation for persisted G1/tier-1 projections; B1-only may
+  issue with issuer material alone.
 - **Agent Certificate v0 G1** now uses the v2 pinned-client signed declaration and emits the
   exact honesty scope line. G1 payloads carry structurally adjacent build-session/client-key
   references and rendered text; client key references use deterministic project-scoped
   derivation from canonical public verification material. Enrollment no longer accepts a
-  caller-selected client key reference, and finalization requires the client co-attestation.
+  caller-selected client key reference, and G1 finalization requires the client co-attestation.
 - **Agent Certificate v0 audit reports** now expose one closed evidence_basis per fixed row;
   B1 may be issuer-verified only when the fixed seal and signing-envelope contract passes, while
   G1 remains a client-declared unopened commitment and unsupported rows abstain.
@@ -86,8 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wording); a FOURTEEN-item tuple-validated mandatory NON-claim print list; sealed-ledger wire
   shapes (fixed three-stream expected projection with explicit `chain_status` states, no
   counts/terminal sequence values, server-internal HMAC material unrepresentable); issuer
-  signature + full-manifest client co-attestation shapes (issuer covers the co-attestation
-  bytes when present; tier-1 claims require a co-attestation); minimal blinded
+  signature + full-manifest client co-attestation shapes (the issuer signs the unsigned
+  manifest first and the client then signs the complete issuer-signed projection; tier-1
+  claims require a co-attestation at issuance); minimal blinded
   AgentRevision/MeasurementContract registry commitment records (no counts, no date buckets,
   no timestamps, printed non-claims in the schema descriptions); and a bounded rejection
   diagnostic (closed code vocabulary + structural path of property names/indices only).

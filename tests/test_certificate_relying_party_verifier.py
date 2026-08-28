@@ -457,6 +457,36 @@ def test_g1_certificate_is_verified_offline(algorithm: str) -> None:
     assert result.code == "VERIFIED"
 
 
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> None:
+    """Exercise the real issuer-first projection, not a shape-only fixture."""
+    cert, issuer, context, policy = _sign_fixture(algorithm)
+    co = cert["signatures"]["co_attestation"]
+    prepared = copy.deepcopy(cert)
+    prepared["signatures"].pop("co_attestation")
+
+    # prepare returns exactly the object the client signed: one projection with
+    # the outer co-attestation absent, while the issuer signature remains.
+    assert "co_attestation" not in prepared["signatures"]
+    assert prepared["signatures"]["issuer_signature"]["signed_payload"] == [
+        "unsigned_manifest"
+    ]
+    projection_bytes = fp2.canonicalize(prepared).encode()
+    assert co["signed_manifest_digest"] == _digest(_CLIENT_CERTIFICATE_DOMAIN, prepared)
+    assert projection_bytes
+
+    # finalize adds the exact client signature to the persisted projection.
+    prepared["signatures"]["co_attestation"] = co
+    result = verify_certificate(prepared, issuer_public_key=issuer, context=context, policy=policy)
+    assert result.valid
+
+    # A replay/tamper of the prepared projection cannot reuse that co-signature.
+    tampered = copy.deepcopy(prepared)
+    tampered["subject"]["project_ref"] = "project_contract002"
+    with pytest.raises(VerificationError):
+        verify_certificate(tampered, issuer_public_key=issuer, context=context, policy=policy)
+
+
 def test_b1_issuer_verified_certificate_needs_no_client_material() -> None:
     cert, issuer, context, policy = _sign_fixture(
         claims=[_b1_claim(tier=3)],

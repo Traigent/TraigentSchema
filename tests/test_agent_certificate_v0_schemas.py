@@ -322,11 +322,10 @@ def _signatures(
     # signed_manifest_digest are drawn from that same manifest -- exactly the
     # bindings a relying-party verifier checks.
     claims = claims if claims is not None else [_g1_claim(tier=1)]
-    # Deep-copy so the embedded document's `claims` section is an
-    # independent copy of the certificate's own `claims` field, not the
-    # same aliased list -- a compiler copies verbatim at construction time,
-    # but the two fields must be independently mutable afterwards for
-    # divergence to be representable/testable at all.
+    # Materialize the embedded manifest projection from the certificate claims;
+    # the contract verifier checks the two signed projections for exact
+    # equality rather than treating either copy as an independently mutable
+    # client input.
     manifest = _unsigned_manifest(
         claims=copy.deepcopy(claims),
         with_co=with_co,
@@ -1470,18 +1469,15 @@ class TestCoAttestationBinding:
         cert = _certificate(claims=[_g1_claim(tier=1)], with_co=True)
         assert not _errors(ENVELOPE, cert)
 
-    def test_issuer_must_cover_present_co_attestation(self) -> None:
+    def test_issuer_never_covers_present_co_attestation(self) -> None:
         sigs = _signatures(with_co=True)
-        sigs["issuer_signature"]["signed_payload"] = ["unsigned_manifest", "co_attestation"]
-        assert _errors(SIGNATURES, sigs)
+        assert sigs["issuer_signature"]["signed_payload"] == ["unsigned_manifest"]
+        assert not _errors(SIGNATURES, sigs)
 
-    def test_issuer_cannot_claim_absent_co_attestation(self) -> None:
+    def test_issuer_payload_is_unchanged_for_b1_only_certificate(self) -> None:
         sigs = _signatures(with_co=False)
-        sigs["issuer_signature"]["signed_payload"] = [
-            "unsigned_manifest",
-            "co_attestation",
-        ]
-        assert _errors(SIGNATURES, sigs)
+        assert sigs["issuer_signature"]["signed_payload"] == ["unsigned_manifest"]
+        assert not _errors(SIGNATURES, sigs)
 
     def test_manifest_coverage_is_pinned(self) -> None:
         sigs = _signatures()
@@ -1525,6 +1521,27 @@ class TestSignatureProtocol:
             "bbbd57422094b975fc9e7ad3a5fcadc59747fe654b9f0d1b0a4124e27bdec628"
         )
 
+    def test_published_signature_preimage_wording_matches_vectors(self) -> None:
+        signatures_description = _load(CERT_DIR / SIGNATURES)["description"]
+        common_description = _load(CERT_DIR / "certification_common_v0_schema.json")["definitions"][
+            "SignedMaterialDomainTagV0"
+        ]["description"]
+        issuer_phrase = (
+            "UTF8(`traigent.agent_certificate.issuer_signature.v0`) || "
+            "uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes"
+        )
+        client_phrase = (
+            "UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || "
+            "uint64be(len(certificate_projection_jcs_bytes)) || "
+            "certificate_projection_jcs_bytes"
+        )
+        assert issuer_phrase in signatures_description
+        assert client_phrase in signatures_description
+        assert issuer_phrase in common_description
+        assert client_phrase in common_description
+        assert "0x00" not in signatures_description
+        assert "co_signature_raw" not in signatures_description
+
     def test_signed_material_length_framing_and_role_substitution_mutate_answer(
         self,
     ) -> None:
@@ -1536,7 +1553,7 @@ class TestSignatureProtocol:
             + client[len(b"traigent.agent_certificate.client_co_attestation.v0") :]
         )
 
-    def test_signed_payload_discriminator_tracks_co_signature_length(self) -> None:
+    def test_signed_payload_is_always_the_unsigned_manifest(self) -> None:
         assert not _errors(SIGNATURES, _signatures(with_co=False))
         assert not _errors(SIGNATURES, _signatures(with_co=True))
         absent = _signatures(with_co=False)

@@ -31,7 +31,7 @@
       "$ref": "#/definitions/IssuerVerificationKeyV0"
     },
     "client": {
-      "description": "The client public-key projection is present iff the referenced certificate has claims or a co-attestation. Zero-claim certificates without co-attestation omit this member and use issuer-only materials.",
+      "description": "The client public-key projection is present iff the referenced certificate has a client-declared G1/tier-1 claim or a co-attestation. B1-only and zero-claim certificates may omit this member and use issuer-only materials.",
       "$ref": "#/definitions/ClientVerificationKeyV0"
     },
     "relying_party_policy": {

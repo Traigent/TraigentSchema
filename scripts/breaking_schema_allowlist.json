@@ -1032,6 +1032,22 @@
       "reason": "Reported as 'type no longer allows object' because the breaking-check tool does not resolve oneOf branches back to their member types; the actual behavior is additive, not a narrowing -- the object (MeasureResults) branch is unchanged and a second, array (ExampleMetrics list), branch is now also accepted. Same change and same evidence as the paired oneOf_added acknowledgement immediately above for this file.",
       "version": "5.8.0",
       "pr": "#437"
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "required",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-build-sessions/prepare/post/responses/200/content/application/json/schema",
+      "reason": "Replaces the incomplete prepare response wrapper with the exact persisted issuer-signed pre-co-attestation certificate projection required for an executable client-signing flow. The old wrapper fields are intentionally replaced by the complete content-free projection; finalize remains conditionally enforced by persisted G1/tier-1 state. Reviewed under the owner-approved Certified Agent v0 correction session cs_3e01e0344f7b19eb and the bounded follow-up packet. This acknowledgement is scoped to the prepare response required set.",
+      "version": "5.7.0",
+      "pr": "local-candidate-2be9f73"
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-build-sessions/prepare/post/responses/200/content/application/json/schema/properties",
+      "reason": "Publishes the complete content-free issuer-signed pre-co-attestation certificate projection from prepare so the client canonicalizes and signs exactly the server-persisted object. These closed response members replace the old digest-plus-manifest wrapper and are intentionally required by the executable protocol; no second independently mutable unsigned-manifest response is introduced. Reviewed under the owner-approved Certified Agent v0 correction session cs_3e01e0344f7b19eb and the bounded follow-up packet. This acknowledgement is scoped to prepare response properties.",
+      "version": "5.7.0",
+      "pr": "local-candidate-2be9f73"
     }
   ]
 }

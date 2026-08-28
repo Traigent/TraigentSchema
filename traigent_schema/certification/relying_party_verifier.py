@@ -218,8 +218,11 @@ def derive_client_key_ref(
         or not isinstance(client_public_key.curve, ec.SECP256R1)
     ):
         _fail("CLIENT_KEY_REF")
+    verified_public_key = cast(
+        ed25519.Ed25519PublicKey | ec.EllipticCurvePublicKey, client_public_key
+    )
     try:
-        spki = client_public_key.public_bytes(
+        spki = verified_public_key.public_bytes(
             serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
         )
     except Exception:

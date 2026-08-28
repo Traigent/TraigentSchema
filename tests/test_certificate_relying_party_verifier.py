@@ -46,7 +46,7 @@ _ISSUER_DOMAIN = b"traigent.agent_certificate.issuer_signature.v0"
 _MATERIALS_DOMAIN = b"traigent.agent_certificate.verification_materials.v0"
 _ISSUER_SPKI_DOMAIN = b"traigent.agent_certificate.issuer_spki_der.v0"
 _CLIENT_SPKI_DOMAIN = b"traigent.agent_certificate.client_spki_der.v0"
-_SESSION = "bsn:abcdef0123456789"
+_SESSION = "bsn:" + "a" * 43
 _NONCE = "ab" * 16
 _ECDSA_ORDER = int("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551", 16)
 
@@ -299,9 +299,7 @@ def _materials_fixture(
             "key_ref": context.expected_client_key_ref,
             "algorithm": context.expected_client_algorithm,
             "public_key_der_b64": _public_key_der_b64(context.client_public_key),
-            "public_key_digest": _public_key_digest(
-                context.client_public_key, _CLIENT_SPKI_DOMAIN
-            ),
+            "public_key_digest": _public_key_digest(context.client_public_key, _CLIENT_SPKI_DOMAIN),
         }
     document["materials_digest"] = _digest(_MATERIALS_DOMAIN, document)
     return document
@@ -409,6 +407,51 @@ def test_active_retrieval_wrapper_is_verified() -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
     wrapper = _retrieval_wrapper(cert, materials)
+
+    result = verify_certificate_with_materials(
+        wrapper,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+    )
+    assert result.valid
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("build_session_ref", "bsn:" + "b" * 43, "SESSION_REF"),
+        ("schema_version", "traigent.agent_certificate.v1", "CERTIFICATE_STATUS"),
+        ("manifest_digest", "sha256:" + "b" * 64, "MANIFEST_DIGEST"),
+        ("id", "ca_" + "b" * 31, "CERTIFICATE_STATUS"),
+        ("created_at", "2026-08-24", "CERTIFICATE_STATUS"),
+    ],
+)
+def test_retrieval_wrapper_rejects_projection_mutations(field: str, value: str, error: str) -> None:
+    """Reject signed-field substitutions and malformed unbound metadata."""
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = _retrieval_wrapper(cert, materials)
+    wrapper[field] = value
+
+    with pytest.raises(VerificationError, match=f"^{error}$"):
+        verify_certificate_with_materials(
+            wrapper,
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=context,
+        )
+
+
+def test_retrieval_wrapper_accepts_valid_unbound_projection_metadata() -> None:
+    """A valid server id/timestamp has no signed-envelope counterpart to bind."""
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = _retrieval_wrapper(cert, materials)
+    wrapper["id"] = "ca_" + "b" * 32
+    wrapper["created_at"] = "2026-08-25T00:00:00Z"
 
     result = verify_certificate_with_materials(
         wrapper,
@@ -680,9 +723,7 @@ def test_discovered_materials_issuer_der_mismatch_is_rejected() -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
     wrong_issuer, _ = _private_keys("ecdsa_p256_sha256")
-    materials["issuer"]["public_key_der_b64"] = _public_key_der_b64(
-        wrong_issuer.public_key()
-    )
+    materials["issuer"]["public_key_der_b64"] = _public_key_der_b64(wrong_issuer.public_key())
     materials["materials_digest"] = _digest(
         _MATERIALS_DOMAIN,
         {key: value for key, value in materials.items() if key != "materials_digest"},
@@ -703,9 +744,7 @@ def test_discovered_materials_stale_spki_digest_is_rejected(location: str, seed:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
     replacement_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(seed, seed + 32)))
-    materials[location]["public_key_der_b64"] = _public_key_der_b64(
-        replacement_key.public_key()
-    )
+    materials[location]["public_key_der_b64"] = _public_key_der_b64(replacement_key.public_key())
     materials["materials_digest"] = _digest(
         _MATERIALS_DOMAIN,
         {key: value for key, value in materials.items() if key != "materials_digest"},

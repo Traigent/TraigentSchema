@@ -93,6 +93,7 @@ from traigent_schema import fp2
 
 SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "traigent_schema" / "schemas"
 CERT_DIR = SCHEMAS_DIR / "certification"
+_BUILD_SESSION_REF = "bsn:" + "a" * 43
 
 CERT_FILES = [
     "certification_common_v0_schema.json",
@@ -191,7 +192,7 @@ def _seal_statement() -> dict:
     return {
         "seal_ref": "seal:abcdef0123456789",
         "chain_schema_version": "traigent.cert_build_ledger.v0",
-        "build_session_ref": "bsn:abcdef0123456789",
+        "build_session_ref": _BUILD_SESSION_REF,
         "expected_stream_projection": {
             "decision_stream": {
                 "stream_family": "decision",
@@ -367,7 +368,7 @@ def _certificate(
         "subject": {
             "subject_kind": "build_session",
             "hash_algorithm": "v1",
-            "build_session_ref": "bsn:abcdef0123456789",
+            "build_session_ref": _BUILD_SESSION_REF,
             "session_commitment_digest": _SHA,
         },
         "semantics": {
@@ -584,7 +585,7 @@ def _unsigned_manifest(
         "subject": {
             "subject_kind": "build_session",
             "hash_algorithm": "v1",
-            "build_session_ref": "bsn:abcdef0123456789",
+            "build_session_ref": _BUILD_SESSION_REF,
             "session_commitment_digest": _SHA,
         },
         "seal": _seal_statement(),
@@ -682,7 +683,7 @@ def _audit_report(rows: list | None = None) -> dict:
         rows = [_audit_row_abstained(cid) for cid in _AUDIT_ROW_ORDER]
     return {
         "schema_version": "traigent.certificate_audit_report.v0",
-        "build_session_ref": "bsn:abcdef0123456789",
+        "build_session_ref": _BUILD_SESSION_REF,
         "client_evidence_manifest_root": None,
         "ledger_seal_statement_digest": _SHA,
         "compiler_register_versions": _compiler_register_versions(),
@@ -733,7 +734,7 @@ def _audit_report_for_claims(claims: list) -> dict:
     )
     return {
         "schema_version": "traigent.certificate_audit_report.v0",
-        "build_session_ref": "bsn:abcdef0123456789",
+        "build_session_ref": _BUILD_SESSION_REF,
         "client_evidence_manifest_root": manifest_root,
         "ledger_seal_statement_digest": _SHA,
         "compiler_register_versions": _compiler_register_versions(),
@@ -1997,9 +1998,7 @@ class TestUnsignedManifest:
         # Build the two item instances independently of the fixture/projection
         # helpers, then ask Draft-07 to oracle the loaded schema directly.
         schema = _load(CERT_DIR / UNSIGNED_MANIFEST)
-        first_item = copy.deepcopy(
-            schema["definitions"]["EvidenceDigestsProjectionV0"]["items"][0]
-        )
+        first_item = copy.deepcopy(schema["definitions"]["EvidenceDigestsProjectionV0"]["items"][0])
         first_item["allOf"][0]["$ref"] = (
             "https://schemas.traigent.ai/certification/"
             "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"

@@ -40,6 +40,9 @@ from traigent_schema.validator import _FORMAT_CHECKER, SchemaDependencyError, Sc
 
 _CERT_DIR = Path(__file__).resolve().parent.parent / "schemas" / "certification"
 _SCHEMAS_DIR = _CERT_DIR.parent
+_CERTIFICATE_ENDPOINTS_ID = (
+    "https://schemas.traigent.ai/certification/certification_endpoints_v0.json"
+)
 
 _AUDIT_DOMAIN = b"traigent.agent_certificate.audit_report.v1"
 _CLAIM_MATERIAL_DOMAIN = b"traigent.agent_certificate.claim_material.v1"
@@ -119,20 +122,6 @@ _ECDSA_ORDER = int("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC63
 _ECDSA_HALF_ORDER = _ECDSA_ORDER // 2
 _SIG_RE = re.compile(r"^[A-Za-z0-9+/]{86}==$")
 _REF_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$")
-_CERTIFICATE_RETRIEVAL_KEYS = frozenset(
-    {
-        "id",
-        "tenant_id",
-        "project_id",
-        "build_session_ref",
-        "certificate_ref",
-        "schema_version",
-        "manifest_digest",
-        "created_at",
-        "certificate_status",
-        "signed_certificate",
-    }
-)
 
 
 class RelyingPartyVerificationError(ValueError):
@@ -216,6 +205,43 @@ def _certificate_validator() -> Draft7Validator:
     return Draft7Validator(schema, registry=registry, format_checker=_FORMAT_CHECKER)
 
 
+@lru_cache(maxsize=1)
+def _certificate_retrieval_validator() -> Draft7Validator:
+    """Validate retrieval wrappers against the canonical endpoint component.
+
+    ``CertificateRetrievalResponseV0`` is defined as an OpenAPI component rather
+    than a standalone schema file.  Keep that component authoritative by loading
+    it directly from the endpoint catalog and placing the catalog's components in
+    a draft-07 resource for local ``#/components`` references.  The registry also
+    contains the packaged schemas referenced by the component, so this path cannot
+    silently drift into a hand-maintained duplicate wrapper schema.
+    """
+    resources: list[tuple[str, Resource]] = []
+    for path in _SCHEMAS_DIR.rglob("*.json"):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(document, dict) and "$id" in document:
+            resources.append((document["$id"], Resource.from_contents(document)))
+
+    catalog = json.loads(
+        (_CERT_DIR / "certification_endpoints_v0.json").read_text(encoding="utf-8")
+    )
+    components = catalog.get("components")
+    if type(components) is not dict:
+        raise ValueError("CERTIFICATE_RETRIEVAL_SCHEMA")
+    catalog_resource = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": _CERTIFICATE_ENDPOINTS_ID,
+        "components": components,
+    }
+    resources.append((_CERTIFICATE_ENDPOINTS_ID, Resource.from_contents(catalog_resource)))
+    registry = Registry().with_resources(resources)
+    return Draft7Validator(
+        {"$ref": _CERTIFICATE_ENDPOINTS_ID + "#/components/schemas/CertificateRetrievalResponseV0"},
+        registry=registry,
+        format_checker=_FORMAT_CHECKER,
+    )
+
+
 def _fail(code: str) -> NoReturn:
     raise RelyingPartyVerificationError(code)
 
@@ -296,17 +322,17 @@ def _material_public_key(projection: dict[str, Any], digest_domain: bytes) -> ob
         _fail("MATERIALS_KEY")
     if canonical != der:
         _fail("MATERIALS_KEY")
-    if projection["public_key_digest"] != _SHA256_PREFIX + hashlib.sha256(
-        digest_domain + b"\x00" + der
-    ).hexdigest():
+    if (
+        projection["public_key_digest"]
+        != _SHA256_PREFIX + hashlib.sha256(digest_domain + b"\x00" + der).hexdigest()
+    ):
         _fail("MATERIALS_KEY")
     algorithm = projection["algorithm"]
     if algorithm == "ed25519" and not isinstance(key, ed25519.Ed25519PublicKey):
         _fail("MATERIALS_KEY")
     curve = getattr(key, "curve", None)
     if algorithm == "ecdsa_p256_sha256" and (
-        not isinstance(key, ec.EllipticCurvePublicKey)
-        or not isinstance(curve, ec.SECP256R1)
+        not isinstance(key, ec.EllipticCurvePublicKey) or not isinstance(curve, ec.SECP256R1)
     ):
         _fail("MATERIALS_KEY")
     return key
@@ -390,8 +416,7 @@ def _check_materials_bindings(
             ):
                 _fail("MATERIALS_BINDING")
             client_bindings_match = (
-                "client_key_ref" not in ring
-                and "client_signature_algorithm" not in ring
+                "client_key_ref" not in ring and "client_signature_algorithm" not in ring
             )
         if (
             ring["issuer_key_ref"] != issuer["key_ref"]
@@ -402,6 +427,27 @@ def _check_materials_bindings(
             _fail("MATERIALS_BINDING")
     except (KeyError, TypeError):
         _fail("MATERIALS_BINDING")
+
+
+def _check_retrieval_wrapper_bindings(wrapper: dict[str, Any], certificate: dict[str, Any]) -> None:
+    """Bind retrieval projections to fields authoritative in the signed envelope.
+
+    The retrieval contract's ``id`` and ``created_at`` are server projection
+    metadata and have no counterpart in the signed certificate, so their shape
+    is checked by the canonical retrieval schema but they are not compared here.
+    """
+    try:
+        if wrapper["build_session_ref"] != certificate["subject"]["build_session_ref"]:
+            _fail("SESSION_REF")
+        if wrapper["schema_version"] != certificate["schema_version"]:
+            _fail("SCHEMA")
+        if (
+            wrapper["manifest_digest"]
+            != certificate["signatures"]["unsigned_manifest"]["manifest_digest"]
+        ):
+            _fail("MANIFEST_DIGEST")
+    except (KeyError, TypeError):
+        _fail("CERTIFICATE_STATUS")
 
 
 def verify_certificate_with_materials(
@@ -443,10 +489,16 @@ def verify_certificate_with_materials(
         # These two members are disjoint from the signed certificate envelope,
         # so they are the unambiguous marker for a retrieval wrapper.  A
         # wrapper missing either one still takes the status path and fails its
-        # exact-key check rather than being treated as an offline certificate.
+        # canonical retrieval-schema check rather than being treated as an
+        # offline certificate.
+        wrapper: dict[str, Any] | None = None
         if "signed_certificate" in certificate or "certificate_status" in certificate:
             wrapper = cast(dict[str, Any], certificate)
-            if set(wrapper) != _CERTIFICATE_RETRIEVAL_KEYS:
+            try:
+                wrapper_errors = list(_certificate_retrieval_validator().iter_errors(wrapper))
+            except Exception:
+                _fail("CERTIFICATE_STATUS")
+            if wrapper_errors:
                 _fail("CERTIFICATE_STATUS")
             status = wrapper.get("certificate_status")
             if (
@@ -476,12 +528,15 @@ def verify_certificate_with_materials(
         )
         bound_context = replace(context, client_public_key=client_public_key)
         policy = _materials_policy(document)
-        return verify_certificate(
+        result = verify_certificate(
             envelope,
             issuer_public_key=issuer_public_key,
             context=bound_context,
             policy=policy,
         )
+        if wrapper is not None:
+            _check_retrieval_wrapper_bindings(wrapper, envelope)
+        return result
     except (RelyingPartyVerificationError, SchemaDependencyError):
         raise
     except Exception:

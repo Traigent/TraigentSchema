@@ -2,10 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/certificate_signatures_v0_schema.json",
   "title": "Agent Certificate v0 Signature and Co-Attestation Wire Shapes",
-  "description": "Issuer-signature scope and client co-attestation block for Agent Certificate v0, per C6 Ruling 3(iv) (reconciled, binding): 'the client signs a canonical unsigned-manifest digest covering subject, seal, complete claims and tiers, evidence digests, mandatory NON-claims, privacy mode, SDK identity, compiler/register versions, key/ring identifiers, and freshness data. The issuer then signs that manifest and the client signature.' Spine-digest-only binding was OVERTURNED: 'signing only the spine, privacy mode, SDK identity, and nonce allows the issuer to attach a different claim set, tiers, evidence references, and NON-claims to the same client signature.' This family does NOT reuse ArtifactSignatureEnvelopeV2 — reuse was struck ('not established merely because the existing KMS key matches that envelope. Adding nested signatures and new fields changes the format and verifier'). The v0 issuer path is a new dedicated per-environment certificate-signing key through protected GitHub-OIDC CI (C6 Ruling 4); the trust ring must be a signed, versioned artifact whose root fingerprint is pinned in the independent verifier, failing closed for unknown keys — a mutable ConfigMap is transport only, never authority. Root instance is one CertificateSignaturesV0.",
+  "description": "Issuer-signature scope and client co-attestation block for Agent Certificate v0. Both sign the canonical manifest BYTES, not the manifest digest: client signed bytes are UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes; issuer signed bytes are UTF8(`traigent.agent_certificate.issuer_signature.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes || uint64be(len(co_signature_raw)) || co_signature_raw. `co_signature_raw` is strict RFC 4648 base64-decoded signature bytes and is empty when absent. The signed_payload discriminator must agree with zero/nonzero co-signature length. The manifest_digest remains a transmitted digest/reference and is not the signature preimage. This family does NOT reuse ArtifactSignatureEnvelopeV2 — reuse was struck because adding nested signatures and new fields changes the format and verifier. The v0 issuer path is a dedicated per-environment certificate-signing key through protected GitHub-OIDC CI; the trust ring must be a signed, versioned artifact whose root fingerprint is pinned in the independent verifier. SCHEMA-1 P0 FIX: UnsignedManifestRefV0 carries the complete typed manifest document alongside its digest and fixed coverage list. Root instance is one CertificateSignaturesV0.",
   "definitions": {
     "UnsignedManifestCoverageV0": {
-      "description": "The FIXED coverage list of the canonical unsigned manifest — the eleven sections C6 Ruling 3(iv) enumerates, pinned as a const so a manifest that covers less is unrepresentable. Freshness data is covered material; per-certificate expiry semantics are pinned by the signed semantics manifest.",
+      "description": "The FIXED coverage list of the canonical unsigned manifest — the twelve sections C6 Ruling 3(iv) enumerates plus the signed disclosure-profile binding, pinned as a const so a manifest that covers less is unrepresentable. Freshness data is covered material; per-certificate expiry semantics are pinned by the signed semantics manifest. SCHEMA-1 (2026-08-25): certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0 is the typed document these twelve labels name — each label is a required property of that object with concrete canonical preimage data, closing gap C1 ('coverage is a label, not a binding') and the mutable disclosure-profile gap. This file does not $ref that document (avoiding a dependency cycle back through this file's own consumers); the correspondence is enforced by keeping this const list and UnsignedManifestV0's required-property list identical, checked in tests/test_agent_certificate_v0_schemas.py.",
       "const": [
         "subject",
         "seal",
@@ -13,6 +13,7 @@
         "tiers",
         "evidence_digests",
         "non_claims",
+        "disclosure_profile",
         "privacy_mode",
         "sdk_identity",
         "compiler_register_versions",
@@ -21,12 +22,13 @@
       ]
     },
     "UnsignedManifestRefV0": {
-      "description": "Reference to the canonical unsigned manifest: its digest plus the pinned coverage list. The digest is computed over the canonical serialization defined by the signed semantics manifest; 'A digest without an archived, authentic bundle and resolver does not preserve verification' (C1 Ruling 6) — archival is a B5/verifier obligation this shape cannot discharge.",
+      "description": "The canonical unsigned manifest AS TRANSMITTED (SCHEMA-1 P0 fix, 2026-08-25): `document` is the complete typed certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0 object, including the signed disclosure-profile projection. `manifest_digest` is computed over that complete content-free document; an independent verifier now needs no issuer database to obtain the manifest it is checking a signature over.",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "manifest_digest",
-        "coverage"
+        "coverage",
+        "document"
       ],
       "properties": {
         "manifest_digest": {
@@ -34,11 +36,14 @@
         },
         "coverage": {
           "$ref": "#/definitions/UnsignedManifestCoverageV0"
+        },
+        "document": {
+          "$ref": "certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0"
         }
       }
     },
     "CoAttestationV0": {
-      "description": "The client co-attestation block. The client signs the FULL canonical unsigned-manifest digest (never a spine digest). Scope carried verbatim from C6 Ruling 3(iv): 'That does not mean the client attests every server assertion as true; it means the client attests that these are the exact bytes it co-signed.' The client key crosses as an OpaqueRef, not a raw public key — tension T3 (print the key, a blinded reference, or nothing) is unresolved between C6 and C1; the linkability-conservative opaque-reference encoding is used pending a Disclosure Register entry for the co-attestation key material (C1 Ruling 5, client->server entry 3).",
+      "description": "The client co-attestation block. The client signs the FULL canonical unsigned-manifest BYTES, never a digest and never a spine. Scope carried from C6 Ruling 3(iv): this attests that these are the exact bytes it co-signed, not that every server assertion is true. The exact preimage is UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes; no signature bytes enter it. `signed_manifest_digest` is a transmitted reference to those bytes, not what is signed. The client key crosses as an OpaqueRef, not a raw public key. NONCE BINDING: `nonce` MUST equal the manifest's freshness.nonce; a verifier compares both values after decoding the transmitted document.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -70,7 +75,7 @@
       }
     },
     "IssuerSignatureV0": {
-      "description": "The issuer signature. Signing order is conceded and binding: 'issuer signature should cover the client signature bytes' — signed_payload names exactly what the issuer signed, and the enclosing CertificateSignaturesV0 forces the covering form whenever a co-attestation is present. The signing workflow 'must verify the finalized manifest and ledger before signing' (C6 Ruling 4); that is a B5 obligation recorded here as scope, not proven by this shape.",
+      "description": "The issuer signature. The issuer signs the exact canonical manifest BYTES followed by a length-delimited raw co-signature: UTF8(`traigent.agent_certificate.issuer_signature.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes || uint64be(len(co_signature_raw)) || co_signature_raw. `co_signature_raw` is strict RFC 4648 base64-decoded bytes and is zero length when no co-attestation exists. `signed_payload` names whether that final length is zero or nonzero; the enclosing CertificateSignaturesV0 enforces the same discriminator for the presence/absence of the block. The signing workflow must verify the finalized manifest and ledger before signing; this shape does not prove that workflow. ECDSA P-256 signatures use fixed IEEE-P1363 r||s and the verifier rejects high-S. KEY-REF BINDING: issuer_key_ref and trust_ring_ref MUST equal the manifest's key-ring identifiers.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -93,7 +98,7 @@
           "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
         },
         "signed_payload": {
-          "description": "Exactly what the issuer signed: the unsigned manifest alone, or the unsigned manifest plus the client co-attestation bytes.",
+          "description": "The co-signature-length discriminator: [unsigned_manifest] means uint64be(len(co_signature_raw)) encodes zero; [unsigned_manifest, co_attestation] means it encodes a nonzero strict-base64-decoded co-signature length.",
           "oneOf": [
             {
               "const": [

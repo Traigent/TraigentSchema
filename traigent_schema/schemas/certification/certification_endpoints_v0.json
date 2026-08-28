@@ -1,0 +1,651 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Agent Certificate v0 Routes",
+    "version": "1.0.0",
+    "description": "Canonical content-free HTTP wire contract for the Agent Certificate v0 build, binding, issuance, retrieval, and public verification-material routes."
+  },
+  "x-traigent-contract": {
+    "name": "certificate_v0",
+    "status": "canonical",
+    "description": "Backend-asserted Agent Certificate v0 route shapes; certificate validity and claim eligibility remain verifier/compiler responsibilities."
+  },
+  "x-asserted-against-backend": false,
+  "x-wrap-map": {
+    "certificate_v0": "bare"
+  },
+  "paths": {
+    "/api/v1beta/certificate-build-sessions": {
+      "post": {
+        "summary": "Issue a content-free certificate build-session reference",
+        "operationId": "issueCertificateBuildSessionV0",
+        "x-wrap-status": "bare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["nonce"],
+                "properties": {
+                  "nonce": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/PublicNonce"
+                  },
+                  "ttl_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 86400,
+                    "default": 900
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Build-session reference issued.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/BuildSessionResponseV0"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/api/v1beta/certificate-build-sessions/bind-g1": {
+      "post": {
+        "summary": "Commit the client-manifest G1 binding projection",
+        "operationId": "bindCertificateG1V0",
+        "x-wrap-status": "bare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "build_session_ref",
+                  "manifest_root_digest",
+                  "commitment_scheme",
+                  "client_attestor_version",
+                  "client_key_ref",
+                  "client_signature_algorithm",
+                  "declared_mode",
+                  "sdk_ref",
+                  "sdk_version"
+                ],
+                "properties": {
+                  "build_session_ref": {
+                    "type": "string",
+                    "pattern": "^bsn:[A-Za-z0-9_-]{43}$"
+                  },
+                  "manifest_root_digest": {
+                    "allOf": [
+                      {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+                      {"not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}}
+                    ]
+                  },
+                  "commitment_scheme": {
+                    "const": "sha256_secret_blinded_v1"
+                  },
+                  "client_attestor_version": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/BoundedSemver"
+                  },
+                  "client_key_ref": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                  },
+                  "client_signature_algorithm": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+                  },
+                  "declared_mode": {
+                    "enum": ["offline", "current_online"]
+                  },
+                  "sdk_ref": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/GitCommitSha"
+                  },
+                  "sdk_version": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/BoundedSemver"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authoritative content-free G1 binding projection.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/G1BindingResponseV0"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "503": {"$ref": "#/components/responses/ServiceUnavailable"}
+        }
+      }
+    },
+    "/api/v1beta/certificate-client-keys": {
+      "post": {
+        "summary": "Enroll one project-scoped public client verification key",
+        "operationId": "enrollCertificateClientKeyV0",
+        "x-wrap-status": "bare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["client_key_ref", "algorithm", "public_key_der_b64"],
+                "properties": {
+                  "client_key_ref": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                  },
+                  "algorithm": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+                  },
+                  "public_key_der_b64": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "pattern": "^[A-Za-z0-9+/]+={0,2}$",
+                    "format": "canonical-spki-der-base64"
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {"properties": {"algorithm": {"const": "ed25519"}}, "required": ["algorithm"]},
+                    "then": {"properties": {"public_key_der_b64": {"format": "canonical-ed25519-spki-der-base64"}}}
+                  },
+                  {
+                    "if": {"properties": {"algorithm": {"const": "ecdsa_p256_sha256"}}, "required": ["algorithm"]},
+                    "then": {"properties": {"public_key_der_b64": {"format": "canonical-ecdsa-p256-spki-der-base64"}}}
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing enrollment returned idempotently.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ClientKeyResponseV0"}
+              }
+            }
+          },
+          "201": {
+            "description": "Public key enrollment created.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ClientKeyResponseV0"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "503": {"$ref": "#/components/responses/ServiceUnavailable"}
+        }
+      },
+      "delete": {
+        "summary": "Revoke one project-scoped public client verification key",
+        "operationId": "revokeCertificateClientKeyV0",
+        "x-wrap-status": "bare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["client_key_ref", "algorithm"],
+                "properties": {
+                  "client_key_ref": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                  },
+                  "algorithm": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+                  },
+                  "reason": {
+                    "enum": ["rotation", "administrative", "compromise"],
+                    "default": "administrative"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revocation fact returned.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ClientKeyRevocationResponseV0"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "503": {"$ref": "#/components/responses/ServiceUnavailable"}
+        }
+      }
+    },
+    "/api/v1beta/certificate-client-keys/revoke": {
+      "post": {
+        "summary": "Revoke one project-scoped public client verification key",
+        "operationId": "revokeCertificateClientKeyV0Post",
+        "x-wrap-status": "bare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["client_key_ref", "algorithm"],
+                "properties": {
+                  "client_key_ref": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                  },
+                  "algorithm": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+                  },
+                  "reason": {
+                    "enum": ["rotation", "administrative", "compromise"],
+                    "default": "administrative"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revocation fact returned.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ClientKeyRevocationResponseV0"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "503": {"$ref": "#/components/responses/ServiceUnavailable"}
+        }
+      }
+    },
+    "/api/v1beta/certificate-build-sessions/prepare": {
+      "post": {
+        "summary": "Prepare the unsigned certificate manifest projection",
+        "operationId": "prepareCertificateV0",
+        "x-wrap-status": "bare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["build_session_ref", "nonce"],
+                "properties": {
+                  "build_session_ref": {
+                    "type": "string",
+                    "pattern": "^bsn:[A-Za-z0-9_-]{43}$"
+                  },
+                  "nonce": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/PublicNonce"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unsigned manifest projection prepared.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/PrepareResponseV0"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "503": {"$ref": "#/components/responses/ServiceUnavailable"}
+        }
+      }
+    },
+    "/api/v1beta/certificate-build-sessions/finalize": {
+      "post": {
+        "summary": "Finalize and issue the signed certificate projection",
+        "operationId": "finalizeCertificateV0",
+        "x-wrap-status": "bare",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["build_session_ref", "nonce"],
+                "properties": {
+                  "build_session_ref": {
+                    "type": "string",
+                    "pattern": "^bsn:[A-Za-z0-9_-]{43}$"
+                  },
+                  "nonce": {
+                    "$ref": "./certification_common_v0_schema.json#/definitions/PublicNonce"
+                  },
+                  "co_attestation": {
+                    "anyOf": [
+                      {"$ref": "./certificate_signatures_v0_schema.json#/definitions/CoAttestationV0"},
+                      {"type": "null"}
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signed certificate artifact projection issued.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ArtifactProjectionV0"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "413": {"$ref": "#/components/responses/RequestTooLarge"},
+          "503": {"$ref": "#/components/responses/ServiceUnavailable"}
+        }
+      }
+    },
+    "/api/v1beta/certificates/{certificate_ref}": {
+      "parameters": [
+        {
+          "name": "certificate_ref",
+          "in": "path",
+          "required": true,
+          "schema": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"}
+        }
+      ],
+      "get": {
+        "summary": "Retrieve a signed Agent Certificate v0 envelope",
+        "operationId": "getCertificateV0",
+        "x-wrap-status": "bare",
+        "responses": {
+          "200": {
+            "description": "Signed certificate retrieval projection.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/CertificateRetrievalResponseV0"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "503": {"$ref": "#/components/responses/ServiceUnavailable"}
+        }
+      }
+    },
+    "/api/v1beta/certificates/{certificate_ref}/verification-materials": {
+      "parameters": [
+        {
+          "name": "certificate_ref",
+          "in": "path",
+          "required": true,
+          "schema": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"}
+        }
+      ],
+      "get": {
+        "summary": "Retrieve content-free certificate verification materials",
+        "operationId": "getCertificateVerificationMaterialsV0",
+        "x-wrap-status": "bare",
+        "responses": {
+          "200": {
+            "description": "Public-key and verifier-policy discovery projection.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "./certificate_verification_materials_v0_schema.json"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "503": {"$ref": "#/components/responses/ServiceUnavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "IdV0": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.-]{1,128}$"
+      },
+      "TimestampV0": {
+        "anyOf": [
+          {"type": "string", "format": "date-time"},
+          {"type": "null"}
+        ]
+      },
+      "BuildSessionResponseV0": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "tenant_id", "project_id", "build_session_ref", "state", "expires_at", "created_at", "finalized_at"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^cbs_[a-f0-9]{32}$"},
+          "tenant_id": {"$ref": "#/components/schemas/IdV0"},
+          "project_id": {"$ref": "#/components/schemas/IdV0"},
+          "build_session_ref": {"type": "string", "pattern": "^bsn:[A-Za-z0-9_-]{43}$"},
+          "state": {"enum": ["issued", "finalized", "expired"]},
+          "expires_at": {"type": "string", "format": "date-time"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "finalized_at": {"$ref": "#/components/schemas/TimestampV0"}
+        }
+      },
+      "G1BindingResponseV0": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["binding_id", "tenant_id", "project_id", "build_session_ref", "session_commitment_digest", "manifest_root_digest", "seal_ref", "seal_statement_digest", "has_g1_binding"],
+        "properties": {
+          "binding_id": {"$ref": "#/components/schemas/IdV0"},
+          "tenant_id": {"$ref": "#/components/schemas/IdV0"},
+          "project_id": {"$ref": "#/components/schemas/IdV0"},
+          "build_session_ref": {"type": "string", "pattern": "^bsn:[A-Za-z0-9_-]{43}$"},
+          "session_commitment_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+          "manifest_root_digest": {
+            "allOf": [
+              {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+              {"not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}}
+            ]
+          },
+          "seal_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "seal_statement_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+          "has_g1_binding": {"const": true}
+        }
+      },
+      "ClientKeyResponseV0": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "tenant_id", "project_id", "client_key_ref", "algorithm", "created_at"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^cck_[a-f0-9]{32}$"},
+          "tenant_id": {"$ref": "#/components/schemas/IdV0"},
+          "project_id": {"$ref": "#/components/schemas/IdV0"},
+          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "algorithm": {"$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "ClientKeyRevocationResponseV0": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "tenant_id", "project_id", "client_key_ref", "algorithm", "reason", "revoked_at"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^cckr_[a-f0-9]{32}$"},
+          "tenant_id": {"$ref": "#/components/schemas/IdV0"},
+          "project_id": {"$ref": "#/components/schemas/IdV0"},
+          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "algorithm": {"$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
+          "reason": {"enum": ["rotation", "administrative", "compromise"]},
+          "revoked_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "PrepareResponseV0": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["build_session_ref", "manifest_digest", "unsigned_manifest"],
+        "properties": {
+          "build_session_ref": {"type": "string", "pattern": "^bsn:[A-Za-z0-9_-]{43}$"},
+          "manifest_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+          "unsigned_manifest": {"$ref": "./certificate_unsigned_manifest_v0_schema.json"}
+        }
+      },
+      "ArtifactProjectionV0": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "tenant_id", "project_id", "build_session_ref", "certificate_ref", "schema_version", "manifest_digest", "created_at"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^ca_[a-f0-9]{32}$"},
+          "tenant_id": {"$ref": "#/components/schemas/IdV0"},
+          "project_id": {"$ref": "#/components/schemas/IdV0"},
+          "build_session_ref": {"type": "string", "pattern": "^bsn:[A-Za-z0-9_-]{43}$"},
+          "certificate_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "schema_version": {"const": "traigent.agent_certificate.v0"},
+          "manifest_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+          "created_at": {"$ref": "#/components/schemas/TimestampV0"}
+        }
+      },
+      "CertificateRetrievalResponseV0": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "tenant_id", "project_id", "build_session_ref", "certificate_ref", "schema_version", "manifest_digest", "created_at", "certificate_status", "signed_certificate"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^ca_[a-f0-9]{32}$"},
+          "tenant_id": {"$ref": "#/components/schemas/IdV0"},
+          "project_id": {"$ref": "#/components/schemas/IdV0"},
+          "build_session_ref": {"type": "string", "pattern": "^bsn:[A-Za-z0-9_-]{43}$"},
+          "certificate_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "schema_version": {"const": "traigent.agent_certificate.v0"},
+          "manifest_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+          "created_at": {"$ref": "#/components/schemas/TimestampV0"},
+          "certificate_status": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "revoked_at", "reason"],
+            "properties": {
+              "status": {"enum": ["active", "revoked_after_issuance", "untrusted_compromise", "untrusted_issuance_order"]},
+              "revoked_at": {"$ref": "#/components/schemas/TimestampV0"},
+              "reason": {"enum": ["rotation", "administrative", "compromise", null]}
+            },
+            "allOf": [
+              {
+                "if": {"properties": {"status": {"const": "active"}}, "required": ["status"]},
+                "then": {
+                  "properties": {
+                    "revoked_at": {"type": "null"},
+                    "reason": {"type": "null"}
+                  }
+                }
+              },
+              {
+                "if": {"properties": {"status": {"const": "untrusted_compromise"}}, "required": ["status"]},
+                "then": {
+                  "properties": {
+                    "revoked_at": {"type": "string", "format": "date-time"},
+                    "reason": {"const": "compromise"}
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "status": {"enum": ["revoked_after_issuance", "untrusted_issuance_order"]}
+                  },
+                  "required": ["status"]
+                },
+                "then": {
+                  "properties": {
+                    "revoked_at": {"type": "string", "format": "date-time"},
+                    "reason": {"enum": ["rotation", "administrative"]}
+                  }
+                }
+              }
+            ]
+          },
+          "signed_certificate": {"$ref": "./agent_certificate_v0_schema.json"}
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request is malformed or rejected by the certificate boundary.",
+        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+      },
+      "Unauthorized": {
+        "description": "Authentication is required.",
+        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+      },
+      "Forbidden": {
+        "description": "The authenticated principal lacks the required project permission.",
+        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+      },
+      "NotFound": {
+        "description": "The certificate or key was not found in the caller's project scope.",
+        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+      },
+      "Conflict": {
+        "description": "The key identity or revocation state conflicts with an existing record.",
+        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+      },
+      "RequestTooLarge": {
+        "description": "The bounded certificate request exceeded the wire-size limit.",
+        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+      },
+      "ServiceUnavailable": {
+        "description": "The server-owned certificate service is unavailable.",
+        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+      },
+      "InternalError": {
+        "description": "The request could not be completed.",
+        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+      }
+    }
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_client_evidence_manifest_v0_schema.json",
+  "title": "Agent Certificate v0 Client-Local Evidence Manifest",
+  "description": "SCHEMA-1 fixed client-local evidence manifest. G1's root digest is role-separated: `sha256:` plus lowercase SHA-256 over UTF8(`traigent.agent_certificate.client_evidence_manifest_root.v1`) || 0x00 || jcs_v1(this document). The four fixed slots never cross the Backend boundary in full; only this root digest crosses. For sha256_secret_blinded_v1, each slot_commitment_digest keeps the unchanged HMAC formula UTF8(\"traigent.cert.v0.slot_commitment.v1\") || 0x00 || UTF8(artifact_kind) || 0x00 || jcs_v1(artifact_document), keyed by its unique client-local 32-byte blind. No blind, private artifact content, counts, names, paths, or free text is representable.",
+  "definitions": {
+    "AgentRevisionSlotV0": {
+      "description": "The agent_revision slot: a sha256_secret_blinded_v1 commitment to the client-local agent revision manifest (parallel to, but distinct from, certificate_registry_agent_revision_v0_schema.json's server-registered AgentRevisionRegistryRecordV0 — that record commits at the SERVER after a separate registration call; this slot is the CLIENT's own local commitment, folded into the evidence-manifest root). The blind and artifact_document remain client-local and are never wire fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_kind", "commitment_scheme", "slot_commitment_digest"],
+      "properties": {
+        "artifact_kind": {
+          "const": "agent_revision"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "slot_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluationDatasetSlotV0": {
+      "description": "The evaluation_dataset slot: a sha256_secret_blinded_v1 commitment to the client-local evaluation-dataset content used in this build session. Row content, row counts, and dataset identifiers stay client-local; only this slot's digest is representable here. The blind and artifact_document remain client-local and are never wire fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_kind", "commitment_scheme", "slot_commitment_digest"],
+      "properties": {
+        "artifact_kind": {
+          "const": "evaluation_dataset"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "slot_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluatorSlotV0": {
+      "description": "The evaluator slot: a sha256_secret_blinded_v1 commitment to the client-local evaluator (scoring logic, prompts, or judge configuration) used in this build session. Evaluator source and configuration stay client-local; only this slot's digest is representable here. The blind and artifact_document remain client-local and are never wire fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_kind", "commitment_scheme", "slot_commitment_digest"],
+      "properties": {
+        "artifact_kind": {
+          "const": "evaluator"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "slot_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "BuildProcessEvidenceSlotV0": {
+      "description": "The build_process_evidence slot: a sha256_secret_blinded_v1 commitment to whatever client-local build-process evidence the client attestor gathered for this session (e.g. the pre-issuance audit report's inputs — certificate_audit_report_v0_schema.json — before that report itself is hashed and bound as certificate evidence). Content stays client-local; only this slot's digest is representable here. The blind and artifact_document remain client-local and are never wire fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_kind", "commitment_scheme", "slot_commitment_digest"],
+      "properties": {
+        "artifact_kind": {
+          "const": "build_process_evidence"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "slot_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "ClientEvidenceManifestV0": {
+      "description": "The fixed four-slot client-local evidence manifest. This object's own canonical digest (jcs_v1, i.e. traigent_schema/fp2.py) is the value that crosses the Backend boundary as claim G1's manifest_root_digest — never this object itself.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "agent_revision",
+        "evaluation_dataset",
+        "evaluator",
+        "build_process_evidence"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.certificate_client_evidence_manifest.v0"
+        },
+        "agent_revision": {
+          "$ref": "#/definitions/AgentRevisionSlotV0"
+        },
+        "evaluation_dataset": {
+          "$ref": "#/definitions/EvaluationDatasetSlotV0"
+        },
+        "evaluator": {
+          "$ref": "#/definitions/EvaluatorSlotV0"
+        },
+        "build_process_evidence": {
+          "$ref": "#/definitions/BuildProcessEvidenceSlotV0"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/ClientEvidenceManifestV0"
+    }
+  ]
+}

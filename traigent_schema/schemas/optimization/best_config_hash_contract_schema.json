@@ -26,7 +26,7 @@
       ]
     },
     "canonicalization": {
-      "description": "The fp2 canonicalization profile (traigent_schema/fp2.py, normative document docs/fingerprints/fp2.md, conformance corpus tests/data/fp2_conformance.json). fp2 is the single reference implementation: it fixes RFC 8785 number formatting via the ECMAScript Number::toString algorithm, orders object keys by UTF-16 code unit rather than code point, and rejects rather than coerces values it cannot represent identically in every language. Strings preserve their Unicode CODE-POINT sequence; they are not normalized, and the phrase 'byte-for-byte' would be inaccurate because canonicalization does not preserve original JSON escaping or transport bytes.",
+      "description": "The fp2 canonicalization profile (traigent_schema/fp2.py, normative document docs/fingerprints/fp2.md, packaged conformance corpus traigent_schema/data/fp2_conformance.json). fp2 is the single reference implementation: it fixes RFC 8785 number formatting via the ECMAScript Number::toString algorithm, orders object keys by UTF-16 code unit rather than code point, and rejects rather than coerces values it cannot represent identically in every language. Strings preserve their Unicode CODE-POINT sequence; they are not normalized, and the phrase 'byte-for-byte' would be inaccurate because canonicalization does not preserve original JSON escaping or transport bytes.",
       "type": "object",
       "properties": {
         "profile": {

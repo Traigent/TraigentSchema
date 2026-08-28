@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/certificate_claim_payloads_v0_schema.json",
   "title": "Agent Certificate v0 Per-Claim Payload Types",
-  "description": "ONE EXPLICIT PAYLOAD TYPE PER CLAIM ID — the generic slot map is overturned (C1 Ruling 1, binding): 'Replace the generic slot map with one explicit payload type per claim ID. Every field has a semantic bound, canonical encoding, cardinality limit, and Disclosure Register entry', because 'A generic slot map remains a high-capacity channel even when its values are enums, integers, or digests.' The seven types below are the complete conditional v0 allowlist, keyed by the V4 matrix's CANONICAL row IDs after the claim-ID reconciliation recorded in certificate_claims_v0_schema.json#/definitions/ClaimIdV0 (the C6 rulings named the set 'B1 · B3 · C1 · D2 · D5 · G1 · G3'; on the wire that is B1 · C1 · D2 · F1 · G1 · G3 · REG1, where rulings-'D5' = matrix F1 issuer-signature validity and rulings-'B3' registry receipt = extension ID REG1 because matrix B3 is the DIFFERENT adverse-history claim, committee-gated and not silently dropped) — every one conditional, not shippable today: 'Current evidence supports no presently issuable signed v0 certificate.' The invented IDs B1c and D6a are struck as unregistered and are deliberately absent. Every payload carries template_id (a versioned template pinned in certificate_claim_templates_v0_schema.json) plus bounded enum/digest/ref parameters ONLY — no user-controlled free text is representable. Adding a payload type is 'a new compatible schema release … after its meaning, information channel, prohibited-claim interaction, and boundary tests are registered' (C1 Ruling 1 reversal condition). Root instance is one ClaimPayloadV0.",
+  "description": "ONE EXPLICIT PAYLOAD TYPE PER REGISTERED CLAIM ID. These seven bounded payload shapes remain available as isolated future-evolution records, but current v0 ClaimV0 emission is deliberately limited to G1 tier 1. B1, REG1, C1, D2, F1, and G3 are unsupported and unprintable until independently registered verifier evidence exists. The payload schemas remain so a future registered release can test their shapes without weakening the current emission gate. No user-controlled free text is representable.",
   "definitions": {
     "ClaimPayloadV0": {
       "description": "Discriminated union of the seven v0 payload types; the claim_id const inside each branch is the discriminator, so exactly one branch can validate.",
@@ -31,7 +31,7 @@
       ]
     },
     "ClaimPayloadB1V0": {
-      "description": "Claim B1 — ledger integrity, encoded with C1's NARROWER wording per the captain's tension-T2 resolution: the claim is 'the issuer signed this seal statement', NOT 'the sealed history is intact'. Scope per C6 Ruling 3(i): 'print only a claim about the entries committed by a named seal. Do not call them the complete build history.' Params bind the named seal and its statement digest; nothing else may cross.",
+      "description": "Future registered payload shape for B1. Current v0 ClaimV0 emission rejects B1 because its PASS verifier is not independently available until the manifest/signature/audit cycle is finalized. If later registered, the claim is limited to 'the issuer signed this seal statement', not sealed-history integrity. Params bind the named seal and statement digest only.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -65,7 +65,7 @@
       }
     },
     "ClaimPayloadREG1V0": {
-      "description": "Claim REG1 — registry commitment receipt. The C6 rulings called this claim 'B3', but the V4 matrix's B3 row is 'Adverse history captured' — a different claim — and no matrix row registers a registry receipt, so this payload carries the non-colliding extension ID REG1, explicitly pending V4-matrix registration (a REG1 claim may not print until that row is registered; see ClaimIdV0). Conceded scope: 'registry receipt can attest bytes, identifier, and server-recorded time—not truth, authorship, or completeness' (C6 Ruling 3(iii)). NO counts and NO date buckets cross (C1 Ruling 3 struck them from the registry allowlists); precise timestamps remain server-internal, so no timestamp parameter exists.",
+      "description": "Future registered payload shape for REG1, the registry commitment receipt extension. REG1 is pending V4-matrix registration and is unprintable in current v0 ClaimV0. The bounded shape retains the conservative receipt scope: bytes, identifier, and server-recorded time only; no truth, authorship, completeness, counts, date buckets, or timestamps cross.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -111,7 +111,7 @@
       }
     },
     "ClaimPayloadC1V0": {
-      "description": "Claim C1 — artifact-scoped compiler provenance. 'unsupported' means 'unregistered claim, missing/versionless verifier, verifier not run or not PASS, missing evidence binding, or prohibited-register violation' (C6 Ruling 3(ii), binding). The artifact-scoped sentence is printable ONLY after the independent relying-party verifier gate; the global form — any sentence asserting the agent itself contains no unsupported claims — remains prohibited (merged prohibited claim 17). Params pin the compiler and every register/catalog digest the sentence is scoped to.",
+      "description": "Future registered payload shape for C1. Current v0 ClaimV0 emission rejects C1 because its PASS verifier depends on the finalized manifest/signature/audit cycle. The artifact-scoped sentence remains distinct from the prohibited global unsupported-claims form. Params pin the compiler and register/catalog digests.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -203,7 +203,7 @@
       }
     },
     "ClaimPayloadF1V0": {
-      "description": "Claim F1 — issuer-signature validity (matrix row F1, 'Issuer signature and attribution'). The C6 rulings called this claim 'D5' (borrowing a locked decision ID); the V4 matrix's row IDs are canonical on the wire, so it is encoded as F1 (see ClaimIdV0's reconciliation table). Params bind the exact signature scope: manifest digest, scheme, key and ring references.",
+      "description": "Future registered payload shape for F1 (matrix issuer-signature validity; the rulings' alias was D5). Current v0 ClaimV0 emission rejects F1 because its PASS verifier can run only after finalizing the manifest/signature/audit cycle. The payload intentionally has no self-referential manifest digest; it binds scheme, key, and ring references for a later registered release.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -222,15 +222,11 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "signed_manifest_digest",
             "signature_scheme",
             "issuer_key_ref",
             "trust_ring_ref"
           ],
           "properties": {
-            "signed_manifest_digest": {
-              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-            },
             "signature_scheme": {
               "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
             },
@@ -270,7 +266,10 @@
           ],
           "properties": {
             "manifest_root_digest": {
-              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+              "allOf": [
+                {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+                {"not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}}
+              ]
             },
             "commitment_scheme": {
               "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
@@ -283,7 +282,7 @@
       }
     },
     "ClaimPayloadG3V0": {
-      "description": "Claim G3 — co-signer identity binding. Scope carried verbatim (C6 Ruling 3(iv)): the client 'attests that these are the exact bytes it co-signed', never that every server assertion is true. client_key_ref is an OpaqueRef, not a raw public key (tension T3 unresolved; linkability-conservative encoding pending a Disclosure Register ruling). enrollment_record_digest is optional because the enrolment process is planned, not evidenced (C6 Ruling 4).",
+      "description": "Future registered payload shape for G3. Current v0 ClaimV0 emission rejects G3 because its PASS verifier can run only after finalizing the manifest/signature/audit cycle. The shape binds only the opaque client key reference (and optional enrollment digest); it does not assert server truth.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -302,15 +301,11 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "client_key_ref",
-            "cosigned_manifest_digest"
+            "client_key_ref"
           ],
           "properties": {
             "client_key_ref": {
               "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
-            },
-            "cosigned_manifest_digest": {
-              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
             },
             "enrollment_record_digest": {
               "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"

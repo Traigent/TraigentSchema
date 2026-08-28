@@ -167,11 +167,23 @@
         },
         "verifier_bindings": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 2,
           "maxItems": 2,
           "additionalItems": false,
-          "uniqueItems": true,
-          "items": {"$ref": "#/definitions/VerifierBindingV0"}
+          "items": [
+            {
+              "allOf": [
+                {"$ref": "#/definitions/VerifierBindingV0"},
+                {"properties": {"verifier_id": {"const": "B1"}}}
+              ]
+            },
+            {
+              "allOf": [
+                {"$ref": "#/definitions/VerifierBindingV0"},
+                {"properties": {"verifier_id": {"const": "G1"}}}
+              ]
+            }
+          ]
         }
       }
     }

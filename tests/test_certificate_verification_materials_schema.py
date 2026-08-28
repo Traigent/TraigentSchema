@@ -114,6 +114,11 @@ def _valid_materials(
             },
             "verifier_bindings": [
                 {
+                    "verifier_id": "B1",
+                    "verifier_ref": "ver.cert.seal_signature",
+                    "verifier_version": "1.0.0",
+                },
+                {
                     "verifier_id": "G1",
                     "verifier_ref": "ver.cert.client_manifest_commitment",
                     "verifier_version": "1.0.0",
@@ -275,6 +280,40 @@ def test_hard_banned_fields_are_rejected_at_any_object_level(field: str) -> None
 def test_wrong_literals_order_count_policy_names_and_encodings_fail(mutator) -> None:
     document = _valid_materials()
     mutator(document)
+    assert _errors(document)
+
+
+@pytest.mark.parametrize(
+    "bindings",
+    [
+        [
+            {
+                "verifier_id": "G1",
+                "verifier_ref": "ver.cert.client_manifest_commitment",
+                "verifier_version": "1.0.0",
+            },
+            {
+                "verifier_id": "B1",
+                "verifier_ref": "ver.cert.seal_signature",
+                "verifier_version": "1.0.0",
+            },
+        ],
+        [
+            {
+                "verifier_id": "G1",
+                "verifier_ref": "ver.cert.client_manifest_commitment",
+                "verifier_version": "1.0.0",
+            }
+        ],
+    ],
+    ids=["reversed", "g1-only"],
+)
+def test_verifier_policy_must_be_exact_ordered_b1_g1(bindings: list[dict]) -> None:
+    document = _valid_materials()
+    document["relying_party_policy"]["verifier_bindings"] = bindings
+    document["materials_digest"] = _digest(
+        {key: value for key, value in document.items() if key != "materials_digest"}
+    )
     assert _errors(document)
 
 

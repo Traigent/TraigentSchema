@@ -168,7 +168,7 @@
       }
     },
     "SignedMaterialDomainTagV0": {
-      "description": "Closed domain-separator vocabulary for the two v0 signature roles. Domain separation prevents material for one role being accepted for another. The issuer signs first: issuer material = UTF8(`traigent.agent_certificate.issuer_signature.v0`) || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes. The client then signs the complete issuer-signed certificate projection with only the outer co_attestation member removed: client material = UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || uint64be(len(certificate_projection_jcs_bytes)) || certificate_projection_jcs_bytes. Neither preimage contains the other role's raw signature bytes. The tag is a fixed property of the signing role, not a wire field of the signature record. Signature bytes are computed from, never included in, the signed documents, so no digest fixed point exists.",
+      "description": "Closed domain-separator vocabulary for the two v0 signature roles. Domain separation prevents material for one role being accepted for another. The issuer projection excludes the outer client co_attestation: issuer material = UTF8(`traigent.agent_certificate.issuer_signature.v0`) || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes. The client projection includes issuer_signature and excludes only its own outer co_attestation: client material = UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || uint64be(len(certificate_projection_jcs_bytes)) || certificate_projection_jcs_bytes. Neither preimage contains the other role's raw signature bytes. The tag is a fixed property of the signing role, not a wire field of the signature record. Signature bytes are computed from, never included in, the signed documents, so no digest fixed point exists.",
       "type": "string",
       "enum": [
         "traigent.agent_certificate.client_co_attestation.v0",
@@ -176,12 +176,13 @@
       ]
     },
     "DigestRoleDomainTagV0": {
-      "description": "Closed role-domain vocabulary for load-bearing certificate digests. Each digest is `sha256:` plus lowercase SHA-256 over UTF8(role_domain_v1) || 0x00 || jcs_v1(document). Distinct role tags MUST be used for unsigned manifests, pre-issuance audit reports, claim-material projections, and the client-local evidence-manifest root; the slot HMAC commitment formula is separate and unchanged.",
+      "description": "Closed role-domain vocabulary for load-bearing certificate digests. Each digest is `sha256:` plus lowercase SHA-256 over UTF8(role_domain_v1) || 0x00 || jcs_v1(document). Distinct role tags MUST be used for unsigned manifests, pre-issuance audit reports, claim-material projections, the issuer-signed client certificate projection, and the client-local evidence-manifest root; the slot HMAC commitment formula is separate and unchanged.",
       "type": "string",
       "enum": [
         "traigent.agent_certificate.unsigned_manifest.v1",
         "traigent.agent_certificate.audit_report.v1",
         "traigent.agent_certificate.claim_material.v1",
+        "traigent.agent_certificate.client_certificate_projection.v0",
         "traigent.agent_certificate.client_evidence_manifest_root.v1"
       ]
     }

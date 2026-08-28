@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Agent Certificate v0 certification API and contract** now expose lazy relying-party
-  verification exports, frozen G1-only claim verification with explicit D2 abstention, and
+  verification exports, frozen B1/G1 claim verification with explicit D2 abstention, and
   canonical public-key material validation for supported issuer and client algorithms.
 - **`ExampleMetrics` sibling identity fields** in `evaluation/configuration_run_schema.json`:
   `input_id`, `example_digest`, `output_digest`, `verified_match`, and `signal_key_id`. This

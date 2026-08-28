@@ -457,6 +457,19 @@ def test_g1_certificate_is_verified_offline(algorithm: str) -> None:
     assert result.code == "VERIFIED"
 
 
+def test_direct_verifier_still_requires_explicit_client_key() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    without_client_key = replace(context, client_public_key=None)
+
+    with pytest.raises(VerificationError, match="^CLIENT_KEY_CONTEXT$"):
+        verify_certificate(
+            cert,
+            issuer_public_key=issuer,
+            context=without_client_key,
+            policy=policy,
+        )
+
+
 @pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
 def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> None:
     """Exercise the real issuer-first projection, not a shape-only fixture."""
@@ -516,6 +529,67 @@ def test_discovered_materials_bundle_verifies_end_to_end() -> None:
         context=context,
     )
     assert result.valid
+
+
+def test_discovered_materials_bundle_supplies_client_key_when_context_omits_it() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    materials_only_context = replace(context, client_public_key=None)
+
+    result = verify_certificate_with_materials(
+        _retrieval_wrapper(cert, materials),
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=materials_only_context,
+    )
+    assert result.valid
+
+
+def test_discovered_materials_rejects_caller_bundle_client_key_substitution() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    if context.expected_client_algorithm == "ed25519":
+        replacement_client_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(64, 96)))
+    else:
+        replacement_client_key = ec.derive_private_key(3, ec.SECP256R1())
+    substituted_context = replace(
+        context,
+        client_public_key=replacement_client_key.public_key(),
+    )
+
+    with pytest.raises(VerificationError, match="^MATERIALS_BINDING$"):
+        verify_certificate_with_materials(
+            _retrieval_wrapper(cert, materials),
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=substituted_context,
+        )
+
+
+@pytest.mark.parametrize("mutation", ["reversed", "g1-only"])
+def test_discovered_materials_rejects_noncanonical_verifier_policy(mutation: str) -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    bindings = materials["relying_party_policy"]["verifier_bindings"]
+    if mutation == "reversed":
+        bindings.reverse()
+    else:
+        materials["relying_party_policy"]["verifier_bindings"] = bindings[1:]
+    materials["materials_digest"] = _digest(
+        _MATERIALS_DOMAIN,
+        {key: value for key, value in materials.items() if key != "materials_digest"},
+    )
+
+    with pytest.raises(VerificationError, match="^MATERIALS_SCHEMA$"):
+        verify_certificate_with_materials(
+            _retrieval_wrapper(cert, materials),
+            materials,
+            expected_materials_digest=materials["materials_digest"],
+            certificate_ref=materials["certificate_ref"],
+            context=context,
+        )
 
 
 @pytest.mark.parametrize(

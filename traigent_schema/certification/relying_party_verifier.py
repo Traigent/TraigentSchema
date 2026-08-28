@@ -415,6 +415,20 @@ def _material_public_key(projection: dict[str, Any], digest_domain: bytes) -> ob
     return key
 
 
+def _public_key_der(public_key: object) -> bytes:
+    """Return canonical public-key bytes for caller/bundle identity comparison."""
+    try:
+        return cast(
+            bytes,
+            cast(Any, public_key).public_bytes(
+                serialization.Encoding.DER,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            ),
+        )
+    except Exception:
+        _fail("MATERIALS_BINDING")
+
+
 def _materials_policy(document: dict[str, Any]) -> RelyingPartyPolicy:
     try:
         policy = document["relying_party_policy"]
@@ -451,6 +465,7 @@ def _check_materials_bindings(
     document: dict[str, Any],
     certificate_ref: str,
     context: VerificationContext,
+    bundle_client_public_key: object | None,
 ) -> None:
     try:
         if document["certificate_ref"] != certificate_ref:
@@ -480,15 +495,40 @@ def _check_materials_bindings(
                 or client["algorithm"] != context.expected_client_algorithm
             ):
                 _fail("MATERIALS_BINDING")
-            if context.expected_project_ref is None or context.client_public_key is None:
+            if context.expected_project_ref is None or bundle_client_public_key is None:
                 _fail("MATERIALS_BINDING")
             if (
                 derive_client_key_ref(
                     context.expected_project_ref,
                     client["algorithm"],
-                    context.client_public_key,
+                    bundle_client_public_key,
                 )
                 != client["key_ref"]
+            ):
+                _fail("MATERIALS_BINDING")
+            if (
+                context.client_public_key is not None
+                and (
+                    context.expected_project_ref is None
+                    or context.expected_client_algorithm is None
+                )
+            ):
+                _fail("MATERIALS_BINDING")
+            if context.client_public_key is not None:
+                try:
+                    caller_key_ref = derive_client_key_ref(
+                        context.expected_project_ref,
+                        cast(str, context.expected_client_algorithm),
+                        context.client_public_key,
+                    )
+                except RelyingPartyVerificationError:
+                    _fail("MATERIALS_BINDING")
+                if caller_key_ref != client["key_ref"]:
+                    _fail("MATERIALS_BINDING")
+            if (
+                context.client_public_key is not None
+                and _public_key_der(context.client_public_key)
+                != _public_key_der(bundle_client_public_key)
             ):
                 _fail("MATERIALS_BINDING")
             co = signatures["co_attestation"]
@@ -615,13 +655,19 @@ def verify_certificate_with_materials(
             _fail("ENVELOPE_SHAPE")
         envelope = cast(dict[str, Any], certificate)
         _check_materials_digest(document, expected_materials_digest)
-        _check_materials_bindings(envelope, document, certificate_ref, context)
         issuer_public_key = _material_public_key(document["issuer"], _ISSUER_SPKI_DOMAIN)
         client_projection = document.get("client")
         client_public_key = (
             _material_public_key(client_projection, _CLIENT_SPKI_DOMAIN)
             if client_projection is not None
             else None
+        )
+        _check_materials_bindings(
+            envelope,
+            document,
+            certificate_ref,
+            context,
+            client_public_key,
         )
         bound_context = replace(context, client_public_key=client_public_key)
         policy = _materials_policy(document)

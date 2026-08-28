@@ -2,6 +2,14 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "certification/certificate_verification_materials_v0_schema.json",
+      "rule": "minItems",
+      "pointer_prefix": "#/properties/relying_party_policy/properties/verifier_bindings",
+      "reason": "The materials policy is intentionally tightened to the runtime's exact ordered B1/G1 verifier contract, so omitted or reversed bindings fail closed instead of describing a policy the verifier cannot execute. This is an intentional Agent Certificate v0 correction reviewed under owner-authorized ChangeSession cs_3e01e0344f7b19eb and parity acknowledgement cs_a3a1c535f699b367; the exact schema boundary is covered here.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
+    },
+    {
       "file": "certification/agent_certificate_v0_schema.json",
       "rule": "required",
       "pointer_prefix": "#",

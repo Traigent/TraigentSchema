@@ -1261,7 +1261,7 @@ class TestEnvelope:
     def test_zero_claims_certificate_accepted(self) -> None:
         # Every v0 claim is conditional; a claims-empty certificate that still
         # prints all fourteen NON-claims is the honest v0 shape.
-        assert not _errors(ENVELOPE, _certificate(claims=[]))
+        assert not _errors(ENVELOPE, _certificate(claims=[], with_co=False))
 
     def test_title_is_pinned(self) -> None:
         cert = _certificate()
@@ -1468,6 +1468,14 @@ class TestCoAttestationBinding:
     def test_tier_one_claim_with_co_attestation_accepted(self) -> None:
         cert = _certificate(claims=[_g1_claim(tier=1)], with_co=True)
         assert not _errors(ENVELOPE, cert)
+
+    def test_b1_only_claim_without_co_attestation_accepted(self) -> None:
+        cert = _certificate(claims=[_b1_claim(tier=3)], with_co=False)
+        assert not _errors(ENVELOPE, cert)
+
+    def test_b1_only_claim_with_co_attestation_rejected(self) -> None:
+        cert = _certificate(claims=[_b1_claim(tier=3)], with_co=True)
+        assert _errors(ENVELOPE, cert)
 
     def test_issuer_never_covers_present_co_attestation(self) -> None:
         sigs = _signatures(with_co=True)

@@ -517,6 +517,16 @@ def test_b1_issuer_verified_certificate_needs_no_client_material() -> None:
     assert result.valid
 
 
+def test_b1_only_certificate_with_co_attestation_is_rejected() -> None:
+    cert, issuer, context, policy = _sign_fixture(
+        claims=[_b1_claim(tier=3)],
+        with_co=True,
+    )
+
+    with pytest.raises(VerificationError, match="^SCHEMA$"):
+        verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
+
+
 def test_discovered_materials_bundle_verifies_end_to_end() -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)

@@ -92,6 +92,37 @@
       }
     },
     {
+      "description": "A certificate with no tier-1 or G1 claim must not carry client co-attestation material. Co-attestation is reserved for the narrow client-declared G1/tier-1 path; B1-only certificates are issuer-only.",
+      "if": {
+        "properties": {
+          "claims": {
+            "not": {
+              "contains": {
+                "anyOf": [
+                  {
+                    "properties": {"tier": {"const": 1}},
+                    "required": ["tier"]
+                  },
+                  {
+                    "properties": {"claim_id": {"const": "G1"}},
+                    "required": ["claim_id"]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "required": ["claims"]
+      },
+      "then": {
+        "properties": {
+          "signatures": {
+            "not": {"required": ["co_attestation"]}
+          }
+        }
+      }
+    },
+    {
       "description": "v0 issuance is fail-closed for every expected ledger stream: legacy_unsealed and not_applicable remain historical ledger vocabulary but are not admissible in an Agent Certificate envelope. All three stream entries must be explicitly sealed or empty_sealed, each with its root commitment.",
       "properties": {
         "ledger_seal_projection": {

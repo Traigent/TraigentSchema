@@ -1004,6 +1004,22 @@
       "pr": "#437"
     },
     {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "allOf_removed",
+      "pointer_prefix": "#/allOf/0/allOf",
+      "reason": "Removes the old circularity-prone conditional that made issuer signed_payload claim the client signature was inside the issuer preimage. The v0 correction fixes the signing order: issuer signs the manifest first, then the client signs the complete issuer-signed certificate projection with only the outer co_attestation removed. This is an intentional pre-issuance Certified Agent v0 correction reviewed under ChangeSession cs_3e01e0344f7b19eb, packet pkt_377ce10845456890, with owner approval evt_46090f3116370bd9; the acknowledgement is scoped to this exact schema constraint.",
+      "version": "5.7.0",
+      "pr": "local-candidate-93999fd"
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "oneOf_removed",
+      "pointer_prefix": "#/allOf/0/properties/issuer_signature/properties/signed_payload/oneOf",
+      "reason": "Replaces the two-way signed_payload discriminator with the single issuer-first value [unsigned_manifest]. A client co-attestation is subsequent and signs the complete issuer-signed certificate projection, so it cannot be part of the issuer payload without circularity. This is an intentional pre-issuance Certified Agent v0 correction reviewed under ChangeSession cs_3e01e0344f7b19eb, packet pkt_377ce10845456890, with owner approval evt_46090f3116370bd9; the acknowledgement is scoped to this exact schema constraint.",
+      "version": "5.7.0",
+      "pr": "local-candidate-93999fd"
+    },
+    {
       "file": "optimization/session_submit_results_request_schema.json",
       "rule": "oneOf_added",
       "reason": "measures and metadata.measures were a bare $ref to the flat MeasureResults dict, which only ever described HALF of what the backend's _validate_submission_measures dispatcher actually accepts -- it also routes a list of per-example ExampleMetrics results (the form carrying input_id/example_digest/output_digest/verified_match/signal_key_id) to validate_measures_list. A generated strict consumer built from the bare $ref would reject that list form even though the live backend accepts it. Replacing the bare $ref with oneOf [MeasureResults, array<ExampleMetrics>] makes the schema match the real dispatch contract instead of only documenting one branch of it. Confirmed non-breaking for existing map-form producers: test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained (both pre-existing, unmodified) continue to pass -- a flat dict still validates via oneOf branch 0, and its bounds (max 50 keys, identifier keys, numeric|null values) are unchanged and still sourced from the single canonical MeasureResults definition, not duplicated.",

@@ -432,9 +432,10 @@ def _check_materials_bindings(
 def _check_retrieval_wrapper_bindings(wrapper: dict[str, Any], certificate: dict[str, Any]) -> None:
     """Bind retrieval projections to fields authoritative in the signed envelope.
 
-    The retrieval contract's ``id`` and ``created_at`` are server projection
-    metadata and have no counterpart in the signed certificate, so their shape
-    is checked by the canonical retrieval schema but they are not compared here.
+    The retrieval contract's ``id``, ``tenant_id``, ``project_id``, and
+    ``created_at`` are server projection metadata and have no counterpart in
+    the signed certificate, so their shape is checked by the canonical
+    retrieval schema but they are not compared here.
     """
     try:
         if wrapper["build_session_ref"] != certificate["subject"]["build_session_ref"]:

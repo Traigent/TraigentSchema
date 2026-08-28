@@ -64,7 +64,7 @@
     },
     {
       "name": "Agent Certificate v0",
-      "description": "Backend-asserted content-free Agent Certificate v0 build, binding, issuance, retrieval, and verification-material routes.",
+      "description": "Content-free Agent Certificate v0 build, binding, issuance, retrieval, and verification-material routes.",
       "paths_file": "./certification/certification_endpoints_v0.json"
     },
     {

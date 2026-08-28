@@ -43,7 +43,7 @@
       }
     },
     "CoAttestationV0": {
-      "description": "The client co-attestation block. The client signs the FULL canonical unsigned-manifest BYTES, never a digest and never a spine. Scope carried from C6 Ruling 3(iv): this attests that these are the exact bytes it co-signed, not that every server assertion is true. The exact preimage is UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes; no signature bytes enter it. `signed_manifest_digest` is a transmitted reference to those bytes, not what is signed. The project-scoped client key reference crosses as ClientKeyRefV0, not raw public-key bytes. NONCE BINDING: `nonce` MUST equal the manifest's freshness.nonce; a verifier compares both values after decoding the transmitted document.",
+      "description": "The client co-attestation block. The client signs the complete canonical issuer-signed certificate projection, never a digest and never a spine, with only this outer co_attestation member excluded. The projection includes the audit report's ordered rows, evidence_basis values, abstentions, claims, and issuer signature. `signed_manifest_digest` is a transmitted role-domain digest of that projection; the verifier recomputes it and never trusts the transmitted value. The project-scoped client key reference crosses as ClientKeyRefV0, not raw public-key bytes. NONCE BINDING: `nonce` MUST equal the manifest's freshness.nonce; a verifier compares both values after decoding the transmitted document.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -62,7 +62,7 @@
           "$ref": "certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
         },
         "signed_manifest_digest": {
-          "description": "MUST equal the unsigned manifest's manifest_digest; the envelope binds the two (mismatch is the co-attestation-mismatch fixture class).",
+          "description": "Role-domain digest of the canonical issuer-signed certificate projection with only the outer co_attestation member removed. The verifier recomputes this value from the received certificate and rejects omissions or tampering.",
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
         "nonce": {
@@ -98,20 +98,8 @@
           "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
         },
         "signed_payload": {
-          "description": "The co-signature-length discriminator: [unsigned_manifest] means uint64be(len(co_signature_raw)) encodes zero; [unsigned_manifest, co_attestation] means it encodes a nonzero strict-base64-decoded co-signature length.",
-          "oneOf": [
-            {
-              "const": [
-                "unsigned_manifest"
-              ]
-            },
-            {
-              "const": [
-                "unsigned_manifest",
-                "co_attestation"
-              ]
-            }
-          ]
+          "description": "The issuer always signs the unsigned manifest first. A client co-attestation is a subsequent signature over the complete issuer-signed certificate projection and is not included in the issuer preimage.",
+          "const": ["unsigned_manifest"]
         },
         "signature": {
           "$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"
@@ -136,43 +124,7 @@
         "issuer_signature": {
           "$ref": "#/definitions/IssuerSignatureV0"
         }
-      },
-      "allOf": [
-        {
-          "if": {
-            "required": [
-              "co_attestation"
-            ]
-          },
-          "then": {
-            "properties": {
-              "issuer_signature": {
-                "properties": {
-                  "signed_payload": {
-                    "const": [
-                      "unsigned_manifest",
-                      "co_attestation"
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "else": {
-            "properties": {
-              "issuer_signature": {
-                "properties": {
-                  "signed_payload": {
-                    "const": [
-                      "unsigned_manifest"
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        }
-      ]
+      }
     }
   },
   "allOf": [

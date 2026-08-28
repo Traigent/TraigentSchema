@@ -20,6 +20,7 @@ and exception text is commonly logged by callers.
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 import json
 import re
@@ -49,6 +50,7 @@ _CLAIM_MATERIAL_DOMAIN = b"traigent.agent_certificate.claim_material.v1"
 _UNSIGNED_DOMAIN = b"traigent.agent_certificate.unsigned_manifest.v1"
 _SEAL_DOMAIN = b"traigent.agent_certificate.seal_statement.v1"
 _CLIENT_DOMAIN = b"traigent.agent_certificate.client_co_attestation.v0"
+_CLIENT_CERTIFICATE_DOMAIN = b"traigent.agent_certificate.client_certificate_projection.v0"
 _ISSUER_DOMAIN = b"traigent.agent_certificate.issuer_signature.v0"
 _SHA256_PREFIX = "sha256:"
 _MATERIALS_DOMAIN = b"traigent.agent_certificate.verification_materials.v0"
@@ -146,9 +148,9 @@ class VerificationContext:
     expected_issuer_key_ref: str
     expected_issuer_algorithm: str
     expected_trust_ring_ref: str
+    expected_project_ref: str
     expected_client_key_ref: str | None
     expected_client_algorithm: str | None
-    expected_project_ref: str | None = None
     client_public_key: object | None = None
 
 
@@ -223,13 +225,12 @@ def derive_client_key_ref(
     except Exception:
         _fail("CLIENT_KEY_REF")
     digest = hashlib.sha256(
-        _CLIENT_KEY_REF_DOMAIN
-        + b"\x00"
-        + project_ref.encode("utf-8")
-        + b"\x00"
-        + signature_algorithm.encode("ascii")
-        + b"\x00"
-        + spki
+        _length_prefixed_fields(
+            _CLIENT_KEY_REF_DOMAIN,
+            project_ref.encode("utf-8"),
+            signature_algorithm.encode("ascii"),
+            spki,
+        )
     ).digest()
     encoded = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
     result = "ckr:" + encoded
@@ -515,13 +516,17 @@ def _check_materials_bindings(
         _fail("MATERIALS_BINDING")
 
 
-def _check_retrieval_wrapper_bindings(wrapper: dict[str, Any], certificate: dict[str, Any]) -> None:
+def _check_retrieval_wrapper_bindings(
+    wrapper: dict[str, Any], certificate: dict[str, Any], context: VerificationContext
+) -> None:
     """Bind retrieval projections to fields authoritative in the signed envelope.
 
     The retrieval contract's ``id``, ``tenant_id``, ``project_id``, and
     ``created_at`` are server projection metadata and have no counterpart in
     the signed certificate, so their shape is checked by the canonical
-    retrieval schema but they are not compared here.
+    retrieval schema but they are not trusted as scope authority.  Scope is
+    bound only through the caller's trusted opaque project_ref and the signed
+    certificate subject.
     """
     try:
         if wrapper["build_session_ref"] != certificate["subject"]["build_session_ref"]:
@@ -533,6 +538,8 @@ def _check_retrieval_wrapper_bindings(wrapper: dict[str, Any], certificate: dict
             != certificate["signatures"]["unsigned_manifest"]["manifest_digest"]
         ):
             _fail("MANIFEST_DIGEST")
+        if certificate["subject"]["project_ref"] != context.expected_project_ref:
+            _fail("PROJECT_CONTEXT")
     except (KeyError, TypeError):
         _fail("CERTIFICATE_STATUS")
 
@@ -622,7 +629,7 @@ def verify_certificate_with_materials(
             policy=policy,
         )
         if wrapper is not None:
-            _check_retrieval_wrapper_bindings(wrapper, envelope)
+            _check_retrieval_wrapper_bindings(wrapper, envelope, context)
         return result
     except (RelyingPartyVerificationError, SchemaDependencyError):
         raise
@@ -643,25 +650,25 @@ def _decode_signature(encoded: object) -> bytes:
     return raw
 
 
-def _client_material(manifest_bytes: bytes) -> bytes:
-    if type(manifest_bytes) is not bytes or len(manifest_bytes) >= 2**64:
+def _length_prefixed_fields(domain: bytes, *fields: bytes) -> bytes:
+    """Encode a domain and a fixed tuple of binary fields unambiguously."""
+    if type(domain) is not bytes or not domain or any(type(field) is not bytes for field in fields):
         _fail("MATERIAL")
-    return _CLIENT_DOMAIN + b"\x00" + struct.pack(">Q", len(manifest_bytes)) + manifest_bytes
+    if any(len(field) >= 2**64 for field in fields):
+        _fail("MATERIAL")
+    return domain + b"".join(struct.pack(">Q", len(field)) + field for field in fields)
 
 
-def _issuer_material(manifest_bytes: bytes, co_raw: bytes = b"") -> bytes:
-    if type(manifest_bytes) is not bytes or type(co_raw) is not bytes:
+def _client_material(projection_bytes: bytes) -> bytes:
+    if type(projection_bytes) is not bytes or len(projection_bytes) >= 2**64:
         _fail("MATERIAL")
-    if len(manifest_bytes) >= 2**64 or len(co_raw) >= 2**64:
+    return _length_prefixed_fields(_CLIENT_DOMAIN, projection_bytes)
+
+
+def _issuer_material(manifest_bytes: bytes) -> bytes:
+    if type(manifest_bytes) is not bytes:
         _fail("MATERIAL")
-    return (
-        _ISSUER_DOMAIN
-        + b"\x00"
-        + struct.pack(">Q", len(manifest_bytes))
-        + manifest_bytes
-        + struct.pack(">Q", len(co_raw))
-        + co_raw
-    )
+    return _length_prefixed_fields(_ISSUER_DOMAIN, manifest_bytes)
 
 
 def _verify_signature(
@@ -947,6 +954,10 @@ def _check_context(
 ) -> None:
     if not isinstance(context, VerificationContext):
         _fail("CONTEXT")
+    if context.expected_project_ref is None or not re.fullmatch(
+        r"[A-Za-z0-9_.-]{1,128}", context.expected_project_ref
+    ):
+        _fail("PROJECT_CONTEXT")
     ring = unsigned["key_ring_identifiers"]
     issuer = signatures["issuer_signature"]
     if not (
@@ -1043,10 +1054,8 @@ def _verify_co_attestation(
     document: dict[str, Any],
     signatures: dict[str, Any],
     unsigned: dict[str, Any],
-    manifest_bytes: bytes,
-    expected_manifest_digest: str,
     context: VerificationContext,
-) -> tuple[bytes, list[str]]:
+) -> None:
     requires_co = any(
         claim["claim_id"] == "G1" or claim["tier"] == 1 for claim in document["claims"]
     )
@@ -1064,7 +1073,7 @@ def _verify_co_attestation(
     ):
         _fail("CLIENT_KEY_CONTEXT")
     if not has_co:
-        return b"", ["unsigned_manifest"]
+        return
     co = signatures["co_attestation"]
     if context.client_public_key is None:
         _fail("CLIENT_KEY_REQUIRED")
@@ -1077,8 +1086,15 @@ def _verify_co_attestation(
         _fail("ALGORITHM")
     if co["nonce"] != unsigned["freshness"]["nonce"] or co["nonce"] != context.expected_nonce:
         _fail("NONCE")
-    if co["signed_manifest_digest"] != expected_manifest_digest:
-        _fail("MANIFEST_DIGEST")
+    projection = copy.deepcopy(document)
+    projection["signatures"].pop("co_attestation", None)
+    try:
+        projection_bytes = cast(str, fp2.canonicalize(projection)).encode("utf-8")
+    except Exception:
+        _fail("CO_PROJECTION")
+    expected_projection_digest = _role_digest(_CLIENT_CERTIFICATE_DOMAIN, projection)
+    if co["signed_manifest_digest"] != expected_projection_digest:
+        _fail("CO_PROJECTION")
     co_raw = _decode_signature(co["signature"])
     if (
         co["algorithm"] == "ecdsa_p256_sha256"
@@ -1088,10 +1104,9 @@ def _verify_co_attestation(
     _verify_signature(
         context.client_public_key,
         co["algorithm"],
-        _client_material(manifest_bytes),
+        _client_material(projection_bytes),
         co["signature"],
     )
-    return co_raw, ["unsigned_manifest", "co_attestation"]
 
 
 def _verify(
@@ -1104,18 +1119,17 @@ def _verify(
         certificate, policy
     )
     _check_context(unsigned, signatures, context)
-    co_raw, expected_payload = _verify_co_attestation(
-        document, signatures, unsigned, manifest_bytes, manifest_digest, context
-    )
     issuer_signature = signatures["issuer_signature"]
+    expected_payload = ["unsigned_manifest"]
     if issuer_signature["signed_payload"] != expected_payload:
         _fail("SIGNED_PAYLOAD")
     _verify_signature(
         issuer_public_key,
         issuer_signature["algorithm"],
-        _issuer_material(manifest_bytes, co_raw),
+        _issuer_material(manifest_bytes),
         issuer_signature["signature"],
     )
+    _verify_co_attestation(document, signatures, unsigned, context)
 
 
 def verify_certificate(

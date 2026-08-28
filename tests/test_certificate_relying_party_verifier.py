@@ -23,8 +23,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 
 from tests.test_agent_certificate_v0_schemas import (
-    _build_valid_fixture,
     _b1_claim,
+    _build_valid_fixture,
     _claim_material_digest,
     _d2_claim,
     _g1_claim,
@@ -44,6 +44,7 @@ _SEAL_DOMAIN = b"traigent.agent_certificate.seal_statement.v1"
 _AUDIT_DOMAIN = b"traigent.agent_certificate.audit_report.v1"
 _UNSIGNED_DOMAIN = b"traigent.agent_certificate.unsigned_manifest.v1"
 _CLIENT_DOMAIN = b"traigent.agent_certificate.client_co_attestation.v0"
+_CLIENT_CERTIFICATE_DOMAIN = b"traigent.agent_certificate.client_certificate_projection.v0"
 _ISSUER_DOMAIN = b"traigent.agent_certificate.issuer_signature.v0"
 _MATERIALS_DOMAIN = b"traigent.agent_certificate.verification_materials.v0"
 _ISSUER_SPKI_DOMAIN = b"traigent.agent_certificate.issuer_spki_der.v0"
@@ -138,6 +139,20 @@ def test_client_key_ref_is_deterministic_and_project_scoped(algorithm: str) -> N
 
     with pytest.raises(VerificationError, match="^CLIENT_KEY_REF$"):
         verifier_impl.derive_client_key_ref("project_contract001", "rsa4096", public_key)
+
+
+@pytest.mark.parametrize("kat", json.loads(
+    (Path(__file__).parent / "data" / "certification_key_ref_kats.json").read_text()
+))
+def test_client_key_ref_matches_checked_in_kat(kat: dict) -> None:
+    if kat["algorithm"] == "ed25519":
+        key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(32))).public_key()
+    else:
+        key = ec.derive_private_key(1, ec.SECP256R1()).public_key()
+    assert base64.b64encode(_public_key_der(key)).decode() == kat["public_key_der_b64"]
+    assert verifier_impl.derive_client_key_ref(kat["project_ref"], kat["algorithm"], key) == kat[
+        "expected_client_key_ref"
+    ]
 
 
 def _digest(domain: bytes, value: object) -> str:
@@ -293,26 +308,20 @@ def _sign_fixture(
     unsigned_ref = cert["signatures"]["unsigned_manifest"]
     unsigned_ref["manifest_digest"] = manifest_digest
     manifest_bytes = fp2.canonicalize(unsigned).encode()
-    co_raw = b""
     if with_co:
         assert co is not None
-        co["signed_manifest_digest"] = manifest_digest
-        co_material = (
-            _CLIENT_DOMAIN + b"\0" + struct.pack(">Q", len(manifest_bytes)) + manifest_bytes
-        )
-        co["signature"] = _sign(client_key, algorithm, co_material)
-        co_raw = base64.b64decode(co["signature"])
-    issuer_material = (
-        _ISSUER_DOMAIN
-        + b"\0"
-        + struct.pack(">Q", len(manifest_bytes))
-        + manifest_bytes
-        + struct.pack(">Q", len(co_raw))
-        + co_raw
-    )
+    issuer_material = _ISSUER_DOMAIN + struct.pack(">Q", len(manifest_bytes)) + manifest_bytes
     cert["signatures"]["issuer_signature"]["signature"] = _sign(
         issuer_key, algorithm, issuer_material
     )
+    if with_co:
+        assert co is not None
+        projection = copy.deepcopy(cert)
+        projection["signatures"].pop("co_attestation", None)
+        projection_bytes = fp2.canonicalize(projection).encode()
+        co["signed_manifest_digest"] = _digest(_CLIENT_CERTIFICATE_DOMAIN, projection)
+        co_material = _CLIENT_DOMAIN + struct.pack(">Q", len(projection_bytes)) + projection_bytes
+        co["signature"] = _sign(client_key, algorithm, co_material)
     issuer = cert["signatures"]["issuer_signature"]
     context = VerificationContext(
         expected_nonce=_NONCE,
@@ -419,15 +428,7 @@ def _resign_issuer(cert: dict, algorithm: str) -> None:
     issuer_key, _ = _private_keys(algorithm)
     unsigned = cert["signatures"]["unsigned_manifest"]["document"]
     manifest_bytes = fp2.canonicalize(unsigned).encode()
-    co_raw = base64.b64decode(cert["signatures"]["co_attestation"]["signature"])
-    material = (
-        _ISSUER_DOMAIN
-        + b"\0"
-        + struct.pack(">Q", len(manifest_bytes))
-        + manifest_bytes
-        + struct.pack(">Q", len(co_raw))
-        + co_raw
-    )
+    material = _ISSUER_DOMAIN + struct.pack(">Q", len(manifest_bytes)) + manifest_bytes
     cert["signatures"]["issuer_signature"]["signature"] = _sign(issuer_key, algorithm, material)
 
 
@@ -435,15 +436,17 @@ def _resign_fixture(cert: dict, algorithm: str) -> None:
     """Re-sign a fixture after a deliberate signed-manifest mutation."""
     _, client_key = _private_keys(algorithm)
     unsigned = cert["signatures"]["unsigned_manifest"]["document"]
-    manifest_bytes = fp2.canonicalize(unsigned).encode()
     manifest_digest = _digest(_UNSIGNED_DOMAIN, unsigned)
     unsigned_ref = cert["signatures"]["unsigned_manifest"]
     unsigned_ref["manifest_digest"] = manifest_digest
     co = cert["signatures"]["co_attestation"]
-    co["signed_manifest_digest"] = manifest_digest
-    co_material = _CLIENT_DOMAIN + b"\0" + struct.pack(">Q", len(manifest_bytes)) + manifest_bytes
-    co["signature"] = _sign(client_key, algorithm, co_material)
     _resign_issuer(cert, algorithm)
+    projection = copy.deepcopy(cert)
+    projection["signatures"].pop("co_attestation", None)
+    projection_bytes = fp2.canonicalize(projection).encode()
+    co["signed_manifest_digest"] = _digest(_CLIENT_CERTIFICATE_DOMAIN, projection)
+    co_material = _CLIENT_DOMAIN + struct.pack(">Q", len(projection_bytes)) + projection_bytes
+    co["signature"] = _sign(client_key, algorithm, co_material)
 
 
 @pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
@@ -949,14 +952,16 @@ def test_high_s_client_signature_is_rejected() -> None:
     cert, issuer, context, policy = _sign_fixture("ecdsa_p256_sha256")
     co = cert["signatures"]["co_attestation"]
     co["signature"] = _high_s(co["signature"])
-    _resign_issuer(cert, "ecdsa_p256_sha256")
     with pytest.raises(VerificationError, match="^CLIENT_SIGNATURE_NON_CANONICAL$"):
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
 
 
 def test_signed_payload_discriminator_mismatch_is_rejected() -> None:
     cert, issuer, context, policy = _sign_fixture()
-    cert["signatures"]["issuer_signature"]["signed_payload"] = ["unsigned_manifest"]
+    cert["signatures"]["issuer_signature"]["signed_payload"] = [
+        "unsigned_manifest",
+        "co_attestation",
+    ]
 
     with pytest.raises(VerificationError, match="^SCHEMA$"):
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
@@ -1012,6 +1017,31 @@ def test_replayed_build_session_context_is_rejected() -> None:
     replay_context = replace(context, expected_build_session_ref="bsn:fedcba9876543210")
     with pytest.raises(VerificationError, match="^CONTEXT$"):
         verify_certificate(cert, issuer_public_key=issuer, context=replay_context, policy=policy)
+
+
+@pytest.mark.parametrize("replayed_project_ref", ["project_contract002", "tenant_b_project001"])
+def test_cross_project_and_cross_tenant_replay_is_rejected_by_trusted_project_ref(
+    replayed_project_ref: str,
+) -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    replay_context = replace(context, expected_project_ref=replayed_project_ref)
+    with pytest.raises(VerificationError, match="^CONTEXT$"):
+        verify_certificate(cert, issuer_public_key=issuer, context=replay_context, policy=policy)
+
+
+def test_retrieval_tenant_and_project_metadata_is_not_scope_authority() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = _retrieval_wrapper(cert, materials)
+    wrapper["tenant_id"] = "tenant_other"
+    wrapper["project_id"] = "project_other"
+    assert verify_certificate_with_materials(
+        wrapper,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+    ).valid
 
 
 def test_all_empty_projection_is_rejected() -> None:

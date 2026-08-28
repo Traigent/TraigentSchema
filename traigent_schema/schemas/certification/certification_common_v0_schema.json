@@ -17,7 +17,7 @@
       "pattern": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$"
     },
     "ClientKeyRefV0": {
-      "description": "Named semantic type: a project-scoped client verification-key reference. It is derived, never caller-selected: `ckr:` plus base64url-without-padding of SHA-256(UTF8(traigent.agent_certificate.client_key_ref.v0) || 0x00 || UTF8(project_ref) || 0x00 || UTF8(signature_algorithm) || 0x00 || canonical SubjectPublicKeyInfo DER). The 32-byte digest is rendered as exactly 43 base64url characters. This pseudonymous public-key identifier is a disclosed linkability channel; it carries no private key or evidence content.",
+      "description": "Named semantic type: a project-scoped client verification-key reference. It is derived, never caller-selected: `ckr:` plus base64url-without-padding of SHA-256(UTF8(traigent.agent_certificate.client_key_ref.v0) || uint64be(len(project_ref)) || UTF8(project_ref) || uint64be(len(signature_algorithm)) || UTF8(signature_algorithm) || uint64be(len(canonical SubjectPublicKeyInfo DER)) || canonical SubjectPublicKeyInfo DER). The 32-byte digest is rendered as exactly 43 base64url characters. This pseudonymous client verification-key identifier is a disclosed linkability channel; it carries no private key or evidence content.",
       "type": "string",
       "pattern": "^ckr:[A-Za-z0-9_-]{43}$"
     },

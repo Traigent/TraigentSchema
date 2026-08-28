@@ -43,7 +43,7 @@
       }
     },
     "CoAttestationV0": {
-      "description": "The client co-attestation block. The client signs the FULL canonical unsigned-manifest BYTES, never a digest and never a spine. Scope carried from C6 Ruling 3(iv): this attests that these are the exact bytes it co-signed, not that every server assertion is true. The exact preimage is UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes; no signature bytes enter it. `signed_manifest_digest` is a transmitted reference to those bytes, not what is signed. The client key crosses as an OpaqueRef, not a raw public key. NONCE BINDING: `nonce` MUST equal the manifest's freshness.nonce; a verifier compares both values after decoding the transmitted document.",
+      "description": "The client co-attestation block. The client signs the FULL canonical unsigned-manifest BYTES, never a digest and never a spine. Scope carried from C6 Ruling 3(iv): this attests that these are the exact bytes it co-signed, not that every server assertion is true. The exact preimage is UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || 0x00 || uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes; no signature bytes enter it. `signed_manifest_digest` is a transmitted reference to those bytes, not what is signed. The project-scoped client key reference crosses as ClientKeyRefV0, not raw public-key bytes. NONCE BINDING: `nonce` MUST equal the manifest's freshness.nonce; a verifier compares both values after decoding the transmitted document.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -59,7 +59,7 @@
         },
         "client_key_ref": {
           "description": "Opaque reference to the enrolled client signing key. A stable pseudonymous identifier with a linkability cost (C1, tension T3); never raw public-key bytes in v0.",
-          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+          "$ref": "certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
         },
         "signed_manifest_digest": {
           "description": "MUST equal the unsigned manifest's manifest_digest; the envelope binds the two (mismatch is the co-attestation-mismatch fixture class).",

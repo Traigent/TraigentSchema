@@ -79,6 +79,21 @@
         }
       }
     },
+    "ClaimEvidenceRefsB1V0": {
+      "description": "The exact evidence-reference tuple for issuer_verified claim B1: one seal_statement and one audit_report_digest reference, in either order.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          {"allOf": [{"$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"}, {"properties": {"evidence_kind": {"const": "seal_statement"}}, "required": ["evidence_kind"]}]},
+          {"allOf": [{"$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"}, {"properties": {"evidence_kind": {"const": "audit_report_digest"}}, "required": ["evidence_kind"]}]}
+        ]
+      },
+      "contains": {"properties": {"evidence_kind": {"const": "seal_statement"}}, "required": ["evidence_kind"]},
+      "allOf": [{"contains": {"properties": {"evidence_kind": {"const": "audit_report_digest"}}, "required": ["evidence_kind"]}}]
+    },
     "ClaimEvidenceRefsG1V0": {
       "description": "The exact evidence-reference tuple for printable claim G1: one audit_report_digest and one client_commitment_digest, in either order. The generic evidence-kind vocabulary remains available for non-printable and historical records, but a current v0 G1 claim cannot carry a ledger-entry commitment or any other reference.",
       "type": "array",
@@ -202,7 +217,7 @@
       ]
     },
     "ClaimV0": {
-      "description": "A printable v0 claim. The payload and template schemas retain the complete registered family for future evolution, but current v0 emission is deliberately limited to substantive G1 only: B1, REG1, C1, D2, F1, and G3 are unsupported and abstain because their PASS verifier evidence is not registered for this frozen policy. ClaimV0 therefore structurally rejects those IDs; their isolated payload/template/audit-row shapes remain available for a later registered release. G1 is fixed tier 1 and requires co-attestation at the envelope. Every printed claim carries a PASS verifier and audit_report_digest evidence reference. No free-text field exists anywhere in this shape.",
+      "description": "A printable v0 claim. B1 may be printed only as the narrow issuer_verified seal-statement assertion when its registered verifier passes; G1 is the narrow client_declared unopened commitment and remains fixed at tier 1 with client co-attestation. REG1, C1, D2, F1, and G3 remain unprintable until independently registered verifier evidence exists. Every printed claim carries a PASS verifier, an audit_report_digest evidence reference, and renderer-produced text bound to its pinned template and bounded parameters.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -211,7 +226,8 @@
         "tier",
         "payload",
         "verifier",
-        "evidence_refs"
+        "evidence_refs",
+        "rendered_text"
       ],
       "properties": {
         "record_type": {
@@ -246,6 +262,13 @@
             },
             "required": ["evidence_kind"]
           }
+        },
+        "rendered_text": {
+          "description": "The exact issuer-rendered sentence from the claim's pinned template. B1 and G1 each have a closed pattern; a verifier additionally recomputes the value from payload parameters.",
+          "oneOf": [
+            {"type": "string", "pattern": "^The issuer signed this seal statement: seal [a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}, canonical seal-statement digest sha256:[a-f0-9]{64}\\.$"},
+            {"type": "string", "pattern": "^The pinned client key co-signed the declaration that evidence-manifest root sha256:[a-f0-9]{64} uses scheme sha256_secret_blinded_v1 and client attestor version [0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}\\. The declaration is unopened; correspondence to, possession of, and completeness of any underlying evidence are not proven\\.$"}
+          ]
         }
       },
       "allOf": [
@@ -383,13 +406,19 @@
           }
         },
         {
-          "description": "Conservative frozen v0 unsupported-claims-abstain rule: only G1 may be emitted as a ClaimV0 record. B1, REG1, C1, D2, F1, and G3 are unsupported and withheld until independently registered verifier evidence exists.",
-          "properties": {
-            "claim_id": {
-              "const": "G1"
-            }
-          },
+          "description": "Frozen v0 emission allowlist: B1 is admitted only as the issuer_verified seal-statement assertion and G1 is the client_declared commitment assertion. All other registered IDs remain abstention-only.",
+          "properties": {"claim_id": {"enum": ["B1", "G1"]}},
           "required": ["claim_id"]
+        },
+        {
+          "if": {"properties": {"claim_id": {"const": "B1"}}, "required": ["claim_id"]},
+          "then": {
+            "properties": {
+              "tier": {"const": 3},
+              "evidence_refs": {"$ref": "#/definitions/ClaimEvidenceRefsB1V0"},
+              "verifier": {"properties": {"verifier_id": {"const": "ver.cert.seal_signature"}}}
+            }
+          }
         },
         {
           "if": {

@@ -238,21 +238,29 @@ def _b1_claim(tier: int = 3) -> dict:
             # report replace this via _finalize_claims_with_audit.
             {"evidence_kind": "audit_report_digest", "evidence_digest": _SHA_B},
         ],
+        "rendered_text": (
+            "The issuer signed this seal statement: seal seal:abcdef0123456789, "
+            "canonical seal-statement digest " + _SHA + "."
+        ),
     }
 
 
 def _g1_claim(tier: int = 1) -> dict:
+    root = _client_evidence_root_digest(_client_evidence_manifest())
+    client_key_ref = "ckr:" + "A" * 43
     return {
         "record_type": "claim",
         "claim_id": "G1",
         "tier": tier,
         "payload": {
             "claim_id": "G1",
-            "template_id": "tmpl.cert.g1.client_evidence_manifest_commitment.v1",
+            "template_id": "tmpl.cert.g1.client_evidence_manifest_commitment.v2",
             "params": {
-                "manifest_root_digest": _client_evidence_root_digest(_client_evidence_manifest()),
+                "manifest_root_digest": root,
                 "commitment_scheme": "sha256_secret_blinded_v1",
                 "client_attestor_version": "0.1.0",
+                "build_session_ref": _BUILD_SESSION_REF,
+                "client_key_ref": client_key_ref,
             },
         },
         "verifier": {
@@ -269,6 +277,12 @@ def _g1_claim(tier: int = 1) -> dict:
             # report replace this via _finalize_claims_with_audit.
             {"evidence_kind": "audit_report_digest", "evidence_digest": _SHA_B},
         ],
+        "rendered_text": (
+            "The pinned client key co-signed the declaration that evidence-manifest root "
+            f"{root} uses scheme sha256_secret_blinded_v1 and client attestor version 0.1.0. "
+            "The declaration is unopened; correspondence to, possession of, and completeness "
+            "of any underlying evidence are not proven."
+        ),
     }
 
 
@@ -286,7 +300,7 @@ def _non_claims() -> list:
 def _co_attestation(manifest_digest: str, nonce: str) -> dict:
     return {
         "algorithm": "ed25519",
-        "client_key_ref": "ckey:abcdef0123456789",
+        "client_key_ref": "ckr:" + "A" * 43,
         "signed_manifest_digest": manifest_digest,
         "nonce": nonce,
         "signature": _SIG,
@@ -365,9 +379,16 @@ def _certificate(
             "the deployed agent. It makes no deployment-identity, "
             "deployment-binding, drift-detection, or deployed-runtime claim."
         ),
+        "certificate_scope_line": (
+            "Scope: Certified Agent v0 verifies signatures, build-session binding, and an "
+            "unopened client declaration. It does not certify the contents, quality, "
+            "correctness, correspondence, possession, or completeness of the agent, "
+            "evaluation dataset, evaluator, or build-process evidence."
+        ),
         "subject": {
             "subject_kind": "build_session",
             "hash_algorithm": "v1",
+            "project_ref": "project_contract001",
             "build_session_ref": _BUILD_SESSION_REF,
             "session_commitment_digest": _SHA,
         },
@@ -570,7 +591,7 @@ def _key_ring_identifiers(with_client: bool = False) -> dict:
         "issuer_signature_algorithm": "ed25519",
     }
     if with_client:
-        block["client_key_ref"] = "ckey:abcdef0123456789"
+        block["client_key_ref"] = "ckr:" + "A" * 43
         block["client_signature_algorithm"] = "ed25519"
     return block
 
@@ -585,6 +606,7 @@ def _unsigned_manifest(
         "subject": {
             "subject_kind": "build_session",
             "hash_algorithm": "v1",
+            "project_ref": "project_contract001",
             "build_session_ref": _BUILD_SESSION_REF,
             "session_commitment_digest": _SHA,
         },
@@ -654,7 +676,7 @@ def _audit_row_supported(claim_id: str, claim_material_digest: str = _SHA) -> di
     }
     return {
         "claim_id": claim_id,
-        "support_status": "supported",
+        "evidence_basis": "client_declared" if claim_id == "G1" else "issuer_verified",
         "verifier": {
             "verifier_id": verifier_by_claim[claim_id],
             "verifier_version": "0.1.0",
@@ -667,7 +689,7 @@ def _audit_row_supported(claim_id: str, claim_material_digest: str = _SHA) -> di
 def _audit_row_abstained(claim_id: str, code: str | None = None) -> dict:
     return {
         "claim_id": claim_id,
-        "support_status": "abstained",
+        "evidence_basis": "abstained",
         "abstention_code": _ABSTENTION_CODE_BY_ID[claim_id] if code is None else code,
     }
 
@@ -699,13 +721,16 @@ def _claim_material_projection(claim: dict) -> dict:
     remaining_evidence = [
         ref for ref in claim["evidence_refs"] if ref.get("evidence_kind") != "audit_report_digest"
     ]
-    return {
+    projection = {
         "claim_id": claim["claim_id"],
         "tier": claim["tier"],
         "payload": claim["payload"],
         "verifier": claim["verifier"],
         "evidence_refs": remaining_evidence,
     }
+    if "rendered_text" in claim:
+        projection["rendered_text"] = claim["rendered_text"]
+    return projection
 
 
 def _claim_material_digest(claim: dict) -> str:
@@ -724,7 +749,7 @@ def _audit_report_for_claims(claims: list) -> dict:
     material_digests = {c["claim_id"]: _claim_material_digest(c) for c in claims}
     rows = [
         _audit_row_supported(cid, material_digests[cid])
-        if cid in material_digests and cid != "D2"
+        if cid in material_digests and cid in {"B1", "G1"}
         else _audit_row_abstained(cid)
         for cid in _AUDIT_ROW_ORDER
     ]
@@ -775,7 +800,7 @@ def _g3_claim(tier: int = 1) -> dict:
         "payload": {
             "claim_id": "G3",
             "template_id": "tmpl.cert.g3.cosigner_identity_binding.v1",
-            "params": {"client_key_ref": "ckey:abcdef0123456789"},
+            "params": {"client_key_ref": "ckr:" + "A" * 43},
         },
         "verifier": {
             "verifier_id": "ver.cert.cosigner_identity",
@@ -1046,14 +1071,14 @@ def _verify_certificate_contract(cert: dict) -> None:
 
     rows_by_id = {row["claim_id"]: row for row in audit_report["claim_support_rows"]}
     for row in audit_report["claim_support_rows"]:
-        if row["support_status"] == "supported" and row["claim_id"] not in printed_id_set:
+        if row["evidence_basis"] in {"issuer_verified", "client_declared"} and row["claim_id"] not in printed_id_set:
             raise ContractViolation(
                 f"audit row {row['claim_id']} is supported but not printed as a claim"
             )
 
     for claim in manifest["claims"]:
         row = rows_by_id.get(claim["claim_id"])
-        if row is None or row["support_status"] != "supported":
+        if row is None or row["evidence_basis"] not in {"issuer_verified", "client_declared"}:
             raise ContractViolation(
                 f"printed claim {claim['claim_id']} has no supporting audit row"
             )
@@ -1126,7 +1151,7 @@ def _rebind_claim_material_and_audit(cert: dict) -> None:
     claims = cert["claims"]
     rows = cert["audit_report"]["claim_support_rows"]
     for row in rows:
-        if row["support_status"] == "supported":
+        if row["evidence_basis"] in {"issuer_verified", "client_declared"}:
             claim = next(c for c in claims if c["claim_id"] == row["claim_id"])
             row["claim_material_digest"] = _claim_material_digest(claim)
     _rebind_audit_report_digest(cert)
@@ -1152,6 +1177,70 @@ def _mutate_non_audit_evidence(claim: dict) -> None:
 
 
 class TestEnvelope:
+    def test_v2_g1_rendering_and_scope_are_exact(self) -> None:
+        certificate = _certificate()
+        claim = certificate["claims"][0]
+        root = claim["payload"]["params"]["manifest_root_digest"]
+        assert claim["payload"]["template_id"] == (
+            "tmpl.cert.g1.client_evidence_manifest_commitment.v2"
+        )
+        assert claim["rendered_text"] == (
+            "The pinned client key co-signed the declaration that evidence-manifest root "
+            f"{root} uses scheme sha256_secret_blinded_v1 and client attestor version 0.1.0. "
+            "The declaration is unopened; correspondence to, possession of, and completeness "
+            "of any underlying evidence are not proven."
+        )
+        assert certificate["certificate_scope_line"] == (
+            "Scope: Certified Agent v0 verifies signatures, build-session binding, and an "
+            "unopened client declaration. It does not certify the contents, quality, "
+            "correctness, correspondence, possession, or completeness of the agent, "
+            "evaluation dataset, evaluator, or build-process evidence."
+        )
+
+    def test_g1_old_possession_wording_is_rejected(self) -> None:
+        claim = _g1_claim()
+        claim["rendered_text"] = (
+            "The client committed evidence-manifest root sha256:"
+            + "a" * 64
+            + " under scheme sha256_secret_blinded_v1 using client attestor version 0.1.0. "
+            "The commitment proves the client held this manifest at commit time; it does not "
+            "prove the manifest is complete."
+        )
+        assert _errors(CLAIMS, claim)
+
+    def test_audit_rows_are_all_present_with_pinned_abstentions(self) -> None:
+        rows = _certificate()["audit_report"]["claim_support_rows"]
+        assert [row["claim_id"] for row in rows] == ["B1", "REG1", "C1", "D2", "F1", "G1", "G3"]
+        assert all(row["evidence_basis"] == "abstained" for row in rows if row["claim_id"] != "G1")
+        assert [row["abstention_code"] for row in rows if row["claim_id"] != "G1"] == [
+            "verifier_not_run_or_not_pass",
+            "unregistered_claim_id",
+            "verifier_not_run_or_not_pass",
+            "verifier_not_run_or_not_pass",
+            "verifier_not_run_or_not_pass",
+            "verifier_not_run_or_not_pass",
+        ]
+
+    def test_audit_basis_is_closed_and_legacy_status_is_rejected(self) -> None:
+        report = _audit_report()
+        report["claim_support_rows"][0]["evidence_basis"] = "server_verified"
+        assert _errors(AUDIT_REPORT, report)
+        report = _audit_report()
+        report["claim_support_rows"][0]["support_status"] = "abstained"
+        assert _errors(AUDIT_REPORT, report)
+
+    def test_g1_cannot_be_promoted_to_issuer_verified(self) -> None:
+        report = _audit_report_for_claims([_g1_claim()])
+        row = next(row for row in report["claim_support_rows"] if row["claim_id"] == "G1")
+        row["evidence_basis"] = "issuer_verified"
+        assert _errors(AUDIT_REPORT, report)
+
+    def test_b1_issuer_verified_row_is_schema_valid(self) -> None:
+        claim = _b1_claim(tier=3)
+        report = _audit_report_for_claims([claim])
+        assert report["claim_support_rows"][0]["evidence_basis"] == "issuer_verified"
+        assert not _errors(AUDIT_REPORT, report)
+
     def test_valid_certificate_accepted(self) -> None:
         assert not _errors(ENVELOPE, _certificate())
 
@@ -1841,7 +1930,7 @@ class TestClaimIdAllowlist:
                 "claim_id": "G3",
                 "template_id": "tmpl.cert.g3.cosigner_identity_binding.v1",
                 "params": {
-                    "client_key_ref": "ckey:abcdef0123456789",
+                    "client_key_ref": "ckr:" + "A" * 43,
                 },
             },
         }
@@ -1897,7 +1986,7 @@ class TestClaimIdAllowlist:
         )
         assert _errors(CLAIMS, claim)
 
-    @pytest.mark.parametrize("claim_id", ["B1", "C1", "F1", "G3"])
+    @pytest.mark.parametrize("claim_id", ["C1", "F1", "G3"])
     def test_current_v0_rejects_self_referential_or_postfinalization_claims(self, claim_id) -> None:
         claim = {
             "B1": _b1_claim,
@@ -1906,6 +1995,9 @@ class TestClaimIdAllowlist:
             "G3": _g3_claim,
         }[claim_id]()
         assert _errors(CLAIMS, claim)
+
+    def test_current_v0_allows_narrow_b1_issuer_assertion(self) -> None:
+        assert not _errors(CLAIMS, _b1_claim(tier=3))
 
     def test_current_v0_rejects_pending_reg1_emission(self) -> None:
         claim = _b1_claim()
@@ -2286,7 +2378,7 @@ class TestAuditReport:
             "B1",
             {
                 "claim_id": "B1",
-                "support_status": "supported",
+                "evidence_basis": "issuer_verified",
                 "claim_material_digest": _SHA,
             },
         )
@@ -2301,7 +2393,7 @@ class TestAuditReport:
             "B1",
             {
                 "claim_id": "B1",
-                "support_status": "supported",
+                "evidence_basis": "issuer_verified",
                 "verifier": {
                     "verifier_id": "ver.cert.seal_signature",
                     "verifier_version": "0.1.0",
@@ -2316,7 +2408,7 @@ class TestAuditReport:
         rows = _replace_row(
             report["claim_support_rows"],
             "D2",
-            {"claim_id": "D2", "support_status": "abstained"},
+            {"claim_id": "D2", "evidence_basis": "abstained"},
         )
         assert _errors(AUDIT_REPORT, _audit_report(rows=rows))
 
@@ -2495,7 +2587,7 @@ class TestNonCircularClaims:
             "claim_id": "G3",
             "template_id": "tmpl.cert.g3.cosigner_identity_binding.v1",
             "params": {
-                "client_key_ref": "ckey:abcdef0123456789",
+                "client_key_ref": "ckr:" + "A" * 43,
                 "cosigned_manifest_digest": _SHA,
             },
         }
@@ -2522,7 +2614,7 @@ class TestNonCircularClaims:
         g3["payload"] = {
             "claim_id": "G3",
             "template_id": "tmpl.cert.g3.cosigner_identity_binding.v1",
-            "params": {"client_key_ref": "ckey:abcdef0123456789"},
+            "params": {"client_key_ref": "ckr:" + "A" * 43},
         }
         assert not _errors(PAYLOADS, g3["payload"])
 
@@ -3029,7 +3121,7 @@ class TestContractVerifier:
 
     def test_g3_client_key_mismatch_detected(self) -> None:
         cert = _build_valid_fixture([_g3_claim(tier=1)], with_co=True)
-        cert["signatures"]["co_attestation"]["client_key_ref"] = "ckey:fedcba9876543210"
+        cert["signatures"]["co_attestation"]["client_key_ref"] = "ckr:" + "B" * 43
         with pytest.raises(ContractViolation):
             _verify_certificate_contract(cert)
 
@@ -3145,7 +3237,7 @@ class TestContractVerifier:
         assert not _errors(ENVELOPE, cert)
         rows = cert["audit_report"]["claim_support_rows"]
         assert len(rows) == 7
-        assert {row["support_status"] for row in rows} == {"abstained"}
+        assert {row["evidence_basis"] for row in rows} == {"abstained"}
 
     def test_absent_g1_requires_null_audit_root(self) -> None:
         cert = _build_valid_fixture([])

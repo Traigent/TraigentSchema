@@ -101,7 +101,7 @@
                     "$ref": "./certification_common_v0_schema.json#/definitions/BoundedSemver"
                   },
                   "client_key_ref": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                    "$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
                   },
                   "client_signature_algorithm": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
@@ -149,11 +149,8 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["client_key_ref", "algorithm", "public_key_der_b64"],
+                "required": ["algorithm", "public_key_der_b64"],
                 "properties": {
-                  "client_key_ref": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
-                  },
                   "algorithm": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
                   },
@@ -218,7 +215,7 @@
                 "required": ["client_key_ref", "algorithm"],
                 "properties": {
                   "client_key_ref": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                    "$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
                   },
                   "algorithm": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
@@ -266,7 +263,7 @@
                 "required": ["client_key_ref", "algorithm"],
                 "properties": {
                   "client_key_ref": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                    "$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
                   },
                   "algorithm": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
@@ -354,7 +351,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["build_session_ref", "nonce"],
+                "required": ["build_session_ref", "nonce", "co_attestation"],
                 "properties": {
                   "build_session_ref": {
                     "type": "string",
@@ -364,10 +361,7 @@
                     "$ref": "./certification_common_v0_schema.json#/definitions/PublicNonce"
                   },
                   "co_attestation": {
-                    "anyOf": [
-                      {"$ref": "./certificate_signatures_v0_schema.json#/definitions/CoAttestationV0"},
-                      {"type": "null"}
-                    ]
+                    "$ref": "./certificate_signatures_v0_schema.json#/definitions/CoAttestationV0"
                   }
                 }
               }
@@ -508,7 +502,7 @@
           "id": {"type": "string", "pattern": "^cck_[a-f0-9]{32}$"},
           "tenant_id": {"$ref": "#/components/schemas/IdV0"},
           "project_id": {"$ref": "#/components/schemas/IdV0"},
-          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"},
           "algorithm": {"$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
           "created_at": {"type": "string", "format": "date-time"}
         }
@@ -521,7 +515,7 @@
           "id": {"type": "string", "pattern": "^cckr_[a-f0-9]{32}$"},
           "tenant_id": {"$ref": "#/components/schemas/IdV0"},
           "project_id": {"$ref": "#/components/schemas/IdV0"},
-          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"},
           "algorithm": {"$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
           "reason": {"enum": ["rotation", "administrative", "compromise"]},
           "revoked_at": {"type": "string", "format": "date-time"}

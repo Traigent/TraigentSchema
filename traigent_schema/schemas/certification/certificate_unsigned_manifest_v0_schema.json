@@ -103,7 +103,7 @@
         },
         "client_key_ref": {
           "description": "Present only when a client co-attestation is expected; its presence/absence is itself part of what the signature covers.",
-          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+          "$ref": "certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
         },
         "client_signature_algorithm": {
           "description": "Present iff client_key_ref is present; it is fixed in the manifest before client signing and must equal co_attestation.algorithm.",

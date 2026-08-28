@@ -16,6 +16,16 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$"
     },
+    "ClientKeyRefV0": {
+      "description": "Named semantic type: a project-scoped client verification-key reference. It is derived, never caller-selected: `ckr:` plus base64url-without-padding of SHA-256(UTF8(traigent.agent_certificate.client_key_ref.v0) || 0x00 || UTF8(project_ref) || 0x00 || UTF8(signature_algorithm) || 0x00 || canonical SubjectPublicKeyInfo DER). The 32-byte digest is rendered as exactly 43 base64url characters. This pseudonymous public-key identifier is a disclosed linkability channel; it carries no private key or evidence content.",
+      "type": "string",
+      "pattern": "^ckr:[A-Za-z0-9_-]{43}$"
+    },
+    "ProjectRefV0": {
+      "description": "Bounded project identity used as the public scope input to the derived ClientKeyRefV0. This is control-plane identity only and never contains agent, evaluator, dataset, or build-process content.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]{1,128}$"
+    },
     "GitCommitSha": {
       "description": "Named semantic type: a full 40-hex git commit SHA pinning an implementation ref (used by the D2 payload to pin the SDK witness ref; C1 Ruling 4: the e97b030f strace witness 'does not automatically cover newly added certificate code. It must be rerun at the new pinned implementation ref').",
       "type": "string",
@@ -80,7 +90,7 @@
       "description": "The machine-readable build_session subject (conceded to the proposer: 'the mandatory page-one scope box and machine-readable build_session subject'). The certificate is ABOUT a build session and nothing else. MOVED HERE (SCHEMA-1, 2026-08-24 pre-issuance correction) from agent_certificate_v0_schema.json so both the printed certificate's `subject` field and the signed unsigned-manifest's `subject` coverage section (certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0) reference the identical type — a compiler that copies the same object into both places, verified structurally identical rather than merely described as such (closes gap C1: 'coverage is a label, not a binding'). This REUSES the orphaned optimization/certificate_subject_schema.json subject-binding SHAPE — a self-describing hash_algorithm carried outside the hashed content, a commitment digest, and exact envelope-version pinning, with that schema's own scope discipline ('It does not certify provenance') restated here for the build session. The full certificate_subject RECORD is deliberately NOT embedded: its config_id is a caller-chosen string (bounded at 128 chars but otherwise free), and embedding it would open a user-controlled free-text channel into a certificate record, which the boundary rule forbids ('certificate and registry records contain no user-controlled free-text fields'). SCOPE, stated so it is not over-read: this subject identifies WHICH build session the certificate concerns. It does not certify the session's provenance, contents, or completeness.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["subject_kind", "hash_algorithm", "build_session_ref", "session_commitment_digest"],
+      "required": ["subject_kind", "hash_algorithm", "project_ref", "build_session_ref", "session_commitment_digest"],
       "properties": {
         "subject_kind": {
           "const": "build_session"
@@ -92,6 +102,9 @@
         "build_session_ref": {
           "description": "Opaque build-session reference; MUST match ledger_seal_projection.build_session_ref and, inside the signed unsigned manifest, seal.build_session_ref (compiler-checked equality; cross-field equality is not expressible in draft-07 across $ref boundaries).",
           "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "project_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/ProjectRefV0"
         },
         "session_commitment_digest": {
           "description": "Canonical commitment digest binding the subject to the sealed session content.",

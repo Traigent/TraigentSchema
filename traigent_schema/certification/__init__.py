@@ -14,6 +14,7 @@ from traigent_schema.certification.relying_party_verifier import (
     VerificationContext,
     VerificationError,
     VerificationResult,
+    derive_client_key_ref,
     verify,
     verify_agent_certificate,
     verify_certificate,
@@ -21,6 +22,7 @@ from traigent_schema.certification.relying_party_verifier import (
 )
 
 __all__ = [
+    "derive_client_key_ref",
     "RelyingPartyPolicy",
     "RelyingPartyVerificationError",
     "VerificationContext",

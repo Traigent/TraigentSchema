@@ -24,6 +24,8 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 
 from tests.test_agent_certificate_v0_schemas import (
     _build_valid_fixture,
+    _b1_claim,
+    _claim_material_digest,
     _d2_claim,
     _g1_claim,
     _rebind_audit_report_digest,
@@ -121,6 +123,23 @@ def test_root_certification_exports_preserve_public_api() -> None:
     assert RootRelyingPartyPolicy is RelyingPartyPolicy
 
 
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_client_key_ref_is_deterministic_and_project_scoped(algorithm: str) -> None:
+    _, client_key = _private_keys(algorithm)
+    public_key = client_key.public_key()
+    first = verifier_impl.derive_client_key_ref("project_contract001", algorithm, public_key)
+    assert first == verifier_impl.derive_client_key_ref(
+        "project_contract001", algorithm, public_key
+    )
+    assert first.startswith("ckr:") and len(first) == 47
+    assert first != verifier_impl.derive_client_key_ref(
+        "project_contract002", algorithm, public_key
+    )
+
+    with pytest.raises(VerificationError, match="^CLIENT_KEY_REF$"):
+        verifier_impl.derive_client_key_ref("project_contract001", "rsa4096", public_key)
+
+
 def _digest(domain: bytes, value: object) -> str:
     return "sha256:" + hashlib.sha256(domain + b"\0" + fp2.canonicalize(value).encode()).hexdigest()
 
@@ -173,8 +192,22 @@ def _sign_fixture(
     unsigned = cert["signatures"]["unsigned_manifest"]["document"]
     unsigned["seal"] = copy.deepcopy(seal)
     cert["audit_report"]["ledger_seal_statement_digest"] = seal["seal_statement_digest"]
+    for claim_group in (cert["claims"], unsigned["claims"]):
+        for claim in claim_group:
+            if claim["claim_id"] == "B1":
+                claim["payload"]["params"]["seal_ref"] = seal["seal_ref"]
+                claim["payload"]["params"]["seal_statement_digest"] = seal[
+                    "seal_statement_digest"
+                ]
+                claim["rendered_text"] = (
+                    "The issuer signed this seal statement: seal "
+                    + seal["seal_ref"]
+                    + ", canonical seal-statement digest "
+                    + seal["seal_statement_digest"]
+                    + "."
+                )
     for row in cert["audit_report"]["claim_support_rows"]:
-        if row["support_status"] == "abstained":
+        if row["evidence_basis"] == "abstained":
             row["abstention_code"] = (
                 "unregistered_claim_id"
                 if row["claim_id"] == "REG1"
@@ -203,6 +236,16 @@ def _sign_fixture(
             {"evidence_kind": "audit_report_digest", "evidence_digest": audit_digest}
         ]
     issuer_key, client_key = _private_keys(algorithm)
+    client_public_key = client_key.public_key()
+    client_key_ref = verifier_impl.derive_client_key_ref(
+        "project_contract001", algorithm, client_public_key
+    )
+    for claim_group in (cert["claims"], unsigned["claims"]):
+        for claim in claim_group:
+            if claim["claim_id"] == "G1":
+                claim["payload"]["params"]["client_key_ref"] = client_key_ref
+    if with_co:
+        unsigned["key_ring_identifiers"]["client_key_ref"] = client_key_ref
     unsigned["key_ring_identifiers"]["issuer_signature_algorithm"] = algorithm
     cert["signatures"]["issuer_signature"]["algorithm"] = algorithm
     co = cert["signatures"].get("co_attestation")
@@ -210,6 +253,42 @@ def _sign_fixture(
         unsigned["key_ring_identifiers"]["client_signature_algorithm"] = algorithm
         assert co is not None
         co["algorithm"] = algorithm
+        co["client_key_ref"] = client_key_ref
+    for row in cert["audit_report"]["claim_support_rows"]:
+        if row["evidence_basis"] in {"issuer_verified", "client_declared"}:
+            claim = next(c for c in cert["claims"] if c["claim_id"] == row["claim_id"])
+            if row["claim_id"] == "B1":
+                for ref in claim["evidence_refs"]:
+                    if ref["evidence_kind"] == "seal_statement":
+                        ref["evidence_digest"] = seal["seal_statement_digest"]
+            row["claim_material_digest"] = _claim_material_digest(claim)
+    audit_digest = _digest(_AUDIT_DOMAIN, cert["audit_report"])
+    for claim_group in (cert["claims"], unsigned["claims"]):
+        for claim in claim_group:
+            for ref in claim["evidence_refs"]:
+                if (
+                    claim["claim_id"] == "B1"
+                    and ref["evidence_kind"] == "seal_statement"
+                ):
+                    ref["evidence_digest"] = seal["seal_statement_digest"]
+                if ref["evidence_kind"] == "audit_report_digest":
+                    ref["evidence_digest"] = audit_digest
+    unsigned["evidence_digests"] = [
+        {"evidence_kind": "audit_report_digest", "evidence_digest": audit_digest},
+        *(
+            [
+                copy.deepcopy(
+                    next(
+                        ref
+                        for ref in unsigned["claims"][0]["evidence_refs"]
+                        if ref["evidence_kind"] != "audit_report_digest"
+                    )
+                )
+            ]
+            if unsigned["claims"]
+            else []
+        ),
+    ]
     manifest_digest = _digest(_UNSIGNED_DOMAIN, unsigned)
     unsigned_ref = cert["signatures"]["unsigned_manifest"]
     unsigned_ref["manifest_digest"] = manifest_digest
@@ -243,11 +322,15 @@ def _sign_fixture(
         expected_trust_ring_ref=issuer["trust_ring_ref"],
         expected_client_key_ref=co["client_key_ref"] if co is not None else None,
         expected_client_algorithm=algorithm if co is not None else None,
-        client_public_key=client_key.public_key() if co is not None else None,
+        expected_project_ref="project_contract001",
+        client_public_key=client_public_key if co is not None else None,
     )
     policy = RelyingPartyPolicy(
         tuple(unsigned["compiler_register_versions"].items()),
-        (("G1", "ver.cert.manifest_commitment", "0.1.0"),),
+        (
+            ("B1", "ver.cert.seal_signature", "0.1.0"),
+            ("G1", "ver.cert.manifest_commitment", "0.1.0"),
+        ),
     )
     return cert, issuer_key.public_key(), context, policy
 
@@ -369,6 +452,23 @@ def test_g1_certificate_is_verified_offline(algorithm: str) -> None:
     result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
     assert result.valid
     assert result.code == "VERIFIED"
+
+
+def test_b1_issuer_verified_certificate_needs_no_client_material() -> None:
+    cert, issuer, context, policy = _sign_fixture(
+        claims=[_b1_claim(tier=3)],
+        with_co=False,
+    )
+    materials = _materials_fixture(cert, issuer, context, policy)
+    assert "client" not in materials
+    result = verify_certificate_with_materials(
+        _retrieval_wrapper(cert, materials),
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+    )
+    assert result.valid
 
 
 def test_discovered_materials_bundle_verifies_end_to_end() -> None:
@@ -589,13 +689,14 @@ def test_schema_abstention_codes_match_verifier_constants() -> None:
     )
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     expected = verifier_impl._ABSTENTION_CODES
-    for row in schema["definitions"]["ClaimSupportRowsV0"]["items"]:
-        claim_id = row["allOf"][1]["properties"]["claim_id"]["const"]
-        if claim_id == "G1":
-            abstention_code = row["allOf"][2]["then"]["properties"]["abstention_code"]["const"]
-        else:
-            abstention_code = row["allOf"][1]["properties"]["abstention_code"]["const"]
-        assert abstention_code == expected[claim_id]
+    claim_ids = ["B1", "REG1", "C1", "D2", "F1", "G1", "G3"]
+    # The B1/G1 positions are oneOf branches because each may be supported
+    # under its distinct evidence basis; unsupported rows retain the fixed
+    # abstention vocabulary checked here.
+    assert set(expected.values()) <= set(schema["definitions"]["AbstentionCodeV0"]["enum"])
+    assert expected["B1"] == "verifier_not_run_or_not_pass"
+    assert expected["G1"] == "verifier_not_run_or_not_pass"
+    assert claim_ids == list(verifier_impl._AUDIT_ROWS)
 
 
 def test_discovered_materials_reversed_register_mapping_uses_canonical_order() -> None:
@@ -637,7 +738,7 @@ def test_discovered_materials_rejects_non_context_before_material_binding() -> N
 def test_discovered_materials_digest_mutation_is_rejected() -> None:
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
-    materials["client"]["key_ref"] = "client-key:mutated01"
+    materials["client"]["key_ref"] = "ckr:" + "B" * 43
 
     with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
         verify_certificate_with_materials(
@@ -790,7 +891,7 @@ def test_forged_non_abstained_d2_audit_row_is_rejected() -> None:
     )
     d2_row.update(
         {
-            "support_status": "supported",
+            "evidence_basis": "issuer_verified",
             "verifier": {
                 "verifier_id": "ver.cert.offline_egress_witness",
                 "verifier_version": "0.1.0",
@@ -895,7 +996,13 @@ def test_omitted_mandatory_non_claim_is_rejected() -> None:
 
 def test_wrong_policy_is_rejected() -> None:
     cert, issuer, context, policy = _sign_fixture()
-    wrong_policy = replace(policy, verifier_bindings=(("G1", "ver.cert.other", "0.1.0"),))
+    wrong_policy = replace(
+        policy,
+        verifier_bindings=(
+            ("B1", "ver.cert.seal_signature", "0.1.0"),
+            ("G1", "ver.cert.other", "0.1.0"),
+        ),
+    )
     with pytest.raises(VerificationError, match="^POLICY$"):
         verify_certificate(cert, issuer_public_key=issuer, context=context, policy=wrong_policy)
 

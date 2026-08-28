@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Agent Certificate v0 G1** now uses the v2 pinned-client signed declaration and emits the
+  exact honesty scope line. G1 payloads carry structurally adjacent build-session/client-key
+  references and rendered text; client key references use deterministic project-scoped
+  derivation from canonical public verification material. Enrollment no longer accepts a
+  caller-selected client key reference, and finalization requires the client co-attestation.
+- **Agent Certificate v0 audit reports** now expose one closed evidence_basis per fixed row;
+  B1 may be issuer-verified only when the fixed seal and signing-envelope contract passes, while
+  G1 remains a client-declared unopened commitment and unsupported rows abstain.
+
 ### Added
 - **Agent Certificate v0 certification API and contract** now expose lazy relying-party
   verification exports, frozen G1-only claim verification with explicit D2 abstention, and

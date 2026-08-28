@@ -98,7 +98,7 @@ def _valid_materials(
             "public_key_digest": _spki_digest(issuer_public, ISSUER_SPKI_DOMAIN),
         },
         "client": {
-            "key_ref": "client-key:opaque0001",
+            "key_ref": "ckr:" + "A" * 43,
             "algorithm": client_algorithm,
             "public_key_der_b64": _der(client_public),
             "public_key_digest": _spki_digest(client_public, CLIENT_SPKI_DOMAIN),
@@ -163,9 +163,9 @@ def test_spki_digest_descriptions_match_verifier_role_domains() -> None:
     }
 
     for role, definition_name in role_definitions.items():
-        description = schema["definitions"][definition_name]["properties"][
-            "public_key_digest"
-        ]["description"]
+        description = schema["definitions"][definition_name]["properties"]["public_key_digest"][
+            "description"
+        ]
         domain = getattr(verifier_impl, f"_{role.upper()}_SPKI_DOMAIN").decode("ascii")
         assert f"Role-separated {role} SPKI digest" in description
         assert domain in description

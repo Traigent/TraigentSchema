@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
 import re
 import subprocess
@@ -148,9 +149,7 @@ class Finding:
 
     def fingerprint(self) -> str:
         """Return a deterministic digest of the complete finding identity."""
-        payload = {"file": self.file, "rule": self.rule, **self.identity()}
-        encoded = _canonical_json_bytes(payload)
-        return hashlib.sha256(encoded).hexdigest()
+        return _fingerprint_for_identity(self.file, self.rule, self.identity())
 
     def line(self) -> str:
         tag = "BREAKING" if self.severity == "BREAKING" else "info    "
@@ -208,6 +207,15 @@ def _canonical_json_bytes(value: Any) -> bytes:
         ensure_ascii=False,
         allow_nan=False,
     ).encode("utf-8")
+
+
+_STRUCTURED_IDENTITY_KEYS = frozenset({"pointer", "role", "subject", "old", "new"})
+
+
+def _fingerprint_for_identity(file: str, rule: str, identity: dict[str, Any]) -> str:
+    """Hash the complete typed identity persisted for a structured acknowledgement."""
+    payload = {"file": file, "rule": rule, **identity}
+    return hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()
 
 
 def _keyword_finding(
@@ -1755,11 +1763,44 @@ def find_allow_entry(finding: Finding, entries: list[dict[str, Any]]) -> AllowMa
             if not (
                 isinstance(exact_findings, list)
                 and all(isinstance(identity, dict) for identity in exact_findings)
-                and any(
-                    _canonical_json_bytes(finding.identity()) == _canonical_json_bytes(identity)
-                    for identity in exact_findings
-                )
             ):
+                continue
+            current_identity = finding.identity()
+            current_fingerprint = finding.fingerprint()
+            matched = False
+            for stored_identity in exact_findings:
+                # A structured acknowledgement is valid only when it contains exactly the
+                # canonical identity fields plus a verified SHA-256 digest.  In particular,
+                # a digest cannot be used to bless a later semantic edit to the identity.
+                if set(stored_identity) != _STRUCTURED_IDENTITY_KEYS | {"fingerprint"}:
+                    continue
+                stored_fingerprint = stored_identity.get("fingerprint")
+                if not (
+                    isinstance(stored_fingerprint, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
+                ):
+                    continue
+                identity = {
+                    key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS
+                }
+                try:
+                    expected_fingerprint = _fingerprint_for_identity(
+                        e["file"], e["rule"], identity
+                    )
+                except (TypeError, ValueError):
+                    continue
+                if not hmac.compare_digest(stored_fingerprint, expected_fingerprint):
+                    continue
+                if not hmac.compare_digest(stored_fingerprint, current_fingerprint):
+                    continue
+                try:
+                    if _canonical_json_bytes(current_identity) != _canonical_json_bytes(identity):
+                        continue
+                except (TypeError, ValueError):
+                    continue
+                matched = True
+                break
+            if not matched:
                 continue
         elif "pointers" in e or "pointer" in e:
             # Pointer-only acknowledgements are intentionally no longer accepted: they
@@ -1916,7 +1957,10 @@ def _suggest_allowlist_json(file: str, rule: str, group_findings: list[Finding])
     suggestion = {
         "file": file,
         "rule": rule,
-        "findings": [finding.identity() for finding in group_findings],
+        "findings": [
+            {**finding.identity(), "fingerprint": finding.fingerprint()}
+            for finding in group_findings
+        ],
         "reason": "<explain WHY this is intentional and reviewed, not just that it happened>",
         "version": "<the contract version this change ships in, e.g. 5.6.0>",
         "pr": "<#NNN>",

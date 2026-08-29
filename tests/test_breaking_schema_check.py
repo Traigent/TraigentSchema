@@ -82,6 +82,17 @@ def _load_gate_module():
 
 gate = _load_gate_module()
 
+
+def _stored_identity(finding, **updates):
+    identity = {**finding.identity(), **updates}
+    identity["fingerprint"] = gate._fingerprint_for_identity(
+        finding.file,
+        finding.rule,
+        {key: identity[key] for key in ("pointer", "role", "subject", "old", "new")},
+    )
+    return identity
+
+
 BASELINE_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "$id": "https://schemas.traigent.ai/widgets/widget_request_schema.json",
@@ -760,8 +771,8 @@ def test_exact_identity_allowlist_accepts_only_listed_findings() -> None:
         "file": finding.file,
         "rule": finding.rule,
         "findings": [
-            finding.identity(),
-            {**finding.identity(), "pointer": "#/properties/size"},
+            _stored_identity(finding),
+            _stored_identity(finding, pointer="#/properties/size"),
         ],
         "reason": "This deliberate v0 contract tightening was reviewed.",
         "version": "5.8.0",
@@ -771,14 +782,16 @@ def test_exact_identity_allowlist_accepts_only_listed_findings() -> None:
     assert gate.find_allow_entry(finding, [entry]).entry == entry
     assert gate.find_allow_entry(
         finding,
-        [{**entry, "findings": [{**finding.identity(), "pointer": "#/properties/size"}]}],
+        [{**entry, "findings": [_stored_identity(finding, pointer="#/properties/size")]}],
     ).entry is None
     assert gate.find_allow_entry(
         finding,
         [
             {
                 **entry,
-                "findings": [{**finding.identity(), "pointer": "#/properties/color/child"}],
+                "findings": [
+                    _stored_identity(finding, pointer="#/properties/color/child")
+                ],
             }
         ],
     ).entry is None
@@ -831,6 +844,13 @@ def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
 
     assert len(current.breaking_unacked) == 67
     assert len({finding.fingerprint() for finding in current.breaking_unacked}) == 67
+    stored_fingerprints = [
+        identity["fingerprint"]
+        for entry in exact_entries
+        for identity in entry["findings"]
+    ]
+    assert len(stored_fingerprints) == 67
+    assert len(set(stored_fingerprints)) == 67
     assert not acknowledged.breaking_unacked
 
     for entry in exact_entries:
@@ -846,6 +866,7 @@ def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
                 old=identity["old"],
                 new=identity["new"],
             )
+            assert identity["fingerprint"] == finding.fingerprint()
             assert gate.find_allow_entry(finding, entries).entry is entry
             future = gate.Finding(
                 file=entry["file"],
@@ -942,7 +963,7 @@ def test_structured_acknowledgement_requires_an_exact_nonempty_rule() -> None:
         "reason": "This deliberate v0 contract tightening was reviewed.",
         "version": "5.8.0",
         "pr": "#123",
-        "findings": [finding.identity()],
+        "findings": [_stored_identity(finding)],
     }
     missing_rule = {key: value for key, value in base.items() if key != "rule"}
     for entry in (missing_rule, {**base, "rule": ""}, {**base, "rule": "type"}):
@@ -967,14 +988,48 @@ def test_structured_identity_does_not_alias_booleans_and_integers() -> None:
         "reason": "This deliberate v0 contract tightening was reviewed.",
         "version": "5.8.0",
         "pr": "#123",
-        "findings": [finding.identity()],
+        "findings": [_stored_identity(finding)],
     }
 
-    old_alias = {**finding.identity(), "old": 0}
-    new_alias = {**finding.identity(), "new": 1}
+    old_alias = _stored_identity(finding, old=0)
+    new_alias = _stored_identity(finding, new=1)
     assert gate.find_allow_entry(finding, [entry]).entry is entry
     assert gate.find_allow_entry(finding, [{**entry, "findings": [old_alias]}]).entry is None
     assert gate.find_allow_entry(finding, [{**entry, "findings": [new_alias]}]).entry is None
+
+
+def test_structured_acknowledgement_requires_a_verified_fingerprint() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+        subject="color",
+        old=False,
+        new=True,
+    )
+    stored = _stored_identity(finding)
+    entry = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+        "findings": [stored],
+    }
+
+    missing = {key: value for key, value in stored.items() if key != "fingerprint"}
+    identity_tamper = {**stored, "subject": "future_size"}
+    digest_tamper = {**stored, "fingerprint": "0" * 64}
+    malformed_digest = {**stored, "fingerprint": True}
+    for candidate in (missing, identity_tamper, digest_tamper, malformed_digest):
+        assert gate.find_allow_entry(
+            finding, [{**entry, "findings": [candidate]}]
+        ).entry is None
+
+    assert gate.find_allow_entry(finding, [entry]).entry is entry
 
 
 def test_run_git_ignores_inherited_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

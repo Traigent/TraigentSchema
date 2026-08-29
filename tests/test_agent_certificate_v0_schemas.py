@@ -238,21 +238,29 @@ def _b1_claim(tier: int = 3) -> dict:
             # report replace this via _finalize_claims_with_audit.
             {"evidence_kind": "audit_report_digest", "evidence_digest": _SHA_B},
         ],
+        "rendered_text": (
+            "The issuer signed this seal statement: seal seal:abcdef0123456789, "
+            "canonical seal-statement digest " + _SHA + "."
+        ),
     }
 
 
 def _g1_claim(tier: int = 1) -> dict:
+    root = _client_evidence_root_digest(_client_evidence_manifest())
+    client_key_ref = "ckr:" + "A" * 43
     return {
         "record_type": "claim",
         "claim_id": "G1",
         "tier": tier,
         "payload": {
             "claim_id": "G1",
-            "template_id": "tmpl.cert.g1.client_evidence_manifest_commitment.v1",
+            "template_id": "tmpl.cert.g1.client_evidence_manifest_commitment.v2",
             "params": {
-                "manifest_root_digest": _client_evidence_root_digest(_client_evidence_manifest()),
+                "manifest_root_digest": root,
                 "commitment_scheme": "sha256_secret_blinded_v1",
                 "client_attestor_version": "0.1.0",
+                "build_session_ref": _BUILD_SESSION_REF,
+                "client_key_ref": client_key_ref,
             },
         },
         "verifier": {
@@ -269,6 +277,12 @@ def _g1_claim(tier: int = 1) -> dict:
             # report replace this via _finalize_claims_with_audit.
             {"evidence_kind": "audit_report_digest", "evidence_digest": _SHA_B},
         ],
+        "rendered_text": (
+            "The pinned client key co-signed the declaration that evidence-manifest root "
+            f"{root} uses scheme sha256_secret_blinded_v1 and client attestor version 0.1.0. "
+            "The declaration is unopened; correspondence to, possession of, and completeness "
+            "of any underlying evidence are not proven."
+        ),
     }
 
 
@@ -286,7 +300,7 @@ def _non_claims() -> list:
 def _co_attestation(manifest_digest: str, nonce: str) -> dict:
     return {
         "algorithm": "ed25519",
-        "client_key_ref": "ckey:abcdef0123456789",
+        "client_key_ref": "ckr:" + "A" * 43,
         "signed_manifest_digest": manifest_digest,
         "nonce": nonce,
         "signature": _SIG,
@@ -308,11 +322,10 @@ def _signatures(
     # signed_manifest_digest are drawn from that same manifest -- exactly the
     # bindings a relying-party verifier checks.
     claims = claims if claims is not None else [_g1_claim(tier=1)]
-    # Deep-copy so the embedded document's `claims` section is an
-    # independent copy of the certificate's own `claims` field, not the
-    # same aliased list -- a compiler copies verbatim at construction time,
-    # but the two fields must be independently mutable afterwards for
-    # divergence to be representable/testable at all.
+    # Materialize the embedded manifest projection from the certificate claims;
+    # the contract verifier checks the two signed projections for exact
+    # equality rather than treating either copy as an independently mutable
+    # client input.
     manifest = _unsigned_manifest(
         claims=copy.deepcopy(claims),
         with_co=with_co,
@@ -335,10 +348,6 @@ def _signatures(
     }
     if with_co:
         block["co_attestation"] = _co_attestation(manifest_digest, manifest["freshness"]["nonce"])
-        block["issuer_signature"]["signed_payload"] = [
-            "unsigned_manifest",
-            "co_attestation",
-        ]
     return block
 
 
@@ -357,7 +366,7 @@ def _certificate(
         # are present, abstained otherwise -- including the zero-claims
         # case, where all seven rows abstain).
         audit_report = _audit_report_for_claims(claims)
-    return {
+    certificate = {
         "schema_version": "traigent.agent_certificate.v0",
         "certificate_title": "Agent Certificate",
         "build_session_scope_line": (
@@ -365,9 +374,16 @@ def _certificate(
             "the deployed agent. It makes no deployment-identity, "
             "deployment-binding, drift-detection, or deployed-runtime claim."
         ),
+        "certificate_scope_line": (
+            "Scope: Certified Agent v0 verifies signatures, build-session binding, and an "
+            "unopened client declaration. It does not certify the contents, quality, "
+            "correctness, correspondence, possession, or completeness of the agent, "
+            "evaluation dataset, evaluator, or build-process evidence."
+        ),
         "subject": {
             "subject_kind": "build_session",
             "hash_algorithm": "v1",
+            "project_ref": "project_contract001",
             "build_session_ref": _BUILD_SESSION_REF,
             "session_commitment_digest": _SHA,
         },
@@ -395,6 +411,9 @@ def _certificate(
         ),
         "audit_report": audit_report,
     }
+    if with_co:
+        _rebind_co_projection_digest(certificate)
+    return certificate
 
 
 ENVELOPE = "agent_certificate_v0_schema.json"
@@ -433,6 +452,17 @@ def _audit_report_digest(document: dict) -> str:
     return _role_digest(_DIGEST_ROLE_AUDIT_REPORT, document)
 
 
+def _rebind_co_projection_digest(cert: dict) -> None:
+    co = cert["signatures"].get("co_attestation")
+    if co is None:
+        return
+    projection = copy.deepcopy(cert)
+    projection["signatures"].pop("co_attestation", None)
+    co["signed_manifest_digest"] = _role_digest(
+        b"traigent.agent_certificate.client_certificate_projection.v0", projection
+    )
+
+
 def _claim_material_role_digest(document: dict) -> str:
     return _role_digest(_DIGEST_ROLE_CLAIM_MATERIAL, document)
 
@@ -456,20 +486,16 @@ def _strict_signature_raw(value: str) -> bytes:
 def _client_signed_material(manifest_jcs_bytes: bytes) -> bytes:
     return (
         b"traigent.agent_certificate.client_co_attestation.v0"
-        + b"\x00"
         + len(manifest_jcs_bytes).to_bytes(8, "big")
         + manifest_jcs_bytes
     )
 
 
-def _issuer_signed_material(manifest_jcs_bytes: bytes, co_signature_raw: bytes = b"") -> bytes:
+def _issuer_signed_material(manifest_jcs_bytes: bytes) -> bytes:
     return (
         b"traigent.agent_certificate.issuer_signature.v0"
-        + b"\x00"
         + len(manifest_jcs_bytes).to_bytes(8, "big")
         + manifest_jcs_bytes
-        + len(co_signature_raw).to_bytes(8, "big")
-        + co_signature_raw
     )
 
 
@@ -570,7 +596,7 @@ def _key_ring_identifiers(with_client: bool = False) -> dict:
         "issuer_signature_algorithm": "ed25519",
     }
     if with_client:
-        block["client_key_ref"] = "ckey:abcdef0123456789"
+        block["client_key_ref"] = "ckr:" + "A" * 43
         block["client_signature_algorithm"] = "ed25519"
     return block
 
@@ -585,6 +611,7 @@ def _unsigned_manifest(
         "subject": {
             "subject_kind": "build_session",
             "hash_algorithm": "v1",
+            "project_ref": "project_contract001",
             "build_session_ref": _BUILD_SESSION_REF,
             "session_commitment_digest": _SHA,
         },
@@ -654,7 +681,7 @@ def _audit_row_supported(claim_id: str, claim_material_digest: str = _SHA) -> di
     }
     return {
         "claim_id": claim_id,
-        "support_status": "supported",
+        "evidence_basis": "client_declared" if claim_id == "G1" else "issuer_verified",
         "verifier": {
             "verifier_id": verifier_by_claim[claim_id],
             "verifier_version": "0.1.0",
@@ -667,7 +694,7 @@ def _audit_row_supported(claim_id: str, claim_material_digest: str = _SHA) -> di
 def _audit_row_abstained(claim_id: str, code: str | None = None) -> dict:
     return {
         "claim_id": claim_id,
-        "support_status": "abstained",
+        "evidence_basis": "abstained",
         "abstention_code": _ABSTENTION_CODE_BY_ID[claim_id] if code is None else code,
     }
 
@@ -699,13 +726,16 @@ def _claim_material_projection(claim: dict) -> dict:
     remaining_evidence = [
         ref for ref in claim["evidence_refs"] if ref.get("evidence_kind") != "audit_report_digest"
     ]
-    return {
+    projection = {
         "claim_id": claim["claim_id"],
         "tier": claim["tier"],
         "payload": claim["payload"],
         "verifier": claim["verifier"],
         "evidence_refs": remaining_evidence,
     }
+    if "rendered_text" in claim:
+        projection["rendered_text"] = claim["rendered_text"]
+    return projection
 
 
 def _claim_material_digest(claim: dict) -> str:
@@ -724,7 +754,7 @@ def _audit_report_for_claims(claims: list) -> dict:
     material_digests = {c["claim_id"]: _claim_material_digest(c) for c in claims}
     rows = [
         _audit_row_supported(cid, material_digests[cid])
-        if cid in material_digests and cid != "D2"
+        if cid in material_digests and cid in {"B1", "G1"}
         else _audit_row_abstained(cid)
         for cid in _AUDIT_ROW_ORDER
     ]
@@ -775,7 +805,7 @@ def _g3_claim(tier: int = 1) -> dict:
         "payload": {
             "claim_id": "G3",
             "template_id": "tmpl.cert.g3.cosigner_identity_binding.v1",
-            "params": {"client_key_ref": "ckey:abcdef0123456789"},
+            "params": {"client_key_ref": "ckr:" + "A" * 43},
         },
         "verifier": {
             "verifier_id": "ver.cert.cosigner_identity",
@@ -943,12 +973,13 @@ def _verify_certificate_contract(cert: dict) -> None:
             )
         if manifest["freshness"]["nonce"] != co["nonce"]:
             raise ContractViolation("freshness.nonce != co_attestation.nonce")
-        if (
-            co["signed_manifest_digest"]
-            != cert["signatures"]["unsigned_manifest"]["manifest_digest"]
+        projection = copy.deepcopy(cert)
+        projection["signatures"].pop("co_attestation", None)
+        if co["signed_manifest_digest"] != _role_digest(
+            b"traigent.agent_certificate.client_certificate_projection.v0", projection
         ):
             raise ContractViolation(
-                "co_attestation.signed_manifest_digest != unsigned_manifest.manifest_digest"
+                "co_attestation.signed_manifest_digest != certificate projection"
             )
     elif "client_key_ref" in kri or "client_signature_algorithm" in kri:
         raise ContractViolation("client key/algorithm present without co_attestation")
@@ -1046,14 +1077,17 @@ def _verify_certificate_contract(cert: dict) -> None:
 
     rows_by_id = {row["claim_id"]: row for row in audit_report["claim_support_rows"]}
     for row in audit_report["claim_support_rows"]:
-        if row["support_status"] == "supported" and row["claim_id"] not in printed_id_set:
+        if (
+            row["evidence_basis"] in {"issuer_verified", "client_declared"}
+            and row["claim_id"] not in printed_id_set
+        ):
             raise ContractViolation(
                 f"audit row {row['claim_id']} is supported but not printed as a claim"
             )
 
     for claim in manifest["claims"]:
         row = rows_by_id.get(claim["claim_id"])
-        if row is None or row["support_status"] != "supported":
+        if row is None or row["evidence_basis"] not in {"issuer_verified", "client_declared"}:
             raise ContractViolation(
                 f"printed claim {claim['claim_id']} has no supporting audit row"
             )
@@ -1095,7 +1129,7 @@ def _apply_claim_mutation(cert: dict, index: int, mutator) -> None:
     cert["signatures"]["unsigned_manifest"]["manifest_digest"] = manifest_digest
     co = cert["signatures"].get("co_attestation")
     if co is not None:
-        co["signed_manifest_digest"] = manifest_digest
+        _rebind_co_projection_digest(cert)
 
 
 def _rebind_audit_report_digest(cert: dict) -> None:
@@ -1118,7 +1152,7 @@ def _rebind_audit_report_digest(cert: dict) -> None:
     cert["signatures"]["unsigned_manifest"]["manifest_digest"] = manifest_digest
     co = cert["signatures"].get("co_attestation")
     if co is not None:
-        co["signed_manifest_digest"] = manifest_digest
+        _rebind_co_projection_digest(cert)
 
 
 def _rebind_claim_material_and_audit(cert: dict) -> None:
@@ -1126,7 +1160,7 @@ def _rebind_claim_material_and_audit(cert: dict) -> None:
     claims = cert["claims"]
     rows = cert["audit_report"]["claim_support_rows"]
     for row in rows:
-        if row["support_status"] == "supported":
+        if row["evidence_basis"] in {"issuer_verified", "client_declared"}:
             claim = next(c for c in claims if c["claim_id"] == row["claim_id"])
             row["claim_material_digest"] = _claim_material_digest(claim)
     _rebind_audit_report_digest(cert)
@@ -1152,6 +1186,70 @@ def _mutate_non_audit_evidence(claim: dict) -> None:
 
 
 class TestEnvelope:
+    def test_v2_g1_rendering_and_scope_are_exact(self) -> None:
+        certificate = _certificate()
+        claim = certificate["claims"][0]
+        root = claim["payload"]["params"]["manifest_root_digest"]
+        assert claim["payload"]["template_id"] == (
+            "tmpl.cert.g1.client_evidence_manifest_commitment.v2"
+        )
+        assert claim["rendered_text"] == (
+            "The pinned client key co-signed the declaration that evidence-manifest root "
+            f"{root} uses scheme sha256_secret_blinded_v1 and client attestor version 0.1.0. "
+            "The declaration is unopened; correspondence to, possession of, and completeness "
+            "of any underlying evidence are not proven."
+        )
+        assert certificate["certificate_scope_line"] == (
+            "Scope: Certified Agent v0 verifies signatures, build-session binding, and an "
+            "unopened client declaration. It does not certify the contents, quality, "
+            "correctness, correspondence, possession, or completeness of the agent, "
+            "evaluation dataset, evaluator, or build-process evidence."
+        )
+
+    def test_g1_old_possession_wording_is_rejected(self) -> None:
+        claim = _g1_claim()
+        claim["rendered_text"] = (
+            "The client committed evidence-manifest root sha256:"
+            + "a" * 64
+            + " under scheme sha256_secret_blinded_v1 using client attestor version 0.1.0. "
+            "The commitment proves the client held this manifest at commit time; it does not "
+            "prove the manifest is complete."
+        )
+        assert _errors(CLAIMS, claim)
+
+    def test_audit_rows_are_all_present_with_pinned_abstentions(self) -> None:
+        rows = _certificate()["audit_report"]["claim_support_rows"]
+        assert [row["claim_id"] for row in rows] == ["B1", "REG1", "C1", "D2", "F1", "G1", "G3"]
+        assert all(row["evidence_basis"] == "abstained" for row in rows if row["claim_id"] != "G1")
+        assert [row["abstention_code"] for row in rows if row["claim_id"] != "G1"] == [
+            "verifier_not_run_or_not_pass",
+            "unregistered_claim_id",
+            "verifier_not_run_or_not_pass",
+            "verifier_not_run_or_not_pass",
+            "verifier_not_run_or_not_pass",
+            "verifier_not_run_or_not_pass",
+        ]
+
+    def test_audit_basis_is_closed_and_legacy_status_is_rejected(self) -> None:
+        report = _audit_report()
+        report["claim_support_rows"][0]["evidence_basis"] = "server_verified"
+        assert _errors(AUDIT_REPORT, report)
+        report = _audit_report()
+        report["claim_support_rows"][0]["support_status"] = "abstained"
+        assert _errors(AUDIT_REPORT, report)
+
+    def test_g1_cannot_be_promoted_to_issuer_verified(self) -> None:
+        report = _audit_report_for_claims([_g1_claim()])
+        row = next(row for row in report["claim_support_rows"] if row["claim_id"] == "G1")
+        row["evidence_basis"] = "issuer_verified"
+        assert _errors(AUDIT_REPORT, report)
+
+    def test_b1_issuer_verified_row_is_schema_valid(self) -> None:
+        claim = _b1_claim(tier=3)
+        report = _audit_report_for_claims([claim])
+        assert report["claim_support_rows"][0]["evidence_basis"] == "issuer_verified"
+        assert not _errors(AUDIT_REPORT, report)
+
     def test_valid_certificate_accepted(self) -> None:
         assert not _errors(ENVELOPE, _certificate())
 
@@ -1163,7 +1261,7 @@ class TestEnvelope:
     def test_zero_claims_certificate_accepted(self) -> None:
         # Every v0 claim is conditional; a claims-empty certificate that still
         # prints all fourteen NON-claims is the honest v0 shape.
-        assert not _errors(ENVELOPE, _certificate(claims=[]))
+        assert not _errors(ENVELOPE, _certificate(claims=[], with_co=False))
 
     def test_title_is_pinned(self) -> None:
         cert = _certificate()
@@ -1371,18 +1469,23 @@ class TestCoAttestationBinding:
         cert = _certificate(claims=[_g1_claim(tier=1)], with_co=True)
         assert not _errors(ENVELOPE, cert)
 
-    def test_issuer_must_cover_present_co_attestation(self) -> None:
-        sigs = _signatures(with_co=True)
-        sigs["issuer_signature"]["signed_payload"] = ["unsigned_manifest"]
-        assert _errors(SIGNATURES, sigs)
+    def test_b1_only_claim_without_co_attestation_accepted(self) -> None:
+        cert = _certificate(claims=[_b1_claim(tier=3)], with_co=False)
+        assert not _errors(ENVELOPE, cert)
 
-    def test_issuer_cannot_claim_absent_co_attestation(self) -> None:
+    def test_b1_only_claim_with_co_attestation_rejected(self) -> None:
+        cert = _certificate(claims=[_b1_claim(tier=3)], with_co=True)
+        assert _errors(ENVELOPE, cert)
+
+    def test_issuer_never_covers_present_co_attestation(self) -> None:
+        sigs = _signatures(with_co=True)
+        assert sigs["issuer_signature"]["signed_payload"] == ["unsigned_manifest"]
+        assert not _errors(SIGNATURES, sigs)
+
+    def test_issuer_payload_is_unchanged_for_b1_only_certificate(self) -> None:
         sigs = _signatures(with_co=False)
-        sigs["issuer_signature"]["signed_payload"] = [
-            "unsigned_manifest",
-            "co_attestation",
-        ]
-        assert _errors(SIGNATURES, sigs)
+        assert sigs["issuer_signature"]["signed_payload"] == ["unsigned_manifest"]
+        assert not _errors(SIGNATURES, sigs)
 
     def test_manifest_coverage_is_pinned(self) -> None:
         sigs = _signatures()
@@ -1409,26 +1512,43 @@ class TestSignatureProtocol:
         assert material.hex() == (
             "7472616967656e742e6167656e745f63657274696669636174652e"
             "636c69656e745f636f5f6174746573746174696f6e2e763000000000"
-            "00000000077b2261223a317d"
+            "000000077b2261223a317d"
         )
         assert hashlib.sha256(material).hexdigest() == (
-            "151ce88b3b19b953cb2e980a3a2937958639274e9bc9e8fb14cd36d6514c4221"
+            "54fed555c8cdab557d927b6bc9c27690ca8fab11403fb8e65e6f8238fb9ae56b"
         )
 
-    def test_issuer_signed_material_known_answer_and_empty_co_length(self) -> None:
-        material = _issuer_signed_material(b'{"a":1}', _SIG_RAW)
+    def test_issuer_signed_material_known_answer(self) -> None:
+        material = _issuer_signed_material(b'{"a":1}')
         assert material.hex() == (
             "7472616967656e742e6167656e745f63657274696669636174652e"
-            "6973737565725f7369676e61747572652e7630000000000000000007"
-            "7b2261223a317d0000000000000040000102030405060708090a0b0c"
-            "0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728"
-            "292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+            "6973737565725f7369676e61747572652e763000000000000000077b"
+            "2261223a317d"
         )
         assert hashlib.sha256(material).hexdigest() == (
-            "d70c99cb25f9313d33036b684bd87007e1aaf7e50c49d5af3644db67b435403c"
+            "bbbd57422094b975fc9e7ad3a5fcadc59747fe654b9f0d1b0a4124e27bdec628"
         )
-        empty = _issuer_signed_material(b'{"a":1}')
-        assert empty[-8:] == (0).to_bytes(8, "big")
+
+    def test_published_signature_preimage_wording_matches_vectors(self) -> None:
+        signatures_description = _load(CERT_DIR / SIGNATURES)["description"]
+        common_description = _load(CERT_DIR / "certification_common_v0_schema.json")["definitions"][
+            "SignedMaterialDomainTagV0"
+        ]["description"]
+        issuer_phrase = (
+            "UTF8(`traigent.agent_certificate.issuer_signature.v0`) || "
+            "uint64be(len(manifest_jcs_bytes)) || manifest_jcs_bytes"
+        )
+        client_phrase = (
+            "UTF8(`traigent.agent_certificate.client_co_attestation.v0`) || "
+            "uint64be(len(certificate_projection_jcs_bytes)) || "
+            "certificate_projection_jcs_bytes"
+        )
+        assert issuer_phrase in signatures_description
+        assert client_phrase in signatures_description
+        assert issuer_phrase in common_description
+        assert client_phrase in common_description
+        assert "0x00" not in signatures_description
+        assert "co_signature_raw" not in signatures_description
 
     def test_signed_material_length_framing_and_role_substitution_mutate_answer(
         self,
@@ -1436,24 +1556,20 @@ class TestSignatureProtocol:
         manifest = b'{"a":1}'
         client = _client_signed_material(manifest)
         assert _client_signed_material(manifest + b" ") != client
-        assert _issuer_signed_material(manifest, _SIG_RAW) != _issuer_signed_material(manifest, b"")
-        assert _issuer_signed_material(manifest, _SIG_RAW) != (
+        assert _issuer_signed_material(manifest) != (
             b"traigent.agent_certificate.client_co_attestation.v0"
             + client[len(b"traigent.agent_certificate.client_co_attestation.v0") :]
         )
 
-    def test_signed_payload_discriminator_tracks_co_signature_length(self) -> None:
+    def test_signed_payload_is_always_the_unsigned_manifest(self) -> None:
         assert not _errors(SIGNATURES, _signatures(with_co=False))
         assert not _errors(SIGNATURES, _signatures(with_co=True))
         absent = _signatures(with_co=False)
-        absent["issuer_signature"]["signed_payload"] = [
-            "unsigned_manifest",
-            "co_attestation",
-        ]
+        absent["issuer_signature"]["signed_payload"] = ["unsigned_manifest", "co_attestation"]
         assert _errors(SIGNATURES, absent)
         present = _signatures(with_co=True)
         present["issuer_signature"]["signed_payload"] = ["unsigned_manifest"]
-        assert _errors(SIGNATURES, present)
+        assert not _errors(SIGNATURES, present)
 
 
 class TestLedgerSeals:
@@ -1841,7 +1957,7 @@ class TestClaimIdAllowlist:
                 "claim_id": "G3",
                 "template_id": "tmpl.cert.g3.cosigner_identity_binding.v1",
                 "params": {
-                    "client_key_ref": "ckey:abcdef0123456789",
+                    "client_key_ref": "ckr:" + "A" * 43,
                 },
             },
         }
@@ -1897,7 +2013,7 @@ class TestClaimIdAllowlist:
         )
         assert _errors(CLAIMS, claim)
 
-    @pytest.mark.parametrize("claim_id", ["B1", "C1", "F1", "G3"])
+    @pytest.mark.parametrize("claim_id", ["C1", "F1", "G3"])
     def test_current_v0_rejects_self_referential_or_postfinalization_claims(self, claim_id) -> None:
         claim = {
             "B1": _b1_claim,
@@ -1906,6 +2022,9 @@ class TestClaimIdAllowlist:
             "G3": _g3_claim,
         }[claim_id]()
         assert _errors(CLAIMS, claim)
+
+    def test_current_v0_allows_narrow_b1_issuer_assertion(self) -> None:
+        assert not _errors(CLAIMS, _b1_claim(tier=3))
 
     def test_current_v0_rejects_pending_reg1_emission(self) -> None:
         claim = _b1_claim()
@@ -2286,7 +2405,7 @@ class TestAuditReport:
             "B1",
             {
                 "claim_id": "B1",
-                "support_status": "supported",
+                "evidence_basis": "issuer_verified",
                 "claim_material_digest": _SHA,
             },
         )
@@ -2301,7 +2420,7 @@ class TestAuditReport:
             "B1",
             {
                 "claim_id": "B1",
-                "support_status": "supported",
+                "evidence_basis": "issuer_verified",
                 "verifier": {
                     "verifier_id": "ver.cert.seal_signature",
                     "verifier_version": "0.1.0",
@@ -2316,7 +2435,7 @@ class TestAuditReport:
         rows = _replace_row(
             report["claim_support_rows"],
             "D2",
-            {"claim_id": "D2", "support_status": "abstained"},
+            {"claim_id": "D2", "evidence_basis": "abstained"},
         )
         assert _errors(AUDIT_REPORT, _audit_report(rows=rows))
 
@@ -2495,7 +2614,7 @@ class TestNonCircularClaims:
             "claim_id": "G3",
             "template_id": "tmpl.cert.g3.cosigner_identity_binding.v1",
             "params": {
-                "client_key_ref": "ckey:abcdef0123456789",
+                "client_key_ref": "ckr:" + "A" * 43,
                 "cosigned_manifest_digest": _SHA,
             },
         }
@@ -2522,7 +2641,7 @@ class TestNonCircularClaims:
         g3["payload"] = {
             "claim_id": "G3",
             "template_id": "tmpl.cert.g3.cosigner_identity_binding.v1",
-            "params": {"client_key_ref": "ckey:abcdef0123456789"},
+            "params": {"client_key_ref": "ckr:" + "A" * 43},
         }
         assert not _errors(PAYLOADS, g3["payload"])
 
@@ -2823,7 +2942,7 @@ class TestContractVerifier:
         document["evidence_digests"] = _evidence_digests_projection(document["claims"], bare_digest)
         manifest_digest = _unsigned_manifest_digest(document)
         cert["signatures"]["unsigned_manifest"]["manifest_digest"] = manifest_digest
-        cert["signatures"]["co_attestation"]["signed_manifest_digest"] = manifest_digest
+        _rebind_co_projection_digest(cert)
         assert not _errors(ENVELOPE, cert)
         with pytest.raises(
             ContractViolation,
@@ -2847,7 +2966,7 @@ class TestContractVerifier:
         )
         manifest_digest = _unsigned_manifest_digest(document)
         cert["signatures"]["unsigned_manifest"]["manifest_digest"] = manifest_digest
-        cert["signatures"]["co_attestation"]["signed_manifest_digest"] = manifest_digest
+        _rebind_co_projection_digest(cert)
         assert not _errors(ENVELOPE, cert)
         with pytest.raises(
             ContractViolation, match="audit_report.client_evidence_manifest_root mismatch"
@@ -3029,7 +3148,7 @@ class TestContractVerifier:
 
     def test_g3_client_key_mismatch_detected(self) -> None:
         cert = _build_valid_fixture([_g3_claim(tier=1)], with_co=True)
-        cert["signatures"]["co_attestation"]["client_key_ref"] = "ckey:fedcba9876543210"
+        cert["signatures"]["co_attestation"]["client_key_ref"] = "ckr:" + "B" * 43
         with pytest.raises(ContractViolation):
             _verify_certificate_contract(cert)
 
@@ -3145,7 +3264,7 @@ class TestContractVerifier:
         assert not _errors(ENVELOPE, cert)
         rows = cert["audit_report"]["claim_support_rows"]
         assert len(rows) == 7
-        assert {row["support_status"] for row in rows} == {"abstained"}
+        assert {row["evidence_basis"] for row in rows} == {"abstained"}
 
     def test_absent_g1_requires_null_audit_root(self) -> None:
         cert = _build_valid_fixture([])
@@ -3171,7 +3290,7 @@ class TestContractVerifier:
         document = cert["signatures"]["unsigned_manifest"]["document"]
         manifest_digest = _unsigned_manifest_digest(document)
         cert["signatures"]["unsigned_manifest"]["manifest_digest"] = manifest_digest
-        cert["signatures"]["co_attestation"]["signed_manifest_digest"] = manifest_digest
+        _rebind_co_projection_digest(cert)
         with pytest.raises(ContractViolation, match="G1 manifest_root_digest must be nonzero"):
             _verify_certificate_contract(cert)
 
@@ -3198,7 +3317,7 @@ class TestContractVerifier:
         cert["signatures"]["co_attestation"]["signed_manifest_digest"] = _SHA_B
         with pytest.raises(
             ContractViolation,
-            match="co_attestation.signed_manifest_digest != unsigned_manifest.manifest_digest",
+            match="co_attestation.signed_manifest_digest != certificate projection",
         ):
             _verify_certificate_contract(cert)
 

@@ -63,8 +63,20 @@ retrieval wrapper is always checked for the exact status shape and active/null
 status, even when that opt-out is set.
 
 The optional `certification` extra is required for either offline verifier:
-`pip install "traigent-schema[certification]"`. Current v0 emits only G1;
-B1, REG1, C1, D2, F1, and G3 are the six fixed abstentions.
+`pip install "traigent-schema[certification]"`. Current v0 emits B1 and G1;
+REG1, C1, D2, F1, and G3 are the five fixed abstentions.
+
+The certification API uses an issuer-first signing flow. `prepare` returns one
+content-free, issuer-signed certificate projection in its final canonical wire
+shape, with the outer `signatures.co_attestation` member absent. The issuer
+projection excludes that client co-attestation; the client canonicalizes the
+exact issuer-signed projection, which includes `issuer_signature` and excludes
+only its own outer `co_attestation`, and signs it; it must not rebuild or pair
+it with a separate unsigned-manifest response. `finalize` validates the
+persisted prepared projection and accepts the co-attestation conditionally:
+the server requires it when that projection has G1 or any tier-1 claim, while
+B1-only certificates may finalize with issuer material alone. The prepared
+projection is unchanged by finalization.
 
 Failures raise `RelyingPartyVerificationError`; its `.code` and string form
 are bounded, content-free values intended for safe logging. A successful

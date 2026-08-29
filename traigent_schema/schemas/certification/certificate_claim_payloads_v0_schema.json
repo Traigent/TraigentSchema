@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/certificate_claim_payloads_v0_schema.json",
   "title": "Agent Certificate v0 Per-Claim Payload Types",
-  "description": "ONE EXPLICIT PAYLOAD TYPE PER REGISTERED CLAIM ID. These seven bounded payload shapes remain available as isolated future-evolution records, but current v0 ClaimV0 emission is deliberately limited to G1 tier 1. B1, REG1, C1, D2, F1, and G3 are unsupported and unprintable until independently registered verifier evidence exists. The payload schemas remain so a future registered release can test their shapes without weakening the current emission gate. No user-controlled free text is representable.",
+  "description": "ONE EXPLICIT PAYLOAD TYPE PER REGISTERED CLAIM ID. These seven bounded payload shapes remain available as isolated future-evolution records, but current v0 ClaimV0 emission is deliberately limited to B1 and G1 (G1 remains tier 1). REG1, C1, D2, F1, and G3 are unsupported and unprintable until independently registered verifier evidence exists. The payload schemas remain so a future registered release can test their shapes without weakening the current emission gate. No user-controlled free text is representable.",
   "definitions": {
     "ClaimPayloadV0": {
       "description": "Discriminated union of the seven v0 payload types; the claim_id const inside each branch is the discriminator, so exactly one branch can validate.",
@@ -31,7 +31,7 @@
       ]
     },
     "ClaimPayloadB1V0": {
-      "description": "Future registered payload shape for B1. Current v0 ClaimV0 emission rejects B1 because its PASS verifier is not independently available until the manifest/signature/audit cycle is finalized. If later registered, the claim is limited to 'the issuer signed this seal statement', not sealed-history integrity. Params bind the named seal and statement digest only.",
+      "description": "Issuer-verified B1 payload. The claim is limited to 'the issuer signed this seal statement', not sealed-history integrity, completeness, event truth, ordering, or omission resistance. Params bind the named seal and statement digest only; the relying-party verifier requires the fixed ledger stream profile and enclosing issuer signing-envelope contract to pass.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -241,7 +241,7 @@
       }
     },
     "ClaimPayloadG1V0": {
-      "description": "Claim G1 — client evidence-manifest commitment (C6 Ruling 5 core kernel: exact client signature bindings). The commitment proves possession at commit time, never completeness; the only registered scheme is secret-blinded (C1 Ruling 4 binding rule).",
+      "description": "Claim G1 — client evidence-manifest commitment (C6 Ruling 5 core kernel: exact client signature bindings). The pinned client key co-signs a bounded declaration over an unopened root; correspondence to, possession of, and completeness of underlying evidence are not claimed. The only registered scheme is secret-blinded (C1 Ruling 4 binding rule).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -254,7 +254,7 @@
           "const": "G1"
         },
         "template_id": {
-          "const": "tmpl.cert.g1.client_evidence_manifest_commitment.v1"
+          "const": "tmpl.cert.g1.client_evidence_manifest_commitment.v2"
         },
         "params": {
           "type": "object",
@@ -262,7 +262,9 @@
           "required": [
             "manifest_root_digest",
             "commitment_scheme",
-            "client_attestor_version"
+            "client_attestor_version",
+            "build_session_ref",
+            "client_key_ref"
           ],
           "properties": {
             "manifest_root_digest": {
@@ -276,6 +278,12 @@
             },
             "client_attestor_version": {
               "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+            },
+            "build_session_ref": {
+              "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+            },
+            "client_key_ref": {
+              "$ref": "certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
             }
           }
         }
@@ -305,7 +313,7 @@
           ],
           "properties": {
             "client_key_ref": {
-              "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+              "$ref": "certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
             },
             "enrollment_record_digest": {
               "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"

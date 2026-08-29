@@ -23,7 +23,7 @@ MEP = SCHEMAS / "mep_endpoints.json"
 BUILD_REF = "bsn:" + "A" * 43
 DIGEST = "sha256:" + "a" * 64
 ZERO_DIGEST = "sha256:" + "0" * 64
-OPAQUE_REF = "clientkey:contract001"
+OPAQUE_REF = "ckr:" + "A" * 43
 PUBLIC_KEY_DER_B64 = base64.b64encode(
     ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
     .public_key()
@@ -181,15 +181,29 @@ def test_catalog_matches_the_nine_backend_certificate_operations() -> None:
             {"build_session_ref": BUILD_REF, "nonce": "a" * 64, "unexpected": 1},
         ),
         (
+            "/api/v1beta/certificate-build-sessions/finalize",
+            "POST",
+            {
+                "build_session_ref": BUILD_REF,
+                "nonce": "a" * 64,
+                "co_attestation": {
+                    "algorithm": "ed25519",
+                    "client_key_ref": OPAQUE_REF,
+                    "signed_manifest_digest": DIGEST,
+                    "nonce": "a" * 64,
+                    "signature": "A" * 86 + "==",
+                },
+            },
+            {"build_session_ref": BUILD_REF, "nonce": "a" * 64, "unexpected": 1},
+        ),
+        (
             "/api/v1beta/certificate-client-keys",
             "POST",
             {
-                "client_key_ref": OPAQUE_REF,
                 "algorithm": "ed25519",
                 "public_key_der_b64": PUBLIC_KEY_DER_B64,
             },
             {
-                "client_key_ref": OPAQUE_REF,
                 "algorithm": "ed25519",
                 "public_key_der_b64": PUBLIC_KEY_DER_B64,
                 "private_key": "must not cross",
@@ -217,13 +231,38 @@ def test_request_shapes_are_registered_and_fail_closed(
     assert validator.validate_request(path, method, invalid)
 
 
-def test_finalize_co_attestation_is_the_existing_content_free_signature_shape() -> None:
+def test_prepare_and_finalize_protocol_state_is_explicitly_conditional() -> None:
     catalog = _load(CATALOG)
-    schema = _request_schema(catalog, "/api/v1beta/certificate-build-sessions/finalize", "POST")
-    co_attestation = schema["properties"]["co_attestation"]["anyOf"]
-    assert {item["$ref"] for item in co_attestation if "$ref" in item} == {
+    finalize_schema = _request_schema(
+        catalog, "/api/v1beta/certificate-build-sessions/finalize", "POST"
+    )
+    assert finalize_schema["required"] == ["build_session_ref", "nonce"]
+    assert finalize_schema["properties"]["co_attestation"]["$ref"] == (
         "./certificate_signatures_v0_schema.json#/definitions/CoAttestationV0"
-    }
+    )
+    prepare_response = catalog["components"]["schemas"]["PrepareResponseV0"]
+    assert prepare_response["required"] == [
+        "schema_version",
+        "certificate_title",
+        "build_session_scope_line",
+        "certificate_scope_line",
+        "subject",
+        "semantics",
+        "disclosure_profile",
+        "ledger_seal_projection",
+        "claims",
+        "non_claims",
+        "signatures",
+        "audit_report",
+    ]
+    assert "co_attestation" not in prepare_response["properties"]["signatures"]
+    assert "exact content-free issuer-signed" in prepare_response["description"]
+    assert (
+        "server-side"
+        in catalog["paths"]["/api/v1beta/certificate-build-sessions/finalize"]["post"]["responses"][
+            "201"
+        ]["description"]
+    )
     assert "private_key" not in json.dumps(catalog).lower()
 
 
@@ -250,7 +289,6 @@ def test_client_key_request_rejects_fresh_pkcs8_private_der_without_echoing_key_
 ) -> None:
     encoded = _private_der_b64(algorithm)
     request = {
-        "client_key_ref": OPAQUE_REF,
         "algorithm": algorithm,
         "public_key_der_b64": encoded,
     }

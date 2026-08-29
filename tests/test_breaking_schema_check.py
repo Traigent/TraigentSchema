@@ -31,6 +31,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -80,6 +81,17 @@ def _load_gate_module():
 
 
 gate = _load_gate_module()
+
+
+def _stored_identity(finding, **updates):
+    identity = {**finding.identity(), **updates}
+    identity["fingerprint"] = gate._fingerprint_for_identity(
+        finding.file,
+        finding.rule,
+        {key: identity[key] for key in ("pointer", "role", "subject", "old", "new")},
+    )
+    return identity
+
 
 BASELINE_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -162,6 +174,28 @@ def _run_gate(repo: Path, base_ref: str, head_ref: str) -> subprocess.CompletedP
         capture_output=True,
         text=True,
     )
+
+
+def _available_schema_base_ref(repo: Path) -> str | None:
+    """Return a local develop ref when this checkout contains one.
+
+    The current-findings regression below must compare against the real develop
+    tree; silently substituting HEAD (or an arbitrary ancestor) would make its
+    67-finding assertion meaningless.  Some hosted test jobs use a shallow
+    checkout without ``origin/develop`` and cannot perform that comparison, so
+    report the environment limitation as a skip while keeping the gate itself
+    fail-closed when its requested ref is unavailable.
+    """
+    for ref in ("origin/develop", "develop"):
+        probe = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--verify", f"{ref}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            env=_sanitized_git_env(),
+        )
+        if probe.returncode == 0:
+            return ref
+    return None
 
 
 def _write_tar(archive_path: Path, members: list[tarfile.TarInfo]) -> None:
@@ -744,6 +778,286 @@ def test_real_allowlist_reason_grants_opt_out(widget_repo: Path) -> None:
 
     assert result.returncode == 0, result.stdout
     assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_exact_identity_allowlist_accepts_only_listed_findings() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+    )
+    entry = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "findings": [
+            _stored_identity(finding),
+            _stored_identity(finding, pointer="#/properties/size"),
+        ],
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+    }
+
+    assert gate.find_allow_entry(finding, [entry]).entry == entry
+    assert gate.find_allow_entry(
+        finding,
+        [{**entry, "findings": [_stored_identity(finding, pointer="#/properties/size")]}],
+    ).entry is None
+    assert gate.find_allow_entry(
+        finding,
+        [
+            {
+                **entry,
+                "findings": [
+                    _stored_identity(finding, pointer="#/properties/color/child")
+                ],
+            }
+        ],
+    ).entry is None
+
+
+def test_exact_identity_allowlist_does_not_treat_invalid_entries_as_wildcards() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+    )
+    base = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+    }
+
+    for findings in ([], None, [{"pointer": "#/properties/color"}, 7]):
+        entry = {**base, "findings": findings}
+        assert gate.find_allow_entry(finding, [entry]).entry is None
+
+    pointer_only = {**base, "pointer": finding.pointer}
+    assert gate.find_allow_entry(finding, [pointer_only]).entry is None
+
+
+def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
+    """The 29 v0 acknowledgements cover the current 67 findings, not future identities."""
+    base_ref = _available_schema_base_ref(REPO_ROOT)
+    if base_ref is None:
+        pytest.skip(
+            "current-finding regression requires a local origin/develop or develop ref; "
+            "the breaking gate remains fail-closed when its requested base ref is absent"
+        )
+    entries = gate.load_allowlist(
+        REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
+    )
+    exact_entries = entries[-29:]
+    assert len(exact_entries) == 29
+    assert all("pointer_prefix" not in entry for entry in exact_entries)
+    assert all(entry.get("findings") for entry in exact_entries)
+
+    with tempfile.TemporaryDirectory(prefix="breaking-schema-current-") as temporary:
+        temporary_root = Path(temporary)
+        base = gate.load_tree_from_ref(
+            REPO_ROOT, base_ref, temporary_root / "base", temporary_root
+        )
+        head = gate.load_tree_from_ref(REPO_ROOT, "HEAD", temporary_root / "head", temporary_root)
+        changed = gate.changed_schema_files(REPO_ROOT, base_ref, "HEAD")
+        current = gate.compare_trees(base, head, changed, entries[: -29])
+        acknowledged = gate.compare_trees(base, head, changed, entries)
+
+    assert len(current.breaking_unacked) == 67
+    assert len({finding.fingerprint() for finding in current.breaking_unacked}) == 67
+    stored_fingerprints = [
+        identity["fingerprint"]
+        for entry in exact_entries
+        for identity in entry["findings"]
+    ]
+    assert len(stored_fingerprints) == 67
+    assert len(set(stored_fingerprints)) == 67
+    assert not acknowledged.breaking_unacked
+
+    for entry in exact_entries:
+        for identity in entry["findings"]:
+            finding = gate.Finding(
+                file=entry["file"],
+                pointer=identity["pointer"],
+                rule=entry["rule"],
+                severity="BREAKING",
+                role=identity["role"],
+                message="current acknowledged finding",
+                subject=identity["subject"],
+                old=identity["old"],
+                new=identity["new"],
+            )
+            assert identity["fingerprint"] == finding.fingerprint()
+            assert gate.find_allow_entry(finding, entries).entry is entry
+            future = gate.Finding(
+                file=entry["file"],
+                pointer=f"{identity['pointer']}/future-sibling",
+                rule=entry["rule"],
+                severity="BREAKING",
+                role=identity["role"],
+                message="synthetic future finding",
+                subject=identity["subject"],
+                old=identity["old"],
+                new=identity["new"],
+            )
+            assert gate.find_allow_entry(future, entries).entry is None
+
+
+def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
+    entries = gate.load_allowlist(
+        REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
+    )
+
+    required_entry = next(
+        entry
+        for entry in entries[-29:]
+        if entry["file"] == "certification/certificate_claim_payloads_v0_schema.json"
+        and entry["rule"] == "required"
+    )
+    required_identity = required_entry["findings"][0]
+    sibling = {**required_identity, "subject": "future_size"}
+
+    pattern_entry = next(
+        entry
+        for entry in entries[-29:]
+        if entry["file"] == "certification/agent_certificate_v0_schema.json"
+        and entry["rule"] == "pattern"
+    )
+    pattern_identity = pattern_entry["findings"][0]
+    pattern_drift = {**pattern_identity, "new": "^ckr:[A-Za-z0-9_-]{42}$"}
+
+    branch_entry = next(
+        entry
+        for entry in entries[-29:]
+        if entry["file"] == "certification/agent_certificate_v0_schema.json"
+        and entry["rule"] == "allOf_branch_count_changed"
+    )
+    branch_identity = branch_entry["findings"][0]
+    branch_drift = {**branch_identity, "new": branch_identity["new"] + 1}
+
+    for entry, identity in (
+        (required_entry, sibling),
+        (pattern_entry, pattern_drift),
+        (branch_entry, branch_drift),
+    ):
+        original = entry["findings"][0]
+        original_finding = gate.Finding(
+            file=entry["file"],
+            pointer=original["pointer"],
+            rule=entry["rule"],
+            severity="BREAKING",
+            role=original["role"],
+            message="original finding",
+            subject=original["subject"],
+            old=original["old"],
+            new=original["new"],
+        )
+        finding = gate.Finding(
+            file=entry["file"],
+            pointer=identity["pointer"],
+            rule=entry["rule"],
+            severity="BREAKING",
+            role=identity["role"],
+            message="synthetic same-pointer semantic drift",
+            subject=identity["subject"],
+            old=identity["old"],
+            new=identity["new"],
+        )
+        assert finding.fingerprint() != original_finding.fingerprint()
+        assert gate.find_allow_entry(finding, entries).entry is None
+
+
+def test_structured_acknowledgement_requires_an_exact_nonempty_rule() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+        subject="color",
+        old=False,
+        new=True,
+    )
+    base = {
+        "file": finding.file,
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+        "findings": [_stored_identity(finding)],
+    }
+    missing_rule = {key: value for key, value in base.items() if key != "rule"}
+    for entry in (missing_rule, {**base, "rule": ""}, {**base, "rule": "type"}):
+        assert gate.find_allow_entry(finding, [entry]).entry is None
+
+
+def test_structured_identity_does_not_alias_booleans_and_integers() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+        subject="color",
+        old=False,
+        new=True,
+    )
+    entry = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+        "findings": [_stored_identity(finding)],
+    }
+
+    old_alias = _stored_identity(finding, old=0)
+    new_alias = _stored_identity(finding, new=1)
+    assert gate.find_allow_entry(finding, [entry]).entry is entry
+    assert gate.find_allow_entry(finding, [{**entry, "findings": [old_alias]}]).entry is None
+    assert gate.find_allow_entry(finding, [{**entry, "findings": [new_alias]}]).entry is None
+
+
+def test_structured_acknowledgement_requires_a_verified_fingerprint() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+        subject="color",
+        old=False,
+        new=True,
+    )
+    stored = _stored_identity(finding)
+    entry = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+        "findings": [stored],
+    }
+
+    missing = {key: value for key, value in stored.items() if key != "fingerprint"}
+    identity_tamper = {**stored, "subject": "future_size"}
+    digest_tamper = {**stored, "fingerprint": "0" * 64}
+    malformed_digest = {**stored, "fingerprint": True}
+    for candidate in (missing, identity_tamper, digest_tamper, malformed_digest):
+        assert gate.find_allow_entry(
+            finding, [{**entry, "findings": [candidate]}]
+        ).entry is None
+
+    assert gate.find_allow_entry(finding, [entry]).entry is entry
 
 
 def test_run_git_ignores_inherited_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/certificate_claim_templates_v0_schema.json",
   "title": "Agent Certificate v0 Claim Template Catalog",
-  "description": "The pinned v0 claim-template catalog record shape. Claim sentences are versioned templates, never user-controlled prose. Seven bounded future-evolution templates remain pinned here, while current ClaimV0 emission is fail-closed to G1 tier 1; B1, REG1, C1, D2, F1, and G3 template records are retained for isolated payload/template tests but are unprintable until registered verifier evidence and policy gates exist. A renderer substitutes bounded parameters into these immutable template_text constants; no private artifact content or free text crosses.",
+  "description": "The pinned v0 claim-template catalog record shape. Claim sentences are versioned templates, never user-controlled prose. B1 may be emitted only for the issuer_verified seal-contract assertion; G1 is the narrow client_declared assertion; the remaining registered templates remain future-evolution records. A renderer substitutes bounded parameters into these immutable template_text constants; no private artifact content or free text crosses.",
   "oneOf": [
     {
       "$ref": "#/definitions/TemplateB1V1"
@@ -20,7 +20,7 @@
       "$ref": "#/definitions/TemplateF1V1"
     },
     {
-      "$ref": "#/definitions/TemplateG1V1"
+      "$ref": "#/definitions/TemplateG1V2"
     },
     {
       "$ref": "#/definitions/TemplateG3V1"
@@ -28,7 +28,7 @@
   ],
   "definitions": {
     "TemplateB1V1": {
-      "description": "Future registered B1 template shape. Current v0 ClaimV0 rejects B1 because the PASS verifier is unavailable until the manifest/signature/audit cycle is finalized. If registered later, the sentence remains limited to the issuer signing a named seal statement, never sealed-history integrity.",
+      "description": "The issuer_verified B1 template. It names the seal statement signed inside the certificate envelope and does not claim ledger completeness, event truth, ordering, or omission resistance.",
       "type": "object",
       "additionalProperties": false,
       "required": ["template_id", "template_text", "parameter_slots"],
@@ -112,17 +112,17 @@
         }
       }
     },
-    "TemplateG1V1": {
-      "description": "Claim G1 (client evidence-manifest commitment). A commitment proves possession at commit time only; completeness of the committed manifest is NOT claimed (standing non-claim NC_STEP_CAPTURE), and low-entropy preimages are guessable without secret blinding — the only registered scheme is secret-blinded (certification_common_v0_schema.json#/definitions/CommitmentSchemeV0).",
+    "TemplateG1V2": {
+      "description": "Claim G1 (client evidence-manifest commitment). This is a signed, bounded client declaration over an unopened commitment. It does not claim correspondence to, possession of, or completeness of any underlying evidence.",
       "type": "object",
       "additionalProperties": false,
       "required": ["template_id", "template_text", "parameter_slots"],
       "properties": {
         "template_id": {
-          "const": "tmpl.cert.g1.client_evidence_manifest_commitment.v1"
+          "const": "tmpl.cert.g1.client_evidence_manifest_commitment.v2"
         },
         "template_text": {
-          "const": "The client committed evidence-manifest root {manifest_root_digest} under scheme {commitment_scheme} using client attestor version {client_attestor_version}. The commitment proves the client held this manifest at commit time; it does not prove the manifest is complete."
+          "const": "The pinned client key co-signed the declaration that evidence-manifest root {manifest_root_digest} uses scheme {commitment_scheme} and client attestor version {client_attestor_version}. The declaration is unopened; correspondence to, possession of, and completeness of any underlying evidence are not proven."
         },
         "parameter_slots": {
           "const": ["manifest_root_digest", "commitment_scheme", "client_attestor_version"]

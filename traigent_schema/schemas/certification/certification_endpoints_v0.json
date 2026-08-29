@@ -101,7 +101,7 @@
                     "$ref": "./certification_common_v0_schema.json#/definitions/BoundedSemver"
                   },
                   "client_key_ref": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                    "$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
                   },
                   "client_signature_algorithm": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
@@ -149,11 +149,8 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["client_key_ref", "algorithm", "public_key_der_b64"],
+                "required": ["algorithm", "public_key_der_b64"],
                 "properties": {
-                  "client_key_ref": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
-                  },
                   "algorithm": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
                   },
@@ -218,7 +215,7 @@
                 "required": ["client_key_ref", "algorithm"],
                 "properties": {
                   "client_key_ref": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                    "$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
                   },
                   "algorithm": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
@@ -266,7 +263,7 @@
                 "required": ["client_key_ref", "algorithm"],
                 "properties": {
                   "client_key_ref": {
-                    "$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"
+                    "$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
                   },
                   "algorithm": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
@@ -301,7 +298,7 @@
     },
     "/api/v1beta/certificate-build-sessions/prepare": {
       "post": {
-        "summary": "Prepare the unsigned certificate manifest projection",
+        "summary": "Prepare the issuer-signed certificate projection for client co-attestation",
         "operationId": "prepareCertificateV0",
         "x-wrap-status": "bare",
         "requestBody": {
@@ -327,7 +324,7 @@
         },
         "responses": {
           "200": {
-            "description": "Unsigned manifest projection prepared.",
+            "description": "Returns the exact content-free issuer-signed certificate projection that the client canonicalizes and signs. The projection is the persisted prepared certificate and omits only the outer signatures.co_attestation member; it does not include a second independently mutable unsigned-manifest response copy.",
             "content": {
               "application/json": {
                 "schema": {"$ref": "#/components/schemas/PrepareResponseV0"}
@@ -364,10 +361,7 @@
                     "$ref": "./certification_common_v0_schema.json#/definitions/PublicNonce"
                   },
                   "co_attestation": {
-                    "anyOf": [
-                      {"$ref": "./certificate_signatures_v0_schema.json#/definitions/CoAttestationV0"},
-                      {"type": "null"}
-                    ]
+                    "$ref": "./certificate_signatures_v0_schema.json#/definitions/CoAttestationV0"
                   }
                 }
               }
@@ -376,7 +370,7 @@
         },
         "responses": {
           "201": {
-            "description": "Signed certificate artifact projection issued.",
+            "description": "Issues the persisted prepared projection after validating the request nonce and, when the prepared projection contains G1 or any tier-1 claim, requiring and validating co_attestation. B1-only projections may finalize without client material. The conditional requirement is server-side because it depends on the persisted prepared certificate; the prepared projection itself is unchanged.",
             "content": {
               "application/json": {
                 "schema": {"$ref": "#/components/schemas/ArtifactProjectionV0"}
@@ -508,7 +502,7 @@
           "id": {"type": "string", "pattern": "^cck_[a-f0-9]{32}$"},
           "tenant_id": {"$ref": "#/components/schemas/IdV0"},
           "project_id": {"$ref": "#/components/schemas/IdV0"},
-          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"},
           "algorithm": {"$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
           "created_at": {"type": "string", "format": "date-time"}
         }
@@ -521,7 +515,7 @@
           "id": {"type": "string", "pattern": "^cckr_[a-f0-9]{32}$"},
           "tenant_id": {"$ref": "#/components/schemas/IdV0"},
           "project_id": {"$ref": "#/components/schemas/IdV0"},
-          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"},
+          "client_key_ref": {"$ref": "./certification_common_v0_schema.json#/definitions/ClientKeyRefV0"},
           "algorithm": {"$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
           "reason": {"enum": ["rotation", "administrative", "compromise"]},
           "revoked_at": {"type": "string", "format": "date-time"}
@@ -530,11 +524,39 @@
       "PrepareResponseV0": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["build_session_ref", "manifest_digest", "unsigned_manifest"],
+        "description": "The exact content-free issuer-signed pre-co-attestation certificate projection returned by prepare and persisted for finalize. It is the client signing input after JCS canonicalization. The outer signatures.co_attestation member is absent by construction; clients must not reconstruct it from a separate unsigned_manifest response. Server-side finalize conditionally requires co_attestation iff this persisted projection has a G1 or tier-1 claim.",
+        "required": [
+          "schema_version",
+          "certificate_title",
+          "build_session_scope_line",
+          "certificate_scope_line",
+          "subject",
+          "semantics",
+          "disclosure_profile",
+          "ledger_seal_projection",
+          "claims",
+          "non_claims",
+          "signatures",
+          "audit_report"
+        ],
         "properties": {
-          "build_session_ref": {"type": "string", "pattern": "^bsn:[A-Za-z0-9_-]{43}$"},
-          "manifest_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
-          "unsigned_manifest": {"$ref": "./certificate_unsigned_manifest_v0_schema.json"}
+          "schema_version": {"const": "traigent.agent_certificate.v0"},
+          "certificate_title": {"const": "Agent Certificate"},
+          "build_session_scope_line": {"const": "Build-session scope: this certificate concerns a build session, not the deployed agent. It makes no deployment-identity, deployment-binding, drift-detection, or deployed-runtime claim."},
+          "certificate_scope_line": {"const": "Scope: Certified Agent v0 verifies signatures, build-session binding, and an unopened client declaration. It does not certify the contents, quality, correctness, correspondence, possession, or completeness of the agent, evaluation dataset, evaluator, or build-process evidence."},
+          "subject": {"$ref": "./certification_common_v0_schema.json#/definitions/BuildSessionSubjectV0"},
+          "semantics": {"$ref": "./agent_certificate_v0_schema.json#/definitions/SemanticsBindingV0"},
+          "disclosure_profile": {"$ref": "./agent_certificate_v0_schema.json#/definitions/DisclosureProfileV0"},
+          "ledger_seal_projection": {"$ref": "./certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"},
+          "claims": {"$ref": "./certificate_claims_v0_schema.json#/definitions/ClaimsArrayV0"},
+          "non_claims": {"$ref": "./certificate_claims_v0_schema.json#/definitions/NonClaimsFixedTupleV0"},
+          "signatures": {
+            "allOf": [
+              {"$ref": "./certificate_signatures_v0_schema.json#/definitions/CertificateSignaturesV0"},
+              {"not": {"required": ["co_attestation"]}}
+            ]
+          },
+          "audit_report": {"$ref": "./certificate_audit_report_v0_schema.json#/definitions/AuditReportV0"}
         }
       },
       "ArtifactProjectionV0": {

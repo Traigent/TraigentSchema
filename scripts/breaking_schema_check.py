@@ -149,7 +149,7 @@ class Finding:
     def fingerprint(self) -> str:
         """Return a deterministic digest of the complete finding identity."""
         payload = {"file": self.file, "rule": self.rule, **self.identity()}
-        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        encoded = _canonical_json_bytes(payload)
         return hashlib.sha256(encoded).hexdigest()
 
     def line(self) -> str:
@@ -197,6 +197,17 @@ def _canonical_value(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(key): _canonical_value(item) for key, item in sorted(value.items())}
     return value
+
+
+def _canonical_json_bytes(value: Any) -> bytes:
+    """Serialize canonical values without Python's bool/int equality aliases."""
+    return json.dumps(
+        _canonical_value(value),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
 
 
 def _keyword_finding(
@@ -1733,24 +1744,33 @@ def find_allow_entry(finding: Finding, entries: list[dict[str, Any]]) -> AllowMa
     for e in entries:
         if e.get("file") != finding.file:
             continue
-        if e.get("rule") and e["rule"] != finding.rule:
-            continue
         if "findings" in e:
+            # Structured acknowledgements are exact by construction: a missing, empty,
+            # or non-string rule must never become a wildcard.
+            if not isinstance(e.get("rule"), str) or not e["rule"] or e["rule"] != finding.rule:
+                continue
             exact_findings = e["findings"]
             # New acknowledgements must name every accepted finding identity explicitly.
             # Invalid values fail closed and cannot accidentally become a wildcard.
             if not (
                 isinstance(exact_findings, list)
                 and all(isinstance(identity, dict) for identity in exact_findings)
-                and finding.identity() in exact_findings
+                and any(
+                    _canonical_json_bytes(finding.identity()) == _canonical_json_bytes(identity)
+                    for identity in exact_findings
+                )
             ):
                 continue
         elif "pointers" in e or "pointer" in e:
             # Pointer-only acknowledgements are intentionally no longer accepted: they
             # cannot distinguish same-pointer semantic changes.
             continue
-        elif not finding.pointer.startswith(e.get("pointer_prefix", "")):
-            continue
+        else:
+            # Preserve the legacy optional-rule/prefix arm for historical entries.
+            if e.get("rule") and e["rule"] != finding.rule:
+                continue
+            if not finding.pointer.startswith(e.get("pointer_prefix", "")):
+                continue
         problems = []
         if bad_reason := reason_rejection(e.get("reason")):
             problems.append(bad_reason)

@@ -830,6 +830,7 @@ def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
         acknowledged = gate.compare_trees(base, head, changed, entries)
 
     assert len(current.breaking_unacked) == 67
+    assert len({finding.fingerprint() for finding in current.breaking_unacked}) == 67
     assert not acknowledged.breaking_unacked
 
     for entry in exact_entries:
@@ -922,6 +923,58 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
         )
         assert finding.fingerprint() != original_finding.fingerprint()
         assert gate.find_allow_entry(finding, entries).entry is None
+
+
+def test_structured_acknowledgement_requires_an_exact_nonempty_rule() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+        subject="color",
+        old=False,
+        new=True,
+    )
+    base = {
+        "file": finding.file,
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+        "findings": [finding.identity()],
+    }
+    missing_rule = {key: value for key, value in base.items() if key != "rule"}
+    for entry in (missing_rule, {**base, "rule": ""}, {**base, "rule": "type"}):
+        assert gate.find_allow_entry(finding, [entry]).entry is None
+
+
+def test_structured_identity_does_not_alias_booleans_and_integers() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+        subject="color",
+        old=False,
+        new=True,
+    )
+    entry = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+        "findings": [finding.identity()],
+    }
+
+    old_alias = {**finding.identity(), "old": 0}
+    new_alias = {**finding.identity(), "new": 1}
+    assert gate.find_allow_entry(finding, [entry]).entry is entry
+    assert gate.find_allow_entry(finding, [{**entry, "findings": [old_alias]}]).entry is None
+    assert gate.find_allow_entry(finding, [{**entry, "findings": [new_alias]}]).entry is None
 
 
 def test_run_git_ignores_inherited_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

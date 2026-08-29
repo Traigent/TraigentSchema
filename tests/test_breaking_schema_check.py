@@ -176,6 +176,28 @@ def _run_gate(repo: Path, base_ref: str, head_ref: str) -> subprocess.CompletedP
     )
 
 
+def _available_schema_base_ref(repo: Path) -> str | None:
+    """Return a local develop ref when this checkout contains one.
+
+    The current-findings regression below must compare against the real develop
+    tree; silently substituting HEAD (or an arbitrary ancestor) would make its
+    67-finding assertion meaningless.  Some hosted test jobs use a shallow
+    checkout without ``origin/develop`` and cannot perform that comparison, so
+    report the environment limitation as a skip while keeping the gate itself
+    fail-closed when its requested ref is unavailable.
+    """
+    for ref in ("origin/develop", "develop"):
+        probe = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--verify", f"{ref}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            env=_sanitized_git_env(),
+        )
+        if probe.returncode == 0:
+            return ref
+    return None
+
+
 def _write_tar(archive_path: Path, members: list[tarfile.TarInfo]) -> None:
     with tarfile.open(archive_path, "w") as archive:
         for member in members:
@@ -824,6 +846,12 @@ def test_exact_identity_allowlist_does_not_treat_invalid_entries_as_wildcards() 
 
 def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
     """The 29 v0 acknowledgements cover the current 67 findings, not future identities."""
+    base_ref = _available_schema_base_ref(REPO_ROOT)
+    if base_ref is None:
+        pytest.skip(
+            "current-finding regression requires a local origin/develop or develop ref; "
+            "the breaking gate remains fail-closed when its requested base ref is absent"
+        )
     entries = gate.load_allowlist(
         REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
     )
@@ -835,10 +863,10 @@ def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
     with tempfile.TemporaryDirectory(prefix="breaking-schema-current-") as temporary:
         temporary_root = Path(temporary)
         base = gate.load_tree_from_ref(
-            REPO_ROOT, "origin/develop", temporary_root / "base", temporary_root
+            REPO_ROOT, base_ref, temporary_root / "base", temporary_root
         )
         head = gate.load_tree_from_ref(REPO_ROOT, "HEAD", temporary_root / "head", temporary_root)
-        changed = gate.changed_schema_files(REPO_ROOT, "origin/develop", "HEAD")
+        changed = gate.changed_schema_files(REPO_ROOT, base_ref, "HEAD")
         current = gate.compare_trees(base, head, changed, entries[: -29])
         acknowledged = gate.compare_trees(base, head, changed, entries)
 

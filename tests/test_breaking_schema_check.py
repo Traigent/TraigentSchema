@@ -31,6 +31,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -744,6 +745,100 @@ def test_real_allowlist_reason_grants_opt_out(widget_repo: Path) -> None:
 
     assert result.returncode == 0, result.stdout
     assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_exact_pointer_allowlist_accepts_only_listed_findings() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+    )
+    entry = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "pointers": [finding.pointer, "#/properties/size"],
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+    }
+
+    assert gate.find_allow_entry(finding, [entry]).entry == entry
+    assert gate.find_allow_entry(
+        finding, [{**entry, "pointers": ["#/properties/size"]}]
+    ).entry is None
+    assert gate.find_allow_entry(
+        finding, [{**entry, "pointers": ["#/properties/color/child"]}]
+    ).entry is None
+
+
+def test_exact_pointer_allowlist_does_not_treat_invalid_pointers_as_wildcards() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_request_schema.json",
+        pointer="#/properties/color",
+        rule="required",
+        severity="BREAKING",
+        role="request",
+        message="color became required",
+    )
+    base = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "reason": "This deliberate v0 contract tightening was reviewed.",
+        "version": "5.8.0",
+        "pr": "#123",
+    }
+
+    for pointers in ([], None, ["#/properties/color", 7]):
+        entry = {**base, "pointers": pointers}
+        assert gate.find_allow_entry(finding, [entry]).entry is None
+
+
+def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
+    """The 29 v0 acknowledgements cover the current 67 findings, not future pointers."""
+    entries = gate.load_allowlist(
+        REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
+    )
+    exact_entries = entries[-29:]
+    assert len(exact_entries) == 29
+    assert all("pointer_prefix" not in entry for entry in exact_entries)
+    assert all(entry.get("pointers") for entry in exact_entries)
+
+    with tempfile.TemporaryDirectory(prefix="breaking-schema-current-") as temporary:
+        temporary_root = Path(temporary)
+        base = gate.load_tree_from_ref(
+            REPO_ROOT, "origin/develop", temporary_root / "base", temporary_root
+        )
+        head = gate.load_tree_from_ref(REPO_ROOT, "HEAD", temporary_root / "head", temporary_root)
+        changed = gate.changed_schema_files(REPO_ROOT, "origin/develop", "HEAD")
+        current = gate.compare_trees(base, head, changed, entries[: -29])
+        acknowledged = gate.compare_trees(base, head, changed, entries)
+
+    assert len(current.breaking_unacked) == 67
+    assert not acknowledged.breaking_unacked
+
+    for entry in exact_entries:
+        for pointer in entry["pointers"]:
+            finding = gate.Finding(
+                file=entry["file"],
+                pointer=pointer,
+                rule=entry["rule"],
+                severity="BREAKING",
+                role="probe",
+                message="current acknowledged finding",
+            )
+            assert gate.find_allow_entry(finding, entries).entry is entry
+            future = gate.Finding(
+                file=entry["file"],
+                pointer=f"{pointer}/future-sibling",
+                rule=entry["rule"],
+                severity="BREAKING",
+                role="probe",
+                message="synthetic future finding",
+            )
+            assert gate.find_allow_entry(future, entries).entry is None
 
 
 def test_run_git_ignores_inherited_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

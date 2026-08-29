@@ -1607,7 +1607,7 @@ def load_allowlist(path: Path, repo_root: Path) -> list[dict[str, Any]]:
 @dataclass
 class AllowMatch:
     entry: dict[str, Any] | None
-    # Entries that matched on file+rule+pointer_prefix but were rejected for a fixable
+    # Entries that matched on file+rule+pointer (exact or prefix) but were rejected for a fixable
     # reason (bad/missing reason, missing version) — surfaced so the failure message can
     # say "you have an entry for this, but:" instead of a bare "no match".
     rejected: list[tuple[dict[str, Any], str]]
@@ -1620,7 +1620,20 @@ def find_allow_entry(finding: Finding, entries: list[dict[str, Any]]) -> AllowMa
             continue
         if e.get("rule") and e["rule"] != finding.rule:
             continue
-        if not finding.pointer.startswith(e.get("pointer_prefix", "")):
+        if "pointers" in e:
+            exact_pointers = e["pointers"]
+            # New acknowledgements must name every accepted finding pointer explicitly.
+            # Invalid values fail closed and cannot accidentally become a wildcard.
+            if not (
+                isinstance(exact_pointers, list)
+                and all(isinstance(pointer, str) for pointer in exact_pointers)
+                and finding.pointer in exact_pointers
+            ):
+                continue
+        elif "pointer" in e:
+            if not isinstance(e["pointer"], str) or finding.pointer != e["pointer"]:
+                continue
+        elif not finding.pointer.startswith(e.get("pointer_prefix", "")):
             continue
         problems = []
         if bad_reason := reason_rejection(e.get("reason")):
@@ -1763,14 +1776,11 @@ def compare_trees(
 
 
 def _suggest_allowlist_json(file: str, rule: str, group_findings: list[Finding]) -> str:
-    """A ready-to-paste allowlist entry for every unacked (file, rule) group. Deliberately
-    omits pointer_prefix (covers the whole file for this rule) — the acknowledgement is "we
-    reviewed and accept this class of tightening in this file", which is the natural grain of
-    a bound-hardening decision; narrow it with pointer_prefix if a scoped-only opt-out is
-    what was actually intended."""
+    """A ready-to-paste exact-pointer acknowledgement for one unacked group."""
     suggestion = {
         "file": file,
         "rule": rule,
+        "pointers": sorted({finding.pointer for finding in group_findings}),
         "reason": "<explain WHY this is intentional and reviewed, not just that it happened>",
         "version": "<the contract version this change ships in, e.g. 5.6.0>",
         "pr": "<#NNN>",

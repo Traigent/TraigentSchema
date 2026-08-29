@@ -1060,6 +1060,7 @@
     {
       "file": "certification/agent_certificate_v0_schema.json",
       "rule": "allOf_branch_count_changed",
+      "pointer_prefix": "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
       "reason": "Adds the inverse co-attestation condition so issuer-only B1 and zero-claim certificates cannot carry client material, while G1 and tier-1 certificates retain the required co-attestation path. This deliberate Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1067,6 +1068,7 @@
     {
       "file": "certification/agent_certificate_v0_schema.json",
       "rule": "allOf_removed",
+      "pointer_prefix": "#/properties/signatures/allOf",
       "reason": "Removes the obsolete conditional mirrored from the old signing order: the issuer now signs only the unsigned manifest, and the client subsequently signs the complete issuer-signed projection. This intentional Certified Agent v0 correction removes circularity and was reviewed under cs_3e01e0344f7b19eb in local-candidate-93999fd.",
       "version": "5.7.0",
       "pr": "local-candidate-93999fd"
@@ -1074,6 +1076,7 @@
     {
       "file": "certification/agent_certificate_v0_schema.json",
       "rule": "oneOf_removed",
+      "pointer_prefix": "#/properties/signatures/properties/issuer_signature/properties/signed_payload/oneOf",
       "reason": "Replaces the old two-way issuer signed_payload discriminator with the single issuer-first unsigned_manifest value; client co-attestation is a later signature and cannot be inside the issuer preimage. This intentional Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-93999fd.",
       "version": "5.7.0",
       "pr": "local-candidate-93999fd"
@@ -1081,6 +1084,7 @@
     {
       "file": "certification/agent_certificate_v0_schema.json",
       "rule": "pattern",
+      "pointer_prefix": "#/properties/",
       "reason": "Narrows every envelope client-key reference to the deterministic project-scoped ckr form, preventing caller-selected or ambiguous identifiers from entering G1 bindings, co-attestation, and key-ring projections. This intentional content-free Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1088,6 +1092,7 @@
     {
       "file": "certification/agent_certificate_v0_schema.json",
       "rule": "property_added",
+      "pointer_prefix": "#/properties/",
       "reason": "Adds the v0 scope line, G1 build-session/client-key bindings, rendered claim sentence, and public project_ref needed to make the certificate projection self-describing, content-free, and verifiable without reconstructing identity. These deliberate fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1095,6 +1100,7 @@
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
       "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/oneOf/6/properties/params/properties/client_key_ref",
       "reason": "Uses the canonical ckr client-key reference in the G1 payload rather than the old unconstrained opaque reference, binding the declaration to the project-scoped verification key. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1102,6 +1108,7 @@
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
       "rule": "property_added",
+      "pointer_prefix": "#/allOf/0/oneOf/5/properties/params/properties/",
       "reason": "Adds build_session_ref and client_key_ref to the G1 payload so the emitted client declaration is bound to the named session and derived verification key. These fields are deliberate v0 protocol additions reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1109,6 +1116,7 @@
     {
       "file": "certification/certificate_claim_payloads_v0_schema.json",
       "rule": "required",
+      "pointer_prefix": "#/allOf/0/oneOf/5/properties/params",
       "reason": "Requires both session and derived client-key bindings for G1 so an incomplete declaration cannot pass as a valid v0 claim. This intentional fail-closed Certified Agent v0 change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1116,6 +1124,7 @@
     {
       "file": "certification/certificate_claims_v0_schema.json",
       "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
       "reason": "Enforces the deterministic project-scoped ckr client-key reference wherever the printable claim family carries a client binding, eliminating ambiguous opaque identifiers. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1123,6 +1132,7 @@
     {
       "file": "certification/certificate_claims_v0_schema.json",
       "rule": "property_added",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/",
       "reason": "Adds the G1 session/key bindings and renderer-produced sentence required for a closed, content-free claim whose text and identity can be checked from the v0 projection. These deliberate Certified Agent v0 fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1130,6 +1140,7 @@
     {
       "file": "certification/certificate_claims_v0_schema.json",
       "rule": "required",
+      "pointer_prefix": "#/allOf/0/oneOf/0",
       "reason": "Requires rendered_text and the G1 session/key bindings so every emitted claim is structurally complete and cannot omit the load-bearing declaration context. This intentional fail-closed Certified Agent v0 change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1137,6 +1148,7 @@
     {
       "file": "certification/certificate_signatures_v0_schema.json",
       "rule": "allOf_branch_count_changed",
+      "pointer_prefix": "#/allOf/0/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
       "reason": "The nested claim branch count changes because v0 now admits the issuer-verified B1 path alongside G1 while retaining explicit abstention branches; positional branch drift is an intentional union expansion, not an accidental removal. It was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1144,6 +1156,7 @@
     {
       "file": "certification/certificate_signatures_v0_schema.json",
       "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/properties/",
       "reason": "Applies the deterministic ckr client-key reference to co-attestation and embedded unsigned-manifest projections, so signatures bind the same project-scoped key identifier everywhere. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1151,6 +1164,7 @@
     {
       "file": "certification/certificate_unsigned_manifest_v0_schema.json",
       "rule": "allOf_branch_count_changed",
+      "pointer_prefix": "#/allOf/0/properties/claims/items/allOf",
       "reason": "Expands the manifest's claim branch to represent the admitted B1 issuer-verification case while preserving the fixed G1 and abstention shapes. The conservative branch-count finding is therefore an intentional Certified Agent v0 union change reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1158,6 +1172,7 @@
     {
       "file": "certification/certificate_unsigned_manifest_v0_schema.json",
       "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/properties/",
       "reason": "Uses the canonical deterministic ckr reference in the signed manifest's client-key and key-ring sections, preventing a manifest from naming an unbound or caller-selected key. This intentional Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1165,6 +1180,7 @@
     {
       "file": "certification/certificate_unsigned_manifest_v0_schema.json",
       "rule": "property_added",
+      "pointer_prefix": "#/allOf/0/properties/",
       "reason": "Adds G1 session/key bindings, rendered claim text, and project_ref to the signed manifest projection so the issuer/client signatures cover the complete v0 declaration context. These deliberate Certified Agent v0 fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1172,6 +1188,7 @@
     {
       "file": "certification/certificate_unsigned_manifest_v0_schema.json",
       "rule": "required",
+      "pointer_prefix": "#/allOf/0/properties/",
       "reason": "Requires the new G1 declaration context and project scope in the signed manifest so incomplete or ambiguously scoped certificates fail closed before signature verification. This intentional Certified Agent v0 tightening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1179,6 +1196,7 @@
     {
       "file": "certification/certificate_verification_materials_v0_schema.json",
       "rule": "maxItems",
+      "pointer_prefix": "#/properties/relying_party_policy/properties/verifier_bindings",
       "reason": "Raises the verifier-binding maximum to exactly two because the v0 discovery bundle now publishes the ordered B1 and G1 verifier contract together. This intentional materials-policy change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1186,6 +1204,7 @@
     {
       "file": "certification/certificate_verification_materials_v0_schema.json",
       "rule": "pattern",
+      "pointer_prefix": "#/properties/client/properties/key_ref",
       "reason": "Constrains the discovered client key to the canonical project-scoped ckr reference, matching certificate and manifest bindings and avoiding an ambiguous opaque key identifier. This intentional Certified Agent v0 materials hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1193,6 +1212,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "additionalProperties",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
       "reason": "Replaces the nullable/open finalize co-attestation shape with the closed typed object: B1-only requests omit it, while G1/tier-1 requests must provide the complete co-attestation fields. This intentional issuer-first protocol correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-2be9f73.",
       "version": "5.7.0",
       "pr": "local-candidate-2be9f73"
@@ -1200,6 +1220,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
+      "pointer_prefix": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/",
       "reason": "The retrieval response inherits the deliberate v0 claim and co-attestation conditional branches, including the issuer-only B1 rule and G1/tier-1 requirement. This is an intentional reflected contract change reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1207,6 +1228,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_removed",
+      "pointer_prefix": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/allOf",
       "reason": "The signed-certificate retrieval projection intentionally reflects the issuer-first signing order, removing the old conditional that claimed issuer coverage changed with co-attestation. This deliberate Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-93999fd.",
       "version": "5.7.0",
       "pr": "local-candidate-93999fd"
@@ -1214,6 +1236,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "maxItems",
+      "pointer_prefix": "#/paths//api/v1beta/certificates/{certificate_ref}/verification-materials/get/responses/200/content/application/json/schema/properties/relying_party_policy/properties/verifier_bindings",
       "reason": "The verification-materials retrieval endpoint now returns the fixed two-entry ordered B1/G1 verifier-binding contract, so its maximum intentionally matches the materials schema. This deliberate Certified Agent v0 policy change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1221,6 +1244,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "oneOf_removed",
+      "pointer_prefix": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/issuer_signature/properties/signed_payload/oneOf",
       "reason": "The retrieval projection intentionally exposes the single issuer-first unsigned_manifest signed_payload value; client co-attestation is subsequent and cannot be part of that issuer preimage. This deliberate Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-93999fd.",
       "version": "5.7.0",
       "pr": "local-candidate-93999fd"
@@ -1228,6 +1252,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "pattern",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-",
       "reason": "Constrains bind-G1 and client-key management request references to the canonical deterministic ckr form, aligning endpoint inputs with the signed certificate and discovery materials. This intentional Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1235,6 +1260,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "property_added",
+      "pointer_prefix": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/",
       "reason": "The signed-certificate retrieval endpoint intentionally exposes the complete content-free v0 projection, including scope, G1 bindings, rendered claims, and project scope, so consumers verify exactly what was signed. These reflected protocol fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
       "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
@@ -1242,6 +1268,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "property_removed",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-client-keys/post/requestBody/content/application/json/schema/properties/client_key_ref",
       "reason": "Removes caller-supplied client_key_ref from enrollment because v0 derives the project-scoped reference from validated public verification material; accepting a caller-selected identifier would break binding integrity. This intentional Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-2be9f73.",
       "version": "5.7.0",
       "pr": "local-candidate-2be9f73"
@@ -1249,6 +1276,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "required",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
       "reason": "Requires every co-attestation member at finalize because the typed object is the client signature over the complete issuer-signed projection; omission of any algorithm, key, nonce, signature, or digest must fail closed. This intentional issuer-first protocol correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-2be9f73.",
       "version": "5.7.0",
       "pr": "local-candidate-2be9f73"
@@ -1256,6 +1284,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "type",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
       "reason": "Makes finalize co_attestation a typed object rather than an unconstrained/null union; issuer-only B1 finalization omits it and G1/tier-1 finalization supplies the closed signature block. This intentional Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-2be9f73.",
       "version": "5.7.0",
       "pr": "local-candidate-2be9f73"

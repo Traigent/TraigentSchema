@@ -54,6 +54,7 @@ Exit codes
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -131,6 +132,25 @@ class Finding:
     severity: Severity
     role: str
     message: str
+    subject: Any = None
+    old: Any = None
+    new: Any = None
+
+    def identity(self) -> dict[str, Any]:
+        """Return the structured, stable identity used by allowlist matching."""
+        return {
+            "pointer": self.pointer,
+            "role": self.role,
+            "subject": _canonical_value(self.subject),
+            "old": _canonical_value(self.old),
+            "new": _canonical_value(self.new),
+        }
+
+    def fingerprint(self) -> str:
+        """Return a deterministic digest of the complete finding identity."""
+        payload = {"file": self.file, "rule": self.rule, **self.identity()}
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
 
     def line(self) -> str:
         tag = "BREAKING" if self.severity == "BREAKING" else "info    "
@@ -147,12 +167,36 @@ def emit(
     severity: Severity,
     role: str,
     message: str,
+    *,
+    subject: Any = None,
+    old: Any = None,
+    new: Any = None,
 ) -> None:
     findings.append(
         Finding(
-            file=file, pointer=pointer, rule=rule, severity=severity, role=role, message=message
+            file=file,
+            pointer=pointer,
+            rule=rule,
+            severity=severity,
+            role=role,
+            message=message,
+            subject=subject,
+            old=old,
+            new=new,
         )
     )
+
+
+def _canonical_value(value: Any) -> Any:
+    """Normalize JSON-like values for deterministic finding identities."""
+    if isinstance(value, (set, frozenset, tuple, list)):
+        values = [_canonical_value(item) for item in value]
+        if isinstance(value, (set, frozenset)):
+            return sorted(values, key=lambda item: json.dumps(item, sort_keys=True))
+        return values
+    if isinstance(value, dict):
+        return {str(key): _canonical_value(item) for key, item in sorted(value.items())}
+    return value
 
 
 def _keyword_finding(
@@ -164,7 +208,9 @@ def _keyword_finding(
     *,
     narrowed: bool,
     detail: str,
-    subject: str | None = None,
+    subject: Any = None,
+    old: Any = None,
+    new: Any = None,
 ) -> None:
     """Route a single keyword-level diff through the role's mirror-image rule.
 
@@ -187,7 +233,18 @@ def _keyword_finding(
     else:
         severity = "BREAKING"
     suffix = f" [{subject}]" if subject else ""
-    emit(findings, file, pointer, keyword, severity, role, detail + suffix)
+    emit(
+        findings,
+        file,
+        pointer,
+        keyword,
+        severity,
+        role,
+        detail + suffix,
+        subject=subject if subject is not None else keyword,
+        old=old,
+        new=new,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -500,6 +557,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 "type",
                 narrowed=True,
                 detail=f"type no longer allows {sorted(removed)} (was {old_repr}, now {new_repr})",
+                subject={"direction": "removed", "values": sorted(removed)},
+                old=old_repr,
+                new=new_repr,
             )
         if added:
             _keyword_finding(
@@ -512,6 +572,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 detail=(
                     f"type now additionally allows {sorted(added)} (was {old_repr}, now {new_repr})"
                 ),
+                subject={"direction": "added", "values": sorted(added)},
+                old=old_repr,
+                new=new_repr,
             )
 
     # ---- enum ----
@@ -532,6 +595,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 "enum",
                 narrowed=True,
                 detail=f"enum member(s) removed: {sorted(removed_e)}",
+                subject={"direction": "removed", "values": sorted(removed_e)},
+                old=sorted(old_enum) if old_enum is not None else None,
+                new=sorted(new_enum) if new_enum is not None else None,
             )
         if added_e:
             _keyword_finding(
@@ -542,6 +608,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 "enum",
                 narrowed=False,
                 detail=f"enum member(s) added: {sorted(added_e)}",
+                subject={"direction": "added", "values": sorted(added_e)},
+                old=sorted(old_enum) if old_enum is not None else None,
+                new=sorted(new_enum) if new_enum is not None else None,
             )
 
     # ---- additionalProperties: open/constrained/closed, and a map's value schema ----
@@ -558,6 +627,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 f"additionalProperties {_CLOSEDNESS_LABEL[old_rank]} -> "
                 f"{_CLOSEDNESS_LABEL[new_rank]}"
             ),
+            old=_CLOSEDNESS_LABEL[old_rank],
+            new=_CLOSEDNESS_LABEL[new_rank],
         )
     old_ap, new_ap = old.get("additionalProperties"), new.get("additionalProperties")
     if isinstance(old_ap, dict) and isinstance(new_ap, dict):
@@ -589,6 +660,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 "pattern",
                 narrowed=True,
                 detail=f"pattern constraint added: {new_pat!r} (previously unconstrained)",
+                old=old_pat,
+                new=new_pat,
             )
         elif old_pat is not None and new_pat is None:
             _keyword_finding(
@@ -599,6 +672,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 "pattern",
                 narrowed=False,
                 detail=f"pattern constraint removed (was {old_pat!r})",
+                old=old_pat,
+                new=new_pat,
             )
         else:
             _keyword_finding(
@@ -612,6 +687,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     f"pattern changed: {old_pat!r} -> {new_pat!r} (regex containment isn't "
                     "decidable in general; treated conservatively as a narrowing — verify by hand)"
                 ),
+                old=old_pat,
+                new=new_pat,
             )
 
     # ---- bounds ----
@@ -629,6 +706,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     kw,
                     narrowed=True,
                     detail=f"{kw} lowered: {ov} -> {nv}",
+                    old=ov,
+                    new=nv,
                 )
             elif nv_eff > ov_eff:
                 _keyword_finding(
@@ -639,6 +718,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     kw,
                     narrowed=False,
                     detail=f"{kw} raised: {ov} -> {nv}",
+                    old=ov,
+                    new=nv,
                 )
     for kw in _MIN_KEYS:
         ov, nv = old.get(kw), new.get(kw)
@@ -654,6 +735,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     kw,
                     narrowed=True,
                     detail=f"{kw} raised: {ov} -> {nv}",
+                    old=ov,
+                    new=nv,
                 )
             elif nv_eff < ov_eff:
                 _keyword_finding(
@@ -664,6 +747,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     kw,
                     narrowed=False,
                     detail=f"{kw} lowered: {ov} -> {nv}",
+                    old=ov,
+                    new=nv,
                 )
 
     # ---- required ----
@@ -679,6 +764,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 narrowed=True,
                 subject=name,
                 detail=f"'{name}' added to required",
+                old=False,
+                new=True,
             )
         for name in sorted(old_req - new_req):
             _keyword_finding(
@@ -690,6 +777,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 narrowed=False,
                 subject=name,
                 detail=f"'{name}' removed from required",
+                old=True,
+                new=False,
             )
 
     # ---- properties (recurse) ----
@@ -707,6 +796,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     "property_removed",
                     narrowed=True,
                     detail=f"property '{name}' removed",
+                    subject=name,
+                    old=True,
+                    new=False,
                 )
             else:
                 emit(
@@ -747,6 +839,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                         f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; "
                         "an old response consumer may reject that newly-emitted member"
                     ),
+                    subject=name,
+                    old=False,
+                    new=True,
                 )
             else:
                 emit(
@@ -794,6 +889,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                 "patternProperties_removed",
                 narrowed=severity_narrowed,
                 detail=f"patternProperties key {pat!r} removed",
+                subject=pat,
+                old=True,
+                new=False,
             )
         elif pat not in old_pp and pat in new_pp:
             if old_rank >= 1:
@@ -809,6 +907,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                         f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; matching "
                         "members accepted by the new response may be rejected by an old consumer"
                     ),
+                    subject=pat,
+                    old=False,
+                    new=True,
                 )
             else:
                 emit(
@@ -867,6 +968,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
             "items",
             narrowed=True,
             detail="array items constraint added (elements were previously unconstrained)",
+            old=old_items,
+            new=new_items,
         )
     elif isinstance(old_items, dict) and new_items is None:
         _keyword_finding(
@@ -877,6 +980,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
             "items",
             narrowed=False,
             detail="array items constraint removed (elements are now unconstrained)",
+            old=old_items,
+            new=new_items,
         )
     elif old_items != new_items and (old_items is not None or new_items is not None):
         emit(
@@ -920,6 +1025,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     f"{combinator}_added",
                     narrowed=True,
                     detail=f"{combinator} constraint appeared ({len(new_list)} branch(es))",
+                    subject=combinator,
+                    old=0,
+                    new=len(new_list),
                 )
             continue
         if isinstance(old_list, list) and new_list is None:
@@ -945,6 +1053,9 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     f"{combinator}_removed",
                     narrowed=False,
                     detail=f"{combinator} constraint disappeared ({len(old_list)} branch(es))",
+                    subject=combinator,
+                    old=len(old_list),
+                    new=0,
                 )
             continue
         if not isinstance(old_list, list) or not isinstance(new_list, list):
@@ -974,9 +1085,12 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
                     "branches can't be confidently aligned positionally to classify direction, "
                     "flagged conservatively — review by hand"
                 ),
+                subject=combinator,
+                old=len(old_list),
+                new=len(new_list),
             )
             continue
-        for i, (ob, nb) in enumerate(zip(old_list, new_list)):
+        for i, (ob, nb) in enumerate(zip(old_list, new_list, strict=True)):
             compare_node(
                 ob,
                 nb,
@@ -1607,8 +1721,9 @@ def load_allowlist(path: Path, repo_root: Path) -> list[dict[str, Any]]:
 @dataclass
 class AllowMatch:
     entry: dict[str, Any] | None
-    # Entries that matched on file+rule+pointer (exact or prefix) but were rejected for a fixable
-    # reason (bad/missing reason, missing version) — surfaced so the failure message can
+    # Entries that matched on file+rule+finding identity (exact or prefix) but were rejected
+    # for a fixable reason (bad/missing reason, missing version) — surfaced so the failure
+    # message can
     # say "you have an entry for this, but:" instead of a bare "no match".
     rejected: list[tuple[dict[str, Any], str]]
 
@@ -1620,19 +1735,20 @@ def find_allow_entry(finding: Finding, entries: list[dict[str, Any]]) -> AllowMa
             continue
         if e.get("rule") and e["rule"] != finding.rule:
             continue
-        if "pointers" in e:
-            exact_pointers = e["pointers"]
-            # New acknowledgements must name every accepted finding pointer explicitly.
+        if "findings" in e:
+            exact_findings = e["findings"]
+            # New acknowledgements must name every accepted finding identity explicitly.
             # Invalid values fail closed and cannot accidentally become a wildcard.
             if not (
-                isinstance(exact_pointers, list)
-                and all(isinstance(pointer, str) for pointer in exact_pointers)
-                and finding.pointer in exact_pointers
+                isinstance(exact_findings, list)
+                and all(isinstance(identity, dict) for identity in exact_findings)
+                and finding.identity() in exact_findings
             ):
                 continue
-        elif "pointer" in e:
-            if not isinstance(e["pointer"], str) or finding.pointer != e["pointer"]:
-                continue
+        elif "pointers" in e or "pointer" in e:
+            # Pointer-only acknowledgements are intentionally no longer accepted: they
+            # cannot distinguish same-pointer semantic changes.
+            continue
         elif not finding.pointer.startswith(e.get("pointer_prefix", "")):
             continue
         problems = []
@@ -1660,7 +1776,7 @@ class Report:
     findings: list[Finding]
     breaking_unacked: list[Finding]
     breaking_acked: list[tuple[Finding, dict[str, Any]]]
-    # For each unacked finding, any allowlist entries that matched on file+rule+pointer but
+    # For each unacked finding, any allowlist entries that matched on file+rule+identity but
     # were rejected (placeholder reason, missing version) — so the report can say "you have
     # an entry for this, but:" instead of leaving the author to guess why it didn't count.
     near_miss_allow_entries: dict[int, list[tuple[dict[str, Any], str]]]
@@ -1776,11 +1892,11 @@ def compare_trees(
 
 
 def _suggest_allowlist_json(file: str, rule: str, group_findings: list[Finding]) -> str:
-    """A ready-to-paste exact-pointer acknowledgement for one unacked group."""
+    """A ready-to-paste exact-identity acknowledgement for one unacked group."""
     suggestion = {
         "file": file,
         "rule": rule,
-        "pointers": sorted({finding.pointer for finding in group_findings}),
+        "findings": [finding.identity() for finding in group_findings],
         "reason": "<explain WHY this is intentional and reviewed, not just that it happened>",
         "version": "<the contract version this change ships in, e.g. 5.6.0>",
         "pr": "<#NNN>",

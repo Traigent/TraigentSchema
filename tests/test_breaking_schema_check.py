@@ -747,7 +747,7 @@ def test_real_allowlist_reason_grants_opt_out(widget_repo: Path) -> None:
     assert "BREAKING (unacked):   0" in result.stdout
 
 
-def test_exact_pointer_allowlist_accepts_only_listed_findings() -> None:
+def test_exact_identity_allowlist_accepts_only_listed_findings() -> None:
     finding = gate.Finding(
         file="widgets/widget_request_schema.json",
         pointer="#/properties/color",
@@ -759,7 +759,10 @@ def test_exact_pointer_allowlist_accepts_only_listed_findings() -> None:
     entry = {
         "file": finding.file,
         "rule": finding.rule,
-        "pointers": [finding.pointer, "#/properties/size"],
+        "findings": [
+            finding.identity(),
+            {**finding.identity(), "pointer": "#/properties/size"},
+        ],
         "reason": "This deliberate v0 contract tightening was reviewed.",
         "version": "5.8.0",
         "pr": "#123",
@@ -767,14 +770,21 @@ def test_exact_pointer_allowlist_accepts_only_listed_findings() -> None:
 
     assert gate.find_allow_entry(finding, [entry]).entry == entry
     assert gate.find_allow_entry(
-        finding, [{**entry, "pointers": ["#/properties/size"]}]
+        finding,
+        [{**entry, "findings": [{**finding.identity(), "pointer": "#/properties/size"}]}],
     ).entry is None
     assert gate.find_allow_entry(
-        finding, [{**entry, "pointers": ["#/properties/color/child"]}]
+        finding,
+        [
+            {
+                **entry,
+                "findings": [{**finding.identity(), "pointer": "#/properties/color/child"}],
+            }
+        ],
     ).entry is None
 
 
-def test_exact_pointer_allowlist_does_not_treat_invalid_pointers_as_wildcards() -> None:
+def test_exact_identity_allowlist_does_not_treat_invalid_entries_as_wildcards() -> None:
     finding = gate.Finding(
         file="widgets/widget_request_schema.json",
         pointer="#/properties/color",
@@ -791,20 +801,23 @@ def test_exact_pointer_allowlist_does_not_treat_invalid_pointers_as_wildcards() 
         "pr": "#123",
     }
 
-    for pointers in ([], None, ["#/properties/color", 7]):
-        entry = {**base, "pointers": pointers}
+    for findings in ([], None, [{"pointer": "#/properties/color"}, 7]):
+        entry = {**base, "findings": findings}
         assert gate.find_allow_entry(finding, [entry]).entry is None
+
+    pointer_only = {**base, "pointer": finding.pointer}
+    assert gate.find_allow_entry(finding, [pointer_only]).entry is None
 
 
 def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
-    """The 29 v0 acknowledgements cover the current 67 findings, not future pointers."""
+    """The 29 v0 acknowledgements cover the current 67 findings, not future identities."""
     entries = gate.load_allowlist(
         REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
     )
     exact_entries = entries[-29:]
     assert len(exact_entries) == 29
     assert all("pointer_prefix" not in entry for entry in exact_entries)
-    assert all(entry.get("pointers") for entry in exact_entries)
+    assert all(entry.get("findings") for entry in exact_entries)
 
     with tempfile.TemporaryDirectory(prefix="breaking-schema-current-") as temporary:
         temporary_root = Path(temporary)
@@ -820,25 +833,95 @@ def test_certified_agent_v0_allowlist_covers_current_findings_only() -> None:
     assert not acknowledged.breaking_unacked
 
     for entry in exact_entries:
-        for pointer in entry["pointers"]:
+        for identity in entry["findings"]:
             finding = gate.Finding(
                 file=entry["file"],
-                pointer=pointer,
+                pointer=identity["pointer"],
                 rule=entry["rule"],
                 severity="BREAKING",
-                role="probe",
+                role=identity["role"],
                 message="current acknowledged finding",
+                subject=identity["subject"],
+                old=identity["old"],
+                new=identity["new"],
             )
             assert gate.find_allow_entry(finding, entries).entry is entry
             future = gate.Finding(
                 file=entry["file"],
-                pointer=f"{pointer}/future-sibling",
+                pointer=f"{identity['pointer']}/future-sibling",
                 rule=entry["rule"],
                 severity="BREAKING",
-                role="probe",
+                role=identity["role"],
                 message="synthetic future finding",
+                subject=identity["subject"],
+                old=identity["old"],
+                new=identity["new"],
             )
             assert gate.find_allow_entry(future, entries).entry is None
+
+
+def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
+    entries = gate.load_allowlist(
+        REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
+    )
+
+    required_entry = next(
+        entry
+        for entry in entries[-29:]
+        if entry["file"] == "certification/certificate_claim_payloads_v0_schema.json"
+        and entry["rule"] == "required"
+    )
+    required_identity = required_entry["findings"][0]
+    sibling = {**required_identity, "subject": "future_size"}
+
+    pattern_entry = next(
+        entry
+        for entry in entries[-29:]
+        if entry["file"] == "certification/agent_certificate_v0_schema.json"
+        and entry["rule"] == "pattern"
+    )
+    pattern_identity = pattern_entry["findings"][0]
+    pattern_drift = {**pattern_identity, "new": "^ckr:[A-Za-z0-9_-]{42}$"}
+
+    branch_entry = next(
+        entry
+        for entry in entries[-29:]
+        if entry["file"] == "certification/agent_certificate_v0_schema.json"
+        and entry["rule"] == "allOf_branch_count_changed"
+    )
+    branch_identity = branch_entry["findings"][0]
+    branch_drift = {**branch_identity, "new": branch_identity["new"] + 1}
+
+    for entry, identity in (
+        (required_entry, sibling),
+        (pattern_entry, pattern_drift),
+        (branch_entry, branch_drift),
+    ):
+        original = entry["findings"][0]
+        original_finding = gate.Finding(
+            file=entry["file"],
+            pointer=original["pointer"],
+            rule=entry["rule"],
+            severity="BREAKING",
+            role=original["role"],
+            message="original finding",
+            subject=original["subject"],
+            old=original["old"],
+            new=original["new"],
+        )
+        finding = gate.Finding(
+            file=entry["file"],
+            pointer=identity["pointer"],
+            rule=entry["rule"],
+            severity="BREAKING",
+            role=identity["role"],
+            message="synthetic same-pointer semantic drift",
+            subject=identity["subject"],
+            old=identity["old"],
+            new=identity["new"],
+        )
+        assert finding.fingerprint() != original_finding.fingerprint()
+        assert gate.find_allow_entry(finding, entries).entry is None
 
 
 def test_run_git_ignores_inherited_git_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

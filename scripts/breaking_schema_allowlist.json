@@ -12,8 +12,17 @@
     {
       "file": "certification/agent_certificate_v0_schema.json",
       "rule": "required",
-      "pointer_prefix": "#",
-      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "audit_report",
+          "old": false,
+          "new": true,
+          "fingerprint": "96e805f2d4768a6cc7fdc0230e71e6722499960480374e1c6b2164e6ab6135a9"
+        }
+      ],
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance. This exact acknowledgement is limited to the historical audit_report addition at the root and cannot authorize unrelated future required members. It is the intentional pre-issuance Certified Agent v0 change reviewed under owner-approved ChangeSession cs_34ba73b31d41f73d and packet pkt_53c7a4477a3210bd; Backend and SDK propagation is coordinated under that packet.",
       "version": "5.7.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
     },

@@ -62,6 +62,16 @@ Do not set `require_status=False` when revocation status is relevant. A supplied
 retrieval wrapper is always checked for the exact status shape and active/null
 status, even when that opt-out is set.
 
+Successful results distinguish cryptographic verification from status evidence:
+all currently available verification paths, including retrieval wrappers, return
+`code="VERIFIED_SIGNATURE_ONLY"` with `status_evidence="not_checked"`.
+Retrieval wrappers are shape-checked for an active/null status, but their
+unsigned status metadata is not authenticated and cannot establish current
+validity or non-revocation. The `VERIFIED` /
+`issuer_status_snapshot` pair is reserved for a future issuer-asserted status
+snapshot backed by an authenticated, freshness-bounded status-proof contract;
+the current v0 retrieval schema provides no such proof.
+
 The optional `certification` extra is required for either offline verifier:
 `pip install "traigent-schema[certification]"`. Current v0 emits B1 and G1;
 REG1, C1, D2, F1, and G3 are the five fixed abstentions.

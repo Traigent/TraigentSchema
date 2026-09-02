@@ -35,6 +35,9 @@ from traigent_schema.certification import (
     RelyingPartyPolicy,
     VerificationContext,
     VerificationError,
+    VerificationResult,
+    verify,
+    verify_agent_certificate,
     verify_certificate,
     verify_certificate_with_materials,
 )
@@ -122,6 +125,34 @@ def test_root_certification_exports_preserve_public_api() -> None:
     from traigent_schema import RelyingPartyPolicy as RootRelyingPartyPolicy
 
     assert RootRelyingPartyPolicy is RelyingPartyPolicy
+
+
+def test_verification_result_defaults_are_signature_only() -> None:
+    result = VerificationResult()
+
+    assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
+
+
+@pytest.mark.parametrize(
+    ("code", "status_evidence"),
+    [
+        ("VERIFIED", "not_checked"),
+        ("UNKNOWN", "not_checked"),
+    ],
+)
+def test_verification_result_rejects_unsupported_or_contradictory_states(
+    code: str, status_evidence: str
+) -> None:
+    with pytest.raises(ValueError, match="^VERIFICATION_RESULT$"):
+        VerificationResult(code=code, status_evidence=status_evidence)
+
+
+@pytest.mark.parametrize("valid", [False, 1, 0, "true", None])
+def test_verification_result_requires_true_valid(valid: object) -> None:
+    with pytest.raises(ValueError, match="^VERIFICATION_RESULT$"):
+        VerificationResult(valid=valid)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
@@ -454,7 +485,22 @@ def test_g1_certificate_is_verified_offline(algorithm: str) -> None:
     cert, issuer, context, policy = _sign_fixture(algorithm)
     result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
     assert result.valid
-    assert result.code == "VERIFIED"
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
+
+
+@pytest.mark.parametrize(
+    "verifier", [verify_certificate, verify, verify_agent_certificate]
+)
+def test_public_verifier_aliases_return_signature_only_result(
+    verifier: Callable[..., VerificationResult],
+) -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    result = verifier(cert, issuer_public_key=issuer, context=context, policy=policy)
+
+    assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 def test_direct_verifier_still_requires_explicit_client_key() -> None:
@@ -492,6 +538,8 @@ def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> N
     prepared["signatures"]["co_attestation"] = co
     result = verify_certificate(prepared, issuer_public_key=issuer, context=context, policy=policy)
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
     # A replay/tamper of the prepared projection cannot reuse that co-signature.
     tampered = copy.deepcopy(prepared)
@@ -515,6 +563,8 @@ def test_b1_issuer_verified_certificate_needs_no_client_material() -> None:
         context=context,
     )
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 def test_b1_only_certificate_with_co_attestation_is_rejected() -> None:
@@ -539,6 +589,8 @@ def test_discovered_materials_bundle_verifies_end_to_end() -> None:
         context=context,
     )
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 def test_discovered_materials_bundle_supplies_client_key_when_context_omits_it() -> None:
@@ -554,6 +606,8 @@ def test_discovered_materials_bundle_supplies_client_key_when_context_omits_it()
         context=materials_only_context,
     )
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 def test_discovered_materials_rejects_caller_bundle_client_key_substitution() -> None:
@@ -633,6 +687,59 @@ def test_active_retrieval_wrapper_is_verified() -> None:
         context=context,
     )
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
+
+
+def test_active_retrieval_wrapper_is_verified_with_signature_only_opt_out() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = _retrieval_wrapper(cert, materials)
+
+    result = verify_certificate_with_materials(
+        wrapper,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+        require_status=False,
+    )
+
+    assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
+
+
+def test_retrieval_status_mutation_cannot_upgrade_signature_only_result() -> None:
+    cert, issuer, context, policy = _sign_fixture()
+    materials = _materials_fixture(cert, issuer, context, policy)
+    wrapper = _retrieval_wrapper(
+        cert,
+        materials,
+        status="revoked_after_issuance",
+        revoked_at="2026-08-24T00:00:00Z",
+        reason="rotation",
+    )
+
+    # The retrieval status is unsigned metadata. Replacing a locally revoked
+    # status with the active/null shape cannot create authenticated status proof.
+    wrapper["certificate_status"] = {
+        "status": "active",
+        "revoked_at": None,
+        "reason": None,
+    }
+    result = verify_certificate_with_materials(
+        wrapper,
+        materials,
+        expected_materials_digest=materials["materials_digest"],
+        certificate_ref=materials["certificate_ref"],
+        context=context,
+        require_status=False,
+    )
+
+    assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 @pytest.mark.parametrize(
@@ -678,6 +785,8 @@ def test_retrieval_wrapper_accepts_valid_unbound_projection_metadata() -> None:
         context=context,
     )
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 @pytest.mark.parametrize("mutation", ["missing", "extra"])
@@ -727,6 +836,8 @@ def test_bare_certificate_requires_explicit_signature_only_opt_out() -> None:
         require_status=False,
     )
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 def test_revoked_retrieval_wrapper_is_rejected_even_with_signature_only_opt_out() -> None:
@@ -798,6 +909,8 @@ def test_zero_claim_certificate_verifies_with_issuer_only_materials() -> None:
         context=context,
     )
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 def test_schema_abstention_codes_match_verifier_constants() -> None:
@@ -836,6 +949,8 @@ def test_discovered_materials_reversed_register_mapping_uses_canonical_order() -
         context=context,
     )
     assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
 
 def test_discovered_materials_rejects_non_context_before_material_binding() -> None:
@@ -986,7 +1101,8 @@ def test_c1_truthful_abstention_is_required() -> None:
     assert c1_row["abstention_code"] == "verifier_not_run_or_not_pass"
     result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
     assert result.valid
-    assert result.code == "VERIFIED"
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+    assert result.status_evidence == "not_checked"
 
     c1_row["abstention_code"] = "prohibited_register_violation"
     _rebind_audit_report_digest(cert)

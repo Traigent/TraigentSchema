@@ -1,9 +1,9 @@
 {
-  "$comment": "Hermetic regression fixture for the Certified Agent v0 allowlist. source_commit/source_parent are externally replayable provenance labels, not runtime inputs and not a cryptographic derivation performed by the test; tests validate the recorded identity content and fingerprints. Out-of-band derivation reference: scripts/breaking_schema_check.py --check --repo-root . --base-ref <source_parent> --head-ref <source_commit> --allowlist scripts/breaking_schema_allowlist.json (the runtime test never executes this history replay).",
+  "$comment": "Hermetic regression fixture for the Certified Agent v0 allowlist. source_commit/source_parent are externally replayable provenance labels, not runtime inputs and not a cryptographic derivation performed by the test; entries_sha256/content_sha256 are self-consistency and corruption checks over committed fixture content, not tamper resistance, provenance authentication, or trust evidence. Tests validate the recorded identity content and fingerprints. Out-of-band derivation reference: scripts/breaking_schema_check.py --check --repo-root . --base-ref <source_parent> --head-ref <source_commit> --allowlist scripts/breaking_schema_allowlist.json (the runtime test never executes this history replay).",
   "source_commit": "6235eb5d3b3e3a79064ad8e509305ec239dd8dc4",
   "source_parent": "799641743d733a5bacaf9f2aa2ffb8a2c338bac4",
   "entries_sha256": "0af0076b06ced2bd2829713c20c855739ab9e0b85b749d231c0f31e057742daf",
-  "content_sha256": "1d43ab36ec529f5ba70ca3dce50a8732e65022c6a12708d42261f06d4a368028",
+  "content_sha256": "d915bc93776f5dfdf4fcf3418646a5cb6191f8de00ad992740a318ac56621826",
   "coverage_census": {
     "before": {
       "mode": "pointer_prefix",

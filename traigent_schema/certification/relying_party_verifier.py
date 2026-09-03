@@ -190,10 +190,25 @@ class RelyingPartyPolicy:
 
 @dataclass(frozen=True)
 class VerificationResult:
-    """Successful result; no certificate content is retained."""
+    """Successful result; no certificate content is retained.
+
+    ``status_evidence`` is deliberately a plain closed-vocabulary string so a
+    signature-only result cannot be confused with one that also inspected an
+    issuer-supplied status snapshot.
+    """
 
     valid: bool = True
-    code: str = "VERIFIED"
+    code: str = "VERIFIED_SIGNATURE_ONLY"
+    status_evidence: str = "not_checked"
+
+    def __post_init__(self) -> None:
+        if self.valid is not True:
+            raise ValueError("VERIFICATION_RESULT")
+        if (self.code, self.status_evidence) not in (
+            ("VERIFIED_SIGNATURE_ONLY", "not_checked"),
+            ("VERIFIED", "issuer_status_snapshot"),
+        ):
+            raise ValueError("VERIFICATION_RESULT")
 
 
 def derive_client_key_ref(
@@ -605,7 +620,9 @@ def verify_certificate_with_materials(
     status must be ``active`` with null revocation fields.  Passing
     ``require_status=False`` is an explicit opt-out for offline signature-only
     verification of a bare certificate; a supplied retrieval wrapper is still
-    checked and cannot bypass revocation status.
+    checked and cannot bypass revocation status.  Wrapper status is unsigned and
+    shape-checked; it cannot elevate the signature-only result or prove current
+    validity or non-revocation.
     """
     try:
         if not isinstance(context, VerificationContext):
@@ -1188,7 +1205,11 @@ def verify_certificate(
     context: VerificationContext,
     policy: RelyingPartyPolicy,
 ) -> VerificationResult:
-    """Verify an Agent Certificate v0 envelope entirely offline."""
+    """Verify an Agent Certificate v0 envelope entirely offline.
+
+    A successful signature-only result does not establish current validity or
+    non-revocation.
+    """
 
     try:
         _verify(certificate, issuer_public_key, context, policy)

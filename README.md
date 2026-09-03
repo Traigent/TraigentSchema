@@ -101,6 +101,17 @@ The official contract package for the Traigent AI optimization platform. This
 repository is the shared source of truth for JSON Schema definitions, endpoint
 mappings, and validation utilities used across the backend, SDK, and frontend.
 
+### Certificate-route error contract
+
+The declared contract for Agent Certificate v0 HTTP error responses permits
+only the fixed `success: false`, `message`, `error`, and status-selected
+`error_code` fields. Request content, exception text, diagnostic maps, and
+nested values are not representable. The contract deliberately does not reuse
+the generic error envelope, whose message/error/details fields can carry
+customer response content, agent/evaluator code, or evaluation-dataset
+examples. This contract declaration does not establish Backend runtime
+conformance.
+
 > **Before you push:** run `make install-hooks` once per clone, then
 > `make local-gate` before every push. The local gate mirrors the cloud CI
 > gates (`ruff check`, `mypy`, the `pytest`/parity **structural** gates, the

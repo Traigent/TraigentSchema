@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Agent Certificate v0 HTTP error contract** defines a certificate-specific,
+  content-free Draft-07 contract. Every declared certificate-route error body
+  is closed to `success`, `message`, `error`, and a status-pinned `error_code`;
+  generic envelopes' `details`, maps, arrays, exception text, and request
+  content are not representable. The generic error envelope remains unchanged
+  for all other routes. This contract declaration does not establish Backend
+  runtime conformance.
 - **Agent Certificate v0 relying-party verification results** now distinguish
   cryptographic success from status evidence. All current paths, including
   validated retrieval wrappers, return `VERIFIED_SIGNATURE_ONLY` with

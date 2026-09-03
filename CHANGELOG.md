@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   G1 remains a client-declared unopened commitment and unsupported rows abstain.
 
 ### Added
+- **`task_type` on `POST /api/v1/sessions`** (optional string, 1-128 chars): a COARSE,
+  client-declared task category (`multiple_choice`, `exact_match`, `text2sql`,
+  `code_generation`, `summarization`, ...) that the backend maps internally to an
+  evaluator-quality anchor policy. The client never names an anchor; unknown values
+  resolve to no anchor. Same shape as `optimization_plan_request.task_type`. Until this
+  field, the anchor policy's only live designation path (the hint) had no typed channel,
+  so every real run audited as `no_anchor_designation`.
 - **Agent Certificate v0 certification API and contract** now expose lazy relying-party
   verification exports, frozen B1/G1 claim verification with explicit D2 abstention, and
   canonical public-key material validation for supported issuer and client algorithms.

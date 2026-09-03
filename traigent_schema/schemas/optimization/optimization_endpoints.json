@@ -312,6 +312,12 @@
                   "dataset_metadata": {
                     "type": "object"
                   },
+                  "task_type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Optional COARSE task category for the run, e.g. multiple_choice, exact_match, text2sql, code_generation, summarization. The server maps it internally to an evaluator-quality anchor policy (which verifiable ground truth, if any, an audit may use); the client never names an anchor. Unknown values are accepted and resolve to no anchor. Same vocabulary and shape as optimization_plan_request.task_type."
+                  },
                   "evaluator_id": {
                     "type": "string",
                     "minLength": 1,

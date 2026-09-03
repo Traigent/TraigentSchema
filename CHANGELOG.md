@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Agent Certificate v0 relying-party verification results** now distinguish
+  cryptographic success from status evidence. All current paths, including
+  validated retrieval wrappers, return `VERIFIED_SIGNATURE_ONLY` with
+  `status_evidence="not_checked"`; wrapper status metadata is shape-checked but
+  unsigned and cannot establish current validity or non-revocation. The
+  `VERIFIED` / `issuer_status_snapshot` pair is reserved for a future
+  issuer-asserted status snapshot backed by an authenticated, freshness-bounded
+  status-proof contract; the current v0 retrieval schema provides no such proof.
+  Reconstructing the former `VerificationResult(valid=True, code='VERIFIED')`
+  without the reserved `status_evidence="issuer_status_snapshot"` now raises.
 - **Agent Certificate v0 signing and certification API** now use an issuer-first
   prepare/finalize protocol: the issuer signs the length-prefixed canonical
   unsigned manifest, `prepare` returns that single complete pre-co-attestation

@@ -531,9 +531,7 @@ def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> N
     # prepare returns exactly the object the client signed: one projection with
     # the outer co-attestation absent, while the issuer signature remains.
     assert "co_attestation" not in prepared["signatures"]
-    assert prepared["signatures"]["issuer_signature"]["signed_payload"] == [
-        "unsigned_manifest"
-    ]
+    assert prepared["signatures"]["issuer_signature"]["signed_payload"] == ["unsigned_manifest"]
     projection_bytes = fp2.canonicalize(prepared).encode()
     assert co["signed_manifest_digest"] == _digest(_CLIENT_CERTIFICATE_DOMAIN, prepared)
     assert projection_bytes

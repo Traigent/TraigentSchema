@@ -2025,6 +2025,23 @@
       "reason": "Promotion acknowledgement for release 5.8.0 (PR #448). Paired with the oneOf_added acknowledgement above for the same two pointers: the gate reports 'type no longer allows object' because it does not resolve oneOf branches back to member types; the object (MeasureResults) branch is unchanged and an array (ExampleMetrics list) branch is now also accepted. Same PR #437 change, same evidence, reached through this endpoint file's $ref to session_submit_results_request_schema.json. Exact identities and fingerprints only.",
       "version": "5.8.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/448"
+    },
+    {
+      "file": "billing/subscription_response_schema.json",
+      "rule": "property_added",
+      "reason": "Adds the optional 'source' discriminator (paddle | aws_marketplace) so a subscription records which commerce channel created it. AWS Marketplace purchases carry no Paddle identifiers, so without this the backend cannot tell the two apart and the shared entitlement predicate cannot remain the single chokepoint that governs access. Flagged BREAKING only because this response object closes additionalProperties, so a strict response validator would reject the newly emitted member. The property is optional and appears in no 'required' array, and no in-repo consumer validates it: the generated Python surface types the payload as an opaque mapping (traigent/generated/schema_types.py:1287 on origin/develop), and TypeScript types are compile-time only. Noted for whoever regenerates the SDKs: the generated JS type SubscriptionResponseSchema is a closed exact shape with no index signature, unlike its siblings, so traigent-js must regenerate before it can carry the member. That regeneration is tracked as SDK parity work rather than silently assumed. Reviewed under spine trail st_b6ed75e9c728.",
+      "version": "5.9.0",
+      "pr": "local-candidate-5bf4c89",
+      "findings": [
+        {
+          "pointer": "#/properties/data/oneOf/1/properties/source",
+          "role": "response",
+          "subject": "source",
+          "old": false,
+          "new": true,
+          "fingerprint": "a72ea730b1fe6489637dd86f3ff06e07bddf16d3d81736c589ec9e980f32b18c"
+        }
+      ]
     }
   ]
 }

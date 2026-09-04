@@ -211,6 +211,23 @@ class VerificationResult:
             raise ValueError("VERIFICATION_RESULT")
 
 
+@dataclass(frozen=True, slots=True)
+class ClientCertificateProjection:
+    """Prepared, content-free input for a client's co-attestation.
+
+    ``projection`` is a defensive, mutable copy for callers that need to add
+    the co-attestation after signing.  The canonical bytes and digest are
+    independent immutable values, so mutating that copy cannot change the
+    bytes that were prepared.  This object never accepts a private key and
+    performs no signing, network access, writes, or external-state changes.
+    """
+
+    projection: dict[str, Any]
+    projection_bytes: bytes
+    signing_bytes: bytes
+    signed_manifest_digest: str
+
+
 def derive_client_key_ref(
     project_ref: str, signature_algorithm: str, client_public_key: object
 ) -> str:
@@ -295,6 +312,150 @@ def _certificate_validator() -> Draft7Validator:
         (_CERT_DIR / "agent_certificate_v0_schema.json").read_text(encoding="utf-8")
     )
     return Draft7Validator(schema, registry=registry, format_checker=_FORMAT_CHECKER)
+
+
+@lru_cache(maxsize=1)
+def _certificate_preparation_validator() -> Draft7Validator:
+    """Validate the exact issuer-signed projection returned by ``prepare``.
+
+    The final certificate schema conditionally requires ``co_attestation``
+    for G1/tier-1 claims.  The prepare response is intentionally the same
+    closed envelope with that one outer member absent, so it has its own
+    canonical endpoint component rather than an ad-hoc partial validator.
+    """
+    resources: list[tuple[str, Resource]] = []
+    for path in _SCHEMAS_DIR.rglob("*.json"):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(document, dict) and "$id" in document:
+            resources.append((document["$id"], Resource.from_contents(document)))
+    catalog = json.loads(
+        (_CERT_DIR / "certification_endpoints_v0.json").read_text(encoding="utf-8")
+    )
+    components = catalog.get("components")
+    if type(components) is not dict:
+        raise ValueError("CERTIFICATE_PREPARATION_SCHEMA")
+    catalog_resource = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": _CERTIFICATE_ENDPOINTS_ID,
+        "components": components,
+    }
+    resources.append((_CERTIFICATE_ENDPOINTS_ID, Resource.from_contents(catalog_resource)))
+    registry = Registry().with_resources(resources)
+    return Draft7Validator(
+        {"$ref": _CERTIFICATE_ENDPOINTS_ID + "#/components/schemas/PrepareResponseV0"},
+        registry=registry,
+        format_checker=_FORMAT_CHECKER,
+    )
+
+
+_MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES = 32 * 1024
+_MAX_CLIENT_CERTIFICATE_NODES = 100_000
+
+
+def _preflight_client_projection(value: object) -> None:
+    """Reject non-JSON values and obviously unbounded input before validation."""
+    if type(value) is not dict:
+        _fail("CO_PROJECTION")
+    pending: list[tuple[object, bool]] = [(value, False)]
+    seen: set[int] = set()
+    active: set[int] = set()
+    estimated_size = 0
+    nodes = 0
+    while pending:
+        current, leaving = pending.pop()
+        if leaving:
+            active.discard(id(current))
+            continue
+        nodes += 1
+        if nodes > _MAX_CLIENT_CERTIFICATE_NODES:
+            _fail("CO_PROJECTION")
+        if type(current) is dict:
+            identity = id(current)
+            if identity in active:
+                _fail("CO_PROJECTION")
+            if identity in seen:
+                continue
+            seen.add(identity)
+            active.add(identity)
+            estimated_size += 2
+            pending.append((current, True))
+            for key, item in current.items():
+                if type(key) is not str:
+                    _fail("CO_PROJECTION")
+                estimated_size += len(key) + 4
+                pending.append((item, False))
+        elif type(current) is list:
+            identity = id(current)
+            if identity in active:
+                _fail("CO_PROJECTION")
+            if identity in seen:
+                continue
+            seen.add(identity)
+            active.add(identity)
+            estimated_size += 2
+            pending.append((current, True))
+            pending.extend((item, False) for item in current)
+        elif type(current) is str:
+            estimated_size += len(current) + 2
+        elif type(current) is int:
+            estimated_size += 8
+        elif current is None or type(current) is bool:
+            estimated_size += 5
+        elif type(current) is float:
+            _fail("CO_PROJECTION")
+        else:
+            _fail("CO_PROJECTION")
+        if estimated_size > _MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES:
+            _fail("CO_PROJECTION")
+
+
+def prepare_client_co_attestation(certificate: object) -> ClientCertificateProjection:
+    """Prepare the canonical client co-attestation preimage for a certificate.
+
+    ``certificate`` may be either the final certificate envelope or the exact
+    issuer-signed pre-co-attestation projection returned by ``prepare``.  The
+    returned projection is a defensive copy with only the outer
+    ``signatures.co_attestation`` member removed.  ``signing_bytes`` are the
+    frozen ``_CLIENT_DOMAIN`` length-prefixed bytes, and
+    ``signed_manifest_digest`` is the corresponding role-domain digest.
+
+    This is a deterministic, offline operation over the already content-free
+    certificate envelope.  On the first call, it reads the installed package's
+    Schema resources to build cached validators; later calls reuse those
+    validators.  It never accepts a key, signs, performs network access or
+    writes, or retains customer examples, agent/evaluator code, or response
+    content.
+    """
+    _preflight_client_projection(certificate)
+    document = cast(dict[str, Any], certificate)
+    has_co_attestation = type(document.get("signatures")) is dict and (
+        "co_attestation" in document["signatures"]
+    )
+    try:
+        validator = (
+            _certificate_validator() if has_co_attestation else _certificate_preparation_validator()
+        )
+        if list(validator.iter_errors(document)):
+            _fail("CO_PROJECTION")
+        projection = copy.deepcopy(document)
+        signatures = projection["signatures"]
+        if type(signatures) is not dict:
+            _fail("CO_PROJECTION")
+        signatures.pop("co_attestation", None)
+        canonical = cast(str, fp2.canonicalize(projection)).encode("utf-8")
+    except RelyingPartyVerificationError:
+        raise
+    except Exception:
+        _fail("CO_PROJECTION")
+    if len(canonical) > _MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES:
+        _fail("CO_PROJECTION")
+    digest = _role_digest(_CLIENT_CERTIFICATE_DOMAIN, projection)
+    return ClientCertificateProjection(
+        projection=projection,
+        projection_bytes=canonical,
+        signing_bytes=_client_material(canonical),
+        signed_manifest_digest=digest,
+    )
 
 
 @lru_cache(maxsize=1)
@@ -1152,14 +1313,8 @@ def _verify_co_attestation(
         _fail("ALGORITHM")
     if co["nonce"] != unsigned["freshness"]["nonce"] or co["nonce"] != context.expected_nonce:
         _fail("NONCE")
-    projection = copy.deepcopy(document)
-    projection["signatures"].pop("co_attestation", None)
-    try:
-        projection_bytes = cast(str, fp2.canonicalize(projection)).encode("utf-8")
-    except Exception:
-        _fail("CO_PROJECTION")
-    expected_projection_digest = _role_digest(_CLIENT_CERTIFICATE_DOMAIN, projection)
-    if co["signed_manifest_digest"] != expected_projection_digest:
+    prepared = prepare_client_co_attestation(document)
+    if co["signed_manifest_digest"] != prepared.signed_manifest_digest:
         _fail("CO_PROJECTION")
     co_raw = _decode_signature(co["signature"])
     if (
@@ -1170,7 +1325,7 @@ def _verify_co_attestation(
     _verify_signature(
         context.client_public_key,
         co["algorithm"],
-        _client_material(projection_bytes),
+        prepared.signing_bytes,
         co["signature"],
     )
 

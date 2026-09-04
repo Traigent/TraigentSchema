@@ -91,6 +91,17 @@ the server requires it when that projection has G1 or any tier-1 claim, while
 B1-only certificates may finalize with issuer material alone. The prepared
 projection is unchanged by finalization.
 
+For clients implementing the co-attestation step, Schema exposes
+`prepare_client_co_attestation(certificate)`. Pass it the exact issuer-signed
+certificate projection returned by `prepare` (or a final envelope when
+recomputing verification material). Its `ClientCertificateProjection` result
+contains a defensive `projection`, immutable `projection_bytes`, frozen
+`signing_bytes`, and the role-domain `signed_manifest_digest`. The helper is
+deterministic and offline. Its first call reads the installed package's Schema
+resources to build cached validators; later calls reuse those validators. It
+never accepts a private key, signs, performs network access or writes, or
+receives customer examples, agent/evaluator code, or response content.
+
 Failures raise `RelyingPartyVerificationError`; its `.code` and string form
 are bounded, content-free values intended for safe logging. A successful
 result proves the supplied envelope, signatures, projections, and declared

@@ -46,6 +46,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   G1 remains a client-declared unopened commitment and unsupported rows abstain.
 
 ### Added
+- **Agent Certificate v0 client preparation** now exposes
+  `prepare_client_co_attestation`, the single Schema-owned source of truth for
+  the defensive pre-co-attestation projection, canonical client signing bytes,
+  and role-domain `signed_manifest_digest`. It is deterministic and offline;
+  its first call reads installed packaged Schema resources to build cached
+  validators, while later calls reuse them. It performs no signing, key
+  handling, network access, writes, or external-state changes and accepts only
+  the bounded content-free certificate projection.
 - **`task_type` on `POST /api/v1/sessions`** (optional string, 1-128 chars): a COARSE,
   client-declared task category (`multiple_choice`, `exact_match`, `text2sql`,
   `code_generation`, `summarization`, ...) that the backend maps internally to an

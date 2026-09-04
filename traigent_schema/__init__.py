@@ -41,6 +41,7 @@ from traigent_schema.version import __version__
 
 _CERTIFICATION_EXPORTS = frozenset(
     {
+        "ClientCertificateProjection",
         "RelyingPartyPolicy",
         "RelyingPartyVerificationError",
         "VerificationContext",
@@ -50,6 +51,7 @@ _CERTIFICATION_EXPORTS = frozenset(
         "verify_agent_certificate",
         "verify_certificate",
         "verify_certificate_with_materials",
+        "prepare_client_co_attestation",
     }
 )
 

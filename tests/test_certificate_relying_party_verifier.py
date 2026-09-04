@@ -32,10 +32,12 @@ from tests.test_agent_certificate_v0_schemas import (
 )
 from traigent_schema import fp2
 from traigent_schema.certification import (
+    ClientCertificateProjection,
     RelyingPartyPolicy,
     VerificationContext,
     VerificationError,
     VerificationResult,
+    prepare_client_co_attestation,
     verify,
     verify_agent_certificate,
     verify_certificate,
@@ -522,8 +524,9 @@ def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> N
     """Exercise the real issuer-first projection, not a shape-only fixture."""
     cert, issuer, context, policy = _sign_fixture(algorithm)
     co = cert["signatures"]["co_attestation"]
-    prepared = copy.deepcopy(cert)
-    prepared["signatures"].pop("co_attestation")
+    prepared_result = prepare_client_co_attestation(cert)
+    assert isinstance(prepared_result, ClientCertificateProjection)
+    prepared = prepared_result.projection
 
     # prepare returns exactly the object the client signed: one projection with
     # the outer co-attestation absent, while the issuer signature remains.
@@ -534,6 +537,11 @@ def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> N
     projection_bytes = fp2.canonicalize(prepared).encode()
     assert co["signed_manifest_digest"] == _digest(_CLIENT_CERTIFICATE_DOMAIN, prepared)
     assert projection_bytes
+    assert prepared_result.projection_bytes == projection_bytes
+    assert prepared_result.signing_bytes == (
+        _CLIENT_DOMAIN + struct.pack(">Q", len(projection_bytes)) + projection_bytes
+    )
+    assert prepared_result.signed_manifest_digest == co["signed_manifest_digest"]
 
     # finalize adds the exact client signature to the persisted projection.
     prepared["signatures"]["co_attestation"] = co
@@ -547,6 +555,101 @@ def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> N
     tampered["subject"]["project_ref"] = "project_contract002"
     with pytest.raises(VerificationError):
         verify_certificate(tampered, issuer_public_key=issuer, context=context, policy=policy)
+
+
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_prepare_accepts_prepare_projection_and_is_defensive(algorithm: str) -> None:
+    cert, _, _, _ = _sign_fixture(algorithm)
+    issuer_signed = copy.deepcopy(cert)
+    issuer_signed["signatures"].pop("co_attestation")
+    original = copy.deepcopy(issuer_signed)
+
+    prepared = prepare_client_co_attestation(issuer_signed)
+    assert prepared.projection == issuer_signed
+    assert "co_attestation" not in prepared.projection["signatures"]
+    assert issuer_signed == original
+
+    prepared.projection["subject"]["project_ref"] = "changed-project"
+    assert prepared.projection_bytes != fp2.canonicalize(prepared.projection).encode()
+    assert prepared.signed_manifest_digest == _digest(_CLIENT_CERTIFICATE_DOMAIN, original)
+
+
+def test_prepare_rejects_noncanonical_or_unbounded_values() -> None:
+    cert, _, _, _ = _sign_fixture()
+    for value in (None, [], {"not": "a certificate"}):
+        with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+            prepare_client_co_attestation(value)
+
+    floating = copy.deepcopy(cert)
+    floating["subject"]["project_ref"] = 1.5
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(floating)
+
+    oversized = copy.deepcopy(cert)
+    oversized["subject"]["project_ref"] = "x" * 40_000
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(oversized)
+
+    cyclic = copy.deepcopy(cert)
+    cyclic["subject"]["cycle"] = cyclic["subject"]
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(cyclic)
+
+
+def test_prepare_api_has_no_key_or_signing_input() -> None:
+    import inspect
+
+    signature = inspect.signature(prepare_client_co_attestation)
+    assert list(signature.parameters) == ["certificate"]
+    assert "private" not in signature.return_annotation.lower()
+
+
+def test_prepare_reads_packaged_schema_resources_once_then_reuses_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cert, _, _, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    verifier_impl._certificate_preparation_validator.cache_clear()
+    original_read_text = Path.read_text
+    reads = 0
+
+    def counted_read_text(path: Path, *args: object, **kwargs: object) -> str:
+        nonlocal reads
+        reads += 1
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", counted_read_text)
+    prepare_client_co_attestation(cert)
+    first_reads = reads
+    assert first_reads > 0
+    prepare_client_co_attestation(cert)
+    assert reads == first_reads
+
+
+def test_prepare_has_no_network_write_or_private_key_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import socket
+
+    cert, _, _, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    verifier_impl._certificate_preparation_validator.cache_clear()
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("forbidden external operation")
+
+    monkeypatch.setattr(socket, "socket", forbidden)
+    monkeypatch.setattr(socket, "create_connection", forbidden)
+    monkeypatch.setattr(Path, "write_text", forbidden)
+    for name in (
+        "load_der_private_key",
+        "load_pem_private_key",
+        "load_ssh_private_key",
+    ):
+        monkeypatch.setattr(serialization, name, forbidden)
+
+    prepared = prepare_client_co_attestation(cert)
+    assert prepared.signing_bytes
 
 
 def test_b1_issuer_verified_certificate_needs_no_client_material() -> None:

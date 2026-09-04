@@ -415,8 +415,11 @@ jobs:
           source test_env/bin/activate
           python -m pip install --only-binary :all: pip==26.2.1
           python -m pip install --only-binary :all: --constraint requirements-dev.txt dist/*.whl
-          python - <<'PY'
+          python -I - <<'PY'
           from importlib.metadata import metadata
+          from pathlib import Path
+          import site
+          import sys
 
           import cryptography
           import traigent_schema
@@ -435,6 +438,13 @@ jobs:
           assert ">=46.0.0" in cryptography_requirement, cryptography_requirement
           assert "<51.0.0" in cryptography_requirement, cryptography_requirement
           assert "certification" in (package_metadata.get_all("Provides-Extra") or [])
+
+          environment_root = Path(sys.prefix).resolve()
+          site_packages = [Path(path).resolve() for path in site.getsitepackages()]
+          for module in (traigent_schema, relying_party_verifier):
+              module_path = Path(module.__file__).resolve()
+              assert module_path.is_relative_to(environment_root), module_path
+              assert any(module_path.is_relative_to(path) for path in site_packages), module_path
 
           print(f"Package test: traigent-schema v{traigent_schema.__version__}")
           print(f"Cryptography runtime: v{cryptography.__version__}")

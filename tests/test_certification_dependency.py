@@ -5,10 +5,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
+_PROVENANCE_FRAGMENTS = (
+    "python -I - <<'PY'",
+    "Path(sys.prefix).resolve()",
+    "site.getsitepackages()",
+    "for module in (traigent_schema, relying_party_verifier)",
+    "Path(module.__file__).resolve()",
+    "module_path.is_relative_to(environment_root)",
+    "any(module_path.is_relative_to(path) for path in site_packages)",
+)
 
 
 def _jobs() -> dict[str, Any]:
@@ -23,6 +33,11 @@ def _named_step(job: dict[str, Any], name: str) -> dict[str, Any]:
     matching = [step for step in job.get("steps", []) if step.get("name") == name]
     assert len(matching) == 1, f"package job must contain exactly one {name!r} step"
     return matching[0]
+
+
+def _assert_installed_module_provenance(witness: str) -> None:
+    for fragment in _PROVENANCE_FRAGMENTS:
+        assert fragment in witness, f"wheel witness lost provenance guard: {fragment}"
 
 
 def test_required_package_job_owns_plain_certification_wheel_witness() -> None:
@@ -52,3 +67,16 @@ def test_required_package_job_owns_plain_certification_wheel_witness() -> None:
     assert '"certification" in' in witness
     assert "import cryptography" in witness
     assert "from traigent_schema.certification import relying_party_verifier" in witness
+    _assert_installed_module_provenance(witness)
+
+
+@pytest.mark.parametrize("fragment", _PROVENANCE_FRAGMENTS)
+def test_wheel_witness_provenance_guard_rejects_each_removed_check(fragment: str) -> None:
+    package_job = _jobs()["package"]
+    witness = str(
+        _named_step(package_job, "Test installation from built wheel").get("run", "")
+    )
+    mutated = witness.replace(fragment, "", 1)
+
+    with pytest.raises(AssertionError, match="lost provenance guard"):
+        _assert_installed_module_provenance(mutated)

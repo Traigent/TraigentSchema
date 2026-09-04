@@ -524,7 +524,7 @@
       "PrepareResponseV0": {
         "type": "object",
         "additionalProperties": false,
-        "description": "The exact content-free issuer-signed pre-co-attestation certificate projection returned by prepare and persisted for finalize. It is the client signing input after JCS canonicalization. The outer signatures.co_attestation member is absent by construction; clients must not reconstruct it from a separate unsigned_manifest response. Server-side finalize conditionally requires co_attestation iff this persisted projection has a G1 or tier-1 claim.",
+        "description": "The exact content-free issuer-signed G1 pre-co-attestation certificate projection returned by prepare and persisted for finalize. It is the client signing input after JCS canonicalization. The outer signatures.co_attestation member is absent by construction; clients must not reconstruct it from a separate unsigned_manifest response. This prepare response always declares G1 at tier 1; B1-only final certificates are not prepare responses. Server-side finalize requires co_attestation for this projection.",
         "required": [
           "schema_version",
           "certificate_title",
@@ -547,7 +547,7 @@
           "subject": {"$ref": "./certification_common_v0_schema.json#/definitions/BuildSessionSubjectV0"},
           "semantics": {"$ref": "./agent_certificate_v0_schema.json#/definitions/SemanticsBindingV0"},
           "disclosure_profile": {"$ref": "./agent_certificate_v0_schema.json#/definitions/DisclosureProfileV0"},
-          "ledger_seal_projection": {"$ref": "./certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"},
+          "ledger_seal_projection": {"$ref": "./agent_certificate_v0_schema.json#/definitions/CertificateLedgerSealProjectionV0"},
           "claims": {"$ref": "./certificate_claims_v0_schema.json#/definitions/ClaimsArrayV0"},
           "non_claims": {"$ref": "./certificate_claims_v0_schema.json#/definitions/NonClaimsFixedTupleV0"},
           "signatures": {
@@ -557,7 +557,22 @@
             ]
           },
           "audit_report": {"$ref": "./certificate_audit_report_v0_schema.json#/definitions/AuditReportV0"}
-        }
+        },
+        "allOf": [
+          {
+            "properties": {
+              "claims": {
+                "contains": {
+                  "properties": {
+                    "claim_id": {"const": "G1"},
+                    "tier": {"const": 1}
+                  },
+                  "required": ["claim_id", "tier"]
+                }
+              }
+            }
+          }
+        ]
       },
       "ArtifactProjectionV0": {
         "type": "object",

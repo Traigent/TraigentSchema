@@ -423,7 +423,13 @@ jobs:
 
           import cryptography
           import traigent_schema
-          from traigent_schema import SchemaValidator, load_schema
+          from traigent_schema import (
+              ClientCoAttestationContext,
+              SchemaValidator,
+              derive_client_key_ref,
+              load_schema,
+              prepare_client_co_attestation,
+          )
           from traigent_schema.certification import relying_party_verifier
 
           package_metadata = metadata("traigent-schema")
@@ -438,6 +444,9 @@ jobs:
           assert ">=46.0.0" in cryptography_requirement, cryptography_requirement
           assert "<51.0.0" in cryptography_requirement, cryptography_requirement
           assert "certification" in (package_metadata.get_all("Provides-Extra") or [])
+          assert ClientCoAttestationContext.__name__ == "ClientCoAttestationContext"
+          assert callable(derive_client_key_ref)
+          assert callable(prepare_client_co_attestation)
 
           environment_root = Path(sys.prefix).resolve()
           site_packages = [Path(path).resolve() for path in site.getsitepackages()]

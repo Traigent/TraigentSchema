@@ -47,7 +47,7 @@
     },
     "ledger_seal_projection": {
       "description": "The sealed expected-stream projection this certificate's claim B1 (if printed) refers to. Legacy/unsealed sessions are refused issuance, never silently downgraded (C6 Ruling 1, conceded) — the refusal is compiler-enforced (rejection code legacy_or_unsealed_session_refused).",
-      "$ref": "certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"
+      "$ref": "#/definitions/CertificateLedgerSealProjectionV0"
     },
     "claims": {
       "description": "The printed claims — possibly empty, since every v0 claim is conditional and 'Current evidence supports no presently issuable signed v0 certificate.' An early certificate has fewer and lower-tier claims, never absent caveats. This field MUST be copied verbatim into the signed unsigned-manifest's `claims` coverage section (certificate_unsigned_manifest_v0_schema.json#/definitions/UnsignedManifestV0); both reference certificate_claims_v0_schema.json#/definitions/ClaimsArrayV0 (SCHEMA-1, 2026-08-24) so the two copies are structurally the identical type, not merely described as such.",
@@ -121,11 +121,16 @@
           }
         }
       }
-    },
-    {
-      "description": "v0 issuance is fail-closed for every expected ledger stream: legacy_unsealed and not_applicable remain historical ledger vocabulary but are not admissible in an Agent Certificate envelope. All three stream entries must be explicitly sealed or empty_sealed, each with its root commitment.",
-      "properties": {
-        "ledger_seal_projection": {
+    }
+  ],
+  "definitions": {
+    "CertificateLedgerSealProjectionV0": {
+      "description": "The one authoritative certificate/prepare ledger projection. It reuses the sealed B-v0 statement and explicitly forbids the historical legacy_unsealed and not_applicable states at either certificate boundary.",
+      "allOf": [
+        {
+          "$ref": "certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"
+        },
+        {
           "properties": {
             "expected_stream_projection": {
               "properties": {
@@ -154,10 +159,8 @@
             }
           }
         }
-      }
-    }
-  ],
-  "definitions": {
+      ]
+    },
     "SemanticsBindingV0": {
       "description": "The signed semantics reference for exact-version dispatch (C1 Ruling 6): the semantics manifest 'binds canonical schema definitions, claim templates, prohibited register, verifier catalog, tier semantics, signature scope, and canonicalization rules.' Each digest names one pinned, signed, ARCHIVED artifact — 'A digest without an archived, authentic bundle and resolver does not preserve verification', so archives and trust-manifest authority are B5/verifier obligations recorded here as scope.",
       "type": "object",

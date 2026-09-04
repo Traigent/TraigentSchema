@@ -228,6 +228,25 @@ class ClientCertificateProjection:
     signed_manifest_digest: str
 
 
+@dataclass(frozen=True, slots=True)
+class ClientCoAttestationContext:
+    """Client-owned expectations that must match before signing a prepare response.
+
+    Only public verification material is accepted.  The helper derives the
+    project-scoped key reference from ``client_public_key``; callers cannot ask
+    it to trust an independently supplied key reference.
+    """
+
+    expected_project_ref: str
+    expected_build_session_ref: str
+    expected_nonce: str
+    manifest_root_digest: str
+    commitment_scheme: str
+    client_attestor_version: str
+    expected_client_algorithm: str
+    client_public_key: object
+
+
 def derive_client_key_ref(
     project_ref: str, signature_algorithm: str, client_public_key: object
 ) -> str:
@@ -409,34 +428,11 @@ def _preflight_client_projection(value: object) -> None:
             _fail("CO_PROJECTION")
 
 
-def prepare_client_co_attestation(certificate: object) -> ClientCertificateProjection:
-    """Prepare the canonical client co-attestation preimage for a certificate.
-
-    ``certificate`` may be either the final certificate envelope or the exact
-    issuer-signed pre-co-attestation projection returned by ``prepare``.  The
-    returned projection is a defensive copy with only the outer
-    ``signatures.co_attestation`` member removed.  ``signing_bytes`` are the
-    frozen ``_CLIENT_DOMAIN`` length-prefixed bytes, and
-    ``signed_manifest_digest`` is the corresponding role-domain digest.
-
-    This is a deterministic, offline operation over the already content-free
-    certificate envelope.  On the first call, it reads the installed package's
-    Schema resources to build cached validators; later calls reuse those
-    validators.  It never accepts a key, signs, performs network access or
-    writes, or retains customer examples, agent/evaluator code, or response
-    content.
-    """
-    _preflight_client_projection(certificate)
-    document = cast(dict[str, Any], certificate)
-    has_co_attestation = type(document.get("signatures")) is dict and (
-        "co_attestation" in document["signatures"]
-    )
+def _prepare_client_projection(
+    document: dict[str, Any],
+) -> ClientCertificateProjection:
+    """Build signing material from an already validated certificate projection."""
     try:
-        validator = (
-            _certificate_validator() if has_co_attestation else _certificate_preparation_validator()
-        )
-        if list(validator.iter_errors(document)):
-            _fail("CO_PROJECTION")
         projection = copy.deepcopy(document)
         signatures = projection["signatures"]
         if type(signatures) is not dict:
@@ -456,6 +452,101 @@ def prepare_client_co_attestation(certificate: object) -> ClientCertificateProje
         signing_bytes=_client_material(canonical),
         signed_manifest_digest=digest,
     )
+
+
+def _validate_client_preparation_context(
+    document: dict[str, Any], context: ClientCoAttestationContext
+) -> None:
+    """Fail closed unless the issuer projection matches the client's intent."""
+    if not isinstance(context, ClientCoAttestationContext):
+        _fail("CO_CONTEXT")
+    try:
+        signatures = document["signatures"]
+        unsigned_ref = signatures["unsigned_manifest"]
+        unsigned = unsigned_ref["document"]
+        audit = document["audit_report"]
+        audit_digest = _role_digest(_AUDIT_DOMAIN, audit)
+        if unsigned_ref["manifest_digest"] != _role_digest(_UNSIGNED_DOMAIN, unsigned):
+            _fail("CO_PROJECTION")
+        if tuple(unsigned_ref["coverage"]) != _COVERAGE:
+            _fail("CO_PROJECTION")
+        if document["semantics"] != {
+            key: unsigned["compiler_register_versions"][key] for key in document["semantics"]
+        }:
+            _fail("CO_PROJECTION")
+        _check_streams(document["ledger_seal_projection"])
+        _check_projections(document, unsigned, audit_digest)
+        _check_claims_and_audit(document, unsigned, audit, audit_digest)
+
+        g1_claims = [claim for claim in document["claims"] if claim["claim_id"] == "G1"]
+        if len(g1_claims) != 1 or g1_claims[0]["tier"] != 1:
+            _fail("CO_G1_REQUIRED")
+        params = g1_claims[0]["payload"]["params"]
+        ring = unsigned["key_ring_identifiers"]
+        issuer = signatures["issuer_signature"]
+        derived_key_ref = derive_client_key_ref(
+            context.expected_project_ref,
+            context.expected_client_algorithm,
+            context.client_public_key,
+        )
+        if not (
+            document["subject"]["project_ref"] == context.expected_project_ref
+            and document["subject"]["build_session_ref"] == context.expected_build_session_ref
+            and unsigned["freshness"]["nonce"] == context.expected_nonce
+            and ring["client_key_ref"] == derived_key_ref
+            and ring["client_signature_algorithm"] == context.expected_client_algorithm
+            and params["build_session_ref"] == context.expected_build_session_ref
+            and params["client_key_ref"] == derived_key_ref
+            and params["manifest_root_digest"] == context.manifest_root_digest
+            and params["commitment_scheme"] == context.commitment_scheme
+            and params["client_attestor_version"] == context.client_attestor_version
+            and audit["client_evidence_manifest_root"] == context.manifest_root_digest
+        ):
+            _fail("CO_CONTEXT")
+        if not (
+            issuer["signed_payload"] == ["unsigned_manifest"]
+            and issuer["issuer_key_ref"] == ring["issuer_key_ref"]
+            and issuer["algorithm"] == ring["issuer_signature_algorithm"]
+            and issuer["trust_ring_ref"] == ring["trust_ring_ref"]
+        ):
+            _fail("CO_PROJECTION")
+    except RelyingPartyVerificationError:
+        raise
+    except Exception:
+        _fail("CO_PROJECTION")
+
+
+def prepare_client_co_attestation(
+    prepare_response: object, *, context: ClientCoAttestationContext
+) -> ClientCertificateProjection:
+    """Prepare signing bytes from an issuer prepare response after intent checks.
+
+    ``prepare_response`` must be the exact content-free, pre-co-attestation
+    projection returned by the prepare endpoint.  ``context`` is frozen
+    client-owned intent: scope, freshness, commitment parameters, expected
+    algorithm, and the client's public key.  Every value is compared before
+    signing material is returned, preventing a caller from blindly signing a
+    different project, session, nonce, key, or G1 commitment.
+
+    This helper does not accept a final certificate or a private key, perform
+    signing, authenticate the issuer signature, use the network, or write.  A
+    cold call reads installed packaged Schema resources to construct cached
+    validators; later calls reuse them.
+    """
+    _preflight_client_projection(prepare_response)
+    document = cast(dict[str, Any], prepare_response)
+    try:
+        validator = _certificate_preparation_validator()
+    except Exception:
+        _fail("CO_SCHEMA_DEPENDENCY")
+    try:
+        errors = list(validator.iter_errors(document))
+    except Exception:
+        _fail("CO_SCHEMA_DEPENDENCY")
+    if errors:
+        _fail("CO_PROJECTION")
+    _validate_client_preparation_context(document, context)
+    return _prepare_client_projection(document)
 
 
 @lru_cache(maxsize=1)
@@ -1313,7 +1404,7 @@ def _verify_co_attestation(
         _fail("ALGORITHM")
     if co["nonce"] != unsigned["freshness"]["nonce"] or co["nonce"] != context.expected_nonce:
         _fail("NONCE")
-    prepared = prepare_client_co_attestation(document)
+    prepared = _prepare_client_projection(document)
     if co["signed_manifest_digest"] != prepared.signed_manifest_digest:
         _fail("CO_PROJECTION")
     co_raw = _decode_signature(co["signature"])
@@ -1379,6 +1470,8 @@ verify = verify_certificate
 verify_agent_certificate = verify_certificate
 
 __all__ = [
+    "ClientCertificateProjection",
+    "ClientCoAttestationContext",
     "derive_client_key_ref",
     "RelyingPartyPolicy",
     "RelyingPartyVerificationError",
@@ -1388,5 +1481,6 @@ __all__ = [
     "verify_certificate",
     "verify_agent_certificate",
     "verify_certificate_with_materials",
+    "prepare_client_co_attestation",
     "verify",
 ]

@@ -92,15 +92,24 @@ B1-only certificates may finalize with issuer material alone. The prepared
 projection is unchanged by finalization.
 
 For clients implementing the co-attestation step, Schema exposes
-`prepare_client_co_attestation(certificate)`. Pass it the exact issuer-signed
-certificate projection returned by `prepare` (or a final envelope when
-recomputing verification material). Its `ClientCertificateProjection` result
-contains a defensive `projection`, immutable `projection_bytes`, frozen
-`signing_bytes`, and the role-domain `signed_manifest_digest`. The helper is
-deterministic and offline. Its first call reads the installed package's Schema
-resources to build cached validators; later calls reuse those validators. It
-never accepts a private key, signs, performs network access or writes, or
-receives customer examples, agent/evaluator code, or response content.
+`prepare_client_co_attestation(prepare_response, context=...)` together with
+the frozen `ClientCoAttestationContext`. Pass the exact issuer-signed G1
+projection returned by `prepare`, not a final certificate. The context states
+the client's expected project, build session, nonce, evidence-manifest root,
+commitment scheme, attestor version, signature algorithm, and public key. The
+helper derives the project-scoped client key reference and compares every
+expectation, the G1 declaration, and the audit root before returning signing
+material. Its `ClientCertificateProjection` result contains a defensive
+`projection`, immutable `projection_bytes`, frozen `signing_bytes`, and the
+role-domain `signed_manifest_digest`.
+
+The helper is deterministic and offline. Its first call reads the installed
+package's Schema resources to build cached validators; later calls reuse those
+validators. It never accepts a private key, signs, performs network access or
+writes, or receives customer examples, agent/evaluator code, or response
+content. It validates that the prepare projection contains a structurally
+consistent issuer signature, but does not itself authenticate that signature;
+issuer trust remains a relying-party verification step.
 
 Failures raise `RelyingPartyVerificationError`; its `.code` and string form
 are bounded, content-free values intended for safe logging. A successful

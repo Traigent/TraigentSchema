@@ -10,6 +10,7 @@ resolve keys, contact Traigent, access a database, or inspect private evidence.
 
 from traigent_schema.certification.relying_party_verifier import (
     ClientCertificateProjection,
+    ClientCoAttestationContext,
     RelyingPartyPolicy,
     RelyingPartyVerificationError,
     VerificationContext,
@@ -25,6 +26,7 @@ from traigent_schema.certification.relying_party_verifier import (
 
 __all__ = [
     "ClientCertificateProjection",
+    "ClientCoAttestationContext",
     "derive_client_key_ref",
     "RelyingPartyPolicy",
     "RelyingPartyVerificationError",

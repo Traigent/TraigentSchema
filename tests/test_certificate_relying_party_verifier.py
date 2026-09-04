@@ -33,6 +33,7 @@ from tests.test_agent_certificate_v0_schemas import (
 from traigent_schema import fp2
 from traigent_schema.certification import (
     ClientCertificateProjection,
+    ClientCoAttestationContext,
     RelyingPartyPolicy,
     VerificationContext,
     VerificationError,
@@ -125,9 +126,15 @@ else:
 
 
 def test_root_certification_exports_preserve_public_api() -> None:
+    from traigent_schema import (
+        ClientCoAttestationContext as RootClientCoAttestationContext,
+    )
     from traigent_schema import RelyingPartyPolicy as RootRelyingPartyPolicy
+    from traigent_schema import derive_client_key_ref as root_derive_client_key_ref
 
     assert RootRelyingPartyPolicy is RelyingPartyPolicy
+    assert RootClientCoAttestationContext is ClientCoAttestationContext
+    assert root_derive_client_key_ref is verifier_impl.derive_client_key_ref
 
 
 def test_verification_result_defaults_are_signature_only() -> None:
@@ -323,21 +330,15 @@ def _sign_fixture(
                 if ref["evidence_kind"] == "audit_report_digest":
                     ref["evidence_digest"] = audit_digest
     unsigned["evidence_digests"] = [
-        {"evidence_kind": "audit_report_digest", "evidence_digest": audit_digest},
-        *(
-            [
-                copy.deepcopy(
-                    next(
-                        ref
-                        for ref in unsigned["claims"][0]["evidence_refs"]
-                        if ref["evidence_kind"] != "audit_report_digest"
-                    )
-                )
-            ]
-            if unsigned["claims"]
-            else []
-        ),
+        {"evidence_kind": "audit_report_digest", "evidence_digest": audit_digest}
     ]
+    seen_evidence = {("audit_report_digest", audit_digest)}
+    for claim in unsigned["claims"]:
+        for ref in claim["evidence_refs"]:
+            marker = (ref["evidence_kind"], ref["evidence_digest"])
+            if marker not in seen_evidence:
+                seen_evidence.add(marker)
+                unsigned["evidence_digests"].append(copy.deepcopy(ref))
     manifest_digest = _digest(_UNSIGNED_DOMAIN, unsigned)
     unsigned_ref = cert["signatures"]["unsigned_manifest"]
     unsigned_ref["manifest_digest"] = manifest_digest
@@ -376,6 +377,25 @@ def _sign_fixture(
         ),
     )
     return cert, issuer_key.public_key(), context, policy
+
+
+def _client_preparation_context(
+    cert: dict, verification_context: VerificationContext
+) -> ClientCoAttestationContext:
+    g1 = next(claim for claim in cert["claims"] if claim["claim_id"] == "G1")
+    params = g1["payload"]["params"]
+    assert verification_context.client_public_key is not None
+    assert verification_context.expected_client_algorithm is not None
+    return ClientCoAttestationContext(
+        expected_project_ref=verification_context.expected_project_ref,
+        expected_build_session_ref=verification_context.expected_build_session_ref,
+        expected_nonce=verification_context.expected_nonce,
+        manifest_root_digest=params["manifest_root_digest"],
+        commitment_scheme=params["commitment_scheme"],
+        client_attestor_version=params["client_attestor_version"],
+        expected_client_algorithm=verification_context.expected_client_algorithm,
+        client_public_key=verification_context.client_public_key,
+    )
 
 
 def _public_key_der_b64(public_key: object) -> str:
@@ -524,7 +544,11 @@ def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> N
     """Exercise the real issuer-first projection, not a shape-only fixture."""
     cert, issuer, context, policy = _sign_fixture(algorithm)
     co = cert["signatures"]["co_attestation"]
-    prepared_result = prepare_client_co_attestation(cert)
+    prepare_response = copy.deepcopy(cert)
+    prepare_response["signatures"].pop("co_attestation")
+    prepared_result = prepare_client_co_attestation(
+        prepare_response, context=_client_preparation_context(cert, context)
+    )
     assert isinstance(prepared_result, ClientCertificateProjection)
     prepared = prepared_result.projection
 
@@ -557,12 +581,14 @@ def test_prepare_projection_client_sign_finalize_round_trip(algorithm: str) -> N
 
 @pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
 def test_prepare_accepts_prepare_projection_and_is_defensive(algorithm: str) -> None:
-    cert, _, _, _ = _sign_fixture(algorithm)
+    cert, _, verification_context, _ = _sign_fixture(algorithm)
     issuer_signed = copy.deepcopy(cert)
     issuer_signed["signatures"].pop("co_attestation")
     original = copy.deepcopy(issuer_signed)
 
-    prepared = prepare_client_co_attestation(issuer_signed)
+    prepared = prepare_client_co_attestation(
+        issuer_signed, context=_client_preparation_context(cert, verification_context)
+    )
     assert prepared.projection == issuer_signed
     assert "co_attestation" not in prepared.projection["signatures"]
     assert issuer_signed == original
@@ -572,41 +598,153 @@ def test_prepare_accepts_prepare_projection_and_is_defensive(algorithm: str) -> 
     assert prepared.signed_manifest_digest == _digest(_CLIENT_CERTIFICATE_DOMAIN, original)
 
 
-def test_prepare_rejects_noncanonical_or_unbounded_values() -> None:
+def test_prepare_rejects_final_certificate_and_b1_only_envelope() -> None:
+    g1_cert, _, verification_context, _ = _sign_fixture()
+    context = _client_preparation_context(g1_cert, verification_context)
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(g1_cert, context=context)
+
+    b1_cert, _, _, _ = _sign_fixture(claims=[_b1_claim(tier=3)], with_co=False)
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(b1_cert, context=context)
+
+
+@pytest.mark.parametrize("status", ["legacy_unsealed", "not_applicable"])
+@pytest.mark.parametrize("stream", ["decision_stream", "receipt_event_stream", "transition_stream"])
+def test_prepare_and_final_schemas_share_sealed_ledger_restriction(
+    stream: str, status: str
+) -> None:
     cert, _, _, _ = _sign_fixture()
+    prepare_response = copy.deepcopy(cert)
+    prepare_response["signatures"].pop("co_attestation")
+    assert not list(verifier_impl._certificate_validator().iter_errors(cert))
+    assert not list(
+        verifier_impl._certificate_preparation_validator().iter_errors(prepare_response)
+    )
+    assert {
+        entry["chain_status"]
+        for entry in cert["ledger_seal_projection"]["expected_stream_projection"].values()
+    } == {"sealed", "empty_sealed"}
+
+    cert["ledger_seal_projection"]["expected_stream_projection"][stream]["chain_status"] = status
+    prepare_response["ledger_seal_projection"]["expected_stream_projection"][stream][
+        "chain_status"
+    ] = status
+    assert list(verifier_impl._certificate_validator().iter_errors(cert))
+    assert list(verifier_impl._certificate_preparation_validator().iter_errors(prepare_response))
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("expected_project_ref", "project_contract002"),
+        ("expected_build_session_ref", "bsn:" + "b" * 43),
+        ("expected_nonce", "cd" * 16),
+        ("manifest_root_digest", "sha256:" + "c" * 64),
+        ("commitment_scheme", "different_scheme"),
+        ("client_attestor_version", "9.9.9"),
+    ],
+)
+def test_prepare_rejects_each_mismatched_client_expectation(field: str, replacement: str) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    prepare_response = copy.deepcopy(cert)
+    prepare_response["signatures"].pop("co_attestation")
+    context = replace(
+        _client_preparation_context(cert, verification_context),
+        **{field: replacement},
+    )
+
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        prepare_client_co_attestation(prepare_response, context=context)
+
+
+def test_prepare_rejects_wrong_client_public_key_and_private_key() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    prepare_response = copy.deepcopy(cert)
+    prepare_response["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+    other_public_key = ed25519.Ed25519PrivateKey.from_private_bytes(b"z" * 32).public_key()
+
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        prepare_client_co_attestation(
+            prepare_response,
+            context=replace(context, client_public_key=other_public_key),
+        )
+    with pytest.raises(VerificationError, match="^CLIENT_KEY_REF$"):
+        prepare_client_co_attestation(
+            prepare_response,
+            context=replace(
+                context,
+                client_public_key=ed25519.Ed25519PrivateKey.from_private_bytes(b"z" * 32),
+            ),
+        )
+
+
+def test_prepare_rejects_schema_dependency_failure_distinctly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+
+    def unavailable() -> None:
+        raise OSError("packaged resources unavailable")
+
+    monkeypatch.setattr(verifier_impl, "_certificate_preparation_validator", unavailable)
+    with pytest.raises(VerificationError, match="^CO_SCHEMA_DEPENDENCY$"):
+        prepare_client_co_attestation(
+            cert, context=_client_preparation_context(cert, verification_context)
+        )
+
+
+def test_maximal_b1_g1_prepare_projection_stays_below_size_cap() -> None:
+    cert, _, verification_context, _ = _sign_fixture(claims=[_b1_claim(tier=3), _g1_claim(tier=1)])
+    cert["signatures"].pop("co_attestation")
+
+    prepared = prepare_client_co_attestation(
+        cert, context=_client_preparation_context(cert, verification_context)
+    )
+
+    assert len(prepared.projection_bytes) <= verifier_impl._MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES
+
+
+def test_prepare_rejects_noncanonical_or_unbounded_values() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    context = _client_preparation_context(cert, verification_context)
     for value in (None, [], {"not": "a certificate"}):
         with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
-            prepare_client_co_attestation(value)
+            prepare_client_co_attestation(value, context=context)
 
     floating = copy.deepcopy(cert)
     floating["subject"]["project_ref"] = 1.5
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
-        prepare_client_co_attestation(floating)
+        prepare_client_co_attestation(floating, context=context)
 
     oversized = copy.deepcopy(cert)
     oversized["subject"]["project_ref"] = "x" * 40_000
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
-        prepare_client_co_attestation(oversized)
+        prepare_client_co_attestation(oversized, context=context)
 
     cyclic = copy.deepcopy(cert)
     cyclic["subject"]["cycle"] = cyclic["subject"]
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
-        prepare_client_co_attestation(cyclic)
+        prepare_client_co_attestation(cyclic, context=context)
 
 
-def test_prepare_api_has_no_key_or_signing_input() -> None:
+def test_prepare_api_accepts_only_prepare_response_and_public_context() -> None:
     import inspect
 
     signature = inspect.signature(prepare_client_co_attestation)
-    assert list(signature.parameters) == ["certificate"]
+    assert list(signature.parameters) == ["prepare_response", "context"]
+    assert signature.parameters["context"].kind is inspect.Parameter.KEYWORD_ONLY
     assert "private" not in signature.return_annotation.lower()
 
 
 def test_prepare_reads_packaged_schema_resources_once_then_reuses_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    cert, _, _, _ = _sign_fixture()
+    cert, _, verification_context, _ = _sign_fixture()
     cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
     verifier_impl._certificate_preparation_validator.cache_clear()
     original_read_text = Path.read_text
     reads = 0
@@ -617,10 +755,10 @@ def test_prepare_reads_packaged_schema_resources_once_then_reuses_cache(
         return original_read_text(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "read_text", counted_read_text)
-    prepare_client_co_attestation(cert)
+    prepare_client_co_attestation(cert, context=context)
     first_reads = reads
     assert first_reads > 0
-    prepare_client_co_attestation(cert)
+    prepare_client_co_attestation(cert, context=context)
     assert reads == first_reads
 
 
@@ -629,8 +767,9 @@ def test_prepare_has_no_network_write_or_private_key_access(
 ) -> None:
     import socket
 
-    cert, _, _, _ = _sign_fixture()
+    cert, _, verification_context, _ = _sign_fixture()
     cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
     verifier_impl._certificate_preparation_validator.cache_clear()
 
     def forbidden(*args: object, **kwargs: object) -> None:
@@ -646,7 +785,7 @@ def test_prepare_has_no_network_write_or_private_key_access(
     ):
         monkeypatch.setattr(serialization, name, forbidden)
 
-    prepared = prepare_client_co_attestation(cert)
+    prepared = prepare_client_co_attestation(cert, context=context)
     assert prepared.signing_bytes
 
 

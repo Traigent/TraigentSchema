@@ -289,6 +289,16 @@ def test_prepare_and_finalize_protocol_state_is_explicitly_conditional() -> None
         "audit_report",
     ]
     assert "co_attestation" not in prepare_response["properties"]["signatures"]
+    assert prepare_response["properties"]["ledger_seal_projection"]["$ref"] == (
+        "./agent_certificate_v0_schema.json#/definitions/CertificateLedgerSealProjectionV0"
+    )
+    assert prepare_response["allOf"][0]["properties"]["claims"]["contains"] == {
+        "properties": {
+            "claim_id": {"const": "G1"},
+            "tier": {"const": 1},
+        },
+        "required": ["claim_id", "tier"],
+    }
     assert "exact content-free issuer-signed" in prepare_response["description"]
     assert (
         "server-side"

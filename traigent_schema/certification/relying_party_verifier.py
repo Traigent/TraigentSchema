@@ -697,7 +697,12 @@ def _preflight_client_projection(value: object) -> None:
         elif current is None or type(current) is bool:
             estimated_size += 5
         elif type(current) is float:
-            _fail("CO_PROJECTION")
+            # Draft-07 accepts finite integral JSON numbers for `type:
+            # integer`, and FP2 canonicalizes them as the equivalent integer.
+            # This includes -0.0, whose canonical form and size are both `0`.
+            if not current.is_integer() or abs(current) > 2**53 - 1:
+                _fail("CO_PROJECTION")
+            estimated_size += len(str(int(current)))
         else:
             _fail("CO_PROJECTION")
         if estimated_size > _MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES:

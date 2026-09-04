@@ -1540,6 +1540,47 @@ def test_final_co_attestation_canonicalization_handles_schema_valid_numeric_edge
         )
 
 
+def test_prepare_accepts_schema_integer_float_with_identical_signing_bytes() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+    integer_prepared = prepare_client_co_attestation(cert, context=context)
+
+    floating = copy.deepcopy(cert)
+    unsigned = floating["signatures"]["unsigned_manifest"]["document"]
+    for claims in (floating["claims"], unsigned["claims"]):
+        next(claim for claim in claims if claim["claim_id"] == "G1")["tier"] = 1.0
+    for tier in unsigned["tiers"]:
+        if tier["claim_id"] == "G1":
+            tier["tier"] = 1.0
+
+    assert fp2.canonicalize(1.0) == "1"
+    assert not list(verifier_impl._certificate_preparation_validator().iter_errors(floating))
+    floating_prepared = prepare_client_co_attestation(floating, context=context)
+    assert floating_prepared.projection == integer_prepared.projection
+    assert floating_prepared.projection_bytes == integer_prepared.projection_bytes
+    assert floating_prepared.signing_bytes == integer_prepared.signing_bytes
+    assert floating_prepared.signed_manifest_digest == integer_prepared.signed_manifest_digest
+
+    verifier_impl._preflight_client_projection({"value": -0.0})
+    assert fp2.canonicalize(-0.0) == "0"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [1.5, float("nan"), float("inf"), float("-inf"), float(2**53), -float(2**53)],
+)
+def test_prepare_rejects_non_integral_nonfinite_or_unsafe_float(value: float) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    cert["claims"][0]["tier"] = value
+
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(
+            cert, context=_client_preparation_context(cert, verification_context)
+        )
+
+
 def test_prepare_accepts_minimal_optional_evidence_reference_shape() -> None:
     cert, _, verification_context, _ = _sign_fixture()
     cert["signatures"].pop("co_attestation")

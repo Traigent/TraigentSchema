@@ -51,13 +51,13 @@ def test_development_lock_uses_only_patched_pytest() -> None:
     assert "python_full_version < '3.10'" not in uv_lock
 
 
-def test_cryptography_is_only_a_certification_extra() -> None:
+def test_cryptography_is_a_base_dependency_with_compatibility_extra() -> None:
     metadata = tomllib.loads(_read("pyproject.toml"))
     dependencies = metadata["project"]["dependencies"]
     extras = metadata["project"]["optional-dependencies"]
 
-    assert not any(dependency.startswith("cryptography") for dependency in dependencies)
-    assert extras["certification"] == ["cryptography>=46.0.0,<51.0.0"]
+    assert "cryptography>=46.0.0,<51.0.0" in dependencies
+    assert extras["certification"] == []
     assert "cryptography==50.0.1" in _read("requirements-dev.txt")
     assert not any(
         line.startswith("cryptography") for line in _read("requirements.txt").splitlines()

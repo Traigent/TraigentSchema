@@ -72,8 +72,11 @@ validity or non-revocation. The `VERIFIED` /
 snapshot backed by an authenticated, freshness-bounded status-proof contract;
 the current v0 retrieval schema provides no such proof.
 
-The optional `certification` extra is required for either offline verifier:
-`pip install "traigent-schema[certification]"`. Current v0 emits B1 and G1;
+The `cryptography` dependency is installed with the base package because the
+public verifier imports it unconditionally. The historical `certification`
+extra remains available as a no-op compatibility alias, so both
+`pip install traigent-schema` and `pip install "traigent-schema[certification]"`
+install the verifier. Current v0 emits B1 and G1;
 REG1, C1, D2, F1, and G3 are the five fixed abstentions.
 
 The certification API uses an issuer-first signing flow. `prepare` returns one
@@ -127,10 +130,10 @@ For published package consumers:
 pip install traigent-schema
 ```
 
-For the offline Agent Certificate verifier (including its optional cryptography dependency):
+For the offline Agent Certificate verifier (the base package includes its cryptography dependency):
 
 ```bash
-pip install "traigent-schema[certification]"
+pip install traigent-schema
 ```
 
 For coordinated workspace development or release validation from GitHub

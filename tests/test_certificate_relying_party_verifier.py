@@ -79,7 +79,7 @@ builtins.__import__ = _without_cryptography
     )
 
 
-def test_plain_package_import_does_not_require_cryptography() -> None:
+def test_root_package_import_remains_lazy_when_cryptography_is_missing() -> None:
     result = _run_without_cryptography("import traigent_schema")
     assert result.returncode == 0, result.stderr
 
@@ -87,11 +87,12 @@ def test_plain_package_import_does_not_require_cryptography() -> None:
 def test_lazy_certification_export_reports_missing_cryptography() -> None:
     result = _run_without_cryptography("from traigent_schema import RelyingPartyPolicy")
     assert result.returncode != 0
+    assert "ImportError" in result.stderr
     assert "cryptography" in result.stderr.lower()
-    assert "optional" in result.stderr.lower()
+    assert "optional" not in result.stderr.lower()
 
 
-def test_base_install_star_import_does_not_load_optional_certification() -> None:
+def test_base_install_star_import_does_not_eagerly_load_certification() -> None:
     result = _run_without_cryptography("from traigent_schema import *; print('ok')")
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "ok"

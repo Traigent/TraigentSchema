@@ -55,7 +55,7 @@ _CERTIFICATION_EXPORTS = frozenset(
 
 
 def __getattr__(name: str) -> object:
-    """Load optional certification exports only when they are requested."""
+    """Load certification exports lazily while keeping their failure boundary clear."""
     if name not in _CERTIFICATION_EXPORTS:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     try:
@@ -63,15 +63,15 @@ def __getattr__(name: str) -> object:
     except ModuleNotFoundError as exc:
         if exc.name == "cryptography" or (exc.name or "").startswith("cryptography."):
             raise ImportError(
-                "Certification exports require the optional 'cryptography' dependency."
+                "Certification exports require the base 'cryptography' dependency."
             ) from exc
         raise
     value = getattr(certification, name)
     globals()[name] = value
     return value
 
-# Optional certification names remain available through explicit lazy imports above,
-# but stay out of ``__all__`` so base-install wildcard imports do not require cryptography.
+# Certification names remain available through explicit lazy imports above, but stay out
+# of ``__all__`` to preserve the root package's lazy certification import boundary.
 __all__ = [
     "AnalyticsValidator",
     "SchemaDependencyError",

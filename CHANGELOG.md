@@ -84,7 +84,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rejected through bounded context/key-reference codes before membership checks.
   Draft-07-compatible finite integral floats are accepted within the existing
   JavaScript-safe integer range and canonicalized as integers; fractional,
-  non-finite, and unsafe-range floats remain bounded preparation failures.
+  non-finite, and unsafe-range floats remain bounded preparation failures. An
+  iterative depth cap with explicit headroom over the packaged prepare schema
+  now rejects hostile deep nesting before jsonschema error rendering.
 - **`task_type` on `POST /api/v1/sessions`** (optional string, 1-128 chars): a COARSE,
   client-declared task category (`multiple_choice`, `exact_match`, `text2sql`,
   `code_generation`, `summarization`, ...) that the backend maps internally to an

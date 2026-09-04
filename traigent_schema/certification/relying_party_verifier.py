@@ -648,21 +648,29 @@ _MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES = (
     + _MAX_SCHEMA_FIXED_PREPARE_BYTES
 )
 _MAX_CLIENT_CERTIFICATE_NODES = 100_000
+# The packaged PrepareResponseV0 graph has a maximum JSON-value depth of 9;
+# contract tests traverse every property/item/combinator/ref path and prove a
+# schema-valid fixture reaches that depth.  Keep generous compatibility
+# headroom while bounding recursion in downstream jsonschema error rendering.
+_MAX_SCHEMA_PREPARE_VALUE_DEPTH = 9
+_MAX_CLIENT_CERTIFICATE_VALUE_DEPTH = 64
 
 
 def _preflight_client_projection(value: object) -> None:
     """Reject non-JSON values and obviously unbounded input before validation."""
     if type(value) is not dict:
         _fail("CO_PROJECTION")
-    pending: list[tuple[object, bool]] = [(value, False)]
+    pending: list[tuple[object, bool, int]] = [(value, False, 1)]
     active: set[int] = set()
     estimated_size = 0
     nodes = 0
     while pending:
-        current, leaving = pending.pop()
+        current, leaving, depth = pending.pop()
         if leaving:
             active.discard(id(current))
             continue
+        if depth > _MAX_CLIENT_CERTIFICATE_VALUE_DEPTH:
+            _fail("CO_PROJECTION")
         nodes += 1
         if nodes > _MAX_CLIENT_CERTIFICATE_NODES:
             _fail("CO_PROJECTION")
@@ -672,22 +680,22 @@ def _preflight_client_projection(value: object) -> None:
                 _fail("CO_PROJECTION")
             active.add(identity)
             estimated_size += 2
-            pending.append((current, True))
+            pending.append((current, True, depth))
             for key, item in current.items():
                 if type(key) is not str:
                     _fail("CO_PROJECTION")
                 # ensure_ascii=True is an upper bound for the UTF-8 bytes used
                 # by canonical JSON, including quotes and escaping.
                 estimated_size += len(json.dumps(key, ensure_ascii=True)) + 2
-                pending.append((item, False))
+                pending.append((item, False, depth + 1))
         elif type(current) is list:
             identity = id(current)
             if identity in active:
                 _fail("CO_PROJECTION")
             active.add(identity)
             estimated_size += 2 + len(current)
-            pending.append((current, True))
-            pending.extend((item, False) for item in current)
+            pending.append((current, True, depth))
+            pending.extend((item, False, depth + 1) for item in current)
         elif type(current) is str:
             estimated_size += len(json.dumps(current, ensure_ascii=True))
         elif type(current) is int:

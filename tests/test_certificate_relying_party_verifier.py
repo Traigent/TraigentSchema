@@ -1454,6 +1454,61 @@ def _compact_json(value: object) -> bytes:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
+def _json_value_depth(value: object) -> int:
+    if type(value) is dict:
+        return 1 + max((_json_value_depth(item) for item in value.values()), default=0)
+    if type(value) is list:
+        return 1 + max((_json_value_depth(item) for item in value), default=0)
+    return 1
+
+
+def _schema_value_depth(schema_path: Path, node: dict, stack: tuple[str, ...] = ()) -> int:
+    if "$ref" in node:
+        reference = node["$ref"]
+        reference_path, _, fragment = reference.partition("#")
+        schemas_root = Path(verifier_impl.__file__).resolve().parent.parent / "schemas"
+        if reference_path.startswith("https://schemas.traigent.ai/"):
+            schema_path = schemas_root / reference_path.removeprefix(
+                "https://schemas.traigent.ai/"
+            )
+        elif reference_path:
+            schema_path = (schema_path.parent / reference_path).resolve()
+        marker = f"{schema_path}#{fragment}"
+        assert marker not in stack, "recursive schema permits unbounded instance depth"
+        resolved = json.loads(schema_path.read_text(encoding="utf-8"))
+        for token in fragment.removeprefix("/").split("/") if fragment else ():
+            resolved = resolved[token.replace("~1", "/").replace("~0", "~")]
+        return _schema_value_depth(schema_path, resolved, stack + (marker,))
+
+    depths = [1]
+    for keyword in ("allOf", "anyOf", "oneOf"):
+        depths.extend(
+            _schema_value_depth(schema_path, branch, stack)
+            for branch in node.get(keyword, ())
+        )
+    for keyword in ("if", "then", "else", "not"):
+        branch = node.get(keyword)
+        if type(branch) is dict:
+            depths.append(_schema_value_depth(schema_path, branch, stack))
+    for keyword in ("properties", "patternProperties"):
+        depths.extend(
+            1 + _schema_value_depth(schema_path, child, stack)
+            for child in node.get(keyword, {}).values()
+        )
+    additional = node.get("additionalProperties")
+    if type(additional) is dict:
+        depths.append(1 + _schema_value_depth(schema_path, additional, stack))
+    items = node.get("items")
+    if type(items) is dict:
+        depths.append(1 + _schema_value_depth(schema_path, items, stack))
+    elif type(items) is list:
+        depths.extend(1 + _schema_value_depth(schema_path, child, stack) for child in items)
+    contains = node.get("contains")
+    if type(contains) is dict:
+        depths.append(1 + _schema_value_depth(schema_path, contains, stack))
+    return max(depths)
+
+
 def test_schema_maximal_prepare_projection_is_below_structural_size_bound() -> None:
     cert, maximal_evidence_ref, maximal_claim = _schema_maximal_prepare_response()
     schema_dir = Path(verifier_impl.__file__).resolve().parent.parent / "schemas" / "certification"
@@ -1484,6 +1539,47 @@ def test_schema_maximal_prepare_projection_is_below_structural_size_bound() -> N
     assert not list(verifier_impl._certificate_preparation_validator().iter_errors(cert))
     assert len(_compact_json(cert)) <= verifier_impl._MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES
     verifier_impl._preflight_client_projection(cert)
+
+
+def test_prepare_depth_cap_has_headroom_over_complete_schema_graph() -> None:
+    schema_path = (
+        Path(verifier_impl.__file__).resolve().parent.parent
+        / "schemas"
+        / "certification"
+        / "certification_endpoints_v0.json"
+    )
+    endpoints = json.loads(schema_path.read_text(encoding="utf-8"))
+    prepare_schema = endpoints["components"]["schemas"]["PrepareResponseV0"]
+    schema_depth = _schema_value_depth(schema_path, prepare_schema)
+    assert schema_depth == verifier_impl._MAX_SCHEMA_PREPARE_VALUE_DEPTH == 9
+    assert verifier_impl._MAX_CLIENT_CERTIFICATE_VALUE_DEPTH >= 4 * schema_depth
+
+    normal, _, _, _ = _sign_fixture()
+    normal["signatures"].pop("co_attestation")
+    maximal, _, _ = _schema_maximal_prepare_response()
+    for fixture in (normal, maximal):
+        assert not list(verifier_impl._certificate_preparation_validator().iter_errors(fixture))
+        assert _json_value_depth(fixture) == schema_depth
+        verifier_impl._preflight_client_projection(fixture)
+
+
+def test_prepare_rejects_just_over_depth_cap_before_schema_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    nested: object = 0
+    for _ in range(verifier_impl._MAX_CLIENT_CERTIFICATE_VALUE_DEPTH - 1):
+        nested = [nested]
+    hostile = {"nested": nested}
+    assert _json_value_depth(hostile) == verifier_impl._MAX_CLIENT_CERTIFICATE_VALUE_DEPTH + 1
+
+    def validator_must_not_run() -> None:
+        raise AssertionError("schema validator reached for over-depth input")
+
+    monkeypatch.setattr(
+        verifier_impl, "_certificate_preparation_validator", validator_must_not_run
+    )
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(hostile, context=object())
 
 
 def test_final_verification_does_not_apply_public_preparation_input_cap(

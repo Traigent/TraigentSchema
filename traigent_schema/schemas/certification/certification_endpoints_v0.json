@@ -638,35 +638,83 @@
     "responses": {
       "BadRequest": {
         "description": "The request is malformed or rejected by the certificate boundary.",
-        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./certificate_error_v0_schema.json#/definitions/InvalidRequestV0"
+            }
+          }
+        }
       },
       "Unauthorized": {
         "description": "Authentication is required.",
-        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./certificate_error_v0_schema.json#/definitions/AuthenticationRequiredV0"
+            }
+          }
+        }
       },
       "Forbidden": {
         "description": "The authenticated principal lacks the required project permission.",
-        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./certificate_error_v0_schema.json#/definitions/AuthorizationDeniedV0"
+            }
+          }
+        }
       },
       "NotFound": {
         "description": "The certificate or key was not found in the caller's project scope.",
-        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./certificate_error_v0_schema.json#/definitions/NotFoundV0"
+            }
+          }
+        }
       },
       "Conflict": {
         "description": "The key identity or revocation state conflicts with an existing record.",
-        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./certificate_error_v0_schema.json#/definitions/StateConflictV0"
+            }
+          }
+        }
       },
       "RequestTooLarge": {
         "description": "The bounded certificate request exceeded the wire-size limit.",
-        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./certificate_error_v0_schema.json#/definitions/RequestTooLargeV0"
+            }
+          }
+        }
       },
       "ServiceUnavailable": {
         "description": "The server-owned certificate service is unavailable.",
-        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./certificate_error_v0_schema.json#/definitions/ServiceUnavailableV0"
+            }
+          }
+        }
       },
       "InternalError": {
         "description": "The request could not be completed.",
-        "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./certificate_error_v0_schema.json#/definitions/InternalErrorV0"
+            }
+          }
+        }
       }
     }
   }

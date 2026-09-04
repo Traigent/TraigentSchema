@@ -72,6 +72,7 @@ tests/test_schemas.py):
     certificate_unsigned_manifest_v0_schema.json
     certificate_client_evidence_manifest_v0_schema.json
     certificate_audit_report_v0_schema.json
+    certificate_error_v0_schema.json
 """
 
 from __future__ import annotations
@@ -110,6 +111,7 @@ CERT_FILES = [
     "certificate_unsigned_manifest_v0_schema.json",
     "certificate_client_evidence_manifest_v0_schema.json",
     "certificate_audit_report_v0_schema.json",
+    "certificate_error_v0_schema.json",
 ]
 
 _SCHEMA_BASE = "https://schemas.traigent.ai/"

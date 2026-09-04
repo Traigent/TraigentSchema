@@ -2,6 +2,23 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced; two independent exact-head reviews found no semantic loosening. This acknowledgement is scoped only to this exact pointer and fingerprint.",
+      "version": "5.7.0",
+      "pr": "#447",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 3,
+          "new": 2,
+          "fingerprint": "5a0a125f11b3a495527f368993f951a6c955361076a4ac044462282050b1dc4b"
+        }
+      ]
+    },
+    {
       "file": "certification/certificate_verification_materials_v0_schema.json",
       "rule": "minItems",
       "pointer_prefix": "#/properties/relying_party_policy/properties/verifier_bindings",

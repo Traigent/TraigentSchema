@@ -55,10 +55,10 @@ def test_cryptography_is_a_base_dependency_with_compatibility_extra() -> None:
     metadata = tomllib.loads(_read("pyproject.toml"))
     dependencies = metadata["project"]["dependencies"]
     extras = metadata["project"]["optional-dependencies"]
+    gate_requirements = _read("requirements.txt")
 
     assert "cryptography>=46.0.0,<51.0.0" in dependencies
     assert extras["certification"] == []
     assert "cryptography==50.0.1" in _read("requirements-dev.txt")
-    assert not any(
-        line.startswith("cryptography") for line in _read("requirements.txt").splitlines()
-    )
+    assert "not runtime-complete" in gate_requirements
+    assert not any(line.startswith("cryptography") for line in gate_requirements.splitlines())

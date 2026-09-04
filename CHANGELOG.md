@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Agent Certificate v0 packaging** now declares `cryptography>=46,<51` as a
+  mandatory base runtime dependency, so a plain `pip install traigent-schema`
+  can import the public relying-party verifier. The historical `certification`
+  extra remains available as a no-op compatibility alias.
 - **Agent Certificate v0 HTTP error contract** defines a certificate-specific,
   content-free Draft-07 contract. Every declared certificate-route error body
   is closed to `success`, `message`, `error`, and a status-pinned `error_code`;

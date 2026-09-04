@@ -124,17 +124,16 @@ conformance.
 
 ## Installation
 
-For published package consumers:
+For published package consumers, including users of the offline Agent
+Certificate verifier:
 
 ```bash
 pip install traigent-schema
 ```
 
-For the offline Agent Certificate verifier (the base package includes its cryptography dependency):
-
-```bash
-pip install traigent-schema
-```
+The base package includes the verifier's `cryptography` runtime dependency.
+The historical `certification` extra remains a supported no-op compatibility
+alias; requesting it is not required.
 
 For coordinated workspace development or release validation from GitHub
 (requires repository access):

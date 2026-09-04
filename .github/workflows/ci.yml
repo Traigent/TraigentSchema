@@ -391,12 +391,15 @@ jobs:
         with:
           python-version: "3.11"
           cache: 'pip'
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install packaging tools
         run: |
-          python -m pip install --upgrade --only-binary :all: pip
-          python -m pip install --only-binary :all: build twine
+          python -m pip install --only-binary :all: pip==26.2.1
+          python -m pip install --only-binary :all: build==1.5.0 twine==7.0.0
 
       - name: Build package
         run: |
@@ -410,13 +413,32 @@ jobs:
         run: |
           python -m venv test_env
           source test_env/bin/activate
-          pip install --upgrade --only-binary :all: pip
-          pip install --only-binary :all: dist/*.whl
+          python -m pip install --only-binary :all: pip==26.2.1
+          python -m pip install --only-binary :all: --constraint requirements-dev.txt dist/*.whl
           python - <<'PY'
+          from importlib.metadata import metadata
+
+          import cryptography
           import traigent_schema
           from traigent_schema import SchemaValidator, load_schema
+          from traigent_schema.certification import relying_party_verifier
+
+          package_metadata = metadata("traigent-schema")
+          cryptography_requirements = [
+              requirement
+              for requirement in package_metadata.get_all("Requires-Dist") or []
+              if requirement.lower().startswith("cryptography")
+          ]
+          assert len(cryptography_requirements) == 1, cryptography_requirements
+          cryptography_requirement = cryptography_requirements[0].replace(" ", "")
+          assert ";" not in cryptography_requirement, cryptography_requirement
+          assert ">=46.0.0" in cryptography_requirement, cryptography_requirement
+          assert "<51.0.0" in cryptography_requirement, cryptography_requirement
+          assert "certification" in (package_metadata.get_all("Provides-Extra") or [])
 
           print(f"Package test: traigent-schema v{traigent_schema.__version__}")
+          print(f"Cryptography runtime: v{cryptography.__version__}")
+          print(f"Certification verifier: {relying_party_verifier.__name__}")
           print(f"Schemas loaded: {len(SchemaValidator().available_schemas)}")
           print(load_schema("experiment_schema")["$schema"])
           PY

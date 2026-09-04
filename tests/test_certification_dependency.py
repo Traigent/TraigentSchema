@@ -1,116 +1,54 @@
-"""Packaging witnesses for the public certification verifier dependency."""
+"""Offline structural guard for the package job's certification witness."""
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
-import tempfile
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_COMMAND_TIMEOUT_SECONDS = 120
+_CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
 
-def _run(
-    command: list[str], *, cwd: Path, env: dict[str, str], label: str
-) -> subprocess.CompletedProcess[str]:
-    try:
-        result = subprocess.run(
-            command,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=_COMMAND_TIMEOUT_SECONDS,
-            cwd=cwd,
-            env=env,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise AssertionError(f"{label} timed out after {_COMMAND_TIMEOUT_SECONDS}s") from exc
-    except OSError as exc:
-        raise AssertionError(f"{label} could not start: {exc}") from exc
-    if result.returncode:
-        detail = (result.stderr or result.stdout).strip()[-2000:]
-        raise AssertionError(f"{label} failed with exit code {result.returncode}: {detail}")
-    return result
+def _jobs() -> dict[str, Any]:
+    workflow = yaml.safe_load(_CI_WORKFLOW.read_text(encoding="utf-8"))
+    assert isinstance(workflow, dict), "ci.yml must parse as a workflow mapping"
+    jobs = workflow.get("jobs")
+    assert isinstance(jobs, dict), "ci.yml must define jobs"
+    return jobs
 
 
-def _venv_python(venv_dir: Path) -> Path:
-    scripts_dir = "Scripts" if os.name == "nt" else "bin"
-    python_name = "python.exe" if os.name == "nt" else "python"
-    return venv_dir / scripts_dir / python_name
+def _named_step(job: dict[str, Any], name: str) -> dict[str, Any]:
+    matching = [step for step in job.get("steps", []) if step.get("name") == name]
+    assert len(matching) == 1, f"package job must contain exactly one {name!r} step"
+    return matching[0]
 
 
-def test_plain_install_witness_imports_relying_party_verifier() -> None:
-    """A wheel installed without extras must include cryptography for the verifier."""
-    witness_env = os.environ.copy()
-    for variable in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
-        witness_env.pop(variable, None)
-    witness_env["PYTHONNOUSERSITE"] = "1"
+def test_required_package_job_owns_plain_certification_wheel_witness() -> None:
+    """The required package job, not ordinary pytest, proves the installed wheel."""
+    jobs = _jobs()
+    package_job = jobs["package"]
+    ci_required_needs = jobs["ci-required"]["needs"]
 
-    with tempfile.TemporaryDirectory() as temp_dir_name:
-        temp_dir = Path(temp_dir_name)
-        build_venv_dir = temp_dir / "build-venv"
-        _run(
-            [sys.executable, "-m", "venv", str(build_venv_dir)],
-            cwd=temp_dir,
-            env=witness_env,
-            label="stdlib build venv creation",
-        )
-        build_python = _venv_python(build_venv_dir)
-        assert build_python.is_file()
+    assert "package" in ci_required_needs
+    assert package_job.get("needs") == "lint-type"
 
-        dist_dir = temp_dir / "dist"
-        _run(
-            [
-                str(build_python),
-                "-m",
-                "pip",
-                "wheel",
-                "--no-deps",
-                "--wheel-dir",
-                str(dist_dir),
-                str(_REPO_ROOT),
-            ],
-            cwd=temp_dir,
-            env=witness_env,
-            label="PEP 517 wheel build",
-        )
-        wheels = sorted(dist_dir.glob("*.whl"))
-        assert len(wheels) == 1
+    install_tools = str(_named_step(package_job, "Install packaging tools").get("run", ""))
+    assert "pip==26.2.1" in install_tools
+    assert "build==1.5.0 twine==7.0.0" in install_tools
+    assert install_tools.count("--only-binary :all:") == 2
 
-        venv_dir = temp_dir / "install-venv"
-        _run(
-            [sys.executable, "-m", "venv", str(venv_dir)],
-            cwd=temp_dir,
-            env=witness_env,
-            label="stdlib venv creation",
-        )
-        venv_python = _venv_python(venv_dir)
-        assert venv_python.is_file()
-        _run(
-            [str(venv_python), "-m", "pip", "install", "--no-input", str(wheels[0])],
-            cwd=temp_dir,
-            env=witness_env,
-            label="plain wheel installation",
-        )
-        result = _run(
-            [
-                str(venv_python),
-                "-c",
-                (
-                    "import cryptography; "
-                    "from pathlib import Path; "
-                    "import sys; "
-                    "import traigent_schema.certification.relying_party_verifier as verifier; "
-                    "module_path = Path(verifier.__file__).resolve(); "
-                    "assert module_path.is_relative_to(Path(sys.prefix).resolve()), module_path; "
-                    "assert 'site-packages' in module_path.parts, module_path; "
-                    "print(verifier.__name__)"
-                ),
-            ],
-            cwd=temp_dir,
-            env=witness_env,
-            label="installed verifier import",
-        )
-        assert result.stdout.strip() == "traigent_schema.certification.relying_party_verifier"
+    witness = str(
+        _named_step(package_job, "Test installation from built wheel").get("run", "")
+    )
+    assert "python -m venv test_env" in witness
+    assert "--only-binary :all:" in witness
+    assert "--constraint requirements-dev.txt dist/*.whl" in witness
+    assert "[certification]" not in witness
+    assert 'metadata("traigent-schema")' in witness
+    assert 'get_all("Requires-Dist")' in witness
+    assert 'get_all("Provides-Extra")' in witness
+    assert '"certification" in' in witness
+    assert "import cryptography" in witness
+    assert "from traigent_schema.certification import relying_party_verifier" in witness

@@ -96,11 +96,12 @@ For clients implementing the co-attestation step, Schema exposes
 `prepare_client_co_attestation(prepare_response, context=...)` together with
 the frozen `ClientCoAttestationContext`. Pass the exact issuer-signed G1
 projection returned by `prepare`, not a final certificate. The context states
-all 17 required client/trust pins: project, build session, session commitment,
+all 19 required client/trust pins: project, build session, session commitment,
 nonce, privacy mode, SDK ref/version, disclosure profile, issuer
 key/trust-ring/algorithm, the immutable ordered compiler/register tuple,
-evidence-manifest root, commitment scheme, attestor version, client signature
-algorithm, and client public key. `CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` is the
+G1 verifier identity/version, evidence-manifest root, commitment scheme,
+attestor version, client signature algorithm, and client public key.
+`CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` is the
 authoritative ordered field manifest for SDK bindings. The helper derives the
 project-scoped client key reference and compares every pin, the G1 declaration,
 the audit root, and the compiler-register-to-semantics relation before returning
@@ -126,8 +127,9 @@ canonical schema validation.
 The seal, claims, tiers, evidence references, non-claims, and audit rows are
 issuer/compiler evidence, not client assertions of truth; the helper checks
 their schema and deterministic cross-projections, then co-signs their exact
-bytes. Fixed envelope scope text and G1 verifier identity/version are
-schema-owned constants. Backend lifecycle freshness bounds such as
+bytes. Fixed envelope scope text and the G1 verifier result `PASS` are
+schema-owned constants. G1 verifier identity/version select trust semantics and
+are required client pins. Backend lifecycle freshness bounds such as
 `expires_at`, `created_at`, and `finalized_at` are issuer/server evidence outside
 `PrepareResponseV0`; the client pins the signed manifest nonce, not those
 transport-state fields. The caller must authenticate the issuer separately;

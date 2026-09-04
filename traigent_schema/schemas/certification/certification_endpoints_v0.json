@@ -370,7 +370,7 @@
         },
         "responses": {
           "201": {
-            "description": "Issues the persisted prepared projection after validating the request nonce and, when the prepared projection contains G1 or any tier-1 claim, requiring and validating co_attestation. B1-only projections may finalize without client material. The conditional requirement is server-side because it depends on the persisted prepared certificate; the prepared projection itself is unchanged.",
+            "description": "Issues the persisted prepared projection after validating the request nonce and, when the prepared projection contains G1 or any tier-1 claim, requiring and validating co_attestation. Public PrepareResponseV0 is G1-only and its finalize path preserves the prepared projection while adding client material. B1-only issuance is an issuer-internal finalize path: it does not produce or consume a public PrepareResponseV0 and requires no client material.",
             "content": {
               "application/json": {
                 "schema": {"$ref": "#/components/schemas/ArtifactProjectionV0"}

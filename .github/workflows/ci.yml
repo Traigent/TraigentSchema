@@ -447,7 +447,7 @@ jobs:
           assert "<51.0.0" in cryptography_requirement, cryptography_requirement
           assert "certification" in (package_metadata.get_all("Provides-Extra") or [])
           assert ClientCoAttestationContext.__name__ == "ClientCoAttestationContext"
-          assert len(CLIENT_CO_ATTESTATION_CONTEXT_FIELDS) == 17
+          assert len(CLIENT_CO_ATTESTATION_CONTEXT_FIELDS) == 19
           assert callable(derive_client_key_ref)
           assert callable(prepare_client_co_attestation)
 

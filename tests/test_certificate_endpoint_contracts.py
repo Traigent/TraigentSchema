@@ -325,7 +325,8 @@ def test_g1_prepare_and_b1_or_g1_finalize_are_distinct_protocol_branches() -> No
         "$ref": "#/components/schemas/PrepareResponseV0"
     }
     finalize_description = finalize_operation["responses"]["201"]["description"]
-    assert "B1-only projections may finalize without client material" in finalize_description
+    assert "B1-only issuance is an issuer-internal finalize path" in finalize_description
+    assert "does not produce or consume a public PrepareResponseV0" in finalize_description
     assert "prepared projection contains G1" in finalize_description
     assert finalize_operation["responses"]["201"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/ArtifactProjectionV0"

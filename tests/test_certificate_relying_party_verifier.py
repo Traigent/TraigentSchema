@@ -29,6 +29,7 @@ from tests.test_agent_certificate_v0_schemas import (
     _d2_claim,
     _g1_claim,
     _rebind_audit_report_digest,
+    _rebind_claim_material_and_audit,
 )
 from traigent_schema import fp2
 from traigent_schema.certification import (
@@ -411,12 +412,28 @@ def _client_preparation_context(
         expected_compiler_register_versions=tuple(
             unsigned["compiler_register_versions"].items()
         ),
+        expected_g1_verifier_id=g1["verifier"]["verifier_id"],
+        expected_g1_verifier_version=g1["verifier"]["verifier_version"],
         manifest_root_digest=params["manifest_root_digest"],
         commitment_scheme=params["commitment_scheme"],
         client_attestor_version=params["client_attestor_version"],
         expected_client_algorithm=verification_context.expected_client_algorithm,
         client_public_key=verification_context.client_public_key,
     )
+
+
+def _coherently_replace_g1_verifier(cert: dict, field: str, value: str) -> None:
+    for claims in (
+        cert["claims"],
+        cert["signatures"]["unsigned_manifest"]["document"]["claims"],
+    ):
+        g1 = next(claim for claim in claims if claim["claim_id"] == "G1")
+        g1["verifier"][field] = value
+    audit_g1 = next(
+        row for row in cert["audit_report"]["claim_support_rows"] if row["claim_id"] == "G1"
+    )
+    audit_g1["verifier"][field] = value
+    _rebind_claim_material_and_audit(cert)
 
 
 def _public_key_der_b64(public_key: object) -> str:
@@ -679,6 +696,22 @@ def test_prepare_rejects_duplicate_g1_with_bounded_code() -> None:
     assert raised.value.code in CLIENT_CO_ATTESTATION_ERROR_CODES
 
 
+def test_prepare_rejects_schema_optional_but_g1_required_client_key_fields() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    context = _client_preparation_context(cert, verification_context)
+    cert["signatures"].pop("co_attestation")
+    unsigned_ref = cert["signatures"]["unsigned_manifest"]
+    unsigned = unsigned_ref["document"]
+    del unsigned["key_ring_identifiers"]["client_key_ref"]
+    del unsigned["key_ring_identifiers"]["client_signature_algorithm"]
+    unsigned_ref["manifest_digest"] = _digest(_UNSIGNED_DOMAIN, unsigned)
+
+    assert not list(verifier_impl._certificate_preparation_validator().iter_errors(cert))
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$") as raised:
+        prepare_client_co_attestation(cert, context=context)
+    assert raised.value.code in CLIENT_CO_ATTESTATION_ERROR_CODES
+
+
 @pytest.mark.parametrize("status", ["legacy_unsealed", "not_applicable"])
 @pytest.mark.parametrize("stream", ["decision_stream", "receipt_event_stream", "transition_stream"])
 def test_prepare_and_final_schemas_enforce_authoritative_seal_statement_statuses(
@@ -745,8 +778,9 @@ def test_prepare_and_final_schemas_enforce_authoritative_seal_statement_statuses
         ("expected_issuer_key_ref", "key:issuer999"),
         ("expected_trust_ring_ref", "ring:trusted999"),
         ("expected_issuer_algorithm", "ecdsa_p256_sha256"),
+        ("expected_g1_verifier_id", "ver.cert.other_verifier"),
+        ("expected_g1_verifier_version", "9.9.9"),
         ("manifest_root_digest", "sha256:" + "c" * 64),
-        ("commitment_scheme", "different_scheme"),
         ("client_attestor_version", "9.9.9"),
         ("expected_client_algorithm", "ecdsa_p256_sha256"),
     ],
@@ -763,6 +797,44 @@ def test_prepare_rejects_each_mismatched_client_expectation(field: str, replacem
         prepare_client_co_attestation(prepare_response, context=context)
 
 
+def test_prepare_commitment_scheme_is_a_singleton_client_and_schema_vocabulary() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    context = _client_preparation_context(cert, verification_context)
+    schema_path = (
+        Path(verifier_impl.__file__).resolve().parent.parent
+        / "schemas"
+        / "certification"
+        / "certification_common_v0_schema.json"
+    )
+    common = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    assert tuple(common["definitions"]["CommitmentSchemeV0"]["enum"]) == tuple(
+        verifier_impl._COMMITMENT_SCHEMES
+    ) == ("sha256_secret_blinded_v1",)
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        replace(context, commitment_scheme="different_scheme")
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("verifier_id", "ver.cert.other_verifier"),
+        ("verifier_version", "9.9.9"),
+    ],
+)
+def test_prepare_rejects_coherent_unexpected_g1_verifier_trust_selection(
+    field: str, replacement: str
+) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    context = _client_preparation_context(cert, verification_context)
+    cert["signatures"].pop("co_attestation")
+    _coherently_replace_g1_verifier(cert, field, replacement)
+
+    assert not list(verifier_impl._certificate_preparation_validator().iter_errors(cert))
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        prepare_client_co_attestation(cert, context=context)
+
+
 def test_prepare_context_field_manifest_is_complete_and_content_free() -> None:
     cert, _, verification_context, _ = _sign_fixture()
     context = _client_preparation_context(cert, verification_context)
@@ -775,12 +847,12 @@ def test_prepare_context_field_manifest_is_complete_and_content_free() -> None:
     assert len({path for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS}) == len(
         field_names
     )
-    assert len(field_names) == 17
+    assert len(field_names) == 19
     bounded_string_fields = set(field_names) - {
         "expected_compiler_register_versions",
         "client_public_key",
     }
-    assert len(bounded_string_fields) == 15
+    assert len(bounded_string_fields) == 17
     for field_name in bounded_string_fields:
         with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
             replace(context, **{field_name: "customer example with free text"})
@@ -793,6 +865,9 @@ def test_prepare_context_string_pins_map_only_to_bounded_schema_types() -> None:
     )
     unsigned = json.loads(
         (schema_dir / "certificate_unsigned_manifest_v0_schema.json").read_text(encoding="utf-8")
+    )
+    claims = json.loads(
+        (schema_dir / "certificate_claims_v0_schema.json").read_text(encoding="utf-8")
     )
     common_types = {
         "expected_project_ref": "ProjectRefV0",
@@ -817,6 +892,9 @@ def test_prepare_context_string_pins_map_only_to_bounded_schema_types() -> None:
     bounded_nodes["expected_disclosure_profile_id"] = unsigned["definitions"][
         "DisclosureProfileSectionV0"
     ]["properties"]["profile_id"]
+    g1_verifier = claims["definitions"]["VerifierRefV0"]["properties"]
+    bounded_nodes["expected_g1_verifier_id"] = g1_verifier["verifier_id"]
+    bounded_nodes["expected_g1_verifier_version"] = common["definitions"]["BoundedSemver"]
 
     assert set(bounded_nodes) == set(CLIENT_CO_ATTESTATION_CONTEXT_FIELDS) - {
         "expected_compiler_register_versions",
@@ -835,6 +913,8 @@ def test_prepare_context_string_pins_map_only_to_bounded_schema_types() -> None:
         "expected_sdk_version": verifier_impl._SEMVER_RE.pattern,
         "expected_issuer_key_ref": verifier_impl._REF_RE.pattern,
         "expected_trust_ring_ref": verifier_impl._REF_RE.pattern,
+        "expected_g1_verifier_id": verifier_impl._VERIFIER_ID_RE.pattern,
+        "expected_g1_verifier_version": verifier_impl._SEMVER_RE.pattern,
         "manifest_root_digest": verifier_impl._SHA256_RE.pattern,
         "client_attestor_version": verifier_impl._SEMVER_RE.pattern,
     }
@@ -891,6 +971,11 @@ def test_prepare_context_accepts_legitimate_string_boundaries() -> None:
         "expected_sdk_version": ("0.0.0", "9999.9999.9999"),
         "expected_issuer_key_ref": ("aa:" + "A" * 8, "a" * 64 + ":" + "A" * 128),
         "expected_trust_ring_ref": ("aa:" + "A" * 8, "a" * 64 + ":" + "A" * 128),
+        "expected_g1_verifier_id": (
+            "ver.cert.a",
+            "ver.cert." + "a" * 64,
+        ),
+        "expected_g1_verifier_version": ("0.0.0", "9999.9999.9999"),
         "manifest_root_digest": ("sha256:" + "f" * 64,),
         "client_attestor_version": ("0.0.0", "9999.9999.9999"),
     }
@@ -918,6 +1003,9 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
     unsigned = json.loads(unsigned_path.read_text(encoding="utf-8"))
     payloads = json.loads(
         (schema_dir / "certificate_claim_payloads_v0_schema.json").read_text(encoding="utf-8")
+    )
+    claims = json.loads(
+        (schema_dir / "certificate_claims_v0_schema.json").read_text(encoding="utf-8")
     )
 
     unsigned_properties = set(unsigned["definitions"]["UnsignedManifestV0"]["properties"])
@@ -1023,6 +1111,24 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
         directly_bound_g1_params | set(verifier_impl._G1_CROSS_BOUND_PARAM_PATHS)
         == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
     )
+    verifier_properties = claims["definitions"]["VerifierRefV0"]["properties"]
+    assert set(verifier_properties) == (
+        verifier_impl._G1_CLIENT_PINNED_VERIFIER_FIELDS
+        | verifier_impl._G1_SCHEMA_CONSTANT_VERIFIER_FIELDS
+    )
+    assert not (
+        verifier_impl._G1_CLIENT_PINNED_VERIFIER_FIELDS
+        & verifier_impl._G1_SCHEMA_CONSTANT_VERIFIER_FIELDS
+    )
+    directly_bound_g1_verifier = {
+        path.removeprefix("g1.verifier.")
+        for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
+        if path.startswith("g1.verifier.")
+    }
+    assert directly_bound_g1_verifier == verifier_impl._G1_CLIENT_PINNED_VERIFIER_FIELDS
+    for field in verifier_impl._G1_SCHEMA_CONSTANT_VERIFIER_FIELDS:
+        node = verifier_properties[field]
+        assert "const" in node or len(node.get("enum", ())) == 1
     assert verifier_impl._UNSIGNED_MANIFEST_SCHEMA_CONSTANT_LEAF_PATHS == {
         "subject.subject_kind",
         "subject.hash_algorithm",
@@ -1167,6 +1273,35 @@ def test_prepare_rejects_malformed_packaged_catalog_as_schema_dependency(
     monkeypatch.setattr(Path, "read_text", malformed_catalog)
     with pytest.raises(VerificationError, match="^CO_SCHEMA_DEPENDENCY$"):
         prepare_client_co_attestation(cert, context=context)
+
+
+def test_prepare_rejects_unsupported_packaged_schema_dialect_as_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+    schema_path = (
+        Path(verifier_impl.__file__).resolve().parent.parent
+        / "schemas"
+        / "certification"
+        / "agent_certificate_v0_schema.json"
+    )
+    original_read_text = Path.read_text
+    unsupported_document = json.loads(original_read_text(schema_path, encoding="utf-8"))
+    unsupported_document["$schema"] = "https://example.invalid/unsupported"
+    unsupported_text = json.dumps(unsupported_document)
+
+    def unsupported_dialect(path: Path, *args: object, **kwargs: object) -> str:
+        if path.resolve() == schema_path:
+            return unsupported_text
+        return original_read_text(path, *args, **kwargs)
+
+    verifier_impl._certificate_preparation_validator.cache_clear()
+    monkeypatch.setattr(Path, "read_text", unsupported_dialect)
+    with pytest.raises(VerificationError, match="^CO_SCHEMA_DEPENDENCY$") as raised:
+        prepare_client_co_attestation(cert, context=context)
+    assert raised.value.code in CLIENT_CO_ATTESTATION_ERROR_CODES
 
 
 def test_prepare_duplicate_g1_reaches_closed_g1_required_code() -> None:

@@ -38,7 +38,8 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError
 from referencing import Registry, Resource
-from referencing.exceptions import Unresolvable
+from referencing.exceptions import CannotDetermineSpecification, Unresolvable
+from referencing.jsonschema import UnknownDialect
 
 import traigent_schema.fp2 as fp2
 from traigent_schema.validator import _FORMAT_CHECKER, SchemaDependencyError, SchemaValidator
@@ -134,6 +135,7 @@ _PROJECT_REF_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
 _GIT_SHA_RE = re.compile(r"^[a-f0-9]{40}$")
 _SEMVER_RE = re.compile(r"^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$")
+_VERIFIER_ID_RE = re.compile(r"^ver\.cert\.[a-z0-9_]{1,64}$")
 _NONCE_RE = re.compile(r"^[a-f0-9]{32,64}$")
 _PRIVACY_MODES = frozenset({"offline", "current_online"})
 _DISCLOSURE_PROFILE_IDS = frozenset({"public", "customer_internal", "auditor_only"})
@@ -159,6 +161,8 @@ _CLIENT_CO_ATTESTATION_PIN_BINDINGS = (
         "expected_compiler_register_versions",
         "unsigned.compiler_register_versions",
     ),
+    ("expected_g1_verifier_id", "g1.verifier.verifier_id"),
+    ("expected_g1_verifier_version", "g1.verifier.verifier_version"),
     ("manifest_root_digest", "g1.payload.params.manifest_root_digest"),
     ("commitment_scheme", "g1.payload.params.commitment_scheme"),
     ("client_attestor_version", "g1.payload.params.client_attestor_version"),
@@ -284,6 +288,8 @@ _G1_CLIENT_PINNED_PARAM_FIELDS = frozenset(
         "client_key_ref",
     }
 )
+_G1_CLIENT_PINNED_VERIFIER_FIELDS = frozenset({"verifier_id", "verifier_version"})
+_G1_SCHEMA_CONSTANT_VERIFIER_FIELDS = frozenset({"result"})
 _G1_CROSS_BOUND_PARAM_PATHS = {
     "build_session_ref": "subject.build_session_ref",
     "client_key_ref": "unsigned.key_ring_identifiers.client_key_ref",
@@ -412,6 +418,8 @@ class ClientCoAttestationContext:
     expected_trust_ring_ref: str
     expected_issuer_algorithm: str
     expected_compiler_register_versions: tuple[tuple[str, str], ...]
+    expected_g1_verifier_id: str
+    expected_g1_verifier_version: str
     manifest_root_digest: str
     commitment_scheme: str
     client_attestor_version: str
@@ -428,6 +436,8 @@ class ClientCoAttestationContext:
             (self.expected_sdk_version, _SEMVER_RE),
             (self.expected_issuer_key_ref, _REF_RE),
             (self.expected_trust_ring_ref, _REF_RE),
+            (self.expected_g1_verifier_id, _VERIFIER_ID_RE),
+            (self.expected_g1_verifier_version, _SEMVER_RE),
             (self.manifest_root_digest, _SHA256_RE),
             (self.client_attestor_version, _SEMVER_RE),
         )
@@ -566,7 +576,11 @@ def _certificate_preparation_validator() -> Draft7Validator:
     for path in _SCHEMAS_DIR.rglob("*.json"):
         document = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(document, dict) and "$id" in document:
-            resources.append((document["$id"], Resource.from_contents(document)))
+            try:
+                resource = Resource.from_contents(document)
+            except (CannotDetermineSpecification, UnknownDialect) as error:
+                raise SchemaDependencyError("CERTIFICATE_PREPARATION_SCHEMA") from error
+            resources.append((document["$id"], resource))
     catalog = json.loads(
         (_CERT_DIR / "certification_endpoints_v0.json").read_text(encoding="utf-8")
     )
@@ -588,7 +602,11 @@ def _certificate_preparation_validator() -> Draft7Validator:
         "$id": _CERTIFICATE_ENDPOINTS_ID,
         "components": components,
     }
-    resources.append((_CERTIFICATE_ENDPOINTS_ID, Resource.from_contents(catalog_resource)))
+    try:
+        catalog_resource_entry = Resource.from_contents(catalog_resource)
+    except (CannotDetermineSpecification, UnknownDialect) as error:
+        raise SchemaDependencyError("CERTIFICATE_PREPARATION_SCHEMA") from error
+    resources.append((_CERTIFICATE_ENDPOINTS_ID, catalog_resource_entry))
     registry = Registry().with_resources(resources)
     return Draft7Validator(
         {"$ref": _CERTIFICATE_ENDPOINTS_ID + "#/components/schemas/PrepareResponseV0"},
@@ -729,6 +747,10 @@ def _validate_client_preparation_context(
     params = g1_claims[0]["payload"]["params"]
     ring = unsigned["key_ring_identifiers"]
     issuer = signatures["issuer_signature"]
+    if any(
+        field not in ring for field in ("client_key_ref", "client_signature_algorithm")
+    ):
+        _fail("CO_PROJECTION")
     try:
         derived_key_ref = derive_client_key_ref(
             context.expected_project_ref,
@@ -778,7 +800,9 @@ def _validate_client_preparation_context(
     # issuer/compiler evidence: the client co-signs its exact bytes but does
     # not assert its truth.  Their deterministic cross-projections are still
     # checked before any signing bytes are returned.  Fixed envelope scope
-    # lines and the G1 verifier identity/version are schema-owned constants.
+    # lines are schema-owned constants.  G1 verifier identity/version select
+    # client trust semantics, so the client pins both above; only verifier
+    # result=PASS is a schema-owned constant.
 
 
 def prepare_client_co_attestation(

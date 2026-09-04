@@ -17,7 +17,7 @@ _PROVENANCE_FRAGMENTS = (
     "for module in (traigent_schema, relying_party_verifier)",
     "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS,",
     "ClientCoAttestationContext,",
-    "len(CLIENT_CO_ATTESTATION_CONTEXT_FIELDS) == 17",
+    "len(CLIENT_CO_ATTESTATION_CONTEXT_FIELDS) == 19",
     "RelyingPartyVerificationError,",
     "derive_client_key_ref,",
     "prepare_client_co_attestation,",

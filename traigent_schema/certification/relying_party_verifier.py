@@ -446,15 +446,30 @@ class ClientCoAttestationContext:
             for value, pattern in patterned_values
         ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.expected_privacy_mode not in _PRIVACY_MODES:
+        if (
+            type(self.expected_privacy_mode) is not str
+            or self.expected_privacy_mode not in _PRIVACY_MODES
+        ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.expected_disclosure_profile_id not in _DISCLOSURE_PROFILE_IDS:
+        if (
+            type(self.expected_disclosure_profile_id) is not str
+            or self.expected_disclosure_profile_id not in _DISCLOSURE_PROFILE_IDS
+        ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.commitment_scheme not in _COMMITMENT_SCHEMES:
+        if (
+            type(self.commitment_scheme) is not str
+            or self.commitment_scheme not in _COMMITMENT_SCHEMES
+        ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.expected_issuer_algorithm not in _SIGNATURE_ALGORITHMS:
+        if (
+            type(self.expected_issuer_algorithm) is not str
+            or self.expected_issuer_algorithm not in _SIGNATURE_ALGORITHMS
+        ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.expected_client_algorithm not in _SIGNATURE_ALGORITHMS:
+        if (
+            type(self.expected_client_algorithm) is not str
+            or self.expected_client_algorithm not in _SIGNATURE_ALGORITHMS
+        ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
         registers = self.expected_compiler_register_versions
         if type(registers) is not tuple or any(
@@ -488,7 +503,7 @@ def derive_client_key_ref(
     """
     if type(project_ref) is not str or not _PROJECT_REF_RE.fullmatch(project_ref):
         _fail("CLIENT_KEY_REF")
-    if signature_algorithm not in _SIGNATURE_ALGORITHMS:
+    if type(signature_algorithm) is not str or signature_algorithm not in _SIGNATURE_ALGORITHMS:
         _fail("CLIENT_KEY_REF")
     if signature_algorithm == "ed25519" and not isinstance(
         client_public_key, ed25519.Ed25519PublicKey

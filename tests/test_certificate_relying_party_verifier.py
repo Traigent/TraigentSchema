@@ -190,6 +190,11 @@ def test_client_key_ref_is_deterministic_and_project_scoped(algorithm: str) -> N
     with pytest.raises(VerificationError, match="^CLIENT_KEY_REF$"):
         verifier_impl.derive_client_key_ref("project_contract001", "rsa4096", public_key)
 
+    with pytest.raises(VerificationError, match="^CLIENT_KEY_REF$"):
+        verifier_impl.derive_client_key_ref(
+            "project_contract001", [], public_key  # type: ignore[arg-type]
+        )
+
 
 @pytest.mark.parametrize("kat", json.loads(
     (Path(__file__).parent / "data" / "certification_key_ref_kats.json").read_text()
@@ -856,6 +861,24 @@ def test_prepare_context_field_manifest_is_complete_and_content_free() -> None:
     for field_name in bounded_string_fields:
         with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
             replace(context, **{field_name: "customer example with free text"})
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "expected_privacy_mode",
+        "expected_disclosure_profile_id",
+        "commitment_scheme",
+        "expected_issuer_algorithm",
+        "expected_client_algorithm",
+    ],
+)
+def test_prepare_context_enum_fields_reject_unhashable_non_strings(field_name: str) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    context = _client_preparation_context(cert, verification_context)
+
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        replace(context, **{field_name: []})
 
 
 def test_prepare_context_string_pins_map_only_to_bounded_schema_types() -> None:

@@ -80,7 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evidence outside `PrepareResponseV0`; the signed manifest nonce is the
   client-pinned freshness input. Missing G1 client-key fields and malformed or
   unsupported packaged schema dialects fail through the closed
-  `CLIENT_CO_ATTESTATION_ERROR_CODES` vocabulary.
+  `CLIENT_CO_ATTESTATION_ERROR_CODES` vocabulary. Non-string enum inputs are
+  rejected through bounded context/key-reference codes before membership checks.
 - **`task_type` on `POST /api/v1/sessions`** (optional string, 1-128 chars): a COARSE,
   client-declared task category (`multiple_choice`, `exact_match`, `text2sql`,
   `code_generation`, `summarization`, ...) that the backend maps internally to an

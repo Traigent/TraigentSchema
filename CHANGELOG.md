@@ -11,7 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Agent Certificate v0 packaging** now declares `cryptography>=46,<51` as a
   mandatory base runtime dependency, so a plain `pip install traigent-schema`
   can import the public relying-party verifier. The historical `certification`
-  extra remains available as a no-op compatibility alias.
+  extra remains available as a no-op compatibility alias. CI clean-installs
+  and functionally probes the plain wheel and checks the extra declaration;
+  the separate compatibility-extra clean install remains manually executed
+  release evidence rather than a second CI install job.
+- **Agent Certificate v0 client preparation bounds** now use a conservative
+  512 KiB structural cap derived from the schema's maximum evidence and claim
+  cardinalities plus measured per-entry, per-claim, and fixed-envelope bounds.
+  Tests construct the max-cardinality/max-length schema-valid projection and
+  reject input just over the cap. Final verification remains uncapped after
+  canonical schema validation.
 - **Agent Certificate v0 HTTP error contract** defines a certificate-specific,
   content-free Draft-07 contract. Every declared certificate-route error body
   is closed to `success`, `message`, `error`, and a status-pinned `error_code`;

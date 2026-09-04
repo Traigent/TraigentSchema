@@ -264,8 +264,15 @@ def test_request_shapes_are_registered_and_fail_closed(
     assert validator.validate_request(path, method, invalid)
 
 
-def test_prepare_and_finalize_protocol_state_is_explicitly_conditional() -> None:
+def test_g1_prepare_and_b1_or_g1_finalize_are_distinct_protocol_branches() -> None:
     catalog = _load(CATALOG)
+    signatures_catalog = _load(SCHEMAS / "certification" / "certificate_signatures_v0_schema.json")
+    prepare_operation = catalog["paths"]["/api/v1beta/certificate-build-sessions/prepare"][
+        "post"
+    ]
+    finalize_operation = catalog["paths"]["/api/v1beta/certificate-build-sessions/finalize"][
+        "post"
+    ]
     finalize_schema = _request_schema(
         catalog, "/api/v1beta/certificate-build-sessions/finalize", "POST"
     )
@@ -273,6 +280,7 @@ def test_prepare_and_finalize_protocol_state_is_explicitly_conditional() -> None
     assert finalize_schema["properties"]["co_attestation"]["$ref"] == (
         "./certificate_signatures_v0_schema.json#/definitions/CoAttestationV0"
     )
+    assert "co_attestation" not in finalize_schema["required"]
     prepare_response = catalog["components"]["schemas"]["PrepareResponseV0"]
     assert prepare_response["required"] == [
         "schema_version",
@@ -288,7 +296,19 @@ def test_prepare_and_finalize_protocol_state_is_explicitly_conditional() -> None
         "signatures",
         "audit_report",
     ]
-    assert "co_attestation" not in prepare_response["properties"]["signatures"]
+    prepare_signatures = prepare_response["properties"]["signatures"]
+    assert prepare_signatures["allOf"] == [
+        {
+            "$ref": (
+                "./certificate_signatures_v0_schema.json"
+                "#/definitions/CertificateSignaturesV0"
+            )
+        },
+        {"not": {"required": ["co_attestation"]}},
+    ]
+    base_signatures = signatures_catalog["definitions"]["CertificateSignaturesV0"]
+    assert "co_attestation" in base_signatures["properties"]
+    assert "co_attestation" not in base_signatures["required"]
     assert prepare_response["properties"]["ledger_seal_projection"]["$ref"] == (
         "./certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"
     )
@@ -299,13 +319,30 @@ def test_prepare_and_finalize_protocol_state_is_explicitly_conditional() -> None
         },
         "required": ["claim_id", "tier"],
     }
-    assert "exact content-free issuer-signed" in prepare_response["description"]
-    assert (
-        "server-side"
-        in catalog["paths"]["/api/v1beta/certificate-build-sessions/finalize"]["post"]["responses"][
-            "201"
-        ]["description"]
-    )
+    assert "always declares G1 at tier 1" in prepare_response["description"]
+    assert "B1-only final certificates are not prepare responses" in prepare_response["description"]
+    assert prepare_operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/PrepareResponseV0"
+    }
+    finalize_description = finalize_operation["responses"]["201"]["description"]
+    assert "B1-only projections may finalize without client material" in finalize_description
+    assert "prepared projection contains G1" in finalize_description
+    assert finalize_operation["responses"]["201"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ArtifactProjectionV0"
+    }
+
+    prepare_response_uses = []
+    for path, operations in catalog["paths"].items():
+        for method, operation in operations.items():
+            if method not in {"get", "post", "delete"}:
+                continue
+            for status, response in operation.get("responses", {}).items():
+                schema = response.get("content", {}).get("application/json", {}).get("schema", {})
+                if schema.get("$ref") == "#/components/schemas/PrepareResponseV0":
+                    prepare_response_uses.append((path, method, status))
+    assert prepare_response_uses == [
+        ("/api/v1beta/certificate-build-sessions/prepare", "post", "200")
+    ]
     assert "private_key" not in json.dumps(catalog).lower()
 
 

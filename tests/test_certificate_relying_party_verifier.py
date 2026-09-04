@@ -912,12 +912,10 @@ def test_prepare_context_accepts_legitimate_string_boundaries() -> None:
 
 def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> None:
     schema_dir = Path(verifier_impl.__file__).resolve().parent.parent / "schemas" / "certification"
-    common = json.loads(
-        (schema_dir / "certification_common_v0_schema.json").read_text(encoding="utf-8")
-    )
-    unsigned = json.loads(
-        (schema_dir / "certificate_unsigned_manifest_v0_schema.json").read_text(encoding="utf-8")
-    )
+    common_path = schema_dir / "certification_common_v0_schema.json"
+    unsigned_path = schema_dir / "certificate_unsigned_manifest_v0_schema.json"
+    common = json.loads(common_path.read_text(encoding="utf-8"))
+    unsigned = json.loads(unsigned_path.read_text(encoding="utf-8"))
     payloads = json.loads(
         (schema_dir / "certificate_claim_payloads_v0_schema.json").read_text(encoding="utf-8")
     )
@@ -944,20 +942,62 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
     assert set(g1_params["properties"]) == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
     assert set(g1_params["required"]) == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
 
+    nested_definitions = {
+        "subject": (common_path, common["definitions"]["BuildSessionSubjectV0"]),
+        "disclosure_profile": (
+            unsigned_path,
+            unsigned["definitions"]["DisclosureProfileSectionV0"],
+        ),
+        "privacy_mode": (unsigned_path, unsigned["definitions"]["PrivacyModeSectionV0"]),
+        "sdk_identity": (common_path, common["definitions"]["SdkIdentityV0"]),
+        "compiler_register_versions": (
+            common_path,
+            common["definitions"]["CompilerRegisterVersionsV0"],
+        ),
+        "key_ring_identifiers": (
+            unsigned_path,
+            unsigned["definitions"]["KeyRingIdentifiersV0"],
+        ),
+        "freshness": (unsigned_path, unsigned["definitions"]["FreshnessV0"]),
+    }
+
+    def resolve_node(path: Path, node: dict) -> dict:
+        while "$ref" in node:
+            reference_path, _, fragment = node["$ref"].partition("#")
+            if reference_path:
+                path = (path.parent / reference_path).resolve()
+            document = json.loads(path.read_text(encoding="utf-8"))
+            node = document
+            for token in fragment.removeprefix("/").split("/") if fragment else ():
+                node = node[token.replace("~1", "/").replace("~0", "~")]
+        return node
+
+    ownership = verifier_impl._UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP
+    assert set(ownership) == set(nested_definitions)
+    for section, (definition_path, definition) in nested_definitions.items():
+        categories = ownership[section]
+        assert set(categories) == {
+            "client_pinned",
+            "schema_owned_constant",
+            "issuer_compiler_evidence",
+        }
+        classified = [set(fields) for fields in categories.values()]
+        assert not any(
+            left & right
+            for index, left in enumerate(classified)
+            for right in classified[index + 1 :]
+        )
+        assert set(definition["properties"]) == set().union(*classified)
+        for field in categories["schema_owned_constant"]:
+            resolved = resolve_node(definition_path, definition["properties"][field])
+            assert "const" in resolved or len(resolved.get("enum", ())) == 1
+
+    compiler = common["definitions"]["CompilerRegisterVersionsV0"]
+    assert tuple(compiler["properties"]) == verifier_impl._COMPILER_REGISTER_KEYS
+    assert tuple(compiler["required"]) == verifier_impl._COMPILER_REGISTER_KEYS
+
     pinned_nested = {
-        "subject": verifier_impl._SUBJECT_CLIENT_PINNED_FIELDS,
-        "disclosure_profile": {"profile_id"},
-        "privacy_mode": {"declared_mode"},
-        "sdk_identity": {"sdk_ref", "sdk_version"},
-        "compiler_register_versions": set(verifier_impl._COMPILER_REGISTER_KEYS),
-        "key_ring_identifiers": {
-            "issuer_key_ref",
-            "trust_ring_ref",
-            "issuer_signature_algorithm",
-            "client_key_ref",
-            "client_signature_algorithm",
-        },
-        "freshness": {"nonce"},
+        section: fields["client_pinned"] for section, fields in ownership.items()
     }
     assert {
         f"{section}.{field}"
@@ -1101,6 +1141,51 @@ def test_prepare_rejects_schema_dependency_failure_distinctly(
         )
 
 
+def test_prepare_rejects_malformed_packaged_catalog_as_schema_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+    catalog_path = (
+        Path(verifier_impl.__file__).resolve().parent.parent
+        / "schemas"
+        / "certification"
+        / "certification_endpoints_v0.json"
+    )
+    original_read_text = Path.read_text
+    malformed_document = json.loads(original_read_text(catalog_path, encoding="utf-8"))
+    malformed_document["components"]["schemas"]["PrepareResponseV0"]["type"] = 7
+    malformed_text = json.dumps(malformed_document)
+
+    def malformed_catalog(path: Path, *args: object, **kwargs: object) -> str:
+        if path.resolve() == catalog_path:
+            return malformed_text
+        return original_read_text(path, *args, **kwargs)
+
+    verifier_impl._certificate_preparation_validator.cache_clear()
+    monkeypatch.setattr(Path, "read_text", malformed_catalog)
+    with pytest.raises(VerificationError, match="^CO_SCHEMA_DEPENDENCY$"):
+        prepare_client_co_attestation(cert, context=context)
+
+
+def test_prepare_duplicate_g1_reaches_closed_g1_required_code() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    duplicate = copy.deepcopy(cert["claims"][0])
+    duplicate["evidence_refs"][0]["evidence_ref"] = "ref:duplicate01"
+    cert["claims"].append(duplicate)
+    unsigned = cert["signatures"]["unsigned_manifest"]["document"]
+    unsigned["claims"].append(copy.deepcopy(duplicate))
+    assert not list(verifier_impl._certificate_preparation_validator().iter_errors(cert))
+
+    with pytest.raises(VerificationError, match="^CO_G1_REQUIRED$") as raised:
+        prepare_client_co_attestation(
+            cert, context=_client_preparation_context(cert, verification_context)
+        )
+    assert raised.value.code in CLIENT_CO_ATTESTATION_ERROR_CODES
+
+
 def test_prepare_does_not_mislabel_internal_defect_as_caller_projection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1117,15 +1202,130 @@ def test_prepare_does_not_mislabel_internal_defect_as_caller_projection(
         )
 
 
-def test_maximal_b1_g1_prepare_projection_stays_below_size_cap() -> None:
-    cert, _, verification_context, _ = _sign_fixture(claims=[_b1_claim(tier=3), _g1_claim(tier=1)])
+def _schema_maximal_prepare_response() -> tuple[dict, dict, dict]:
+    cert, _, _, _ = _sign_fixture(claims=[_b1_claim(tier=3), _g1_claim(tier=1)])
     cert["signatures"].pop("co_attestation")
+    unsigned = cert["signatures"]["unsigned_manifest"]["document"]
+    max_opaque_ref = "a" * 64 + ":" + "A" * 128
+    max_digest = "sha256:" + "f" * 64
 
-    prepared = prepare_client_co_attestation(
-        cert, context=_client_preparation_context(cert, verification_context)
+    for subject in (cert["subject"], unsigned["subject"]):
+        subject["project_ref"] = "a" * 128
+        subject["build_session_ref"] = max_opaque_ref
+        subject["session_commitment_digest"] = max_digest
+    for seal in (cert["ledger_seal_projection"], unsigned["seal"]):
+        seal["seal_ref"] = max_opaque_ref
+        seal["build_session_ref"] = max_opaque_ref
+    unsigned["privacy_mode"]["declared_mode"] = "current_online"
+    unsigned["sdk_identity"] = {"sdk_ref": "f" * 40, "sdk_version": "9999.9999.9999"}
+    unsigned["freshness"]["nonce"] = "f" * 64
+    unsigned["disclosure_profile"]["profile_id"] = "customer_internal"
+    cert["disclosure_profile"]["profile_id"] = "customer_internal"
+    for key in ("issuer_key_ref", "trust_ring_ref"):
+        unsigned["key_ring_identifiers"][key] = max_opaque_ref
+        cert["signatures"]["issuer_signature"][key] = max_opaque_ref
+    unsigned["key_ring_identifiers"]["issuer_signature_algorithm"] = "ecdsa_p256_sha256"
+    unsigned["key_ring_identifiers"]["client_signature_algorithm"] = "ecdsa_p256_sha256"
+    cert["signatures"]["issuer_signature"]["algorithm"] = "ecdsa_p256_sha256"
+    unsigned["compiler_register_versions"]["compiler_version"] = "9999.9999.9999"
+    cert["audit_report"]["compiler_register_versions"]["compiler_version"] = "9999.9999.9999"
+    cert["audit_report"]["build_session_ref"] = max_opaque_ref
+
+    def digest(index: int) -> str:
+        return "sha256:" + format(index, "064x")
+
+    def evidence_ref(index: int, kind: str = "client_commitment_digest") -> dict:
+        return {
+            "evidence_kind": kind,
+            "evidence_digest": digest(index),
+            "evidence_ref": max_opaque_ref,
+        }
+
+    claims = []
+    for index in range(verifier_impl._MAX_SCHEMA_CLAIMS):
+        claim = copy.deepcopy(_b1_claim(tier=3) if index % 2 == 0 else _g1_claim(tier=1))
+        claim["verifier"]["verifier_version"] = "9999.9999.9999"
+        for ref in claim["evidence_refs"]:
+            ref["evidence_ref"] = max_opaque_ref
+        claim["evidence_refs"][1]["evidence_digest"] = digest(index + 100)
+        if claim["claim_id"] == "B1":
+            claim["payload"]["params"]["seal_ref"] = max_opaque_ref
+            claim["rendered_text"] = (
+                "The issuer signed this seal statement: seal "
+                + max_opaque_ref
+                + ", canonical seal-statement digest "
+                + claim["payload"]["params"]["seal_statement_digest"]
+                + "."
+            )
+        else:
+            claim["payload"]["params"]["client_attestor_version"] = "9999.9999.9999"
+            claim["payload"]["params"]["build_session_ref"] = max_opaque_ref
+            claim["rendered_text"] = (
+                "The pinned client key co-signed the declaration that evidence-manifest root "
+                + claim["payload"]["params"]["manifest_root_digest"]
+                + " uses scheme sha256_secret_blinded_v1 and client attestor version "
+                "9999.9999.9999. The declaration is unopened; correspondence to, possession "
+                "of, and completeness of any underlying evidence are not proven."
+            )
+        claims.append(claim)
+    cert["claims"] = claims
+    unsigned["claims"] = copy.deepcopy(claims)
+    claim_ids = ("B1", "REG1", "C1", "D2", "F1", "G1", "G3")
+    unsigned["tiers"] = [
+        {"claim_id": claim_id, "tier": tier}
+        for claim_id in claim_ids
+        for tier in (1, 2, 3)
+    ][: verifier_impl._MAX_SCHEMA_CLAIMS]
+    unsigned["evidence_digests"] = [
+        {
+            "evidence_kind": "audit_report_digest",
+            "evidence_digest": digest(900_000),
+        }
+    ] + [
+        evidence_ref(index + 1_000)
+        for index in range(verifier_impl._MAX_SCHEMA_EVIDENCE_PROJECTION_ITEMS - 1)
+    ]
+    for row in cert["audit_report"]["claim_support_rows"]:
+        if "verifier" in row:
+            row["verifier"]["verifier_id"] = "ver.cert." + "a" * 64
+            row["verifier"]["verifier_version"] = "9999.9999.9999"
+    return cert, evidence_ref(1), max(claims, key=lambda value: len(_compact_json(value)))
+
+
+def _compact_json(value: object) -> bytes:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
+def test_schema_maximal_prepare_projection_is_below_structural_size_bound() -> None:
+    cert, maximal_evidence_ref, maximal_claim = _schema_maximal_prepare_response()
+    schema_dir = Path(verifier_impl.__file__).resolve().parent.parent / "schemas" / "certification"
+    unsigned_schema = json.loads(
+        (schema_dir / "certificate_unsigned_manifest_v0_schema.json").read_text(encoding="utf-8")
+    )
+    claims_schema = json.loads(
+        (schema_dir / "certificate_claims_v0_schema.json").read_text(encoding="utf-8")
     )
 
-    assert len(prepared.projection_bytes) <= verifier_impl._MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES
+    assert (
+        unsigned_schema["definitions"]["EvidenceDigestsProjectionV0"]["maxItems"]
+        == verifier_impl._MAX_SCHEMA_EVIDENCE_PROJECTION_ITEMS
+    )
+    assert (
+        claims_schema["definitions"]["ClaimsArrayV0"]["maxItems"]
+        == verifier_impl._MAX_SCHEMA_CLAIMS
+    )
+    assert len(_compact_json(maximal_evidence_ref)) <= verifier_impl._MAX_SCHEMA_EVIDENCE_REF_BYTES
+    assert len(_compact_json(maximal_claim)) <= verifier_impl._MAX_SCHEMA_CLAIM_BYTES
+
+    fixed = copy.deepcopy(cert)
+    fixed["claims"] = []
+    fixed_unsigned = fixed["signatures"]["unsigned_manifest"]["document"]
+    fixed_unsigned["claims"] = []
+    fixed_unsigned["evidence_digests"] = []
+    assert len(_compact_json(fixed)) <= verifier_impl._MAX_SCHEMA_FIXED_PREPARE_BYTES
+    assert not list(verifier_impl._certificate_preparation_validator().iter_errors(cert))
+    assert len(_compact_json(cert)) <= verifier_impl._MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES
+    verifier_impl._preflight_client_projection(cert)
 
 
 def test_final_verification_does_not_apply_public_preparation_input_cap(
@@ -1150,6 +1350,36 @@ def test_final_verification_does_not_apply_public_preparation_input_cap(
         policy=policy,
     )
     assert result.valid
+
+
+def test_final_co_attestation_canonicalization_handles_schema_valid_numeric_edges() -> None:
+    cert, issuer, verification_context, policy = _sign_fixture()
+    cert["claims"][0]["tier"] = 1.0
+    assert not list(verifier_impl._certificate_validator().iter_errors(cert))
+    assert verify_certificate(
+        cert,
+        issuer_public_key=issuer,
+        context=verification_context,
+        policy=policy,
+    ).valid
+
+    class SchemaValidInt(int):
+        pass
+
+    cert["claims"][0]["tier"] = SchemaValidInt(1)
+    assert not list(verifier_impl._certificate_validator().iter_errors(cert))
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        verifier_impl._prepare_client_projection(cert)
+
+    # The same edge cannot escape the public final verifier as the raw fp2
+    # exception even when an earlier signed projection encounters it first.
+    with pytest.raises(VerificationError, match="^CANONICALIZATION$"):
+        verify_certificate(
+            cert,
+            issuer_public_key=issuer,
+            context=verification_context,
+            policy=policy,
+        )
 
 
 def test_prepare_accepts_minimal_optional_evidence_reference_shape() -> None:
@@ -1189,7 +1419,9 @@ def test_prepare_rejects_noncanonical_or_unbounded_values() -> None:
         prepare_client_co_attestation(floating, context=context)
 
     oversized = copy.deepcopy(cert)
-    oversized["subject"]["project_ref"] = "x" * 40_000
+    oversized["subject"]["project_ref"] = "x" * (
+        verifier_impl._MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES + 1
+    )
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
         prepare_client_co_attestation(oversized, context=context)
 

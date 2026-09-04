@@ -116,6 +116,13 @@ content. It validates that the prepare projection contains a structurally
 consistent issuer signature, but does not itself authenticate that signature;
 issuer trust remains a relying-party verification step.
 
+Untrusted preparation input is capped by a conservative 512 KiB structural
+bound derived from the contract's maximum 1,024 evidence-projection entries,
+16 claims in each of the printed and signed-manifest copies, per-entry/per-claim
+JSON bounds, and a bounded fixed envelope allowance. The final verifier does
+not apply this transport preflight cap after the certificate has passed its
+canonical schema validation.
+
 The seal, claims, tiers, evidence references, non-claims, and audit rows are
 issuer/compiler evidence, not client assertions of truth; the helper checks
 their schema and deterministic cross-projections, then co-signs their exact
@@ -170,7 +177,10 @@ pip install traigent-schema
 
 The base package includes the verifier's `cryptography` runtime dependency.
 The historical `certification` extra remains a supported no-op compatibility
-alias; requesting it is not required.
+alias; requesting it is not required. CI clean-installs and functionally probes
+the plain wheel and checks that the compatibility extra is declared. The
+separate clean installation of `traigent-schema[certification]` is release
+evidence run manually; it is not currently a second CI installation job.
 
 For coordinated workspace development or release validation from GitHub
 (requires repository access):

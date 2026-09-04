@@ -95,11 +95,15 @@ For clients implementing the co-attestation step, Schema exposes
 `prepare_client_co_attestation(prepare_response, context=...)` together with
 the frozen `ClientCoAttestationContext`. Pass the exact issuer-signed G1
 projection returned by `prepare`, not a final certificate. The context states
-the client's expected project, build session, nonce, evidence-manifest root,
-commitment scheme, attestor version, signature algorithm, and public key. The
-helper derives the project-scoped client key reference and compares every
-expectation, the G1 declaration, and the audit root before returning signing
-material. Its `ClientCertificateProjection` result contains a defensive
+all 17 required client/trust pins: project, build session, session commitment,
+nonce, privacy mode, SDK ref/version, disclosure profile, issuer
+key/trust-ring/algorithm, the immutable ordered compiler/register tuple,
+evidence-manifest root, commitment scheme, attestor version, client signature
+algorithm, and client public key. `CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` is the
+authoritative ordered field manifest for SDK bindings. The helper derives the
+project-scoped client key reference and compares every pin, the G1 declaration,
+the audit root, and the compiler-register-to-semantics relation before returning
+signing material. Its `ClientCertificateProjection` result contains a defensive
 `projection`, immutable `projection_bytes`, frozen `signing_bytes`, and the
 role-domain `signed_manifest_digest`.
 
@@ -110,6 +114,14 @@ writes, or receives customer examples, agent/evaluator code, or response
 content. It validates that the prepare projection contains a structurally
 consistent issuer signature, but does not itself authenticate that signature;
 issuer trust remains a relying-party verification step.
+
+The seal, claims, tiers, evidence references, non-claims, and audit rows are
+issuer/compiler evidence, not client assertions of truth; the helper checks
+their schema and deterministic cross-projections, then co-signs their exact
+bytes. Fixed envelope scope text and G1 verifier identity/version are
+schema-owned constants. The caller must authenticate the issuer separately;
+the required issuer pins prevent a prepare response from silently selecting a
+different issuer identity or algorithm before that trust step.
 
 Failures raise `RelyingPartyVerificationError`; its `.code` and string form
 are bounded, content-free values intended for safe logging. A successful

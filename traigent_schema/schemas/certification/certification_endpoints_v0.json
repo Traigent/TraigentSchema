@@ -547,7 +547,7 @@
           "subject": {"$ref": "./certification_common_v0_schema.json#/definitions/BuildSessionSubjectV0"},
           "semantics": {"$ref": "./agent_certificate_v0_schema.json#/definitions/SemanticsBindingV0"},
           "disclosure_profile": {"$ref": "./agent_certificate_v0_schema.json#/definitions/DisclosureProfileV0"},
-          "ledger_seal_projection": {"$ref": "./agent_certificate_v0_schema.json#/definitions/CertificateLedgerSealProjectionV0"},
+          "ledger_seal_projection": {"$ref": "./certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"},
           "claims": {"$ref": "./certificate_claims_v0_schema.json#/definitions/ClaimsArrayV0"},
           "non_claims": {"$ref": "./certificate_claims_v0_schema.json#/definitions/NonClaimsFixedTupleV0"},
           "signatures": {

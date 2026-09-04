@@ -424,7 +424,9 @@ jobs:
           import cryptography
           import traigent_schema
           from traigent_schema import (
+              CLIENT_CO_ATTESTATION_CONTEXT_FIELDS,
               ClientCoAttestationContext,
+              RelyingPartyVerificationError,
               SchemaValidator,
               derive_client_key_ref,
               load_schema,
@@ -445,8 +447,16 @@ jobs:
           assert "<51.0.0" in cryptography_requirement, cryptography_requirement
           assert "certification" in (package_metadata.get_all("Provides-Extra") or [])
           assert ClientCoAttestationContext.__name__ == "ClientCoAttestationContext"
+          assert len(CLIENT_CO_ATTESTATION_CONTEXT_FIELDS) == 17
           assert callable(derive_client_key_ref)
           assert callable(prepare_client_co_attestation)
+
+          try:
+              prepare_client_co_attestation({}, context=object())
+          except RelyingPartyVerificationError as exc:
+              assert exc.code == "CO_PROJECTION", exc.code
+          else:
+              raise AssertionError("invalid prepare input unexpectedly passed")
 
           environment_root = Path(sys.prefix).resolve()
           site_packages = [Path(path).resolve() for path in site.getsitepackages()]

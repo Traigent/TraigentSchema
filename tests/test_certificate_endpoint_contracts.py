@@ -290,7 +290,7 @@ def test_prepare_and_finalize_protocol_state_is_explicitly_conditional() -> None
     ]
     assert "co_attestation" not in prepare_response["properties"]["signatures"]
     assert prepare_response["properties"]["ledger_seal_projection"]["$ref"] == (
-        "./agent_certificate_v0_schema.json#/definitions/CertificateLedgerSealProjectionV0"
+        "./certificate_ledger_seals_v0_schema.json#/definitions/SealStatementV0"
     )
     assert prepare_response["allOf"][0]["properties"]["claims"]["contains"] == {
         "properties": {

@@ -59,6 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It handles no private keys, performs no signing, network access, writes, or
   external-state changes, and accepts only the bounded content-free projection.
   Issuer signature authentication remains a separate relying-party step.
+  All 17 client/trust expectations are required and exposed through the ordered
+  `CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` manifest: session commitment, privacy,
+  SDK, disclosure, issuer trust, compiler/register semantics, G1 commitment,
+  client algorithm, and derived public-key identity cannot be selected by the
+  issuer unnoticed. Issuer/compiler evidence remains co-signed as exact bytes
+  but is not represented as a client assertion of its truth.
 - **`task_type` on `POST /api/v1/sessions`** (optional string, 1-128 chars): a COARSE,
   client-declared task category (`multiple_choice`, `exact_match`, `text2sql`,
   `code_generation`, `summarization`, ...) that the backend maps internally to an

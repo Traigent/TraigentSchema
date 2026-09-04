@@ -1104,34 +1104,43 @@ def test_certified_agent_v0_allowlist_covers_historical_findings_only() -> None:
     assert gate.find_allow_entry(unrelated, entries).entry is None
 
 
+def _latest_allow_entry(entries: list[dict], file: str, rule: str) -> dict:
+    """Return the most recent allowlist entry for one (file, rule) pair.
+
+    This used to be ``next(e for e in entries[-29:] if ...)``. That fixed-size
+    tail window silently encoded "the allowlist has not grown since this test
+    was written": appending 29 unrelated entries pushes a target out of the
+    slice, ``next`` raises StopIteration, and the failure surfaces as a broken
+    test on whichever unrelated PR happens to cross the boundary rather than as
+    anything about that PR's contract change. Selecting the last match over the
+    whole list picks exactly the same three entries the window did, and stays
+    correct however many entries are appended after them.
+    """
+
+    matches = [e for e in entries if e["file"] == file and e["rule"] == rule]
+    assert matches, f"no allowlist entry for {file} / {rule}"
+    return matches[-1]
+
+
 def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
     entries = gate.load_allowlist(
         REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
     )
 
-    required_entry = next(
-        entry
-        for entry in entries[-29:]
-        if entry["file"] == "certification/certificate_claim_payloads_v0_schema.json"
-        and entry["rule"] == "required"
+    required_entry = _latest_allow_entry(
+        entries, "certification/certificate_claim_payloads_v0_schema.json", "required"
     )
     required_identity = required_entry["findings"][0]
     sibling = {**required_identity, "subject": "future_size"}
 
-    pattern_entry = next(
-        entry
-        for entry in entries[-29:]
-        if entry["file"] == "certification/agent_certificate_v0_schema.json"
-        and entry["rule"] == "pattern"
+    pattern_entry = _latest_allow_entry(
+        entries, "certification/agent_certificate_v0_schema.json", "pattern"
     )
     pattern_identity = pattern_entry["findings"][0]
     pattern_drift = {**pattern_identity, "new": "^ckr:[A-Za-z0-9_-]{42}$"}
 
-    branch_entry = next(
-        entry
-        for entry in entries[-29:]
-        if entry["file"] == "certification/agent_certificate_v0_schema.json"
-        and entry["rule"] == "allOf_branch_count_changed"
+    branch_entry = _latest_allow_entry(
+        entries, "certification/agent_certificate_v0_schema.json", "allOf_branch_count_changed"
     )
     branch_identity = branch_entry["findings"][0]
     branch_drift = {**branch_identity, "new": branch_identity["new"] + 1}

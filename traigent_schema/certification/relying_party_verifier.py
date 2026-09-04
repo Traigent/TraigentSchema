@@ -35,6 +35,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
+from referencing.exceptions import Unresolvable
 
 import traigent_schema.fp2 as fp2
 from traigent_schema.validator import _FORMAT_CHECKER, SchemaDependencyError, SchemaValidator
@@ -131,26 +132,107 @@ _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
 _GIT_SHA_RE = re.compile(r"^[a-f0-9]{40}$")
 _SEMVER_RE = re.compile(r"^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$")
 _NONCE_RE = re.compile(r"^[a-f0-9]{32,64}$")
+_PRIVACY_MODES = frozenset({"offline", "current_online"})
+_DISCLOSURE_PROFILE_IDS = frozenset({"public", "customer_internal", "auditor_only"})
+_SIGNATURE_ALGORITHMS = frozenset({"ed25519", "ecdsa_p256_sha256"})
+_COMMITMENT_SCHEMES = frozenset({"sha256_secret_blinded_v1"})
 
-CLIENT_CO_ATTESTATION_CONTEXT_FIELDS = (
-    "expected_project_ref",
-    "expected_build_session_ref",
-    "expected_session_commitment_digest",
-    "expected_nonce",
-    "expected_privacy_mode",
-    "expected_sdk_ref",
-    "expected_sdk_version",
-    "expected_disclosure_profile_id",
-    "expected_issuer_key_ref",
-    "expected_trust_ring_ref",
-    "expected_issuer_algorithm",
-    "expected_compiler_register_versions",
-    "manifest_root_digest",
-    "commitment_scheme",
-    "client_attestor_version",
-    "expected_client_algorithm",
-    "client_public_key",
+_CLIENT_CO_ATTESTATION_PIN_BINDINGS = (
+    ("expected_project_ref", "subject.project_ref"),
+    ("expected_build_session_ref", "subject.build_session_ref"),
+    ("expected_session_commitment_digest", "subject.session_commitment_digest"),
+    ("expected_nonce", "unsigned.freshness.nonce"),
+    ("expected_privacy_mode", "unsigned.privacy_mode.declared_mode"),
+    ("expected_sdk_ref", "unsigned.sdk_identity.sdk_ref"),
+    ("expected_sdk_version", "unsigned.sdk_identity.sdk_version"),
+    ("expected_disclosure_profile_id", "unsigned.disclosure_profile.profile_id"),
+    ("expected_issuer_key_ref", "unsigned.key_ring_identifiers.issuer_key_ref"),
+    ("expected_trust_ring_ref", "unsigned.key_ring_identifiers.trust_ring_ref"),
+    (
+        "expected_issuer_algorithm",
+        "unsigned.key_ring_identifiers.issuer_signature_algorithm",
+    ),
+    (
+        "expected_compiler_register_versions",
+        "unsigned.compiler_register_versions",
+    ),
+    ("manifest_root_digest", "g1.payload.params.manifest_root_digest"),
+    ("commitment_scheme", "g1.payload.params.commitment_scheme"),
+    ("client_attestor_version", "g1.payload.params.client_attestor_version"),
+    (
+        "expected_client_algorithm",
+        "unsigned.key_ring_identifiers.client_signature_algorithm",
+    ),
+    ("client_public_key", "unsigned.key_ring_identifiers.client_key_ref"),
 )
+CLIENT_CO_ATTESTATION_CONTEXT_FIELDS = tuple(
+    field_name for field_name, _ in _CLIENT_CO_ATTESTATION_PIN_BINDINGS
+)
+
+# Public preparation exposes only this closed, content-free failure vocabulary.
+CLIENT_CO_ATTESTATION_ERROR_CODES = frozenset(
+    {"CO_CONTEXT", "CO_G1_REQUIRED", "CO_PROJECTION", "CO_SCHEMA_DEPENDENCY"}
+)
+
+# Structural ownership partitions.  Tests compare these sets with the packaged
+# schemas so a newly added unsigned-manifest, subject, or G1 parameter cannot
+# silently escape client pinning or explicit issuer/compiler classification.
+_UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS = frozenset(
+    {
+        "subject",
+        "disclosure_profile",
+        "privacy_mode",
+        "sdk_identity",
+        "compiler_register_versions",
+        "key_ring_identifiers",
+        "freshness",
+    }
+)
+_UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS = frozenset(
+    {"seal", "claims", "tiers", "evidence_digests", "non_claims"}
+)
+_UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS = frozenset(
+    {
+        "subject.project_ref",
+        "subject.build_session_ref",
+        "subject.session_commitment_digest",
+        "disclosure_profile.profile_id",
+        "privacy_mode.declared_mode",
+        "sdk_identity.sdk_ref",
+        "sdk_identity.sdk_version",
+        *(f"compiler_register_versions.{key}" for key in _COMPILER_REGISTER_KEYS),
+        "key_ring_identifiers.issuer_key_ref",
+        "key_ring_identifiers.trust_ring_ref",
+        "key_ring_identifiers.issuer_signature_algorithm",
+        "key_ring_identifiers.client_key_ref",
+        "key_ring_identifiers.client_signature_algorithm",
+        "freshness.nonce",
+    }
+)
+_UNSIGNED_MANIFEST_SCHEMA_CONSTANT_LEAF_PATHS = frozenset(
+    {
+        "subject.subject_kind",
+        "subject.hash_algorithm",
+        "disclosure_profile.selective_disclosure_line",
+    }
+)
+_SUBJECT_CLIENT_PINNED_FIELDS = frozenset(
+    {"project_ref", "build_session_ref", "session_commitment_digest"}
+)
+_SUBJECT_SCHEMA_CONSTANT_FIELDS = frozenset({"subject_kind", "hash_algorithm"})
+_G1_CLIENT_PINNED_PARAM_FIELDS = frozenset(
+    {
+        "manifest_root_digest",
+        "commitment_scheme",
+        "client_attestor_version",
+        "build_session_ref",
+        "client_key_ref",
+    }
+)
+_G1_CROSS_BOUND_PARAM_PATHS = {
+    "build_session_ref": "subject.build_session_ref",
+    "client_key_ref": "unsigned.key_ring_identifiers.client_key_ref",
+}
 
 
 class RelyingPartyVerificationError(ValueError):
@@ -299,19 +381,15 @@ class ClientCoAttestationContext:
             for value, pattern in patterned_values
         ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.expected_privacy_mode not in {"offline", "current_online"}:
+        if self.expected_privacy_mode not in _PRIVACY_MODES:
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.expected_disclosure_profile_id not in {
-            "public",
-            "customer_internal",
-            "auditor_only",
-        }:
+        if self.expected_disclosure_profile_id not in _DISCLOSURE_PROFILE_IDS:
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.commitment_scheme != "sha256_secret_blinded_v1":
+        if self.commitment_scheme not in _COMMITMENT_SCHEMES:
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.expected_issuer_algorithm not in {"ed25519", "ecdsa_p256_sha256"}:
+        if self.expected_issuer_algorithm not in _SIGNATURE_ALGORITHMS:
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if self.expected_client_algorithm not in {"ed25519", "ecdsa_p256_sha256"}:
+        if self.expected_client_algorithm not in _SIGNATURE_ALGORITHMS:
             raise RelyingPartyVerificationError("CO_CONTEXT")
         registers = self.expected_compiler_register_versions
         if type(registers) is not tuple or any(
@@ -322,8 +400,14 @@ class ClientCoAttestationContext:
             raise RelyingPartyVerificationError("CO_CONTEXT")
         if any(type(key) is not str or type(value) is not str for key, value in registers):
             raise RelyingPartyVerificationError("CO_CONTEXT")
-        if not _SEMVER_RE.fullmatch(registers[0][1]) or any(
-            not _SHA256_RE.fullmatch(value) for _, value in registers[1:]
+        register_values = dict(registers)
+        register_patterns = {
+            key: _SEMVER_RE if key == "compiler_version" else _SHA256_RE
+            for key in _COMPILER_REGISTER_KEYS
+        }
+        if any(
+            not register_patterns[key].fullmatch(register_values[key])
+            for key in _COMPILER_REGISTER_KEYS
         ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
 
@@ -339,7 +423,7 @@ def derive_client_key_ref(
     """
     if type(project_ref) is not str or not _PROJECT_REF_RE.fullmatch(project_ref):
         _fail("CLIENT_KEY_REF")
-    if signature_algorithm not in {"ed25519", "ecdsa_p256_sha256"}:
+    if signature_algorithm not in _SIGNATURE_ALGORITHMS:
         _fail("CLIENT_KEY_REF")
     if signature_algorithm == "ed25519" and not isinstance(
         client_public_key, ed25519.Ed25519PublicKey
@@ -513,19 +597,12 @@ def _prepare_client_projection(
     document: dict[str, Any],
 ) -> ClientCertificateProjection:
     """Build signing material from an already validated certificate projection."""
-    try:
-        projection = copy.deepcopy(document)
-        signatures = projection["signatures"]
-        if type(signatures) is not dict:
-            _fail("CO_PROJECTION")
-        signatures.pop("co_attestation", None)
-        canonical = cast(str, fp2.canonicalize(projection)).encode("utf-8")
-    except RelyingPartyVerificationError:
-        raise
-    except Exception:
+    projection = copy.deepcopy(document)
+    signatures = projection["signatures"]
+    if type(signatures) is not dict:
         _fail("CO_PROJECTION")
-    if len(canonical) > _MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES:
-        _fail("CO_PROJECTION")
+    signatures.pop("co_attestation", None)
+    canonical = cast(str, fp2.canonicalize(projection)).encode("utf-8")
     digest = _role_digest(_CLIENT_CERTIFICATE_DOMAIN, projection)
     return ClientCertificateProjection(
         projection=projection,
@@ -554,8 +631,8 @@ def _validate_client_preparation_context(
         compiler_register_versions = unsigned["compiler_register_versions"]
         # These exact register values bind the public semantics section; the
         # client pins the complete ordered register tuple below.
-        if document["semantics"] != {
-            key: compiler_register_versions[key] for key in document["semantics"]
+        if set(document["semantics"]) != set(_SEMANTICS_KEYS) or document["semantics"] != {
+            key: compiler_register_versions[key] for key in _SEMANTICS_KEYS
         }:
             _fail("CO_PROJECTION")
         _check_streams(document["ledger_seal_projection"])
@@ -583,66 +660,32 @@ def _validate_client_preparation_context(
             and issuer["trust_ring_ref"] == ring["trust_ring_ref"]
         ):
             _fail("CO_PROJECTION")
-        if not (
-            params["build_session_ref"] == document["subject"]["build_session_ref"]
-            and params["client_key_ref"] == ring["client_key_ref"]
-            and audit["client_evidence_manifest_root"] == params["manifest_root_digest"]
-        ):
+        cross_bound_roots = {"subject": document["subject"], "unsigned": unsigned}
+        for param_name, projection_path in _G1_CROSS_BOUND_PARAM_PATHS.items():
+            root_name, *path_parts = projection_path.split(".")
+            cross_bound_value: Any = cross_bound_roots[root_name]
+            for path_part in path_parts:
+                cross_bound_value = cross_bound_value[path_part]
+            if params[param_name] != cross_bound_value:
+                _fail("CO_PROJECTION")
+        if audit["client_evidence_manifest_root"] != params["manifest_root_digest"]:
             _fail("CO_PROJECTION")
 
-        expected_pins = dict(
-            zip(
-                CLIENT_CO_ATTESTATION_CONTEXT_FIELDS,
-                (
-                    context.expected_project_ref,
-                    context.expected_build_session_ref,
-                    context.expected_session_commitment_digest,
-                    context.expected_nonce,
-                    context.expected_privacy_mode,
-                    context.expected_sdk_ref,
-                    context.expected_sdk_version,
-                    context.expected_disclosure_profile_id,
-                    context.expected_issuer_key_ref,
-                    context.expected_trust_ring_ref,
-                    context.expected_issuer_algorithm,
-                    context.expected_compiler_register_versions,
-                    context.manifest_root_digest,
-                    context.commitment_scheme,
-                    context.client_attestor_version,
-                    context.expected_client_algorithm,
-                    derived_key_ref,
-                ),
-                strict=True,
-            )
-        )
-        projection_pins = dict(
-            zip(
-                CLIENT_CO_ATTESTATION_CONTEXT_FIELDS,
-                (
-                    document["subject"]["project_ref"],
-                    document["subject"]["build_session_ref"],
-                    document["subject"]["session_commitment_digest"],
-                    unsigned["freshness"]["nonce"],
-                    unsigned["privacy_mode"]["declared_mode"],
-                    unsigned["sdk_identity"]["sdk_ref"],
-                    unsigned["sdk_identity"]["sdk_version"],
-                    unsigned["disclosure_profile"]["profile_id"],
-                    ring["issuer_key_ref"],
-                    ring["trust_ring_ref"],
-                    ring["issuer_signature_algorithm"],
-                    tuple(
-                        (key, compiler_register_versions[key])
-                        for key in _COMPILER_REGISTER_KEYS
-                    ),
-                    params["manifest_root_digest"],
-                    params["commitment_scheme"],
-                    params["client_attestor_version"],
-                    ring["client_signature_algorithm"],
-                    ring["client_key_ref"],
-                ),
-                strict=True,
-            )
-        )
+        expected_pins = {
+            field_name: getattr(context, field_name)
+            for field_name in CLIENT_CO_ATTESTATION_CONTEXT_FIELDS
+        }
+        expected_pins["client_public_key"] = derived_key_ref
+        roots = {"subject": document["subject"], "unsigned": unsigned, "g1": g1_claims[0]}
+        projection_pins: dict[str, Any] = {}
+        for field_name, projection_path in _CLIENT_CO_ATTESTATION_PIN_BINDINGS:
+            root_name, *path_parts = projection_path.split(".")
+            value: Any = roots[root_name]
+            for path_part in path_parts:
+                value = value[path_part]
+            if field_name == "expected_compiler_register_versions":
+                value = tuple((key, value[key]) for key in _COMPILER_REGISTER_KEYS)
+            projection_pins[field_name] = value
         if projection_pins != expected_pins:
             _fail("CO_CONTEXT")
 
@@ -654,8 +697,6 @@ def _validate_client_preparation_context(
         # lines and the G1 verifier identity/version are schema-owned constants.
     except RelyingPartyVerificationError:
         raise
-    except Exception:
-        _fail("CO_PROJECTION")
 
 
 def prepare_client_co_attestation(
@@ -681,11 +722,11 @@ def prepare_client_co_attestation(
     document = cast(dict[str, Any], prepare_response)
     try:
         validator = _certificate_preparation_validator()
-    except Exception:
+    except (OSError, UnicodeError, json.JSONDecodeError, SchemaDependencyError):
         _fail("CO_SCHEMA_DEPENDENCY")
     try:
         errors = list(validator.iter_errors(document))
-    except Exception:
+    except Unresolvable:
         _fail("CO_SCHEMA_DEPENDENCY")
     if errors:
         _fail("CO_PROJECTION")
@@ -1614,6 +1655,7 @@ verify = verify_certificate
 verify_agent_certificate = verify_certificate
 
 __all__ = [
+    "CLIENT_CO_ATTESTATION_ERROR_CODES",
     "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS",
     "ClientCertificateProjection",
     "ClientCoAttestationContext",

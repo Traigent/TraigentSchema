@@ -33,6 +33,7 @@ from tests.test_agent_certificate_v0_schemas import (
 from traigent_schema import fp2
 from traigent_schema.certification import (
     CLIENT_CO_ATTESTATION_CONTEXT_FIELDS,
+    CLIENT_CO_ATTESTATION_ERROR_CODES,
     ClientCertificateProjection,
     ClientCoAttestationContext,
     RelyingPartyPolicy,
@@ -130,6 +131,7 @@ def test_root_certification_exports_preserve_public_api() -> None:
     from traigent_schema import (
         CLIENT_CO_ATTESTATION_CONTEXT_FIELDS as RootClientContextFields,
     )
+    from traigent_schema import CLIENT_CO_ATTESTATION_ERROR_CODES as RootClientErrorCodes
     from traigent_schema import (
         ClientCoAttestationContext as RootClientCoAttestationContext,
     )
@@ -137,6 +139,7 @@ def test_root_certification_exports_preserve_public_api() -> None:
     from traigent_schema import derive_client_key_ref as root_derive_client_key_ref
 
     assert RootRelyingPartyPolicy is RelyingPartyPolicy
+    assert RootClientErrorCodes is CLIENT_CO_ATTESTATION_ERROR_CODES
     assert RootClientContextFields is CLIENT_CO_ATTESTATION_CONTEXT_FIELDS
     assert RootClientCoAttestationContext is ClientCoAttestationContext
     assert root_derive_client_key_ref is verifier_impl.derive_client_key_ref
@@ -629,6 +632,25 @@ def test_prepare_compiler_register_comparison_is_independent_of_json_key_order()
     assert prepared.projection == reordered
 
 
+def test_prepare_rejects_incomplete_semantics_and_compiler_registers() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    context = _client_preparation_context(cert, verification_context)
+
+    missing_semantics = copy.deepcopy(cert)
+    missing_semantics["signatures"].pop("co_attestation")
+    missing_semantics["semantics"].pop("verifier_catalog_digest")
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(missing_semantics, context=context)
+
+    missing_register = tuple(
+        row
+        for row in context.expected_compiler_register_versions
+        if row[0] != "verifier_catalog_digest"
+    )
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        replace(context, expected_compiler_register_versions=missing_register)
+
+
 def test_prepare_rejects_final_certificate_and_b1_only_envelope() -> None:
     g1_cert, _, verification_context, _ = _sign_fixture()
     context = _client_preparation_context(g1_cert, verification_context)
@@ -638,6 +660,23 @@ def test_prepare_rejects_final_certificate_and_b1_only_envelope() -> None:
     b1_cert, _, _, _ = _sign_fixture(claims=[_b1_claim(tier=3)], with_co=False)
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
         prepare_client_co_attestation(b1_cert, context=context)
+
+
+def test_prepare_rejects_duplicate_g1_with_bounded_code() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    prepare_response = copy.deepcopy(cert)
+    prepare_response["signatures"].pop("co_attestation")
+    unsigned = prepare_response["signatures"]["unsigned_manifest"]["document"]
+    prepare_response["claims"].append(copy.deepcopy(prepare_response["claims"][0]))
+    unsigned["claims"].append(copy.deepcopy(unsigned["claims"][0]))
+
+    with pytest.raises(VerificationError) as raised:
+        prepare_client_co_attestation(
+            prepare_response,
+            context=_client_preparation_context(cert, verification_context),
+        )
+    assert raised.value.code == "CO_PROJECTION"
+    assert raised.value.code in CLIENT_CO_ATTESTATION_ERROR_CODES
 
 
 @pytest.mark.parametrize("status", ["legacy_unsealed", "not_applicable"])
@@ -667,8 +706,29 @@ def test_prepare_and_final_schemas_enforce_authoritative_seal_statement_statuses
     prepare_response["ledger_seal_projection"]["expected_stream_projection"][stream][
         "chain_status"
     ] = status
-    assert list(verifier_impl._certificate_validator().iter_errors(cert))
-    assert list(verifier_impl._certificate_preparation_validator().iter_errors(prepare_response))
+    expected_status = {
+        "decision_stream": "empty_sealed",
+        "receipt_event_stream": "sealed",
+        "transition_stream": "sealed",
+    }[stream]
+    expected_path = [
+        "ledger_seal_projection",
+        "expected_stream_projection",
+        stream,
+        "chain_status",
+    ]
+    for validator, document in (
+        (verifier_impl._certificate_validator(), cert),
+        (verifier_impl._certificate_preparation_validator(), prepare_response),
+    ):
+        status_errors = [
+            error
+            for error in validator.iter_errors(document)
+            if list(error.absolute_path) == expected_path
+        ]
+        assert [(error.validator, error.validator_value) for error in status_errors] == [
+            ("const", expected_status)
+        ]
 
 
 @pytest.mark.parametrize(
@@ -709,6 +769,12 @@ def test_prepare_context_field_manifest_is_complete_and_content_free() -> None:
     field_names = tuple(field.name for field in fields(ClientCoAttestationContext))
 
     assert field_names == CLIENT_CO_ATTESTATION_CONTEXT_FIELDS
+    assert field_names == tuple(
+        field_name for field_name, _ in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
+    )
+    assert len({path for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS}) == len(
+        field_names
+    )
     assert len(field_names) == 17
     bounded_string_fields = set(field_names) - {
         "expected_compiler_register_versions",
@@ -721,16 +787,12 @@ def test_prepare_context_field_manifest_is_complete_and_content_free() -> None:
 
 
 def test_prepare_context_string_pins_map_only_to_bounded_schema_types() -> None:
-    schema_dir = (
-        Path(verifier_impl.__file__).resolve().parent.parent / "schemas" / "certification"
-    )
+    schema_dir = Path(verifier_impl.__file__).resolve().parent.parent / "schemas" / "certification"
     common = json.loads(
         (schema_dir / "certification_common_v0_schema.json").read_text(encoding="utf-8")
     )
     unsigned = json.loads(
-        (schema_dir / "certificate_unsigned_manifest_v0_schema.json").read_text(
-            encoding="utf-8"
-        )
+        (schema_dir / "certificate_unsigned_manifest_v0_schema.json").read_text(encoding="utf-8")
     )
     common_types = {
         "expected_project_ref": "ProjectRefV0",
@@ -764,14 +826,168 @@ def test_prepare_context_string_pins_map_only_to_bounded_schema_types() -> None:
         assert node["type"] == "string"
         assert set(node) & {"const", "enum", "pattern"}
 
+    python_patterns = {
+        "expected_project_ref": verifier_impl._PROJECT_REF_RE.pattern,
+        "expected_build_session_ref": verifier_impl._REF_RE.pattern,
+        "expected_session_commitment_digest": verifier_impl._SHA256_RE.pattern,
+        "expected_nonce": verifier_impl._NONCE_RE.pattern,
+        "expected_sdk_ref": verifier_impl._GIT_SHA_RE.pattern,
+        "expected_sdk_version": verifier_impl._SEMVER_RE.pattern,
+        "expected_issuer_key_ref": verifier_impl._REF_RE.pattern,
+        "expected_trust_ring_ref": verifier_impl._REF_RE.pattern,
+        "manifest_root_digest": verifier_impl._SHA256_RE.pattern,
+        "client_attestor_version": verifier_impl._SEMVER_RE.pattern,
+    }
+    assert {
+        field_name: node["pattern"]
+        for field_name, node in bounded_nodes.items()
+        if "pattern" in node
+    } == python_patterns
+    assert frozenset(bounded_nodes["expected_privacy_mode"]["enum"]) == (
+        verifier_impl._PRIVACY_MODES
+    )
+    assert frozenset(bounded_nodes["expected_disclosure_profile_id"]["enum"]) == (
+        verifier_impl._DISCLOSURE_PROFILE_IDS
+    )
+    assert frozenset(bounded_nodes["commitment_scheme"]["enum"]) == (
+        verifier_impl._COMMITMENT_SCHEMES
+    )
+    assert frozenset(bounded_nodes["expected_issuer_algorithm"]["enum"]) == (
+        verifier_impl._SIGNATURE_ALGORITHMS
+    )
+    assert frozenset(bounded_nodes["expected_client_algorithm"]["enum"]) == (
+        verifier_impl._SIGNATURE_ALGORITHMS
+    )
+
     compiler = common["definitions"]["CompilerRegisterVersionsV0"]
     assert compiler["additionalProperties"] is False
     assert compiler["required"] == list(compiler["properties"])
-    for node in compiler["properties"].values():
-        definition = node["$ref"].rsplit("/", 1)[-1]
+    compiler_types = {
+        key: node["$ref"].rsplit("/", 1)[-1] for key, node in compiler["properties"].items()
+    }
+    assert compiler_types == {
+        key: "BoundedSemver" if key == "compiler_version" else "Sha256Digest"
+        for key in compiler["properties"]
+    }
+    for key, definition in compiler_types.items():
         resolved = common["definitions"][definition]
         assert resolved["type"] == "string"
-        assert set(resolved) & {"const", "enum", "pattern"}
+        assert resolved["pattern"] == (
+            verifier_impl._SEMVER_RE.pattern
+            if key == "compiler_version"
+            else verifier_impl._SHA256_RE.pattern
+        )
+
+
+def test_prepare_context_accepts_legitimate_string_boundaries() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    context = _client_preparation_context(cert, verification_context)
+    boundary_values = {
+        "expected_project_ref": ("A", "a" * 128),
+        "expected_build_session_ref": ("aa:" + "A" * 8, "a" * 64 + ":" + "A" * 128),
+        "expected_session_commitment_digest": ("sha256:" + "0" * 64,),
+        "expected_nonce": ("0" * 32, "f" * 64),
+        "expected_sdk_ref": ("0" * 40,),
+        "expected_sdk_version": ("0.0.0", "9999.9999.9999"),
+        "expected_issuer_key_ref": ("aa:" + "A" * 8, "a" * 64 + ":" + "A" * 128),
+        "expected_trust_ring_ref": ("aa:" + "A" * 8, "a" * 64 + ":" + "A" * 128),
+        "manifest_root_digest": ("sha256:" + "f" * 64,),
+        "client_attestor_version": ("0.0.0", "9999.9999.9999"),
+    }
+    for field_name, values in boundary_values.items():
+        for value in values:
+            assert getattr(replace(context, **{field_name: value}), field_name) == value
+
+    boundary_registers = tuple(
+        (key, "9999.9999.9999" if key == "compiler_version" else "sha256:" + "f" * 64)
+        for key, _ in context.expected_compiler_register_versions
+    )
+    assert (
+        replace(
+            context, expected_compiler_register_versions=boundary_registers
+        ).expected_compiler_register_versions
+        == boundary_registers
+    )
+
+
+def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> None:
+    schema_dir = Path(verifier_impl.__file__).resolve().parent.parent / "schemas" / "certification"
+    common = json.loads(
+        (schema_dir / "certification_common_v0_schema.json").read_text(encoding="utf-8")
+    )
+    unsigned = json.loads(
+        (schema_dir / "certificate_unsigned_manifest_v0_schema.json").read_text(encoding="utf-8")
+    )
+    payloads = json.loads(
+        (schema_dir / "certificate_claim_payloads_v0_schema.json").read_text(encoding="utf-8")
+    )
+
+    unsigned_properties = set(unsigned["definitions"]["UnsignedManifestV0"]["properties"])
+    assert unsigned_properties == (
+        verifier_impl._UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS
+        | verifier_impl._UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS
+    )
+    assert not (
+        verifier_impl._UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS
+        & verifier_impl._UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS
+    )
+
+    subject_properties = set(common["definitions"]["BuildSessionSubjectV0"]["properties"])
+    assert subject_properties == (
+        verifier_impl._SUBJECT_CLIENT_PINNED_FIELDS | verifier_impl._SUBJECT_SCHEMA_CONSTANT_FIELDS
+    )
+    assert not (
+        verifier_impl._SUBJECT_CLIENT_PINNED_FIELDS & verifier_impl._SUBJECT_SCHEMA_CONSTANT_FIELDS
+    )
+
+    g1_params = payloads["definitions"]["ClaimPayloadG1V0"]["properties"]["params"]
+    assert set(g1_params["properties"]) == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
+    assert set(g1_params["required"]) == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
+
+    pinned_nested = {
+        "subject": verifier_impl._SUBJECT_CLIENT_PINNED_FIELDS,
+        "disclosure_profile": {"profile_id"},
+        "privacy_mode": {"declared_mode"},
+        "sdk_identity": {"sdk_ref", "sdk_version"},
+        "compiler_register_versions": set(verifier_impl._COMPILER_REGISTER_KEYS),
+        "key_ring_identifiers": {
+            "issuer_key_ref",
+            "trust_ring_ref",
+            "issuer_signature_algorithm",
+            "client_key_ref",
+            "client_signature_algorithm",
+        },
+        "freshness": {"nonce"},
+    }
+    assert {
+        f"{section}.{field}"
+        for section, field_names in pinned_nested.items()
+        for field in field_names
+    } == verifier_impl._UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS
+    binding_paths = {
+        path.removeprefix("unsigned.")
+        for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
+        if path.startswith(("unsigned.", "subject."))
+    }
+    binding_paths.remove("compiler_register_versions")
+    binding_paths.update(
+        f"compiler_register_versions.{key}" for key in verifier_impl._COMPILER_REGISTER_KEYS
+    )
+    assert binding_paths == verifier_impl._UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS
+    directly_bound_g1_params = {
+        path.removeprefix("g1.payload.params.")
+        for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
+        if path.startswith("g1.payload.params.")
+    }
+    assert (
+        directly_bound_g1_params | set(verifier_impl._G1_CROSS_BOUND_PARAM_PATHS)
+        == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
+    )
+    assert verifier_impl._UNSIGNED_MANIFEST_SCHEMA_CONSTANT_LEAF_PATHS == {
+        "subject.subject_kind",
+        "subject.hash_algorithm",
+        "disclosure_profile.selective_disclosure_line",
+    }
 
 
 def test_prepare_context_requires_immutable_complete_compiler_register_pins() -> None:
@@ -876,10 +1092,26 @@ def test_prepare_rejects_schema_dependency_failure_distinctly(
     cert["signatures"].pop("co_attestation")
 
     def unavailable() -> None:
-        raise OSError("packaged resources unavailable")
+        raise verifier_impl.SchemaDependencyError("packaged resources unavailable")
 
     monkeypatch.setattr(verifier_impl, "_certificate_preparation_validator", unavailable)
     with pytest.raises(VerificationError, match="^CO_SCHEMA_DEPENDENCY$"):
+        prepare_client_co_attestation(
+            cert, context=_client_preparation_context(cert, verification_context)
+        )
+
+
+def test_prepare_does_not_mislabel_internal_defect_as_caller_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+
+    def defect(_: object) -> None:
+        raise RuntimeError("internal defect sentinel")
+
+    monkeypatch.setattr(verifier_impl, "_check_streams", defect)
+    with pytest.raises(RuntimeError, match="^internal defect sentinel$"):
         prepare_client_co_attestation(
             cert, context=_client_preparation_context(cert, verification_context)
         )
@@ -894,6 +1126,54 @@ def test_maximal_b1_g1_prepare_projection_stays_below_size_cap() -> None:
     )
 
     assert len(prepared.projection_bytes) <= verifier_impl._MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES
+
+
+def test_final_verification_does_not_apply_public_preparation_input_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cert, issuer, verification_context, policy = _sign_fixture(
+        claims=[_b1_claim(tier=3), _g1_claim(tier=1)]
+    )
+    prepare_response = copy.deepcopy(cert)
+    prepare_response["signatures"].pop("co_attestation")
+    preparation_context = _client_preparation_context(cert, verification_context)
+    assert not list(verifier_impl._certificate_validator().iter_errors(cert))
+
+    monkeypatch.setattr(verifier_impl, "_MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES", 1)
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(prepare_response, context=preparation_context)
+
+    result = verify_certificate(
+        cert,
+        issuer_public_key=issuer,
+        context=verification_context,
+        policy=policy,
+    )
+    assert result.valid
+
+
+def test_prepare_accepts_minimal_optional_evidence_reference_shape() -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    assert all(
+        "evidence_ref" not in evidence_ref
+        for claim in cert["claims"]
+        for evidence_ref in claim["evidence_refs"]
+    )
+
+    prepared = prepare_client_co_attestation(
+        cert, context=_client_preparation_context(cert, verification_context)
+    )
+    assert prepared.projection == cert
+
+
+def test_public_preparation_failure_vocabulary_is_closed() -> None:
+    assert CLIENT_CO_ATTESTATION_ERROR_CODES == {
+        "CO_CONTEXT",
+        "CO_G1_REQUIRED",
+        "CO_PROJECTION",
+        "CO_SCHEMA_DEPENDENCY",
+    }
 
 
 def test_prepare_rejects_noncanonical_or_unbounded_values() -> None:

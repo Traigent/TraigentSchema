@@ -41,6 +41,7 @@ from traigent_schema.version import __version__
 
 _CERTIFICATION_EXPORTS = frozenset(
     {
+        "CLIENT_CO_ATTESTATION_ERROR_CODES",
         "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS",
         "ClientCertificateProjection",
         "ClientCoAttestationContext",

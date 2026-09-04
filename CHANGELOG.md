@@ -30,12 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Reconstructing the former `VerificationResult(valid=True, code='VERIFIED')`
   without the reserved `status_evidence="issuer_status_snapshot"` now raises.
 - **Agent Certificate v0 signing and certification API** now use an issuer-first
-  prepare/finalize protocol: the issuer signs the length-prefixed canonical
-  unsigned manifest, `prepare` returns that single complete pre-co-attestation
-  certificate projection, and the client signs the complete issuer-signed
-  projection excluding only the outer co-attestation. Finalize conditionally
-  requires co-attestation for persisted G1/tier-1 projections; B1-only may
-  issue with issuer material alone.
+  prepare/finalize protocol for G1: the issuer signs the length-prefixed
+  canonical unsigned manifest, `prepare` returns that single complete
+  pre-co-attestation certificate projection, and the client signs the complete
+  issuer-signed projection excluding only the outer co-attestation. Finalize
+  preserves that prepared issuer projection and adds the client block. B1-only
+  issuance neither produces nor consumes `PrepareResponseV0`; it issues with
+  issuer material alone.
 - **Agent Certificate v0 G1** now uses the v2 pinned-client signed declaration and emits the
   exact honesty scope line. G1 payloads carry structurally adjacent build-session/client-key
   references and rendered text; client key references use deterministic project-scoped
@@ -64,7 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SDK, disclosure, issuer trust, compiler/register semantics, G1 commitment,
   client algorithm, and derived public-key identity cannot be selected by the
   issuer unnoticed. Issuer/compiler evidence remains co-signed as exact bytes
-  but is not represented as a client assertion of its truth.
+  but is not represented as a client assertion of its truth. Backend lifecycle
+  bounds (`expires_at`, `created_at`, and `finalized_at`) remain issuer/server
+  evidence outside `PrepareResponseV0`; the signed manifest nonce is the
+  client-pinned freshness input. Preparation failures use the closed
+  `CLIENT_CO_ATTESTATION_ERROR_CODES` vocabulary.
 - **`task_type` on `POST /api/v1/sessions`** (optional string, 1-128 chars): a COARSE,
   client-declared task category (`multiple_choice`, `exact_match`, `text2sql`,
   `code_generation`, `summarization`, ...) that the backend maps internally to an

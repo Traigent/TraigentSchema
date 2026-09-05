@@ -1087,7 +1087,17 @@ def test_certified_agent_v0_allowlist_covers_historical_findings_only() -> None:
             new=identity["new"],
         )
         assert identity["fingerprint"] == finding.fingerprint()
-        assert gate.find_allow_entry(finding, entries).entry is None
+        # PR #443 left these five unacknowledged on purpose so that the develop->main
+        # promotion would have to review them exactly. The 5.8.0 promotion (PR #448) did:
+        # each is now matched by ONE exact-fingerprint entry, never a pointer_prefix wildcard.
+        promotion_entry, promotion_identity = _exact_allow_entry(
+            entries, pr439["file"], pr439["rule"], identity["pointer"], identity["fingerprint"]
+        )
+        assert gate.find_allow_entry(finding, entries).entry is promotion_entry
+        assert "pointer_prefix" not in promotion_entry
+        assert promotion_entry["pr"] == "https://github.com/Traigent/TraigentSchema/pull/448"
+        assert promotion_entry["version"] == "5.8.0"
+        assert promotion_identity["subject"] == identity["subject"]
         newly_unacknowledged_fingerprints.append(identity["fingerprint"])
     assert len(set(newly_unacknowledged_fingerprints)) == len(newly_unacknowledged)
     unrelated = gate.Finding(

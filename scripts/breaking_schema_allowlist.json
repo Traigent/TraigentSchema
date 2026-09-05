@@ -1912,6 +1912,119 @@
           "fingerprint": "b3284eea53fee129253971b7d6461d0a29e44b19cc9ad336ae8fc0383e287e59"
         }
       ]
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "certificate_scope_line",
+          "old": false,
+          "new": true,
+          "fingerprint": "634cb4abb3f908236f76d92d636fecfee7ae1fce1a67d79801ae7031ba2629de"
+        },
+        {
+          "pointer": "#/properties/claims/items",
+          "role": "conservative",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "915805c8db35c64cd94697225cdea1a3f1b0bbeeed9d5e74875c7394fc829ab1"
+        },
+        {
+          "pointer": "#/properties/claims/items/properties/payload/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "d10be0eb07b8c5cce9a18f96de802c2e49d37693c1ef5078fa8eda72f3660e38"
+        },
+        {
+          "pointer": "#/properties/claims/items/properties/payload/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "98ad39e0955c5a1236478a1067e3e9d888b194c2f231642345f624e750ea67c8"
+        },
+        {
+          "pointer": "#/properties/subject",
+          "role": "conservative",
+          "subject": "project_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "7aa512d2d590c1b60b7b23dff29dfcdce64e2763f485d8937ab02a8bbb2da16e"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 5.8.0 (PR #448, develop dd9bb1ca -> main be5ba480). These are the five PR #440 required-field tightenings that PR #443 deliberately left unacknowledged so that promotion would have to review them exactly (its body: 'promotion from develop to main will require exact acknowledgement of the five deliberately unacknowledged PR #440 findings; do not restore the wildcard'). Reviewed 2026-09-05: certificate_scope_line joins the envelope's required set, rendered_text becomes required on every printed claim, build_session_ref and client_key_ref become required in the G1 client-evidence payload params, and project_ref becomes required in subject. All five are fail-closed tightenings of a v0 contract that no issuer serves yet (TraigentBackend exposes none of the certification endpoints and its vendored copy predates the family), so no live consumer or producer is narrowed; a Certified Agent v0 issuer must carry scope, claim text, build-session and client-key identity, and project scope or the relying-party checks in this package cannot bind them. Exact identities and fingerprints only; the wildcard is not restored.",
+      "version": "5.8.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/448"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "oneOf_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/measures/oneOf",
+          "role": "request",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "ec64a5b321fde77ab042b6be3391be5cc3cfa471b3dccc3818dfb5bb3038171e"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/metadata/properties/measures/oneOf",
+          "role": "request",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "ce697956b424a4b776f63234dac34188f4800c8f0a4fc9a2a37896a4a4884e6b"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 5.8.0 (PR #448). This is PR #437's measures / metadata.measures change (bare $ref to MeasureResults replaced by oneOf [MeasureResults, array<ExampleMetrics>], matching the backend's real _validate_submission_measures dispatch) seen through this endpoint file's $ref to session_submit_results_request_schema.json. #437 acknowledged it on the request schema file with the same evidence (test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained still pass); the endpoint file was not in #437's changed set, and #444 later touched it, so the promotion diff surfaces the projection here. Additive: the object branch is unchanged. Exact identities and fingerprints only.",
+      "version": "5.8.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/448"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/measures",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "object"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "33af761c05224b96d3bada84057f5946c45297bb0c7c449d502c3452525a6588"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/metadata/properties/measures",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "object"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "2847d1c3d6d6f94099e51dfb365de4a014340104b831e6f02286241d85544060"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 5.8.0 (PR #448). Paired with the oneOf_added acknowledgement above for the same two pointers: the gate reports 'type no longer allows object' because it does not resolve oneOf branches back to member types; the object (MeasureResults) branch is unchanged and an array (ExampleMetrics list) branch is now also accepted. Same PR #437 change, same evidence, reached through this endpoint file's $ref to session_submit_results_request_schema.json. Exact identities and fingerprints only.",
+      "version": "5.8.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/448"
     }
   ]
 }

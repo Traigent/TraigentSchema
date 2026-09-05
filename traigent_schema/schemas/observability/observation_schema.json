@@ -17,7 +17,7 @@
     "input_tokens": {
       "type": "integer",
       "minimum": 0,
-      "description": "DISJOINTNESS CONVENTION: EXCLUDES cache_read_tokens. Providers disagree natively -- Bedrock reports cache reads disjointly from inputTokens while OpenAI reports them as a SUBSET of prompt_tokens -- so producers normalize to the disjoint convention before emitting this field. A consumer multiplying this by a rate is pricing FRESH input only and must price cache_read_tokens separately at the cache-read rate. Records emitted before this contract lands may carry the provider-native convention and are NOT distinguishable by this field alone; see the Unreleased CHANGELOG entry."
+      "description": "DISJOINTNESS CONVENTION: EXCLUDES cache_read_tokens. Providers disagree natively -- Bedrock reports cache reads disjointly from inputTokens while OpenAI reports them as a SUBSET of prompt_tokens -- so producers normalize to the disjoint convention before emitting this field. A consumer multiplying this by a rate is pricing FRESH input only and must price cache_read_tokens separately at the cache-read rate. Records emitted before this contract lands may carry the provider-native convention and are NOT distinguishable by this field alone; see the 5.8.0 CHANGELOG entry."
     },
     "output_tokens": { "type": "integer", "minimum": 0 },
     "total_tokens": { "type": ["integer", "null"], "minimum": 0 },

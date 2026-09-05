@@ -424,6 +424,9 @@ def _client_preparation_context(
         client_attestor_version=params["client_attestor_version"],
         expected_client_algorithm=verification_context.expected_client_algorithm,
         client_public_key=verification_context.client_public_key,
+        issuer_public_key=_private_keys(
+            verification_context.expected_issuer_algorithm
+        )[0].public_key(),
     )
 
 
@@ -641,6 +644,64 @@ def test_prepare_accepts_prepare_projection_and_is_defensive(algorithm: str) -> 
     assert prepared.signed_manifest_digest == _digest(_CLIENT_CERTIFICATE_DOMAIN, original)
 
 
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_prepare_authenticates_issuer_signature_before_returning_signing_bytes(
+    algorithm: str,
+) -> None:
+    cert, _, verification_context, _ = _sign_fixture(algorithm)
+    cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+
+    prepared = prepare_client_co_attestation(cert, context=context)
+    assert prepared.signing_bytes
+
+    tampered = copy.deepcopy(cert)
+    tampered["signatures"]["issuer_signature"]["signature"] = base64.b64encode(
+        b"\x00" * 64
+    ).decode("ascii")
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(tampered, context=context)
+
+
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_prepare_rejects_wrong_issuer_public_key(algorithm: str) -> None:
+    cert, _, verification_context, _ = _sign_fixture(algorithm)
+    cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+    if algorithm == "ed25519":
+        wrong_issuer = ed25519.Ed25519PrivateKey.from_private_bytes(b"z" * 32)
+    else:
+        wrong_issuer = ec.derive_private_key(3, ec.SECP256R1())
+
+    with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
+        prepare_client_co_attestation(
+            cert,
+            context=replace(context, issuer_public_key=wrong_issuer.public_key()),
+        )
+
+
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_prepare_rejects_wrong_issuer_algorithm_or_key_type(algorithm: str) -> None:
+    cert, _, verification_context, _ = _sign_fixture(algorithm)
+    cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+    if algorithm == "ed25519":
+        wrong_key = ec.derive_private_key(3, ec.SECP256R1()).public_key()
+        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(b"z" * 32)
+        alternate_algorithm = "ecdsa_p256_sha256"
+    else:
+        wrong_key = ed25519.Ed25519PrivateKey.from_private_bytes(b"z" * 32).public_key()
+        private_key = ec.derive_private_key(3, ec.SECP256R1())
+        alternate_algorithm = "ed25519"
+
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        replace(context, issuer_public_key=wrong_key)
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        replace(context, issuer_public_key=private_key)
+    with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
+        replace(context, expected_issuer_algorithm=alternate_algorithm)
+
+
 def test_prepare_compiler_register_comparison_is_independent_of_json_key_order() -> None:
     cert, _, verification_context, _ = _sign_fixture()
     prepare_response = copy.deepcopy(cert)
@@ -845,17 +906,21 @@ def test_prepare_context_field_manifest_is_complete_and_content_free() -> None:
     context = _client_preparation_context(cert, verification_context)
     field_names = tuple(field.name for field in fields(ClientCoAttestationContext))
 
-    assert field_names == CLIENT_CO_ATTESTATION_CONTEXT_FIELDS
-    assert field_names == tuple(
+    assert field_names == CLIENT_CO_ATTESTATION_CONTEXT_FIELDS + (
+        "issuer_public_key",
+    )
+    assert CLIENT_CO_ATTESTATION_CONTEXT_FIELDS == tuple(
         field_name for field_name, _ in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
     )
+    assert verifier_impl._CLIENT_CO_ATTESTATION_TRUST_FIELDS == ("issuer_public_key",)
     assert len({path for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS}) == len(
-        field_names
+        CLIENT_CO_ATTESTATION_CONTEXT_FIELDS
     )
-    assert len(field_names) == 19
+    assert len(field_names) == 20
     bounded_string_fields = set(field_names) - {
         "expected_compiler_register_versions",
         "client_public_key",
+        "issuer_public_key",
     }
     assert len(bounded_string_fields) == 17
     for field_name in bounded_string_fields:
@@ -1360,20 +1425,31 @@ def test_prepare_does_not_mislabel_internal_defect_as_caller_projection(
         )
 
 
-def _schema_maximal_prepare_response() -> tuple[dict, dict, dict]:
-    cert, _, _, _ = _sign_fixture(claims=[_b1_claim(tier=3), _g1_claim(tier=1)])
+def _b1_g1_bounded_prepare_response() -> tuple[dict, ClientCoAttestationContext, dict, dict]:
+    cert, _, verification_context, _ = _sign_fixture(
+        claims=[_b1_claim(tier=3), _g1_claim(tier=1)]
+    )
     cert["signatures"].pop("co_attestation")
     unsigned = cert["signatures"]["unsigned_manifest"]["document"]
     max_opaque_ref = "a" * 64 + ":" + "A" * 128
     max_digest = "sha256:" + "f" * 64
+    max_project_ref = "a" * 128
+
+    issuer_algorithm = "ecdsa_p256_sha256"
+    _, client_key = _private_keys(issuer_algorithm)
+    client_public_key = client_key.public_key()
+    client_key_ref = verifier_impl.derive_client_key_ref(
+        max_project_ref, issuer_algorithm, client_public_key
+    )
 
     for subject in (cert["subject"], unsigned["subject"]):
-        subject["project_ref"] = "a" * 128
+        subject["project_ref"] = max_project_ref
         subject["build_session_ref"] = max_opaque_ref
         subject["session_commitment_digest"] = max_digest
     for seal in (cert["ledger_seal_projection"], unsigned["seal"]):
         seal["seal_ref"] = max_opaque_ref
         seal["build_session_ref"] = max_opaque_ref
+        seal["seal_statement_digest"] = verifier_impl._compute_seal_digest(seal)
     unsigned["privacy_mode"]["declared_mode"] = "current_online"
     unsigned["sdk_identity"] = {"sdk_ref": "f" * 40, "sdk_version": "9999.9999.9999"}
     unsigned["freshness"]["nonce"] = "f" * 64
@@ -1382,32 +1458,40 @@ def _schema_maximal_prepare_response() -> tuple[dict, dict, dict]:
     for key in ("issuer_key_ref", "trust_ring_ref"):
         unsigned["key_ring_identifiers"][key] = max_opaque_ref
         cert["signatures"]["issuer_signature"][key] = max_opaque_ref
-    unsigned["key_ring_identifiers"]["issuer_signature_algorithm"] = "ecdsa_p256_sha256"
-    unsigned["key_ring_identifiers"]["client_signature_algorithm"] = "ecdsa_p256_sha256"
-    cert["signatures"]["issuer_signature"]["algorithm"] = "ecdsa_p256_sha256"
+    unsigned["key_ring_identifiers"]["issuer_signature_algorithm"] = issuer_algorithm
+    unsigned["key_ring_identifiers"]["client_signature_algorithm"] = issuer_algorithm
+    unsigned["key_ring_identifiers"]["client_key_ref"] = client_key_ref
+    cert["signatures"]["issuer_signature"]["algorithm"] = issuer_algorithm
     unsigned["compiler_register_versions"]["compiler_version"] = "9999.9999.9999"
     cert["audit_report"]["compiler_register_versions"]["compiler_version"] = "9999.9999.9999"
     cert["audit_report"]["build_session_ref"] = max_opaque_ref
-
-    def digest(index: int) -> str:
-        return "sha256:" + format(index, "064x")
-
-    def evidence_ref(index: int, kind: str = "client_commitment_digest") -> dict:
-        return {
-            "evidence_kind": kind,
-            "evidence_digest": digest(index),
-            "evidence_ref": max_opaque_ref,
-        }
+    cert["audit_report"]["ledger_seal_statement_digest"] = cert["ledger_seal_projection"][
+        "seal_statement_digest"
+    ]
+    cert["audit_report"]["client_evidence_manifest_root"] = max_digest
+    cert["semantics"] = {
+        key: unsigned["compiler_register_versions"][key] for key in cert["semantics"]
+    }
 
     claims = []
-    for index in range(verifier_impl._MAX_SCHEMA_CLAIMS):
-        claim = copy.deepcopy(_b1_claim(tier=3) if index % 2 == 0 else _g1_claim(tier=1))
+    for source_claim in (_b1_claim(tier=3), _g1_claim(tier=1)):
+        claim = copy.deepcopy(source_claim)
         claim["verifier"]["verifier_version"] = "9999.9999.9999"
         for ref in claim["evidence_refs"]:
             ref["evidence_ref"] = max_opaque_ref
-        claim["evidence_refs"][1]["evidence_digest"] = digest(index + 100)
+        for ref in claim["evidence_refs"]:
+            if ref["evidence_kind"] == "audit_report_digest":
+                continue
+            ref["evidence_digest"] = (
+                cert["ledger_seal_projection"]["seal_statement_digest"]
+                if claim["claim_id"] == "B1"
+                else max_digest
+            )
         if claim["claim_id"] == "B1":
             claim["payload"]["params"]["seal_ref"] = max_opaque_ref
+            claim["payload"]["params"]["seal_statement_digest"] = cert[
+                "ledger_seal_projection"
+            ]["seal_statement_digest"]
             claim["rendered_text"] = (
                 "The issuer signed this seal statement: seal "
                 + max_opaque_ref
@@ -1416,11 +1500,13 @@ def _schema_maximal_prepare_response() -> tuple[dict, dict, dict]:
                 + "."
             )
         else:
+            claim["payload"]["params"]["manifest_root_digest"] = max_digest
             claim["payload"]["params"]["client_attestor_version"] = "9999.9999.9999"
             claim["payload"]["params"]["build_session_ref"] = max_opaque_ref
+            claim["payload"]["params"]["client_key_ref"] = client_key_ref
             claim["rendered_text"] = (
                 "The pinned client key co-signed the declaration that evidence-manifest root "
-                + claim["payload"]["params"]["manifest_root_digest"]
+                + max_digest
                 + " uses scheme sha256_secret_blinded_v1 and client attestor version "
                 "9999.9999.9999. The declaration is unopened; correspondence to, possession "
                 "of, and completeness of any underlying evidence are not proven."
@@ -1428,26 +1514,33 @@ def _schema_maximal_prepare_response() -> tuple[dict, dict, dict]:
         claims.append(claim)
     cert["claims"] = claims
     unsigned["claims"] = copy.deepcopy(claims)
-    claim_ids = ("B1", "REG1", "C1", "D2", "F1", "G1", "G3")
     unsigned["tiers"] = [
-        {"claim_id": claim_id, "tier": tier}
-        for claim_id in claim_ids
-        for tier in (1, 2, 3)
-    ][: verifier_impl._MAX_SCHEMA_CLAIMS]
-    unsigned["evidence_digests"] = [
-        {
-            "evidence_kind": "audit_report_digest",
-            "evidence_digest": digest(900_000),
-        }
-    ] + [
-        evidence_ref(index + 1_000)
-        for index in range(verifier_impl._MAX_SCHEMA_EVIDENCE_PROJECTION_ITEMS - 1)
+        {"claim_id": claim["claim_id"], "tier": claim["tier"]} for claim in claims
     ]
+    unsigned["evidence_digests"] = []
     for row in cert["audit_report"]["claim_support_rows"]:
-        if "verifier" in row:
-            row["verifier"]["verifier_id"] = "ver.cert." + "a" * 64
-            row["verifier"]["verifier_version"] = "9999.9999.9999"
-    return cert, evidence_ref(1), max(claims, key=lambda value: len(_compact_json(value)))
+        if row["claim_id"] in {"B1", "G1"}:
+            claim = next(claim for claim in claims if claim["claim_id"] == row["claim_id"])
+            row["verifier"] = copy.deepcopy(claim["verifier"])
+
+    _rebind_claim_material_and_audit(cert)
+    _resign_issuer(cert, issuer_algorithm)
+    verification_context = replace(
+        verification_context,
+        expected_nonce="f" * 64,
+        expected_build_session_ref=max_opaque_ref,
+        expected_issuer_key_ref=max_opaque_ref,
+        expected_issuer_algorithm=issuer_algorithm,
+        expected_trust_ring_ref=max_opaque_ref,
+        expected_client_key_ref=client_key_ref,
+        expected_client_algorithm=issuer_algorithm,
+        expected_project_ref=max_project_ref,
+        client_public_key=client_public_key,
+    )
+    preparation_context = _client_preparation_context(cert, verification_context)
+    return cert, preparation_context, claims[0]["evidence_refs"][0], max(
+        claims, key=lambda value: len(_compact_json(value))
+    )
 
 
 def _compact_json(value: object) -> bytes:
@@ -1509,26 +1602,25 @@ def _schema_value_depth(schema_path: Path, node: dict, stack: tuple[str, ...] = 
     return max(depths)
 
 
-def test_schema_maximal_prepare_projection_is_below_structural_size_bound() -> None:
-    cert, maximal_evidence_ref, maximal_claim = _schema_maximal_prepare_response()
-    schema_dir = Path(verifier_impl.__file__).resolve().parent.parent / "schemas" / "certification"
-    unsigned_schema = json.loads(
-        (schema_dir / "certificate_unsigned_manifest_v0_schema.json").read_text(encoding="utf-8")
+def test_b1_g1_bounded_prepare_projection_is_below_structural_size_bound() -> None:
+    cert, preparation_context, bounded_evidence_ref, largest_b1_g1_claim = (
+        _b1_g1_bounded_prepare_response()
     )
+    schema_dir = Path(verifier_impl.__file__).resolve().parent.parent / "schemas" / "certification"
     claims_schema = json.loads(
         (schema_dir / "certificate_claims_v0_schema.json").read_text(encoding="utf-8")
     )
 
     assert (
-        unsigned_schema["definitions"]["EvidenceDigestsProjectionV0"]["maxItems"]
-        == verifier_impl._MAX_SCHEMA_EVIDENCE_PROJECTION_ITEMS
+        claims_schema["definitions"]["ClaimV0"]["properties"]["evidence_refs"]["maxItems"]
+        == 64
     )
-    assert (
-        claims_schema["definitions"]["ClaimsArrayV0"]["maxItems"]
-        == verifier_impl._MAX_SCHEMA_CLAIMS
-    )
-    assert len(_compact_json(maximal_evidence_ref)) <= verifier_impl._MAX_SCHEMA_EVIDENCE_REF_BYTES
-    assert len(_compact_json(maximal_claim)) <= verifier_impl._MAX_SCHEMA_CLAIM_BYTES
+    assert [claim["claim_id"] for claim in cert["claims"]] == ["B1", "G1"]
+    assert all(len(claim["evidence_refs"]) == 2 for claim in cert["claims"])
+    assert len(cert["signatures"]["unsigned_manifest"]["document"]["evidence_digests"]) == 3
+    assert verifier_impl._MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES == 524_288
+    assert len(_compact_json(bounded_evidence_ref)) <= verifier_impl._MAX_SCHEMA_EVIDENCE_REF_BYTES
+    assert len(_compact_json(largest_b1_g1_claim)) <= verifier_impl._MAX_SCHEMA_CLAIM_BYTES
 
     fixed = copy.deepcopy(cert)
     fixed["claims"] = []
@@ -1539,6 +1631,8 @@ def test_schema_maximal_prepare_projection_is_below_structural_size_bound() -> N
     assert not list(verifier_impl._certificate_preparation_validator().iter_errors(cert))
     assert len(_compact_json(cert)) <= verifier_impl._MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES
     verifier_impl._preflight_client_projection(cert)
+    prepared = prepare_client_co_attestation(cert, context=preparation_context)
+    assert isinstance(prepared, ClientCertificateProjection)
 
 
 def test_prepare_depth_cap_has_headroom_over_complete_schema_graph() -> None:
@@ -1556,8 +1650,8 @@ def test_prepare_depth_cap_has_headroom_over_complete_schema_graph() -> None:
 
     normal, _, _, _ = _sign_fixture()
     normal["signatures"].pop("co_attestation")
-    maximal, _, _ = _schema_maximal_prepare_response()
-    for fixture in (normal, maximal):
+    bounded, _, _, _ = _b1_g1_bounded_prepare_response()
+    for fixture in (normal, bounded):
         assert not list(verifier_impl._certificate_preparation_validator().iter_errors(fixture))
         assert _json_value_depth(fixture) == schema_depth
         verifier_impl._preflight_client_projection(fixture)

@@ -175,6 +175,10 @@ _CLIENT_CO_ATTESTATION_PIN_BINDINGS = (
 CLIENT_CO_ATTESTATION_CONTEXT_FIELDS = tuple(
     field_name for field_name, _ in _CLIENT_CO_ATTESTATION_PIN_BINDINGS
 )
+# Public trust material is intentionally not represented as a projection path.
+# It authenticates the issuer signature over the unsigned manifest, while the
+# fields above remain the complete client-owned projection pin manifest.
+_CLIENT_CO_ATTESTATION_TRUST_FIELDS = ("issuer_public_key",)
 
 # Public preparation exposes only this closed, content-free failure vocabulary.
 CLIENT_CO_ATTESTATION_ERROR_CODES = frozenset(
@@ -402,8 +406,10 @@ class ClientCoAttestationContext:
 
     Only public verification material is accepted.  The helper derives the
     project-scoped key reference from ``client_public_key``; callers cannot ask
-    it to trust an independently supplied key reference.  Compiler/register
-    pins are an immutable tuple of tuples in the contract's canonical order.
+    it to trust an independently supplied key reference.  ``issuer_public_key``
+    authenticates the issuer signature before any client signing bytes are
+    returned.  Compiler/register pins are an immutable tuple of tuples in the
+    contract's canonical order.
     """
 
     expected_project_ref: str
@@ -425,6 +431,7 @@ class ClientCoAttestationContext:
     client_attestor_version: str
     expected_client_algorithm: str
     client_public_key: object
+    issuer_public_key: object
 
     def __post_init__(self) -> None:
         patterned_values = (
@@ -470,6 +477,16 @@ class ClientCoAttestationContext:
             type(self.expected_client_algorithm) is not str
             or self.expected_client_algorithm not in _SIGNATURE_ALGORITHMS
         ):
+            raise RelyingPartyVerificationError("CO_CONTEXT")
+        if self.expected_issuer_algorithm == "ed25519":
+            issuer_key_is_public = isinstance(
+                self.issuer_public_key, ed25519.Ed25519PublicKey
+            )
+        else:
+            issuer_key_is_public = isinstance(
+                self.issuer_public_key, ec.EllipticCurvePublicKey
+            ) and isinstance(self.issuer_public_key.curve, ec.SECP256R1)
+        if not issuer_key_is_public:
             raise RelyingPartyVerificationError("CO_CONTEXT")
         registers = self.expected_compiler_register_versions
         if type(registers) is not tuple or any(
@@ -630,13 +647,15 @@ def _certificate_preparation_validator() -> Draft7Validator:
     )
 
 
-# Conservative upper bound for every schema-valid PrepareResponseV0.  The
-# variable portion is bounded by the packaged schemas: at most 1,024 evidence
-# projection entries (each <= 384 compact-JSON bytes), plus 16 claims in each
-# of the printed and signed-manifest copies (each <= 2,048 bytes).  The closed
-# envelope, audit, non-claims, signatures, keys, punctuation, and array commas
-# fit within the remaining 64 KiB.  Tests construct the max-cardinality,
-# max-length shape and independently prove every component bound.
+# Fail-closed resource cap for prepare projections before schema and semantic
+# validation. The budget has conservative headroom for projections that can
+# pass the current B1/G1 restrictions; it is not an upper bound for every
+# generic schema branch. The generic ClaimV0 evidence_refs property has a
+# structural maxItems of 64, while the complete conditional ClaimV0 contract
+# admits only B1/G1 and fixes each printable claim to exactly two refs.
+# Production admits at most one B1 plus one G1. Larger invalid projections may
+# fail earlier with the same bounded CO_PROJECTION. The envelope budget below
+# retains broad structural headroom without changing the 512 KiB runtime cap.
 _MAX_SCHEMA_EVIDENCE_PROJECTION_ITEMS = 1_024
 _MAX_SCHEMA_EVIDENCE_REF_BYTES = 384
 _MAX_SCHEMA_CLAIMS = 16
@@ -823,6 +842,30 @@ def _validate_client_preparation_context(
     if projection_pins != expected_pins:
         _fail("CO_CONTEXT")
 
+    # The client must not co-sign an issuer projection until the issuer has
+    # authenticated the exact canonical unsigned manifest. Public-key type and
+    # algorithm mismatches are context failures; a wrong or tampered signature
+    # is a projection failure, all within the closed prepare API vocabulary.
+    try:
+        manifest_bytes = _manifest_bytes(unsigned)
+        _verify_signature(
+            context.issuer_public_key,
+            issuer["algorithm"],
+            _issuer_material(manifest_bytes),
+            issuer["signature"],
+        )
+    except RelyingPartyVerificationError as error:
+        if error.code in {"ALGORITHM", "KEY_ALGORITHM"}:
+            _fail("CO_CONTEXT")
+        if error.code in {
+            "SIGNATURE_BASE64",
+            "SIGNATURE_SCALAR",
+            "SIGNATURE_HIGH_S",
+            "SIGNATURE_INVALID",
+        }:
+            _fail("CO_PROJECTION")
+        raise
+
     # The client pins every client-originated or trust-defining manifest
     # field above.  Seal/claim/tier/evidence/non-claim and audit material is
     # issuer/compiler evidence: the client co-signs its exact bytes but does
@@ -842,13 +885,15 @@ def prepare_client_co_attestation(
     projection returned by the prepare endpoint.  ``context`` is frozen
     client-owned intent: scope, freshness, privacy and SDK identity, disclosure
     profile, compiler/register semantics, issuer trust pins, commitment
-    parameters, the expected client algorithm, and the client's public key.
+    parameters, the expected client algorithm, the client's public key, and the
+    issuer's pinned public verification key.
     Every value is compared before signing material is returned, preventing a
     caller from blindly signing a different project, session, trust context, or
     G1 commitment.
 
     This helper does not accept a final certificate or a private key, perform
-    signing, authenticate the issuer signature, use the network, or write.  A
+    signing, use the network, or write. It authenticates the issuer signature
+    with the context's pinned public key before returning signing bytes. A
     cold call reads installed packaged Schema resources to construct cached
     validators; later calls reuse them.
     """

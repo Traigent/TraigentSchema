@@ -15,12 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and functionally probes the plain wheel and checks the extra declaration;
   the separate compatibility-extra clean install remains manually executed
   release evidence rather than a second CI install job.
-- **Agent Certificate v0 client preparation bounds** now use a conservative
-  512 KiB structural cap derived from the schema's maximum evidence and claim
-  cardinalities plus measured per-entry, per-claim, and fixed-envelope bounds.
-  Tests construct the max-cardinality/max-length schema-valid projection and
-  reject input just over the cap. Final verification remains uncapped after
-  canonical schema validation.
+- **Agent Certificate v0 client preparation bounds** now use a fail-closed
+  512 KiB structural resource cap with conservative headroom for projections
+  that can pass the current B1/G1 semantic restrictions. This is not an upper
+  bound for every generic schema branch: the generic `ClaimV0.evidence_refs`
+  property has structural `maxItems: 64`, while the complete conditional
+  contract admits only B1/G1 and fixes each printable claim to exactly two refs;
+  production admits at most one B1 plus one G1. Larger invalid projections may
+  fail earlier with the same bounded `CO_PROJECTION` code. Final verification
+  remains uncapped after canonical schema validation.
 - **Agent Certificate v0 HTTP error contract** defines a certificate-specific,
   content-free Draft-07 contract. Every declared certificate-route error body
   is closed to `success`, `message`, `error`, and a status-pinned `error_code`;
@@ -68,13 +71,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Schema resources to build cached validators, while later calls reuse them.
   It handles no private keys, performs no signing, network access, writes, or
   external-state changes, and accepts only the bounded content-free projection.
-  Issuer signature authentication remains a separate relying-party step.
-  All 19 client/trust expectations are required and exposed through the ordered
-  `CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` manifest: session commitment, privacy,
-  SDK, disclosure, issuer trust, compiler/register semantics, G1 commitment,
-  G1 verifier identity/version, client algorithm, and derived public-key
-  identity cannot be selected by the issuer unnoticed. Issuer/compiler evidence
-  remains co-signed as exact bytes
+  The context requires the issuer's public verification key as additional
+  public-only trust material; `prepare_client_co_attestation` authenticates the
+  issuer signature over the canonical unsigned manifest before returning client
+  signing bytes. The 19 projection-pin expectations are required and exposed
+  through the ordered `CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` manifest: session
+  commitment, privacy, SDK, disclosure, issuer trust pins, compiler/register
+  semantics, G1 commitment, G1 verifier identity/version, client algorithm,
+  and derived public-key identity cannot be selected by the issuer unnoticed.
+  The issuer public key is trust material, not a projection field, and is not
+  included in that manifest. Issuer/compiler evidence remains co-signed as exact bytes
   but is not represented as a client assertion of its truth. Backend lifecycle
   bounds (`expires_at`, `created_at`, and `finalized_at`) remain issuer/server
   evidence outside `PrepareResponseV0`; the signed manifest nonce is the

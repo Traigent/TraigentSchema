@@ -96,16 +96,20 @@ For clients implementing the co-attestation step, Schema exposes
 `prepare_client_co_attestation(prepare_response, context=...)` together with
 the frozen `ClientCoAttestationContext`. Pass the exact issuer-signed G1
 projection returned by `prepare`, not a final certificate. The context states
-all 19 required client/trust pins: project, build session, session commitment,
+all 19 required projection pins: project, build session, session commitment,
 nonce, privacy mode, SDK ref/version, disclosure profile, issuer
 key/trust-ring/algorithm, the immutable ordered compiler/register tuple,
 G1 verifier identity/version, evidence-manifest root, commitment scheme,
 attestor version, client signature algorithm, and client public key.
 `CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` is the
-authoritative ordered field manifest for SDK bindings. The helper derives the
-project-scoped client key reference and compares every pin, the G1 declaration,
-the audit root, and the compiler-register-to-semantics relation before returning
-signing material. Its `ClientCertificateProjection` result contains a defensive
+authoritative ordered projection-pin manifest for SDK bindings. In addition,
+the context requires `issuer_public_key`, a public-only issuer trust key that
+is not a projection field and is therefore not included in that 19-field
+manifest. The helper derives the project-scoped client key reference, compares
+every projection pin, the G1 declaration, the audit root, and the
+compiler-register-to-semantics relation, then authenticates the issuer
+signature over the canonical unsigned manifest before returning signing
+material. Its `ClientCertificateProjection` result contains a defensive
 `projection`, immutable `projection_bytes`, frozen `signing_bytes`, and the
 role-domain `signed_manifest_digest`.
 
@@ -113,16 +117,19 @@ The helper is deterministic and offline. Its first call reads the installed
 package's Schema resources to build cached validators; later calls reuse those
 validators. It never accepts a private key, signs, performs network access or
 writes, or receives customer examples, agent/evaluator code, or response
-content. It validates that the prepare projection contains a structurally
-consistent issuer signature, but does not itself authenticate that signature;
-issuer trust remains a relying-party verification step.
+content. It validates the prepare projection's structure and authenticates its
+issuer signature with the pinned public issuer key; the caller remains
+responsible for selecting and pinning that trust key.
 
-Untrusted preparation input is capped by a conservative 512 KiB structural
-bound derived from the contract's maximum 1,024 evidence-projection entries,
-16 claims in each of the printed and signed-manifest copies, per-entry/per-claim
-JSON bounds, and a bounded fixed envelope allowance. The final verifier does
-not apply this transport preflight cap after the certificate has passed its
-canonical schema validation.
+Untrusted preparation input has a fail-closed 512 KiB structural resource cap,
+sized with conservative headroom for projections that can pass the current B1/G1
+semantic restrictions. It is not an upper bound for every generic schema branch:
+the generic `ClaimV0.evidence_refs` property has structural `maxItems: 64`, while
+the complete conditional contract admits only B1/G1 and fixes each printable
+claim to exactly two refs; production admits at most one B1 plus one G1. Larger
+invalid projections may fail earlier with the same bounded `CO_PROJECTION` code.
+The final verifier does not apply this transport preflight cap after the
+certificate has passed its canonical schema validation.
 
 The seal, claims, tiers, evidence references, non-claims, and audit rows are
 issuer/compiler evidence, not client assertions of truth; the helper checks
@@ -132,9 +139,9 @@ schema-owned constants. G1 verifier identity/version select trust semantics and
 are required client pins. Backend lifecycle freshness bounds such as
 `expires_at`, `created_at`, and `finalized_at` are issuer/server evidence outside
 `PrepareResponseV0`; the client pins the signed manifest nonce, not those
-transport-state fields. The caller must authenticate the issuer separately;
-the required issuer pins prevent a prepare response from silently selecting a
-different issuer identity or algorithm before that trust step.
+transport-state fields. The required issuer pins prevent a prepare response
+from silently selecting a different issuer identity or algorithm, while the
+pinned issuer public key authenticates the signed manifest before co-signing.
 
 Failures raise `RelyingPartyVerificationError`; its `.code` and string form
 are bounded, content-free values intended for safe logging. Public preparation

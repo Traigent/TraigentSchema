@@ -1168,6 +1168,77 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
         assert gate.find_allow_entry(finding, entries).entry is None
 
 
+def test_root_branch_count_allowlist_entries_are_exact() -> None:
+    entries = gate.load_allowlist(
+        REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
+    )
+    file_name = "certification/agent_certificate_v0_schema.json"
+    rule = "allOf_branch_count_changed"
+    pr439 = "https://github.com/Traigent/TraigentSchema/pull/439"
+    pr447 = "https://github.com/Traigent/TraigentSchema/pull/447"
+    expected = {
+        pr439: {
+            "pointer": "#/allOf",
+            "role": "conservative",
+            "subject": "allOf",
+            "old": 1,
+            "new": 2,
+            "fingerprint": "a427e5b472a302377a9fe66ce74dc00ce2289d5140cd0f38b479fc08536f073a",
+        },
+        pr447: {
+            "pointer": "#/allOf",
+            "role": "conservative",
+            "subject": "allOf",
+            "old": 3,
+            "new": 2,
+            "fingerprint": "24d1b6e21e0220a9547e882770277934c3bce6eb541477dd8347db589aabb0ad",
+        },
+    }
+    root_entries = {
+        entry["pr"]: entry
+        for entry in entries
+        if entry.get("file") == file_name
+        and entry.get("rule") == rule
+        and entry.get("pr") in expected
+        and entry.get("findings")
+        and entry["findings"][0].get("pointer") == "#/allOf"
+    }
+    assert set(root_entries) == set(expected)
+    for pr, entry in root_entries.items():
+        assert "pointer_prefix" not in entry
+        assert entry["findings"] == [expected[pr]]
+        identity = entry["findings"][0]
+        finding = gate.Finding(
+            file=file_name,
+            pointer=identity["pointer"],
+            rule=rule,
+            severity="BREAKING",
+            role=identity["role"],
+            message="exact historical root branch-count finding",
+            subject=identity["subject"],
+            old=identity["old"],
+            new=identity["new"],
+        )
+        assert identity["fingerprint"] == finding.fingerprint()
+        assert gate.find_allow_entry(finding, entries).entry is entry
+
+    future = gate.Finding(
+        file=file_name,
+        pointer="#/allOf",
+        rule=rule,
+        severity="BREAKING",
+        role="conservative",
+        message="future root branch-count finding",
+        subject="allOf",
+        old=2,
+        new=3,
+    )
+    assert future.fingerprint() == (
+        "916507b533a60bc52f4966d5715f195c39603ef3cfcb812d4abf782ca540decd"
+    )
+    assert gate.find_allow_entry(future, entries).entry is None
+
+
 def test_structured_acknowledgement_requires_an_exact_nonempty_rule() -> None:
     finding = gate.Finding(
         file="widgets/widget_request_schema.json",

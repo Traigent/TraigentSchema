@@ -46,10 +46,36 @@
     {
       "file": "certification/agent_certificate_v0_schema.json",
       "rule": "allOf_branch_count_changed",
-      "pointer_prefix": "#/allOf",
-      "reason": "The conditional branch expansion encodes the reconciled v0 claim and binding cases instead of accepting an ambiguous legacy shape at #/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 1,
+          "new": 2,
+          "fingerprint": "a427e5b472a302377a9fe66ce74dc00ce2289d5140cd0f38b479fc08536f073a"
+        }
+      ],
+      "reason": "PR #439 intentionally expanded the root allOf from one branch to two to encode the Certified Agent v0 envelope cases. This acknowledgement covers only that exact root identity; unrelated branch-count changes remain unacknowledged.",
       "version": "5.7.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 3,
+          "new": 2,
+          "fingerprint": "24d1b6e21e0220a9547e882770277934c3bce6eb541477dd8347db589aabb0ad"
+        }
+      ],
+      "reason": "PR #447 intentionally reduced the root allOf from three branches to two by removing a duplicate wrapper while preserving the Certified Agent v0 envelope constraints. This acknowledgement covers only that exact root identity; unrelated branch-count changes remain unacknowledged.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/447"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",

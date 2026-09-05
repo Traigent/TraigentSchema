@@ -63,6 +63,11 @@
       "paths_file": "./analytics/analytics_endpoints.json"
     },
     {
+      "name": "Agent Certificate v0",
+      "description": "Content-free Agent Certificate v0 build, binding, issuance, retrieval, and verification-material routes.",
+      "paths_file": "./certification/certification_endpoints_v0.json"
+    },
+    {
       "name": "SmartOps Planner V2",
       "description": "Additive Planner V2 decision, receipt, lifecycle, private resolution, and service-only shadow routes.",
       "paths_file": "./smartops_v2/smartops_v2_endpoints.json"
@@ -106,6 +111,11 @@
       "name": "Costs",
       "description": "Current backend persisted cost reporting routes.",
       "paths_file": "./costs/costs_endpoints.json"
+    },
+    {
+      "name": "Economics",
+      "description": "Current backend economics telemetry routes and the contract-first recommendation route.",
+      "paths_file": "./economics/economics_endpoints.json"
     },
     {
       "name": "MFA",

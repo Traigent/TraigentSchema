@@ -1,8 +1,172 @@
 # Traigent Schema Library
 
+## Agent Certificate v0 offline verification
+
+`traigent_schema.certification` contains the distributable relying-party
+verifier for the Agent Certificate v0 envelope. A relying party supplies the
+certificate JSON, the issuer P-256 or Ed25519 public key, a fresh
+`VerificationContext` (nonce, build-session reference, issuer key/trust-ring
+references, and—when claims are present—the client public key), and an
+explicit pinned `RelyingPartyPolicy` containing the compiler-register digests
+and verifier bindings it accepts. Verification performs JSON-Schema
+validation, fp2/JCS role-separated digest checks, projection/audit bindings,
+and low-S P-256 or Ed25519 signature checks without network, Backend, database,
+issuer callbacks, or private evidence.
+
+The B-v0 build-ledger profile is identified by the exact seal
+`chain_schema_version` `traigent.cert_build_ledger.v0`. Its public projection
+contains only the opaque seal reference, build-session reference, fixed stream
+family/status/root entries, and a role-separated seal-statement digest. The
+fixed mapping is `transition=sealed`, `receipt_event=sealed`, and
+`decision=empty_sealed`; all-zero synthetic roots and unsupported profiles are
+rejected. The verifier authenticates the exact signed projection, but cannot
+independently recompute Backend HMAC history or prove ledger completeness or
+omission resistance from public roots.
+
+```python
+from traigent_schema.certification import (
+    RelyingPartyPolicy, VerificationContext, verify_certificate,
+)
+
+result = verify_certificate(
+    certificate,
+    issuer_public_key=issuer_public_key,
+    context=context,
+    policy=pinned_policy,
+)
+```
+
+For a discovery bundle returned by the verification-materials endpoint, use
+`verify_certificate_with_materials`. The relying party must provide both the
+explicit `certificate_ref` and an independently pinned `expected_materials_digest`.
+Status-aware verification is the safe default: pass the complete retrieval
+response (all fields from `CertificateRetrievalResponseV0`), and verification
+requires `certificate_status.status == "active"` with both revocation fields
+set to `null`. A bare signed certificate is rejected with
+`CERTIFICATE_STATUS_UNKNOWN`; it can be used only for explicitly declared,
+offline signature-only verification with `require_status=False`:
+
+```python
+from traigent_schema.certification import verify_certificate_with_materials
+
+result = verify_certificate_with_materials(
+    certificate_or_retrieval_wrapper,
+    verification_materials,
+    certificate_ref=certificate_ref,
+    expected_materials_digest=expected_materials_digest,
+    context=context,
+)
+```
+
+Do not set `require_status=False` when revocation status is relevant. A supplied
+retrieval wrapper is always checked for the exact status shape and active/null
+status, even when that opt-out is set.
+
+Successful results distinguish cryptographic verification from status evidence:
+all currently available verification paths, including retrieval wrappers, return
+`code="VERIFIED_SIGNATURE_ONLY"` with `status_evidence="not_checked"`.
+Retrieval wrappers are shape-checked for an active/null status, but their
+unsigned status metadata is not authenticated and cannot establish current
+validity or non-revocation. The `VERIFIED` /
+`issuer_status_snapshot` pair is reserved for a future issuer-asserted status
+snapshot backed by an authenticated, freshness-bounded status-proof contract;
+the current v0 retrieval schema provides no such proof.
+
+The `cryptography` dependency is installed with the base package because the
+public verifier imports it unconditionally. The historical `certification`
+extra remains available as a no-op compatibility alias, so both
+`pip install traigent-schema` and `pip install "traigent-schema[certification]"`
+install the verifier. Current v0 emits B1 and G1;
+REG1, C1, D2, F1, and G3 are the five fixed abstentions.
+
+The certification API has two explicit issuance branches. B1-only issuance
+neither produces nor consumes `PrepareResponseV0`; it finalizes with issuer
+material alone. The G1 branch uses an issuer-first signing flow: `prepare`
+returns one content-free, issuer-signed certificate projection in its final
+canonical wire shape, with the outer `signatures.co_attestation` member absent.
+The issuer projection excludes that client co-attestation; the client canonicalizes the
+exact issuer-signed projection, which includes `issuer_signature` and excludes
+only its own outer `co_attestation`, and signs it; it must not rebuild or pair
+it with a separate unsigned-manifest response. `finalize` validates the
+persisted prepared projection and requires the co-attestation because that
+projection has G1/tier 1. Finalization preserves the exact prepared issuer
+projection and adds only the client's outer co-attestation block.
+
+For clients implementing the co-attestation step, Schema exposes
+`prepare_client_co_attestation(prepare_response, context=...)` together with
+the frozen `ClientCoAttestationContext`. Pass the exact issuer-signed G1
+projection returned by `prepare`, not a final certificate. The context states
+all 19 required projection pins: project, build session, session commitment,
+nonce, privacy mode, SDK ref/version, disclosure profile, issuer
+key/trust-ring/algorithm, the immutable ordered compiler/register tuple,
+G1 verifier identity/version, evidence-manifest root, commitment scheme,
+attestor version, client signature algorithm, and client public key.
+`CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` is the
+authoritative ordered projection-pin manifest for SDK bindings. In addition,
+the context requires `issuer_public_key`, a public-only issuer trust key that
+is not a projection field and is therefore not included in that 19-field
+manifest. The helper derives the project-scoped client key reference, compares
+every projection pin, the G1 declaration, the audit root, and the
+compiler-register-to-semantics relation, then authenticates the issuer
+signature over the canonical unsigned manifest before returning signing
+material. Its `ClientCertificateProjection` result contains a defensive
+`projection`, immutable `projection_bytes`, frozen `signing_bytes`, and the
+role-domain `signed_manifest_digest`.
+
+The helper is deterministic and offline. Its first call reads the installed
+package's Schema resources to build cached validators; later calls reuse those
+validators. It never accepts a private key, signs, performs network access or
+writes, or receives customer examples, agent/evaluator code, or response
+content. It validates the prepare projection's structure and authenticates its
+issuer signature with the pinned public issuer key; the caller remains
+responsible for selecting and pinning that trust key.
+
+Untrusted preparation input has a fail-closed 512 KiB structural resource cap,
+sized with conservative headroom for projections that can pass the current B1/G1
+semantic restrictions. It is not an upper bound for every generic schema branch:
+the generic `ClaimV0.evidence_refs` property has structural `maxItems: 64`, while
+the complete conditional contract admits only B1/G1 and fixes each printable
+claim to exactly two refs; production admits at most one B1 plus one G1. Larger
+invalid projections may fail earlier with the same bounded `CO_PROJECTION` code.
+The final verifier does not apply this transport preflight cap after the
+certificate has passed its canonical schema validation.
+
+The seal, claims, tiers, evidence references, non-claims, and audit rows are
+issuer/compiler evidence, not client assertions of truth; the helper checks
+their schema and deterministic cross-projections, then co-signs their exact
+bytes. Fixed envelope scope text and the G1 verifier result `PASS` are
+schema-owned constants. G1 verifier identity/version select trust semantics and
+are required client pins. Backend lifecycle freshness bounds such as
+`expires_at`, `created_at`, and `finalized_at` are issuer/server evidence outside
+`PrepareResponseV0`; the client pins the signed manifest nonce, not those
+transport-state fields. The required issuer pins prevent a prepare response
+from silently selecting a different issuer identity or algorithm, while the
+pinned issuer public key authenticates the signed manifest before co-signing.
+
+Failures raise `RelyingPartyVerificationError`; its `.code` and string form
+are bounded, content-free values intended for safe logging. Public preparation
+codes are enumerated by `CLIENT_CO_ATTESTATION_ERROR_CODES`. A successful
+result proves the supplied envelope, signatures, projections, and declared
+bindings are internally consistent and match the relying party's pins. It
+does not prove that a G1 commitment is truthful or complete, recover the
+committed client artifacts, establish deployment identity/runtime behavior, or
+interpret opaque issuer ledger roots. The Backend endpoint/distribution
+integration remains a separate concern.
+
 The official contract package for the Traigent AI optimization platform. This
 repository is the shared source of truth for JSON Schema definitions, endpoint
 mappings, and validation utilities used across the backend, SDK, and frontend.
+
+### Certificate-route error contract
+
+The declared contract for Agent Certificate v0 HTTP error responses permits
+only the fixed `success: false`, `message`, `error`, and status-selected
+`error_code` fields. Request content, exception text, diagnostic maps, and
+nested values are not representable. The contract deliberately does not reuse
+the generic error envelope, whose message/error/details fields can carry
+customer response content, agent/evaluator code, or evaluation-dataset
+examples. This contract declaration does not establish Backend runtime
+conformance.
 
 > **Before you push:** run `make install-hooks` once per clone, then
 > `make local-gate` before every push. The local gate mirrors the cloud CI
@@ -13,11 +177,19 @@ mappings, and validation utilities used across the backend, SDK, and frontend.
 
 ## Installation
 
-For published package consumers:
+For published package consumers, including users of the offline Agent
+Certificate verifier:
 
 ```bash
 pip install traigent-schema
 ```
+
+The base package includes the verifier's `cryptography` runtime dependency.
+The historical `certification` extra remains a supported no-op compatibility
+alias; requesting it is not required. CI clean-installs and functionally probes
+the plain wheel and checks that the compatibility extra is declared. The
+separate clean installation of `traigent-schema[certification]` is release
+evidence run manually; it is not currently a second CI installation job.
 
 For coordinated workspace development or release validation from GitHub
 (requires repository access):
@@ -220,7 +392,7 @@ mypy traigent_schema
 
 ## Version
 
-Current release line: **5.7.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
+Current release line: **5.8.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
 
 The 5.4 register additions are documentation-only annotations: `invite_token` and the portal's
 unified `registration_code` wire field remain unconstrained by validating keywords so every

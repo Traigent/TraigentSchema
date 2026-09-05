@@ -26,16 +26,20 @@ classifiers = [
 keywords = ["traigent", "schema", "validation", "json-schema", "api"]
 
 dependencies = [
+    "cryptography>=46.0.0,<51.0.0",
     "jsonschema>=4.17.0",
     "referencing>=0.30.0",
     "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
+# Kept as a compatibility extra for consumers that historically requested it.
+certification = []
 dev = [
+    "tomli>=2.0; python_version < '3.11'",
     "pytest>=9.0.3",  # CVE-2025-71176
     "pytest-cov>=4.0",
-    "ruff==0.16.0",  # Exact pin (parity with TraigentBackend/traigent-smartopt): reproducible `ruff check` across machines/CI. Lint-only gate; not format-gated.
+    "ruff==0.16.5",  # Exact pin (parity with TraigentBackend/traigent-smartopt): reproducible `ruff check` across machines/CI. Lint-only gate; not format-gated.
     "mypy>=1.0,<3",
 ]
 

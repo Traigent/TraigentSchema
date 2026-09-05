@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_audit_report_v0_schema.json",
+  "title": "Agent Certificate v0 Pre-Issuance Audit Report",
+  "description": "Content-free pre-issuance audit report. It has exactly one closed evidence_basis on each of the seven fixed rows: issuer_verified, client_declared, or abstained. B1 may be issuer_verified only when its issuer-operated seal continuity/root/signature-envelope contract passes; G1 is client_declared only and never issuer_verified. Unsupported rows are explicit abstentions. The report digest is role-separated: sha256 over UTF8(traigent.agent_certificate.audit_report.v1) || 0x00 || jcs_v1(this report).",
+  "definitions": {
+    "EvidenceBasisV0": {
+      "description": "The sole evidence classification for an audit row. issuer_verified is an issuer assertion backed by the registered verifier contract; client_declared records only a signed client declaration; abstained means no supported assertion is printed.",
+      "type": "string",
+      "enum": ["issuer_verified", "client_declared", "abstained"]
+    },
+    "AbstentionCodeV0": {
+      "description": "Closed abstention vocabulary for unsupported rows.",
+      "type": "string",
+      "enum": [
+        "unregistered_claim_id",
+        "missing_or_versionless_verifier",
+        "verifier_not_run_or_not_pass",
+        "missing_evidence_binding",
+        "prohibited_register_violation"
+      ]
+    },
+    "ClaimSupportRowV0": {
+      "description": "One closed audit row. An issuer_verified or client_declared row binds a populated PASS verifier and exact claim material (claim_id, tier, payload, verifier, non-audit evidence_refs, and rendered_text); an abstained row binds only one closed reason code. support_status is intentionally not part of v0: evidence_basis is the single classification field.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "evidence_basis"],
+      "properties": {
+        "claim_id": {"$ref": "certificate_claims_v0_schema.json#/definitions/ClaimIdV0"},
+        "evidence_basis": {"$ref": "#/definitions/EvidenceBasisV0"},
+        "verifier": {"$ref": "certificate_claims_v0_schema.json#/definitions/VerifierRefV0"},
+        "abstention_code": {"$ref": "#/definitions/AbstentionCodeV0"},
+        "claim_material_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"evidence_basis": {"enum": ["issuer_verified", "client_declared"]}},
+            "required": ["evidence_basis"]
+          },
+          "then": {"required": ["verifier", "claim_material_digest"], "not": {"required": ["abstention_code"]}},
+          "else": {"required": ["abstention_code"], "not": {"anyOf": [{"required": ["verifier"]}, {"required": ["claim_material_digest"]}]}}
+        }
+      ]
+    },
+    "ClaimSupportRowsV0": {
+      "description": "Exactly seven ordered rows: B1, REG1, C1, D2, F1, G1, G3. B1 is either issuer_verified or abstained; G1 is either client_declared or abstained; all other rows are abstained in v0. Missing, duplicate, extra, or reordered rows are schema-invalid.",
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "additionalItems": false,
+      "items": [
+        {"oneOf": [
+          {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "B1"}, "evidence_basis": {"const": "issuer_verified"}}}]},
+          {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "B1"}, "evidence_basis": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}]}
+        ]},
+        {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "REG1"}, "evidence_basis": {"const": "abstained"}, "abstention_code": {"const": "unregistered_claim_id"}}}]},
+        {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "C1"}, "evidence_basis": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}]},
+        {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "D2"}, "evidence_basis": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}]},
+        {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "F1"}, "evidence_basis": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}]},
+        {"oneOf": [
+          {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "G1"}, "evidence_basis": {"const": "client_declared"}}}]},
+          {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "G1"}, "evidence_basis": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}]}
+        ]},
+        {"allOf": [{"$ref": "#/definitions/ClaimSupportRowV0"}, {"properties": {"claim_id": {"const": "G3"}, "evidence_basis": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}}}]}
+      ]
+    },
+    "AuditReportV0": {
+      "description": "Complete typed audit report. build_session_ref, ledger_seal_statement_digest, compiler_register_versions, and the G1 root bind the report to the certificate. The complete report is carried at the certificate's top level and its role-separated digest is the first signed evidence_digests entry.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "build_session_ref", "client_evidence_manifest_root", "ledger_seal_statement_digest", "compiler_register_versions", "claim_support_rows"],
+      "properties": {
+        "schema_version": {"const": "traigent.certificate_audit_report.v0"},
+        "build_session_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "client_evidence_manifest_root": {
+          "oneOf": [
+            {"type": "null"},
+            {"allOf": [{"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}, {"not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}}]}
+          ]
+        },
+        "ledger_seal_statement_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "compiler_register_versions": {"$ref": "certification_common_v0_schema.json#/definitions/CompilerRegisterVersionsV0"},
+        "claim_support_rows": {"$ref": "#/definitions/ClaimSupportRowsV0"}
+      }
+    }
+  },
+  "allOf": [{"$ref": "#/definitions/AuditReportV0"}]
+}

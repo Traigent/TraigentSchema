@@ -29,7 +29,6 @@
     }
   },
   "x-stability": "pre-release",
-  "x-asserted-against-backend": false,
   "x-backend-obligations": [
     "IDEMPOTENT PERSISTENCE: the same idempotency_key must replay the first result and never re-apply the batch. The same event_id inside a later batch is a duplicate, counted as duplicate, never stored twice.",
     "IMMUTABILITY: stored events are append-only. A differing body under an already-seen event_id/idempotency_key is a conflict, not an update.",
@@ -38,6 +37,5 @@
     "PROPOSER != VERIFIER: receipt attestation independence must be enforced at ingestion.",
     "HEADER/BODY AGREEMENT: when the Idempotency-Key header and body idempotency_key are both present they must match.",
     "SHARING POLICY: the client is the enforcement point for field-level sharing. The backend must not infer or reconstruct a withheld value from other fields; a withheld field is absent by design, not missing data to be filled in."
-  ],
-  "x-traigent-note": "Contract-first per the workspace cross-repo rule: this schema lands before backend ingestion and SDK emission. It is registered under the planned (non-canonical) contract root and is NOT asserted against backend parity — no backend route serves it yet."
+  ]
 }

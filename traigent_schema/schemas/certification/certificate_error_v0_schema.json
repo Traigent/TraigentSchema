@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/certificate_error_v0_schema.json",
+  "title": "Agent Certificate v0 Content-Free Error",
+  "description": "Declared certificate-route error body contract. Exactly four fixed fields are permitted; request content, exception text, diagnostic details, and arbitrary nested values are not representable. Repeating the same fixed value in error and error_code deliberately preserves Shape-A compatibility.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "message", "error", "error_code"],
+  "properties": {
+    "success": {"const": false},
+    "message": {
+      "enum": [
+        "Invalid request",
+        "Authentication required",
+        "Authorization denied",
+        "Not found",
+        "State conflict",
+        "Request too large",
+        "Internal server error",
+        "Service unavailable"
+      ]
+    },
+    "error": {
+      "enum": [
+        "invalid_request",
+        "authentication_required",
+        "authorization_denied",
+        "not_found",
+        "state_conflict",
+        "request_too_large",
+        "internal_error",
+        "service_unavailable"
+      ]
+    },
+    "error_code": {
+      "enum": [
+        "invalid_request",
+        "authentication_required",
+        "authorization_denied",
+        "not_found",
+        "state_conflict",
+        "request_too_large",
+        "internal_error",
+        "service_unavailable"
+      ]
+    }
+  },
+  "oneOf": [
+    {"$ref": "#/definitions/InvalidRequestV0"},
+    {"$ref": "#/definitions/AuthenticationRequiredV0"},
+    {"$ref": "#/definitions/AuthorizationDeniedV0"},
+    {"$ref": "#/definitions/NotFoundV0"},
+    {"$ref": "#/definitions/StateConflictV0"},
+    {"$ref": "#/definitions/RequestTooLargeV0"},
+    {"$ref": "#/definitions/InternalErrorV0"},
+    {"$ref": "#/definitions/ServiceUnavailableV0"}
+  ],
+  "definitions": {
+    "InvalidRequestV0": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Invalid request"},
+        "error": {"const": "invalid_request"},
+        "error_code": {"const": "invalid_request"}
+      }
+    },
+    "AuthenticationRequiredV0": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Authentication required"},
+        "error": {"const": "authentication_required"},
+        "error_code": {"const": "authentication_required"}
+      }
+    },
+    "AuthorizationDeniedV0": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Authorization denied"},
+        "error": {"const": "authorization_denied"},
+        "error_code": {"const": "authorization_denied"}
+      }
+    },
+    "NotFoundV0": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Not found"},
+        "error": {"const": "not_found"},
+        "error_code": {"const": "not_found"}
+      }
+    },
+    "StateConflictV0": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "State conflict"},
+        "error": {"const": "state_conflict"},
+        "error_code": {"const": "state_conflict"}
+      }
+    },
+    "RequestTooLargeV0": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Request too large"},
+        "error": {"const": "request_too_large"},
+        "error_code": {"const": "request_too_large"}
+      }
+    },
+    "InternalErrorV0": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Internal server error"},
+        "error": {"const": "internal_error"},
+        "error_code": {"const": "internal_error"}
+      }
+    },
+    "ServiceUnavailableV0": {
+      "type": "object", "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Service unavailable"},
+        "error": {"const": "service_unavailable"},
+        "error_code": {"const": "service_unavailable"}
+      }
+    }
+  }
+}

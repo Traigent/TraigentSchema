@@ -89,7 +89,6 @@
     }
   },
   "x-stability": "pre-release",
-  "x-asserted-against-backend": false,
   "x-backend-obligations": [
     "COUNT RECONCILIATION: accepted + duplicate + rejected == submitted must hold. The four counts are bounded independently; JSON Schema cannot relate them, so the identity is enforced at the boundary that emits the response.",
     "REJECTIONS RECONCILE WITH COUNT: rejections is required and defaults to an empty array, but its length must equal counts.rejected and every entry's event_index must address a real event in the submitted batch. A response with counts.rejected > 0 and rejections == [] is contract-valid (length cannot be related to a sibling integer here) and MUST be rejected at the boundary; an empty rejections array is truthful only when counts.rejected == 0.",

@@ -2,6 +2,426 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced. This acknowledgement is scoped only to this exact pointer and fingerprint.",
+      "version": "5.7.0",
+      "pr": "#447",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 3,
+          "new": 2,
+          "fingerprint": "5a0a125f11b3a495527f368993f951a6c955361076a4ac044462282050b1dc4b"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_verification_materials_v0_schema.json",
+      "rule": "minItems",
+      "pointer_prefix": "#/properties/relying_party_policy/properties/verifier_bindings",
+      "reason": "The materials policy is intentionally tightened to the runtime's exact ordered B1/G1 verifier contract, so omitted or reversed bindings fail closed instead of describing a policy the verifier cannot execute. This is an intentional Agent Certificate v0 correction reviewed under owner-authorized ChangeSession cs_3e01e0344f7b19eb and parity acknowledgement cs_a3a1c535f699b367; the exact schema boundary is covered here.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "audit_report",
+          "old": false,
+          "new": true,
+          "fingerprint": "96e805f2d4768a6cc7fdc0230e71e6722499960480374e1c6b2164e6ab6135a9"
+        }
+      ],
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance. This exact acknowledgement is limited to the historical audit_report addition at the root and cannot authorize unrelated future required members. It is the intentional pre-issuance Certified Agent v0 change reviewed under owner-approved ChangeSession cs_34ba73b31d41f73d and packet pkt_53c7a4477a3210bd; Backend and SDK propagation is coordinated under that packet.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 1,
+          "new": 2,
+          "fingerprint": "a427e5b472a302377a9fe66ce74dc00ce2289d5140cd0f38b479fc08536f073a"
+        }
+      ],
+      "reason": "PR #439 intentionally expanded the root allOf from one branch to two to encode the Certified Agent v0 envelope cases. This acknowledgement covers only that exact root identity; unrelated branch-count changes remain unacknowledged.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 3,
+          "new": 2,
+          "fingerprint": "24d1b6e21e0220a9547e882770277934c3bce6eb541477dd8347db589aabb0ad"
+        }
+      ],
+      "reason": "PR #447 intentionally reduced the root allOf from three branches to two by removing a duplicate wrapper while preserving the Certified Agent v0 envelope constraints. This acknowledgement covers only that exact root identity; unrelated branch-count changes remain unacknowledged.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/447"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/audit_report",
+      "reason": "The added closed-boundary member carries the complete signed certificate evidence needed by the v0 verifier at #/properties/audit_report. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "pointer_prefix": "#/properties/claims/items/allOf",
+      "reason": "The conditional branch expansion encodes the reconciled v0 claim and binding cases instead of accepting an ambiguous legacy shape at #/properties/claims/items/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "enum",
+      "pointer_prefix": "#/properties/claims/items/properties/evidence_refs/items/properties/evidence_kind",
+      "reason": "The vocabulary expansion registers the role-separated audit/client evidence kinds required by the v0 certificate projection at #/properties/claims/items/properties/evidence_refs/items/properties/evidence_kind. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/4/properties/params",
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/properties/claims/items/properties/payload/oneOf/4/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "property_removed",
+      "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/4/properties/params/properties/signed_manifest_digest",
+      "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/properties/claims/items/properties/payload/oneOf/4/properties/params/properties/signed_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "type",
+      "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest",
+      "reason": "The type tightening makes the load-bearing digest binding explicit and rejects the previously ambiguous legacy representation at #/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "allOf_added",
+      "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest/allOf",
+      "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/6/properties/params",
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/properties/claims/items/properties/payload/oneOf/6/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "property_removed",
+      "pointer_prefix": "#/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/cosigned_manifest_digest",
+      "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/cosigned_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "allOf_added",
+      "pointer_prefix": "#/properties/ledger_seal_projection/allOf",
+      "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/properties/ledger_seal_projection/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/properties/ledger_seal_projection/properties/expected_stream_projection/properties/decision_stream/allOf/0/properties/root_commitment",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/ledger_seal_projection/properties/expected_stream_projection/properties/decision_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/properties/ledger_seal_projection/properties/expected_stream_projection/properties/receipt_event_stream/allOf/0/properties/root_commitment",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/ledger_seal_projection/properties/expected_stream_projection/properties/receipt_event_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/properties/ledger_seal_projection/properties/expected_stream_projection/properties/transition_stream/allOf/0/properties/root_commitment",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/ledger_seal_projection/properties/expected_stream_projection/properties/transition_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/properties/signatures/properties/co_attestation/properties/signature",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/signatures/properties/co_attestation/properties/signature. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/properties/signatures/properties/issuer_signature/properties/signature",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/properties/signatures/properties/issuer_signature/properties/signature. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/properties/signatures/properties/unsigned_manifest",
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/properties/signatures/properties/unsigned_manifest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/signatures/properties/unsigned_manifest/properties/document",
+      "reason": "The added closed-boundary member carries the complete signed certificate evidence needed by the v0 verifier at #/properties/signatures/properties/unsigned_manifest/properties/document. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/allOf/0/oneOf/4/properties/params",
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/oneOf/4/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "property_removed",
+      "pointer_prefix": "#/allOf/0/oneOf/4/properties/params/properties/signed_manifest_digest",
+      "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/allOf/0/oneOf/4/properties/params/properties/signed_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "type",
+      "pointer_prefix": "#/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest",
+      "reason": "The type tightening makes the load-bearing digest binding explicit and rejects the previously ambiguous legacy representation at #/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "allOf_added",
+      "pointer_prefix": "#/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest/allOf",
+      "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/allOf/0/oneOf/5/properties/params/properties/manifest_root_digest/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/allOf/0/oneOf/6/properties/params",
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/oneOf/6/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "property_removed",
+      "pointer_prefix": "#/allOf/0/oneOf/6/properties/params/properties/cosigned_manifest_digest",
+      "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/allOf/0/oneOf/6/properties/params/properties/cosigned_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "pointer_prefix": "#/allOf/0/oneOf/0/allOf",
+      "reason": "The conditional branch expansion encodes the reconciled v0 claim and binding cases instead of accepting an ambiguous legacy shape at #/allOf/0/oneOf/0/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "enum",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/evidence_refs/items/properties/evidence_kind",
+      "reason": "The vocabulary expansion registers the role-separated audit/client evidence kinds required by the v0 certificate projection at #/allOf/0/oneOf/0/properties/evidence_refs/items/properties/evidence_kind. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/4/properties/params",
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/oneOf/0/properties/payload/oneOf/4/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "property_removed",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/4/properties/params/properties/signed_manifest_digest",
+      "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/allOf/0/oneOf/0/properties/payload/oneOf/4/properties/params/properties/signed_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "type",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest",
+      "reason": "The type tightening makes the load-bearing digest binding explicit and rejects the previously ambiguous legacy representation at #/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "allOf_added",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest/allOf",
+      "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/manifest_root_digest/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params",
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "property_removed",
+      "pointer_prefix": "#/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params/properties/cosigned_manifest_digest",
+      "reason": "The removed self-referential digest member prevents stale pre-issuance claim fields from being emitted or mistaken for independent evidence at #/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params/properties/cosigned_manifest_digest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_evidence_refs_v0_schema.json",
+      "rule": "enum",
+      "pointer_prefix": "#/allOf/0/properties/evidence_kind",
+      "reason": "The vocabulary expansion registers the role-separated audit/client evidence kinds required by the v0 certificate projection at #/allOf/0/properties/evidence_kind. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_ledger_seals_v0_schema.json",
+      "rule": "allOf_added",
+      "pointer_prefix": "#/allOf/0/allOf",
+      "reason": "The added conditional constraint enforces the v0 fail-closed binding/profile rule at the schema boundary at #/allOf/0/allOf. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_ledger_seals_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/properties/expected_stream_projection/properties/decision_stream/allOf/0/properties/root_commitment",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/expected_stream_projection/properties/decision_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_ledger_seals_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/properties/expected_stream_projection/properties/receipt_event_stream/allOf/0/properties/root_commitment",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/expected_stream_projection/properties/receipt_event_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_ledger_seals_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/properties/expected_stream_projection/properties/transition_stream/allOf/0/properties/root_commitment",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/expected_stream_projection/properties/transition_stream/allOf/0/properties/root_commitment. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/properties/co_attestation/properties/signature",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/co_attestation/properties/signature. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "pattern",
+      "pointer_prefix": "#/allOf/0/properties/issuer_signature/properties/signature",
+      "reason": "The pattern tightening enforces the canonical v0 digest/signature or non-synthetic-root representation at the wire boundary at #/allOf/0/properties/issuer_signature/properties/signature. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "required",
+      "pointer_prefix": "#/allOf/0/properties/unsigned_manifest",
+      "reason": "The required-set change makes the pre-issuance certificate binding explicit so incomplete legacy records fail closed before issuance at #/allOf/0/properties/unsigned_manifest. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/allOf/0/properties/unsigned_manifest/properties/document",
+      "reason": "The added closed-boundary member carries the complete signed certificate evidence needed by the v0 verifier at #/allOf/0/properties/unsigned_manifest/properties/document. This is an intentional pre-issuance Certified Agent v0 change reviewed under the owner-approved ChangeSession cs_34ba73b31d41f73d, packet pkt_53c7a4477a3210bd. Backend and SDK propagation is coordinated under that packet, so strict consumers must adopt the same v0 shape; this acknowledgement is scoped to this exact pointer and rule.",
+      "version": "5.7.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/439"
+    },
+    {
       "file": "smartops_v2/shadow_evaluate_response_schema.json",
       "rule": "property_added",
       "pointer_prefix": "#/properties/evidence_case",
@@ -602,6 +1022,1009 @@
       "reason": "Replaces minimum: 0 with exclusiveMinimum: 0 to correctly enforce that objective weights must be strictly positive (>0, not >=0). Zero weight on an objective is meaningless in multi-objective optimization and should be rejected; this change prevents silent validation of invalid weight configurations. The breaking-schema-check tool does not dereference the substitution, reporting it as a constraint removal rather than a tightening, but the wire behavior is tightened as intended.",
       "version": "5.9.0",
       "pr": "#431"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/input_id",
+      "reason": "Documents a sibling key the SDK already sends today and the backend already preserves rather than drops (#1334, _collect_sibling_keys/validate_example_result in TraigentBackend/src/models/workflow_metadata.py) -- the runtime contract already accepts input_id on a per-example measure; ExampleMetrics's additionalProperties: false simply never enumerated it. A hypothetical old STRICT response consumer that pinned the previous ExampleMetrics shape could reject the field, but no such consumer is known to exist for this producer-side field; the acknowledgement exists so the gap is closed loudly rather than silently. additionalProperties stays false: this enumerates reality, it does not loosen the contract.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/example_digest",
+      "reason": "Adds the optional keyed, one-way, client-computed identity digest sibling that TraigentBackend#2821 and Traigent#2191 (paired PRs) already exchange as a preserved sibling key under #1334 read-back fidelity; TraigentBackend#2821's own PR checklist states no TraigentSchema change is required for the wire behavior to work because unknown siblings already round-trip. This closes the documentation gap only. additionalProperties stays false -- every sibling the client may send is now enumerated, not loosened.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/output_digest",
+      "reason": "Adds the optional keyed, one-way, client-computed identity digest sibling for the produced output, paired with example_digest above and shipped by the same TraigentBackend#2821 / Traigent#2191 pair under #1334 read-back fidelity. Documentation-only closure of the same gap; additionalProperties stays false.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/verified_match",
+      "reason": "Adds the optional 0.0/1.0 match-indicator sibling shipped by TraigentBackend#2821 / Traigent#2191 under #1334 read-back fidelity. Its absence (never null, never a default 0.0) is semantically load-bearing -- an example with no usable expected answer omits the key entirely rather than being scored as a mismatch -- so it is declared as an optional enum [0.0, 1.0], not a required or nullable field. Documentation-only closure of an already-accepted sibling; additionalProperties stays false.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/properties/measures/oneOf/0/items/properties/signal_key_id",
+      "reason": "Adds the optional 12-char lowercase-hex sibling that tags which client key version example_digest/output_digest were computed under, shipped by Traigent#2191 (commit 7559b983, landed after this PR's initial description) under #1334 read-back fidelity. Present only alongside the two digests it tags; its own absence carries no separate meaning beyond 'no keyed digests were produced for this row' (e.g. no project API key configured). Documentation-only closure of an already-accepted sibling; additionalProperties stays false.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "allOf_removed",
+      "pointer_prefix": "#/allOf/0/allOf",
+      "reason": "Removes the old circularity-prone conditional that made issuer signed_payload claim the client signature was inside the issuer preimage. The v0 correction fixes the signing order: issuer signs the manifest first, then the client signs the complete issuer-signed certificate projection with only the outer co_attestation removed. This is an intentional pre-issuance Certified Agent v0 correction reviewed under ChangeSession cs_3e01e0344f7b19eb, packet pkt_377ce10845456890, with owner approval evt_46090f3116370bd9; the acknowledgement is scoped to this exact schema constraint.",
+      "version": "5.7.0",
+      "pr": "local-candidate-93999fd"
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "oneOf_removed",
+      "pointer_prefix": "#/allOf/0/properties/issuer_signature/properties/signed_payload/oneOf",
+      "reason": "Replaces the two-way signed_payload discriminator with the single issuer-first value [unsigned_manifest]. A client co-attestation is subsequent and signs the complete issuer-signed certificate projection, so it cannot be part of the issuer payload without circularity. This is an intentional pre-issuance Certified Agent v0 correction reviewed under ChangeSession cs_3e01e0344f7b19eb, packet pkt_377ce10845456890, with owner approval evt_46090f3116370bd9; the acknowledgement is scoped to this exact schema constraint.",
+      "version": "5.7.0",
+      "pr": "local-candidate-93999fd"
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "oneOf_added",
+      "reason": "measures and metadata.measures were a bare $ref to the flat MeasureResults dict, which only ever described HALF of what the backend's _validate_submission_measures dispatcher actually accepts -- it also routes a list of per-example ExampleMetrics results (the form carrying input_id/example_digest/output_digest/verified_match/signal_key_id) to validate_measures_list. A generated strict consumer built from the bare $ref would reject that list form even though the live backend accepts it. Replacing the bare $ref with oneOf [MeasureResults, array<ExampleMetrics>] makes the schema match the real dispatch contract instead of only documenting one branch of it. Confirmed non-breaking for existing map-form producers: test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained (both pre-existing, unmodified) continue to pass -- a flat dict still validates via oneOf branch 0, and its bounds (max 50 keys, identifier keys, numeric|null values) are unchanged and still sourced from the single canonical MeasureResults definition, not duplicated.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "type",
+      "reason": "Reported as 'type no longer allows object' because the breaking-check tool does not resolve oneOf branches back to their member types; the actual behavior is additive, not a narrowing -- the object (MeasureResults) branch is unchanged and a second, array (ExampleMetrics list), branch is now also accepted. Same change and same evidence as the paired oneOf_added acknowledgement immediately above for this file.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "required",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-build-sessions/prepare/post/responses/200/content/application/json/schema",
+      "reason": "Replaces the incomplete prepare response wrapper with the exact persisted issuer-signed pre-co-attestation certificate projection required for an executable client-signing flow. The old wrapper fields are intentionally replaced by the complete content-free projection; finalize remains conditionally enforced by persisted G1/tier-1 state. Reviewed under the owner-approved Certified Agent v0 correction session cs_3e01e0344f7b19eb and the bounded follow-up packet. This acknowledgement is scoped to the prepare response required set.",
+      "version": "5.7.0",
+      "pr": "local-candidate-2be9f73"
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "property_added",
+      "pointer_prefix": "#/paths//api/v1beta/certificate-build-sessions/prepare/post/responses/200/content/application/json/schema/properties",
+      "reason": "Publishes the complete content-free issuer-signed pre-co-attestation certificate projection from prepare so the client canonicalizes and signs exactly the server-persisted object. These closed response members replace the old digest-plus-manifest wrapper and are intentionally required by the executable protocol; no second independently mutable unsigned-manifest response is introduced. Reviewed under the owner-approved Certified Agent v0 correction session cs_3e01e0344f7b19eb and the bounded follow-up packet. This acknowledgement is scoped to prepare response properties.",
+      "version": "5.7.0",
+      "pr": "local-candidate-2be9f73"
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "Adds the inverse co-attestation condition so issuer-only B1 and zero-claim certificates cannot carry client material, while G1 and tier-1 certificates retain the required co-attestation path. This deliberate Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 10,
+          "new": 11,
+          "fingerprint": "9ae92c598f5d080c3abd551a2b2478231b958db305f7955e6ef6562f49891617"
+        }
+      ]
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "allOf_removed",
+      "reason": "Removes the obsolete conditional mirrored from the old signing order: the issuer now signs only the unsigned manifest, and the client subsequently signs the complete issuer-signed projection. This intentional Certified Agent v0 correction removes circularity and was reviewed under cs_3e01e0344f7b19eb in local-candidate-93999fd.",
+      "version": "5.7.0",
+      "pr": "local-candidate-93999fd",
+      "findings": [
+        {
+          "pointer": "#/properties/signatures/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 1,
+          "new": 0,
+          "fingerprint": "45fb35f13a745273b69a890c6fd77bd6e536b6e683d8208ee89d407f69b1262c"
+        }
+      ]
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "oneOf_removed",
+      "reason": "Replaces the old two-way issuer signed_payload discriminator with the single issuer-first unsigned_manifest value; client co-attestation is a later signature and cannot be inside the issuer preimage. This intentional Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-93999fd.",
+      "version": "5.7.0",
+      "pr": "local-candidate-93999fd",
+      "findings": [
+        {
+          "pointer": "#/properties/signatures/properties/issuer_signature/properties/signed_payload/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "469af5d63a760f916a1aa98bbcdfbd1616ebd3f914eb40dfb2cce0a0f02db85f"
+        }
+      ]
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "pattern",
+      "reason": "Narrows every envelope client-key reference to the deterministic project-scoped ckr form, preventing caller-selected or ambiguous identifiers from entering G1 bindings, co-attestation, and key-ring projections. This intentional content-free Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "5cef859ecd3d1e634640a724f27c74b94beb2d33963dc9ca27e03bfa5a971a23"
+        },
+        {
+          "pointer": "#/properties/signatures/properties/co_attestation/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "9880c64b5b5388d6f5836dce410eecefabd0bfe120343f054f5c3a488ee53406"
+        },
+        {
+          "pointer": "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "0f515365fb08597d202f1a885d41aef0dbaf75861463cc0b447c59b32357dba6"
+        },
+        {
+          "pointer": "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/key_ring_identifiers/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "df67f1002a59695296bb6e3677d0461f8a2d2b072776a73ea4012bb5f70391e4"
+        }
+      ]
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "property_added",
+      "reason": "Adds the v0 scope line, G1 build-session/client-key bindings, rendered claim sentence, and public project_ref needed to make the certificate projection self-describing, content-free, and verifiable without reconstructing identity. These deliberate fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/properties/certificate_scope_line",
+          "role": "conservative",
+          "subject": "certificate_scope_line",
+          "old": false,
+          "new": true,
+          "fingerprint": "a7d11acfa83d362bb9ce0d978106a66c3c61789887f175b9c560ef2017d48555"
+        },
+        {
+          "pointer": "#/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "c10177eb5d13b97f2b8609054df689ec3c08bdb8f8164ce27ac604febb2cc915"
+        },
+        {
+          "pointer": "#/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "a50dba15539505f250d9f0b446bec3f204bfd9a56715d580697747a8ceccea7e"
+        },
+        {
+          "pointer": "#/properties/claims/items/properties/rendered_text",
+          "role": "conservative",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "41b9a497c18a5f594a7277dd5045ab5bfd482e92e93297910baa7e82226d3265"
+        },
+        {
+          "pointer": "#/properties/subject/properties/project_ref",
+          "role": "conservative",
+          "subject": "project_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "90952e293ffbb13ab03cf099ba5a48cb1b271acc3fd4f55313b2cd635bc2a6df"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "pattern",
+      "reason": "Uses the canonical ckr client-key reference in the G1 payload rather than the old unconstrained opaque reference, binding the declaration to the project-scoped verification key. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf/6/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "96f73dba8e47dd538c736ab0ced1ddf77cdc87ba9c41a9b69e927377115d6625"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "property_added",
+      "reason": "Adds build_session_ref and client_key_ref to the G1 payload so the emitted client declaration is bound to the named session and derived verification key. These fields are deliberate v0 protocol additions reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf/5/properties/params/properties/build_session_ref",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "f6f9e6b823edbb5667b73f9d36a4a45a9d8d75865d03118ab9f82ddd8437b137"
+        },
+        {
+          "pointer": "#/allOf/0/oneOf/5/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "d2aad8ba827240af0df40d2d6628c0883c0da7ed84ba9f2fb9b27f7774a883cc"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "required",
+      "reason": "Requires both session and derived client-key bindings for G1 so an incomplete declaration cannot pass as a valid v0 claim. This intentional fail-closed Certified Agent v0 change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "606ec6f8683fcaec80529342e014ee8d4463a2124884d95e6407dc858e81686a"
+        },
+        {
+          "pointer": "#/allOf/0/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "168288c637b42e72bda0589610d6fedd281fe07efd972e3f68228016813cf203"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "pattern",
+      "reason": "Enforces the deterministic project-scoped ckr client-key reference wherever the printable claim family carries a client binding, eliminating ambiguous opaque identifiers. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "94ec7b0ae23842a643eaf72d8d6ee37b774ddc82d1d853c59f014102eb5dad67"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "property_added",
+      "reason": "Adds the G1 session/key bindings and renderer-produced sentence required for a closed, content-free claim whose text and identity can be checked from the v0 projection. These deliberate Certified Agent v0 fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "3d02e133409fee559542dd2278d8f787b3170e2e1e6941ed385b9d4f2eb20b02"
+        },
+        {
+          "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "b9936e37ad1343bf6e47baf49fb1b5fdecfd1df193907d4371c411ad4f0ecb86"
+        },
+        {
+          "pointer": "#/allOf/0/oneOf/0/properties/rendered_text",
+          "role": "conservative",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "ad800b3fb2b43405f1011ea2869b0e5d07244b951e023335f708fa0c9e92b87f"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_claims_v0_schema.json",
+      "rule": "required",
+      "reason": "Requires rendered_text and the G1 session/key bindings so every emitted claim is structurally complete and cannot omit the load-bearing declaration context. This intentional fail-closed Certified Agent v0 change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf/0",
+          "role": "conservative",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "6084392bbd5740fd13cc1ebdb001d9f8a1e98d36e6a65e6a6c5e61862d44ab7b"
+        },
+        {
+          "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "0f1f510a769cc1c929ecd519417dec224ac0321cb42f9d81c15fc33df65ffbd5"
+        },
+        {
+          "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "6587f550cb269a672ffdcd9e4afce5ac0e39e094dc848fdc1e25257719bd2369"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The nested claim branch count changes because v0 now admits the issuer-verified B1 path alongside G1 while retaining explicit abstention branches; positional branch drift is an intentional union expansion, not an accidental removal. It was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 10,
+          "new": 11,
+          "fingerprint": "9a1d30161fc091d00d1027785a8a36238075f308ecd0069f9d693627b74b5b04"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_signatures_v0_schema.json",
+      "rule": "pattern",
+      "reason": "Applies the deterministic ckr client-key reference to co-attestation and embedded unsigned-manifest projections, so signatures bind the same project-scoped key identifier everywhere. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/co_attestation/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "d6a0437d70e9a99ed237fba79e5f25a727d195d33715b716da541c162e8cf5dd"
+        },
+        {
+          "pointer": "#/allOf/0/properties/unsigned_manifest/properties/document/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "8e1caed413e8258bbfc454146f5229083a3052ae4e49bd24fc193bf56f636f32"
+        },
+        {
+          "pointer": "#/allOf/0/properties/unsigned_manifest/properties/document/properties/key_ring_identifiers/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "7b5cce404d779cc0877bcb252da1d77362b6854886b82380fe16f973a92b8f0c"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_unsigned_manifest_v0_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "Expands the manifest's claim branch to represent the admitted B1 issuer-verification case while preserving the fixed G1 and abstention shapes. The conservative branch-count finding is therefore an intentional Certified Agent v0 union change reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/claims/items/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 10,
+          "new": 11,
+          "fingerprint": "ab6f962545eff25e41afcb2f55dba1f1a49c0f35b2736a9652fffc395ab880dc"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_unsigned_manifest_v0_schema.json",
+      "rule": "pattern",
+      "reason": "Uses the canonical deterministic ckr reference in the signed manifest's client-key and key-ring sections, preventing a manifest from naming an unbound or caller-selected key. This intentional Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "90e93d9408b61b7f25d4e5d3ccd5fa83d1c8fdecbe452b9610d198a39b2fcb0d"
+        },
+        {
+          "pointer": "#/allOf/0/properties/key_ring_identifiers/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "b2b2dea05b3ec0d72375ae17af8a0de559f57dee673f834e732c9cf64317073b"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_unsigned_manifest_v0_schema.json",
+      "rule": "property_added",
+      "reason": "Adds G1 session/key bindings, rendered claim text, and project_ref to the signed manifest projection so the issuer/client signatures cover the complete v0 declaration context. These deliberate Certified Agent v0 fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "013afda56d31b2f039611bd03d24503d30af36b350e86467d3f54adacf120523"
+        },
+        {
+          "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/client_key_ref",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "f10360b95e0b314706f22b61d6948c72535525e1823b6b033e24de7b23448718"
+        },
+        {
+          "pointer": "#/allOf/0/properties/claims/items/properties/rendered_text",
+          "role": "conservative",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "b1f4c10e763165cd364d4b83128ac26b9c68c48d702c44277da8be78028eabd4"
+        },
+        {
+          "pointer": "#/allOf/0/properties/subject/properties/project_ref",
+          "role": "conservative",
+          "subject": "project_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "b2f7f88ec793920c4ddbb8d6e1e74b0d38deb0c44f06c9accfd774e1ef1f438e"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_unsigned_manifest_v0_schema.json",
+      "rule": "required",
+      "reason": "Requires the new G1 declaration context and project scope in the signed manifest so incomplete or ambiguously scoped certificates fail closed before signature verification. This intentional Certified Agent v0 tightening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/claims/items",
+          "role": "conservative",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "a839111588b7998674ee984c574cefe728222b6192fa8350db7d26509ec7626d"
+        },
+        {
+          "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "b71fd495e85855a39eb88dd246d6ba98c76ea32c911ca03da653f42c0a0ee870"
+        },
+        {
+          "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "d44a08d8df7f81ea86effbf64beeb5cc425d70961783a6387b109f587ae6f682"
+        },
+        {
+          "pointer": "#/allOf/0/properties/subject",
+          "role": "conservative",
+          "subject": "project_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "c3aeee590cdb89bfa3e32dd982ea6216f4e15126a3882aa1eea42f3dd9f55854"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_verification_materials_v0_schema.json",
+      "rule": "maxItems",
+      "reason": "Raises the verifier-binding maximum to exactly two because the v0 discovery bundle now publishes the ordered B1 and G1 verifier contract together. This intentional materials-policy change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/properties/relying_party_policy/properties/verifier_bindings",
+          "role": "conservative",
+          "subject": "maxItems",
+          "old": 1,
+          "new": 2,
+          "fingerprint": "af87c960b09d2223c99a0b1b3105b0c6cdb9a38a21168db4304a232de8dfee8e"
+        }
+      ]
+    },
+    {
+      "file": "certification/certificate_verification_materials_v0_schema.json",
+      "rule": "pattern",
+      "reason": "Constrains the discovered client key to the canonical project-scoped ckr reference, matching certificate and manifest bindings and avoiding an ambiguous opaque key identifier. This intentional Certified Agent v0 materials hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/properties/client/properties/key_ref",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "bb86500d165e43888cfaff7bbfc1b3ecc7c77ee7e9051c8dfe4174d945770535"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "additionalProperties",
+      "reason": "Replaces the nullable/open finalize co-attestation shape with the closed typed object: B1-only requests omit it, while G1/tier-1 requests must provide the complete co-attestation fields. This intentional issuer-first protocol correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-2be9f73.",
+      "version": "5.7.0",
+      "pr": "local-candidate-2be9f73",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "fa8d788ebdda7a33076185518ad6c3752cb23a42dfd98967882f9d0e14be67e8"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "The retrieval response inherits the deliberate v0 claim and co-attestation conditional branches, including the issuer-only B1 rule and G1/tier-1 requirement. This is an intentional reflected contract change reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/claims/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 10,
+          "new": 11,
+          "fingerprint": "0d2ca2f056f31428411ca4bcf9955761b46aa8967b0b7750ac623a614bc0c03d"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 10,
+          "new": 11,
+          "fingerprint": "5c213458c66a01b31ac1f4528124271ac6fde8ee67dcef7c040b6b3476b46f23"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 3,
+          "fingerprint": "eb8ebc0c5c1553d5b138ebc23cd32207ba29137a099dc585d9a65efe806cdd2a"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "allOf_removed",
+      "reason": "The signed-certificate retrieval projection intentionally reflects the issuer-first signing order, removing the old conditional that claimed issuer coverage changed with co-attestation. This deliberate Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-93999fd.",
+      "version": "5.7.0",
+      "pr": "local-candidate-93999fd",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 1,
+          "new": 0,
+          "fingerprint": "820ed218e7a9b75cafc64f42beaa08309b7138dfdab67b3e6f61a6d8a48601f2"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "maxItems",
+      "reason": "The verification-materials retrieval endpoint now returns the fixed two-entry ordered B1/G1 verifier-binding contract, so its maximum intentionally matches the materials schema. This deliberate Certified Agent v0 policy change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/verification-materials/get/responses/200/content/application/json/schema/properties/relying_party_policy/properties/verifier_bindings",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 1,
+          "new": 2,
+          "fingerprint": "d23c5aae0f40606475f4eb6527bce9b4622d6e4d301928b99d2063def9a2fa8b"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "oneOf_removed",
+      "reason": "The retrieval projection intentionally exposes the single issuer-first unsigned_manifest signed_payload value; client co-attestation is subsequent and cannot be part of that issuer preimage. This deliberate Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-93999fd.",
+      "version": "5.7.0",
+      "pr": "local-candidate-93999fd",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/issuer_signature/properties/signed_payload/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "03717bbc6b72b8023611568889b4f85e946507a8be368f57f750bf7a58dc77f4"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "pattern",
+      "reason": "Constrains bind-G1 and client-key management request references to the canonical deterministic ckr form, aligning endpoint inputs with the signed certificate and discovery materials. This intentional Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/bind-g1/post/requestBody/content/application/json/schema/properties/client_key_ref",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "69191c49710d31ef9fd6634f908065555bef86650ed5ed4779f39d309c996442"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificate-client-keys/delete/requestBody/content/application/json/schema/properties/client_key_ref",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "7a4d185f02fd17b7e578fec431e85bd11e7af2fce22d93b002afadf2e2111161"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificate-client-keys/revoke/post/requestBody/content/application/json/schema/properties/client_key_ref",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$",
+          "new": "^ckr:[A-Za-z0-9_-]{43}$",
+          "fingerprint": "7ca50b83612eddcf1956047dc71504b18f075a018371ad2ad1cc44c5969bf06a"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "property_added",
+      "reason": "The signed-certificate retrieval endpoint intentionally exposes the complete content-free v0 projection, including scope, G1 bindings, rendered claims, and project scope, so consumers verify exactly what was signed. These reflected protocol fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
+      "version": "5.8.0",
+      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/certificate_scope_line",
+          "role": "response",
+          "subject": "certificate_scope_line",
+          "old": false,
+          "new": true,
+          "fingerprint": "6f37d7dbe7294e4a3b3a56596df5d8b68066b5d45e9e025c9f6d5216dab55e0b"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
+          "role": "response",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "18dd1211ab89a5f9628580d13b4374a8915b189abf88c8add5536851bce152f9"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/client_key_ref",
+          "role": "response",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "c10f29e5ac1c5650e0e6d5b0566944c726c93101e0e81b504e7ca01098cbb503"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/claims/items/properties/rendered_text",
+          "role": "response",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "2ccf291ce7c392f69fe1b588fab4e673956ef0026d4b2e77b63ba9899f440464"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
+          "role": "response",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "6733d79b827b8db7b3f504574470686a21aad907ccdab8e5eb957e40af2d2cfc"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/client_key_ref",
+          "role": "response",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "2463bc5e18aad811ff9dd1d1f4cda3707ab3e1e3d591d110e3af6343420fb088"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/properties/rendered_text",
+          "role": "response",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "9257ec3e40fdfb6ce9c0796438d804bc752a16d573408e8f9aea77fc9a5aa3b0"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/unsigned_manifest/properties/document/properties/subject/properties/project_ref",
+          "role": "response",
+          "subject": "project_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "bead992e78f2db05ba2dea77ca579bedd8e7bcf3a3fc1026cb8250bb376e38a5"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/subject/properties/project_ref",
+          "role": "response",
+          "subject": "project_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "15c6fe04f8c43175423f3b454a7c244f0e8db5007328355246003bdce55f0a25"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "property_removed",
+      "reason": "Removes caller-supplied client_key_ref from enrollment because v0 derives the project-scoped reference from validated public verification material; accepting a caller-selected identifier would break binding integrity. This intentional Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-2be9f73.",
+      "version": "5.7.0",
+      "pr": "local-candidate-2be9f73",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificate-client-keys/post/requestBody/content/application/json/schema/properties/client_key_ref",
+          "role": "request",
+          "subject": "client_key_ref",
+          "old": true,
+          "new": false,
+          "fingerprint": "36879e4e1cefa95ae3ab13a3caeedfd90ae9a17e2689d9bc3fa6c0be8908f94f"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "required",
+      "reason": "Requires every co-attestation member at finalize because the typed object is the client signature over the complete issuer-signed projection; omission of any algorithm, key, nonce, signature, or digest must fail closed. This intentional issuer-first protocol correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-2be9f73.",
+      "version": "5.7.0",
+      "pr": "local-candidate-2be9f73",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
+          "role": "request",
+          "subject": "algorithm",
+          "old": false,
+          "new": true,
+          "fingerprint": "842779f182218108c82ae9f0e73e05517a556e8b030e45fccc528904266b6f20"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
+          "role": "request",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "265ae72a8157ab272527445920389f2cae091639f742433a4e0b9bf6384a2647"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
+          "role": "request",
+          "subject": "nonce",
+          "old": false,
+          "new": true,
+          "fingerprint": "08b88f91118d0e63d6756150662ef8e5ec01d4b836e71bca2870b631ecc61518"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
+          "role": "request",
+          "subject": "signature",
+          "old": false,
+          "new": true,
+          "fingerprint": "26d92f505c9865c0e914d94b6fa2e2af852cfe0cb2adf0600c493304377ccdff"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
+          "role": "request",
+          "subject": "signed_manifest_digest",
+          "old": false,
+          "new": true,
+          "fingerprint": "c39c9758b5bebb93964f2db83a11b79d7e877dff1696143b702368f0da4cf35d"
+        }
+      ]
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "type",
+      "reason": "Makes finalize co_attestation a typed object rather than an unconstrained/null union; issuer-only B1 finalization omits it and G1/tier-1 finalization supplies the closed signature block. This intentional Certified Agent v0 correction was reviewed under cs_3e01e0344f7b19eb in local-candidate-2be9f73.",
+      "version": "5.7.0",
+      "pr": "local-candidate-2be9f73",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/finalize/post/requestBody/content/application/json/schema/properties/co_attestation",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<was unconstrained>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "b3284eea53fee129253971b7d6461d0a29e44b19cc9ad336ae8fc0383e287e59"
+        }
+      ]
+    },
+    {
+      "file": "certification/agent_certificate_v0_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "certificate_scope_line",
+          "old": false,
+          "new": true,
+          "fingerprint": "634cb4abb3f908236f76d92d636fecfee7ae1fce1a67d79801ae7031ba2629de"
+        },
+        {
+          "pointer": "#/properties/claims/items",
+          "role": "conservative",
+          "subject": "rendered_text",
+          "old": false,
+          "new": true,
+          "fingerprint": "915805c8db35c64cd94697225cdea1a3f1b0bbeeed9d5e74875c7394fc829ab1"
+        },
+        {
+          "pointer": "#/properties/claims/items/properties/payload/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "build_session_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "d10be0eb07b8c5cce9a18f96de802c2e49d37693c1ef5078fa8eda72f3660e38"
+        },
+        {
+          "pointer": "#/properties/claims/items/properties/payload/oneOf/5/properties/params",
+          "role": "conservative",
+          "subject": "client_key_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "98ad39e0955c5a1236478a1067e3e9d888b194c2f231642345f624e750ea67c8"
+        },
+        {
+          "pointer": "#/properties/subject",
+          "role": "conservative",
+          "subject": "project_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "7aa512d2d590c1b60b7b23dff29dfcdce64e2763f485d8937ab02a8bbb2da16e"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 5.8.0 (PR #448, develop dd9bb1ca -> main be5ba480). These are the five PR #440 required-field tightenings that PR #443 deliberately left unacknowledged so that promotion would have to review them exactly (its body: 'promotion from develop to main will require exact acknowledgement of the five deliberately unacknowledged PR #440 findings; do not restore the wildcard'). Reviewed 2026-09-05: certificate_scope_line joins the envelope's required set, rendered_text becomes required on every printed claim, build_session_ref and client_key_ref become required in the G1 client-evidence payload params, and project_ref becomes required in subject. All five are fail-closed tightenings of a v0 contract that no issuer serves yet (TraigentBackend exposes none of the certification endpoints and its vendored copy predates the family), so no live consumer or producer is narrowed; a Certified Agent v0 issuer must carry scope, claim text, build-session and client-key identity, and project scope or the relying-party checks in this package cannot bind them. Exact identities and fingerprints only; the wildcard is not restored.",
+      "version": "5.8.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/448"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "oneOf_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/measures/oneOf",
+          "role": "request",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "ec64a5b321fde77ab042b6be3391be5cc3cfa471b3dccc3818dfb5bb3038171e"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/metadata/properties/measures/oneOf",
+          "role": "request",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "ce697956b424a4b776f63234dac34188f4800c8f0a4fc9a2a37896a4a4884e6b"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 5.8.0 (PR #448). This is PR #437's measures / metadata.measures change (bare $ref to MeasureResults replaced by oneOf [MeasureResults, array<ExampleMetrics>], matching the backend's real _validate_submission_measures dispatch) seen through this endpoint file's $ref to session_submit_results_request_schema.json. #437 acknowledged it on the request schema file with the same evidence (test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained still pass); the endpoint file was not in #437's changed set, and #444 later touched it, so the promotion diff surfaces the projection here. Additive: the object branch is unchanged. Exact identities and fingerprints only.",
+      "version": "5.8.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/448"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/measures",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "object"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "33af761c05224b96d3bada84057f5946c45297bb0c7c449d502c3452525a6588"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/metadata/properties/measures",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "object"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "2847d1c3d6d6f94099e51dfb365de4a014340104b831e6f02286241d85544060"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 5.8.0 (PR #448). Paired with the oneOf_added acknowledgement above for the same two pointers: the gate reports 'type no longer allows object' because it does not resolve oneOf branches back to member types; the object (MeasureResults) branch is unchanged and an array (ExampleMetrics list) branch is now also accepted. Same PR #437 change, same evidence, reached through this endpoint file's $ref to session_submit_results_request_schema.json. Exact identities and fingerprints only.",
+      "version": "5.8.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/448"
     }
   ]
 }

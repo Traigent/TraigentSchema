@@ -366,17 +366,20 @@ def test_input_tokens_states_the_disjointness_convention_it_now_assumes():
             f"{args[-1]}: input_tokens must say which records predate the convention, "
             f"since the field alone cannot distinguish them"
         )
-        assert "Unreleased CHANGELOG" in description
+        assert "5.8.0 CHANGELOG" in description
 
 
-def test_unreleased_changelog_documents_the_input_token_semantic_migration():
+def test_release_changelog_documents_the_input_token_semantic_migration():
+    """The 5.8.0 release section, cut from Unreleased on 2026-09-05, keeps the migration note."""
     changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    unreleased = changelog.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    marker = "## [5.8.0] - "
+    assert marker in changelog, "CHANGELOG must carry the dated 5.8.0 release section"
+    release = changelog.split(marker, 1)[1].split("\n## [", 1)[0]
 
-    assert "input_tokens" in unreleased
-    assert "disjoint" in unreleased.lower()
-    assert "mixed-convention" in unreleased
-    assert "5.8.0" in unreleased
+    assert "input_tokens" in release
+    assert "disjoint" in release.lower()
+    assert "mixed-convention" in release
+    assert "5.8.0" in release
 
 
 def test_ingest_contract_marks_backend_rollout_as_not_yet_asserted():

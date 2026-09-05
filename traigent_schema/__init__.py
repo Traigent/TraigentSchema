@@ -14,6 +14,8 @@ Example:
     validator.validate_request('/api/v1/agents', 'POST', request_data)
 """
 
+import importlib
+
 from traigent_schema.analytics_validators import AnalyticsValidator
 from traigent_schema.invariants import (
     InvariantComparisonBoundError,
@@ -30,11 +32,55 @@ from traigent_schema.utils import (
     get_schemas_dir,
     load_schema,
 )
-from traigent_schema.validator import SchemaValidator, UnvalidatedEndpointError
+from traigent_schema.validator import (
+    SchemaDependencyError,
+    SchemaValidator,
+    UnvalidatedEndpointError,
+)
 from traigent_schema.version import __version__
 
+_CERTIFICATION_EXPORTS = frozenset(
+    {
+        "CLIENT_CO_ATTESTATION_ERROR_CODES",
+        "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS",
+        "ClientCertificateProjection",
+        "ClientCoAttestationContext",
+        "derive_client_key_ref",
+        "RelyingPartyPolicy",
+        "RelyingPartyVerificationError",
+        "VerificationContext",
+        "VerificationError",
+        "VerificationResult",
+        "verify",
+        "verify_agent_certificate",
+        "verify_certificate",
+        "verify_certificate_with_materials",
+        "prepare_client_co_attestation",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    """Load certification exports lazily while keeping their failure boundary clear."""
+    if name not in _CERTIFICATION_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    try:
+        certification = importlib.import_module("traigent_schema.certification")
+    except ModuleNotFoundError as exc:
+        if exc.name == "cryptography" or (exc.name or "").startswith("cryptography."):
+            raise ImportError(
+                "Certification exports require the base 'cryptography' dependency."
+            ) from exc
+        raise
+    value = getattr(certification, name)
+    globals()[name] = value
+    return value
+
+# Certification names remain available through explicit lazy imports above, but stay out
+# of ``__all__`` to preserve the root package's lazy certification import boundary.
 __all__ = [
     "AnalyticsValidator",
+    "SchemaDependencyError",
     "InvariantComparisonBoundError",
     "InvariantDeclarationError",
     "InvariantNoncanonicalPayloadError",

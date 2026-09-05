@@ -41,6 +41,11 @@ from traigent_schema.version import __version__
 
 _CERTIFICATION_EXPORTS = frozenset(
     {
+        "CLIENT_CO_ATTESTATION_ERROR_CODES",
+        "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS",
+        "ClientCertificateProjection",
+        "ClientCoAttestationContext",
+        "derive_client_key_ref",
         "RelyingPartyPolicy",
         "RelyingPartyVerificationError",
         "VerificationContext",
@@ -50,12 +55,13 @@ _CERTIFICATION_EXPORTS = frozenset(
         "verify_agent_certificate",
         "verify_certificate",
         "verify_certificate_with_materials",
+        "prepare_client_co_attestation",
     }
 )
 
 
 def __getattr__(name: str) -> object:
-    """Load optional certification exports only when they are requested."""
+    """Load certification exports lazily while keeping their failure boundary clear."""
     if name not in _CERTIFICATION_EXPORTS:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     try:
@@ -63,15 +69,15 @@ def __getattr__(name: str) -> object:
     except ModuleNotFoundError as exc:
         if exc.name == "cryptography" or (exc.name or "").startswith("cryptography."):
             raise ImportError(
-                "Certification exports require the optional 'cryptography' dependency."
+                "Certification exports require the base 'cryptography' dependency."
             ) from exc
         raise
     value = getattr(certification, name)
     globals()[name] = value
     return value
 
-# Optional certification names remain available through explicit lazy imports above,
-# but stay out of ``__all__`` so base-install wildcard imports do not require cryptography.
+# Certification names remain available through explicit lazy imports above, but stay out
+# of ``__all__`` to preserve the root package's lazy certification import boundary.
 __all__ = [
     "AnalyticsValidator",
     "SchemaDependencyError",

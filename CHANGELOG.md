@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Agent Certificate v0 packaging** now declares `cryptography>=46,<51` as a
+  mandatory base runtime dependency, so a plain `pip install traigent-schema`
+  can import the public relying-party verifier. The historical `certification`
+  extra remains available as a no-op compatibility alias. CI clean-installs
+  and functionally probes the plain wheel and checks the extra declaration;
+  the separate compatibility-extra clean install remains manually executed
+  release evidence rather than a second CI install job.
+- **Agent Certificate v0 client preparation bounds** now use a fail-closed
+  512 KiB structural resource cap with conservative headroom for projections
+  that can pass the current B1/G1 semantic restrictions. This is not an upper
+  bound for every generic schema branch: the generic `ClaimV0.evidence_refs`
+  property has structural `maxItems: 64`, while the complete conditional
+  contract admits only B1/G1 and fixes each printable claim to exactly two refs;
+  production admits at most one B1 plus one G1. Larger invalid projections may
+  fail earlier with the same bounded `CO_PROJECTION` code. Final verification
+  remains uncapped after canonical schema validation.
 - **Agent Certificate v0 HTTP error contract** defines a certificate-specific,
   content-free Draft-07 contract. Every declared certificate-route error body
   is closed to `success`, `message`, `error`, and a status-pinned `error_code`;
@@ -26,12 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Reconstructing the former `VerificationResult(valid=True, code='VERIFIED')`
   without the reserved `status_evidence="issuer_status_snapshot"` now raises.
 - **Agent Certificate v0 signing and certification API** now use an issuer-first
-  prepare/finalize protocol: the issuer signs the length-prefixed canonical
-  unsigned manifest, `prepare` returns that single complete pre-co-attestation
-  certificate projection, and the client signs the complete issuer-signed
-  projection excluding only the outer co-attestation. Finalize conditionally
-  requires co-attestation for persisted G1/tier-1 projections; B1-only may
-  issue with issuer material alone.
+  prepare/finalize protocol for G1: the issuer signs the length-prefixed
+  canonical unsigned manifest, `prepare` returns that single complete
+  pre-co-attestation certificate projection, and the client signs the complete
+  issuer-signed projection excluding only the outer co-attestation. Finalize
+  preserves that prepared issuer projection and adds the client block. B1-only
+  issuance neither produces nor consumes `PrepareResponseV0`; it issues with
+  issuer material alone.
 - **Agent Certificate v0 G1** now uses the v2 pinned-client signed declaration and emits the
   exact honesty scope line. G1 payloads carry structurally adjacent build-session/client-key
   references and rendered text; client key references use deterministic project-scoped
@@ -42,6 +59,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   G1 remains a client-declared unopened commitment and unsupported rows abstain.
 
 ### Added
+- **Agent Certificate v0 client preparation** now exposes
+  `prepare_client_co_attestation` and frozen `ClientCoAttestationContext`, the
+  Schema-owned source of truth for validating the issuer prepare response
+  against client-owned project/session/freshness/key/G1 expectations and for
+  deriving the defensive projection, canonical client signing bytes, and
+  role-domain `signed_manifest_digest`. The public helper accepts only the G1
+  prepare-response shape, never a final certificate or B1-only certificate,
+  and derives the project-scoped key reference from the supplied public key.
+  It is deterministic and offline; its first call reads installed packaged
+  Schema resources to build cached validators, while later calls reuse them.
+  It handles no private keys, performs no signing, network access, writes, or
+  external-state changes, and accepts only the bounded content-free projection.
+  The context requires the issuer's public verification key as additional
+  public-only trust material; `prepare_client_co_attestation` authenticates the
+  issuer signature over the canonical unsigned manifest before returning client
+  signing bytes. The 19 projection-pin expectations are required and exposed
+  through the ordered `CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` manifest: session
+  commitment, privacy, SDK, disclosure, issuer trust pins, compiler/register
+  semantics, G1 commitment, G1 verifier identity/version, client algorithm,
+  and derived public-key identity cannot be selected by the issuer unnoticed.
+  The issuer public key is trust material, not a projection field, and is not
+  included in that manifest. Issuer/compiler evidence remains co-signed as exact bytes
+  but is not represented as a client assertion of its truth. Backend lifecycle
+  bounds (`expires_at`, `created_at`, and `finalized_at`) remain issuer/server
+  evidence outside `PrepareResponseV0`; the signed manifest nonce is the
+  client-pinned freshness input. Missing G1 client-key fields and malformed or
+  unsupported packaged schema dialects fail through the closed
+  `CLIENT_CO_ATTESTATION_ERROR_CODES` vocabulary. Non-string enum inputs are
+  rejected through bounded context/key-reference codes before membership checks.
+  Draft-07-compatible finite integral floats are accepted within the existing
+  JavaScript-safe integer range and canonicalized as integers; fractional,
+  non-finite, and unsafe-range floats remain bounded preparation failures. An
+  iterative depth cap with explicit headroom over the packaged prepare schema
+  now rejects hostile deep nesting before jsonschema error rendering.
 - **`task_type` on `POST /api/v1/sessions`** (optional string, 1-128 chars): a COARSE,
   client-declared task category (`multiple_choice`, `exact_match`, `text2sql`,
   `code_generation`, `summarization`, ...) that the backend maps internally to an

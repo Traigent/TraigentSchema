@@ -72,24 +72,80 @@ validity or non-revocation. The `VERIFIED` /
 snapshot backed by an authenticated, freshness-bounded status-proof contract;
 the current v0 retrieval schema provides no such proof.
 
-The optional `certification` extra is required for either offline verifier:
-`pip install "traigent-schema[certification]"`. Current v0 emits B1 and G1;
+The `cryptography` dependency is installed with the base package because the
+public verifier imports it unconditionally. The historical `certification`
+extra remains available as a no-op compatibility alias, so both
+`pip install traigent-schema` and `pip install "traigent-schema[certification]"`
+install the verifier. Current v0 emits B1 and G1;
 REG1, C1, D2, F1, and G3 are the five fixed abstentions.
 
-The certification API uses an issuer-first signing flow. `prepare` returns one
-content-free, issuer-signed certificate projection in its final canonical wire
-shape, with the outer `signatures.co_attestation` member absent. The issuer
-projection excludes that client co-attestation; the client canonicalizes the
+The certification API has two explicit issuance branches. B1-only issuance
+neither produces nor consumes `PrepareResponseV0`; it finalizes with issuer
+material alone. The G1 branch uses an issuer-first signing flow: `prepare`
+returns one content-free, issuer-signed certificate projection in its final
+canonical wire shape, with the outer `signatures.co_attestation` member absent.
+The issuer projection excludes that client co-attestation; the client canonicalizes the
 exact issuer-signed projection, which includes `issuer_signature` and excludes
 only its own outer `co_attestation`, and signs it; it must not rebuild or pair
 it with a separate unsigned-manifest response. `finalize` validates the
-persisted prepared projection and accepts the co-attestation conditionally:
-the server requires it when that projection has G1 or any tier-1 claim, while
-B1-only certificates may finalize with issuer material alone. The prepared
-projection is unchanged by finalization.
+persisted prepared projection and requires the co-attestation because that
+projection has G1/tier 1. Finalization preserves the exact prepared issuer
+projection and adds only the client's outer co-attestation block.
+
+For clients implementing the co-attestation step, Schema exposes
+`prepare_client_co_attestation(prepare_response, context=...)` together with
+the frozen `ClientCoAttestationContext`. Pass the exact issuer-signed G1
+projection returned by `prepare`, not a final certificate. The context states
+all 19 required projection pins: project, build session, session commitment,
+nonce, privacy mode, SDK ref/version, disclosure profile, issuer
+key/trust-ring/algorithm, the immutable ordered compiler/register tuple,
+G1 verifier identity/version, evidence-manifest root, commitment scheme,
+attestor version, client signature algorithm, and client public key.
+`CLIENT_CO_ATTESTATION_CONTEXT_FIELDS` is the
+authoritative ordered projection-pin manifest for SDK bindings. In addition,
+the context requires `issuer_public_key`, a public-only issuer trust key that
+is not a projection field and is therefore not included in that 19-field
+manifest. The helper derives the project-scoped client key reference, compares
+every projection pin, the G1 declaration, the audit root, and the
+compiler-register-to-semantics relation, then authenticates the issuer
+signature over the canonical unsigned manifest before returning signing
+material. Its `ClientCertificateProjection` result contains a defensive
+`projection`, immutable `projection_bytes`, frozen `signing_bytes`, and the
+role-domain `signed_manifest_digest`.
+
+The helper is deterministic and offline. Its first call reads the installed
+package's Schema resources to build cached validators; later calls reuse those
+validators. It never accepts a private key, signs, performs network access or
+writes, or receives customer examples, agent/evaluator code, or response
+content. It validates the prepare projection's structure and authenticates its
+issuer signature with the pinned public issuer key; the caller remains
+responsible for selecting and pinning that trust key.
+
+Untrusted preparation input has a fail-closed 512 KiB structural resource cap,
+sized with conservative headroom for projections that can pass the current B1/G1
+semantic restrictions. It is not an upper bound for every generic schema branch:
+the generic `ClaimV0.evidence_refs` property has structural `maxItems: 64`, while
+the complete conditional contract admits only B1/G1 and fixes each printable
+claim to exactly two refs; production admits at most one B1 plus one G1. Larger
+invalid projections may fail earlier with the same bounded `CO_PROJECTION` code.
+The final verifier does not apply this transport preflight cap after the
+certificate has passed its canonical schema validation.
+
+The seal, claims, tiers, evidence references, non-claims, and audit rows are
+issuer/compiler evidence, not client assertions of truth; the helper checks
+their schema and deterministic cross-projections, then co-signs their exact
+bytes. Fixed envelope scope text and the G1 verifier result `PASS` are
+schema-owned constants. G1 verifier identity/version select trust semantics and
+are required client pins. Backend lifecycle freshness bounds such as
+`expires_at`, `created_at`, and `finalized_at` are issuer/server evidence outside
+`PrepareResponseV0`; the client pins the signed manifest nonce, not those
+transport-state fields. The required issuer pins prevent a prepare response
+from silently selecting a different issuer identity or algorithm, while the
+pinned issuer public key authenticates the signed manifest before co-signing.
 
 Failures raise `RelyingPartyVerificationError`; its `.code` and string form
-are bounded, content-free values intended for safe logging. A successful
+are bounded, content-free values intended for safe logging. Public preparation
+codes are enumerated by `CLIENT_CO_ATTESTATION_ERROR_CODES`. A successful
 result proves the supplied envelope, signatures, projections, and declared
 bindings are internally consistent and match the relying party's pins. It
 does not prove that a G1 commitment is truthful or complete, recover the
@@ -121,17 +177,19 @@ conformance.
 
 ## Installation
 
-For published package consumers:
+For published package consumers, including users of the offline Agent
+Certificate verifier:
 
 ```bash
 pip install traigent-schema
 ```
 
-For the offline Agent Certificate verifier (including its optional cryptography dependency):
-
-```bash
-pip install "traigent-schema[certification]"
-```
+The base package includes the verifier's `cryptography` runtime dependency.
+The historical `certification` extra remains a supported no-op compatibility
+alias; requesting it is not required. CI clean-installs and functionally probes
+the plain wheel and checks that the compatibility extra is declared. The
+separate clean installation of `traigent-schema[certification]` is release
+evidence run manually; it is not currently a second CI installation job.
 
 For coordinated workspace development or release validation from GitHub
 (requires repository access):

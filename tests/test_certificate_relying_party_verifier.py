@@ -1363,6 +1363,64 @@ def test_prepare_rejects_malformed_packaged_catalog_as_schema_dependency(
         prepare_client_co_attestation(cert, context=context)
 
 
+def test_prepare_rejects_malformed_referenced_packaged_schema_as_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+    schema_path = (
+        Path(verifier_impl.__file__).resolve().parent.parent
+        / "schemas"
+        / "certification"
+        / "certificate_claims_v0_schema.json"
+    )
+    original_read_text = Path.read_text
+    malformed_document = json.loads(original_read_text(schema_path, encoding="utf-8"))
+    malformed_document["definitions"]["ClaimsArrayV0"]["type"] = 7
+    malformed_text = json.dumps(malformed_document)
+
+    def malformed_schema(path: Path, *args: object, **kwargs: object) -> str:
+        if path.resolve() == schema_path:
+            return malformed_text
+        return original_read_text(path, *args, **kwargs)
+
+    verifier_impl._certificate_preparation_validator.cache_clear()
+    monkeypatch.setattr(Path, "read_text", malformed_schema)
+    with pytest.raises(VerificationError, match="^CO_SCHEMA_DEPENDENCY$") as raised:
+        prepare_client_co_attestation(cert, context=context)
+    assert raised.value.code == "CO_SCHEMA_DEPENDENCY"
+
+
+def test_prepare_rejects_malformed_referenced_draft_2020_schema_as_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cert, _, verification_context, _ = _sign_fixture()
+    cert["signatures"].pop("co_attestation")
+    context = _client_preparation_context(cert, verification_context)
+    schema_path = (
+        Path(verifier_impl.__file__).resolve().parent.parent
+        / "schemas"
+        / "observability"
+        / "evaluation_dataset_evaluator_plan_schema.json"
+    )
+    original_read_text = Path.read_text
+    malformed_document = json.loads(original_read_text(schema_path, encoding="utf-8"))
+    malformed_document["$defs"] = 7
+    malformed_text = json.dumps(malformed_document)
+
+    def malformed_schema(path: Path, *args: object, **kwargs: object) -> str:
+        if path.resolve() == schema_path:
+            return malformed_text
+        return original_read_text(path, *args, **kwargs)
+
+    verifier_impl._certificate_preparation_validator.cache_clear()
+    monkeypatch.setattr(Path, "read_text", malformed_schema)
+    with pytest.raises(VerificationError, match="^CO_SCHEMA_DEPENDENCY$") as raised:
+        prepare_client_co_attestation(cert, context=context)
+    assert raised.value.code == "CO_SCHEMA_DEPENDENCY"
+
+
 def test_prepare_rejects_unsupported_packaged_schema_dialect_as_dependency(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

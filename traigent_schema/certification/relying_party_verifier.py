@@ -37,6 +37,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError
+from jsonschema.validators import validator_for
 from referencing import Registry, Resource
 from referencing.exceptions import CannotDetermineSpecification, Unresolvable
 from referencing.jsonschema import UnknownDialect
@@ -610,7 +611,8 @@ def _certificate_preparation_validator() -> Draft7Validator:
         if isinstance(document, dict) and "$id" in document:
             try:
                 resource = Resource.from_contents(document)
-            except (CannotDetermineSpecification, UnknownDialect) as error:
+                validator_for(document).check_schema(document)
+            except (CannotDetermineSpecification, SchemaError, UnknownDialect) as error:
                 raise SchemaDependencyError("CERTIFICATE_PREPARATION_SCHEMA") from error
             resources.append((document["$id"], resource))
     catalog = json.loads(

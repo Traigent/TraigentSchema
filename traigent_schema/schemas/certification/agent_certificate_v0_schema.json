@@ -121,40 +121,6 @@
           }
         }
       }
-    },
-    {
-      "description": "v0 issuance is fail-closed for every expected ledger stream: legacy_unsealed and not_applicable remain historical ledger vocabulary but are not admissible in an Agent Certificate envelope. All three stream entries must be explicitly sealed or empty_sealed, each with its root commitment.",
-      "properties": {
-        "ledger_seal_projection": {
-          "properties": {
-            "expected_stream_projection": {
-              "properties": {
-                "decision_stream": {
-                  "properties": {
-                    "chain_status": {
-                      "enum": ["sealed", "empty_sealed"]
-                    }
-                  }
-                },
-                "receipt_event_stream": {
-                  "properties": {
-                    "chain_status": {
-                      "enum": ["sealed", "empty_sealed"]
-                    }
-                  }
-                },
-                "transition_stream": {
-                  "properties": {
-                    "chain_status": {
-                      "enum": ["sealed", "empty_sealed"]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
     }
   ],
   "definitions": {

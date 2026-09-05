@@ -53,7 +53,10 @@ def test_ci_workflow_uses_pip_cache_for_all_setup_python_jobs() -> None:
     # resolves versions at runtime and can execute setup scripts). Keying that
     # job from pyproject.toml would leave its cache stale exactly when the pinned
     # versions change, which is the failure this test exists to prevent.
-    expected_manifest = {"breaking-schema-check": "requirements.txt"}
+    expected_manifest = {
+        "breaking-schema-check": "requirements.txt",
+        "package": "pyproject.toml\nrequirements.txt\nrequirements-dev.txt\n",
+    }
 
     for job_name, step in steps:
         config = step.get("with", {})

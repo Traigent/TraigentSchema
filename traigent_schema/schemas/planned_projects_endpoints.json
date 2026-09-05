@@ -3,12 +3,12 @@
   "info": {
     "title": "Traigent Planned Project Contracts",
     "version": "1.0.0",
-    "description": "Planned and experimental contract surfaces preserved outside canonical backend parity."
+    "description": "Compatibility catalog for planned and mixed-maturity contract surfaces. Operation-scoped assertion metadata is authoritative for modules that contain both implemented and contract-first routes."
   },
   "x-traigent-contract": {
     "name": "planned_projects",
     "status": "planned",
-    "description": "Planned routes that are not asserted against current backend parity: project-scoped v1beta routes used by beta SDK surfaces, plus contract-first surfaces published ahead of their backend implementation (economics telemetry). Routes move to the canonical `backend` root once the backend serves them."
+    "description": "Compatibility root for project-scoped v1beta and experimental routes. It also indexes the mixed-maturity economics module: telemetry is implemented and asserted at operation scope, while recommendation remains contract-first and unasserted. Operation metadata in a mixed module, rather than this root's fallback classification, is authoritative."
   },
   "x-stability": "pre-release",
   "x-asserted-against-backend": false,
@@ -23,7 +23,7 @@
     },
     {
       "name": "economics_telemetry",
-      "description": "Contract-first economics telemetry ingestion (exposure funnel, run economics, receipts). Published ahead of backend ingestion and SDK emission.",
+      "description": "Mixed-maturity economics routes: telemetry ingestion (exposure funnel, run economics, receipts) is implemented and asserted at operation scope; recommendation remains contract-first and unasserted.",
       "paths_file": "./economics/economics_endpoints.json"
     }
   ],

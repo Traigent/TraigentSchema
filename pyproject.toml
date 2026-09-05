@@ -32,10 +32,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+certification = [
+    "cryptography>=46.0.0,<51.0.0",
+]
 dev = [
+    "cryptography>=46.0.0,<51.0.0",
+    "tomli>=2.0; python_version < '3.11'",
     "pytest>=9.0.3",  # CVE-2025-71176
     "pytest-cov>=4.0",
-    "ruff==0.16.0",  # Exact pin (parity with TraigentBackend/traigent-smartopt): reproducible `ruff check` across machines/CI. Lint-only gate; not format-gated.
+    "ruff==0.16.5",  # Exact pin (parity with TraigentBackend/traigent-smartopt): reproducible `ruff check` across machines/CI. Lint-only gate; not format-gated.
     "mypy>=1.0,<3",
 ]
 

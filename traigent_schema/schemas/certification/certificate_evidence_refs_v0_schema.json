@@ -5,7 +5,7 @@
   "description": "Typed, bounded, unique evidence references for Agent Certificate v0 claims (build-item B1 work order: 'typed, bounded, unique evidence references'). An evidence reference binds a claim to a committed artifact by kind + digest; it never carries content, counts, free text, or arbitrary map keys. Root instance is one EvidenceRefV0.",
   "definitions": {
     "EvidenceKindV0": {
-      "description": "Closed evidence-kind vocabulary for v0. Each kind names the artifact family the digest commits to; adding a kind is a new compatible schema release with its own Disclosure Register entry (C1 Ruling 1 reversal condition).",
+      "description": "Closed evidence-kind vocabulary for v0. Each kind names the artifact family the digest commits to; adding a kind is a new compatible schema release with its own Disclosure Register entry (C1 Ruling 1 reversal condition). `audit_report_digest` was added SCHEMA-1, 2026-08-24 (gap C4) as a DISTINCT kind from the pre-existing generic `verifier_report_digest`: it names specifically the digest of one typed, content-free certificate_audit_report_v0_schema.json#/definitions/AuditReportV0 record — build session, private client-evidence-manifest root, ledger seal, compiler/schema/semantics/verifier identities, and bounded per-claim support/abstention rows — never an unstructured verifier-output blob. `client_commitment_digest` is the G1-only kind for a client-held commitment root; it proves only that the client presented that commitment at commit time, not a verifier report, truth, authorship, or completeness. `verifier_report_digest` remains available for other, non-audit-report verifier evidence.",
       "type": "string",
       "enum": [
         "ledger_entry_commitment",
@@ -13,7 +13,9 @@
         "registry_record_digest",
         "sdk_witness_bundle",
         "verifier_report_digest",
-        "trust_ring_artifact"
+        "client_commitment_digest",
+        "trust_ring_artifact",
+        "audit_report_digest"
       ]
     },
     "EvidenceRefV0": {

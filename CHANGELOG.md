@@ -7,7 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Agent Certificate v0 HTTP error contract** defines a certificate-specific,
+  content-free Draft-07 contract. Every declared certificate-route error body
+  is closed to `success`, `message`, `error`, and a status-pinned `error_code`;
+  generic envelopes' `details`, maps, arrays, exception text, and request
+  content are not representable. The generic error envelope remains unchanged
+  for all other routes. This contract declaration does not establish Backend
+  runtime conformance.
+- **Agent Certificate v0 relying-party verification results** now distinguish
+  cryptographic success from status evidence. All current paths, including
+  validated retrieval wrappers, return `VERIFIED_SIGNATURE_ONLY` with
+  `status_evidence="not_checked"`; wrapper status metadata is shape-checked but
+  unsigned and cannot establish current validity or non-revocation. The
+  `VERIFIED` / `issuer_status_snapshot` pair is reserved for a future
+  issuer-asserted status snapshot backed by an authenticated, freshness-bounded
+  status-proof contract; the current v0 retrieval schema provides no such proof.
+  Reconstructing the former `VerificationResult(valid=True, code='VERIFIED')`
+  without the reserved `status_evidence="issuer_status_snapshot"` now raises.
+- **Agent Certificate v0 signing and certification API** now use an issuer-first
+  prepare/finalize protocol: the issuer signs the length-prefixed canonical
+  unsigned manifest, `prepare` returns that single complete pre-co-attestation
+  certificate projection, and the client signs the complete issuer-signed
+  projection excluding only the outer co-attestation. Finalize conditionally
+  requires co-attestation for persisted G1/tier-1 projections; B1-only may
+  issue with issuer material alone.
+- **Agent Certificate v0 G1** now uses the v2 pinned-client signed declaration and emits the
+  exact honesty scope line. G1 payloads carry structurally adjacent build-session/client-key
+  references and rendered text; client key references use deterministic project-scoped
+  derivation from canonical public verification material. Enrollment no longer accepts a
+  caller-selected client key reference, and G1 finalization requires the client co-attestation.
+- **Agent Certificate v0 audit reports** now expose one closed evidence_basis per fixed row;
+  B1 may be issuer-verified only when the fixed seal and signing-envelope contract passes, while
+  G1 remains a client-declared unopened commitment and unsupported rows abstain.
+
 ### Added
+- **`task_type` on `POST /api/v1/sessions`** (optional string, 1-128 chars): a COARSE,
+  client-declared task category (`multiple_choice`, `exact_match`, `text2sql`,
+  `code_generation`, `summarization`, ...) that the backend maps internally to an
+  evaluator-quality anchor policy. The client never names an anchor; unknown values
+  resolve to no anchor. Same shape as `optimization_plan_request.task_type`. Until this
+  field, the anchor policy's only live designation path (the hint) had no typed channel,
+  so every real run audited as `no_anchor_designation`.
+- **Agent Certificate v0 certification API and contract** now expose lazy relying-party
+  verification exports, frozen B1/G1 claim verification with explicit D2 abstention, and
+  canonical public-key material validation for supported issuer and client algorithms.
+- **`ExampleMetrics` sibling identity fields** in `evaluation/configuration_run_schema.json`:
+  `input_id`, `example_digest`, `output_digest`, `verified_match`, and `signal_key_id`. This
+  documents fields the runtime contract already accepts rather than loosening it: the backend has
+  preserved unknown sibling keys on a per-example measure since #1334 (`_collect_sibling_keys` /
+  `validate_example_result` in `TraigentBackend/src/models/workflow_metadata.py`), and the SDK
+  already ships `input_id` today — the schema's `additionalProperties: false` on `ExampleMetrics`
+  simply never enumerated it. `example_digest`/`output_digest` are keyed, one-way, client-computed
+  64-character lowercase-hex identity digests (keyed to the project's own credentials, per
+  `Traigent#2191` commit `7559b983`); `signal_key_id` is a 12-character lowercase-hex tag
+  identifying which key version produced those two digests, present only alongside them.
+  `verified_match` is `0.0`/`1.0` and MUST be omitted entirely (not sent as `null` or `0.0`) when
+  an example has no usable expected answer, since absence ("not checked") is semantically distinct
+  from `0.0` ("checked and failed"). Unblocks the paired `TraigentBackend#2821` / `Traigent#2191`.
+  `additionalProperties: false` is kept — every sibling the client may send is now enumerated, not
+  the constraint loosened. This schema-first addition targets **5.8.0**.
+- **`measures` / `metadata.measures` in `session_submit_results_request_schema.json` now express
+  both backend-accepted shapes.** Previously a bare `$ref` to the flat `MeasureResults` dict, which
+  only documented half of what `_validate_submission_measures`
+  (`TraigentBackend/src/routes/traigent_session_routes.py`) actually dispatches: the flat dict
+  (`validate_measures_dict`) or a list of per-example `ExampleMetrics` results
+  (`validate_measures_list`) — the list form is what carries the new `ExampleMetrics` sibling
+  fields above. Both properties are now `oneOf: [MeasureResults, array<ExampleMetrics>]`, each
+  branch still referencing the single canonical definition (no duplicated bounds). Existing
+  flat-dict producers are unaffected — confirmed by the pre-existing
+  `test_submit_results_measures_inherit_measuresdict_contract` /
+  `test_submit_results_legacy_metadata_measures_is_constrained` tests continuing to pass, plus a
+  direct `SchemaValidator` check of both shapes on both properties. Targets **5.8.0**.
 - **Canonical cached-token usage vocabulary** in `common_types_schema.json`:
   `CacheReadTokens`, `CacheCreationTokens`, `CacheCreationTokensByTtl`, and
   `UnreportedUsageFields`. Optional nullable counts preserve the difference between a provider
@@ -46,8 +117,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wording); a FOURTEEN-item tuple-validated mandatory NON-claim print list; sealed-ledger wire
   shapes (fixed three-stream expected projection with explicit `chain_status` states, no
   counts/terminal sequence values, server-internal HMAC material unrepresentable); issuer
-  signature + full-manifest client co-attestation shapes (issuer covers the co-attestation
-  bytes when present; tier-1 claims require a co-attestation); minimal blinded
+  signature + full-manifest client co-attestation shapes (the issuer signs the unsigned
+  manifest first and the client then signs the complete issuer-signed projection; tier-1
+  claims require a co-attestation at issuance); minimal blinded
   AgentRevision/MeasurementContract registry commitment records (no counts, no date buckets,
   no timestamps, printed non-claims in the schema descriptions); and a bounded rejection
   diagnostic (closed code vocabulary + structural path of property names/indices only).

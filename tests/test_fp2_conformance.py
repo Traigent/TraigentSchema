@@ -11,14 +11,14 @@ import collections
 import json
 import sys
 import unicodedata
-from pathlib import Path
+from importlib import resources
 from typing import Any
 
 import pytest
 
 from traigent_schema.fp2 import MAX_DEPTH, Fp2UnsupportedValue, canonicalize, digest
 
-CORPUS = Path(__file__).resolve().parent / "data" / "fp2_conformance.json"
+CORPUS = resources.files("traigent_schema").joinpath("data", "fp2_conformance.json")
 
 _MARKERS: dict[str, Any] = {
     "@@NAN@@": float("nan"),

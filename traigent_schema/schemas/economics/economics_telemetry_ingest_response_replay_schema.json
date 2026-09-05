@@ -12,6 +12,5 @@
       "description": "Bound true on the 200 replay path: this response is a replay of a previously-ingested batch and wrote no new state."
     }
   },
-  "x-stability": "pre-release",
-  "x-asserted-against-backend": false
+  "x-stability": "pre-release"
 }

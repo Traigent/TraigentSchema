@@ -146,8 +146,13 @@ def _run_event(**extra) -> dict:
             "overrides": {"observed_daily_volume": 3100},
             "field_reports": [
                 _report("value_channel"),
-                _report("daily_volume_band", provenance="inferred", confidence=0.7,
-                        evidence_status="provided", evidence_pointer="14d of run counts"),
+                _report(
+                    "daily_volume_band",
+                    provenance="inferred",
+                    confidence=0.7,
+                    evidence_status="provided",
+                    evidence_pointer="14d of run counts",
+                ),
                 _report("error_cost_band", provenance="defaulted", confidence=0.4),
                 _report(
                     "observed_daily_volume",
@@ -235,7 +240,10 @@ def _winner_receipt(**extra) -> dict:
             "paired": True,
             "selected_config_hash": "d" * 64,
             "promotion": {"status": "promoted", "promoted_at": "2026-07-17T12:00:00Z"},
-            "production_follow_up": {"status": "scheduled", "due_at": "2026-07-24T12:00:00Z"},
+            "production_follow_up": {
+                "status": "scheduled",
+                "due_at": "2026-07-24T12:00:00Z",
+            },
         },
     }
     event.update(extra)
@@ -310,31 +318,37 @@ def test_route_binds_the_ingest_request_schema() -> None:
     assert (
         validator._endpoint_schemas.get("POST:/api/v1/economics/telemetry") == INGEST
     ), "economics telemetry route must resolve through SchemaValidator, not fail open"
-    assert validator.validate_request("/api/v1/economics/telemetry", "POST", _batch()) == []
+    assert (
+        validator.validate_request("/api/v1/economics/telemetry", "POST", _batch())
+        == []
+    )
     assert validator.validate_request("/api/v1/economics/telemetry", "POST", {}) != []
 
 
-def test_route_is_not_claimed_as_canonical_backend_truth() -> None:
-    """The route is NOT in the canonical `backend` root. Note what this does and does
-    not mean: TraigentBackend does serve this route in production today, so the
-    original 'no backend serves this yet' reading of this test is out of date. What
-    the assertion locks is the CLASSIFICATION, which #343 left unchanged on purpose —
-    promoting the economics module to canonical backend truth is an owner-level
-    release-posture decision, not a schema-correctness fix."""
+def test_route_is_canonical_backend_truth_and_asserted() -> None:
+    """#365 — implemented telemetry is discoverable and validated by `backend`."""
+    validator = SchemaValidator(contract="backend")
+    assert validator._endpoint_schemas.get("POST:/api/v1/economics/telemetry") == INGEST
     assert (
-        SchemaValidator(contract="backend")._endpoint_schemas.get(
-            "POST:/api/v1/economics/telemetry"
-        )
-        is None
+        validator.validate_request("/api/v1/economics/telemetry", "POST", _batch())
+        == []
     )
+    assert validator.validate_request("/api/v1/economics/telemetry", "POST", {}) != []
+
     catalog = _load("economics_endpoints.json")
-    assert catalog["x-stability"] == "pre-release"
-    assert catalog["x-asserted-against-backend"] is False
+    assert "x-stability" not in catalog
+    assert "x-asserted-against-backend" not in catalog
+    operation = catalog["paths"]["/api/v1/economics/telemetry"]["post"]
+    assert operation["x-asserted-against-backend"] is True
 
 
 def test_full_batch_of_every_event_kind_validates() -> None:
     body = _batch(
-        _funnel_event(), _run_event(), _winner_receipt(), _defect_receipt(), _savings_receipt()
+        _funnel_event(),
+        _run_event(),
+        _winner_receipt(),
+        _defect_receipt(),
+        _savings_receipt(),
     )
     assert _ok(body, INGEST)
 
@@ -346,7 +360,12 @@ def test_envelope_requires_stable_contract_and_version_identifiers() -> None:
     assert _rejected(_batch(contract="observability_telemetry"), INGEST)
     assert _rejected(_batch(contract_version="1.1.0"), INGEST)
     for missing in (
-        "contract", "contract_version", "batch_id", "idempotency_key", "sent_at", "source"
+        "contract",
+        "contract_version",
+        "batch_id",
+        "idempotency_key",
+        "sent_at",
+        "source",
     ):
         body = _batch()
         del body[missing]
@@ -354,9 +373,9 @@ def test_envelope_requires_stable_contract_and_version_identifiers() -> None:
 
 
 def test_envelope_rejects_unknown_fields_and_unbounded_batches() -> None:
-    assert _rejected(_batch(tenant_id="t-other"), INGEST), (
-        "a client-asserted tenant field must not be representable"
-    )
+    assert _rejected(
+        _batch(tenant_id="t-other"), INGEST
+    ), "a client-asserted tenant field must not be representable"
     assert _rejected(_batch(events=[]), INGEST)
     assert _rejected(_batch(events=[_funnel_event() for _ in range(501)]), INGEST)
     assert _ok(_batch(events=[_funnel_event() for _ in range(500)]), INGEST)
@@ -401,7 +420,9 @@ def test_late_stages_must_name_the_advice_they_are_about() -> None:
     for stage in _ADVICE_STAGES:
         event = _funnel_at(stage)
         del event["advice_id"]
-        assert _rejected(event, FUNNEL), f"{stage}: unjoinable to the advice it is about"
+        assert _rejected(
+            event, FUNNEL
+        ), f"{stage}: unjoinable to the advice it is about"
         assert _ok(_funnel_at(stage), FUNNEL), stage
 
 
@@ -423,12 +444,16 @@ def test_production_retention_is_only_claimable_in_production() -> None:
     at production_retained and still count as retention — inflating the numerator with
     runs that never reached production."""
     # the honest positive: retained, observed in production
-    assert _ok(_funnel_at("production_retained", occurred_in_environment="production"), FUNNEL)
+    assert _ok(
+        _funnel_at("production_retained", occurred_in_environment="production"), FUNNEL
+    )
 
     # omitting the environment is not a production claim
     missing = _funnel_at("production_retained")
     missing.pop("occurred_in_environment", None)
-    assert _rejected(missing, FUNNEL), "production_retained without an environment is not a claim"
+    assert _rejected(
+        missing, FUNNEL
+    ), "production_retained without an environment is not a claim"
 
     # naming a non-production environment is rejected decisively
     for env in ("development", "staging"):
@@ -460,7 +485,9 @@ def test_production_retention_is_only_claimable_in_production() -> None:
     # earlier stages are unconstrained: an event can be observed pre-production, or
     # record no environment at all
     assert _ok(_funnel_at("promoted", occurred_in_environment="staging"), FUNNEL)
-    assert _ok(_funnel_at("promoted"), FUNNEL), "environment is optional before production_retained"
+    assert _ok(
+        _funnel_at("promoted"), FUNNEL
+    ), "environment is optional before production_retained"
 
 
 def test_the_stages_before_a_run_do_not_have_to_invent_one() -> None:
@@ -507,7 +534,9 @@ def test_exit_requires_a_reason_and_entry_forbids_one() -> None:
 
 def test_exit_reason_vocabulary_is_closed() -> None:
     for reason in ("other", "misc", "", "user declined"):
-        assert _rejected(_funnel_event(outcome="exited", exit_reason=reason), FUNNEL), reason
+        assert _rejected(
+            _funnel_event(outcome="exited", exit_reason=reason), FUNNEL
+        ), reason
 
 
 def test_exit_detail_free_text_is_not_representable() -> None:
@@ -518,7 +547,9 @@ def test_exit_detail_free_text_is_not_representable() -> None:
     exit_detail is now an unknown field rejected by additionalProperties:false — even
     alongside a valid reason code, which is where the old contract still admitted it."""
     assert _rejected(
-        _funnel_event(outcome="exited", exit_reason="user_declined", exit_detail="note"),
+        _funnel_event(
+            outcome="exited", exit_reason="user_declined", exit_detail="note"
+        ),
         FUNNEL,
     ), "exit_detail must not be representable even alongside a valid reason code"
     assert _rejected(
@@ -528,7 +559,9 @@ def test_exit_detail_free_text_is_not_representable() -> None:
     # the closed reason code alone is the honest, complete exit record
     assert _ok(_funnel_event(outcome="exited", exit_reason="user_declined"), FUNNEL)
     # exit_detail is gone from the schema entirely, not merely constrained
-    assert "exit_detail" not in _load("economics_funnel_event_schema.json")["properties"]
+    assert (
+        "exit_detail" not in _load("economics_funnel_event_schema.json")["properties"]
+    )
 
 
 def test_funnel_rejects_unknown_stage_and_unknown_field() -> None:
@@ -556,7 +589,9 @@ def _with_reports(*reports, bands=None, overrides=None) -> dict:
 
 def test_inferred_value_must_account_for_its_evidence() -> None:
     assert _rejected(
-        _with_reports(_report("observed_daily_volume", provenance="inferred", confidence=0.8)),
+        _with_reports(
+            _report("observed_daily_volume", provenance="inferred", confidence=0.8)
+        ),
         RUN,
     ), "an inferred value with no evidence status is an unsupported guess"
 
@@ -634,17 +669,21 @@ def test_a_withheld_field_cannot_claim_its_evidence_was_provided() -> None:
         evidence_status="provided",
         evidence_pointer="incident ledger shows $4k median escalation",
     )
-    assert _rejected(_with_reports(leaked), RUN), "a withheld field must not ship a pointer"
+    assert _rejected(
+        _with_reports(leaked), RUN
+    ), "a withheld field must not ship a pointer"
 
     # the contradiction is rejected even with the pointer stripped: `provided` is
     # itself the false claim, not merely the field that carries it
     del leaked["evidence_pointer"]
-    assert _rejected(_with_reports(leaked), RUN), (
-        "evidence_status=provided on a withheld field is a self-contradiction"
-    )
+    assert _rejected(
+        _with_reports(leaked), RUN
+    ), "evidence_status=provided on a withheld field is a self-contradiction"
 
     leaked["evidence_status"] = "withheld_by_policy"
-    assert _ok(_with_reports(leaked), RUN), "the honest withholding must still be reportable"
+    assert _ok(
+        _with_reports(leaked), RUN
+    ), "the honest withholding must still be reportable"
 
 
 def test_asked_and_defaulted_values_cannot_claim_inference_evidence() -> None:
@@ -698,11 +737,13 @@ def test_a_field_declared_withheld_cannot_ship_its_value_anyway() -> None:
     a closed enum, not a comparison of two values — so it is enforced here rather
     than deferred to the backend, and this test is the proof that it bites."""
     withheld = _report("lifecycle_stage", sharing_outcome="withheld_by_policy")
-    assert _rejected(_transmitting("lifecycle_stage", withheld), RUN), (
-        "declaring a field withheld while shipping its value must be unrepresentable"
-    )
+    assert _rejected(
+        _transmitting("lifecycle_stage", withheld), RUN
+    ), "declaring a field withheld while shipping its value must be unrepresentable"
     # the honest withholding: declared withheld, absent from bands
-    assert _ok(_with_reports(withheld), RUN), "an honestly withheld field must still be reportable"
+    assert _ok(
+        _with_reports(withheld), RUN
+    ), "an honestly withheld field must still be reportable"
 
     # the same rule for a typed override, not just a band
     withheld_override = _report(
@@ -712,9 +753,9 @@ def test_a_field_declared_withheld_cannot_ship_its_value_anyway() -> None:
         sharing_outcome="withheld_by_policy",
         evidence_status="withheld_by_policy",
     )
-    assert _rejected(_transmitting("observed_daily_volume", withheld_override), RUN), (
-        "the egress rule must cover overrides, not only bands"
-    )
+    assert _rejected(
+        _transmitting("observed_daily_volume", withheld_override), RUN
+    ), "the egress rule must cover overrides, not only bands"
     assert _ok(_with_reports(withheld_override), RUN)
 
 
@@ -730,7 +771,9 @@ def test_a_second_shared_report_cannot_launder_a_withheld_value() -> None:
         _report("lifecycle_stage", sharing_outcome="withheld_by_policy"),
         _report("lifecycle_stage", provenance="defaulted", confidence=0.9),
     )
-    assert _rejected(event, RUN), "a withheld value must not egress behind a second shared report"
+    assert _rejected(
+        event, RUN
+    ), "a withheld value must not egress behind a second shared report"
 
 
 def test_every_transmitted_value_must_carry_its_own_shared_report() -> None:
@@ -740,15 +783,23 @@ def test_every_transmitted_value_must_carry_its_own_shared_report() -> None:
     compute (withholding, asked-vs-inferred, confidence) is computed over reports
     and silently excludes it."""
     bands, overrides = _containers()
-    assert set(_SAMPLE_VALUES) == bands | overrides, "sample must cover the whole allowlist"
+    assert (
+        set(_SAMPLE_VALUES) == bands | overrides
+    ), "sample must cover the whole allowlist"
 
     for field in _SAMPLE_VALUES:
         # a report for some OTHER field does not account for this one
-        decoy = _report("value_channel" if field != "value_channel" else "lifecycle_stage")
-        assert _rejected(_transmitting(field, decoy), RUN), f"{field}: value with no report"
+        decoy = _report(
+            "value_channel" if field != "value_channel" else "lifecycle_stage"
+        )
+        assert _rejected(
+            _transmitting(field, decoy), RUN
+        ), f"{field}: value with no report"
 
         # ... and the honest payload passes
-        assert _ok(_transmitting(field, _report(field)), RUN), f"{field}: reported value rejected"
+        assert _ok(
+            _transmitting(field, _report(field)), RUN
+        ), f"{field}: reported value rejected"
 
 
 def test_a_transmitted_value_may_only_be_reported_as_shared() -> None:
@@ -756,7 +807,9 @@ def test_a_transmitted_value_may_only_be_reported_as_shared() -> None:
     exist: 'here is the value, which I withheld' must not be sayable per field."""
     for field in _SAMPLE_VALUES:
         report = _report(field, sharing_outcome="withheld_by_policy")
-        assert _rejected(_transmitting(field, report), RUN), f"{field}: transmitted yet 'withheld'"
+        assert _rejected(
+            _transmitting(field, report), RUN
+        ), f"{field}: transmitted yet 'withheld'"
 
 
 def test_a_shared_report_with_no_transmitted_value_is_an_empty_alibi() -> None:
@@ -768,9 +821,13 @@ def test_a_shared_report_with_no_transmitted_value_is_an_empty_alibi() -> None:
     no value. Every allowlisted field is probed."""
     for field in _SAMPLE_VALUES:
         # a shared report whose value is transmitted nowhere
-        assert _rejected(_with_reports(_report(field)), RUN), f"{field}: shared but no value"
+        assert _rejected(
+            _with_reports(_report(field)), RUN
+        ), f"{field}: shared but no value"
         # ... and transmitting the value makes the same report honest
-        assert _ok(_transmitting(field, _report(field)), RUN), f"{field}: reported value rejected"
+        assert _ok(
+            _transmitting(field, _report(field)), RUN
+        ), f"{field}: reported value rejected"
     # the honest all-withheld characterization stays representable: its reports are
     # withheld_by_policy (not shared), so the substance rule does not fire
     withheld = _report(
@@ -780,7 +837,9 @@ def test_a_shared_report_with_no_transmitted_value_is_an_empty_alibi() -> None:
         sharing_outcome="withheld_by_policy",
         evidence_status="withheld_by_policy",
     )
-    assert _ok(_with_reports(withheld), RUN), "an all-withheld characterization is honest telemetry"
+    assert _ok(
+        _with_reports(withheld), RUN
+    ), "an all-withheld characterization is honest telemetry"
 
 
 def test_the_full_fixture_reports_every_field_it_transmits() -> None:
@@ -794,15 +853,21 @@ def test_the_full_fixture_reports_every_field_it_transmits() -> None:
         for report in characterization["field_reports"]
         if report["sharing_outcome"] == "shared"
     }
-    assert transmitted <= shared, f"unreported values in the fixture: {transmitted - shared}"
+    assert (
+        transmitted <= shared
+    ), f"unreported values in the fixture: {transmitted - shared}"
     assert all("confidence" in report for report in characterization["field_reports"])
     withheld = {
         report["field"]
         for report in characterization["field_reports"]
         if report["sharing_outcome"] == "withheld_by_policy"
     }
-    assert withheld, "the fixture must exercise the withholding path, not only the happy one"
-    assert not (withheld & transmitted), "a withheld field must not appear in the payload"
+    assert (
+        withheld
+    ), "the fixture must exercise the withholding path, not only the happy one"
+    assert not (
+        withheld & transmitted
+    ), "a withheld field must not appear in the payload"
 
 
 def test_shared_fields_are_unaffected_by_the_withheld_rule() -> None:
@@ -818,7 +883,9 @@ def test_characterization_must_report_something() -> None:
     nothing, and would satisfy the required `characterization` slot."""
     event = _run_event()
     event["characterization"] = {}
-    assert _rejected(event, RUN), "characterization with no field reports is not telemetry"
+    assert _rejected(
+        event, RUN
+    ), "characterization with no field reports is not telemetry"
     event["characterization"] = {"field_reports": []}
     assert _rejected(event, RUN), "an empty field_reports array reports nothing"
 
@@ -830,7 +897,9 @@ def test_only_allowlisted_characterization_fields_can_egress() -> None:
     assert _rejected(event, RUN)
     event = _run_event()
     event["characterization"]["agent_display_name"] = "our QA agent"
-    assert _rejected(event, RUN), "presentation-only fields must not egress as telemetry"
+    assert _rejected(
+        event, RUN
+    ), "presentation-only fields must not egress as telemetry"
 
 
 def test_allowlist_exactly_mirrors_the_band_and_override_properties() -> None:
@@ -839,20 +908,28 @@ def test_allowlist_exactly_mirrors_the_band_and_override_properties() -> None:
     declared = set(vocab["CharacterizationBands"]["properties"]) | set(
         vocab["CharacterizationOverrides"]["properties"]
     )
-    assert allowlist == declared, "the egress allowlist and the declared fields must not drift"
+    assert (
+        allowlist == declared
+    ), "the egress allowlist and the declared fields must not drift"
 
 
 def test_provenance_and_sharing_vocabularies_are_closed() -> None:
     assert _rejected(_with_reports(_report("value_channel", provenance="guessed")), RUN)
-    assert _rejected(_with_reports(_report("value_channel", sharing_outcome="sold")), RUN)
+    assert _rejected(
+        _with_reports(_report("value_channel", sharing_outcome="sold")), RUN
+    )
 
 
 def test_characterization_overrides_are_typed_and_nonnegative() -> None:
     # each payload is fully reported, so the ONLY thing left to reject is the value
     assert _rejected(
         _with_reports(
-            _report("observed_daily_volume", provenance="inferred", confidence=0.8,
-                    evidence_status="withheld_by_policy"),
+            _report(
+                "observed_daily_volume",
+                provenance="inferred",
+                confidence=0.8,
+                evidence_status="withheld_by_policy",
+            ),
             overrides={"observed_daily_volume": "about 3k"},
         ),
         RUN,
@@ -882,14 +959,24 @@ def test_a_settled_run_record_must_carry_the_whole_economics_record() -> None:
         "project_ref": "proj-1",
         "run_id": "run-1",
     }
-    assert _rejected(minimal, RUN), "a run economics event that asserts nothing is not a record"
-    assert _rejected(_batch(minimal), INGEST), "and it must not enter through the batch either"
+    assert _rejected(
+        minimal, RUN
+    ), "a run economics event that asserts nothing is not a record"
+    assert _rejected(
+        _batch(minimal), INGEST
+    ), "and it must not enter through the batch either"
     # the discriminated union is oneOf, so a rejected run event matches NO branch
     # rather than falling through to another one — check the route, not just the schema
     assert (
-        _v().validate_request("/api/v1/economics/telemetry", "POST", _batch(minimal)) != []
+        _v().validate_request("/api/v1/economics/telemetry", "POST", _batch(minimal))
+        != []
     ), "the blank record must be rejected at the endpoint, not only in isolation"
-    assert _v().validate_request("/api/v1/economics/telemetry", "POST", _batch(_run_event())) == []
+    assert (
+        _v().validate_request(
+            "/api/v1/economics/telemetry", "POST", _batch(_run_event())
+        )
+        == []
+    )
 
     for field in (
         "archetype",
@@ -912,8 +999,12 @@ def test_a_failed_run_is_a_funnel_exit_not_a_blank_settlement() -> None:
     failed or produced no supported effect is reported as an exit carrying a closed
     reason — strictly more informative than an empty settlement, which is why
     requiring the full record costs no expressiveness."""
-    for reason in ("run_failed", "cost_cap_reached", "insufficient_evidence",
-                   "no_positive_lower_bound"):
+    for reason in (
+        "run_failed",
+        "cost_cap_reached",
+        "insufficient_evidence",
+        "no_positive_lower_bound",
+    ):
         assert _ok(
             _funnel_at("completed", outcome="exited", exit_reason=reason), FUNNEL
         ), reason
@@ -935,40 +1026,57 @@ def test_a_settled_run_meters_its_usage_explicitly() -> None:
 
 
 def test_a_settled_run_records_the_measured_effect_support_and_exclusions() -> None:
-    """run_economics is emitted only for a run whose effect WAS measured (a failure is a
-    funnel exit), so the measured evidence is not optional: without effect_estimate,
-    support, exclusions, and the objective weights in force, the record names an
-    evidence identity that measures nothing — the evidence half of a blank settlement."""
+    (
+        "run_economics is emitted only for a run whose effect WAS measured (a failure is a\n"
+        "    funnel exit), so the measured evidence is not optional: without effect_estimate,\n"
+        "    support, exclusions, and the objective weights in force, the record names an\n"
+        "    evidence identity that measures nothing — the evidence half of a blank settlement."
+    )
     for field in ("effect_estimate", "support", "exclusions", "objective_weights"):
         event = _run_event()
         del event["evidence_identity"][field]
-        assert _rejected(event, RUN), f"{field}: a settled effect claim is incomplete without it"
+        assert _rejected(
+            event, RUN
+        ), f"{field}: a settled effect claim is incomplete without it"
     # exclusions must be EXPLICIT, but an empty array is the honest 'nothing was dropped'
     event = _run_event()
     event["evidence_identity"]["exclusions"] = []
-    assert _ok(event, RUN), "an explicit empty exclusions array asserts nothing was excluded"
+    assert _ok(
+        event, RUN
+    ), "an explicit empty exclusions array asserts nothing was excluded"
     # holdout stays optional: an effect measured without a holdout is a real fact the
     # transfer analysis needs, so requiring it would reject honest no-holdout telemetry
     event = _run_event()
     del event["evidence_identity"]["holdout_hash"]
-    assert _ok(event, RUN), "measuring without a holdout is a methodological fact, not a gap"
+    assert _ok(
+        event, RUN
+    ), "measuring without a holdout is a methodological fact, not a gap"
 
 
-def test_the_composed_blank_settlement_shell_is_rejected_and_the_honest_exit_is_not() -> None:
-    """Defect 1 in one payload: a run_economics event that combines every empty shell —
-    zero-metering usage, an evidence identity with no measured effect, and a
-    characterization whose only report is a `shared` alibi with no value — must be
-    rejected as a body, and its honest alternative (report the drop as a funnel exit
-    carrying a closed reason) must stay valid. The strictness costs no expressiveness."""
+def test_the_composed_blank_settlement_shell_is_rejected_and_the_honest_exit_is_not() -> (
+    None
+):
+    (
+        "Defect 1 in one payload: a run_economics event that combines every empty shell —\n"
+        "    zero-metering usage, an evidence identity with no measured effect, and a\n"
+        "    characterization whose only report is a `shared` alibi with no value — must be\n"
+        "    rejected as a body, and its honest alternative (report the drop as a funnel exit\n"
+        "    carrying a closed reason) must stay valid. The strictness costs no expressiveness."
+    )
     shell = _run_event()
     shell["usage"] = {}
     del shell["evidence_identity"]["effect_estimate"]
     del shell["evidence_identity"]["support"]
     shell["characterization"] = {"field_reports": [_report("value_channel")]}
-    assert _rejected(shell, RUN), "a blank settlement shell must not pass as a settled run"
-    assert _rejected(_batch(shell), INGEST), "and it must not enter through the batch either"
+    assert _rejected(
+        shell, RUN
+    ), "a blank settlement shell must not pass as a settled run"
+    assert _rejected(
+        _batch(shell), INGEST
+    ), "and it must not enter through the batch either"
     assert (
-        _v().validate_request("/api/v1/economics/telemetry", "POST", _batch(shell)) != []
+        _v().validate_request("/api/v1/economics/telemetry", "POST", _batch(shell))
+        != []
     ), "the shell must be rejected at the endpoint, not only in isolation"
     for reason in ("run_failed", "cost_cap_reached", "insufficient_evidence"):
         assert _ok(
@@ -986,7 +1094,11 @@ def test_the_settled_run_must_join_to_the_advice_it_answers() -> None:
 
 
 def test_budget_recommendation_and_cap_are_backend_authored() -> None:
-    agent_authored = {"authored_by": "agent", "recommended_daily_usd": 500.0, "cap_usd": 500.0}
+    agent_authored = {
+        "authored_by": "agent",
+        "recommended_daily_usd": 500.0,
+        "cap_usd": 500.0,
+    }
     assert _rejected(_run_event(budget=agent_authored), RUN)
     event = _run_event()
     del event["budget"]["cap_usd"]
@@ -1005,9 +1117,9 @@ def test_credit_and_incentive_fields_are_not_representable_in_the_budget() -> No
         event["budget"] = {**budget, field: True}
         assert _rejected(event, RUN), f"{field} must not be representable in the budget"
     # the field is absent from the contract entirely, not merely constrained
-    budget_props = _load("economics_run_event_schema.json")["definitions"]["BudgetRecord"][
-        "properties"
-    ]
+    budget_props = _load("economics_run_event_schema.json")["definitions"][
+        "BudgetRecord"
+    ]["properties"]
     assert "credit_backed" not in budget_props
     assert not any("credit" in name or "incentive" in name for name in budget_props)
 
@@ -1026,17 +1138,27 @@ def test_monetary_and_count_fields_are_typed_nonnegative_and_bounded() -> None:
 
 def test_effect_estimate_must_carry_an_interval_and_its_level() -> None:
     event = _run_event()
-    event["evidence_identity"]["effect_estimate"] = {"estimate": 0.07, "unit": "proportion"}
+    event["evidence_identity"]["effect_estimate"] = {
+        "estimate": 0.07,
+        "unit": "proportion",
+    }
     assert _rejected(event, RUN), "a point estimate is not evidence"
     event = _run_event()
     interval = _interval()
     del interval["level"]
     event["evidence_identity"]["effect_estimate"] = interval
-    assert _rejected(event, RUN), "an interval without its level cannot be read as a bound"
+    assert _rejected(
+        event, RUN
+    ), "an interval without its level cannot be read as a bound"
 
 
 def test_evidence_identity_requires_baseline_dataset_and_evaluator() -> None:
-    for field in ("baseline_run_id", "candidate_run_id", "dataset_hash", "evaluator_version"):
+    for field in (
+        "baseline_run_id",
+        "candidate_run_id",
+        "dataset_hash",
+        "evaluator_version",
+    ):
         event = _run_event()
         del event["evidence_identity"][field]
         assert _rejected(event, RUN), field
@@ -1060,12 +1182,16 @@ def test_exclusion_reasons_are_closed() -> None:
 def test_off_menu_client_action_must_be_classified() -> None:
     event = _run_event()
     event["advisory"]["client_action"] = "off_menu"
-    assert _rejected(event, RUN), "an unexplained off-menu action is a hole in the adherence model"
+    assert _rejected(
+        event, RUN
+    ), "an unexplained off-menu action is a hole in the adherence model"
     event["advisory"]["off_menu_action_class"] = "manual_change_outside_platform"
     assert _ok(event, RUN)
     event = _run_event()
     event["advisory"]["off_menu_action_class"] = "escalated_to_human"
-    assert _rejected(event, RUN), "client_action=followed cannot carry an off-menu class"
+    assert _rejected(
+        event, RUN
+    ), "client_action=followed cannot carry an off-menu class"
 
 
 def test_advisory_requires_both_the_recommendation_and_what_the_client_did() -> None:
@@ -1114,7 +1240,11 @@ def test_timestamps_must_be_utc_with_a_trailing_z() -> None:
     ):
         assert _rejected(_run_event(occurred_at=bad), RUN), bad
 
-    for good in ("2026-07-17T10:00:00Z", "2026-07-17T10:00:00.123Z", "2026-07-17T10:00:00.123456Z"):
+    for good in (
+        "2026-07-17T10:00:00Z",
+        "2026-07-17T10:00:00.123Z",
+        "2026-07-17T10:00:00.123456Z",
+    ):
         assert _ok(_run_event(occurred_at=good), RUN), good
 
 
@@ -1127,7 +1257,9 @@ def test_the_utc_rule_reaches_every_timestamp_not_just_the_event_time() -> None:
 
     receipt = _winner_receipt()
     receipt["attestation"]["verified_at"] = "2026-07-17T11:00:00+02:00"
-    assert _rejected(receipt, RECEIPT), "an attestation must not be backdatable by offset"
+    assert _rejected(
+        receipt, RECEIPT
+    ), "an attestation must not be backdatable by offset"
 
     receipt = _savings_receipt()
     receipt["savings"]["window"]["end"] = "2026-07-17T00:00:00+02:00"
@@ -1143,7 +1275,9 @@ def test_the_utc_rule_reaches_every_timestamp_not_just_the_event_time() -> None:
 # receipts: closed kinds, kind-specific evidence
 # --------------------------------------------------------------------------- #
 def test_receipt_kinds_are_closed() -> None:
-    assert _load("economics_receipt_event_schema.json")["properties"]["receipt_kind"]["enum"] == [
+    assert _load("economics_receipt_event_schema.json")["properties"]["receipt_kind"][
+        "enum"
+    ] == [
         "winner",
         "defect",
         "savings",
@@ -1159,7 +1293,8 @@ def test_every_receipt_needs_an_attestation() -> None:
 
 def test_the_proposing_agent_is_not_a_permitted_verifier_kind() -> None:
     assert _rejected(
-        _winner_receipt(attestation=_attestation(verifier_kind="proposing_agent")), RECEIPT
+        _winner_receipt(attestation=_attestation(verifier_kind="proposing_agent")),
+        RECEIPT,
     )
     assert _rejected(
         _defect_receipt(attestation=_attestation(verifier_kind="self")), RECEIPT
@@ -1181,7 +1316,11 @@ def test_a_receipt_cannot_carry_another_kinds_block() -> None:
 
 def test_winner_receipt_requires_immutable_identity_cost_and_paired_delta() -> None:
     for field in (
-        "run_identity", "actual_cost_usd", "paired_delta", "paired", "selected_config_hash",
+        "run_identity",
+        "actual_cost_usd",
+        "paired_delta",
+        "paired",
+        "selected_config_hash",
         "promotion",
     ):
         event = _winner_receipt()
@@ -1189,7 +1328,9 @@ def test_winner_receipt_requires_immutable_identity_cost_and_paired_delta() -> N
         assert _rejected(event, RECEIPT), field
     event = _winner_receipt()
     del event["winner"]["run_identity"]["run_immutable_hash"]
-    assert _rejected(event, RECEIPT), "a winner against a mutable run label is not checkable"
+    assert _rejected(
+        event, RECEIPT
+    ), "a winner against a mutable run label is not checkable"
 
 
 def test_pairing_cannot_be_evaded_by_declaring_it_false_or_staying_silent() -> None:
@@ -1197,17 +1338,24 @@ def test_pairing_cannot_be_evaded_by_declaring_it_false_or_staying_silent() -> N
     satisfied by omission, which would let the cheapest unpaired claim through."""
     event = _winner_receipt()
     event["winner"]["paired"] = False
-    assert _rejected(event, RECEIPT), "an unpaired winner receipt is not a winner receipt"
+    assert _rejected(
+        event, RECEIPT
+    ), "an unpaired winner receipt is not a winner receipt"
     event = _winner_receipt()
     del event["winner"]["paired"]
-    assert _rejected(event, RECEIPT), "silence about pairing must not be a way around the const"
+    assert _rejected(
+        event, RECEIPT
+    ), "silence about pairing must not be a way around the const"
 
 
 def test_winner_promotion_status_and_timestamps_must_agree() -> None:
     event = _winner_receipt()
     event["winner"]["promotion"] = {"status": "promoted"}
     assert _rejected(event, RECEIPT), "promoted without a promotion time"
-    event["winner"]["promotion"] = {"status": "not_promoted", "promoted_at": "2026-07-17T12:00:00Z"}
+    event["winner"]["promotion"] = {
+        "status": "not_promoted",
+        "promoted_at": "2026-07-17T12:00:00Z",
+    }
     assert _rejected(event, RECEIPT)
     event["winner"]["promotion"] = {
         "status": "reverted",
@@ -1219,7 +1367,9 @@ def test_winner_promotion_status_and_timestamps_must_agree() -> None:
     # not_promoted forbids a production follow-up (see the dedicated test below), so
     # drop the default fixture's follow-up to keep this case about promotion timestamps
     del event["winner"]["production_follow_up"]
-    assert _ok(event, RECEIPT), "a supported result the client declined is still a valid receipt"
+    assert _ok(
+        event, RECEIPT
+    ), "a supported result the client declined is still a valid receipt"
 
 
 def test_a_promoted_or_reverted_winner_must_carry_its_production_follow_up() -> None:
@@ -1231,22 +1381,31 @@ def test_a_promoted_or_reverted_winner_must_carry_its_production_follow_up() -> 
         ("promoted", {"promoted_at": "2026-07-17T12:00:00Z"}),
         (
             "reverted",
-            {"promoted_at": "2026-07-17T12:00:00Z", "reverted_at": "2026-07-18T12:00:00Z"},
+            {
+                "promoted_at": "2026-07-17T12:00:00Z",
+                "reverted_at": "2026-07-18T12:00:00Z",
+            },
         ),
     ):
         event = _winner_receipt()
         event["winner"]["promotion"] = {"status": status, **extra}
         del event["winner"]["production_follow_up"]
-        assert _rejected(event, RECEIPT), f"{status}: promotion without a production follow-up"
+        assert _rejected(
+            event, RECEIPT
+        ), f"{status}: promotion without a production follow-up"
         # a truthful pending follow-up satisfies it
         event["winner"]["production_follow_up"] = {
             "status": "scheduled",
             "due_at": "2026-07-24T12:00:00Z",
         }
-        assert _ok(event, RECEIPT), f"{status}: a scheduled follow-up is a truthful pending record"
+        assert _ok(
+            event, RECEIPT
+        ), f"{status}: a scheduled follow-up is a truthful pending record"
         # ... but a pending 'scheduled' follow-up must still say when it is due
         del event["winner"]["production_follow_up"]["due_at"]
-        assert _rejected(event, RECEIPT), f"{status}: a scheduled follow-up must carry due_at"
+        assert _rejected(
+            event, RECEIPT
+        ), f"{status}: a scheduled follow-up must carry due_at"
     # not_promoted needs no follow-up: nothing was put into production to follow up on,
     # and that a supported result was declined is itself the uptake measurement
     event = _winner_receipt()
@@ -1267,7 +1426,9 @@ def test_a_not_promoted_winner_must_not_carry_a_production_follow_up() -> None:
     event = _winner_receipt()
     event["winner"]["promotion"] = {"status": "not_promoted"}
     del event["winner"]["production_follow_up"]
-    assert _ok(event, RECEIPT), "a declined winner without a follow-up is the honest shape"
+    assert _ok(
+        event, RECEIPT
+    ), "a declined winner without a follow-up is the honest shape"
 
     # a scheduled follow-up (the shape the default fixture and the old tests admitted)
     # is now rejected: there is nothing scheduled to measure on a config never deployed
@@ -1275,9 +1436,9 @@ def test_a_not_promoted_winner_must_not_carry_a_production_follow_up() -> None:
         "status": "scheduled",
         "due_at": "2026-07-24T12:00:00Z",
     }
-    assert _rejected(event, RECEIPT), (
-        "a never-deployed config must not schedule a production check"
-    )
+    assert _rejected(
+        event, RECEIPT
+    ), "a never-deployed config must not schedule a production check"
 
     # a confirmed follow-up is rejected too: it claims production evidence for a
     # transfer that never happened — the exact non-gameability hole this rule closes
@@ -1286,9 +1447,9 @@ def test_a_not_promoted_winner_must_not_carry_a_production_follow_up() -> None:
         "measured_at": "2026-07-24T12:00:00Z",
         "production_delta": _interval(),
     }
-    assert _rejected(event, RECEIPT), (
-        "a never-deployed config must not claim confirmed production-transfer evidence"
-    )
+    assert _rejected(
+        event, RECEIPT
+    ), "a never-deployed config must not claim confirmed production-transfer evidence"
 
 
 def test_production_follow_up_can_report_a_contradiction_and_must_measure_it() -> None:
@@ -1305,20 +1466,28 @@ def test_production_follow_up_can_report_a_contradiction_and_must_measure_it() -
 
 def test_defect_receipt_requires_independent_disposition_and_review_cost() -> None:
     for field in (
-        "example_hash", "defect_class", "disposition", "reviewer_minutes", "duplicate_check"
+        "example_hash",
+        "defect_class",
+        "disposition",
+        "reviewer_minutes",
+        "duplicate_check",
     ):
         event = _defect_receipt()
         del event["defect"][field]
         assert _rejected(event, RECEIPT), field
     event = _defect_receipt()
     event["defect"]["disposition"]["disposed_by"] = "flagging_agent"
-    assert _rejected(event, RECEIPT), "the agent that flagged the example cannot dispose of it"
+    assert _rejected(
+        event, RECEIPT
+    ), "the agent that flagged the example cannot dispose of it"
 
 
 def test_confirmed_defect_requires_a_correction_or_validating_test() -> None:
     event = _defect_receipt()
     del event["defect"]["correction"]
-    assert _rejected(event, RECEIPT), "a confirmed defect with nothing fixed produced no value"
+    assert _rejected(
+        event, RECEIPT
+    ), "a confirmed defect with nothing fixed produced no value"
     # a non-confirmed verdict does not need a correction — and must stay reportable
     event["defect"]["disposition"]["verdict"] = "not_a_defect"
     assert _ok(event, RECEIPT)
@@ -1328,7 +1497,10 @@ def test_defect_duplicate_check_is_mandatory_and_coherent() -> None:
     event = _defect_receipt()
     event["defect"]["duplicate_check"] = {"performed": False, "result": "unique"}
     assert _rejected(event, RECEIPT), "the duplicate check cannot be declared skipped"
-    event["defect"]["duplicate_check"] = {"performed": True, "result": "duplicate_of_known_defect"}
+    event["defect"]["duplicate_check"] = {
+        "performed": True,
+        "result": "duplicate_of_known_defect",
+    }
     assert _rejected(event, RECEIPT), "a duplicate must name what it duplicates"
     event["defect"]["duplicate_check"] = {
         "performed": True,
@@ -1360,7 +1532,12 @@ def test_savings_receipt_rejects_agent_authored_estimates() -> None:
     assert _rejected(
         _savings_receipt(savings=estimated), RECEIPT
     ), "there is no 'estimated' savings receipt"
-    for source in ("agent_estimate", "sdk_calculation", "user_assertion", "model_self_report"):
+    for source in (
+        "agent_estimate",
+        "sdk_calculation",
+        "user_assertion",
+        "model_self_report",
+    ):
         event = _savings_receipt()
         event["savings"]["meter_source"] = source
         assert _rejected(event, RECEIPT), source
@@ -1441,22 +1618,24 @@ def _through_every_short_label_field(value):
 #: whitespace, a control character, a quote, or email text — never an identifier.
 _CONTENT_SHAPED_LABELS = (
     "Alice Smith SSN 123-45-6789",  # Terra's example: a name + PII, carried as spaces + prose
-    "patient note: see chart",       # plain prose with a colon
-    "line one\nline two",            # embedded newline
-    "accuracy\n",                     # a valid id with a TRAILING newline — the `$`-only bypass
-    "col\tumn",                       # embedded tab (a control character)
-    "nul\x00byte",               # embedded NUL (a control character)
-    'he said "ship it"',             # quotes + spaces
-    "alice@example.com",             # at-sign / email text
-    "this is a free form note",      # prose
-    "-leading-hyphen",               # leading separator: not an identifier
-    "trailing-hyphen-",              # trailing separator: not an identifier
-    "___",                            # pure separators, no alphanumerics
-    "café-au-lait",             # non-ASCII letter
+    "patient note: see chart",  # plain prose with a colon
+    "line one\nline two",  # embedded newline
+    "accuracy\n",  # a valid id with a TRAILING newline — the `$`-only bypass
+    "col\tumn",  # embedded tab (a control character)
+    "nul\x00byte",  # embedded NUL (a control character)
+    'he said "ship it"',  # quotes + spaces
+    "alice@example.com",  # at-sign / email text
+    "this is a free form note",  # prose
+    "-leading-hyphen",  # leading separator: not an identifier
+    "trailing-hyphen-",  # trailing separator: not an identifier
+    "___",  # pure separators, no alphanumerics
+    "café-au-lait",  # non-ASCII letter
 )
 
 
-def test_short_label_rejects_content_shaped_values_through_every_consuming_field() -> None:
+def test_short_label_rejects_content_shaped_values_through_every_consuming_field() -> (
+    None
+):
     """Not free-form: a label carrying prose, PII, whitespace, control characters,
     quotes, or email text is rejected wherever a ShortLabel is consumed — so none of
     model_id, evaluator_version, objective, the sharing-policy version, the metric name,
@@ -1464,9 +1643,9 @@ def test_short_label_rejects_content_shaped_values_through_every_consuming_field
     `Alice Smith SSN 123-45-6789` is rejected through all six."""
     for label in _CONTENT_SHAPED_LABELS:
         for field, payload, schema in _through_every_short_label_field(label):
-            assert _rejected(payload, schema), (
-                f"{field} must reject content-shaped label {label!r}"
-            )
+            assert _rejected(
+                payload, schema
+            ), f"{field} must reject content-shaped label {label!r}"
 
 
 #: Representative real identifiers the grammar must NOT reject — it bought no safety
@@ -1489,7 +1668,9 @@ def test_short_label_accepts_representative_real_identifiers() -> None:
     every consuming field."""
     for label in _REAL_IDENTIFIERS:
         for field, payload, schema in _through_every_short_label_field(label):
-            assert _ok(payload, schema), f"{field} must accept real identifier {label!r}"
+            assert _ok(
+                payload, schema
+            ), f"{field} must accept real identifier {label!r}"
 
 
 def test_short_label_is_pattern_constrained_not_merely_bounded() -> None:
@@ -1497,7 +1678,9 @@ def test_short_label_is_pattern_constrained_not_merely_bounded() -> None:
     pattern, not just length bounds. A future edit that drops the pattern (reverting to
     any 1-128 char string) fails here rather than silently re-opening the egress."""
     short_label = _load("economics_common_schema.json")["definitions"]["ShortLabel"]
-    assert "pattern" in short_label, "ShortLabel must be pattern-constrained, not free-form"
+    assert (
+        "pattern" in short_label
+    ), "ShortLabel must be pattern-constrained, not free-form"
     assert short_label["maxLength"] == 128 and short_label["minLength"] == 1
 
 
@@ -1544,9 +1727,9 @@ def test_response_reports_disposition_counts_and_closed_rejection_reasons() -> N
 def test_response_rejection_reasons_cover_the_backend_only_checks() -> None:
     """The checks JSON Schema cannot make must at least be reportable."""
     reasons = set(
-        _load("economics_telemetry_ingest_response_schema.json")["properties"]["rejections"][
-            "items"
-        ]["properties"]["reason"]["enum"]
+        _load("economics_telemetry_ingest_response_schema.json")["properties"][
+            "rejections"
+        ]["items"]["properties"]["reason"]["enum"]
     )
     assert {
         "tenant_scope_violation",
@@ -1591,18 +1774,22 @@ def test_per_status_response_schemas_bind_the_replay_flag() -> None:
     # the per-status schemas still inherit every base constraint
     body = _response(replayed=True)
     body["counts"]["accepted"] = -1
-    assert _rejected(body, RESPONSE_REPLAY), "a per-status schema must inherit the base counts rule"
+    assert _rejected(
+        body, RESPONSE_REPLAY
+    ), "a per-status schema must inherit the base counts rule"
     body = _response(replayed=True)
     del body["rejections"]
-    assert _rejected(body, RESPONSE_REPLAY), "a per-status schema must inherit required rejections"
+    assert _rejected(
+        body, RESPONSE_REPLAY
+    ), "a per-status schema must inherit required rejections"
 
 
 def test_the_endpoint_binds_each_status_to_its_replay_schema() -> None:
     """The contract-native replay binding is only real if the route serves each status
     with the matching per-status schema."""
-    responses = _load("economics_endpoints.json")["paths"]["/api/v1/economics/telemetry"][
-        "post"
-    ]["responses"]
+    responses = _load("economics_endpoints.json")["paths"][
+        "/api/v1/economics/telemetry"
+    ]["post"]["responses"]
     assert responses["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "economics_telemetry_ingest_response_replay_schema.json"
     )
@@ -1625,23 +1812,23 @@ def test_the_endpoint_binds_every_error_status_to_the_shared_error_envelope() ->
     {success, message, error, error_code} shape of error_envelope_schema.json — never
     a bespoke body. Pin the exact $ref for each so a wrong or missing target is caught
     here instead of by a client at runtime."""
-    responses = _load("economics_endpoints.json")["paths"]["/api/v1/economics/telemetry"][
-        "post"
-    ]["responses"]
+    responses = _load("economics_endpoints.json")["paths"][
+        "/api/v1/economics/telemetry"
+    ]["post"]["responses"]
     for status in ("400", "401", "403", "409", "413", "500", "503"):
         ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
-        assert ref == "../error_envelope_schema.json", (
-            f"{status} must $ref ../error_envelope_schema.json exactly, got {ref!r}"
-        )
+        assert (
+            ref == "../error_envelope_schema.json"
+        ), f"{status} must $ref ../error_envelope_schema.json exactly, got {ref!r}"
 
 
 def test_the_endpoint_documents_exactly_the_expected_status_set() -> None:
     """Pin the full status-code surface: every status the route can actually return
     must be documented with a response body schema, and no undocumented status may be
     silently added later without updating this test."""
-    responses = _load("economics_endpoints.json")["paths"]["/api/v1/economics/telemetry"][
-        "post"
-    ]["responses"]
+    responses = _load("economics_endpoints.json")["paths"][
+        "/api/v1/economics/telemetry"
+    ]["post"]["responses"]
     assert set(responses.keys()) == {
         "200",
         "201",
@@ -1678,7 +1865,9 @@ def test_boundary_rejections_length_is_not_related_to_the_rejected_count() -> No
         "rejection and drop the REJECTIONS RECONCILE WITH COUNT backend obligation"
     )
     obligations = " ".join(
-        _load("economics_telemetry_ingest_response_schema.json")["x-backend-obligations"]
+        _load("economics_telemetry_ingest_response_schema.json")[
+            "x-backend-obligations"
+        ]
     )
     for marker in (
         "COUNT RECONCILIATION",
@@ -1697,7 +1886,9 @@ def test_boundary_rejections_length_is_not_related_to_the_rejected_count() -> No
 # than a sentence in a report — and so the day a future contract closes one of
 # them, the test fails loudly and gets rewritten as a rejection.
 # --------------------------------------------------------------------------- #
-def test_boundary_duplicate_field_names_are_accepted_because_uniqueitems_compares_objects() -> None:
+def test_boundary_duplicate_field_names_are_accepted_because_uniqueitems_compares_objects() -> (
+    None
+):
     """`uniqueItems` deduplicates whole objects, so one field reported twice with
     DIFFERENT metadata passes. Backend obligation: duplicate_characterization_field."""
     contradictory = [
@@ -1718,9 +1909,9 @@ def test_boundary_duplicate_field_names_are_accepted_because_uniqueitems_compare
     )
     # the byte-identical repeat IS caught, which is the narrow thing uniqueItems buys
     same = _report("error_cost_band")
-    assert _rejected(_transmitting("error_cost_band", same, deepcopy(same)), RUN), (
-        "uniqueItems must at least stop an identical repeat"
-    )
+    assert _rejected(
+        _transmitting("error_cost_band", same, deepcopy(same)), RUN
+    ), "uniqueItems must at least stop an identical repeat"
 
 
 def test_boundary_inverted_confidence_intervals_are_accepted() -> None:
@@ -1753,21 +1944,28 @@ def test_boundary_support_counts_are_not_related_to_each_other() -> None:
     )
 
 
-def test_boundary_a_contradictory_winner_receipt_is_schema_valid_and_pins_the_backend() -> None:
-    """A winner receipt's load-bearing fields — actual_cost_usd, paired_delta,
-    selected_config_hash, the immutable run identity, and the promotion evidence — are
-    only CLAIMS until reconciled, as a set, against the immutable stored run. Draft-07
-    validates one payload in isolation and has no stored run to compare against, so a
-    STRUCTURALLY valid winner receipt whose fields contradict the real run is
-    contract-valid. This receipt is internally well-formed but mutually incoherent as a
-    claim: a strongly positive paired delta on a run that cost almost nothing, against a
-    config/run hash that need correspond to nothing stored, promoted with a follow-up
-    already 'confirmed' in its favour. The contract accepts it; only cross-record
-    reconciliation can reject it.
-    Backend obligation: WINNER RECEIPT RECONCILIATION / winner_receipt_reconciliation_failed."""
+def test_boundary_a_contradictory_winner_receipt_is_schema_valid_and_pins_the_backend() -> (
+    None
+):
+    (
+        "A winner receipt's load-bearing fields — actual_cost_usd, paired_delta,\n"
+        "    selected_config_hash, the immutable run identity, and the promotion evidence — are\n"
+        "    only CLAIMS until reconciled, as a set, against the immutable stored run. Draft-07\n"
+        "    validates one payload in isolation and has no stored run to compare against, so a\n"
+        "    STRUCTURALLY valid winner receipt whose fields contradict the real run is\n"
+        "    contract-valid. This receipt is internally well-formed but mutually incoherent as a\n"
+        "    claim: a strongly positive paired delta on a run that cost almost nothing, against a\n"
+        "    config/run hash that need correspond to nothing stored, promoted with a follow-up\n"
+        "    already 'confirmed' in its favour. The contract accepts it; only cross-record\n"
+        "    reconciliation can reject it.\n"
+        "    Backend obligation: WINNER RECEIPT RECONCILIATION / "
+        "winner_receipt_reconciliation_failed."
+    )
     contradictory = _winner_receipt()
     contradictory["winner"]["actual_cost_usd"] = 0.01
-    contradictory["winner"]["paired_delta"] = _interval(estimate=0.95, lower=0.94, upper=0.96)
+    contradictory["winner"]["paired_delta"] = _interval(
+        estimate=0.95, lower=0.94, upper=0.96
+    )
     contradictory["winner"]["run_identity"] = {
         "run_id": "run-that-need-not-exist",
         "run_immutable_hash": "f" * 64,
@@ -1788,13 +1986,15 @@ def test_boundary_a_contradictory_winner_receipt_is_schema_valid_and_pins_the_ba
     )
     # the gap is named precisely, not buried in schema_violation
     reasons = set(
-        _load("economics_telemetry_ingest_response_schema.json")["properties"]["rejections"][
-            "items"
-        ]["properties"]["reason"]["enum"]
+        _load("economics_telemetry_ingest_response_schema.json")["properties"][
+            "rejections"
+        ]["items"]["properties"]["reason"]["enum"]
     )
     assert "winner_receipt_reconciliation_failed" in reasons
     # and the obligation that must catch it is declared on the receipt contract
-    obligations = " ".join(_load("economics_receipt_event_schema.json")["x-backend-obligations"])
+    obligations = " ".join(
+        _load("economics_receipt_event_schema.json")["x-backend-obligations"]
+    )
     assert "WINNER RECEIPT RECONCILIATION" in obligations
 
 
@@ -1802,9 +2002,9 @@ def test_boundary_gaps_each_have_a_named_closed_rejection_reason() -> None:
     """A gap the backend cannot NAME cannot be actioned by the emitter. Each
     boundary above must map to a specific code, not to schema_violation."""
     reasons = set(
-        _load("economics_telemetry_ingest_response_schema.json")["properties"]["rejections"][
-            "items"
-        ]["properties"]["reason"]["enum"]
+        _load("economics_telemetry_ingest_response_schema.json")["properties"][
+            "rejections"
+        ]["items"]["properties"]["reason"]["enum"]
     )
     assert {
         "duplicate_characterization_field",
@@ -1823,10 +2023,14 @@ def test_unenforceable_invariants_are_declared_as_backend_obligations() -> None:
     for the backend packet, not quietly assumed."""
     obligations = {
         "economics_telemetry_ingest_request_schema.json": (
-            "IDEMPOTENT", "TENANT OWNERSHIP", "IMMUTAB",
+            "IDEMPOTENT",
+            "TENANT OWNERSHIP",
+            "IMMUTAB",
         ),
         "economics_receipt_event_schema.json": (
-            "PROPOSER != VERIFIER", "IMMUTABLE PERSISTENCE", "INTERVAL ORDERING",
+            "PROPOSER != VERIFIER",
+            "IMMUTABLE PERSISTENCE",
+            "INTERVAL ORDERING",
             "WINNER RECEIPT RECONCILIATION",
         ),
         "economics_funnel_event_schema.json": ("Funnel ORDER", "TENANT OWNERSHIP"),
@@ -1854,8 +2058,10 @@ def test_unenforceable_invariants_are_declared_as_backend_obligations() -> None:
 
 
 def test_survey_vocabulary_is_not_a_survey_submission_contract() -> None:
-    """WI-B publishes the characterization VOCABULARY for telemetry only. The closed
-    survey submission + calculator response contract is a later, separate deliverable."""
+    (
+        "WI-B publishes the characterization VOCABULARY for telemetry only. The closed\n"
+        "    survey submission + calculator response contract is a later, separate deliverable."
+    )
     vocab = _load("economics_characterization_vocabulary_schema.json")
     assert vocab["x-source-of-truth"] == "economics_characterization_vocabulary"
     assert "type" not in vocab, "a vocabulary declares definitions, not a payload shape"
@@ -1872,9 +2078,9 @@ def test_survey_vocabulary_is_not_a_survey_submission_contract() -> None:
         "receipt_requirement",
         "why",
     ):
-        assert absent not in declared, (
-            f"{absent} belongs to the survey submission/calculator contract, not the vocabulary"
-        )
+        assert (
+            absent not in declared
+        ), f"{absent} belongs to the survey submission/calculator contract, not the vocabulary"
 
 
 def test_deep_copy_fixtures_are_independent() -> None:
@@ -1882,4 +2088,6 @@ def test_deep_copy_fixtures_are_independent() -> None:
     negative cases pass for the wrong reason."""
     first = _run_event()
     first["characterization"]["field_reports"].clear()
-    assert deepcopy(_run_event())["characterization"]["field_reports"], "fixtures must be fresh"
+    assert deepcopy(_run_event())["characterization"][
+        "field_reports"
+    ], "fixtures must be fresh"

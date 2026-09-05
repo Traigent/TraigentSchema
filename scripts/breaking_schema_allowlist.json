@@ -1,5 +1,5 @@
 {
-  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
       "file": "certification/certification_endpoints_v0.json",
@@ -24,7 +24,7 @@
       "pointer_prefix": "#/properties/relying_party_policy/properties/verifier_bindings",
       "reason": "The materials policy is intentionally tightened to the runtime's exact ordered B1/G1 verifier contract, so omitted or reversed bindings fail closed instead of describing a policy the verifier cannot execute. This is an intentional Agent Certificate v0 correction reviewed under owner-authorized ChangeSession cs_3e01e0344f7b19eb and parity acknowledgement cs_a3a1c535f699b367; the exact schema boundary is covered here.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -1114,7 +1114,7 @@
       "rule": "allOf_branch_count_changed",
       "reason": "Adds the inverse co-attestation condition so issuer-only B1 and zero-claim certificates cannot carry client material, while G1 and tier-1 certificates retain the required co-attestation path. This deliberate Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
@@ -1165,7 +1165,7 @@
       "rule": "pattern",
       "reason": "Narrows every envelope client-key reference to the deterministic project-scoped ckr form, preventing caller-selected or ambiguous identifiers from entering G1 bindings, co-attestation, and key-ring projections. This intentional content-free Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
@@ -1206,7 +1206,7 @@
       "rule": "property_added",
       "reason": "Adds the v0 scope line, G1 build-session/client-key bindings, rendered claim sentence, and public project_ref needed to make the certificate projection self-describing, content-free, and verifiable without reconstructing identity. These deliberate fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/certificate_scope_line",
@@ -1255,7 +1255,7 @@
       "rule": "pattern",
       "reason": "Uses the canonical ckr client-key reference in the G1 payload rather than the old unconstrained opaque reference, binding the declaration to the project-scoped verification key. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/6/properties/params/properties/client_key_ref",
@@ -1272,7 +1272,7 @@
       "rule": "property_added",
       "reason": "Adds build_session_ref and client_key_ref to the G1 payload so the emitted client declaration is bound to the named session and derived verification key. These fields are deliberate v0 protocol additions reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/5/properties/params/properties/build_session_ref",
@@ -1297,7 +1297,7 @@
       "rule": "required",
       "reason": "Requires both session and derived client-key bindings for G1 so an incomplete declaration cannot pass as a valid v0 claim. This intentional fail-closed Certified Agent v0 change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/5/properties/params",
@@ -1322,7 +1322,7 @@
       "rule": "pattern",
       "reason": "Enforces the deterministic project-scoped ckr client-key reference wherever the printable claim family carries a client binding, eliminating ambiguous opaque identifiers. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
@@ -1339,7 +1339,7 @@
       "rule": "property_added",
       "reason": "Adds the G1 session/key bindings and renderer-produced sentence required for a closed, content-free claim whose text and identity can be checked from the v0 projection. These deliberate Certified Agent v0 fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
@@ -1372,7 +1372,7 @@
       "rule": "required",
       "reason": "Requires rendered_text and the G1 session/key bindings so every emitted claim is structurally complete and cannot omit the load-bearing declaration context. This intentional fail-closed Certified Agent v0 change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/0",
@@ -1405,7 +1405,7 @@
       "rule": "allOf_branch_count_changed",
       "reason": "The nested claim branch count changes because v0 now admits the issuer-verified B1 path alongside G1 while retaining explicit abstention branches; positional branch drift is an intentional union expansion, not an accidental removal. It was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
@@ -1422,7 +1422,7 @@
       "rule": "pattern",
       "reason": "Applies the deterministic ckr client-key reference to co-attestation and embedded unsigned-manifest projections, so signatures bind the same project-scoped key identifier everywhere. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/co_attestation/properties/client_key_ref",
@@ -1455,7 +1455,7 @@
       "rule": "allOf_branch_count_changed",
       "reason": "Expands the manifest's claim branch to represent the admitted B1 issuer-verification case while preserving the fixed G1 and abstention shapes. The conservative branch-count finding is therefore an intentional Certified Agent v0 union change reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/claims/items/allOf",
@@ -1472,7 +1472,7 @@
       "rule": "pattern",
       "reason": "Uses the canonical deterministic ckr reference in the signed manifest's client-key and key-ring sections, preventing a manifest from naming an unbound or caller-selected key. This intentional Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
@@ -1497,7 +1497,7 @@
       "rule": "property_added",
       "reason": "Adds G1 session/key bindings, rendered claim text, and project_ref to the signed manifest projection so the issuer/client signatures cover the complete v0 declaration context. These deliberate Certified Agent v0 fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
@@ -1538,7 +1538,7 @@
       "rule": "required",
       "reason": "Requires the new G1 declaration context and project scope in the signed manifest so incomplete or ambiguously scoped certificates fail closed before signature verification. This intentional Certified Agent v0 tightening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/claims/items",
@@ -1579,7 +1579,7 @@
       "rule": "maxItems",
       "reason": "Raises the verifier-binding maximum to exactly two because the v0 discovery bundle now publishes the ordered B1 and G1 verifier contract together. This intentional materials-policy change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/relying_party_policy/properties/verifier_bindings",
@@ -1596,7 +1596,7 @@
       "rule": "pattern",
       "reason": "Constrains the discovered client key to the canonical project-scoped ckr reference, matching certificate and manifest bindings and avoiding an ambiguous opaque key identifier. This intentional Certified Agent v0 materials hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/client/properties/key_ref",
@@ -1630,7 +1630,7 @@
       "rule": "allOf_branch_count_changed",
       "reason": "The retrieval response inherits the deliberate v0 claim and co-attestation conditional branches, including the issuer-only B1 rule and G1/tier-1 requirement. This is an intentional reflected contract change reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/claims/items/allOf",
@@ -1680,7 +1680,7 @@
       "rule": "maxItems",
       "reason": "The verification-materials retrieval endpoint now returns the fixed two-entry ordered B1/G1 verifier-binding contract, so its maximum intentionally matches the materials schema. This deliberate Certified Agent v0 policy change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/verification-materials/get/responses/200/content/application/json/schema/properties/relying_party_policy/properties/verifier_bindings",
@@ -1714,7 +1714,7 @@
       "rule": "pattern",
       "reason": "Constrains bind-G1 and client-key management request references to the canonical deterministic ckr form, aligning endpoint inputs with the signed certificate and discovery materials. This intentional Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/certificate-build-sessions/bind-g1/post/requestBody/content/application/json/schema/properties/client_key_ref",
@@ -1747,7 +1747,7 @@
       "rule": "property_added",
       "reason": "The signed-certificate retrieval endpoint intentionally exposes the complete content-free v0 projection, including scope, G1 bindings, rendered claims, and project scope, so consumers verify exactly what was signed. These reflected protocol fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/certificate_scope_line",

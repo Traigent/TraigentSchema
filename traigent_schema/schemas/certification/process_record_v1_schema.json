@@ -2,13 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/process_record_v1_schema.json",
   "title": "Traigent Process Record Certificate v1",
-  "description": "Closed, content-free process-record contract. V1 is a separate contract family: it does not add identifiers or templates to the frozen Agent Certificate v0 vocabulary. Cross-field digest equality, receipt order, and report-to-receipt value equality are verifier obligations; the signed manifest deliberately contains digests only, and excludes signature, report, and claim-support material from its own digest preimage.",
+  "description": "Closed, content-free process-record contract. V1 is a separate contract family: it does not add identifiers or templates to the frozen Agent Certificate v0 vocabulary. Cross-field digest equality, receipt order, and report-to-receipt value equality are verifier obligations; the signed manifest deliberately contains digests only, and excludes signature, report, and claim-support material from its own digest preimage. Dynamic trust-status, revocation freshness, and anti-replay presentation are outside PROC1; issuer verification uses the existing independently pinned v0 verification-materials artifact and this contract makes no dynamic trust-status claim.",
   "definitions": {
     "ProcessRecordDigestDomainRegistryV1": {
       "description": "Normative fixed role domains. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["receipt", "receipt_bundle", "report", "assertion", "claim_material", "claim_support_rows", "unsigned_manifest", "capture_policy", "process_definition", "trust_status_snapshot", "trust_status_snapshot_signature", "issuer_signature"],
+      "required": ["receipt", "receipt_bundle", "report", "assertion", "claim_material", "claim_support_rows", "unsigned_manifest", "capture_policy", "process_definition", "issuer_signature"],
       "properties": {
         "receipt": {"const": "traigent.process_record.receipt.v1"},
         "receipt_bundle": {"const": "traigent.process_record.receipt_bundle.v1"},
@@ -19,8 +19,6 @@
         "unsigned_manifest": {"const": "traigent.process_record.unsigned_manifest.v1"},
         "capture_policy": {"const": "traigent.process_record.capture_policy.v1"},
         "process_definition": {"const": "traigent.process_record.process_definition.v1"},
-        "trust_status_snapshot": {"const": "traigent.process_record.trust_status_snapshot.v1"},
-        "trust_status_snapshot_signature": {"const": "traigent.process_record.trust_status_snapshot_signature.v1"},
         "issuer_signature": {"const": "traigent.process_record.issuer_signature.v1"}
       }
     },
@@ -57,7 +55,7 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"
     },
     "RegisteredValuesV1": {
-      "description": "The only value channel admitted by this profile. It is a closed typed registry, not a metadata map. Numeric fields are integer fixed-unit content-free aggregates (floats are forbidden by the package JCS profile) and are bounded for canonical receipt size.",
+      "description": "The only value channel admitted by this profile. It is a closed typed registry, not a metadata map. Numeric fields are integer fixed-unit content-free aggregates and are bounded for canonical receipt size. The standalone verifier MUST additionally reject decoded booleans and floating-point values such as 1.0 even where a Draft-07 implementation treats them as integer-compatible; this Python type distinction is not expressible by this schema alone.",
       "type": "object",
       "additionalProperties": false,
       "minProperties": 1,
@@ -169,11 +167,7 @@
         "policy_id": {"const": "traigent.capture_policy.asap.v1"},
         "policy_version": {"const": "1.0.0"},
         "observable_surfaces": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 3,
-          "uniqueItems": true,
-          "items": {"$ref": "#/definitions/ReceiptStreamIdV1"}
+          "const": ["decision_stream", "receipt_event_stream", "transition_stream"]
         },
         "expected_steps": {"$ref": "#/definitions/ExpectedProcessStepsV1"},
         "canonicalization": {"const": "jcs_v1"},
@@ -198,28 +192,22 @@
       }
     },
     "ProcessRecordReportRowV1": {
-      "description": "One typed report row. For present rows, receipt_digests and registered_values are mandatory; a verifier compares each exact value with a referenced receipt. Missing rows have neither values nor receipt references.",
+      "description": "One typed report row. Derivation is deterministic: flatten decision_stream, receipt_event_stream, transition_stream in that order; require strictly increasing seq within each stream and retain array order; select the last receipt whose step_id matches this row. For present rows, exactly one receipt_digest and registered_values are mandatory and must equal that selected receipt; if none matches, the row is missing and carries neither digest nor values. This is a verifier obligation because draft-07 cannot select across arrays.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["step_id", "status", "observation_kind"],
+      "required": ["step_id", "status"],
       "properties": {
         "step_id": {"$ref": "#/definitions/ProcessStepIdV1"},
         "status": {"type": "string", "enum": ["present", "missing"]},
         "observation_kind": {"$ref": "#/definitions/ObservationBasisV1"},
-        "receipt_digests": {
-          "type": "array",
-          "minItems": 0,
-          "maxItems": 2048,
-          "uniqueItems": true,
-          "items": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
-        },
+        "receipt_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
         "registered_values": {"$ref": "#/definitions/RegisteredValuesV1"}
       },
       "allOf": [
         {
           "if": {"properties": {"status": {"const": "present"}}, "required": ["status"]},
-          "then": {"required": ["receipt_digests", "registered_values"], "properties": {"receipt_digests": {"minItems": 1}}},
-          "else": {"properties": {"receipt_digests": {"maxItems": 0}}, "not": {"required": ["registered_values"]}}
+          "then": {"required": ["observation_kind", "receipt_digest", "registered_values"]},
+          "else": {"not": {"anyOf": [{"required": ["observation_kind"]}, {"required": ["receipt_digest"]}, {"required": ["registered_values"]}]}}
         }
       ]
     },
@@ -244,8 +232,7 @@
       "required": [
         "schema_version", "project_ref", "build_session_ref", "capture_policy",
         "process_definition", "expected_step_count", "rows", "present_count",
-        "missing_count", "backend_observed_present_count", "backend_observed_missing_count",
-        "client_attested_present_count", "client_attested_missing_count", "report_digest"
+        "missing_count", "backend_observed_present_count", "client_attested_present_count", "report_digest"
       ],
       "properties": {
         "schema_version": {"const": "traigent.process_record.report.v1"},
@@ -258,9 +245,7 @@
         "present_count": {"type": "integer", "minimum": 0, "maximum": 5},
         "missing_count": {"type": "integer", "minimum": 0, "maximum": 5},
         "backend_observed_present_count": {"type": "integer", "minimum": 0, "maximum": 5},
-        "backend_observed_missing_count": {"type": "integer", "minimum": 0, "maximum": 5},
         "client_attested_present_count": {"type": "integer", "minimum": 0, "maximum": 5},
-        "client_attested_missing_count": {"type": "integer", "minimum": 0, "maximum": 5},
         "report_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
       }
     },
@@ -353,7 +338,7 @@
       "items": [{"$ref": "#/definitions/ProcessRecordClaimSupportRowV1"}]
     },
     "StreamIndexV1": {
-      "description": "The signed ordered index for one stream. Sequence values and receipt digests are exact parallel tuples; verifier checks equality against the receipt bundle.",
+      "description": "The signed ordered index for one stream. Sequence values and receipt digests are exact parallel tuples; verifier requires strictly increasing seq within each stream and retains array order. Report derivation flattens decision_stream, receipt_event_stream, transition_stream in that fixed order and selects the last matching receipt per step.",
       "type": "object",
       "additionalProperties": false,
       "required": ["sequence_values", "receipt_digests", "first_seq", "last_seq", "receipt_count"],
@@ -431,37 +416,6 @@
         "signature": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"}
       }
     },
-    "TrustStatusSnapshotV1": {
-      "description": "Authenticated relying-party trust snapshot. snapshot_digest is role-separated SHA-256 over UTF8(traigent.process_record.trust_status_snapshot.v1) || 0x00 || jcs_v1(this snapshot with snapshot_digest and signature excluded). signature signs exactly that digest-bearing snapshot projection under UTF8(traigent.process_record.trust_status_snapshot_signature.v1) || 0x00 || jcs_v1(the same projection); neither signature nor its bytes enter the digest preimage. Freshness is a verifier policy: maximum age is fixed at 24 hours; absent, future-dated, or stale status cannot produce a current-validity pass.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_version", "snapshot_ref", "trust_anchor_ref", "effective_at", "expires_at", "max_age_hours", "key_statuses", "snapshot_digest", "signature"],
-      "properties": {
-        "schema_version": {"const": "traigent.process_record.trust_status_snapshot.v1"},
-        "snapshot_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
-        "trust_anchor_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
-        "effective_at": {"$ref": "#/definitions/UtcTimestampV1"},
-        "expires_at": {"$ref": "#/definitions/UtcTimestampV1"},
-        "max_age_hours": {"const": 24},
-        "key_statuses": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 128,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["key_ref", "status", "status_effective_at"],
-            "properties": {
-              "key_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
-              "status": {"type": "string", "enum": ["active", "revoked"]},
-              "status_effective_at": {"$ref": "#/definitions/UtcTimestampV1"}
-            }
-          }
-        },
-        "snapshot_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
-        "signature": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"}
-      }
-    },
     "ProcessRecordErrorV1": {
       "description": "Closed process-record error shape. No request data, free-form detail, or content-bearing diagnostics may cross this boundary.",
       "type": "object",
@@ -475,8 +429,7 @@
             "process_record_receipt_limit_exceeded",
             "process_record_invalid_receipt",
             "process_record_invalid_report",
-            "process_record_verification_failed",
-            "process_record_revocation_status_unavailable"
+            "process_record_verification_failed"
           ]
         }
       }

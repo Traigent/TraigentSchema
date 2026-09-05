@@ -49,14 +49,21 @@ def _errors(value: object, definition: str | None = None) -> list:
     return list(_validator(definition).iter_errors(value))
 
 
-def _receipt(*, stream_id: str = "receipt_event_stream", step_id: str = "evaluate") -> dict:
+def _receipt(
+    *,
+    stream_id: str = "receipt_event_stream",
+    step_id: str = "evaluate",
+    seq: int = 0,
+    receipt_ref: str = RECEIPT,
+    digest: str = SHA,
+) -> dict:
     return {
         "schema_version": "traigent.process_record.receipt.v1",
-        "receipt_ref": RECEIPT,
+        "receipt_ref": receipt_ref,
         "project_ref": PROJECT,
         "build_session_ref": BUILD,
         "stream_id": stream_id,
-        "seq": 0,
+        "seq": seq,
         "step_id": step_id,
         "observation_basis": "backend_observed",
         "observed_at": "2026-09-05T10:11:12.123456Z",
@@ -67,7 +74,7 @@ def _receipt(*, stream_id: str = "receipt_event_stream", step_id: str = "evaluat
             "cost_microusd": 1250,
             "latency_us": 28000,
         },
-        "receipt_digest": SHA,
+        "receipt_digest": digest,
     }
 
 
@@ -76,16 +83,25 @@ def _present_row(step_id: str, receipt: dict) -> dict:
         "step_id": step_id,
         "status": "present",
         "observation_kind": "backend_observed",
-        "receipt_digests": [receipt["receipt_digest"]],
+        "receipt_digest": receipt["receipt_digest"],
         "registered_values": copy.deepcopy(receipt["registered_values"]),
     }
 
 
-def _report(receipt: dict | None = None) -> dict:
-    receipt = receipt or _receipt()
+def _report(receipts: list[dict] | None = None) -> dict:
+    receipts = receipts or [
+        _receipt(
+            step_id=step,
+            seq=index,
+            receipt_ref=f"receipt:{'r' * 7}{index}",
+            digest="sha256:" + chr(ord("a") + index) * 64,
+        )
+        for index, step in enumerate(
+            ("prepare", "evaluate", "aggregate", "select", "finalize")
+        )
+    ]
     rows = [
-        _present_row(step, receipt)
-        for step in ("prepare", "evaluate", "aggregate", "select", "finalize")
+        _present_row(receipt["step_id"], receipt) for receipt in receipts
     ]
     return {
         "schema_version": "traigent.process_record.report.v1",
@@ -106,9 +122,7 @@ def _report(receipt: dict | None = None) -> dict:
         "present_count": 5,
         "missing_count": 0,
         "backend_observed_present_count": 5,
-        "backend_observed_missing_count": 0,
         "client_attested_present_count": 0,
-        "client_attested_missing_count": 0,
         "report_digest": SHA,
     }
 
@@ -165,8 +179,18 @@ def test_receipt_streams_are_three_closed_bounded_arrays() -> None:
 
 
 def test_report_requires_fixed_five_rows_and_typed_values_match_receipt_fixture() -> None:
-    receipt = _receipt()
-    report = _report(receipt)
+    receipts = [
+        _receipt(
+            step_id=step,
+            seq=index,
+            receipt_ref=f"receipt:{'r' * 7}{index}",
+            digest="sha256:" + chr(ord("a") + index) * 64,
+        )
+        for index, step in enumerate(
+            ("prepare", "evaluate", "aggregate", "select", "finalize")
+        )
+    ]
+    report = _report(receipts)
     assert _errors(report, "ProcessRecordReportV1") == []
     assert [row["step_id"] for row in report["rows"]] == [
         "prepare",
@@ -178,11 +202,16 @@ def test_report_requires_fixed_five_rows_and_typed_values_match_receipt_fixture(
     evaluate = report["rows"][1]
     assert (
         evaluate["registered_values"]["accuracy_ppm"]
-        == receipt["registered_values"]["accuracy_ppm"]
+        == receipts[1]["registered_values"]["accuracy_ppm"]
     )
+    assert "receipt_digest" in evaluate
+    assert "receipt_digests" not in evaluate
+    evaluate["receipt_digests"] = [evaluate["receipt_digest"]]
+    assert _errors(report, "ProcessRecordReportV1")
+    evaluate.pop("receipt_digests")
     report["rows"] = report["rows"][1:]
     assert _errors(report, "ProcessRecordReportV1")
-    reordered = _report(receipt)
+    reordered = _report()
     reordered["rows"][0], reordered["rows"][1] = reordered["rows"][1], reordered["rows"][0]
     assert _errors(reordered, "ProcessRecordReportV1")
 
@@ -192,8 +221,10 @@ def test_missing_report_row_cannot_carry_values_or_receipts() -> None:
     row = report["rows"][2]
     row["status"] = "missing"
     assert _errors(report, "ProcessRecordReportV1")
-    row.pop("receipt_digests")
+    row.pop("receipt_digest")
     row.pop("registered_values")
+    assert _errors(report, "ProcessRecordReportV1")
+    row.pop("observation_kind")
     report["missing_count"] = 1
     report["present_count"] = 4
     assert _errors(report, "ProcessRecordReportV1") == []
@@ -266,18 +297,36 @@ def test_registry_documents_are_closed_and_bind_same_fixed_workflow() -> None:
         "definition_digest": SHA,
     }
     assert _errors(policy, "CapturePolicyDocumentV1") == []
+    policy["observable_surfaces"] = ["receipt_event_stream"]
+    assert _errors(policy, "CapturePolicyDocumentV1")
+    policy["observable_surfaces"] = [
+        "transition_stream",
+        "receipt_event_stream",
+        "decision_stream",
+    ]
+    assert _errors(policy, "CapturePolicyDocumentV1")
+    policy["observable_surfaces"] = [
+        "decision_stream",
+        "receipt_event_stream",
+        "transition_stream",
+    ]
     assert _errors(process, "ProcessDefinitionDocumentV1") == []
     process["label"] = "free text"
     assert _errors(process, "ProcessDefinitionDocumentV1")
 
 
-def test_registry_and_trust_digests_have_explicit_non_circular_preimages() -> None:
+def test_registry_digests_have_explicit_non_circular_preimages() -> None:
     definitions = SCHEMA["definitions"]
     assert "policy_digest excluded" in definitions["CapturePolicyDocumentV1"]["description"]
     assert "definition_digest excluded" in definitions["ProcessDefinitionDocumentV1"]["description"]
-    trust_description = definitions["TrustStatusSnapshotV1"]["description"]
-    assert "snapshot_digest and signature excluded" in trust_description
-    assert "trust_status_snapshot_signature.v1" in trust_description
+    assert "trust_status_snapshot" not in json.dumps(definitions)
+
+
+def test_integer_value_fields_document_strict_python_type_obligation() -> None:
+    description = SCHEMA["definitions"]["RegisteredValuesV1"]["description"]
+    assert "decoded booleans" in description
+    assert "floating-point values" in description
+    assert "not expressible by this schema alone" in description
 
 
 def test_unsigned_manifest_coverage_excludes_signature_and_report_documents() -> None:

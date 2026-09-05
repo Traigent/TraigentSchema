@@ -1106,8 +1106,8 @@ def test_certified_agent_v0_allowlist_covers_historical_findings_only() -> None:
 
 def _exact_allow_entry(
     entries: list[dict], file: str, rule: str, pointer: str, fingerprint: str
-) -> dict:
-    """Return the one allowlist entry pinned to this exact (file, rule, pointer, fingerprint).
+) -> tuple[dict, dict]:
+    """Return the one (entry, identity) pinned to this exact lookup key.
 
     (file, rule) alone is not unique -- this allowlist carries several entries for the
     same (file, rule), including entries with no ``findings`` at all (``pointer_prefix``
@@ -1126,8 +1126,7 @@ def _exact_allow_entry(
             continue
         for identity in entry.get("findings") or []:
             if identity.get("pointer") == pointer and identity.get("fingerprint") == fingerprint:
-                matches.append(entry)
-                break
+                matches.append((entry, identity))
     assert matches, f"no allowlist entry for {file} / {rule} / {pointer} / {fingerprint}"
     assert len(matches) == 1, (
         f"expected exactly one allowlist entry for {file} / {rule} / {pointer} / "
@@ -1141,42 +1140,38 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
         REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
     )
 
-    required_entry = _exact_allow_entry(
+    required_entry, required_identity = _exact_allow_entry(
         entries,
         "certification/certificate_claim_payloads_v0_schema.json",
         "required",
         "#/allOf/0/oneOf/5/properties/params",
         "606ec6f8683fcaec80529342e014ee8d4463a2124884d95e6407dc858e81686a",
     )
-    required_identity = required_entry["findings"][0]
     sibling = {**required_identity, "subject": "future_size"}
 
-    pattern_entry = _exact_allow_entry(
+    pattern_entry, pattern_identity = _exact_allow_entry(
         entries,
         "certification/agent_certificate_v0_schema.json",
         "pattern",
         "#/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
         "5cef859ecd3d1e634640a724f27c74b94beb2d33963dc9ca27e03bfa5a971a23",
     )
-    pattern_identity = pattern_entry["findings"][0]
     pattern_drift = {**pattern_identity, "new": "^ckr:[A-Za-z0-9_-]{42}$"}
 
-    branch_entry = _exact_allow_entry(
+    branch_entry, branch_identity = _exact_allow_entry(
         entries,
         "certification/agent_certificate_v0_schema.json",
         "allOf_branch_count_changed",
         "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
         "9ae92c598f5d080c3abd551a2b2478231b958db305f7955e6ef6562f49891617",
     )
-    branch_identity = branch_entry["findings"][0]
     branch_drift = {**branch_identity, "new": branch_identity["new"] + 1}
 
-    for entry, identity in (
-        (required_entry, sibling),
-        (pattern_entry, pattern_drift),
-        (branch_entry, branch_drift),
+    for entry, original, identity in (
+        (required_entry, required_identity, sibling),
+        (pattern_entry, pattern_identity, pattern_drift),
+        (branch_entry, branch_identity, branch_drift),
     ):
-        original = entry["findings"][0]
         original_finding = gate.Finding(
             file=entry["file"],
             pointer=original["pointer"],
@@ -1222,8 +1217,11 @@ def test_exact_allow_entry_immune_to_unrelated_same_file_rule_appends() -> None:
     pointer = "#/allOf"
     fingerprint = "a427e5b472a302377a9fe66ce74dc00ce2289d5140cd0f38b479fc08536f073a"
 
-    expected = _exact_allow_entry(entries, file_name, rule, pointer, fingerprint)
+    expected, expected_identity = _exact_allow_entry(
+        entries, file_name, rule, pointer, fingerprint
+    )
     assert expected["pr"] == "https://github.com/Traigent/TraigentSchema/pull/439"
+    assert expected_identity is expected["findings"][0]
 
     empty_findings_entry = {
         "file": file_name,
@@ -1250,15 +1248,35 @@ def test_exact_allow_entry_immune_to_unrelated_same_file_rule_appends() -> None:
         "version": "5.8.0",
         "pr": "#999002",
     }
+    preceded_entry = {
+        **expected,
+        "findings": [other_identity_entry["findings"][0], expected_identity],
+    }
+    preceded, preceded_identity = _exact_allow_entry(
+        [preceded_entry], file_name, rule, pointer, fingerprint
+    )
+    assert preceded is preceded_entry
+    assert preceded_identity is preceded_entry["findings"][1]
+
     augmented = [*entries, empty_findings_entry, other_identity_entry]
-    selected = _exact_allow_entry(augmented, file_name, rule, pointer, fingerprint)
+    selected, selected_identity = _exact_allow_entry(
+        augmented, file_name, rule, pointer, fingerprint
+    )
     assert selected is expected
+    assert selected_identity is expected_identity
 
     with pytest.raises(AssertionError, match="no allowlist entry"):
         _exact_allow_entry(entries, file_name, rule, pointer, "0" * 64)
 
     with pytest.raises(AssertionError, match="expected exactly one allowlist entry"):
         _exact_allow_entry([*entries, dict(expected)], file_name, rule, pointer, fingerprint)
+
+    duplicate_identity_entry = {
+        **expected,
+        "findings": [expected_identity, dict(expected_identity)],
+    }
+    with pytest.raises(AssertionError, match="expected exactly one allowlist entry"):
+        _exact_allow_entry([duplicate_identity_entry], file_name, rule, pointer, fingerprint)
 
 
 def test_root_branch_count_allowlist_entries_are_exact() -> None:

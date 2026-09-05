@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No unreleased changes yet._
+
+## [5.8.0] - 2026-09-05
+
 ### Changed
 - **Agent Certificate v0 packaging** now declares `cryptography>=46,<51` as a
   mandatory base runtime dependency, so a plain `pip install traigent-schema`

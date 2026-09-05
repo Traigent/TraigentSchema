@@ -320,6 +320,29 @@ def test_registry_digests_have_explicit_non_circular_preimages() -> None:
     assert "policy_digest excluded" in definitions["CapturePolicyDocumentV1"]["description"]
     assert "definition_digest excluded" in definitions["ProcessDefinitionDocumentV1"]["description"]
     assert "trust_status_snapshot" not in json.dumps(definitions)
+    assert (
+        definitions["ProcessRecordDigestDomainRegistryV1"]["properties"]["expected_steps"][
+            "const"
+        ]
+        == "traigent.process_record.expected_steps.v1"
+    )
+    assert "expected_steps.v1" in definitions["ProcessRecordUnsignedManifestV1"][
+        "properties"
+    ]["expected_steps_digest"]["description"]
+
+
+def test_manifest_and_receipt_digest_bindings_are_explicit() -> None:
+    definitions = SCHEMA["definitions"]
+    assert "8,192 bytes" in definitions["ProcessRecordReceiptV1"]["description"]
+    manifest_digest = definitions["ProcessRecordUnsignedManifestV1"]["properties"][
+        "base_unsigned_manifest_digest"
+    ]["description"]
+    assert "declared manifest_digest" in manifest_digest
+    signature_digest = definitions["ProcessRecordSignatureV1"]["properties"][
+        "unsigned_manifest_digest"
+    ]["description"]
+    assert "full V1 unsigned manifest" in signature_digest
+    assert "issuer_signature.v1" in signature_digest
 
 
 def test_integer_value_fields_document_strict_python_type_obligation() -> None:

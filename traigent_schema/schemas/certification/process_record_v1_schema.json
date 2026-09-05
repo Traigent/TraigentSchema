@@ -2,13 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/process_record_v1_schema.json",
   "title": "Traigent Process Record Certificate v1",
-  "description": "Closed, content-free process-record contract. V1 is a separate contract family: it does not add identifiers or templates to the frozen Agent Certificate v0 vocabulary. Cross-field digest equality, receipt order, and report-to-receipt value equality are verifier obligations; the signed manifest deliberately contains digests only, and excludes signature, report, and claim-support material from its own digest preimage. Dynamic trust-status, revocation freshness, and anti-replay presentation are outside PROC1; issuer verification uses the existing independently pinned v0 verification-materials artifact and this contract makes no dynamic trust-status claim.",
+  "description": "Closed, content-free process-record contract. V1 is a separate contract family: it does not add identifiers or templates to the frozen Agent Certificate v0 vocabulary. Cross-field digest equality, receipt order, and report-to-receipt value equality are verifier obligations; the signed manifest deliberately contains digests only, and excludes signature, report, and claim-support material from its own digest preimage. Dynamic trust-status, revocation freshness, and anti-replay presentation are outside PROC1; issuer verification uses the existing independently pinned v0 verification-materials artifact and this contract makes no dynamic trust-status claim. The verifier MUST reject decoded booleans and floating-point values for every integer-valued field, including seq, registered values, stream indexes, receipt counts, and report counters, even if a Draft-07 implementation accepts 1.0 as integer-compatible.",
   "definitions": {
     "ProcessRecordDigestDomainRegistryV1": {
       "description": "Normative fixed role domains. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["receipt", "receipt_bundle", "report", "assertion", "claim_material", "claim_support_rows", "unsigned_manifest", "capture_policy", "process_definition", "issuer_signature"],
+      "required": ["receipt", "receipt_bundle", "report", "assertion", "claim_material", "claim_support_rows", "unsigned_manifest", "capture_policy", "process_definition", "expected_steps", "issuer_signature"],
       "properties": {
         "receipt": {"const": "traigent.process_record.receipt.v1"},
         "receipt_bundle": {"const": "traigent.process_record.receipt_bundle.v1"},
@@ -19,6 +19,7 @@
         "unsigned_manifest": {"const": "traigent.process_record.unsigned_manifest.v1"},
         "capture_policy": {"const": "traigent.process_record.capture_policy.v1"},
         "process_definition": {"const": "traigent.process_record.process_definition.v1"},
+        "expected_steps": {"const": "traigent.process_record.expected_steps.v1"},
         "issuer_signature": {"const": "traigent.process_record.issuer_signature.v1"}
       }
     },
@@ -88,7 +89,7 @@
       }
     },
     "ProcessRecordReceiptV1": {
-      "description": "A bounded content-free receipt projection. The source ledger row, payload, prompts, responses, and HMAC material are never representable. receipt_digest is SHA-256 over UTF8(traigent.process_record.receipt.v1) || 0x00 || jcs_v1(this projection with receipt_digest excluded).",
+      "description": "A bounded content-free receipt projection. The source ledger row, payload, prompts, responses, and HMAC material are never representable. The verifier MUST reject any canonical receipt projection whose UTF-8 JSON exceeds 8,192 bytes. receipt_digest is SHA-256 over UTF8(traigent.process_record.receipt.v1) || 0x00 || jcs_v1(this projection with receipt_digest excluded).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -365,7 +366,7 @@
       ],
       "properties": {
         "schema_version": {"const": "traigent.process_record.unsigned_manifest.v1"},
-        "base_unsigned_manifest_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "base_unsigned_manifest_digest": {"description": "Digest of the already-verified v0 unsigned manifest: it MUST equal the v0 manifest's declared manifest_digest and the verifier's recomputed digest for that exact v0 manifest document.", "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
         "capture_policy": {"$ref": "#/definitions/CapturePolicyIdentityV1"},
         "process_definition": {"$ref": "#/definitions/ProcessDefinitionIdentityV1"},
         "project_ref": {"$ref": "certification_common_v0_schema.json#/definitions/ProjectRefV0"},
@@ -375,7 +376,7 @@
         "evaluator_commitment_ref": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
         "build_definition_commitment_ref": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
         "expected_steps": {"$ref": "#/definitions/ExpectedProcessStepsV1"},
-        "expected_steps_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "expected_steps_digest": {"description": "SHA-256 over UTF8(traigent.process_record.expected_steps.v1) || 0x00 || jcs_v1(expected_steps). The verifier recomputes this digest from the fixed expected_steps tuple.", "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
         "decision_stream": {"$ref": "#/definitions/StreamIndexV1"},
         "receipt_event_stream": {"$ref": "#/definitions/StreamIndexV1"},
         "transition_stream": {"$ref": "#/definitions/StreamIndexV1"},
@@ -412,7 +413,7 @@
         "issuer_key_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
         "trust_ring_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
         "signed_payload": {"const": "unsigned_process_manifest"},
-        "unsigned_manifest_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "unsigned_manifest_digest": {"description": "Digest of the full V1 unsigned manifest using the registered unsigned_manifest role: SHA-256 over UTF8(traigent.process_record.unsigned_manifest.v1) || 0x00 || jcs_v1(the complete V1 unsigned manifest). This digest is distinct from the issuer signature preimage; signature bytes use the existing traigent.process_record.issuer_signature.v1 domain/preimage and are outside the manifest.", "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
         "signature": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"}
       }
     },

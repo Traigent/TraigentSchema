@@ -4,7 +4,7 @@
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
-      "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced; two independent exact-head reviews found no semantic loosening. This acknowledgement is scoped only to this exact pointer and fingerprint.",
+      "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced. This acknowledgement is scoped only to this exact pointer and fingerprint.",
       "version": "5.7.0",
       "pr": "#447",
       "findings": [

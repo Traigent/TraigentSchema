@@ -1104,22 +1104,36 @@ def test_certified_agent_v0_allowlist_covers_historical_findings_only() -> None:
     assert gate.find_allow_entry(unrelated, entries).entry is None
 
 
-def _latest_allow_entry(entries: list[dict], file: str, rule: str) -> dict:
-    """Return the most recent allowlist entry for one (file, rule) pair.
+def _exact_allow_entry(
+    entries: list[dict], file: str, rule: str, pointer: str, fingerprint: str
+) -> dict:
+    """Return the one allowlist entry pinned to this exact (file, rule, pointer, fingerprint).
 
-    This used to be ``next(e for e in entries[-29:] if ...)``. That fixed-size
-    tail window silently encoded "the allowlist has not grown since this test
-    was written": appending 29 unrelated entries pushes a target out of the
-    slice, ``next`` raises StopIteration, and the failure surfaces as a broken
-    test on whichever unrelated PR happens to cross the boundary rather than as
-    anything about that PR's contract change. Selecting the last match over the
-    whole list picks exactly the same three entries the window did, and stays
-    correct however many entries are appended after them.
+    (file, rule) alone is not unique -- this allowlist carries several entries for the
+    same (file, rule), including entries with no ``findings`` at all (``pointer_prefix``
+    opt-outs) and multiple distinct historical identities (see PR #439 vs PR #447 on
+    ``agent_certificate_v0_schema.json`` / ``allOf_branch_count_changed``). Selecting by
+    list position (``matches[-1]``) meant appending a future entry with the same
+    (file, rule) -- including one with no findings -- could silently swap in a different
+    fixture or raise IndexError. Matching on the full identity instead means an unrelated
+    append, with or without findings, can never change what is selected; a missing or
+    duplicated intended identity fails loudly here instead of silently downstream.
     """
 
-    matches = [e for e in entries if e["file"] == file and e["rule"] == rule]
-    assert matches, f"no allowlist entry for {file} / {rule}"
-    return matches[-1]
+    matches = []
+    for entry in entries:
+        if entry.get("file") != file or entry.get("rule") != rule:
+            continue
+        for identity in entry.get("findings") or []:
+            if identity.get("pointer") == pointer and identity.get("fingerprint") == fingerprint:
+                matches.append(entry)
+                break
+    assert matches, f"no allowlist entry for {file} / {rule} / {pointer} / {fingerprint}"
+    assert len(matches) == 1, (
+        f"expected exactly one allowlist entry for {file} / {rule} / {pointer} / "
+        f"{fingerprint}, found {len(matches)}"
+    )
+    return matches[0]
 
 
 def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
@@ -1127,20 +1141,32 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
         REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
     )
 
-    required_entry = _latest_allow_entry(
-        entries, "certification/certificate_claim_payloads_v0_schema.json", "required"
+    required_entry = _exact_allow_entry(
+        entries,
+        "certification/certificate_claim_payloads_v0_schema.json",
+        "required",
+        "#/allOf/0/oneOf/5/properties/params",
+        "606ec6f8683fcaec80529342e014ee8d4463a2124884d95e6407dc858e81686a",
     )
     required_identity = required_entry["findings"][0]
     sibling = {**required_identity, "subject": "future_size"}
 
-    pattern_entry = _latest_allow_entry(
-        entries, "certification/agent_certificate_v0_schema.json", "pattern"
+    pattern_entry = _exact_allow_entry(
+        entries,
+        "certification/agent_certificate_v0_schema.json",
+        "pattern",
+        "#/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
+        "5cef859ecd3d1e634640a724f27c74b94beb2d33963dc9ca27e03bfa5a971a23",
     )
     pattern_identity = pattern_entry["findings"][0]
     pattern_drift = {**pattern_identity, "new": "^ckr:[A-Za-z0-9_-]{42}$"}
 
-    branch_entry = _latest_allow_entry(
-        entries, "certification/agent_certificate_v0_schema.json", "allOf_branch_count_changed"
+    branch_entry = _exact_allow_entry(
+        entries,
+        "certification/agent_certificate_v0_schema.json",
+        "allOf_branch_count_changed",
+        "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
+        "9ae92c598f5d080c3abd551a2b2478231b958db305f7955e6ef6562f49891617",
     )
     branch_identity = branch_entry["findings"][0]
     branch_drift = {**branch_identity, "new": branch_identity["new"] + 1}
@@ -1175,6 +1201,64 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
         )
         assert finding.fingerprint() != original_finding.fingerprint()
         assert gate.find_allow_entry(finding, entries).entry is None
+
+
+def test_exact_allow_entry_immune_to_unrelated_same_file_rule_appends() -> None:
+    """(file, rule) is not unique, so selection must key on the full identity.
+
+    Guards the Terra finding directly: this allowlist already carries several
+    entries sharing (file, rule) -- see the PR #439 vs #447 root branch-count
+    identities pinned in this same test below. Appending unrelated entries with
+    that identical (file, rule), including one with no findings at all and
+    another with a real but different identity, must not change which entry
+    ``_exact_allow_entry`` selects. A missing or duplicated intended identity
+    must fail loudly instead of silently substituting the wrong fixture.
+    """
+    entries = gate.load_allowlist(
+        REPO_ROOT / "scripts" / "breaking_schema_allowlist.json", REPO_ROOT
+    )
+    file_name = "certification/agent_certificate_v0_schema.json"
+    rule = "allOf_branch_count_changed"
+    pointer = "#/allOf"
+    fingerprint = "a427e5b472a302377a9fe66ce74dc00ce2289d5140cd0f38b479fc08536f073a"
+
+    expected = _exact_allow_entry(entries, file_name, rule, pointer, fingerprint)
+    assert expected["pr"] == "https://github.com/Traigent/TraigentSchema/pull/439"
+
+    empty_findings_entry = {
+        "file": file_name,
+        "rule": rule,
+        "findings": [],
+        "reason": "Synthetic no-findings entry appended for the regression test.",
+        "version": "5.8.0",
+        "pr": "#999001",
+    }
+    other_identity_entry = {
+        "file": file_name,
+        "rule": rule,
+        "findings": [
+            {
+                "pointer": pointer,
+                "role": "conservative",
+                "subject": "allOf",
+                "old": 2,
+                "new": 5,
+                "fingerprint": "0" * 64,
+            }
+        ],
+        "reason": "Synthetic unrelated future identity appended for the regression test.",
+        "version": "5.8.0",
+        "pr": "#999002",
+    }
+    augmented = [*entries, empty_findings_entry, other_identity_entry]
+    selected = _exact_allow_entry(augmented, file_name, rule, pointer, fingerprint)
+    assert selected is expected
+
+    with pytest.raises(AssertionError, match="no allowlist entry"):
+        _exact_allow_entry(entries, file_name, rule, pointer, "0" * 64)
+
+    with pytest.raises(AssertionError, match="expected exactly one allowlist entry"):
+        _exact_allow_entry([*entries, dict(expected)], file_name, rule, pointer, fingerprint)
 
 
 def test_root_branch_count_allowlist_entries_are_exact() -> None:

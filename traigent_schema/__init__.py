@@ -46,6 +46,10 @@ _CERTIFICATION_EXPORTS = frozenset(
         "ClientCertificateProjection",
         "ClientCoAttestationContext",
         "derive_client_key_ref",
+        "PROCESS_RECORD_ERROR_CODES",
+        "ProcessRecordVerificationContext",
+        "ProcessRecordVerificationError",
+        "ProcessRecordVerificationResult",
         "RelyingPartyPolicy",
         "RelyingPartyVerificationError",
         "VerificationContext",
@@ -55,6 +59,7 @@ _CERTIFICATION_EXPORTS = frozenset(
         "verify_agent_certificate",
         "verify_certificate",
         "verify_certificate_with_materials",
+        "verify_process_record_certificate",
         "prepare_client_co_attestation",
     }
 )

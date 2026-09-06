@@ -2031,7 +2031,7 @@
       "rule": "property_added",
       "reason": "Adds the optional 'source' discriminator (paddle | aws_marketplace) so a subscription records which commerce channel created it. AWS Marketplace purchases carry no Paddle identifiers, so without this the backend cannot tell the two apart and the shared entitlement predicate cannot remain the single chokepoint that governs access. Flagged BREAKING only because this response object closes additionalProperties, so a strict response validator would reject the newly emitted member. The property is optional and appears in no 'required' array, and no in-repo consumer validates it: the generated Python surface types the payload as an opaque mapping (traigent/generated/schema_types.py:1287 on origin/develop), and TypeScript types are compile-time only. Noted for whoever regenerates the SDKs: the generated JS type SubscriptionResponseSchema is a closed exact shape with no index signature, unlike its siblings, so traigent-js must regenerate before it can carry the member. That regeneration is tracked as SDK parity work rather than silently assumed. Reviewed under spine trail st_b6ed75e9c728.",
       "version": "5.9.0",
-      "pr": "local-candidate-5bf4c89",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/452",
       "findings": [
         {
           "pointer": "#/properties/data/oneOf/1/properties/source",

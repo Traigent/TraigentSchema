@@ -8,7 +8,7 @@
       "description": "Normative fixed role domains. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["receipt", "receipt_bundle", "report", "assertion", "claim_material", "claim_support_rows", "unsigned_manifest", "capture_policy", "process_definition", "expected_steps", "issuer_signature"],
+      "required": ["receipt", "receipt_bundle", "report", "assertion", "claim_material", "claim_support_rows", "unsigned_manifest", "capture_policy", "process_definition", "expected_steps", "issuer_signature", "trust_status", "trust_anchor_spki"],
       "properties": {
         "receipt": {"const": "traigent.process_record.receipt.v1"},
         "receipt_bundle": {"const": "traigent.process_record.receipt_bundle.v1"},
@@ -20,7 +20,9 @@
         "capture_policy": {"const": "traigent.process_record.capture_policy.v1"},
         "process_definition": {"const": "traigent.process_record.process_definition.v1"},
         "expected_steps": {"const": "traigent.process_record.expected_steps.v1"},
-        "issuer_signature": {"const": "traigent.process_record.issuer_signature.v1"}
+        "issuer_signature": {"const": "traigent.process_record.issuer_signature.v1"},
+        "trust_status": {"const": "traigent.process_record.trust_status.v1"},
+        "trust_anchor_spki": {"const": "traigent.process_record.trust_anchor_spki_der.v1"}
       }
     },
     "ProcessRecordSignaturePreimageV1": {
@@ -433,6 +435,113 @@
             "process_record_verification_failed"
           ]
         }
+      }
+    },
+    "TrustPolicyIdV1": {
+      "description": "Closed trust-policy identity for V1. max_age_seconds is fixed at 86400 by this policy version; a different maximum age requires a new policy id, not a new value.",
+      "type": "string",
+      "const": "traigent.trust_policy.process_record.v1"
+    },
+    "TrustStatusStateV1": {
+      "description": "Closed status vocabulary. Values are byte-identical to the v0 retrieval contract's certificate_status.status (certification_endpoints_v0.json components.schemas.CertificateRetrievalResponseV0). Duplicated rather than $ref'd because that catalog carries no $id and is therefore unresolvable from this schema's registry; a contract test pins set-equality so the two cannot drift.",
+      "type": "string",
+      "enum": ["active", "revoked_after_issuance", "untrusted_compromise", "untrusted_issuance_order"]
+    },
+    "TrustStatusReasonV1": {
+      "description": "Closed revocation-reason vocabulary; null iff status is active.",
+      "enum": ["rotation", "administrative", "compromise", null]
+    },
+    "TrustStatusEntryCouplingV1": {
+      "description": "Shared active/revoked coupling applied to both entry kinds: an active entry carries null revoked_at and null reason; any non-active entry carries both.",
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "active"}}, "required": ["status"]},
+          "then": {"properties": {"revoked_at": {"type": "null"}, "reason": {"type": "null"}}},
+          "else": {
+            "properties": {
+              "revoked_at": {"$ref": "#/definitions/UtcTimestampV1"},
+              "reason": {"enum": ["rotation", "administrative", "compromise"]}
+            }
+          }
+        }
+      ]
+    },
+    "KeyStatusEntryV1": {
+      "description": "Status of one issuer verification key within one trust ring, as of the enclosing snapshot's effective_time. The verifier MUST reject a snapshot carrying two entries with the same (key_ref, trust_ring_ref) pair; draft-07 cannot express that.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_ref", "trust_ring_ref", "status", "revoked_at", "reason"],
+      "properties": {
+        "key_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "trust_ring_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "status": {"$ref": "#/definitions/TrustStatusStateV1"},
+        "revoked_at": {"oneOf": [{"type": "null"}, {"$ref": "#/definitions/UtcTimestampV1"}]},
+        "reason": {"$ref": "#/definitions/TrustStatusReasonV1"}
+      },
+      "allOf": [{"$ref": "#/definitions/TrustStatusEntryCouplingV1"}]
+    },
+    "CertificateStatusEntryV1": {
+      "description": "Status of one certificate, as of the enclosing snapshot's effective_time. The verifier MUST reject a snapshot carrying two entries with the same certificate_ref.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["certificate_ref", "status", "revoked_at", "reason"],
+      "properties": {
+        "certificate_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "status": {"$ref": "#/definitions/TrustStatusStateV1"},
+        "revoked_at": {"oneOf": [{"type": "null"}, {"$ref": "#/definitions/UtcTimestampV1"}]},
+        "reason": {"$ref": "#/definitions/TrustStatusReasonV1"}
+      },
+      "allOf": [{"$ref": "#/definitions/TrustStatusEntryCouplingV1"}]
+    },
+    "TrustStatusSnapshotV1": {
+      "description": "The unsigned trust-status body. NON-CLAIM: this snapshot establishes key and certificate status ONLY as of effective_time under the named policy. It is not fresh-presentation evidence and provides no replay resistance; a relying party that needs either must obtain it elsewhere. Absent, future-dated, or too-old status is a verification failure, never a current-validity pass. The verifier recomputes the body digest over UTF8(traigent.process_record.trust_status.v1) || 0x00 || jcs_v1(this body) and rejects duplicate entries per key or per certificate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "trust_anchor_ref", "trust_policy_id", "max_age_seconds", "effective_time", "key_status", "certificate_status"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.trust_status.v1"},
+        "trust_anchor_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "trust_policy_id": {"$ref": "#/definitions/TrustPolicyIdV1"},
+        "max_age_seconds": {"const": 86400},
+        "effective_time": {"$ref": "#/definitions/UtcTimestampV1"},
+        "key_status": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/definitions/KeyStatusEntryV1"}},
+        "certificate_status": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/definitions/CertificateStatusEntryV1"}}
+      }
+    },
+    "TrustStatusSignatureV1": {
+      "description": "External trust-anchor signature block. The anchor signs only the canonical snapshot body under UTF8(traigent.process_record.trust_status.v1) || 0x00 || jcs_v1(snapshot). This block is outside that body, so signature self-reference is impossible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "trust_anchor_ref", "signed_payload", "snapshot_digest", "signature"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.trust_status_signature.v1"},
+        "algorithm": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
+        "trust_anchor_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "signed_payload": {"const": "trust_status_snapshot"},
+        "snapshot_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "signature": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"}
+      }
+    },
+    "TrustStatusEnvelopeV1": {
+      "description": "The fourth verification input: an authenticated trust-status snapshot. It is a SEPARATE artifact from ProcessRecordCertificateBundleV1 and is never embedded in it; the issuer signs the bundle, a caller-pinned trust anchor signs this, and the two have different signers and different lifetimes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "snapshot", "signature"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.trust_status_envelope.v1"},
+        "snapshot": {"$ref": "#/definitions/TrustStatusSnapshotV1"},
+        "signature": {"$ref": "#/definitions/TrustStatusSignatureV1"}
+      }
+    },
+    "TrustStatusSignaturePreimageV1": {
+      "description": "Normative trust-status signature preimage profile; signature bytes and the outer signature block are excluded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain", "framing", "signed_projection"],
+      "properties": {
+        "domain": {"const": "traigent.process_record.trust_status.v1"},
+        "framing": {"const": "UTF8(domain) || 0x00 || jcs_v1(snapshot)"},
+        "signed_projection": {"const": "snapshot"}
       }
     },
     "ProcessRecordCertificateBundleV1": {

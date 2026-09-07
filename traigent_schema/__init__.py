@@ -52,6 +52,7 @@ _CERTIFICATION_EXPORTS = frozenset(
         "ProcessRecordVerificationResult",
         "RelyingPartyPolicy",
         "RelyingPartyVerificationError",
+        "TrustAnchorKeyV1",
         "VerificationContext",
         "VerificationError",
         "VerificationResult",

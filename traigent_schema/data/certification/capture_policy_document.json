@@ -1,0 +1,8 @@
+{
+  "schema_version": "traigent.capture_policy_document.v1",
+  "policy_id": "traigent.capture_policy.asap.v1",
+  "policy_version": "1.0.0",
+  "observable_surfaces": ["decision_stream", "receipt_event_stream", "transition_stream"],
+  "expected_steps": ["prepare", "evaluate", "aggregate", "select", "finalize"],
+  "canonicalization": "jcs_v1"
+}

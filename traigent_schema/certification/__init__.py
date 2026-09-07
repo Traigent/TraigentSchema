@@ -8,6 +8,13 @@ fresh relying-party context, and an explicit pinned policy; it does not
 resolve keys, contact Traigent, access a database, or inspect private evidence.
 """
 
+from traigent_schema.certification.process_record_verifier import (
+    PROCESS_RECORD_ERROR_CODES,
+    ProcessRecordVerificationContext,
+    ProcessRecordVerificationError,
+    ProcessRecordVerificationResult,
+    verify_process_record_certificate,
+)
 from traigent_schema.certification.relying_party_verifier import (
     CLIENT_CO_ATTESTATION_CONTEXT_FIELDS,
     CLIENT_CO_ATTESTATION_ERROR_CODES,
@@ -32,6 +39,10 @@ __all__ = [
     "ClientCertificateProjection",
     "ClientCoAttestationContext",
     "derive_client_key_ref",
+    "PROCESS_RECORD_ERROR_CODES",
+    "ProcessRecordVerificationContext",
+    "ProcessRecordVerificationError",
+    "ProcessRecordVerificationResult",
     "RelyingPartyPolicy",
     "RelyingPartyVerificationError",
     "VerificationContext",
@@ -41,5 +52,6 @@ __all__ = [
     "verify_agent_certificate",
     "verify",
     "verify_certificate_with_materials",
+    "verify_process_record_certificate",
     "prepare_client_co_attestation",
 ]

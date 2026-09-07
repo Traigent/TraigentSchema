@@ -1,0 +1,460 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/process_record_v1_schema.json",
+  "title": "Traigent Process Record Certificate v1",
+  "description": "Closed, content-free process-record contract. V1 is a separate contract family: it does not add identifiers or templates to the frozen Agent Certificate v0 vocabulary. Cross-field digest equality, receipt order, and report-to-receipt value equality are verifier obligations; the signed manifest deliberately contains digests only, and excludes signature, report, and claim-support material from its own digest preimage. Dynamic trust-status, revocation freshness, and anti-replay presentation are outside PROC1; issuer verification uses the existing independently pinned v0 verification-materials artifact and this contract makes no dynamic trust-status claim. The verifier MUST reject decoded booleans and floating-point values for every integer-valued field, including seq, registered values, stream indexes, receipt counts, and report counters, even if a Draft-07 implementation accepts 1.0 as integer-compatible.",
+  "definitions": {
+    "ProcessRecordDigestDomainRegistryV1": {
+      "description": "Normative fixed role domains. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt", "receipt_bundle", "report", "assertion", "claim_material", "claim_support_rows", "unsigned_manifest", "capture_policy", "process_definition", "expected_steps", "issuer_signature"],
+      "properties": {
+        "receipt": {"const": "traigent.process_record.receipt.v1"},
+        "receipt_bundle": {"const": "traigent.process_record.receipt_bundle.v1"},
+        "report": {"const": "traigent.process_record.report.v1"},
+        "assertion": {"const": "traigent.process_record.assertion.v1"},
+        "claim_material": {"const": "traigent.process_record.claim_material.v1"},
+        "claim_support_rows": {"const": "traigent.process_record.claim_support_rows.v1"},
+        "unsigned_manifest": {"const": "traigent.process_record.unsigned_manifest.v1"},
+        "capture_policy": {"const": "traigent.process_record.capture_policy.v1"},
+        "process_definition": {"const": "traigent.process_record.process_definition.v1"},
+        "expected_steps": {"const": "traigent.process_record.expected_steps.v1"},
+        "issuer_signature": {"const": "traigent.process_record.issuer_signature.v1"}
+      }
+    },
+    "ProcessRecordSignaturePreimageV1": {
+      "description": "Normative issuer-signature preimage profile; signature bytes and the outer signature block are excluded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain", "framing", "signed_projection"],
+      "properties": {
+        "domain": {"const": "traigent.process_record.issuer_signature.v1"},
+        "framing": {"const": "UTF8(domain) || 0x00 || jcs_v1(unsigned_manifest)"},
+        "signed_projection": {"const": "unsigned_manifest"}
+      }
+    },
+    "ProcessStepIdV1": {
+      "type": "string",
+      "enum": ["prepare", "evaluate", "aggregate", "select", "finalize"]
+    },
+    "ObservationBasisV1": {
+      "type": "string",
+      "enum": ["backend_observed", "client_attested"]
+    },
+    "ReceiptStreamIdV1": {
+      "type": "string",
+      "enum": ["decision_stream", "receipt_event_stream", "transition_stream"]
+    },
+    "ProcessRecordSchemaVersionV1": {
+      "type": "string",
+      "const": "traigent.process_record.v1"
+    },
+    "UtcTimestampV1": {
+      "type": "string",
+      "maxLength": 30,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"
+    },
+    "RegisteredValuesV1": {
+      "description": "The only value channel admitted by this profile. It is a closed typed registry, not a metadata map. Numeric fields are integer fixed-unit content-free aggregates and are bounded for canonical receipt size. The standalone verifier MUST additionally reject decoded booleans and floating-point values such as 1.0 even where a Draft-07 implementation treats them as integer-compatible; this Python type distinction is not expressible by this schema alone.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 5,
+      "properties": {
+        "status_code": {
+          "type": "string",
+          "enum": ["started", "completed", "failed", "skipped"]
+        },
+        "accuracy_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "evaluated_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "cost_microusd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "latency_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000
+        }
+      }
+    },
+    "ProcessRecordReceiptV1": {
+      "description": "A bounded content-free receipt projection. The source ledger row, payload, prompts, responses, and HMAC material are never representable. The verifier MUST reject any canonical receipt projection whose UTF-8 JSON exceeds 8,192 bytes. receipt_digest is SHA-256 over UTF8(traigent.process_record.receipt.v1) || 0x00 || jcs_v1(this projection with receipt_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "receipt_ref", "project_ref", "build_session_ref",
+        "stream_id", "seq", "step_id", "observation_basis", "observed_at",
+        "registered_values", "receipt_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.receipt.v1"},
+        "receipt_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "project_ref": {"$ref": "certification_common_v0_schema.json#/definitions/ProjectRefV0"},
+        "build_session_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "stream_id": {"$ref": "#/definitions/ReceiptStreamIdV1"},
+        "seq": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "step_id": {"$ref": "#/definitions/ProcessStepIdV1"},
+        "observation_basis": {"$ref": "#/definitions/ObservationBasisV1"},
+        "observed_at": {"$ref": "#/definitions/UtcTimestampV1"},
+        "registered_values": {"$ref": "#/definitions/RegisteredValuesV1"},
+        "receipt_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      }
+    },
+    "ProcessRecordReceiptStreamV1": {
+      "description": "One ordered stream of at most 2,048 projections. Issuance must reject, never truncate or sample, when this bound is exceeded.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 2048,
+      "items": {"$ref": "#/definitions/ProcessRecordReceiptV1"}
+    },
+    "ProcessRecordReceiptBundleV1": {
+      "description": "The three and only three public receipt streams. The combined 6,144 projection bound is checked by the issuer/verifier because draft-07 cannot sum array lengths.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "decision_stream", "receipt_event_stream", "transition_stream", "receipt_bundle_digest"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.receipt_bundle.v1"},
+        "decision_stream": {"$ref": "#/definitions/ProcessRecordReceiptStreamV1"},
+        "receipt_event_stream": {"$ref": "#/definitions/ProcessRecordReceiptStreamV1"},
+        "transition_stream": {"$ref": "#/definitions/ProcessRecordReceiptStreamV1"},
+        "receipt_bundle_digest": {
+          "description": "Role-separated digest: SHA-256 over UTF8(traigent.process_record.receipt_bundle.v1) || 0x00 || jcs_v1(this bundle with receipt_bundle_digest excluded).",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "ExpectedProcessStepsV1": {
+      "description": "The fixed expected-step universe for process definition v1. A future step set requires a new registered process version.",
+      "const": ["prepare", "evaluate", "aggregate", "select", "finalize"]
+    },
+    "CapturePolicyIdentityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "policy_version", "policy_digest"],
+      "properties": {
+        "policy_id": {"const": "traigent.capture_policy.asap.v1"},
+        "policy_version": {"const": "1.0.0"},
+        "policy_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      }
+    },
+    "ProcessDefinitionIdentityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definition_id", "definition_version", "definition_digest"],
+      "properties": {
+        "definition_id": {"const": "traigent.process_definition.asap.v1"},
+        "definition_version": {"const": "1.0.0"},
+        "definition_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      }
+    },
+    "CapturePolicyDocumentV1": {
+      "description": "Canonical package registry document for the closed capture policy. It carries no caller label or description. policy_digest is role-separated SHA-256 over UTF8(traigent.process_record.capture_policy.v1) || 0x00 || jcs_v1(this document with policy_digest excluded); the self-field is excluded so the registry document has no digest fixed point.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "policy_id", "policy_version", "observable_surfaces", "expected_steps", "canonicalization", "policy_digest"],
+      "properties": {
+        "schema_version": {"const": "traigent.capture_policy_document.v1"},
+        "policy_id": {"const": "traigent.capture_policy.asap.v1"},
+        "policy_version": {"const": "1.0.0"},
+        "observable_surfaces": {
+          "const": ["decision_stream", "receipt_event_stream", "transition_stream"]
+        },
+        "expected_steps": {"$ref": "#/definitions/ExpectedProcessStepsV1"},
+        "canonicalization": {"const": "jcs_v1"},
+        "policy_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      }
+    },
+    "ProcessDefinitionDocumentV1": {
+      "description": "Canonical package registry document for the closed five-step process definition. definition_digest is role-separated SHA-256 over UTF8(traigent.process_record.process_definition.v1) || 0x00 || jcs_v1(this document with definition_digest excluded); the self-field is excluded so the registry document has no digest fixed point.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "definition_id", "definition_version", "expected_steps", "stream_ids", "canonicalization", "definition_digest"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_definition_document.v1"},
+        "definition_id": {"const": "traigent.process_definition.asap.v1"},
+        "definition_version": {"const": "1.0.0"},
+        "expected_steps": {"$ref": "#/definitions/ExpectedProcessStepsV1"},
+        "stream_ids": {
+          "const": ["decision_stream", "receipt_event_stream", "transition_stream"]
+        },
+        "canonicalization": {"const": "jcs_v1"},
+        "definition_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      }
+    },
+    "ProcessRecordReportRowV1": {
+      "description": "One typed report row. Derivation is deterministic: flatten decision_stream, receipt_event_stream, transition_stream in that order; require strictly increasing seq within each stream and retain array order; select the last receipt whose step_id matches this row. For present rows, exactly one receipt_digest and registered_values are mandatory and must equal that selected receipt; if none matches, the row is missing and carries neither digest nor values. This is a verifier obligation because draft-07 cannot select across arrays.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_id", "status"],
+      "properties": {
+        "step_id": {"$ref": "#/definitions/ProcessStepIdV1"},
+        "status": {"type": "string", "enum": ["present", "missing"]},
+        "observation_kind": {"$ref": "#/definitions/ObservationBasisV1"},
+        "receipt_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "registered_values": {"$ref": "#/definitions/RegisteredValuesV1"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "present"}}, "required": ["status"]},
+          "then": {"required": ["observation_kind", "receipt_digest", "registered_values"]},
+          "else": {"not": {"anyOf": [{"required": ["observation_kind"]}, {"required": ["receipt_digest"]}, {"required": ["registered_values"]}]}}
+        }
+      ]
+    },
+    "ProcessRecordReportRowsV1": {
+      "description": "Exactly five ordered rows: prepare, evaluate, aggregate, select, finalize.",
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "additionalItems": false,
+      "items": [
+        {"allOf": [{"$ref": "#/definitions/ProcessRecordReportRowV1"}, {"properties": {"step_id": {"const": "prepare"}}}]},
+        {"allOf": [{"$ref": "#/definitions/ProcessRecordReportRowV1"}, {"properties": {"step_id": {"const": "evaluate"}}}]},
+        {"allOf": [{"$ref": "#/definitions/ProcessRecordReportRowV1"}, {"properties": {"step_id": {"const": "aggregate"}}}]},
+        {"allOf": [{"$ref": "#/definitions/ProcessRecordReportRowV1"}, {"properties": {"step_id": {"const": "select"}}}]},
+        {"allOf": [{"$ref": "#/definitions/ProcessRecordReportRowV1"}, {"properties": {"step_id": {"const": "finalize"}}}]}
+      ]
+    },
+    "ProcessRecordReportV1": {
+      "description": "Fixed process report. report_digest is SHA-256 over UTF8(traigent.process_record.report.v1) || 0x00 || jcs_v1(this report with report_digest excluded), and is excluded from claim material, preventing a digest cycle.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "project_ref", "build_session_ref", "capture_policy",
+        "process_definition", "expected_step_count", "rows", "present_count",
+        "missing_count", "backend_observed_present_count", "client_attested_present_count", "report_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.report.v1"},
+        "project_ref": {"$ref": "certification_common_v0_schema.json#/definitions/ProjectRefV0"},
+        "build_session_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "capture_policy": {"$ref": "#/definitions/CapturePolicyIdentityV1"},
+        "process_definition": {"$ref": "#/definitions/ProcessDefinitionIdentityV1"},
+        "expected_step_count": {"const": 5},
+        "rows": {"$ref": "#/definitions/ProcessRecordReportRowsV1"},
+        "present_count": {"type": "integer", "minimum": 0, "maximum": 5},
+        "missing_count": {"type": "integer", "minimum": 0, "maximum": 5},
+        "backend_observed_present_count": {"type": "integer", "minimum": 0, "maximum": 5},
+        "client_attested_present_count": {"type": "integer", "minimum": 0, "maximum": 5},
+        "report_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      }
+    },
+    "ProcessRecordAssertionV1": {
+      "description": "The sole registered process assertion. assertion_digest is SHA-256 over UTF8(traigent.process_record.assertion.v1) || 0x00 || jcs_v1(this assertion with assertion_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "claim_id", "assertion_template_id", "capture_policy", "rendered_text", "assertion_digest"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.assertion.v1"},
+        "claim_id": {"const": "PROC1"},
+        "assertion_template_id": {"const": "process_record_correctness_v1"},
+        "capture_policy": {"$ref": "#/definitions/CapturePolicyIdentityV1"},
+        "rendered_text": {"const": "For capture policy traigent.capture_policy.asap.v1@1.0.0, this certificate records the five declared process steps; uncaptured steps are not detectable; client-reported receipts are attestations, not independent evidence."},
+        "assertion_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      }
+    },
+    "ProcessRecordAssertionTemplatesV1": {
+      "description": "Closed assertion-template registry; no caller-supplied template text is admitted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "templates"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.assertion_templates.v1"},
+        "templates": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["template_id", "claim_id", "rendered_text"],
+            "properties": {
+              "template_id": {"const": "process_record_correctness_v1"},
+              "claim_id": {"const": "PROC1"},
+              "rendered_text": {"const": "For capture policy traigent.capture_policy.asap.v1@1.0.0, this certificate records the five declared process steps; uncaptured steps are not detectable; client-reported receipts are attestations, not independent evidence."}
+            }
+          }
+        }
+      }
+    },
+    "ProcessRecordClaimMaterialV1": {
+      "description": "The exact claim-material projection used to compute claim_material_digest as SHA-256 over UTF8(traigent.process_record.claim_material.v1) || 0x00 || jcs_v1(this projection). It intentionally excludes the signature, process report, receipt bundle, and claim-support row, avoiding digest cycles. Supporting rows bind those artifacts separately by digest.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "tier", "assertion_template_id", "rendered_text", "assertion_digest"],
+      "properties": {
+        "claim_id": {"const": "PROC1"},
+        "tier": {"const": 3},
+        "assertion_template_id": {"const": "process_record_correctness_v1"},
+        "rendered_text": {"const": "For capture policy traigent.capture_policy.asap.v1@1.0.0, this certificate records the five declared process steps; uncaptured steps are not detectable; client-reported receipts are attestations, not independent evidence."},
+        "assertion_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      }
+    },
+    "ProcessRecordClaimSupportRowV1": {
+      "description": "The separate PROC1 support row. Its set digest uses UTF8(traigent.process_record.claim_support_rows.v1) || 0x00 || jcs_v1(the fixed row tuple), with no report, signature, or claim-material bytes in that preimage. Before the runtime witness it must be abstained with verifier_not_run_or_not_pass; an issuer_verified row must bind all exact artifacts and a PASS verifier result.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "evidence_basis"],
+      "properties": {
+        "claim_id": {"const": "PROC1"},
+        "evidence_basis": {"$ref": "certificate_audit_report_v0_schema.json#/definitions/EvidenceBasisV0"},
+        "abstention_code": {"$ref": "certificate_audit_report_v0_schema.json#/definitions/AbstentionCodeV0"},
+        "assertion_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "process_report_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "receipt_bundle_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "verifier_result": {"const": "pass"},
+        "claim_material_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"evidence_basis": {"const": "issuer_verified"}}, "required": ["evidence_basis"]},
+          "then": {
+            "required": ["assertion_digest", "process_report_digest", "receipt_bundle_digest", "verifier_result", "claim_material_digest"],
+            "not": {"required": ["abstention_code"]}
+          },
+          "else": {
+            "properties": {"evidence_basis": {"const": "abstained"}, "abstention_code": {"const": "verifier_not_run_or_not_pass"}},
+            "required": ["abstention_code"],
+            "not": {"anyOf": [{"required": ["assertion_digest"]}, {"required": ["process_report_digest"]}, {"required": ["receipt_bundle_digest"]}, {"required": ["verifier_result"]}, {"required": ["claim_material_digest"]}]}
+          }
+        }
+      ]
+    },
+    "ProcessRecordClaimSupportRowsV1": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [{"$ref": "#/definitions/ProcessRecordClaimSupportRowV1"}]
+    },
+    "StreamIndexV1": {
+      "description": "The signed ordered index for one stream. Sequence values and receipt digests are exact parallel tuples; verifier requires strictly increasing seq within each stream and retains array order. Report derivation flattens decision_stream, receipt_event_stream, transition_stream in that fixed order and selects the last matching receipt per step.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence_values", "receipt_digests", "first_seq", "last_seq", "receipt_count"],
+      "properties": {
+        "sequence_values": {"type": "array", "minItems": 0, "maxItems": 2048, "items": {"type": "integer", "minimum": 0, "maximum": 2147483647}},
+        "receipt_digests": {"type": "array", "minItems": 0, "maxItems": 2048, "items": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}},
+        "first_seq": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0, "maximum": 2147483647}]},
+        "last_seq": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0, "maximum": 2147483647}]},
+        "receipt_count": {"type": "integer", "minimum": 0, "maximum": 2048}
+      }
+    },
+    "ProcessRecordUnsignedManifestV1": {
+      "description": "The complete signed V1 process manifest. It binds the unchanged v0 manifest by digest and carries only typed digests/references for V1 artifacts. Signature bytes, report rows, claim-support rows, and receipt contents are excluded from this manifest's preimage; their digests are bound as values.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "base_unsigned_manifest_digest", "capture_policy", "process_definition",
+        "project_ref", "build_session_ref", "agent_commitment_ref", "dataset_commitment_ref",
+        "evaluator_commitment_ref", "build_definition_commitment_ref", "expected_steps",
+        "expected_steps_digest", "decision_stream", "receipt_event_stream", "transition_stream",
+        "assertion_digest", "process_report_digest", "receipt_bundle_digest",
+        "client_evidence_manifest_digest", "process_claim_support_rows_digest", "trust_ring_ref",
+        "issuer_key_ref", "issuer_signature_algorithm", "coverage"
+      ],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.unsigned_manifest.v1"},
+        "base_unsigned_manifest_digest": {"description": "Digest of the already-verified v0 unsigned manifest: it MUST equal the v0 manifest's declared manifest_digest and the verifier's recomputed digest for that exact v0 manifest document.", "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "capture_policy": {"$ref": "#/definitions/CapturePolicyIdentityV1"},
+        "process_definition": {"$ref": "#/definitions/ProcessDefinitionIdentityV1"},
+        "project_ref": {"$ref": "certification_common_v0_schema.json#/definitions/ProjectRefV0"},
+        "build_session_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "agent_commitment_ref": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "dataset_commitment_ref": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "evaluator_commitment_ref": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "build_definition_commitment_ref": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "expected_steps": {"$ref": "#/definitions/ExpectedProcessStepsV1"},
+        "expected_steps_digest": {"description": "SHA-256 over UTF8(traigent.process_record.expected_steps.v1) || 0x00 || jcs_v1(expected_steps). The verifier recomputes this digest from the fixed expected_steps tuple.", "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "decision_stream": {"$ref": "#/definitions/StreamIndexV1"},
+        "receipt_event_stream": {"$ref": "#/definitions/StreamIndexV1"},
+        "transition_stream": {"$ref": "#/definitions/StreamIndexV1"},
+        "assertion_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "process_report_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "receipt_bundle_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "client_evidence_manifest_digest": {
+          "oneOf": [{"type": "null"}, {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}]
+        },
+        "process_claim_support_rows_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "trust_ring_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "issuer_key_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "issuer_signature_algorithm": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
+        "coverage": {
+          "const": [
+            "base_unsigned_manifest_digest", "capture_policy", "process_definition", "project_ref",
+            "build_session_ref", "agent_commitment_ref", "dataset_commitment_ref", "evaluator_commitment_ref",
+            "build_definition_commitment_ref", "expected_steps", "expected_steps_digest", "decision_stream",
+            "receipt_event_stream", "transition_stream", "assertion_digest", "process_report_digest",
+            "receipt_bundle_digest", "client_evidence_manifest_digest", "process_claim_support_rows_digest",
+            "trust_ring_ref", "issuer_key_ref", "issuer_signature_algorithm"
+          ]
+        }
+      }
+    },
+    "ProcessRecordSignatureV1": {
+      "description": "External issuer signature block. The issuer signs only the canonical unsigned process manifest under UTF8(traigent.process_record.issuer_signature.v1) || 0x00 || jcs_v1(unsigned_manifest). This block is outside that manifest, so signature self-reference is impossible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "issuer_key_ref", "trust_ring_ref", "signed_payload", "unsigned_manifest_digest", "signature"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.signature.v1"},
+        "algorithm": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
+        "issuer_key_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "trust_ring_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "signed_payload": {"const": "unsigned_process_manifest"},
+        "unsigned_manifest_digest": {"description": "Digest of the full V1 unsigned manifest using the registered unsigned_manifest role: SHA-256 over UTF8(traigent.process_record.unsigned_manifest.v1) || 0x00 || jcs_v1(the complete V1 unsigned manifest). This digest is distinct from the issuer signature preimage; signature bytes use the existing traigent.process_record.issuer_signature.v1 domain/preimage and are outside the manifest.", "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "signature": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"}
+      }
+    },
+    "ProcessRecordErrorV1": {
+      "description": "Closed process-record error shape. No request data, free-form detail, or content-bearing diagnostics may cross this boundary.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "code"],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.error.v1"},
+        "code": {
+          "type": "string",
+          "enum": [
+            "process_record_receipt_limit_exceeded",
+            "process_record_invalid_receipt",
+            "process_record_invalid_report",
+            "process_record_verification_failed"
+          ]
+        }
+      }
+    },
+    "ProcessRecordCertificateBundleV1": {
+      "description": "Identifying V1 envelope. The existing v0 certificate and verification materials retain their v0 schemas; this envelope composes them without widening their vocabularies. The client evidence/verification materials are separate artifacts, not identifying tenant data.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "base_certificate_v0", "unsigned_manifest", "signature",
+        "assertion", "claim_support_rows", "report", "receipts", "verification_materials_v0"
+      ],
+      "properties": {
+        "schema_version": {"const": "traigent.process_record.certificate_bundle.v1"},
+        "base_certificate_v0": {"$ref": "agent_certificate_v0_schema.json"},
+        "unsigned_manifest": {"$ref": "#/definitions/ProcessRecordUnsignedManifestV1"},
+        "signature": {"$ref": "#/definitions/ProcessRecordSignatureV1"},
+        "assertion": {"$ref": "#/definitions/ProcessRecordAssertionV1"},
+        "claim_support_rows": {"$ref": "#/definitions/ProcessRecordClaimSupportRowsV1"},
+        "report": {"$ref": "#/definitions/ProcessRecordReportV1"},
+        "receipts": {"$ref": "#/definitions/ProcessRecordReceiptBundleV1"},
+        "verification_materials_v0": {"$ref": "certificate_verification_materials_v0_schema.json"}
+      }
+    }
+  },
+  "allOf": [{"$ref": "#/definitions/ProcessRecordCertificateBundleV1"}]
+}

@@ -20,6 +20,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
+import subprocess
+import sys
+from importlib import resources
 from pathlib import Path
 
 import pytest
@@ -31,9 +36,11 @@ from traigent_schema.certification import (
     PROHIBITED_REGISTER_BASELINE_DIGEST,
     PROHIBITED_REGISTER_BASELINE_PINNED_DIGEST,
     load_prohibited_register_baseline,
+    prohibited_register,
 )
 from traigent_schema.certification.prohibited_register import (
     ProhibitedRegisterBaselineError,
+    _reject_duplicate_keys,
     _verify_baseline,
 )
 from traigent_schema.utils import get_schemas_dir
@@ -63,6 +70,17 @@ def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _load_json_strict(path: Path) -> dict:
+    # Strict reader (finding R2): same duplicate-key-rejecting object_pairs_hook
+    # the loader module uses, applied only to the register document/pin (the
+    # same scope the production loader applies it in) -- so this test oracle
+    # cannot be fooled by a shipped document that merely LOOKS unambiguous
+    # under plain json.loads' last-wins duplicate-key handling. NOT used for
+    # the generic multi-schema registry scan below: that walks every *.json
+    # under schemas_dir for unrelated schemas outside this packet's scope.
+    return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys)
+
+
 def _registry() -> Registry:
     resources: list[tuple[str, Resource]] = []
     for path in schemas_dir.rglob("*.json"):
@@ -87,12 +105,12 @@ def _oracle_digest(document: object) -> str:
 
 @pytest.fixture(scope="module")
 def document() -> dict:
-    return _load_json(DOCUMENT_PATH)
+    return _load_json_strict(DOCUMENT_PATH)
 
 
 @pytest.fixture(scope="module")
 def pin() -> dict:
-    return _load_json(PIN_PATH)
+    return _load_json_strict(PIN_PATH)
 
 
 @pytest.fixture(scope="module")
@@ -290,3 +308,308 @@ class TestImportTimeMismatchIsContentFree:
         self, document: dict, schema: dict, registry: Registry, pin: dict
     ) -> None:
         assert _verify_baseline(document, schema, registry, pin["digest"]) == pin["digest"]
+
+
+class TestLoadReturnsIndependentCopy:
+    """(R1) ``load_prohibited_register_baseline()`` must not return the
+    module's verified singleton. Before this fix it returned
+    ``_BASELINE_DOCUMENT`` directly, so a caller mutating
+    ``result["entries"][0]["text"]`` would corrupt what every later caller
+    (and the module's own verified state) sees, even though both exported
+    digests stayed unchanged.
+    """
+
+    def test_mutating_the_returned_document_does_not_leak_to_later_callers(self) -> None:
+        first = load_prohibited_register_baseline()
+        original_text = first["entries"][0]["text"]
+        first["entries"][0]["text"] = "MUTATED-BY-TEST-SENTINEL-b7c1"
+        first["entries"].append({"catalog_id": "x", "local_id": "y", "text": "z"})
+
+        second = load_prohibited_register_baseline()
+        assert second["entries"][0]["text"] == original_text
+        assert len(second["entries"]) == 40
+        assert second is not first
+
+    def test_repeated_calls_return_distinct_objects(self) -> None:
+        assert load_prohibited_register_baseline() is not load_prohibited_register_baseline()
+
+    def test_module_does_not_expose_the_singleton_under_another_name(self) -> None:
+        singleton = prohibited_register._BASELINE_DOCUMENT
+        for name in dir(prohibited_register):
+            if name.startswith("_"):
+                continue
+            value = getattr(prohibited_register, name)
+            assert value is not singleton, name
+
+
+class TestDuplicateKeysRejected:
+    """(R2) A shipped document with a duplicated JSON member must not
+    silently last-wins collapse into a document that parses, hashes, and
+    validates as if it were unambiguous. Plain ``json.loads`` (used both by
+    the pre-fix loader and by this test file's own reader) does exactly
+    that; the factored reader (``prohibited_register._strict_json_loads``)
+    must reject it instead, through the same content-free error path used
+    for a digest mismatch or schema violation.
+    """
+
+    def test_duplicated_entries_member_rejected(self) -> None:
+        sentinel = "SENTINEL-DUP-ENTRIES-4b1a"
+        text = (
+            "{"
+            '"schema_version": "x", '
+            f'"entries": [{{"text": "{sentinel}"}}], '
+            '"entries": []'
+            "}"
+        )
+
+        with pytest.raises(ProhibitedRegisterBaselineError) as excinfo:
+            prohibited_register._strict_json_loads(text)
+
+        exc = excinfo.value
+        assert str(exc) == "PROHIBITED_REGISTER_BASELINE_INVALID"
+        assert sentinel not in str(exc)
+        assert exc.__cause__ is None
+        assert exc.__context__ is None
+
+    def test_duplicated_nested_text_member_rejected(self) -> None:
+        sentinel = "SENTINEL-DUP-TEXT-9c2e"
+        text = (
+            "{"
+            '"entries": [{'
+            '"local_id": "CERT-P-1", '
+            f'"text": "{sentinel}", '
+            '"text": "other-value"'
+            "}]"
+            "}"
+        )
+
+        with pytest.raises(ProhibitedRegisterBaselineError) as excinfo:
+            prohibited_register._strict_json_loads(text)
+
+        exc = excinfo.value
+        assert str(exc) == "PROHIBITED_REGISTER_BASELINE_INVALID"
+        assert sentinel not in str(exc)
+        assert exc.__cause__ is None
+        assert exc.__context__ is None
+
+    def test_document_without_duplicates_still_decodes(self, document: dict) -> None:
+        # Control: the strict reader must not reject ordinary, unambiguous
+        # JSON -- only content with an actual duplicate key.
+        text = json.dumps(document)
+        assert prohibited_register._strict_json_loads(text) == document
+
+
+class TestSchemaPinsEachPositionToItsExactId:
+    """(R3) Before this fix, ``entries`` was a homogeneous-``items`` array:
+    every position accepted any pattern-matching ``CERT-P-<n>``, so a
+    document with forty COPIES of the CERT-P-1 entry validated against the
+    schema (only ``TestEntryIdentity``, which reads the real shipped
+    document, would have caught the drift -- a synthetic all-CERT-P-1
+    document would have PASSED schema validation at HEAD 6bda65e). The fix
+    pins each array position to its own exact ``local_id`` via a
+    ``prefixItems``-equivalent draft-07 ``items`` array + ``additionalItems:
+    false``, so position 2 requiring CERT-P-2 now rejects a CERT-P-1 there.
+    """
+
+    def test_forty_copies_of_the_first_entry_fail_schema(
+        self, document: dict, schema: dict, registry: Registry
+    ) -> None:
+        entry_one = document["entries"][0]
+        forty_of_one = {**document, "entries": [dict(entry_one) for _ in range(40)]}
+
+        validator = Draft7Validator(schema, registry=registry)
+        errors = list(validator.iter_errors(forty_of_one))
+        assert errors != [], "forty CERT-P-1 copies must fail positional schema validation"
+
+    def test_schema_items_is_the_draft7_positional_array_form(self, schema: dict) -> None:
+        # Guards against a future edit accidentally reverting to the
+        # homogeneous single-schema ``items`` form this finding fixed.
+        items = schema["properties"]["entries"]["items"]
+        assert isinstance(items, list)
+        assert len(items) == 40
+        assert schema["properties"]["entries"]["additionalItems"] is False
+
+
+class TestLocalIdRejectsTrailingNewline:
+    """(R4) Under Python's ``re`` module, a pattern ending in ``$`` matches
+    just before a trailing newline, so ``"CERT-P-1\\n"`` matched the old
+    ``^CERT-P-([1-9]|[1-3][0-9]|40)$`` pattern. With R3's positional
+    ``const``/enum in place the free-form pattern is redundant, so it was
+    replaced with a closed enum of the 40 exact ids -- an enum does exact
+    string equality, so a trailing newline no longer matches.
+    """
+
+    def test_trailing_newline_local_id_rejected(
+        self, document: dict, schema: dict, registry: Registry
+    ) -> None:
+        mutated = {
+            **document,
+            "entries": [
+                {**document["entries"][0], "local_id": "CERT-P-1\n"},
+                *document["entries"][1:],
+            ],
+        }
+        validator = Draft7Validator(schema, registry=registry)
+        errors = list(validator.iter_errors(mutated))
+        assert errors != []
+
+    def test_local_id_definition_has_no_pattern_and_uses_enum(self, schema: dict) -> None:
+        local_id_schema = schema["definitions"]["ProhibitedRegisterBaselineEntryV1"]["properties"][
+            "local_id"
+        ]
+        assert "pattern" not in local_id_schema
+        assert local_id_schema["enum"] == [f"CERT-P-{i}" for i in range(1, 41)]
+
+
+class TestPinProvenanceFieldsAsserted:
+    """(R5) The pin file's provenance fields (everything besides ``digest``)
+    are operator-asserted metadata, NOT covered by the digest computation --
+    see the loader module's "TRUST BOUNDARY" docstring section. This test
+    only proves the shipped pin's provenance text has not silently drifted;
+    it is not, and cannot be, proof that the provenance itself is true.
+    """
+
+    def test_provenance_fields_exact(self, pin: dict) -> None:
+        assert pin["ratified_by"] == "owner"
+        assert pin["ratified_on"] == "2026-09-07"
+        assert (
+            pin["decision_ref"]
+            == "chat_decision:certified-agent-prohibited-register-ratify-A-20260907"
+        )
+        assert pin["spine_trail"] == "st_a7f607179358"
+        assert (
+            pin["source_document"]
+            == "runs/response-comparison-debugging/prohibited-register-P1-P40-DRAFT.md"
+        )
+        assert pin["source_document_sha256"] == SOURCE_DOCUMENT_SHA256
+
+    def test_trust_boundary_documented_in_loader_docstring(self) -> None:
+        doc = prohibited_register.__doc__ or ""
+        assert "TRUST BOUNDARY" in doc
+        assert "operator-asserted" in doc
+
+
+class TestImportBoundarySubprocess:
+    """(R6) Every negative test above exercises ``_verify_baseline`` or
+    ``_strict_json_loads`` directly -- all of them would keep passing even
+    if the module-level ``_load_and_verify()`` call at import time were
+    deleted. This copies the ``traigent_schema`` package into a temp
+    directory, proves the PRISTINE copy imports cleanly in a fresh
+    subprocess (control), then corrupts the copy and re-imports in another
+    fresh subprocess, asserting the failure actually happens at the real
+    import boundary. The control runs first, against the SAME temp copy
+    before corruption, so a failure to import is attributable to the
+    corruption and not to some unrelated breakage in the copy/env/PYTHONPATH
+    (mirrors ``tests/test_process_record_verifier.py``'s
+    ``test_importing_the_verifier_fails_when_shipped_registry_data_is_malformed``
+    on branch ``agent/process-record-v1-integrated-20260905``).
+    """
+
+    @staticmethod
+    def _copy_package(tmp_path: Path) -> tuple[Path, Path]:
+        source_package = Path(str(resources.files("traigent_schema")))
+        root = tmp_path / "root"
+        root.mkdir()
+        destination = root / "traigent_schema"
+        shutil.copytree(source_package, destination, ignore=shutil.ignore_patterns("__pycache__"))
+        return root, destination
+
+    @staticmethod
+    def _env(root: Path) -> dict:
+        return {**os.environ, "PYTHONPATH": str(root), "PYTHONDONTWRITEBYTECODE": "1"}
+
+    @staticmethod
+    def _run(code: str, env: dict, cwd: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            env=env,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+        )
+
+    def _assert_control_imports_cleanly(self, root: Path, destination: Path, env: dict) -> None:
+        control = self._run(
+            "import traigent_schema.certification.prohibited_register as m\nprint(m.__file__)\n",
+            env,
+            root,
+        )
+        assert control.returncode == 0, control.stderr
+        assert Path(control.stdout.strip()).is_relative_to(destination), control.stdout
+
+    def test_corrupted_document_fails_import_content_free(self, tmp_path: Path) -> None:
+        root, destination = self._copy_package(tmp_path)
+        env = self._env(root)
+
+        # CONTROL: pristine copy, same interpreter/env/cwd as the treatment,
+        # imported BEFORE any corruption.
+        self._assert_control_imports_cleanly(root, destination, env)
+
+        sentinel = "SENTINEL-SUBPROCESS-DOC-71ad"
+        target = destination / "data" / "certification" / "prohibited_register_baseline.json"
+        corrupted_doc = json.loads(target.read_text(encoding="utf-8"))
+        corrupted_doc["entries"][0]["text"] = sentinel
+        target.write_text(json.dumps(corrupted_doc, indent=2) + "\n", encoding="utf-8")
+
+        imported = self._run(
+            "import traigent_schema.certification.prohibited_register", env, root
+        )
+        assert imported.returncode != 0
+        assert "ProhibitedRegisterBaselineError" in imported.stderr
+        assert sentinel not in imported.stderr
+
+        probe = (
+            "import sys\n"
+            "try:\n"
+            "    import traigent_schema.certification.prohibited_register\n"
+            "except Exception as exc:\n"
+            "    assert type(exc).__name__ == 'ProhibitedRegisterBaselineError', "
+            "type(exc).__name__\n"
+            "    name = 'traigent_schema.certification.prohibited_register'\n"
+            "    assert name not in sys.modules, 'partial module left in sys.modules'\n"
+            "    print('CLEAN')\n"
+            "    sys.exit(0)\n"
+            "sys.exit(9)\n"
+        )
+        probed = self._run(probe, env, root)
+        assert probed.returncode == 0, probed.stderr
+        assert probed.stdout.strip() == "CLEAN"
+        assert sentinel not in probed.stderr
+
+    @pytest.mark.parametrize("corrupt", ["malformed_json", "missing_resource"])
+    def test_other_corruptions_also_fail_import_content_free(
+        self, tmp_path: Path, corrupt: str
+    ) -> None:
+        root, destination = self._copy_package(tmp_path)
+        env = self._env(root)
+
+        # CONTROL: pristine copy imports cleanly, before this case's corruption.
+        self._assert_control_imports_cleanly(root, destination, env)
+
+        target = destination / "data" / "certification" / "prohibited_register_baseline.json"
+        sentinel = f"SENTINEL-{corrupt.upper()}-2f6c"
+        if corrupt == "malformed_json":
+            corrupted_text = target.read_text(encoding="utf-8") + "// " + sentinel
+            target.write_text(corrupted_text, encoding="utf-8")
+        elif corrupt == "missing_resource":
+            target.unlink()
+        else:  # pragma: no cover - parametrize guards this
+            raise AssertionError(corrupt)
+
+        imported = self._run(
+            "import traigent_schema.certification.prohibited_register", env, root
+        )
+        assert imported.returncode != 0
+        assert "ProhibitedRegisterBaselineError" in imported.stderr
+        if corrupt == "malformed_json":
+            assert sentinel not in imported.stderr
+
+        probe = (
+            "import sys\n"
+            "assert 'traigent_schema.certification.prohibited_register' not in sys.modules\n"
+        )
+        # The failed import above already exited the interpreter; re-run in a
+        # fresh one to confirm no partial module was left importable/cached
+        # across a clean process boundary.
+        probed = self._run(probe, env, root)
+        assert probed.returncode == 0, probed.stderr

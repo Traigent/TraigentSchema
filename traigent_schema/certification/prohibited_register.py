@@ -44,11 +44,26 @@ boundary (see :func:`_verify_baseline`), and the boundary clears
 exception -- which WOULD carry document content -- becomes unreachable rather
 than merely undisplayed. This mirrors
 ``traigent_schema/certification/process_record_verifier.py``'s
-``_load_registry_constant`` boundary.
+``_load_registry_constant`` boundary. The JSON reader used for both the
+document and the pin (:func:`_strict_json_loads`) also rejects any duplicate
+object key at any nesting depth -- ordinary ``json.loads`` last-wins on a
+duplicate member, which would let a document with e.g. two ``"entries"``
+arrays parse, hash, and validate as if it were unambiguous.
+
+TRUST BOUNDARY -- the pin file's provenance fields are unverified
+-------------------------------------------------------------------
+``prohibited_register_baseline.digest.json`` carries, alongside the ``digest``
+field this module actually checks, a set of provenance fields --
+``ratified_by``, ``ratified_on``, ``decision_ref``, ``spine_trail``,
+``source_document``, ``source_document_sha256`` -- that are operator-asserted
+metadata about how the pinned digest came to be, NOT covered by the digest
+computation and NOT independently verified by this loader. Consumers must not
+treat them as verified provenance; they are notes, not evidence.
 """
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -154,8 +169,48 @@ def _verify_baseline(
     return cast(str, ok)
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """``object_pairs_hook`` that raises on any duplicate key, at any depth.
+
+    Plain ``json.loads`` silently keeps the LAST value for a duplicated
+    object member ("last wins"), so a document with two ``"entries"``
+    members -- or one entry with two ``"text"`` members -- would decode,
+    hash, and schema-validate as if it were unambiguous. This hook is
+    invoked by the decoder once per JSON object encountered (i.e. at every
+    nesting depth), so a duplicate anywhere in the document is caught.
+    """
+    seen: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in seen:
+            raise ValueError("duplicate key in document")
+        seen[key] = value
+    return seen
+
+
+def _strict_json_loads(text: str) -> Any:
+    """Decode ``text`` as JSON, rejecting duplicate object keys at any depth.
+
+    On any decode failure -- malformed JSON syntax or a duplicate key --
+    raises :class:`ProhibitedRegisterBaselineError`, content-free, using the
+    same raise/clear/re-raise boundary as :func:`_fail`: the call to
+    :func:`_fail` below happens OUTSIDE the ``except`` block, so no
+    ``json.JSONDecodeError``/``ValueError`` (which could carry a fragment of
+    ``text`` in its message) is reachable via ``__context__``.
+    """
+    outcome: Any = None
+    ok = False
+    try:
+        outcome = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
+        ok = True
+    except Exception:
+        ok = False
+    if not ok:
+        _fail()
+    return outcome
+
+
 def _load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return _strict_json_loads(path.read_text(encoding="utf-8"))
 
 
 def _load_and_verify() -> tuple[dict[str, Any], str, str]:
@@ -194,12 +249,15 @@ del _loaded
 
 
 def load_prohibited_register_baseline() -> dict[str, Any]:
-    """Return the validated, pin-checked 40-entry baseline document.
+    """Return a fresh deep copy of the validated, pin-checked baseline document.
 
     The document was already loaded, schema-validated, and digest-checked
     against the pin at import time (see :data:`PROHIBITED_REGISTER_BASELINE_DIGEST`
     and :data:`PROHIBITED_REGISTER_BASELINE_PINNED_DIGEST`); this function
-    returns that same result rather than re-reading package data on every
-    call.
+    reuses that same verified result rather than re-reading package data on
+    every call, but returns a :func:`copy.deepcopy` of it rather than the
+    module's own singleton -- callers may freely mutate what they get back
+    without corrupting the verified document for every later caller. The
+    verified singleton itself is never exposed under any other name.
     """
-    return _BASELINE_DOCUMENT
+    return cast("dict[str, Any]", copy.deepcopy(_BASELINE_DOCUMENT))

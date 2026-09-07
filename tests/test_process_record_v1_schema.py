@@ -390,3 +390,31 @@ def test_error_code_is_closed_and_receipt_limit_code_is_v1_only() -> None:
     assert _errors(valid, "ProcessRecordErrorV1") == []
     invalid = {"schema_version": "traigent.process_record.error.v1", "code": "new_v0_code"}
     assert _errors(invalid, "ProcessRecordErrorV1")
+
+
+def test_wire_error_enum_is_coarser_than_the_verifier_error_vocabulary() -> None:
+    """The two error vocabularies are deliberately disjoint, not a mirror.
+
+    ``ProcessRecordErrorV1.code`` is the four-value lowercase vocabulary that
+    crosses the API boundary; ``PROCESS_RECORD_ERROR_CODES`` is the verifier's
+    much finer uppercase set of local exception codes. Neither is derived from
+    the other, and there is no sync obligation between them: adding a new
+    verifier code (e.g. ``COMMITMENT_REF_MISMATCH``) must NOT widen the wire
+    enum, because the boundary's coarseness is the privacy property. This test
+    exists because that relationship is easy to misread as a broken mirror.
+    """
+    from traigent_schema.certification import PROCESS_RECORD_ERROR_CODES
+
+    wire_codes = set(
+        SCHEMA["definitions"]["ProcessRecordErrorV1"]["properties"]["code"]["enum"]
+    )
+    assert wire_codes == {
+        "process_record_receipt_limit_exceeded",
+        "process_record_invalid_receipt",
+        "process_record_invalid_report",
+        "process_record_verification_failed",
+    }
+    assert wire_codes.isdisjoint(PROCESS_RECORD_ERROR_CODES)
+    assert all(code == code.lower() for code in wire_codes)
+    assert all(code == code.upper() for code in PROCESS_RECORD_ERROR_CODES)
+    assert len(wire_codes) < len(PROCESS_RECORD_ERROR_CODES)

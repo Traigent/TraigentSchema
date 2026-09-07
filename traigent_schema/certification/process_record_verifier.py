@@ -16,14 +16,29 @@ access, or private-key signing are involved. Tenant authorization is a
 Backend/caller responsibility -- this verifier enforces only exact
 project/build scope consistency, never tenant identity.
 
-The v0 base certificate is verified with ``require_status=False``: this
-milestone deliberately makes no dynamic trust-status or revocation claim, and
-that honest classification (``VERIFICATION_RESULT.status_evidence ==
-"not_checked"``) is surfaced unchanged in ``ProcessRecordVerificationResult``.
+The v0 base certificate's dynamic trust-status/revocation check is a caller
+opt-in via ``ProcessRecordVerificationContext.allow_unchecked_base_status``.
+When the caller opts out of that check (``True``), the v0 base certificate is
+verified with ``require_status=False`` -- a deliberate signature-only
+milestone boundary -- and the result's honest classification is surfaced as
+``code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"`` with
+``base_certificate_status_evidence == "not_checked"``, never as if the status
+had been checked. When the caller requires the check (``False``), the v0
+verifier is called with ``require_status=True``: an absent, unknown, or
+revoked base-certificate status fails closed rather than returning any
+success result, and only an actually-checked, active base certificate can
+yield ``code="PROCESS_RECORD_VERIFIED"``.
 
 Verification failures expose only stable, content-free error codes. Receipt
 and report content may carry customer-controlled values, and exception text
 is commonly logged by callers.
+
+Privacy boundary caveat: ``OpaqueRef``-typed fields (``receipt_ref``,
+``build_session_ref``, ``trust_ring_ref``, ``issuer_key_ref``, ...) admit up
+to 128 arbitrary characters in their identifier body. This module's "only
+public certificate material is consumed" guarantee holds only insofar as the
+issuer assigns these refs honestly; the schema cannot itself prove a ref
+carries no content.
 """
 
 from __future__ import annotations
@@ -34,6 +49,7 @@ import json
 import re
 from dataclasses import dataclass
 from functools import lru_cache
+from importlib import resources
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
@@ -148,6 +164,7 @@ PROCESS_RECORD_ERROR_CODES = frozenset(
         "ASSERTION_DIGEST_MISMATCH",
         "CLAIM_SUPPORT_ROW_MISMATCH",
         "CLAIM_NOT_VERIFIED",
+        "COMMITMENT_REF_MISMATCH",
         "UNSIGNED_MANIFEST_MISMATCH",
         "UNSIGNED_MANIFEST_DIGEST_MISMATCH",
         "KEY_RING_MISMATCH",
@@ -171,6 +188,21 @@ class ProcessRecordVerificationContext:
     derived report, and every receipt, closing the scope loop independently
     of whatever ``base_context`` itself carries.
 
+    The four ``expected_*_commitment_ref`` fields are the caller's four-pillar
+    pins: the identified agent, dataset, evaluator, and build-definition
+    commitments this verification is FOR. They are required (no default), so
+    every caller must supply its own expectation; the verifier fails closed
+    with ``COMMITMENT_REF_MISMATCH`` before comparing anything else in the
+    unsigned manifest if the bundle names different commitments than pinned
+    here. Without this pin a caller could only scope to (project, build), and
+    a record naming a different agent/dataset/evaluator commitment for that
+    same build would verify undetected.
+
+    ``allow_unchecked_base_status`` is a required, explicit opt-in/opt-out for
+    the v0 base certificate's dynamic trust-status/revocation check (see the
+    module docstring). There is no default so every caller must make this
+    choice deliberately rather than inheriting a silent one.
+
     Tenant authorization is a Backend/caller responsibility. This context
     intentionally carries no tenant identity; the verifier enforces only
     exact project/build scope consistency.
@@ -181,6 +213,11 @@ class ProcessRecordVerificationContext:
     base_context: VerificationContext
     expected_project_ref: str
     expected_build_session_ref: str
+    expected_agent_commitment_ref: str
+    expected_dataset_commitment_ref: str
+    expected_evaluator_commitment_ref: str
+    expected_build_definition_commitment_ref: str
+    allow_unchecked_base_status: bool
 
     def __post_init__(self) -> None:
         if not isinstance(self.base_context, VerificationContext):
@@ -199,6 +236,16 @@ class ProcessRecordVerificationContext:
             self.expected_build_session_ref
         ):
             _fail("CONTEXT")
+        for commitment_ref in (
+            self.expected_agent_commitment_ref,
+            self.expected_dataset_commitment_ref,
+            self.expected_evaluator_commitment_ref,
+            self.expected_build_definition_commitment_ref,
+        ):
+            if type(commitment_ref) is not str or not _SHA256_RE.fullmatch(commitment_ref):
+                _fail("CONTEXT")
+        if type(self.allow_unchecked_base_status) is not bool:
+            _fail("CONTEXT")
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,6 +260,13 @@ class ProcessRecordVerificationResult:
     ``status_evidence`` unchanged (``"not_checked"`` under
     ``require_status=False``), so a signature-only base certificate can never
     be reported as if its dynamic trust status had been checked.
+
+    ``code`` is ``"PROCESS_RECORD_VERIFIED"`` only when the caller required
+    the v0 base-certificate status check
+    (``allow_unchecked_base_status=False``) and it actually passed as active;
+    it is ``"PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"`` when the caller
+    explicitly opted out of that check. A revoked, absent, or unknown base
+    status never reaches either success code -- it fails closed instead.
     """
 
     valid: bool = True
@@ -239,7 +293,7 @@ class ProcessRecordVerificationResult:
     def __post_init__(self) -> None:
         if self.valid is not True:
             raise ValueError("PROCESS_RECORD_VERIFICATION_RESULT")
-        if self.code != "PROCESS_RECORD_VERIFIED":
+        if self.code not in ("PROCESS_RECORD_VERIFIED", "PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"):
             raise ValueError("PROCESS_RECORD_VERIFICATION_RESULT")
 
 
@@ -256,6 +310,9 @@ def _process_record_validator() -> Draft7Validator:
 
 
 def _role_digest(domain: bytes, projection: Any) -> str:
+    # Mirrors relying_party_verifier._role_digest's SHA-256(domain || 0x00 ||
+    # jcs(x)) construction (a second implementation, not a shared import) --
+    # if that framing ever changes, this copy must change in lockstep.
     try:
         canonical = cast(str, fp2.canonicalize(projection)).encode("utf-8")
     except Exception:
@@ -263,22 +320,27 @@ def _role_digest(domain: bytes, projection: Any) -> str:
     return _SHA256_PREFIX + hashlib.sha256(domain + b"\x00" + canonical).hexdigest()
 
 
-_CAPTURE_POLICY_DOCUMENT: dict[str, Any] = {
-    "schema_version": "traigent.capture_policy_document.v1",
-    "policy_id": "traigent.capture_policy.asap.v1",
-    "policy_version": "1.0.0",
-    "observable_surfaces": list(_STREAM_IDS),
-    "expected_steps": list(_EXPECTED_STEPS),
-    "canonicalization": "jcs_v1",
-}
-_PROCESS_DEFINITION_DOCUMENT: dict[str, Any] = {
-    "schema_version": "traigent.process_definition_document.v1",
-    "definition_id": "traigent.process_definition.asap.v1",
-    "definition_version": "1.0.0",
-    "expected_steps": list(_EXPECTED_STEPS),
-    "stream_ids": list(_STREAM_IDS),
-    "canonicalization": "jcs_v1",
-}
+def _load_registry_document(filename: str) -> dict[str, Any]:
+    """Load a canonical registry document shipped as package data.
+
+    Uses the same ``importlib.resources`` mechanism as
+    ``traigent_schema/data/fp2_conformance.json`` so these documents are
+    ordinary package data rather than Python literals duplicated between
+    this module and its tests.
+    """
+    # Chained single-argument joinpath: ``Traversable.joinpath`` is typed as
+    # taking one child name, so the multi-argument form does not type-check.
+    root = resources.files("traigent_schema")
+    text = root.joinpath("data").joinpath("certification").joinpath(filename).read_text(
+        encoding="utf-8"
+    )
+    return cast(dict[str, Any], json.loads(text))
+
+
+_CAPTURE_POLICY_DOCUMENT: dict[str, Any] = _load_registry_document("capture_policy_document.json")
+_PROCESS_DEFINITION_DOCUMENT: dict[str, Any] = _load_registry_document(
+    "process_definition_document.json"
+)
 _CAPTURE_POLICY_DIGEST = _role_digest(_CAPTURE_POLICY_DOMAIN, _CAPTURE_POLICY_DOCUMENT)
 _PROCESS_DEFINITION_DIGEST = _role_digest(_PROCESS_DEFINITION_DOMAIN, _PROCESS_DEFINITION_DOCUMENT)
 _EXPECTED_STEPS_DIGEST = _role_digest(_EXPECTED_STEPS_DOMAIN, list(_EXPECTED_STEPS))
@@ -366,7 +428,7 @@ def _verify_base_certificate(
             expected_materials_digest=context.expected_materials_digest,
             certificate_ref=context.certificate_ref,
             context=context.base_context,
-            require_status=False,
+            require_status=not context.allow_unchecked_base_status,
         )
     except RelyingPartyVerificationError:
         _fail("BASE_CERTIFICATE_INVALID")
@@ -375,6 +437,14 @@ def _verify_base_certificate(
 def _check_receipts(
     bundle: dict[str, Any], expected_project_ref: str, expected_build_session_ref: str
 ) -> None:
+    """Reject oversized, misordered, duplicate, or misrouted receipts.
+
+    The per-receipt ``_MAX_RECEIPT_BYTES`` (8,192) cap is unreachable through
+    any schema-valid receipt today -- OpaqueRef/ProjectRefV0 field-length
+    bounds keep a real canonical receipt under ~1 KB -- and is retained
+    anyway as a schema-drift backstop: it fails independently of any future
+    widening of those bounds.
+    """
     receipts = bundle["receipts"]
     total = 0
     seen_refs: set[str] = set()
@@ -533,6 +603,10 @@ def _check_support_row(
         "assertion_digest": assertion_digest,
         "process_report_digest": report_digest,
         "receipt_bundle_digest": receipt_bundle_digest,
+        # "pass" is a schema const the row must carry; it is not itself
+        # evidence that a verifier ran -- the four digest bindings above are
+        # the substance, established by the reader's own successful
+        # verification, not by this literal.
         "verifier_result": "pass",
         "claim_material_digest": claim_material_digest,
     }
@@ -580,6 +654,21 @@ def _verify(
         bundle, assertion_digest, report_digest, receipt_bundle_digest, claim_material_digest
     )
 
+    # Four-pillar caller pinning: the bundle's commitment refs must match the
+    # caller's own expectations BEFORE any further comparison. Checking this
+    # first -- rather than folding it into the general expected_unsigned
+    # equality below -- gives it a dedicated, closed error code and makes the
+    # pin impossible to satisfy via a tautological self-comparison.
+    if (
+        unsigned.get("agent_commitment_ref") != context.expected_agent_commitment_ref
+        or unsigned.get("dataset_commitment_ref") != context.expected_dataset_commitment_ref
+        or unsigned.get("evaluator_commitment_ref")
+        != context.expected_evaluator_commitment_ref
+        or unsigned.get("build_definition_commitment_ref")
+        != context.expected_build_definition_commitment_ref
+    ):
+        _fail("COMMITMENT_REF_MISMATCH")
+
     v0_materials_issuer = bundle["verification_materials_v0"]["issuer"]
     expected_unsigned = {
         "schema_version": "traigent.process_record.unsigned_manifest.v1",
@@ -588,10 +677,10 @@ def _verify(
         "process_definition": _PROCESS_DEFINITION_IDENTITY,
         "project_ref": expected_project_ref,
         "build_session_ref": expected_build_session_ref,
-        "agent_commitment_ref": unsigned.get("agent_commitment_ref"),
-        "dataset_commitment_ref": unsigned.get("dataset_commitment_ref"),
-        "evaluator_commitment_ref": unsigned.get("evaluator_commitment_ref"),
-        "build_definition_commitment_ref": unsigned.get("build_definition_commitment_ref"),
+        "agent_commitment_ref": context.expected_agent_commitment_ref,
+        "dataset_commitment_ref": context.expected_dataset_commitment_ref,
+        "evaluator_commitment_ref": context.expected_evaluator_commitment_ref,
+        "build_definition_commitment_ref": context.expected_build_definition_commitment_ref,
         "expected_steps": list(_EXPECTED_STEPS),
         "expected_steps_digest": _EXPECTED_STEPS_DIGEST,
         "decision_stream": computed_streams["decision_stream"],
@@ -636,7 +725,20 @@ def _verify(
     except RelyingPartyVerificationError:
         _fail("ISSUER_SIGNATURE_INVALID")
 
+    # v0's own VerificationResult never distinguishes a checked-and-active
+    # status from a skipped one in its (code, status_evidence) pair (both
+    # require_status branches return the same default), so the V1 success
+    # code is derived from the caller's own explicit opt-in/opt-out rather
+    # than from v0_result: reaching this point with
+    # allow_unchecked_base_status=False already required v0 to have gated on
+    # an actually-active status (see _verify_base_certificate).
+    success_code = (
+        "PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"
+        if context.allow_unchecked_base_status
+        else "PROCESS_RECORD_VERIFIED"
+    )
     return ProcessRecordVerificationResult(
+        code=success_code,
         base_certificate_status_evidence=v0_result.status_evidence,
         project_ref=expected_project_ref,
         build_session_ref=expected_build_session_ref,
@@ -669,10 +771,15 @@ def verify_process_record_certificate(
     certificate, the V1 unsigned manifest, the derived report, and every
     receipt -- it never inspects or asserts tenant identity.
 
-    A successful result does not establish current validity or non-revocation
-    of the embedded v0 base certificate: it is verified with
-    ``require_status=False`` and the result's
-    ``base_certificate_status_evidence`` reports that honestly.
+    Whether a successful result establishes current validity / non-revocation
+    of the embedded v0 base certificate is the caller's explicit choice via
+    ``context.allow_unchecked_base_status``. With ``True`` the v0 certificate
+    is verified with ``require_status=False``, the result carries
+    ``code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"``, and
+    ``base_certificate_status_evidence`` reports the omission honestly. With
+    ``False`` the v0 verifier is called with ``require_status=True``, so an
+    absent, unknown, or revoked base status raises
+    ``BASE_CERTIFICATE_INVALID`` instead of returning any success value.
     """
     if not isinstance(context, ProcessRecordVerificationContext):
         _fail("CONTEXT")

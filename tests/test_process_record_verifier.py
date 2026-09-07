@@ -11,19 +11,25 @@ from __future__ import annotations
 
 import copy
 import hashlib
-from dataclasses import FrozenInstanceError, replace
+import json
+from dataclasses import FrozenInstanceError, asdict, fields, replace
+from importlib import resources
 from typing import Any
 
 import pytest
 
 from tests.test_agent_certificate_v0_schemas import _b1_claim
 from tests.test_certificate_relying_party_verifier import (
+    _MATERIALS_DOMAIN,
     _high_s,
     _materials_fixture,
     _private_keys,
+    _retrieval_wrapper,
     _sign,
     _sign_fixture,
 )
+from tests.test_certificate_relying_party_verifier import _digest as _v0_digest
+from tests.test_process_record_v1_schema import _errors as _schema_errors
 from traigent_schema import fp2
 from traigent_schema.certification import (
     PROCESS_RECORD_ERROR_CODES,
@@ -63,22 +69,39 @@ def _digest(domain: bytes, value: object) -> str:
     return "sha256:" + hashlib.sha256(domain + b"\0" + fp2.canonicalize(value).encode()).hexdigest()
 
 
-CAPTURE_POLICY_DOCUMENT = {
-    "schema_version": "traigent.capture_policy_document.v1",
-    "policy_id": "traigent.capture_policy.asap.v1",
-    "policy_version": "1.0.0",
-    "observable_surfaces": list(STREAM_IDS),
-    "expected_steps": list(EXPECTED_STEPS),
-    "canonicalization": "jcs_v1",
-}
-PROCESS_DEFINITION_DOCUMENT = {
-    "schema_version": "traigent.process_definition_document.v1",
-    "definition_id": "traigent.process_definition.asap.v1",
-    "definition_version": "1.0.0",
-    "expected_steps": list(EXPECTED_STEPS),
-    "stream_ids": list(STREAM_IDS),
-    "canonicalization": "jcs_v1",
-}
+def _registry_document(filename: str) -> dict[str, Any]:
+    """Load a canonical registry document from shipped package data.
+
+    The test deliberately reads the same ``traigent_schema/data/certification``
+    artifact the verifier loads instead of re-declaring the literal: a
+    duplicated copy would keep passing while the shipped document drifted
+    (review finding F4). The digest oracle below stays independent -- it is
+    this file's own ``_digest``, never the implementation's ``_role_digest``.
+    """
+    text = (
+        resources.files("traigent_schema")
+        .joinpath("data")
+        .joinpath("certification")
+        .joinpath(filename)
+        .read_text(encoding="utf-8")
+    )
+    return json.loads(text)  # type: ignore[no-any-return]
+
+
+CAPTURE_POLICY_DOCUMENT = _registry_document("capture_policy_document.json")
+PROCESS_DEFINITION_DOCUMENT = _registry_document("process_definition_document.json")
+
+# Frozen at HEAD 1bab1a5, i.e. computed over the pre-move Python-literal
+# registry documents. Moving the documents to package data must not disturb
+# any digest an already-issued certificate carries, so these hex values are
+# hardcoded rather than recomputed.
+HEAD_CAPTURE_POLICY_DIGEST = (
+    "sha256:ab7cd0277dd494515d884aad2970365389849a1ef7a5cdb78005dda8646bd10f"
+)
+HEAD_PROCESS_DEFINITION_DIGEST = (
+    "sha256:1ffea9cef9cf15fe8f7a5e95b2d2128da12bb8d3e549cec8c830746fa1b3d5c7"
+)
+
 CAPTURE_POLICY_DIGEST = _digest(CAPTURE_POLICY_DOMAIN, CAPTURE_POLICY_DOCUMENT)
 PROCESS_DEFINITION_DIGEST = _digest(PROCESS_DEFINITION_DOMAIN, PROCESS_DEFINITION_DOCUMENT)
 EXPECTED_STEPS_DIGEST = _digest(EXPECTED_STEPS_DOMAIN, EXPECTED_STEPS)
@@ -92,6 +115,23 @@ PROCESS_DEFINITION_IDENTITY = {
     "definition_version": "1.0.0",
     "definition_digest": PROCESS_DEFINITION_DIGEST,
 }
+
+# The four pillar commitments the fixture is FOR. One source of truth: the
+# signed manifest and the relying-party context both read these, so a test
+# that swaps one of them is swapping it on exactly one side.
+AGENT_COMMITMENT_REF = "sha256:" + "1" * 64
+DATASET_COMMITMENT_REF = "sha256:" + "2" * 64
+EVALUATOR_COMMITMENT_REF = "sha256:" + "3" * 64
+BUILD_DEFINITION_COMMITMENT_REF = "sha256:" + "4" * 64
+COMMITMENT_REF_FIELDS = (
+    "agent_commitment_ref",
+    "dataset_commitment_ref",
+    "evaluator_commitment_ref",
+    "build_definition_commitment_ref",
+)
+OTHER_COMMITMENT_REF = "sha256:" + "7" * 64
+
+SENTINEL = "ZZZPRIVACYCANARYZZZ"
 
 _COVERAGE = (
     "base_unsigned_manifest_digest",
@@ -180,7 +220,20 @@ def _default_streams() -> dict[str, list[dict[str, Any]]]:
 def _build_bundle(
     algorithm: str = "ed25519",
     streams: dict[str, list[dict[str, Any]]] | None = None,
+    *,
+    allow_unchecked_base_status: bool = True,
 ) -> tuple[dict[str, Any], ProcessRecordVerificationContext, dict[str, list[dict[str, Any]]]]:
+    """Build a matching (bundle, context) pair.
+
+    The context always pins the same four pillar commitments the manifest
+    declares, so every caller of this helper gets a context that agrees with
+    its bundle without copy-pasting one. ``allow_unchecked_base_status``
+    defaults to ``True`` because the V1 bundle carries a bare v0 certificate
+    (no retrieval wrapper is representable in
+    ``ProcessRecordCertificateBundleV1``), which is precisely the case the
+    ``False`` mode refuses -- see
+    ``test_retrieval_wrapper_is_not_representable_as_base_certificate_v0``.
+    """
     v0_cert, issuer_public_key, v0_context, policy = _sign_fixture(
         algorithm, claim_factory=_b1_claim, claims=[_b1_claim()], with_co=False
     )
@@ -277,10 +330,10 @@ def _build_bundle(
         "process_definition": copy.deepcopy(PROCESS_DEFINITION_IDENTITY),
         "project_ref": PROJECT,
         "build_session_ref": BUILD,
-        "agent_commitment_ref": "sha256:" + "1" * 64,
-        "dataset_commitment_ref": "sha256:" + "2" * 64,
-        "evaluator_commitment_ref": "sha256:" + "3" * 64,
-        "build_definition_commitment_ref": "sha256:" + "4" * 64,
+        "agent_commitment_ref": AGENT_COMMITMENT_REF,
+        "dataset_commitment_ref": DATASET_COMMITMENT_REF,
+        "evaluator_commitment_ref": EVALUATOR_COMMITMENT_REF,
+        "build_definition_commitment_ref": BUILD_DEFINITION_COMMITMENT_REF,
         "expected_steps": list(EXPECTED_STEPS),
         "expected_steps_digest": EXPECTED_STEPS_DIGEST,
         "decision_stream": _stream_index(streams["decision_stream"]),
@@ -330,8 +383,22 @@ def _build_bundle(
         base_context=v0_context,
         expected_project_ref=PROJECT,
         expected_build_session_ref=BUILD,
+        expected_agent_commitment_ref=AGENT_COMMITMENT_REF,
+        expected_dataset_commitment_ref=DATASET_COMMITMENT_REF,
+        expected_evaluator_commitment_ref=EVALUATOR_COMMITMENT_REF,
+        expected_build_definition_commitment_ref=BUILD_DEFINITION_COMMITMENT_REF,
+        allow_unchecked_base_status=allow_unchecked_base_status,
     )
     return bundle, context, streams
+
+
+def _context_kwargs(context: ProcessRecordVerificationContext) -> dict[str, Any]:
+    """Every context field by name, without recursing into ``base_context``.
+
+    ``dataclasses.asdict`` would turn the v0 ``VerificationContext`` into a
+    plain dict and defeat the isinstance guard under test.
+    """
+    return {field.name: getattr(context, field.name) for field in fields(context)}
 
 
 def _resign(bundle: dict[str, Any], algorithm: str) -> None:
@@ -365,7 +432,9 @@ def test_valid_bundle_verifies_and_reports_value_to_receipt_agreement(algorithm:
 
     assert isinstance(result, ProcessRecordVerificationResult)
     assert result.valid is True
-    assert result.code == "PROCESS_RECORD_VERIFIED"
+    # The fixture opts out of the v0 dynamic status check, so the success code
+    # must say so rather than reading as an unqualified pass (finding F1).
+    assert result.code == "PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"
     assert result.base_certificate_status_evidence == "not_checked"
     assert result.project_ref == PROJECT
     assert result.build_session_ref == BUILD
@@ -441,17 +510,20 @@ def test_bundle_must_be_a_dict() -> None:
         {"certificate_ref": ""},
         {"expected_project_ref": "bad ref with spaces"},
         {"expected_build_session_ref": "not-opaque-ref"},
+        # The four pillar pins take the same Sha256Digest shape the schema
+        # gives agent_commitment_ref et al.; anything else fails closed.
+        {"expected_agent_commitment_ref": "not-a-digest"},
+        {"expected_dataset_commitment_ref": "sha256:" + "A" * 64},
+        {"expected_evaluator_commitment_ref": "sha256:" + "3" * 63},
+        {"expected_build_definition_commitment_ref": ""},
+        # A required bool, not a truthy stand-in: the caller must choose.
+        {"allow_unchecked_base_status": "true"},
+        {"allow_unchecked_base_status": 1},
     ],
 )
-def test_context_rejects_malformed_fields(kwargs: dict[str, str]) -> None:
+def test_context_rejects_malformed_fields(kwargs: dict[str, object]) -> None:
     _, context, _ = _build_bundle()
-    base = {
-        "expected_materials_digest": context.expected_materials_digest,
-        "certificate_ref": context.certificate_ref,
-        "base_context": context.base_context,
-        "expected_project_ref": context.expected_project_ref,
-        "expected_build_session_ref": context.expected_build_session_ref,
-    }
+    base = _context_kwargs(context)
     base.update(kwargs)
     with pytest.raises(ProcessRecordVerificationError, match="^CONTEXT$"):
         ProcessRecordVerificationContext(**base)
@@ -459,14 +531,27 @@ def test_context_rejects_malformed_fields(kwargs: dict[str, str]) -> None:
 
 def test_context_rejects_non_v0_base_context() -> None:
     _, context, _ = _build_bundle()
+    base = _context_kwargs(context)
+    base["base_context"] = object()
     with pytest.raises(ProcessRecordVerificationError, match="^CONTEXT$"):
-        ProcessRecordVerificationContext(
-            expected_materials_digest=context.expected_materials_digest,
-            certificate_ref=context.certificate_ref,
-            base_context=object(),  # type: ignore[arg-type]
-            expected_project_ref=context.expected_project_ref,
-            expected_build_session_ref=context.expected_build_session_ref,
-        )
+        ProcessRecordVerificationContext(**base)
+
+
+def test_context_requires_every_pillar_pin_and_the_status_choice() -> None:
+    """No pillar pin and no status choice may be silently defaulted."""
+    _, context, _ = _build_bundle()
+    required = (
+        "expected_agent_commitment_ref",
+        "expected_dataset_commitment_ref",
+        "expected_evaluator_commitment_ref",
+        "expected_build_definition_commitment_ref",
+        "allow_unchecked_base_status",
+    )
+    for name in required:
+        base = _context_kwargs(context)
+        del base[name]
+        with pytest.raises(TypeError):
+            ProcessRecordVerificationContext(**base)
 
 
 def test_context_and_result_are_frozen() -> None:
@@ -483,6 +568,15 @@ def test_verification_result_rejects_non_true_valid_and_wrong_code() -> None:
         ProcessRecordVerificationResult(valid=False)
     with pytest.raises(ValueError, match="^PROCESS_RECORD_VERIFICATION_RESULT$"):
         ProcessRecordVerificationResult(code="OTHER")
+    # The success vocabulary is exactly two codes -- a checked-status pass and
+    # an explicitly status-unchecked pass. Nothing else may be constructed.
+    assert ProcessRecordVerificationResult(code="PROCESS_RECORD_VERIFIED").valid is True
+    assert (
+        ProcessRecordVerificationResult(code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED").valid
+        is True
+    )
+    with pytest.raises(ValueError, match="^PROCESS_RECORD_VERIFICATION_RESULT$"):
+        ProcessRecordVerificationResult(code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED_EXTRA")
 
 
 # --------------------------------------------------------------------------
@@ -588,6 +682,56 @@ def test_base_certificate_invalid_signature() -> None:
     _expect_error(bundle, context, "BASE_CERTIFICATE_INVALID")
 
 
+def test_unchecked_base_status_is_not_reported_as_a_plain_pass() -> None:
+    """allow_unchecked_base_status=True verifies, but says so in the code.
+
+    Before the fix the same bundle returned ``PROCESS_RECORD_VERIFIED`` -- a
+    result shape indistinguishable from one whose base certificate had been
+    checked and found active (review finding F1).
+    """
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=True)
+    result = verify_process_record_certificate(bundle, context=context)
+    assert result.code == "PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"
+    assert result.base_certificate_status_evidence == "not_checked"
+    assert result.code != "PROCESS_RECORD_VERIFIED"
+
+
+def test_required_base_status_refuses_a_certificate_that_carries_none() -> None:
+    """allow_unchecked_base_status=False must not return any success value.
+
+    The fixture's base certificate is a bare v0 envelope with no retrieval
+    wrapper, so v0's ``require_status=True`` path raises
+    ``CERTIFICATE_STATUS_UNKNOWN``, which V1 maps to its existing
+    ``BASE_CERTIFICATE_INVALID``. The decisive assertion is that no
+    ``ProcessRecordVerificationResult`` is produced at all.
+    """
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    _expect_error(bundle, context, "BASE_CERTIFICATE_INVALID")
+
+
+def test_retrieval_wrapper_is_not_representable_as_base_certificate_v0() -> None:
+    """Why the checked-status success path has no V1 fixture.
+
+    ``ProcessRecordCertificateBundleV1.base_certificate_v0`` ``$ref``s
+    ``agent_certificate_v0_schema.json``, which is ``additionalProperties:
+    false`` over a bare certificate. The retrieval wrapper that carries
+    ``certificate_status`` -- the only shape from which v0 can read an active
+    or revoked status -- is therefore rejected by the V1 schema before the
+    status logic is reached. So ``allow_unchecked_base_status=False`` is
+    currently a fail-closed mode with no passing input, and
+    ``PROCESS_RECORD_VERIFIED`` is unreachable through the public API until
+    V1 gains a status-bearing envelope. This test pins that boundary so the
+    limitation is visible rather than inferred.
+    """
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    wrapper = _retrieval_wrapper(
+        bundle["base_certificate_v0"], bundle["verification_materials_v0"]
+    )
+    assert wrapper["certificate_status"]["status"] == "active"
+    bundle["base_certificate_v0"] = wrapper
+    _expect_error(bundle, context, "SCHEMA")
+
+
 # --------------------------------------------------------------------------
 # Scope
 # --------------------------------------------------------------------------
@@ -670,6 +814,60 @@ def test_receipt_stream_limit_exceeded_white_box() -> None:
     }
     with pytest.raises(ProcessRecordVerificationError, match="^RECEIPT_LIMIT_EXCEEDED$"):
         pr_impl._check_receipts(oversized_bundle, PROJECT, BUILD)
+
+
+def _bulk_receipt(stream_id: str, seq: int) -> dict[str, Any]:
+    """A minimal receipt carrying only what ``_check_receipts`` reads."""
+    receipt = {
+        "schema_version": "traigent.process_record.receipt.v1",
+        "receipt_ref": f"receipt:{stream_id[:3]}{seq:08d}",
+        "project_ref": PROJECT,
+        "build_session_ref": BUILD,
+        "stream_id": stream_id,
+        "seq": seq,
+        "step_id": "prepare",
+        "observation_basis": "backend_observed",
+        "observed_at": "2026-09-05T10:11:12.123456Z",
+        "registered_values": {"status_code": "completed"},
+    }
+    receipt["receipt_digest"] = _digest(RECEIPT_DOMAIN, receipt)
+    return receipt
+
+
+def _bulk_streams(counts: tuple[int, int, int]) -> dict[str, list[dict[str, Any]]]:
+    return {
+        stream_id: [_bulk_receipt(stream_id, seq) for seq in range(count)]
+        for stream_id, count in zip(STREAM_IDS, counts, strict=True)
+    }
+
+
+def test_combined_receipt_cap_fires_when_stream_caps_would_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The 6,144 combined cap, which no schema-valid input can reach today.
+
+    Three streams x maxItems 2048 is exactly 6,144, so ``total > 6144`` cannot
+    fire while the per-stream cap holds -- the branch had zero coverage
+    (review finding F3). This raises ONLY the per-stream cap, in-test, to
+    model the schema drift the combined cap exists to survive; the shipped
+    ``_MAX_STREAM_ITEMS`` and ``_MAX_TOTAL_RECEIPTS`` are unchanged. With the
+    per-stream branch unreachable, ``RECEIPT_LIMIT_EXCEEDED`` can only come
+    from the combined check.
+    """
+    monkeypatch.setattr(pr_impl, "_MAX_STREAM_ITEMS", 4096)
+    assert pr_impl._MAX_TOTAL_RECEIPTS == 6144
+
+    # 6,144 exactly: at the cap, not over it. Must pass.
+    at_cap = {"receipts": _bulk_streams((2048, 2048, 2048))}
+    assert sum(len(at_cap["receipts"][name]) for name in STREAM_IDS) == 6144
+    pr_impl._check_receipts(at_cap, PROJECT, BUILD)
+
+    # 6,145: one over, and every stream still inside the raised per-stream cap.
+    over_cap = {"receipts": _bulk_streams((2049, 2048, 2048))}
+    assert sum(len(over_cap["receipts"][name]) for name in STREAM_IDS) == 6145
+    assert all(len(over_cap["receipts"][name]) <= 4096 for name in STREAM_IDS)
+    with pytest.raises(ProcessRecordVerificationError, match="^RECEIPT_LIMIT_EXCEEDED$"):
+        pr_impl._check_receipts(over_cap, PROJECT, BUILD)
 
 
 def test_receipt_size_exceeded_white_box() -> None:
@@ -818,17 +1016,67 @@ def test_unsigned_manifest_pillar_commitment_changed_after_signing(
     _expect_error(bundle, context, "UNSIGNED_MANIFEST_MISMATCH")
 
 
-def test_commitment_refs_are_caller_pass_through_not_independently_pinned() -> None:
-    """agent/dataset/evaluator/build-definition commitment refs are not in
-    the relying-party context (per the task's explicit context scope): the
-    verifier surfaces them in the result for the caller to compare against
-    its own expectations, rather than failing on an unexpected value."""
+@pytest.mark.parametrize("field", COMMITMENT_REF_FIELDS)
+def test_commitment_ref_swapped_and_resigned_is_rejected(field: str) -> None:
+    """A validly-signed record naming a different pillar commitment fails.
+
+    This is the inversion of the pre-fix
+    ``test_commitment_refs_are_caller_pass_through_not_independently_pinned``,
+    which asserted such a bundle VERIFIED (review finding F2). The re-sign is
+    what makes it discriminating: the issuer signature over the mutated
+    manifest is valid, so only the caller's own pin can reject it.
+    """
     bundle, context, _ = _build_bundle()
-    other_ref = "sha256:" + "7" * 64
-    bundle["unsigned_manifest"]["agent_commitment_ref"] = other_ref
+    bundle["unsigned_manifest"][field] = OTHER_COMMITMENT_REF
     _resign(bundle, "ed25519")
+    _expect_error(bundle, context, "COMMITMENT_REF_MISMATCH")
+
+
+@pytest.mark.parametrize("field", COMMITMENT_REF_FIELDS)
+def test_commitment_ref_changed_after_signing_fails_on_the_pin_first(field: str) -> None:
+    """The manifest-mutation sweep, extended to the four pillar refs.
+
+    These four cannot reach ``UNSIGNED_MANIFEST_MISMATCH`` like the eight
+    fields above: the caller pin is checked first and owns them, so the
+    expected code is ``COMMITMENT_REF_MISMATCH``.
+    """
+    bundle, context, _ = _build_bundle()
+    bundle["unsigned_manifest"][field] = OTHER_COMMITMENT_REF
+    _expect_error(bundle, context, "COMMITMENT_REF_MISMATCH")
+
+
+@pytest.mark.parametrize(
+    "context_field,manifest_field",
+    [(f"expected_{name}", name) for name in COMMITMENT_REF_FIELDS],
+)
+def test_caller_pinning_a_different_commitment_rejects_an_untouched_bundle(
+    context_field: str, manifest_field: str
+) -> None:
+    """The relying-party direction: the bundle is genuine, the caller wanted
+    a different agent/dataset/evaluator/build-definition version."""
+    bundle, context, _ = _build_bundle()
+    assert bundle["unsigned_manifest"][manifest_field] != OTHER_COMMITMENT_REF
+    other_context = replace(context, **{context_field: OTHER_COMMITMENT_REF})
+    _expect_error(bundle, other_context, "COMMITMENT_REF_MISMATCH")
+
+
+def test_result_reports_the_four_pinned_commitment_refs() -> None:
+    bundle, context, _ = _build_bundle()
     result = verify_process_record_certificate(bundle, context=context)
-    assert result.agent_commitment_ref == other_ref
+    assert result.agent_commitment_ref == context.expected_agent_commitment_ref
+    assert result.dataset_commitment_ref == context.expected_dataset_commitment_ref
+    assert result.evaluator_commitment_ref == context.expected_evaluator_commitment_ref
+    assert (
+        result.build_definition_commitment_ref
+        == context.expected_build_definition_commitment_ref
+    )
+    # ...and those are the values the signed manifest actually carries, so the
+    # equality above is a binding, not a restatement of the context.
+    unsigned = bundle["unsigned_manifest"]
+    assert result.agent_commitment_ref == unsigned["agent_commitment_ref"]
+    assert result.dataset_commitment_ref == unsigned["dataset_commitment_ref"]
+    assert result.evaluator_commitment_ref == unsigned["evaluator_commitment_ref"]
+    assert result.build_definition_commitment_ref == unsigned["build_definition_commitment_ref"]
 
 
 # --------------------------------------------------------------------------
@@ -869,7 +1117,7 @@ def test_issuer_signature_high_s_rejected() -> None:
 
 def test_rejected_input_sentinel_never_appears_in_error() -> None:
     bundle, context, _ = _build_bundle()
-    sentinel = "ZZZPRIVACYCANARYZZZ"
+    sentinel = SENTINEL
     # OpaqueRef body accepts alnum/underscore/hyphen, so this stays schema
     # valid; the stale receipt_digest still trips a specific failure.
     bundle["receipts"]["decision_stream"][0]["receipt_ref"] = f"receipt:{sentinel}0000"
@@ -877,6 +1125,108 @@ def test_rejected_input_sentinel_never_appears_in_error() -> None:
     assert sentinel not in str(error)
     assert sentinel not in repr(error)
     assert all(sentinel not in str(arg) for arg in error.args)
+
+
+def _assert_result_surfaces_are_clean(result: ProcessRecordVerificationResult) -> None:
+    assert SENTINEL not in str(result)
+    assert SENTINEL not in repr(result)
+    assert SENTINEL not in json.dumps(asdict(result), sort_keys=True)
+
+
+def test_accepted_bundle_sentinel_never_appears_in_the_result() -> None:
+    """A bundle that VERIFIES, carrying a sentinel in a receipt ref.
+
+    The rejected-input canary above only covers the exception surface (review
+    finding F7). Here the sentinel rides an ``OpaqueRef`` through a fully
+    successful verification -- receipts, receipt bundle, stream indexes, and
+    the signed manifest are all rebuilt around it -- and must not reach
+    ``str`` / ``repr`` / ``dataclasses.asdict`` of the result, which sees only
+    digests and counters.
+    """
+    streams = _default_streams()
+    streams["decision_stream"][0] = _receipt(
+        stream_id="decision_stream", step_id="prepare", seq=0, tag=SENTINEL
+    )
+    bundle, context, _ = _build_bundle("ed25519", streams=streams)
+    # The plant is live: a no-op plant would make the assertions vacuous.
+    assert SENTINEL in json.dumps(bundle, sort_keys=True)
+
+    result = verify_process_record_certificate(bundle, context=context)
+    assert result.valid is True
+    _assert_result_surfaces_are_clean(result)
+
+
+def test_non_echoed_context_sentinel_never_appears_in_the_result() -> None:
+    """The context direction, using a field the result does not echo.
+
+    ``expected_project_ref``, ``expected_build_session_ref`` and the four
+    ``expected_*_commitment_ref`` pins ARE echoed into the result by design,
+    so they cannot carry a canary. ``certificate_ref`` is not echoed: it is an
+    ``OpaqueRef`` bound to the verification materials, so the sentinel is
+    planted on both sides (materials and context) and the materials digest
+    re-derived, leaving a bundle that still verifies.
+    """
+    bundle, context, _ = _build_bundle()
+    materials = bundle["verification_materials_v0"]
+    materials["certificate_ref"] = f"certificate:{SENTINEL}"
+    del materials["materials_digest"]
+    materials["materials_digest"] = _v0_digest(_MATERIALS_DOMAIN, materials)
+    context = replace(
+        context,
+        certificate_ref=materials["certificate_ref"],
+        expected_materials_digest=materials["materials_digest"],
+    )
+    assert SENTINEL in context.certificate_ref
+
+    result = verify_process_record_certificate(bundle, context=context)
+    assert result.valid is True
+    _assert_result_surfaces_are_clean(result)
+
+
+# --------------------------------------------------------------------------
+# Registry documents shipped as package data
+# --------------------------------------------------------------------------
+
+
+def test_registry_document_digests_are_unchanged_by_the_package_data_move() -> None:
+    """Moving the two registry documents out of Python literals into
+    ``traigent_schema/data/certification`` must not change any digest an
+    already-issued certificate carries. The expected hex is hardcoded from
+    the pre-move implementation, not recomputed from the new source."""
+    assert CAPTURE_POLICY_DIGEST == HEAD_CAPTURE_POLICY_DIGEST
+    assert PROCESS_DEFINITION_DIGEST == HEAD_PROCESS_DEFINITION_DIGEST
+    assert pr_impl._CAPTURE_POLICY_DIGEST == HEAD_CAPTURE_POLICY_DIGEST
+    assert pr_impl._PROCESS_DEFINITION_DIGEST == HEAD_PROCESS_DEFINITION_DIGEST
+
+
+def test_verifier_and_tests_read_the_same_shipped_registry_documents() -> None:
+    """The literal is gone from both sides: one artifact, two readers."""
+    assert pr_impl._CAPTURE_POLICY_DOCUMENT == CAPTURE_POLICY_DOCUMENT
+    assert pr_impl._PROCESS_DEFINITION_DOCUMENT == PROCESS_DEFINITION_DOCUMENT
+    assert CAPTURE_POLICY_DOCUMENT["observable_surfaces"] == list(STREAM_IDS)
+    assert PROCESS_DEFINITION_DOCUMENT["expected_steps"] == EXPECTED_STEPS
+
+
+def test_shipped_registry_documents_validate_against_their_v1_definitions() -> None:
+    """Each shipped document, with its real digest, satisfies the schema.
+
+    Per ``CapturePolicyDocumentV1`` / ``ProcessDefinitionDocumentV1``, the
+    self-digest is a REQUIRED member of the document but is excluded from its
+    own preimage -- so the shipped artifact is the preimage and the digest is
+    added beside it here. This is what fails if someone adds a field to either
+    schema definition and forgets the package-data document (finding F4).
+    """
+    assert "policy_digest" not in CAPTURE_POLICY_DOCUMENT
+    assert "definition_digest" not in PROCESS_DEFINITION_DOCUMENT
+
+    policy = {**CAPTURE_POLICY_DOCUMENT, "policy_digest": CAPTURE_POLICY_DIGEST}
+    process = {**PROCESS_DEFINITION_DOCUMENT, "definition_digest": PROCESS_DEFINITION_DIGEST}
+    assert _schema_errors(policy, "CapturePolicyDocumentV1") == []
+    assert _schema_errors(process, "ProcessDefinitionDocumentV1") == []
+
+    # The identity blocks the verifier compares against carry the same digests.
+    assert CAPTURE_POLICY_IDENTITY["policy_digest"] == CAPTURE_POLICY_DIGEST
+    assert PROCESS_DEFINITION_IDENTITY["definition_digest"] == PROCESS_DEFINITION_DIGEST
 
 
 # --------------------------------------------------------------------------

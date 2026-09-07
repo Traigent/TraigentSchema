@@ -15,6 +15,12 @@ from traigent_schema.certification.process_record_verifier import (
     ProcessRecordVerificationResult,
     verify_process_record_certificate,
 )
+from traigent_schema.certification.prohibited_register import (
+    PROHIBITED_REGISTER_BASELINE_DIGEST,
+    PROHIBITED_REGISTER_BASELINE_PINNED_DIGEST,
+    ProhibitedRegisterBaselineError,
+    load_prohibited_register_baseline,
+)
 from traigent_schema.certification.relying_party_verifier import (
     CLIENT_CO_ATTESTATION_CONTEXT_FIELDS,
     CLIENT_CO_ATTESTATION_ERROR_CODES,
@@ -43,6 +49,10 @@ __all__ = [
     "ProcessRecordVerificationContext",
     "ProcessRecordVerificationError",
     "ProcessRecordVerificationResult",
+    "load_prohibited_register_baseline",
+    "PROHIBITED_REGISTER_BASELINE_DIGEST",
+    "PROHIBITED_REGISTER_BASELINE_PINNED_DIGEST",
+    "ProhibitedRegisterBaselineError",
     "RelyingPartyPolicy",
     "RelyingPartyVerificationError",
     "VerificationContext",

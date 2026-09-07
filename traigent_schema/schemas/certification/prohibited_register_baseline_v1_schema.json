@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/prohibited_register_baseline_v1_schema.json",
+  "title": "Prohibited-Claims Register — Historical Baseline (P-1..P-40) v1",
+  "description": "The owner-ratified 40-entry historical baseline of the certificate-compiler prohibited-claims register (P-1 through P-40, catalog `cat.cert.prohibited.baseline.v0`), transcribed verbatim from the 'Prohibited sentence form' column of runs/response-comparison-debugging/prohibited-register-P1-P40-DRAFT.md (owner ratification decision A, 2026-09-07). This document is the CANONICAL BASELINE ONLY — it does not include the two already-merged Wave-C addition tables (WAVE_C_C6_C1_ADDITIONS, WAVE_C_C2_C5_ADDITIONS) that TraigentBackend's prohibited_claims.py ships alongside this baseline; those remain owned by TraigentBackend. Closed shape: exactly 40 entries, no additional properties anywhere. The document is content-addressed by a separate sibling pin file (prohibited_register_baseline.digest.json) rather than a self-embedded digest field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_id",
+    "canonicalization_profile",
+    "hash_algorithm",
+    "closed",
+    "baseline_size",
+    "entry_count",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "traigent.certification.prohibited_register_baseline.v1"
+    },
+    "catalog_id": {
+      "const": "cat.cert.prohibited.baseline.v0"
+    },
+    "canonicalization_profile": {
+      "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+    },
+    "hash_algorithm": {
+      "const": "sha256"
+    },
+    "closed": {
+      "const": true
+    },
+    "baseline_size": {
+      "const": 40
+    },
+    "entry_count": {
+      "const": 40
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 40,
+      "maxItems": 40,
+      "items": {
+        "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1"
+      }
+    }
+  },
+  "definitions": {
+    "ProhibitedRegisterBaselineEntryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog_id", "local_id", "text"],
+      "properties": {
+        "catalog_id": {
+          "const": "cat.cert.prohibited.baseline.v0"
+        },
+        "local_id": {
+          "type": "string",
+          "pattern": "^CERT-P-([1-9]|[1-3][0-9]|40)$",
+          "description": "Stable canonical identifier CERT-P-1..CERT-P-40. The legacy P-1..P-40 coordinates used by the ratifying draft survive only as the numeric suffix here."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600,
+          "description": "The prohibited sentence form, verbatim from the draft's 'Prohibited sentence form' column, including its own literal quotation marks."
+        }
+      }
+    }
+  }
+}

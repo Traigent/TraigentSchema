@@ -12,11 +12,19 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import traceback
 from dataclasses import FrozenInstanceError, asdict, fields, replace
 from importlib import resources
+from pathlib import Path
 from typing import Any
 
 import pytest
+from referencing.exceptions import Unresolvable
 
 from tests.test_agent_certificate_v0_schemas import _b1_claim
 from tests.test_certificate_relying_party_verifier import (
@@ -1380,6 +1388,259 @@ def test_registry_document_validation_resolves_cross_file_refs() -> None:
     validator = pr_impl._definition_validator("CapturePolicyDocumentV1")
     assert list(validator.iter_errors(candidate))
     assert list(validator.iter_errors({**document, "policy_digest": CAPTURE_POLICY_DIGEST})) == []
+
+
+# --------------------------------------------------------------------------
+# Import-time registry enforcement: privacy of the failure, and the boundary
+# --------------------------------------------------------------------------
+
+
+def _rendered_traceback(error: BaseException) -> str:
+    """Everything standard traceback logging would print, cause chain included."""
+    return "".join(traceback.format_exception(type(error), error, error.__traceback__))
+
+
+def test_registry_validation_failure_leaks_no_content_into_the_traceback() -> None:
+    """The rejection is content-free in the traceback, not merely in ``str()``.
+
+    ``test_registry_document_carrying_free_text_is_rejected_by_the_import_check``
+    checks the message. That is not the surface that leaks: a chained
+    ``jsonschema`` cause carries the offending instance, path, and schema
+    fragment, and ``traceback.format_exception`` prints the whole chain --
+    which is what an import failure writes to stderr and what a caller's
+    logger records. This asserts over the rendered traceback (finding U1).
+    """
+    document = copy.deepcopy(_registry_document("capture_policy_document.json"))
+    document["operator_note"] = SENTINEL
+    with pytest.raises(pr_impl.ProcessRecordRegistryError) as exc_info:
+        pr_impl._validate_registry_document(
+            document, "CapturePolicyDocumentV1", "policy_digest", CAPTURE_POLICY_DOMAIN
+        )
+
+    error = exc_info.value
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    assert error.__suppress_context__ is True
+
+    rendered = _rendered_traceback(error)
+    assert SENTINEL not in rendered
+    assert "PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:CapturePolicyDocumentV1" in rendered
+
+
+def test_registry_validation_dependency_failure_is_not_chained(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The ``$ref``-resolution failure path suppresses its cause too.
+
+    This is the branch that used to raise ``from exc``. An ``Unresolvable``
+    names the ref it could not resolve, so its message is schema material the
+    fixed error code is meant to withhold; ``from None`` is what keeps it out
+    of the rendered traceback (finding U1).
+    """
+
+    def _unresolvable(definition_name: str) -> Any:
+        raise Unresolvable(SENTINEL)
+
+    monkeypatch.setattr(pr_impl, "_definition_validator", _unresolvable)
+    document = copy.deepcopy(_registry_document("capture_policy_document.json"))
+    with pytest.raises(pr_impl.ProcessRecordRegistryError) as exc_info:
+        pr_impl._validate_registry_document(
+            document, "CapturePolicyDocumentV1", "policy_digest", CAPTURE_POLICY_DOMAIN
+        )
+
+    error = exc_info.value
+    assert error.__cause__ is None
+    assert error.__suppress_context__ is True
+    assert SENTINEL not in _rendered_traceback(error)
+    assert str(error) == "PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:CapturePolicyDocumentV1"
+
+
+@pytest.mark.parametrize(
+    "filename,definition,digest_field,domain",
+    [
+        (
+            "capture_policy_document.json",
+            "CapturePolicyDocumentV1",
+            "policy_digest",
+            CAPTURE_POLICY_DOMAIN,
+        ),
+        (
+            "process_definition_document.json",
+            "ProcessDefinitionDocumentV1",
+            "definition_digest",
+            PROCESS_DEFINITION_DOMAIN,
+        ),
+    ],
+)
+def test_registry_document_carrying_its_own_self_digest_is_rejected(
+    filename: str, definition: str, digest_field: str, domain: bytes
+) -> None:
+    """A shipped document must be the bare preimage, never carry its own digest.
+
+    The loader hashes the document as loaded and then overwrites the
+    self-digest member before validating. So a pre-existing self-digest field
+    with arbitrary content would be inside the hash preimage -- binding into
+    every issued certificate -- while the validator only ever sees the
+    overwritten copy. The assertions below show exactly that: the injected
+    content moves the digest, yet the candidate the loader would have built
+    validates clean. Only the presence guard rejects it (finding U2).
+    """
+    pristine = _registry_document(filename)
+    assert digest_field not in pristine
+
+    document = copy.deepcopy(pristine)
+    # Format-valid on purpose: a malformed value would be caught by the schema,
+    # which would make this test prove nothing about the guard.
+    document[digest_field] = "sha256:" + "a" * 64
+
+    assert _digest(domain, document) != _digest(domain, pristine)
+    overwritten = {**document, digest_field: _digest(domain, document)}
+    assert _schema_errors(overwritten, definition) == []
+
+    with pytest.raises(pr_impl.ProcessRecordRegistryError) as exc_info:
+        pr_impl._validate_registry_document(document, definition, digest_field, domain)
+    assert str(exc_info.value) == f"PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:{definition}"
+    assert exc_info.value.definition_name == definition
+    assert exc_info.value.__cause__ is None
+
+
+def test_expected_steps_check_accepts_both_shipped_registry_documents() -> None:
+    """Positive control for the module-constant binding."""
+    pr_impl._validate_registry_expected_steps(
+        pr_impl._CAPTURE_POLICY_DOCUMENT, "CapturePolicyDocumentV1"
+    )
+    pr_impl._validate_registry_expected_steps(
+        pr_impl._PROCESS_DEFINITION_DOCUMENT, "ProcessDefinitionDocumentV1"
+    )
+    assert pr_impl._EXPECTED_STEPS == tuple(EXPECTED_STEPS)
+
+
+@pytest.mark.parametrize(
+    "filename,definition,digest_field,domain",
+    [
+        (
+            "capture_policy_document.json",
+            "CapturePolicyDocumentV1",
+            "policy_digest",
+            CAPTURE_POLICY_DOMAIN,
+        ),
+        (
+            "process_definition_document.json",
+            "ProcessDefinitionDocumentV1",
+            "definition_digest",
+            PROCESS_DEFINITION_DOMAIN,
+        ),
+    ],
+)
+def test_expected_steps_permutation_is_rejected_by_the_import_check(
+    filename: str, definition: str, digest_field: str, domain: bytes
+) -> None:
+    """Full-length reordering, not just truncation, is drift.
+
+    ``test_registry_document_with_drifted_expected_steps_is_rejected_by_the_import_check``
+    only shortens the list, which a length check would also catch. A rotation
+    keeps all five ids and the length, so it isolates order (finding U4).
+    """
+    permuted = EXPECTED_STEPS[1:] + EXPECTED_STEPS[:1]
+    assert sorted(permuted) == sorted(EXPECTED_STEPS)
+    assert permuted != EXPECTED_STEPS
+    assert len(permuted) == len(EXPECTED_STEPS)
+
+    document = copy.deepcopy(_registry_document(filename))
+    document["expected_steps"] = permuted
+
+    with pytest.raises(pr_impl.ProcessRecordRegistryError) as exc_info:
+        pr_impl._validate_registry_expected_steps(document, definition)
+    assert str(exc_info.value) == f"PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:{definition}"
+    assert exc_info.value.__cause__ is None
+
+    # Defence in depth: ``ExpectedProcessStepsV1`` is an order-sensitive
+    # ``const`` array, so the schema path rejects the same document.
+    with pytest.raises(pr_impl.ProcessRecordRegistryError):
+        pr_impl._validate_registry_document(document, definition, digest_field, domain)
+
+
+def test_expected_steps_check_binds_the_module_constant_not_only_the_document(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The gap the schema cannot close.
+
+    ``ExpectedProcessStepsV1`` pins what the two documents may say. Nothing
+    pinned ``_EXPECTED_STEPS`` -- the tuple the process report is actually
+    derived from -- to them, so editing it would have drifted silently. Drift
+    the constant and the genuine shipped document must now be rejected.
+    """
+    monkeypatch.setattr(
+        pr_impl, "_EXPECTED_STEPS", tuple(EXPECTED_STEPS[1:] + EXPECTED_STEPS[:1])
+    )
+    for document, definition in (
+        (pr_impl._CAPTURE_POLICY_DOCUMENT, "CapturePolicyDocumentV1"),
+        (pr_impl._PROCESS_DEFINITION_DOCUMENT, "ProcessDefinitionDocumentV1"),
+    ):
+        with pytest.raises(pr_impl.ProcessRecordRegistryError):
+            pr_impl._validate_registry_expected_steps(document, definition)
+
+
+def test_importing_the_verifier_fails_when_shipped_registry_data_is_malformed() -> None:
+    """The enforcement is at the import boundary, not only in the helper.
+
+    Every other control here calls ``_validate_registry_document`` directly, so
+    all of them would keep passing if the module-level calls were deleted. This
+    one copies the package, corrupts one shipped document in the COPY, and
+    imports it in a fresh interpreter (finding U3). It doubles as the U1 proof
+    at the real boundary: the sentinel must not reach the stderr traceback that
+    a failed import prints.
+    """
+    source_package = Path(str(resources.files("traigent_schema")))
+    with tempfile.TemporaryDirectory() as root:
+        destination = Path(root) / "traigent_schema"
+        shutil.copytree(source_package, destination, ignore=shutil.ignore_patterns("__pycache__"))
+
+        corrupted = destination / "data" / "certification" / "capture_policy_document.json"
+        document = json.loads(corrupted.read_text(encoding="utf-8"))
+        assert document == CAPTURE_POLICY_DOCUMENT, "the copy is the shipped artifact"
+        document["operator_note"] = SENTINEL
+        corrupted.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+
+        # PYTHONPATH first and cwd both point at the copy, so it wins over any
+        # installed ``traigent_schema``.
+        env = {**os.environ, "PYTHONPATH": root, "PYTHONDONTWRITEBYTECODE": "1"}
+        imported = subprocess.run(
+            [sys.executable, "-c", "import traigent_schema.certification.process_record_verifier"],
+            env=env,
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        assert imported.returncode != 0
+        assert "ProcessRecordRegistryError" in imported.stderr
+        assert (
+            "PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:CapturePolicyDocumentV1" in imported.stderr
+        )
+        assert SENTINEL not in imported.stderr
+        assert str(destination) in imported.stderr, "the corrupted copy is what was imported"
+
+        # ...and the half-initialised module is not left behind for a later
+        # import to pick up as if it had succeeded.
+        probe = (
+            "import sys\n"
+            "try:\n"
+            "    import traigent_schema.certification.process_record_verifier\n"
+            "except Exception as exc:\n"
+            "    assert type(exc).__name__ == 'ProcessRecordRegistryError', type(exc).__name__\n"
+            "    assert exc.__cause__ is None and exc.__suppress_context__, 'cause retained'\n"
+            "    name = 'traigent_schema.certification.process_record_verifier'\n"
+            "    assert name not in sys.modules, 'partial module left in sys.modules'\n"
+            "    print('CLEAN')\n"
+            "    sys.exit(0)\n"
+            "sys.exit(9)\n"
+        )
+        probed = subprocess.run(
+            [sys.executable, "-c", probe], env=env, cwd=root, capture_output=True, text=True
+        )
+        assert probed.returncode == 0, probed.stderr
+        assert probed.stdout.strip() == "CLEAN"
+        assert SENTINEL not in probed.stderr
 
 
 # --------------------------------------------------------------------------

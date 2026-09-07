@@ -139,9 +139,15 @@ class ProcessRecordRegistryError(RuntimeError):
     """A shipped registry document failed its own v1 schema definition.
 
     Raised at import time only, and only from
-    :func:`_validate_registry_document`. The message is the schema definition
-    name -- a fixed identifier owned by this module -- so no document content
-    can reach an import-time traceback or a caller's logs.
+    :func:`_validate_registry_document` or
+    :func:`_validate_registry_expected_steps`. The message is the schema
+    definition name -- a fixed identifier owned by this module -- so no
+    document content can reach an import-time traceback or a caller's logs.
+
+    Every raise uses ``from None``: a chained ``jsonschema`` or ``referencing``
+    cause carries the offending instance, path, and schema fragment, and
+    ``traceback.format_exception`` prints the whole cause chain, so the
+    content-free message would otherwise be accompanied by the content.
     """
 
     def __init__(self, definition_name: str) -> None:
@@ -390,14 +396,46 @@ def _validate_registry_document(
     lost a required one, or drifted from a ``const`` cannot be digested and
     shipped as canonical. Failure raises :class:`ProcessRecordRegistryError`
     naming only ``definition_name``; document content is never echoed.
+
+    The shipped document must be the bare preimage, i.e. must NOT already
+    carry ``digest_field``. A pre-existing self-digest member would be hashed
+    into the digest below and then overwritten in ``candidate``, so its
+    content would bind into every issued certificate while never being seen by
+    the validator -- invisible to the very check this function performs. That
+    is rejected here, before anything is hashed.
     """
+    if digest_field in document:
+        raise ProcessRecordRegistryError(definition_name) from None
     candidate = {**document, digest_field: _role_digest(domain, document)}
     try:
-        errors = list(_definition_validator(definition_name).iter_errors(candidate))
-    except (OSError, UnicodeError, KeyError, json.JSONDecodeError, Unresolvable) as exc:
-        raise ProcessRecordRegistryError(definition_name) from exc
-    if errors:
-        raise ProcessRecordRegistryError(definition_name)
+        # Counted, not collected: a retained ``ValidationError`` list would keep
+        # the offending instance alive in this frame's locals.
+        error_count = sum(1 for _ in _definition_validator(definition_name).iter_errors(candidate))
+    except (OSError, UnicodeError, KeyError, json.JSONDecodeError, Unresolvable):
+        raise ProcessRecordRegistryError(definition_name) from None
+    if error_count:
+        raise ProcessRecordRegistryError(definition_name) from None
+
+
+def _validate_registry_expected_steps(
+    document: dict[str, Any],
+    definition_name: str,
+) -> None:
+    """Bind ``_EXPECTED_STEPS`` to the ``expected_steps`` the document ships.
+
+    The verifier derives its report from the module constant while the shipped
+    documents carry their own list, so there were two sources of truth for the
+    same five steps. ``ExpectedProcessStepsV1`` is a ``const`` array, which
+    pins the documents -- but nothing pinned the module constant to them, so a
+    hand-edit of ``_EXPECTED_STEPS`` would have drifted silently. Order is
+    part of the identity: a permutation is drift, not a reordering.
+
+    Content-free failure, ``from None``, exactly as
+    :func:`_validate_registry_document`.
+    """
+    steps = document.get("expected_steps")
+    if not isinstance(steps, list) or tuple(steps) != _EXPECTED_STEPS:
+        raise ProcessRecordRegistryError(definition_name) from None
 
 
 def _load_registry_document(filename: str) -> dict[str, Any]:
@@ -421,13 +459,12 @@ _CAPTURE_POLICY_DOCUMENT: dict[str, Any] = _load_registry_document("capture_poli
 _PROCESS_DEFINITION_DOCUMENT: dict[str, Any] = _load_registry_document(
     "process_definition_document.json"
 )
-_CAPTURE_POLICY_DIGEST = _role_digest(_CAPTURE_POLICY_DOMAIN, _CAPTURE_POLICY_DOCUMENT)
-_PROCESS_DEFINITION_DIGEST = _role_digest(_PROCESS_DEFINITION_DOMAIN, _PROCESS_DEFINITION_DOCUMENT)
-_EXPECTED_STEPS_DIGEST = _role_digest(_EXPECTED_STEPS_DOMAIN, list(_EXPECTED_STEPS))
-
-# The digests above are only as trustworthy as the documents they cover, so the
-# shipped package data is checked against its schema definition here, at import,
-# rather than being assumed well-formed because it once was.
+# The digests below are only as trustworthy as the documents they cover, so the
+# shipped package data is checked against its schema definition here, at import
+# and BEFORE it is hashed, rather than being assumed well-formed because it once
+# was. Validating first is what makes the self-digest guard in
+# ``_validate_registry_document`` reach the preimage these constants are taken
+# over, not just the copy the validator sees.
 _validate_registry_document(
     _CAPTURE_POLICY_DOCUMENT,
     "CapturePolicyDocumentV1",
@@ -440,6 +477,14 @@ _validate_registry_document(
     "definition_digest",
     _PROCESS_DEFINITION_DOMAIN,
 )
+# Both shipped documents carry ``expected_steps``; ``_EXPECTED_STEPS`` is the
+# third copy and the one the report is built from, so it is tied to both here.
+_validate_registry_expected_steps(_CAPTURE_POLICY_DOCUMENT, "CapturePolicyDocumentV1")
+_validate_registry_expected_steps(_PROCESS_DEFINITION_DOCUMENT, "ProcessDefinitionDocumentV1")
+
+_CAPTURE_POLICY_DIGEST = _role_digest(_CAPTURE_POLICY_DOMAIN, _CAPTURE_POLICY_DOCUMENT)
+_PROCESS_DEFINITION_DIGEST = _role_digest(_PROCESS_DEFINITION_DOMAIN, _PROCESS_DEFINITION_DOCUMENT)
+_EXPECTED_STEPS_DIGEST = _role_digest(_EXPECTED_STEPS_DOMAIN, list(_EXPECTED_STEPS))
 
 _CAPTURE_POLICY_IDENTITY: dict[str, Any] = {
     "policy_id": "traigent.capture_policy.asap.v1",

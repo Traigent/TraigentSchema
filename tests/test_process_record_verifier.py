@@ -702,6 +702,17 @@ def test_bundle_must_be_a_dict() -> None:
         # A required bool, not a truthy stand-in: the caller must choose.
         {"allow_unchecked_base_status": "true"},
         {"allow_unchecked_base_status": 1},
+        # verification_time: _UTC_RE only checks digit shape, not calendar or
+        # clock-field range -- these all match the regex but are not real UTC
+        # instants (review finding T1). See
+        # test_context_accepts_valid_leap_day_verification_time for the
+        # matching positive control.
+        {"verification_time": "2026-09-05T24:00:00Z"},  # hour out of range
+        {"verification_time": "2026-09-05T23:60:00Z"},  # minute out of range
+        {"verification_time": "2026-02-30T00:00:00Z"},  # Feb has no 30th
+        {"verification_time": "2026-13-01T00:00:00Z"},  # month out of range
+        {"verification_time": "2026-09-05 00:00:00Z"},  # space, not 'T'
+        {"verification_time": "2026-09-05T00:00:00+00:00"},  # not 'Z'
     ],
 )
 def test_context_rejects_malformed_fields(kwargs: dict[str, object]) -> None:
@@ -710,6 +721,15 @@ def test_context_rejects_malformed_fields(kwargs: dict[str, object]) -> None:
     base.update(kwargs)
     with pytest.raises(ProcessRecordVerificationError, match="^CONTEXT$"):
         ProcessRecordVerificationContext(**base)
+
+
+def test_context_accepts_valid_leap_day_verification_time() -> None:
+    """Positive control for the range checks added above: 2028 is a leap
+    year, so Feb 29 is a real calendar day and must not be rejected."""
+    _, context, _ = _build_bundle()
+    base = _context_kwargs(context)
+    base["verification_time"] = "2028-02-29T00:00:00Z"
+    ProcessRecordVerificationContext(**base)  # must not raise
 
 
 def test_context_rejects_non_v0_base_context() -> None:
@@ -756,7 +776,7 @@ def test_verification_result_rejects_non_true_valid_and_wrong_code() -> None:
     # Each must be paired with its own matching trust_status_evidence.
     assert (
         ProcessRecordVerificationResult(
-            code="PROCESS_RECORD_VERIFIED", trust_status_evidence="trust_status_snapshot"
+            code="PROCESS_RECORD_VERIFIED", trust_status_evidence="checked_active"
         ).valid
         is True
     )
@@ -780,7 +800,7 @@ def test_result_cannot_pair_a_checked_code_with_unchecked_evidence() -> None:
     with pytest.raises(ValueError, match="^PROCESS_RECORD_VERIFICATION_RESULT$"):
         ProcessRecordVerificationResult(
             code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED",
-            trust_status_evidence="trust_status_snapshot",
+            trust_status_evidence="checked_active",
         )
 
 
@@ -944,7 +964,7 @@ def test_checked_status_arrives_by_snapshot_not_by_a_retrieval_wrapper() -> None
         bundle, context=status_context, trust_status=trust_status
     )
     assert result.code == "PROCESS_RECORD_VERIFIED"
-    assert result.trust_status_evidence == "trust_status_snapshot"
+    assert result.trust_status_evidence == "checked_active"
 
 
 # --------------------------------------------------------------------------
@@ -959,7 +979,7 @@ def test_fresh_active_snapshot_reaches_process_record_verified() -> None:
         bundle, context=status_context, trust_status=trust_status
     )
     assert result.code == "PROCESS_RECORD_VERIFIED"
-    assert result.trust_status_evidence == "trust_status_snapshot"
+    assert result.trust_status_evidence == "checked_active"
     assert result.trust_anchor_ref == status_context.trust_anchor.key_ref
     assert result.trust_status_effective_time == trust_status["snapshot"]["effective_time"]
 
@@ -1071,6 +1091,50 @@ def test_future_dated_snapshot_is_unavailable() -> None:
     _expect_error(
         bundle, status_context, "REVOCATION_STATUS_UNAVAILABLE", trust_status=trust_status
     )
+
+
+@pytest.mark.parametrize(
+    ("effective_time", "expected_code"),
+    [
+        # These four match UtcTimestampV1's digit-shape pattern (and so pass
+        # schema validation) but are not real calendar/clock instants --
+        # _utc_microseconds's range check (review finding T1) is what catches
+        # them, via the pre-existing REVOCATION_STATUS_UNAVAILABLE code for a
+        # bad effective_time.
+        ("2026-09-05T24:00:00Z", "REVOCATION_STATUS_UNAVAILABLE"),  # hour out of range
+        ("2026-09-05T23:60:00Z", "REVOCATION_STATUS_UNAVAILABLE"),  # minute out of range
+        ("2026-02-30T00:00:00Z", "REVOCATION_STATUS_UNAVAILABLE"),  # Feb has no 30th
+        ("2026-13-01T00:00:00Z", "REVOCATION_STATUS_UNAVAILABLE"),  # month out of range
+        # These two fail the anchored pattern itself, so schema validation
+        # (which runs before _utc_microseconds is ever reached) rejects them
+        # first, via TRUST_STATUS_SCHEMA.
+        ("2026-09-05 00:00:00Z", "TRUST_STATUS_SCHEMA"),  # space, not 'T'
+        ("2026-09-05T00:00:00+00:00", "TRUST_STATUS_SCHEMA"),  # not 'Z'
+    ],
+)
+def test_malformed_snapshot_effective_time_is_rejected(
+    effective_time: str, expected_code: str
+) -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(
+        bundle, context, effective_time=effective_time
+    )
+    _expect_error(bundle, status_context, expected_code, trust_status=trust_status)
+
+
+def test_snapshot_with_valid_leap_day_effective_time_still_verifies() -> None:
+    """Positive control for the range checks above: 2028 is a leap year, so
+    Feb 29 is a real calendar day and a snapshot dated then, presented at the
+    same instant, must still verify (age 0, no future-dating)."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    leap_day = "2028-02-29T00:00:00Z"
+    trust_status, status_context = _build_trust_status(
+        bundle, context, effective_time=leap_day, verification_time=leap_day
+    )
+    result = verify_process_record_certificate(
+        bundle, context=status_context, trust_status=trust_status
+    )
+    assert result.code == "PROCESS_RECORD_VERIFIED"
 
 
 def test_snapshot_not_covering_this_key_is_unavailable() -> None:
@@ -1231,6 +1295,65 @@ def test_duplicate_entry_for_the_same_key_is_rejected() -> None:
     )
 
 
+def test_snapshot_with_65_key_entries_is_rejected_by_the_cap() -> None:
+    """65 is one past ``TrustStatusSnapshotV1.key_status``'s ``maxItems``
+    (64, cap+1). Before the fix (review finding T2) this list was scanned
+    for duplicates -- building an unbounded set -- before any length check
+    ran; the length cap must now be enforced first, and either way the
+    caller-visible outcome is a clean, fixed-cost rejection."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    status_context = replace(
+        context, verification_time=DEFAULT_VERIFICATION_TIME, trust_anchor=anchor_key
+    )
+
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    entry = snapshot["key_status"][0]
+    snapshot["key_status"] = [
+        {**entry, "key_ref": f"issuerkey:{'k' * 7}{i}"} for i in range(65)
+    ]
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    trust_status = _trust_status_envelope(snapshot, signature)
+    _expect_error(bundle, status_context, "TRUST_STATUS_SCHEMA", trust_status=trust_status)
+
+
+def test_trust_status_list_cap_guard_rejects_10000_entries_without_touching_any() -> None:
+    """White-box: :func:`pr_impl._check_trust_status_list_caps` must reject an
+    oversized list purely by ``len()``, never by iterating, hashing, or
+    comparing individual entries -- a real caller could otherwise present an
+    unauthenticated snapshot with an adversarially huge entry list and cost
+    this verifier O(n) memory/CPU (duplicate-set construction, or even the
+    schema validator's own array walk) before ever being rejected (review
+    finding T2). Each sentinel entry raises on any access -- equality,
+    hashing, or attribute lookup -- so a passing test proves the guard never
+    touched one."""
+
+    class _TouchSentinel:
+        def __eq__(self, other: object) -> bool:
+            raise AssertionError("sentinel entry was touched")
+
+        def __hash__(self) -> int:
+            raise AssertionError("sentinel entry was touched")
+
+        def __getattr__(self, name: str) -> Any:
+            raise AssertionError("sentinel entry was touched")
+
+    snapshot = {
+        "key_status": [_TouchSentinel() for _ in range(10_000)],
+        "certificate_status": [],
+    }
+    with pytest.raises(ProcessRecordVerificationError, match="^TRUST_STATUS_SCHEMA$"):
+        pr_impl._check_trust_status_list_caps(snapshot)
+
+
 def test_result_cannot_pair_a_checked_code_with_unchecked_evidence_via_verifier() -> None:
     """The pairing invariant also holds end-to-end, not just at direct
     ``ProcessRecordVerificationResult`` construction (see the dataclass-level
@@ -1242,7 +1365,7 @@ def test_result_cannot_pair_a_checked_code_with_unchecked_evidence_via_verifier(
     )
     assert (result.code, result.trust_status_evidence) == (
         "PROCESS_RECORD_VERIFIED",
-        "trust_status_snapshot",
+        "checked_active",
     )
 
 

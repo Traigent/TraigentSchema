@@ -49,7 +49,7 @@ or replay-resistance claim. A covered key or certificate whose status is not
 ``"active"`` fails with ``KEY_REVOKED`` or ``CERTIFICATE_REVOKED``
 respectively (key checked first). Only when every one of these checks passes
 does the result carry ``code="PROCESS_RECORD_VERIFIED"`` with
-``trust_status_evidence == "trust_status_snapshot"``.
+``trust_status_evidence == "checked_active"``.
 
 Verification failures expose only stable, content-free error codes. Receipt
 and report content may carry customer-controlled values, and exception text
@@ -70,7 +70,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from functools import lru_cache
 from importlib import resources
 from importlib.resources.abc import Traversable
@@ -126,6 +126,11 @@ _STREAM_IDS = ("decision_stream", "receipt_event_stream", "transition_stream")
 _MAX_STREAM_ITEMS = 2048
 _MAX_TOTAL_RECEIPTS = 6144
 _MAX_RECEIPT_BYTES = 8192
+# Mirrors TrustStatusSnapshotV1's key_status/certificate_status maxItems (the
+# schema is the source of truth; this constant exists only so the cheap
+# length guard in _check_trust_status_list_caps can run BEFORE schema
+# validation walks the list -- see that function's docstring).
+_MAX_TRUST_STATUS_ENTRIES = 64
 _REGISTERED_VALUE_INT_FIELDS = (
     "accuracy_ppm",
     "evaluated_count",
@@ -341,9 +346,9 @@ class ProcessRecordVerificationContext:
                 _fail("CONTEXT")
         if type(self.allow_unchecked_base_status) is not bool:
             _fail("CONTEXT")
-        if type(self.verification_time) is not str or not _UTC_RE.fullmatch(
+        if type(self.verification_time) is not str or _parse_utc_timestamp(
             self.verification_time
-        ):
+        ) is None:
             _fail("CONTEXT")
         # trust_anchor is required iff the caller requires the status check;
         # it must be exactly None when the caller opts out. Both directions of
@@ -387,7 +392,7 @@ class ProcessRecordVerificationResult:
     something; dynamic status is established by ``trust_status_evidence``
     below instead, which is the field that actually varies.
 
-    ``trust_status_evidence`` is ``"trust_status_snapshot"`` iff a supplied
+    ``trust_status_evidence`` is ``"checked_active"`` iff a supplied
     ``trust_status`` snapshot was verified against the caller-pinned trust
     anchor, found fresh, and found to cover an active issuer key and an
     active certificate; it is ``"not_checked"`` iff the caller explicitly
@@ -438,7 +443,7 @@ class ProcessRecordVerificationResult:
         if self.code not in ("PROCESS_RECORD_VERIFIED", "PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"):
             raise ValueError("PROCESS_RECORD_VERIFICATION_RESULT")
         if (self.code, self.trust_status_evidence) not in (
-            ("PROCESS_RECORD_VERIFIED", "trust_status_snapshot"),
+            ("PROCESS_RECORD_VERIFIED", "checked_active"),
             ("PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED", "not_checked"),
         ):
             raise ValueError("PROCESS_RECORD_VERIFICATION_RESULT")
@@ -970,30 +975,91 @@ def _check_support_row(
         _fail("CLAIM_SUPPORT_ROW_MISMATCH")
 
 
-def _utc_microseconds(value: str) -> int:
-    """Integer microseconds since the Unix epoch, parsed strictly from a
-    ``UtcTimestampV1``-shaped string -- never via ``datetime`` tz inference.
+def _parse_utc_timestamp(value: str) -> tuple[int, int, int, int, int, int, int] | None:
+    """Strictly parse a ``UtcTimestampV1``-shaped string, or ``None`` if it is
+    not a real UTC instant.
 
-    The caller MUST already know ``value`` matches ``_UTC_RE`` (both call
-    sites verify this beforehand: ``context.verification_time`` in
-    ``ProcessRecordVerificationContext.__post_init__``, and
-    ``snapshot["effective_time"]`` by the ``TrustStatusEnvelopeV1`` schema
-    validation in :func:`_verify_trust_status`). The guard below is a cheap
-    defensive re-check, not the primary validation.
+    ``_UTC_RE`` only checks digit shape -- it accepts ``24:00:00Z``,
+    ``23:60:00Z``, ``2026-02-30T...Z``, and ``2026-13-01T...Z`` just as
+    happily as a real instant, because a regex over fixed-width digit groups
+    cannot express calendar or clock-field range constraints (day-per-month,
+    leap years, hour <= 23, minute/second <= 59). Constructing a
+    :class:`datetime.datetime` from the parsed components is what actually
+    enforces those ranges: it raises ``ValueError`` for every one of the
+    examples above, including leap-year edge cases (``2028-02-29`` accepted,
+    ``2026-02-29`` rejected). Two callers share this parser --
+    ``ProcessRecordVerificationContext.__post_init__`` for
+    ``verification_time`` and :func:`_utc_microseconds` for a trust-status
+    snapshot's ``effective_time`` -- so both the caller-supplied clock and the
+    signed snapshot are held to the same strict range check, not just the
+    regex.
     """
     if _UTC_RE.fullmatch(value) is None:
-        _fail("REVOCATION_STATUS_UNAVAILABLE")
+        return None
     year, month, day = int(value[0:4]), int(value[5:7]), int(value[8:10])
     hour, minute, second = int(value[11:13]), int(value[14:16]), int(value[17:19])
     dot_index = value.find(".")
     frac = value[dot_index + 1 : -1] if dot_index != -1 else ""
     frac_us = int((frac + "000000")[:6]) if frac else 0
     try:
-        days = date(year, month, day).toordinal() - _EPOCH_ORDINAL
+        datetime(year, month, day, hour, minute, second, tzinfo=timezone.utc)
     except ValueError:
+        return None
+    return year, month, day, hour, minute, second, frac_us
+
+
+def _utc_microseconds(value: str) -> int:
+    """Integer microseconds since the Unix epoch, parsed strictly from a
+    ``UtcTimestampV1``-shaped string -- never via ``datetime`` tz inference.
+
+    Delegates the shape-and-range parse to :func:`_parse_utc_timestamp`; a
+    ``None`` result (bad shape OR an out-of-range calendar/clock field) fails
+    ``REVOCATION_STATUS_UNAVAILABLE``, the pre-existing code for a
+    ``effective_time`` this module cannot use. The caller SHOULD already know
+    ``value`` matches ``_UTC_RE`` (schema validation covers the shape for
+    ``snapshot["effective_time"]`` before :func:`_verify_trust_status` reaches
+    this point), but the range check below is NOT redundant with anything
+    upstream -- ``_UTC_RE`` alone never rejected ``24:00:00Z`` or
+    ``23:60:00Z``.
+    """
+    parsed = _parse_utc_timestamp(value)
+    if parsed is None:
         _fail("REVOCATION_STATUS_UNAVAILABLE")
+    year, month, day, hour, minute, second, frac_us = parsed
+    days = date(year, month, day).toordinal() - _EPOCH_ORDINAL
     seconds = days * 86400 + hour * 3600 + minute * 60 + second
     return seconds * 1_000_000 + frac_us
+
+
+def _check_trust_status_list_caps(snapshot: dict[str, Any]) -> None:
+    """Enforce ``key_status``/``certificate_status``'s ``maxItems`` (64) via a
+    cheap ``len()`` check, BEFORE anything else -- schema validation or
+    duplicate detection -- walks either list.
+
+    ``trust_status`` is an unauthenticated, caller-supplied fourth input (its
+    own signature is not yet checked at this point in the call sequence): an
+    adversary can present a snapshot with an arbitrarily large ``key_status``
+    or ``certificate_status`` array. ``len()`` on a Python list is O(1)
+    regardless of length, so this guard costs nothing to run first and
+    rejects an oversized list before :func:`_check_trust_status_no_duplicates`
+    would otherwise pay O(n) time and memory building lookup sets over it, and
+    before the jsonschema validator's own array walk reaches the same
+    ``maxItems`` bound. Only the list length is inspected -- entries
+    themselves are never touched here, so a list of malformed or even
+    non-dict entries is rejected purely on size without evaluating any of
+    them. The failure code, ``TRUST_STATUS_SCHEMA``, is the same one schema
+    validation would produce for this exact ``maxItems`` violation; this is a
+    cheaper enforcement of that constraint, not a new one.
+    """
+    key_entries = snapshot.get("key_status")
+    cert_entries = snapshot.get("certificate_status")
+    if not isinstance(key_entries, list) or not isinstance(cert_entries, list):
+        _fail("TRUST_STATUS_SHAPE")
+    if (
+        len(key_entries) > _MAX_TRUST_STATUS_ENTRIES
+        or len(cert_entries) > _MAX_TRUST_STATUS_ENTRIES
+    ):
+        _fail("TRUST_STATUS_SCHEMA")
 
 
 def _check_trust_status_no_duplicates(snapshot: dict[str, Any]) -> None:
@@ -1001,7 +1067,11 @@ def _check_trust_status_no_duplicates(snapshot: dict[str, Any]) -> None:
 
     Draft-07 cannot express uniqueness across object fields within an array,
     so this is a verifier obligation the schema's own description names
-    explicitly (``KeyStatusEntryV1`` / ``CertificateStatusEntryV1``).
+    explicitly (``KeyStatusEntryV1`` / ``CertificateStatusEntryV1``). Called
+    only AFTER :func:`_check_trust_status_list_caps` and full schema
+    validation have both passed, so every entry here is already known to be a
+    schema-valid object within the ``maxItems`` bound -- see
+    :func:`_verify_trust_status`'s docstring for the full ordering rationale.
     """
     key_entries = snapshot.get("key_status")
     cert_entries = snapshot.get("certificate_status")
@@ -1034,11 +1104,16 @@ def _verify_trust_status(
     raise -- no partial result is ever returned. Order: absence/shape, the
     policy-identity pre-check (a dedicated code ahead of generic schema
     validation, mirroring the ``COMMITMENT_REF_MISMATCH``-before-
-    ``UNSIGNED_MANIFEST_MISMATCH`` pattern below), the schema-inexpressible
-    duplicate-entry check, full schema validation, the digest pin, the
-    trust-anchor identity pin, the anchor signature, then freshness --
-    exactly the order the design table implies (anchor signature before
-    freshness; policy identity before either).
+    ``UNSIGNED_MANIFEST_MISMATCH`` pattern below), the cheap ``len()``
+    list-length cap check (before anything else touches ``key_status``/
+    ``certificate_status`` -- an unauthenticated, arbitrarily large snapshot
+    must be rejected on size alone, not after the schema validator or the
+    duplicate-entry check have already walked it), full schema validation,
+    the schema-inexpressible duplicate-entry check (now over a
+    length-bounded, schema-valid list), the digest pin, the trust-anchor
+    identity pin, the anchor signature, then freshness -- exactly the order
+    the design table implies (anchor signature before freshness; policy
+    identity before either).
     """
     if trust_status is None:
         _fail("REVOCATION_STATUS_UNAVAILABLE")
@@ -1058,7 +1133,7 @@ def _verify_trust_status(
     ):
         _fail("TRUST_POLICY_MISMATCH")
 
-    _check_trust_status_no_duplicates(snapshot)
+    _check_trust_status_list_caps(snapshot)
 
     try:
         errors = list(_definition_validator("TrustStatusEnvelopeV1").iter_errors(envelope))
@@ -1066,6 +1141,8 @@ def _verify_trust_status(
         _fail("SCHEMA_DEPENDENCY")
     if errors:
         _fail("TRUST_STATUS_SCHEMA")
+
+    _check_trust_status_no_duplicates(snapshot)
 
     computed_digest = _role_digest(_TRUST_STATUS_DOMAIN, snapshot)
     if signature["snapshot_digest"] != computed_digest:
@@ -1275,7 +1352,7 @@ def _verify(
             trust_ring_ref=v0_materials_issuer["trust_ring_ref"],
             certificate_ref=context.certificate_ref,
         )
-        trust_status_evidence = "trust_status_snapshot"
+        trust_status_evidence = "checked_active"
         trust_anchor_ref = trust_snapshot["trust_anchor_ref"]
         trust_status_effective_time = trust_snapshot["effective_time"]
 
@@ -1351,7 +1428,7 @@ def verify_process_record_certificate(
       future-dated, both at zero skew), and consulted for the issuer key's
       and the certificate's status. Only when both are found ``"active"``
       does the result carry ``code="PROCESS_RECORD_VERIFIED"`` and
-      ``trust_status_evidence="trust_status_snapshot"``; a revoked key or
+      ``trust_status_evidence="checked_active"``; a revoked key or
       certificate raises ``KEY_REVOKED`` / ``CERTIFICATE_REVOKED``
       (key checked first).
     * ``allow_unchecked_base_status=False``, ``trust_status=None``, stale,

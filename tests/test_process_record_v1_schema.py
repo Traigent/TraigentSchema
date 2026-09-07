@@ -566,3 +566,29 @@ def test_snapshot_entry_lists_are_bounded() -> None:
         {**entry, "key_ref": f"issuerkey:{'k' * 7}{i}"} for i in range(64)
     ]
     assert _errors(at_cap, "TrustStatusEnvelopeV1") == []
+
+
+def test_utc_timestamp_pattern_is_anchored_and_rejects_malformed_variants() -> None:
+    """``UtcTimestampV1`` is a regex over fixed-width digit groups, so it can
+    only ever check SHAPE (anchored start/end, literal ``T``/``Z``, an
+    optional 1-6 digit fraction) -- never calendar or clock-field RANGES
+    (day-per-month, hour <= 23, minute/second <= 59). That range enforcement
+    is the verifier's job (``process_record_verifier._parse_utc_timestamp``,
+    review finding T1); this test pins only what the pattern itself, being
+    anchored with ``^``/``$`` and a ``maxLength``, already guarantees."""
+    assert _errors("2026-09-05T10:11:12Z", "UtcTimestampV1") == []
+    assert _errors("2026-09-05T10:11:12.123456Z", "UtcTimestampV1") == []
+    # Leading/trailing garbage a non-anchored pattern would let through.
+    assert _errors("x2026-09-05T10:11:12Z", "UtcTimestampV1")
+    assert _errors("2026-09-05T10:11:12Zx", "UtcTimestampV1")
+    # Space instead of the literal 'T' separator.
+    assert _errors("2026-09-05 10:11:12Z", "UtcTimestampV1")
+    # A non-'Z' UTC offset -- the pattern requires the literal 'Z' suffix.
+    assert _errors("2026-09-05T10:11:12+00:00", "UtcTimestampV1")
+    # Lowercase 't'/'z' -- the pattern's literals are case-sensitive.
+    assert _errors("2026-09-05t10:11:12z", "UtcTimestampV1")
+    assert _errors("2026-09-05T10:11:12z", "UtcTimestampV1")
+    # A 7-digit fraction exceeds the pattern's 1-6 digit bound.
+    assert _errors("2026-09-05T10:11:12.1234567Z", "UtcTimestampV1")
+    # An empty fraction after the dot is not "1-6 digits".
+    assert _errors("2026-09-05T10:11:12.Z", "UtcTimestampV1")

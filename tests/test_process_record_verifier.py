@@ -19,11 +19,13 @@ import sys
 import tempfile
 import traceback
 from dataclasses import FrozenInstanceError, asdict, fields, replace
+from datetime import datetime, timedelta, timezone
 from importlib import resources
 from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519
 from referencing.exceptions import Unresolvable
 
 from tests.test_agent_certificate_v0_schemas import _b1_claim
@@ -32,6 +34,8 @@ from tests.test_certificate_relying_party_verifier import (
     _high_s,
     _materials_fixture,
     _private_keys,
+    _public_key_der_b64,
+    _public_key_digest,
     _retrieval_wrapper,
     _sign,
     _sign_fixture,
@@ -44,6 +48,7 @@ from traigent_schema.certification import (
     ProcessRecordVerificationContext,
     ProcessRecordVerificationError,
     ProcessRecordVerificationResult,
+    TrustAnchorKeyV1,
     verify_process_record_certificate,
 )
 from traigent_schema.certification import process_record_verifier as pr_impl
@@ -62,6 +67,9 @@ CAPTURE_POLICY_DOMAIN = b"traigent.process_record.capture_policy.v1"
 PROCESS_DEFINITION_DOMAIN = b"traigent.process_record.process_definition.v1"
 EXPECTED_STEPS_DOMAIN = b"traigent.process_record.expected_steps.v1"
 ISSUER_SIGNATURE_DOMAIN = b"traigent.process_record.issuer_signature.v1"
+TRUST_STATUS_DOMAIN = b"traigent.process_record.trust_status.v1"
+TRUST_POLICY_ID = "traigent.trust_policy.process_record.v1"
+TRUST_MAX_AGE_SECONDS = 86400
 
 STREAM_IDS = ("decision_stream", "receipt_event_stream", "transition_stream")
 EXPECTED_STEPS = ["prepare", "evaluate", "aggregate", "select", "finalize"]
@@ -75,6 +83,19 @@ ASSERTION_RENDERED_TEXT = (
 
 def _digest(domain: bytes, value: object) -> str:
     return "sha256:" + hashlib.sha256(domain + b"\0" + fp2.canonicalize(value).encode()).hexdigest()
+
+
+def _shift_timestamp(timestamp: str, *, seconds: float = 0, microseconds: int = 0) -> str:
+    """A ``UtcTimestampV1``-shaped string, offset from ``timestamp``.
+
+    Test-only helper: the production module deliberately parses these
+    strings itself (see ``_utc_microseconds``'s "never datetime tz
+    inference" note) rather than through ``datetime``; this helper builds
+    fixtures, it is not the code under test.
+    """
+    base = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+    shifted = base + timedelta(seconds=seconds, microseconds=microseconds)
+    return shifted.strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
 
 
 def _registry_document(filename: str) -> dict[str, Any]:
@@ -225,22 +246,170 @@ def _default_streams() -> dict[str, list[dict[str, Any]]]:
     }
 
 
+DEFAULT_VERIFICATION_TIME = "2026-09-05T10:11:12.123456Z"
+
+
+def _trust_anchor_private_key(algorithm: str) -> object:
+    """A trust-anchor keypair, deliberately distinct from the fixture's
+    issuer and client keys (which live at byte ranges 0-31 / 32-63 for
+    ed25519 and derivation seeds 1 / 2 for ECDSA in
+    ``tests.test_certificate_relying_party_verifier._private_keys``)."""
+    if algorithm == "ed25519":
+        return ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(96, 128)))
+    return ec.derive_private_key(9, ec.SECP256R1())
+
+
+def _trust_anchor_key(
+    algorithm: str, private_key: object, key_ref: str = "anchor:" + "a" * 8
+) -> TrustAnchorKeyV1:
+    public_key = private_key.public_key()
+    return TrustAnchorKeyV1(
+        key_ref=key_ref,
+        algorithm=algorithm,
+        public_key_der_b64=_public_key_der_b64(public_key),
+        public_key_digest=_public_key_digest(public_key, pr_impl._TRUST_ANCHOR_SPKI_DOMAIN),
+    )
+
+
+def _trust_status_snapshot(
+    *,
+    trust_anchor_ref: str,
+    issuer_key_ref: str,
+    trust_ring_ref: str,
+    certificate_ref: str,
+    effective_time: str = DEFAULT_VERIFICATION_TIME,
+    trust_policy_id: str = TRUST_POLICY_ID,
+    max_age_seconds: int = TRUST_MAX_AGE_SECONDS,
+    key_status: str = "active",
+    key_revoked_at: str | None = None,
+    key_reason: str | None = None,
+    cert_status: str = "active",
+    cert_revoked_at: str | None = None,
+    cert_reason: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "traigent.process_record.trust_status.v1",
+        "trust_anchor_ref": trust_anchor_ref,
+        "trust_policy_id": trust_policy_id,
+        "max_age_seconds": max_age_seconds,
+        "effective_time": effective_time,
+        "key_status": [
+            {
+                "key_ref": issuer_key_ref,
+                "trust_ring_ref": trust_ring_ref,
+                "status": key_status,
+                "revoked_at": key_revoked_at,
+                "reason": key_reason,
+            }
+        ],
+        "certificate_status": [
+            {
+                "certificate_ref": certificate_ref,
+                "status": cert_status,
+                "revoked_at": cert_revoked_at,
+                "reason": cert_reason,
+            }
+        ],
+    }
+
+
+def _sign_trust_status(
+    snapshot: dict[str, Any], algorithm: str, private_key: object, trust_anchor_ref: str
+) -> dict[str, Any]:
+    snapshot_digest = _digest(TRUST_STATUS_DOMAIN, snapshot)
+    material = TRUST_STATUS_DOMAIN + b"\x00" + fp2.canonicalize(snapshot).encode()
+    signature_bytes = _sign(private_key, algorithm, material)
+    return {
+        "schema_version": "traigent.process_record.trust_status_signature.v1",
+        "algorithm": algorithm,
+        "trust_anchor_ref": trust_anchor_ref,
+        "signed_payload": "trust_status_snapshot",
+        "snapshot_digest": snapshot_digest,
+        "signature": signature_bytes,
+    }
+
+
+def _trust_status_envelope(snapshot: dict[str, Any], signature: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "traigent.process_record.trust_status_envelope.v1",
+        "snapshot": snapshot,
+        "signature": signature,
+    }
+
+
+def _build_trust_status(
+    bundle: dict[str, Any],
+    context: ProcessRecordVerificationContext,
+    algorithm: str = "ed25519",
+    *,
+    anchor_private_key: object | None = None,
+    anchor_key: TrustAnchorKeyV1 | None = None,
+    effective_time: str = DEFAULT_VERIFICATION_TIME,
+    verification_time: str = DEFAULT_VERIFICATION_TIME,
+    trust_policy_id: str = TRUST_POLICY_ID,
+    max_age_seconds: int = TRUST_MAX_AGE_SECONDS,
+    key_status: str = "active",
+    key_revoked_at: str | None = None,
+    key_reason: str | None = None,
+    cert_status: str = "active",
+    cert_revoked_at: str | None = None,
+    cert_reason: str | None = None,
+) -> tuple[dict[str, Any], ProcessRecordVerificationContext]:
+    """A fresh, active, correctly-signed trust-status envelope plus a matching
+    context (``verification_time`` + ``trust_anchor`` set).
+
+    ``anchor_private_key`` / ``anchor_key`` let a caller reuse the same
+    anchor across a scenario (e.g. to prove a snapshot is authentic while
+    varying only its content) or substitute a DIFFERENT anchor (the
+    signature-fails-with-wrong-anchor test).
+    """
+    unsigned = bundle["unsigned_manifest"]
+    private_key = anchor_private_key or _trust_anchor_private_key(algorithm)
+    key = anchor_key or _trust_anchor_key(algorithm, private_key)
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+        effective_time=effective_time,
+        trust_policy_id=trust_policy_id,
+        max_age_seconds=max_age_seconds,
+        key_status=key_status,
+        key_revoked_at=key_revoked_at,
+        key_reason=key_reason,
+        cert_status=cert_status,
+        cert_revoked_at=cert_revoked_at,
+        cert_reason=cert_reason,
+    )
+    signature = _sign_trust_status(snapshot, algorithm, private_key, key.key_ref)
+    envelope = _trust_status_envelope(snapshot, signature)
+    new_context = replace(context, verification_time=verification_time, trust_anchor=key)
+    return envelope, new_context
+
+
+def _default_trust_anchor(algorithm: str) -> TrustAnchorKeyV1:
+    return _trust_anchor_key(algorithm, _trust_anchor_private_key(algorithm))
+
+
 def _build_bundle(
     algorithm: str = "ed25519",
     streams: dict[str, list[dict[str, Any]]] | None = None,
     *,
     allow_unchecked_base_status: bool = True,
+    verification_time: str = DEFAULT_VERIFICATION_TIME,
+    trust_anchor: TrustAnchorKeyV1 | None = None,
 ) -> tuple[dict[str, Any], ProcessRecordVerificationContext, dict[str, list[dict[str, Any]]]]:
     """Build a matching (bundle, context) pair.
 
     The context always pins the same four pillar commitments the manifest
     declares, so every caller of this helper gets a context that agrees with
     its bundle without copy-pasting one. ``allow_unchecked_base_status``
-    defaults to ``True`` because the V1 bundle carries a bare v0 certificate
-    (no retrieval wrapper is representable in
-    ``ProcessRecordCertificateBundleV1``), which is precisely the case the
-    ``False`` mode refuses -- see
-    ``test_retrieval_wrapper_is_not_representable_as_base_certificate_v0``.
+    defaults to ``True`` so most fixtures don't need a trust anchor at all;
+    when ``False``, a default trust-anchor key is constructed automatically
+    (``verification_time``/``trust_anchor`` can still be overridden) so the
+    context stays valid on its own -- callers that also want a checked-status
+    PASS additionally build a snapshot via ``_build_trust_status``, see
+    ``test_checked_status_arrives_by_snapshot_not_by_a_retrieval_wrapper``.
     """
     v0_cert, issuer_public_key, v0_context, policy = _sign_fixture(
         algorithm, claim_factory=_b1_claim, claims=[_b1_claim()], with_co=False
@@ -385,6 +554,8 @@ def _build_bundle(
         "verification_materials_v0": materials,
     }
 
+    if not allow_unchecked_base_status and trust_anchor is None:
+        trust_anchor = _default_trust_anchor(algorithm)
     context = ProcessRecordVerificationContext(
         expected_materials_digest=materials["materials_digest"],
         certificate_ref=materials["certificate_ref"],
@@ -396,6 +567,8 @@ def _build_bundle(
         expected_evaluator_commitment_ref=EVALUATOR_COMMITMENT_REF,
         expected_build_definition_commitment_ref=BUILD_DEFINITION_COMMITMENT_REF,
         allow_unchecked_base_status=allow_unchecked_base_status,
+        verification_time=verification_time,
+        trust_anchor=trust_anchor,
     )
     return bundle, context, streams
 
@@ -419,9 +592,11 @@ def _resign(bundle: dict[str, Any], algorithm: str) -> None:
     bundle["signature"]["signature"] = _sign(issuer_private_key, algorithm, material)
 
 
-def _expect_error(bundle: object, context: object, code: str) -> ProcessRecordVerificationError:
+def _expect_error(
+    bundle: object, context: object, code: str, *, trust_status: object | None = None
+) -> ProcessRecordVerificationError:
     with pytest.raises(ProcessRecordVerificationError) as exc_info:
-        verify_process_record_certificate(bundle, context=context)
+        verify_process_record_certificate(bundle, context=context, trust_status=trust_status)
     assert exc_info.value.code == code
     assert code in PROCESS_RECORD_ERROR_CODES
     assert str(exc_info.value) == code
@@ -527,6 +702,17 @@ def test_bundle_must_be_a_dict() -> None:
         # A required bool, not a truthy stand-in: the caller must choose.
         {"allow_unchecked_base_status": "true"},
         {"allow_unchecked_base_status": 1},
+        # verification_time: _UTC_RE only checks digit shape, not calendar or
+        # clock-field range -- these all match the regex but are not real UTC
+        # instants (review finding T1). See
+        # test_context_accepts_valid_leap_day_verification_time for the
+        # matching positive control.
+        {"verification_time": "2026-09-05T24:00:00Z"},  # hour out of range
+        {"verification_time": "2026-09-05T23:60:00Z"},  # minute out of range
+        {"verification_time": "2026-02-30T00:00:00Z"},  # Feb has no 30th
+        {"verification_time": "2026-13-01T00:00:00Z"},  # month out of range
+        {"verification_time": "2026-09-05 00:00:00Z"},  # space, not 'T'
+        {"verification_time": "2026-09-05T00:00:00+00:00"},  # not 'Z'
     ],
 )
 def test_context_rejects_malformed_fields(kwargs: dict[str, object]) -> None:
@@ -535,6 +721,15 @@ def test_context_rejects_malformed_fields(kwargs: dict[str, object]) -> None:
     base.update(kwargs)
     with pytest.raises(ProcessRecordVerificationError, match="^CONTEXT$"):
         ProcessRecordVerificationContext(**base)
+
+
+def test_context_accepts_valid_leap_day_verification_time() -> None:
+    """Positive control for the range checks added above: 2028 is a leap
+    year, so Feb 29 is a real calendar day and must not be rejected."""
+    _, context, _ = _build_bundle()
+    base = _context_kwargs(context)
+    base["verification_time"] = "2028-02-29T00:00:00Z"
+    ProcessRecordVerificationContext(**base)  # must not raise
 
 
 def test_context_rejects_non_v0_base_context() -> None:
@@ -578,13 +773,35 @@ def test_verification_result_rejects_non_true_valid_and_wrong_code() -> None:
         ProcessRecordVerificationResult(code="OTHER")
     # The success vocabulary is exactly two codes -- a checked-status pass and
     # an explicitly status-unchecked pass. Nothing else may be constructed.
-    assert ProcessRecordVerificationResult(code="PROCESS_RECORD_VERIFIED").valid is True
+    # Each must be paired with its own matching trust_status_evidence.
     assert (
-        ProcessRecordVerificationResult(code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED").valid
+        ProcessRecordVerificationResult(
+            code="PROCESS_RECORD_VERIFIED", trust_status_evidence="checked_active"
+        ).valid
+        is True
+    )
+    assert (
+        ProcessRecordVerificationResult(
+            code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED", trust_status_evidence="not_checked"
+        ).valid
         is True
     )
     with pytest.raises(ValueError, match="^PROCESS_RECORD_VERIFICATION_RESULT$"):
         ProcessRecordVerificationResult(code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED_EXTRA")
+
+
+def test_result_cannot_pair_a_checked_code_with_unchecked_evidence() -> None:
+    """The (code, trust_status_evidence) pairing is closed: neither success
+    code may carry the other's evidence value."""
+    with pytest.raises(ValueError, match="^PROCESS_RECORD_VERIFICATION_RESULT$"):
+        ProcessRecordVerificationResult(
+            code="PROCESS_RECORD_VERIFIED", trust_status_evidence="not_checked"
+        )
+    with pytest.raises(ValueError, match="^PROCESS_RECORD_VERIFICATION_RESULT$"):
+        ProcessRecordVerificationResult(
+            code="PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED",
+            trust_status_evidence="checked_active",
+        )
 
 
 # --------------------------------------------------------------------------
@@ -704,40 +921,509 @@ def test_unchecked_base_status_is_not_reported_as_a_plain_pass() -> None:
     assert result.code != "PROCESS_RECORD_VERIFIED"
 
 
-def test_required_base_status_refuses_a_certificate_that_carries_none() -> None:
-    """allow_unchecked_base_status=False must not return any success value.
+def test_absent_snapshot_under_required_status_is_unavailable() -> None:
+    """allow_unchecked_base_status=False must not return any success value
+    when no trust_status snapshot is supplied.
 
-    The fixture's base certificate is a bare v0 envelope with no retrieval
-    wrapper, so v0's ``require_status=True`` path raises
-    ``CERTIFICATE_STATUS_UNKNOWN``, which V1 maps to its existing
-    ``BASE_CERTIFICATE_INVALID``. The decisive assertion is that no
-    ``ProcessRecordVerificationResult`` is produced at all.
+    The embedded v0 base certificate is now ALWAYS verified with
+    ``require_status=False`` (the retrieval wrapper v0 would need is never
+    representable as ``base_certificate_v0`` -- see the next test), so v0
+    itself no longer fails here. Dynamic status is established at the V1
+    level instead: with no snapshot supplied, status is simply unavailable.
+    The decisive assertion is that no ``ProcessRecordVerificationResult`` is
+    produced at all.
     """
     bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
-    _expect_error(bundle, context, "BASE_CERTIFICATE_INVALID")
+    _expect_error(bundle, context, "REVOCATION_STATUS_UNAVAILABLE")
 
 
-def test_retrieval_wrapper_is_not_representable_as_base_certificate_v0() -> None:
-    """Why the checked-status success path has no V1 fixture.
+def test_checked_status_arrives_by_snapshot_not_by_a_retrieval_wrapper() -> None:
+    """Checked status is reached via the trust_status snapshot, not a v0 wrapper.
 
     ``ProcessRecordCertificateBundleV1.base_certificate_v0`` ``$ref``s
     ``agent_certificate_v0_schema.json``, which is ``additionalProperties:
-    false`` over a bare certificate. The retrieval wrapper that carries
-    ``certificate_status`` -- the only shape from which v0 can read an active
-    or revoked status -- is therefore rejected by the V1 schema before the
-    status logic is reached. So ``allow_unchecked_base_status=False`` is
-    currently a fail-closed mode with no passing input, and
-    ``PROCESS_RECORD_VERIFIED`` is unreachable through the public API until
-    V1 gains a status-bearing envelope. This test pins that boundary so the
-    limitation is visible rather than inferred.
+    false`` over a bare certificate. The retrieval wrapper that carries v0's
+    own ``certificate_status`` is therefore still rejected by the V1 schema
+    -- that boundary is unchanged and deliberate. But
+    ``allow_unchecked_base_status=False`` is no longer a fail-closed mode
+    with no passing input: supplying a fresh, active ``trust_status``
+    snapshot over the fourth verification input reaches
+    ``PROCESS_RECORD_VERIFIED``.
     """
     bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
     wrapper = _retrieval_wrapper(
         bundle["base_certificate_v0"], bundle["verification_materials_v0"]
     )
     assert wrapper["certificate_status"]["status"] == "active"
-    bundle["base_certificate_v0"] = wrapper
-    _expect_error(bundle, context, "SCHEMA")
+    wrapped_bundle = copy.deepcopy(bundle)
+    wrapped_bundle["base_certificate_v0"] = wrapper
+    _expect_error(wrapped_bundle, context, "SCHEMA")
+
+    trust_status, status_context = _build_trust_status(bundle, context)
+    result = verify_process_record_certificate(
+        bundle, context=status_context, trust_status=trust_status
+    )
+    assert result.code == "PROCESS_RECORD_VERIFIED"
+    assert result.trust_status_evidence == "checked_active"
+
+
+# --------------------------------------------------------------------------
+# Trust status (the fourth verification input)
+# --------------------------------------------------------------------------
+
+
+def test_fresh_active_snapshot_reaches_process_record_verified() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(bundle, context)
+    result = verify_process_record_certificate(
+        bundle, context=status_context, trust_status=trust_status
+    )
+    assert result.code == "PROCESS_RECORD_VERIFIED"
+    assert result.trust_status_evidence == "checked_active"
+    assert result.trust_anchor_ref == status_context.trust_anchor.key_ref
+    assert result.trust_status_effective_time == trust_status["snapshot"]["effective_time"]
+
+
+def test_base_certificate_status_evidence_is_still_not_checked_on_a_verified_result() -> None:
+    """Pins the Q5 honesty finding: v0's own status check never runs for this
+    bundle shape, so ``base_certificate_status_evidence`` stays
+    ``"not_checked"`` even on a checked-status ``PROCESS_RECORD_VERIFIED``.
+    Dynamic status is established by ``trust_status_evidence`` instead.
+    """
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(bundle, context)
+    result = verify_process_record_certificate(
+        bundle, context=status_context, trust_status=trust_status
+    )
+    assert result.code == "PROCESS_RECORD_VERIFIED"
+    assert result.base_certificate_status_evidence == "not_checked"
+
+
+def test_allow_unchecked_true_without_snapshot_still_reports_status_unchecked() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=True)
+    result = verify_process_record_certificate(bundle, context=context)
+    assert result.code == "PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"
+    assert result.trust_status_evidence == "not_checked"
+    assert result.trust_anchor_ref == ""
+    assert result.trust_status_effective_time == ""
+
+
+def test_supplying_a_snapshot_with_allow_unchecked_true_is_a_context_error() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=True)
+    with pytest.raises(ProcessRecordVerificationError, match="^CONTEXT$"):
+        verify_process_record_certificate(bundle, context=context, trust_status={})
+
+
+def test_revoked_issuer_key_in_snapshot_fails_closed() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(
+        bundle,
+        context,
+        key_status="revoked_after_issuance",
+        key_reason="compromise",
+        key_revoked_at=DEFAULT_VERIFICATION_TIME,
+    )
+    _expect_error(bundle, status_context, "KEY_REVOKED", trust_status=trust_status)
+
+
+def test_revoked_certificate_in_snapshot_fails_closed() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(
+        bundle,
+        context,
+        cert_status="revoked_after_issuance",
+        cert_reason="administrative",
+        cert_revoked_at=DEFAULT_VERIFICATION_TIME,
+    )
+    _expect_error(bundle, status_context, "CERTIFICATE_REVOKED", trust_status=trust_status)
+
+
+def test_key_revocation_is_checked_before_certificate_revocation() -> None:
+    """Both entries revoked: the result must be KEY_REVOKED, pinning order."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(
+        bundle,
+        context,
+        key_status="untrusted_compromise",
+        key_reason="compromise",
+        key_revoked_at=DEFAULT_VERIFICATION_TIME,
+        cert_status="revoked_after_issuance",
+        cert_reason="administrative",
+        cert_revoked_at=DEFAULT_VERIFICATION_TIME,
+    )
+    _expect_error(bundle, status_context, "KEY_REVOKED", trust_status=trust_status)
+
+
+def test_stale_snapshot_is_unavailable_not_a_pass() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(
+        bundle,
+        context,
+        effective_time=_shift_timestamp(DEFAULT_VERIFICATION_TIME, seconds=-86401),
+    )
+    _expect_error(
+        bundle, status_context, "REVOCATION_STATUS_UNAVAILABLE", trust_status=trust_status
+    )
+
+
+def test_snapshot_at_exactly_max_age_still_verifies() -> None:
+    """Age exactly 86,400 s passes -- the upper bound is inclusive."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(
+        bundle,
+        context,
+        effective_time=_shift_timestamp(DEFAULT_VERIFICATION_TIME, seconds=-86400),
+    )
+    result = verify_process_record_certificate(
+        bundle, context=status_context, trust_status=trust_status
+    )
+    assert result.code == "PROCESS_RECORD_VERIFIED"
+
+
+def test_future_dated_snapshot_is_unavailable() -> None:
+    """One microsecond ahead of verification_time is enough -- pins skew=0."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(
+        bundle,
+        context,
+        effective_time=_shift_timestamp(DEFAULT_VERIFICATION_TIME, microseconds=1),
+    )
+    _expect_error(
+        bundle, status_context, "REVOCATION_STATUS_UNAVAILABLE", trust_status=trust_status
+    )
+
+
+@pytest.mark.parametrize(
+    ("effective_time", "expected_code"),
+    [
+        # These four match UtcTimestampV1's digit-shape pattern (and so pass
+        # schema validation) but are not real calendar/clock instants --
+        # _utc_microseconds's range check (review finding T1) is what catches
+        # them, via the pre-existing REVOCATION_STATUS_UNAVAILABLE code for a
+        # bad effective_time.
+        ("2026-09-05T24:00:00Z", "REVOCATION_STATUS_UNAVAILABLE"),  # hour out of range
+        ("2026-09-05T23:60:00Z", "REVOCATION_STATUS_UNAVAILABLE"),  # minute out of range
+        ("2026-02-30T00:00:00Z", "REVOCATION_STATUS_UNAVAILABLE"),  # Feb has no 30th
+        ("2026-13-01T00:00:00Z", "REVOCATION_STATUS_UNAVAILABLE"),  # month out of range
+        # These two fail the anchored pattern itself, so schema validation
+        # (which runs before _utc_microseconds is ever reached) rejects them
+        # first, via TRUST_STATUS_SCHEMA.
+        ("2026-09-05 00:00:00Z", "TRUST_STATUS_SCHEMA"),  # space, not 'T'
+        ("2026-09-05T00:00:00+00:00", "TRUST_STATUS_SCHEMA"),  # not 'Z'
+    ],
+)
+def test_malformed_snapshot_effective_time_is_rejected(
+    effective_time: str, expected_code: str
+) -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(
+        bundle, context, effective_time=effective_time
+    )
+    _expect_error(bundle, status_context, expected_code, trust_status=trust_status)
+
+
+def test_snapshot_with_valid_leap_day_effective_time_still_verifies() -> None:
+    """Positive control for the range checks above: 2028 is a leap year, so
+    Feb 29 is a real calendar day and a snapshot dated then, presented at the
+    same instant, must still verify (age 0, no future-dating)."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    leap_day = "2028-02-29T00:00:00Z"
+    trust_status, status_context = _build_trust_status(
+        bundle, context, effective_time=leap_day, verification_time=leap_day
+    )
+    result = verify_process_record_certificate(
+        bundle, context=status_context, trust_status=trust_status
+    )
+    assert result.code == "PROCESS_RECORD_VERIFIED"
+
+
+def test_snapshot_not_covering_this_key_is_unavailable() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref="issuerkey:" + "z" * 8,
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    trust_status = _trust_status_envelope(snapshot, signature)
+    status_context = replace(
+        context, verification_time=DEFAULT_VERIFICATION_TIME, trust_anchor=anchor_key
+    )
+    _expect_error(
+        bundle, status_context, "REVOCATION_STATUS_UNAVAILABLE", trust_status=trust_status
+    )
+
+
+def test_snapshot_not_covering_this_certificate_ref_is_unavailable() -> None:
+    """Key covered, certificate_ref not."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref="certificate:" + "z" * 8,
+    )
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    trust_status = _trust_status_envelope(snapshot, signature)
+    status_context = replace(
+        context, verification_time=DEFAULT_VERIFICATION_TIME, trust_anchor=anchor_key
+    )
+    _expect_error(
+        bundle, status_context, "REVOCATION_STATUS_UNAVAILABLE", trust_status=trust_status
+    )
+
+
+def test_wrong_trust_anchor_key_fails_signature() -> None:
+    """Snapshot claims the pinned anchor's ref but was signed by a different
+    private key -- the ref check passes, the cryptographic check must not."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    real_private_key = _trust_anchor_private_key(algorithm)
+    real_anchor_key = _trust_anchor_key(algorithm, real_private_key)
+    impostor_private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(128, 160)))
+    trust_status, status_context = _build_trust_status(
+        bundle,
+        context,
+        algorithm,
+        anchor_private_key=impostor_private_key,
+        anchor_key=real_anchor_key,
+    )
+    _expect_error(
+        bundle, status_context, "TRUST_STATUS_SIGNATURE_INVALID", trust_status=trust_status
+    )
+
+
+def test_snapshot_trust_anchor_ref_must_equal_the_pinned_anchor() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(bundle, context)
+    other_anchor = _trust_anchor_key(
+        "ed25519", _trust_anchor_private_key("ed25519"), key_ref="anchor:" + "b" * 8
+    )
+    assert other_anchor.key_ref != status_context.trust_anchor.key_ref
+    mismatched_context = replace(status_context, trust_anchor=other_anchor)
+    _expect_error(bundle, mismatched_context, "TRUST_ANCHOR_MISMATCH", trust_status=trust_status)
+
+
+def test_tampered_snapshot_body_fails() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(bundle, context)
+
+    # Flip a status field after signing, recompute the convenience digest to
+    # match (an adversary can hash without a private key), but keep the now
+    # stale signature -- must fail on the SIGNATURE, not the digest pin.
+    tampered = copy.deepcopy(trust_status)
+    tampered["snapshot"]["key_status"][0]["status"] = "revoked_after_issuance"
+    tampered["snapshot"]["key_status"][0]["reason"] = "compromise"
+    tampered["snapshot"]["key_status"][0]["revoked_at"] = DEFAULT_VERIFICATION_TIME
+    tampered["signature"]["snapshot_digest"] = _digest(
+        TRUST_STATUS_DOMAIN, tampered["snapshot"]
+    )
+    _expect_error(
+        bundle, status_context, "TRUST_STATUS_SIGNATURE_INVALID", trust_status=tampered
+    )
+
+    # Corrupt only the digest field, leaving the signed body and the
+    # signature bytes both intact and mutually consistent.
+    digest_only = copy.deepcopy(trust_status)
+    digest_only["signature"]["snapshot_digest"] = "sha256:" + "0" * 64
+    _expect_error(
+        bundle, status_context, "TRUST_STATUS_DIGEST_MISMATCH", trust_status=digest_only
+    )
+
+
+def test_snapshot_declaring_a_different_policy_is_rejected() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    wrong_id, id_context = _build_trust_status(
+        bundle, context, trust_policy_id="traigent.trust_policy.process_record.v2"
+    )
+    _expect_error(bundle, id_context, "TRUST_POLICY_MISMATCH", trust_status=wrong_id)
+
+    wrong_age, age_context = _build_trust_status(bundle, context, max_age_seconds=3600)
+    _expect_error(bundle, age_context, "TRUST_POLICY_MISMATCH", trust_status=wrong_age)
+
+
+def test_duplicate_entry_for_the_same_key_is_rejected() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    status_context = replace(
+        context, verification_time=DEFAULT_VERIFICATION_TIME, trust_anchor=anchor_key
+    )
+
+    key_dup_snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    key_dup_snapshot["key_status"].append(copy.deepcopy(key_dup_snapshot["key_status"][0]))
+    key_dup_signature = _sign_trust_status(
+        key_dup_snapshot, algorithm, private_key, anchor_key.key_ref
+    )
+    key_dup_trust_status = _trust_status_envelope(key_dup_snapshot, key_dup_signature)
+    _expect_error(
+        bundle, status_context, "TRUST_STATUS_SHAPE", trust_status=key_dup_trust_status
+    )
+
+    # ...and the same for certificate_status entries keyed by certificate_ref.
+    cert_dup_snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    cert_dup_snapshot["certificate_status"].append(
+        copy.deepcopy(cert_dup_snapshot["certificate_status"][0])
+    )
+    cert_dup_signature = _sign_trust_status(
+        cert_dup_snapshot, algorithm, private_key, anchor_key.key_ref
+    )
+    cert_dup_trust_status = _trust_status_envelope(cert_dup_snapshot, cert_dup_signature)
+    _expect_error(
+        bundle, status_context, "TRUST_STATUS_SHAPE", trust_status=cert_dup_trust_status
+    )
+
+
+def test_snapshot_with_65_key_entries_is_rejected_by_the_cap() -> None:
+    """65 is one past ``TrustStatusSnapshotV1.key_status``'s ``maxItems``
+    (64, cap+1). Before the fix (review finding T2) this list was scanned
+    for duplicates -- building an unbounded set -- before any length check
+    ran; the length cap must now be enforced first, and either way the
+    caller-visible outcome is a clean, fixed-cost rejection."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    status_context = replace(
+        context, verification_time=DEFAULT_VERIFICATION_TIME, trust_anchor=anchor_key
+    )
+
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    entry = snapshot["key_status"][0]
+    snapshot["key_status"] = [
+        {**entry, "key_ref": f"issuerkey:{'k' * 7}{i}"} for i in range(65)
+    ]
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    trust_status = _trust_status_envelope(snapshot, signature)
+    _expect_error(bundle, status_context, "TRUST_STATUS_SCHEMA", trust_status=trust_status)
+
+
+def test_trust_status_list_cap_guard_rejects_10000_entries_without_touching_any() -> None:
+    """White-box: :func:`pr_impl._check_trust_status_list_caps` must reject an
+    oversized list purely by ``len()``, never by iterating, hashing, or
+    comparing individual entries -- a real caller could otherwise present an
+    unauthenticated snapshot with an adversarially huge entry list and cost
+    this verifier O(n) memory/CPU (duplicate-set construction, or even the
+    schema validator's own array walk) before ever being rejected (review
+    finding T2). Each sentinel entry raises on any access -- equality,
+    hashing, or attribute lookup -- so a passing test proves the guard never
+    touched one."""
+
+    class _TouchSentinel:
+        def __eq__(self, other: object) -> bool:
+            raise AssertionError("sentinel entry was touched")
+
+        def __hash__(self) -> int:
+            raise AssertionError("sentinel entry was touched")
+
+        def __getattr__(self, name: str) -> Any:
+            raise AssertionError("sentinel entry was touched")
+
+    snapshot = {
+        "key_status": [_TouchSentinel() for _ in range(10_000)],
+        "certificate_status": [],
+    }
+    with pytest.raises(ProcessRecordVerificationError, match="^TRUST_STATUS_SCHEMA$"):
+        pr_impl._check_trust_status_list_caps(snapshot)
+
+
+def test_result_cannot_pair_a_checked_code_with_unchecked_evidence_via_verifier() -> None:
+    """The pairing invariant also holds end-to-end, not just at direct
+    ``ProcessRecordVerificationResult`` construction (see the dataclass-level
+    test of the same property in the Context/Result section above)."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    trust_status, status_context = _build_trust_status(bundle, context)
+    result = verify_process_record_certificate(
+        bundle, context=status_context, trust_status=trust_status
+    )
+    assert (result.code, result.trust_status_evidence) == (
+        "PROCESS_RECORD_VERIFIED",
+        "checked_active",
+    )
+
+
+def test_trust_status_sentinel_never_appears_in_error_or_result() -> None:
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    # An extra, unused entry carrying the sentinel: it never matches the
+    # lookup key, so a fully successful verification still rides it through
+    # -- and it must not surface anywhere in the accepted result.
+    snapshot["key_status"].append(
+        {
+            "key_ref": f"issuerkey:{SENTINEL}",
+            "trust_ring_ref": unsigned["trust_ring_ref"],
+            "status": "active",
+            "revoked_at": None,
+            "reason": None,
+        }
+    )
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    trust_status = _trust_status_envelope(snapshot, signature)
+    status_context = replace(
+        context, verification_time=DEFAULT_VERIFICATION_TIME, trust_anchor=anchor_key
+    )
+    assert SENTINEL in json.dumps(trust_status, sort_keys=True)
+
+    result = verify_process_record_certificate(
+        bundle, context=status_context, trust_status=trust_status
+    )
+    assert result.valid is True
+    _assert_result_surfaces_are_clean(result)
+
+    # Rejected direction: a wrong-anchor key_ref carrying the sentinel must
+    # not leak into the exception surface -- str/repr/args/traceback.
+    bad_anchor = _trust_anchor_key(algorithm, private_key, key_ref=f"anchor:{SENTINEL}xx")
+    bad_context = replace(status_context, trust_anchor=bad_anchor)
+    with pytest.raises(ProcessRecordVerificationError) as exc_info:
+        verify_process_record_certificate(
+            bundle, context=bad_context, trust_status=trust_status
+        )
+    assert exc_info.value.code == "TRUST_ANCHOR_MISMATCH"
+    assert SENTINEL not in str(exc_info.value)
+    assert SENTINEL not in repr(exc_info.value)
+    assert all(SENTINEL not in str(arg) for arg in exc_info.value.args)
+    formatted = "".join(
+        traceback.format_exception(
+            type(exc_info.value), exc_info.value, exc_info.value.__traceback__
+        )
+    )
+    assert SENTINEL not in formatted
 
 
 # --------------------------------------------------------------------------
@@ -1867,3 +2553,91 @@ def test_process_record_error_codes_are_all_stable_short_strings() -> None:
         assert isinstance(code, str)
         assert code == code.upper()
         assert " " not in code
+
+
+def test_trust_status_entry_cap_equals_the_schema_max_items() -> None:
+    """The ``len()`` guard's constant must be the schema's ``maxItems`` for BOTH
+    lists, or raising one bound would silently leave the other in force."""
+    from importlib import resources
+
+    schema_text = (
+        resources.files("traigent_schema")
+        / "schemas"
+        / "certification"
+        / "process_record_v1_schema.json"
+    ).read_text(encoding="utf-8")
+    props = json.loads(schema_text)["definitions"]["TrustStatusSnapshotV1"]["properties"]
+    assert props["key_status"]["maxItems"] == pr_impl._MAX_TRUST_STATUS_ENTRIES
+    assert props["certificate_status"]["maxItems"] == pr_impl._MAX_TRUST_STATUS_ENTRIES
+
+
+@pytest.mark.parametrize("field", ["key_status", "certificate_status"])
+def test_public_verifier_rejects_an_oversized_snapshot_list_before_iterating_it(
+    field: str,
+) -> None:
+    """Through the PUBLIC entry point (not the guard directly): an oversized
+    list whose iteration raises must be rejected by the length guard before
+    schema validation, duplicate detection, or signature canonicalization
+    walks it. If the guard were moved later in the pipeline, the iteration
+    would raise ``AssertionError`` instead of the expected closed code."""
+
+    class _NoIterList(list):  # type: ignore[type-arg]
+        def __iter__(self):  # type: ignore[no-untyped-def]
+            raise AssertionError(f"oversized {field} list was iterated before the cap")
+
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    status_context = replace(
+        context, verification_time=DEFAULT_VERIFICATION_TIME, trust_anchor=anchor_key
+    )
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    # Sign the well-formed snapshot first (signing canonicalizes it), then swap
+    # in the oversized non-iterable list: the guard must fire before the
+    # signature is ever checked, so the now-stale signature is irrelevant.
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    oversized = _NoIterList()
+    oversized.extend([object()] * (pr_impl._MAX_TRUST_STATUS_ENTRIES + 1))
+    snapshot[field] = oversized
+    trust_status = _trust_status_envelope(snapshot, signature)
+    _expect_error(bundle, status_context, "TRUST_STATUS_SCHEMA", trust_status=trust_status)
+
+
+def test_trust_status_without_a_pinned_anchor_fails_closed_even_when_called_directly() -> None:
+    """White-box: :func:`pr_impl._verify_trust_status` must reject a context whose
+    ``trust_anchor`` is ``None`` with the closed ``CONTEXT`` code -- not rely on an
+    ``assert``, which ``PYTHONOPTIMIZE`` strips and which would then surface as an
+    ``AttributeError`` on the next line (Aikido finding on PR #457). The public
+    entry point already rejects this combination earlier; this pins the backstop."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    trust_status = _trust_status_envelope(snapshot, signature)
+    # ``__post_init__`` itself refuses ``trust_anchor=None`` alongside a snapshot
+    # (proved by ``test_context_requires_every_pillar_pin_and_the_status_choice``),
+    # so a compliant context can never reach the backstop. Bypass construction
+    # to stage the state a direct caller could hand in.
+    import copy
+
+    anchorless = copy.copy(replace(context, verification_time=DEFAULT_VERIFICATION_TIME,
+                                   trust_anchor=anchor_key))
+    object.__setattr__(anchorless, "trust_anchor", None)
+    with pytest.raises(ProcessRecordVerificationError) as exc_info:
+        pr_impl._verify_trust_status(trust_status, anchorless)
+    assert exc_info.value.code == "CONTEXT"

@@ -13,6 +13,7 @@ from traigent_schema.certification.process_record_verifier import (
     ProcessRecordVerificationContext,
     ProcessRecordVerificationError,
     ProcessRecordVerificationResult,
+    TrustAnchorKeyV1,
     verify_process_record_certificate,
 )
 from traigent_schema.certification.prohibited_register import (
@@ -55,6 +56,7 @@ __all__ = [
     "ProhibitedRegisterBaselineError",
     "RelyingPartyPolicy",
     "RelyingPartyVerificationError",
+    "TrustAnchorKeyV1",
     "VerificationContext",
     "VerificationError",
     "VerificationResult",

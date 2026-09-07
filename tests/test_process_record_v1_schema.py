@@ -319,7 +319,15 @@ def test_registry_digests_have_explicit_non_circular_preimages() -> None:
     definitions = SCHEMA["definitions"]
     assert "policy_digest excluded" in definitions["CapturePolicyDocumentV1"]["description"]
     assert "definition_digest excluded" in definitions["ProcessDefinitionDocumentV1"]["description"]
-    assert "trust_status_snapshot" not in json.dumps(definitions)
+    for name in (
+        "TrustStatusSnapshotV1",
+        "TrustStatusSignatureV1",
+        "TrustStatusEnvelopeV1",
+        "KeyStatusEntryV1",
+        "CertificateStatusEntryV1",
+    ):
+        assert name in definitions
+    assert "jcs_v1(this body)" in definitions["TrustStatusSnapshotV1"]["description"]
     assert (
         definitions["ProcessRecordDigestDomainRegistryV1"]["properties"]["expected_steps"][
             "const"
@@ -418,3 +426,169 @@ def test_wire_error_enum_is_coarser_than_the_verifier_error_vocabulary() -> None
     assert all(code == code.lower() for code in wire_codes)
     assert all(code == code.upper() for code in PROCESS_RECORD_ERROR_CODES)
     assert len(wire_codes) < len(PROCESS_RECORD_ERROR_CODES)
+
+
+# --------------------------------------------------------------------------
+# Trust status (the fourth verification input)
+# --------------------------------------------------------------------------
+
+TRUST_ANCHOR_REF = "anchor:" + "a" * 8
+ISSUER_KEY_REF = "issuerkey:" + "k" * 8
+TRUST_RING_REF = "ring:" + "r" * 8
+CERT_REF = "certificate:" + "c" * 8
+SIGNATURE_BYTES = "A" * 86 + "=="
+
+
+def _trust_status_envelope() -> dict:
+    snapshot = {
+        "schema_version": "traigent.process_record.trust_status.v1",
+        "trust_anchor_ref": TRUST_ANCHOR_REF,
+        "trust_policy_id": "traigent.trust_policy.process_record.v1",
+        "max_age_seconds": 86400,
+        "effective_time": "2026-09-05T10:11:12Z",
+        "key_status": [
+            {
+                "key_ref": ISSUER_KEY_REF,
+                "trust_ring_ref": TRUST_RING_REF,
+                "status": "active",
+                "revoked_at": None,
+                "reason": None,
+            }
+        ],
+        "certificate_status": [
+            {
+                "certificate_ref": CERT_REF,
+                "status": "active",
+                "revoked_at": None,
+                "reason": None,
+            }
+        ],
+    }
+    signature = {
+        "schema_version": "traigent.process_record.trust_status_signature.v1",
+        "algorithm": "ed25519",
+        "trust_anchor_ref": TRUST_ANCHOR_REF,
+        "signed_payload": "trust_status_snapshot",
+        "snapshot_digest": SHA,
+        "signature": SIGNATURE_BYTES,
+    }
+    return {
+        "schema_version": "traigent.process_record.trust_status_envelope.v1",
+        "snapshot": snapshot,
+        "signature": signature,
+    }
+
+
+def test_trust_status_state_vocabulary_matches_the_v0_retrieval_contract() -> None:
+    """Set-equality against the v0 retrieval catalog's own vocabulary, so
+    this schema's deliberately-duplicated (not $ref'd, see
+    ``TrustStatusStateV1``'s description) enum cannot silently drift."""
+    endpoints_path = SCHEMAS / "certification" / "certification_endpoints_v0.json"
+    endpoints = json.loads(endpoints_path.read_text(encoding="utf-8"))
+    certificate_status = endpoints["components"]["schemas"]["CertificateRetrievalResponseV0"][
+        "properties"
+    ]["certificate_status"]
+    v0_status_enum = set(certificate_status["properties"]["status"]["enum"])
+    v0_reason_enum = set(certificate_status["properties"]["reason"]["enum"])
+
+    v1_status_enum = set(SCHEMA["definitions"]["TrustStatusStateV1"]["enum"])
+    v1_reason_enum = set(SCHEMA["definitions"]["TrustStatusReasonV1"]["enum"])
+
+    assert v1_status_enum == v0_status_enum
+    assert v1_reason_enum == v0_reason_enum
+
+
+def test_trust_status_definitions_are_closed_and_reject_free_text() -> None:
+    envelope = _trust_status_envelope()
+    assert _errors(envelope, "TrustStatusEnvelopeV1") == []
+    for definition, instance in (
+        ("TrustStatusEnvelopeV1", envelope),
+        ("TrustStatusSnapshotV1", envelope["snapshot"]),
+        ("TrustStatusSignatureV1", envelope["signature"]),
+        ("KeyStatusEntryV1", envelope["snapshot"]["key_status"][0]),
+        ("CertificateStatusEntryV1", envelope["snapshot"]["certificate_status"][0]),
+    ):
+        assert _errors(instance, definition) == []
+        assert _errors({**instance, "note": "free text"}, definition)
+
+
+def test_digest_domain_registry_pins_the_trust_status_roles() -> None:
+    """Extends ``test_digest_domain_registry_pins_every_v1_preimage_role``:
+    that test already builds its document from every registry property, so
+    the two new consts are picked up automatically once ``required`` lists
+    them -- this test pins their literal values."""
+    document = {
+        name: definition["const"]
+        for name, definition in SCHEMA["definitions"]["ProcessRecordDigestDomainRegistryV1"][
+            "properties"
+        ].items()
+    }
+    assert document["trust_status"] == "traigent.process_record.trust_status.v1"
+    assert document["trust_anchor_spki"] == "traigent.process_record.trust_anchor_spki_der.v1"
+    assert _errors(document, "ProcessRecordDigestDomainRegistryV1") == []
+    missing_trust_status = {k: v for k, v in document.items() if k != "trust_status"}
+    assert _errors(missing_trust_status, "ProcessRecordDigestDomainRegistryV1")
+
+
+def test_trust_status_envelope_is_not_reachable_from_the_certificate_bundle() -> None:
+    bundle_def = SCHEMA["definitions"]["ProcessRecordCertificateBundleV1"]
+    assert "trust_status" not in bundle_def["properties"]
+    assert "trust_status" not in bundle_def["required"]
+    manifest_coverage = SCHEMA["definitions"]["ProcessRecordUnsignedManifestV1"]["properties"][
+        "coverage"
+    ]["const"]
+    assert "trust_status" not in manifest_coverage
+
+
+def test_trust_status_state_rejects_unknown_value_and_unbounded_string() -> None:
+    envelope = _trust_status_envelope()
+    bad_status = copy.deepcopy(envelope)
+    bad_status["snapshot"]["key_status"][0]["status"] = "not_a_real_status"
+    assert _errors(bad_status, "TrustStatusEnvelopeV1")
+
+    unbounded_ref = copy.deepcopy(envelope)
+    unbounded_ref["snapshot"]["trust_anchor_ref"] = "anchor:" + "a" * 200
+    assert _errors(unbounded_ref, "TrustStatusEnvelopeV1")
+
+
+def test_snapshot_entry_lists_are_bounded() -> None:
+    envelope = _trust_status_envelope()
+    entry = envelope["snapshot"]["key_status"][0]
+
+    over_cap = copy.deepcopy(envelope)
+    over_cap["snapshot"]["key_status"] = [
+        {**entry, "key_ref": f"issuerkey:{'k' * 7}{i}"} for i in range(65)
+    ]
+    assert _errors(over_cap, "TrustStatusEnvelopeV1")
+
+    at_cap = copy.deepcopy(envelope)
+    at_cap["snapshot"]["key_status"] = [
+        {**entry, "key_ref": f"issuerkey:{'k' * 7}{i}"} for i in range(64)
+    ]
+    assert _errors(at_cap, "TrustStatusEnvelopeV1") == []
+
+
+def test_utc_timestamp_pattern_is_anchored_and_rejects_malformed_variants() -> None:
+    """``UtcTimestampV1`` is a regex over fixed-width digit groups, so it can
+    only ever check SHAPE (anchored start/end, literal ``T``/``Z``, an
+    optional 1-6 digit fraction) -- never calendar or clock-field RANGES
+    (day-per-month, hour <= 23, minute/second <= 59). That range enforcement
+    is the verifier's job (``process_record_verifier._parse_utc_timestamp``,
+    review finding T1); this test pins only what the pattern itself, being
+    anchored with ``^``/``$`` and a ``maxLength``, already guarantees."""
+    assert _errors("2026-09-05T10:11:12Z", "UtcTimestampV1") == []
+    assert _errors("2026-09-05T10:11:12.123456Z", "UtcTimestampV1") == []
+    # Leading/trailing garbage a non-anchored pattern would let through.
+    assert _errors("x2026-09-05T10:11:12Z", "UtcTimestampV1")
+    assert _errors("2026-09-05T10:11:12Zx", "UtcTimestampV1")
+    # Space instead of the literal 'T' separator.
+    assert _errors("2026-09-05 10:11:12Z", "UtcTimestampV1")
+    # A non-'Z' UTC offset -- the pattern requires the literal 'Z' suffix.
+    assert _errors("2026-09-05T10:11:12+00:00", "UtcTimestampV1")
+    # Lowercase 't'/'z' -- the pattern's literals are case-sensitive.
+    assert _errors("2026-09-05t10:11:12z", "UtcTimestampV1")
+    assert _errors("2026-09-05T10:11:12z", "UtcTimestampV1")
+    # A 7-digit fraction exceeds the pattern's 1-6 digit bound.
+    assert _errors("2026-09-05T10:11:12.1234567Z", "UtcTimestampV1")
+    # An empty fraction after the dot is not "1-6 digits".
+    assert _errors("2026-09-05T10:11:12.Z", "UtcTimestampV1")

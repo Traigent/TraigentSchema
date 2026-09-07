@@ -1025,10 +1025,28 @@ def test_commitment_ref_swapped_and_resigned_is_rejected(field: str) -> None:
     which asserted such a bundle VERIFIED (review finding F2). The re-sign is
     what makes it discriminating: the issuer signature over the mutated
     manifest is valid, so only the caller's own pin can reject it.
+
+    Step 1 establishes that discrimination instead of assuming it. The pin is
+    checked BEFORE the issuer signature, so a bundle that was never re-signed
+    raises the same ``COMMITMENT_REF_MISMATCH`` -- the rejection on its own
+    therefore says nothing about the signature. Verifying the very same bundle
+    against a context pinned to the swapped ref first proves the bundle is
+    otherwise wholly valid and correctly re-signed; only then does step 2
+    isolate the caller's pin as the sole cause of the rejection.
     """
     bundle, context, _ = _build_bundle()
     bundle["unsigned_manifest"][field] = OTHER_COMMITMENT_REF
     _resign(bundle, "ed25519")
+
+    # Step 1: the mutated, re-signed bundle is a fully valid record -- for a
+    # caller that actually pinned the swapped commitment.
+    matching_context = replace(context, **{f"expected_{field}": OTHER_COMMITMENT_REF})
+    result = verify_process_record_certificate(copy.deepcopy(bundle), context=matching_context)
+    assert result.valid is True
+    assert result.code == "PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"
+    assert getattr(result, field) == OTHER_COMMITMENT_REF
+
+    # Step 2: same bytes, original pin -- only the caller's expectation differs.
     _expect_error(bundle, context, "COMMITMENT_REF_MISMATCH")
 
 
@@ -1227,6 +1245,141 @@ def test_shipped_registry_documents_validate_against_their_v1_definitions() -> N
     # The identity blocks the verifier compares against carry the same digests.
     assert CAPTURE_POLICY_IDENTITY["policy_digest"] == CAPTURE_POLICY_DIGEST
     assert PROCESS_DEFINITION_IDENTITY["definition_digest"] == PROCESS_DEFINITION_DIGEST
+
+
+def test_registry_digests_are_derived_from_the_shipped_package_data() -> None:
+    """The module's two digest constants are digests OF the shipped files.
+
+    ``test_registry_document_digests_are_unchanged_by_the_package_data_move``
+    pins the hex, and would keep passing if the verifier were reverted to
+    Python literals that happened to match. This one is a different property:
+    it reads the package-data resource bytes here, parses them, recomputes the
+    digest with this file's own oracle (``_digest``, never the module's
+    ``_role_digest``), and requires the module constants to equal THAT. If the
+    verifier ever digested anything other than the bytes actually shipped in
+    ``traigent_schema/data/certification``, this fails (finding T2).
+    """
+    certification_data = (
+        resources.files("traigent_schema").joinpath("data").joinpath("certification")
+    )
+    policy_bytes = certification_data.joinpath("capture_policy_document.json").read_bytes()
+    process_bytes = certification_data.joinpath("process_definition_document.json").read_bytes()
+
+    policy = json.loads(policy_bytes.decode("utf-8"))
+    process = json.loads(process_bytes.decode("utf-8"))
+
+    # Same domain-tag / preimage construction as the verifier, re-implemented
+    # here rather than imported, so the two sides can actually disagree.
+    assert _digest(CAPTURE_POLICY_DOMAIN, policy) == pr_impl._CAPTURE_POLICY_DIGEST
+    assert _digest(PROCESS_DEFINITION_DOMAIN, process) == pr_impl._PROCESS_DEFINITION_DIGEST
+
+    # ...and the module read the same objects, not merely digest-equal ones.
+    assert policy == pr_impl._CAPTURE_POLICY_DOCUMENT
+    assert process == pr_impl._PROCESS_DEFINITION_DOCUMENT
+
+
+def test_import_time_validation_accepts_both_shipped_registry_documents() -> None:
+    """The positive control for the import-time check the verifier now runs."""
+    pr_impl._validate_registry_document(
+        pr_impl._CAPTURE_POLICY_DOCUMENT,
+        "CapturePolicyDocumentV1",
+        "policy_digest",
+        pr_impl._CAPTURE_POLICY_DOMAIN,
+    )
+    pr_impl._validate_registry_document(
+        pr_impl._PROCESS_DEFINITION_DOCUMENT,
+        "ProcessDefinitionDocumentV1",
+        "definition_digest",
+        pr_impl._PROCESS_DEFINITION_DOMAIN,
+    )
+
+
+@pytest.mark.parametrize(
+    "filename,definition,digest_field,domain",
+    [
+        (
+            "capture_policy_document.json",
+            "CapturePolicyDocumentV1",
+            "policy_digest",
+            CAPTURE_POLICY_DOMAIN,
+        ),
+        (
+            "process_definition_document.json",
+            "ProcessDefinitionDocumentV1",
+            "definition_digest",
+            PROCESS_DEFINITION_DOMAIN,
+        ),
+    ],
+)
+def test_registry_document_carrying_free_text_is_rejected_by_the_import_check(
+    filename: str, definition: str, digest_field: str, domain: bytes
+) -> None:
+    """A registry document that grew a free-text member never gets digested.
+
+    Before finding T1 the two documents were loaded and hashed without ever
+    being validated, so a shipped document carrying customer content -- or any
+    member outside the closed schema -- would have been silently digested and
+    bound into every issued certificate. ``additionalProperties: false`` in
+    ``CapturePolicyDocumentV1`` / ``ProcessDefinitionDocumentV1`` is what
+    rejects it, and the import-time call is what makes the schema binding.
+    """
+    document = copy.deepcopy(_registry_document(filename))
+    document["note"] = SENTINEL
+    with pytest.raises(pr_impl.ProcessRecordRegistryError) as exc_info:
+        pr_impl._validate_registry_document(document, definition, digest_field, domain)
+    # Content-free failure: the message names the definition and nothing else.
+    assert str(exc_info.value) == f"PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:{definition}"
+    assert SENTINEL not in str(exc_info.value)
+    assert exc_info.value.definition_name == definition
+
+
+@pytest.mark.parametrize(
+    "filename,definition,digest_field,domain",
+    [
+        (
+            "capture_policy_document.json",
+            "CapturePolicyDocumentV1",
+            "policy_digest",
+            CAPTURE_POLICY_DOMAIN,
+        ),
+        (
+            "process_definition_document.json",
+            "ProcessDefinitionDocumentV1",
+            "definition_digest",
+            PROCESS_DEFINITION_DOMAIN,
+        ),
+    ],
+)
+def test_registry_document_with_drifted_expected_steps_is_rejected_by_the_import_check(
+    filename: str, definition: str, digest_field: str, domain: bytes
+) -> None:
+    """Drift inside a closed member fails too, not just extra members."""
+    document = copy.deepcopy(_registry_document(filename))
+    document["expected_steps"] = ["prepare", "evaluate"]
+    with pytest.raises(pr_impl.ProcessRecordRegistryError):
+        pr_impl._validate_registry_document(document, definition, digest_field, domain)
+
+    # A missing required member is rejected on the same path.
+    truncated = copy.deepcopy(_registry_document(filename))
+    del truncated["canonicalization"]
+    with pytest.raises(pr_impl.ProcessRecordRegistryError):
+        pr_impl._validate_registry_document(truncated, definition, digest_field, domain)
+
+
+def test_registry_document_validation_resolves_cross_file_refs() -> None:
+    """The helper reuses the module's ``$ref`` registry, not a second copy.
+
+    Both definitions ``$ref`` ``certification_common_v0_schema.json`` for the
+    self-digest, so an unresolvable-``$ref`` regression would surface as a
+    rejection of the genuine documents rather than a silent pass. Asserting a
+    malformed digest is caught proves that ``$ref`` really is being applied.
+    """
+    document = copy.deepcopy(pr_impl._CAPTURE_POLICY_DOCUMENT)
+    candidate = {**document, "policy_digest": "not-a-sha256-digest"}
+    assert _schema_errors(candidate, "CapturePolicyDocumentV1") != []
+    validator = pr_impl._definition_validator("CapturePolicyDocumentV1")
+    assert list(validator.iter_errors(candidate))
+    assert list(validator.iter_errors({**document, "policy_digest": CAPTURE_POLICY_DIGEST})) == []
 
 
 # --------------------------------------------------------------------------

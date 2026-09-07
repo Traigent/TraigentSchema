@@ -135,6 +135,20 @@ class ProcessRecordVerificationError(ValueError):
         super().__init__(code)
 
 
+class ProcessRecordRegistryError(RuntimeError):
+    """A shipped registry document failed its own v1 schema definition.
+
+    Raised at import time only, and only from
+    :func:`_validate_registry_document`. The message is the schema definition
+    name -- a fixed identifier owned by this module -- so no document content
+    can reach an import-time traceback or a caller's logs.
+    """
+
+    def __init__(self, definition_name: str) -> None:
+        self.definition_name = definition_name
+        super().__init__(f"PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:{definition_name}")
+
+
 def _fail(code: str) -> NoReturn:
     raise ProcessRecordVerificationError(code)
 
@@ -265,8 +279,14 @@ class ProcessRecordVerificationResult:
     the v0 base-certificate status check
     (``allow_unchecked_base_status=False``) and it actually passed as active;
     it is ``"PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"`` when the caller
-    explicitly opted out of that check. A revoked, absent, or unknown base
-    status never reaches either success code -- it fails closed instead.
+    explicitly opted out of that check. Under
+    ``allow_unchecked_base_status=False`` an absent or unknown base status
+    never reaches either success code -- it fails closed instead. Under
+    ``True`` that check is skipped by construction, so a bare base
+    certificate carrying no status does reach
+    ``"PROCESS_RECORD_VERIFIED_STATUS_UNCHECKED"``; that is what the code
+    means. A base certificate whose status IS present but not active is
+    rejected by the v0 verifier in either mode.
     """
 
     valid: bool = True
@@ -298,15 +318,48 @@ class ProcessRecordVerificationResult:
 
 
 @lru_cache(maxsize=1)
-def _process_record_validator() -> Draft7Validator:
-    resources: list[tuple[str, Resource]] = []
+def _process_record_schema() -> tuple[Registry, dict[str, Any]]:
+    """The v1 schema document plus a ``$ref`` registry over every shipped schema.
+
+    One loader, so the bundle validator and the registry-document validators
+    resolve ``$ref``s through the same registry instead of a second copy that
+    could drift.
+    """
+    schema_resources: list[tuple[str, Resource]] = []
     for path in _SCHEMAS_DIR.rglob("*.json"):
         document = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(document, dict) and "$id" in document:
-            resources.append((document["$id"], Resource.from_contents(document)))
-    registry = Registry().with_resources(resources)
-    schema = json.loads(_PROCESS_RECORD_SCHEMA_PATH.read_text(encoding="utf-8"))
+            schema_resources.append((document["$id"], Resource.from_contents(document)))
+    registry = Registry().with_resources(schema_resources)
+    schema = cast(
+        dict[str, Any],
+        json.loads(_PROCESS_RECORD_SCHEMA_PATH.read_text(encoding="utf-8")),
+    )
+    return registry, schema
+
+
+@lru_cache(maxsize=1)
+def _process_record_validator() -> Draft7Validator:
+    registry, schema = _process_record_schema()
     return Draft7Validator(schema, registry=registry, format_checker=_FORMAT_CHECKER)
+
+
+@lru_cache(maxsize=4)
+def _definition_validator(definition_name: str) -> Draft7Validator:
+    """A validator anchored at one ``#/definitions/<name>`` of the v1 schema.
+
+    Reuses :func:`_process_record_schema`'s registry so cross-file ``$ref``s
+    (e.g. ``certification_common_v0_schema.json#/definitions/Sha256Digest``)
+    resolve exactly as they do for a full bundle.
+    """
+    registry, schema = _process_record_schema()
+    document = {
+        "$schema": schema["$schema"],
+        "$id": f"{schema['$id']}#definition-{definition_name}",
+        "definitions": schema["definitions"],
+        "allOf": [{"$ref": f"#/definitions/{definition_name}"}],
+    }
+    return Draft7Validator(document, registry=registry, format_checker=_FORMAT_CHECKER)
 
 
 def _role_digest(domain: bytes, projection: Any) -> str:
@@ -318,6 +371,33 @@ def _role_digest(domain: bytes, projection: Any) -> str:
     except Exception:
         _fail("CANONICALIZATION")
     return _SHA256_PREFIX + hashlib.sha256(domain + b"\x00" + canonical).hexdigest()
+
+
+def _validate_registry_document(
+    document: dict[str, Any],
+    definition_name: str,
+    digest_field: str,
+    domain: bytes,
+) -> None:
+    """Validate a shipped registry document against its own v1 schema definition.
+
+    Each document ships as its own digest preimage: the schema requires the
+    self-digest member but excludes it from the preimage, so the digest is
+    recomputed here and added beside the document before validating -- the
+    same shape the schema definitions describe.
+
+    This runs at import so a registry document that gained a free-text member,
+    lost a required one, or drifted from a ``const`` cannot be digested and
+    shipped as canonical. Failure raises :class:`ProcessRecordRegistryError`
+    naming only ``definition_name``; document content is never echoed.
+    """
+    candidate = {**document, digest_field: _role_digest(domain, document)}
+    try:
+        errors = list(_definition_validator(definition_name).iter_errors(candidate))
+    except (OSError, UnicodeError, KeyError, json.JSONDecodeError, Unresolvable) as exc:
+        raise ProcessRecordRegistryError(definition_name) from exc
+    if errors:
+        raise ProcessRecordRegistryError(definition_name)
 
 
 def _load_registry_document(filename: str) -> dict[str, Any]:
@@ -344,6 +424,23 @@ _PROCESS_DEFINITION_DOCUMENT: dict[str, Any] = _load_registry_document(
 _CAPTURE_POLICY_DIGEST = _role_digest(_CAPTURE_POLICY_DOMAIN, _CAPTURE_POLICY_DOCUMENT)
 _PROCESS_DEFINITION_DIGEST = _role_digest(_PROCESS_DEFINITION_DOMAIN, _PROCESS_DEFINITION_DOCUMENT)
 _EXPECTED_STEPS_DIGEST = _role_digest(_EXPECTED_STEPS_DOMAIN, list(_EXPECTED_STEPS))
+
+# The digests above are only as trustworthy as the documents they cover, so the
+# shipped package data is checked against its schema definition here, at import,
+# rather than being assumed well-formed because it once was.
+_validate_registry_document(
+    _CAPTURE_POLICY_DOCUMENT,
+    "CapturePolicyDocumentV1",
+    "policy_digest",
+    _CAPTURE_POLICY_DOMAIN,
+)
+_validate_registry_document(
+    _PROCESS_DEFINITION_DOCUMENT,
+    "ProcessDefinitionDocumentV1",
+    "definition_digest",
+    _PROCESS_DEFINITION_DOMAIN,
+)
+
 _CAPTURE_POLICY_IDENTITY: dict[str, Any] = {
     "policy_id": "traigent.capture_policy.asap.v1",
     "policy_version": "1.0.0",

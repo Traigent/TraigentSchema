@@ -2608,3 +2608,36 @@ def test_public_verifier_rejects_an_oversized_snapshot_list_before_iterating_it(
     snapshot[field] = oversized
     trust_status = _trust_status_envelope(snapshot, signature)
     _expect_error(bundle, status_context, "TRUST_STATUS_SCHEMA", trust_status=trust_status)
+
+
+def test_trust_status_without_a_pinned_anchor_fails_closed_even_when_called_directly() -> None:
+    """White-box: :func:`pr_impl._verify_trust_status` must reject a context whose
+    ``trust_anchor`` is ``None`` with the closed ``CONTEXT`` code -- not rely on an
+    ``assert``, which ``PYTHONOPTIMIZE`` strips and which would then surface as an
+    ``AttributeError`` on the next line (Aikido finding on PR #457). The public
+    entry point already rejects this combination earlier; this pins the backstop."""
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    trust_status = _trust_status_envelope(snapshot, signature)
+    # ``__post_init__`` itself refuses ``trust_anchor=None`` alongside a snapshot
+    # (proved by ``test_context_requires_every_pillar_pin_and_the_status_choice``),
+    # so a compliant context can never reach the backstop. Bypass construction
+    # to stage the state a direct caller could hand in.
+    import copy
+
+    anchorless = copy.copy(replace(context, verification_time=DEFAULT_VERIFICATION_TIME,
+                                   trust_anchor=anchor_key))
+    object.__setattr__(anchorless, "trust_anchor", None)
+    with pytest.raises(ProcessRecordVerificationError) as exc_info:
+        pr_impl._verify_trust_status(trust_status, anchorless)
+    assert exc_info.value.code == "CONTEXT"

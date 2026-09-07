@@ -1149,7 +1149,11 @@ def _verify_trust_status(
         _fail("TRUST_STATUS_DIGEST_MISMATCH")
 
     trust_anchor = context.trust_anchor
-    assert trust_anchor is not None  # guaranteed by the caller's CONTEXT contradiction check
+    if trust_anchor is None:
+        # The public entry point already rejects a snapshot without a pinned anchor
+        # as CONTEXT; this is the fail-closed backstop for direct callers. An
+        # `assert` would vanish under PYTHONOPTIMIZE and surface as AttributeError.
+        _fail("CONTEXT")
     if (
         snapshot["trust_anchor_ref"] != trust_anchor.key_ref
         or signature["trust_anchor_ref"] != trust_anchor.key_ref

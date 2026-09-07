@@ -2553,3 +2553,58 @@ def test_process_record_error_codes_are_all_stable_short_strings() -> None:
         assert isinstance(code, str)
         assert code == code.upper()
         assert " " not in code
+
+
+def test_trust_status_entry_cap_equals_the_schema_max_items() -> None:
+    """The ``len()`` guard's constant must be the schema's ``maxItems`` for BOTH
+    lists, or raising one bound would silently leave the other in force."""
+    from importlib import resources
+
+    schema_text = (
+        resources.files("traigent_schema")
+        / "schemas"
+        / "certification"
+        / "process_record_v1_schema.json"
+    ).read_text(encoding="utf-8")
+    props = json.loads(schema_text)["definitions"]["TrustStatusSnapshotV1"]["properties"]
+    assert props["key_status"]["maxItems"] == pr_impl._MAX_TRUST_STATUS_ENTRIES
+    assert props["certificate_status"]["maxItems"] == pr_impl._MAX_TRUST_STATUS_ENTRIES
+
+
+@pytest.mark.parametrize("field", ["key_status", "certificate_status"])
+def test_public_verifier_rejects_an_oversized_snapshot_list_before_iterating_it(
+    field: str,
+) -> None:
+    """Through the PUBLIC entry point (not the guard directly): an oversized
+    list whose iteration raises must be rejected by the length guard before
+    schema validation, duplicate detection, or signature canonicalization
+    walks it. If the guard were moved later in the pipeline, the iteration
+    would raise ``AssertionError`` instead of the expected closed code."""
+
+    class _NoIterList(list):  # type: ignore[type-arg]
+        def __iter__(self):  # type: ignore[no-untyped-def]
+            raise AssertionError(f"oversized {field} list was iterated before the cap")
+
+    bundle, context, _ = _build_bundle(allow_unchecked_base_status=False)
+    algorithm = "ed25519"
+    unsigned = bundle["unsigned_manifest"]
+    private_key = _trust_anchor_private_key(algorithm)
+    anchor_key = _trust_anchor_key(algorithm, private_key)
+    status_context = replace(
+        context, verification_time=DEFAULT_VERIFICATION_TIME, trust_anchor=anchor_key
+    )
+    snapshot = _trust_status_snapshot(
+        trust_anchor_ref=anchor_key.key_ref,
+        issuer_key_ref=unsigned["issuer_key_ref"],
+        trust_ring_ref=unsigned["trust_ring_ref"],
+        certificate_ref=context.certificate_ref,
+    )
+    # Sign the well-formed snapshot first (signing canonicalizes it), then swap
+    # in the oversized non-iterable list: the guard must fire before the
+    # signature is ever checked, so the now-stale signature is irrelevant.
+    signature = _sign_trust_status(snapshot, algorithm, private_key, anchor_key.key_ref)
+    oversized = _NoIterList()
+    oversized.extend([object()] * (pr_impl._MAX_TRUST_STATUS_ENTRIES + 1))
+    snapshot[field] = oversized
+    trust_status = _trust_status_envelope(snapshot, signature)
+    _expect_error(bundle, status_context, "TRUST_STATUS_SCHEMA", trust_status=trust_status)

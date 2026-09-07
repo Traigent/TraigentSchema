@@ -1581,6 +1581,157 @@ def test_expected_steps_check_binds_the_module_constant_not_only_the_document(
             pr_impl._validate_registry_expected_steps(document, definition)
 
 
+def _shipped_capture_policy_bytes() -> bytes:
+    """The exact bytes the verifier reads for the capture-policy document."""
+    return (
+        resources.files("traigent_schema")
+        .joinpath("data")
+        .joinpath("certification")
+        .joinpath("capture_policy_document.json")
+        .read_bytes()
+    )
+
+
+def _synthetic_registry_root(tmp_path: Path, filename: str, payload: bytes | None) -> Path:
+    """A ``data/certification`` tree the registry loader can be pointed at.
+
+    ``payload is None`` writes nothing, i.e. the resource is absent. A
+    ``pathlib.Path`` satisfies the ``Traversable`` protocol the loader takes,
+    so this exercises the real read/decode path without copying the package.
+    """
+    directory = tmp_path / "data" / "certification"
+    directory.mkdir(parents=True, exist_ok=True)
+    if payload is not None:
+        (directory / filename).write_bytes(payload)
+    return tmp_path
+
+
+def _load_capture_policy_constant(root: Path) -> tuple[dict[str, Any], str]:
+    return pr_impl._load_registry_constant(
+        "capture_policy_document.json",
+        "CapturePolicyDocumentV1",
+        "policy_digest",
+        CAPTURE_POLICY_DOMAIN,
+        root,
+    )
+
+
+def test_registry_loader_reads_a_synthetic_root_exactly_like_the_shipped_package(
+    tmp_path: Path,
+) -> None:
+    """Control for the three boundary tests below.
+
+    Each of those points the loader at a synthetic ``data/certification`` tree
+    and asserts a ``ProcessRecordRegistryError``. Without this control a typo
+    in the tree's layout would satisfy all three for the wrong reason -- an
+    absent directory rather than the defect under test. Here the same tree
+    carries the pristine shipped bytes and must yield the shipped document and
+    the frozen digest, so a failure below is attributable to the payload.
+    """
+    root = _synthetic_registry_root(
+        tmp_path, "capture_policy_document.json", _shipped_capture_policy_bytes()
+    )
+    document, digest = _load_capture_policy_constant(root)
+    assert document == CAPTURE_POLICY_DOCUMENT
+    assert digest == HEAD_CAPTURE_POLICY_DIGEST
+
+
+def test_missing_registry_resource_is_a_content_free_registry_error(tmp_path: Path) -> None:
+    """An absent package-data file must not put its path in the traceback (V2).
+
+    ``Traversable.read_text`` raises ``FileNotFoundError``, whose message is
+    the absolute path it looked for -- a build root, a home directory, or a
+    customer's deployment layout. Outside the boundary that path is what the
+    failed import prints to stderr and what any caller logging the exception
+    records.
+    """
+    root = _synthetic_registry_root(tmp_path, "capture_policy_document.json", None)
+    with pytest.raises(pr_impl.ProcessRecordRegistryError) as exc_info:
+        _load_capture_policy_constant(root)
+
+    error = exc_info.value
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    assert error.__suppress_context__ is True
+
+    rendered = _rendered_traceback(error)
+    assert tmp_path.name not in rendered
+    assert "data/certification" not in rendered
+    assert "PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:CapturePolicyDocumentV1" in rendered
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param(b"\xff\xfe not json " + SENTINEL.encode(), id="undecodable-bytes"),
+        pytest.param(('{"operator_note": "' + SENTINEL).encode(), id="unterminated-json"),
+    ],
+)
+def test_corrupt_registry_resource_leaks_no_content_into_the_traceback(
+    tmp_path: Path, payload: bytes
+) -> None:
+    """Decode failures cross the same boundary as schema failures (V2).
+
+    ``UnicodeDecodeError`` names the file it was decoding and
+    ``json.JSONDecodeError`` carries the offending document; both are raised
+    from the read step, which used to sit outside every ``from None`` in this
+    module. The sentinel is planted in the bytes and must not survive into the
+    rendered traceback.
+    """
+    root = _synthetic_registry_root(tmp_path, "capture_policy_document.json", payload)
+    with pytest.raises(pr_impl.ProcessRecordRegistryError) as exc_info:
+        _load_capture_policy_constant(root)
+
+    error = exc_info.value
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    assert error.__suppress_context__ is True
+
+    rendered = _rendered_traceback(error)
+    assert SENTINEL not in rendered
+    assert tmp_path.name not in rendered
+    assert "data/certification" not in rendered
+    assert "PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:CapturePolicyDocumentV1" in rendered
+
+
+def test_registry_canonicalization_failure_is_a_registry_error_not_canonicalization(
+    tmp_path: Path,
+) -> None:
+    """The digest step fails as a REGISTRY error, not a verification one (V1).
+
+    ``_role_digest`` -- the step these module constants are taken over --
+    converts an ``fp2`` failure into ``_fail("CANONICALIZATION")``: a
+    ``ProcessRecordVerificationError`` raised inside an ``except`` block, so
+    with implicit chaining. Before the boundary that meant a canonicalizer
+    exception (which sees the whole document) reached the import-time
+    traceback via ``__context__``, under an error code belonging to bundle
+    verification rather than to the registry at all.
+
+    ``NaN`` is the cheap way to reach exactly that step: ``json.loads``
+    accepts the literal and ``fp2.canonicalize`` rejects non-finite numbers,
+    so the document decodes and then fails to canonicalize.
+    """
+    document = copy.deepcopy(CAPTURE_POLICY_DOCUMENT)
+    document["operator_note"] = float("nan")
+    payload = json.dumps(document).encode("utf-8")
+    assert b"NaN" in payload, "the fixture must actually ship a non-finite literal"
+    root = _synthetic_registry_root(tmp_path, "capture_policy_document.json", payload)
+
+    with pytest.raises(pr_impl.ProcessRecordRegistryError) as exc_info:
+        _load_capture_policy_constant(root)
+
+    error = exc_info.value
+    assert not isinstance(error, ProcessRecordVerificationError)
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    assert error.__suppress_context__ is True
+
+    rendered = _rendered_traceback(error)
+    assert "CANONICALIZATION" not in rendered
+    assert tmp_path.name not in rendered
+    assert "PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:CapturePolicyDocumentV1" in rendered
+
+
 def test_importing_the_verifier_fails_when_shipped_registry_data_is_malformed() -> None:
     """The enforcement is at the import boundary, not only in the helper.
 
@@ -1590,11 +1741,42 @@ def test_importing_the_verifier_fails_when_shipped_registry_data_is_malformed() 
     imports it in a fresh interpreter (finding U3). It doubles as the U1 proof
     at the real boundary: the sentinel must not reach the stderr traceback that
     a failed import prints.
+
+    The control runs FIRST, against the same temp copy before it is corrupted
+    (finding V3). Asserting only that a corrupted copy fails to import proves
+    nothing on its own: any unrelated breakage inside the copy -- a missing
+    sibling file, a wrong ``PYTHONPATH``, a dependency the copy cannot reach --
+    would produce a non-zero exit and a traceback without the sentinel just as
+    well. Sharing one temp copy between control and treatment is what makes the
+    difference attributable to the corruption.
     """
     source_package = Path(str(resources.files("traigent_schema")))
     with tempfile.TemporaryDirectory() as root:
         destination = Path(root) / "traigent_schema"
         shutil.copytree(source_package, destination, ignore=shutil.ignore_patterns("__pycache__"))
+
+        # PYTHONPATH first and cwd both point at the copy, so it wins over any
+        # installed ``traigent_schema``.
+        env = {**os.environ, "PYTHONPATH": root, "PYTHONDONTWRITEBYTECODE": "1"}
+
+        # CONTROL: the pristine copy, same interpreter, env and cwd as the
+        # treatment below. It must import cleanly, and the module it imported
+        # must be the one inside the temp copy rather than an installed
+        # ``traigent_schema`` that would make the treatment meaningless.
+        control = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import traigent_schema.certification.process_record_verifier as m\n"
+                "print(m.__file__)\n",
+            ],
+            env=env,
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        assert control.returncode == 0, control.stderr
+        assert Path(control.stdout.strip()).is_relative_to(destination), control.stdout
 
         corrupted = destination / "data" / "certification" / "capture_policy_document.json"
         document = json.loads(corrupted.read_text(encoding="utf-8"))
@@ -1602,9 +1784,6 @@ def test_importing_the_verifier_fails_when_shipped_registry_data_is_malformed() 
         document["operator_note"] = SENTINEL
         corrupted.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
 
-        # PYTHONPATH first and cwd both point at the copy, so it wins over any
-        # installed ``traigent_schema``.
-        env = {**os.environ, "PYTHONPATH": root, "PYTHONDONTWRITEBYTECODE": "1"}
         imported = subprocess.run(
             [sys.executable, "-c", "import traigent_schema.certification.process_record_verifier"],
             env=env,

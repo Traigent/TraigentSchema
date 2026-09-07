@@ -50,6 +50,7 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
+from importlib.resources.abc import Traversable
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
@@ -139,10 +140,13 @@ class ProcessRecordRegistryError(RuntimeError):
     """A shipped registry document failed its own v1 schema definition.
 
     Raised at import time only, and only from
-    :func:`_validate_registry_document` or
-    :func:`_validate_registry_expected_steps`. The message is the schema
-    definition name -- a fixed identifier owned by this module -- so no
-    document content can reach an import-time traceback or a caller's logs.
+    :func:`_load_registry_constant` -- the boundary around the whole registry
+    read/validate/digest sequence -- or from the
+    :func:`_validate_registry_document` /
+    :func:`_validate_registry_expected_steps` helpers it wraps. The message is
+    the schema definition name -- a fixed identifier owned by this module --
+    so no document content, and no filesystem path, can reach an import-time
+    traceback or a caller's logs.
 
     Every raise uses ``from None``: a chained ``jsonschema`` or ``referencing``
     cause carries the offending instance, path, and schema fragment, and
@@ -438,52 +442,119 @@ def _validate_registry_expected_steps(
         raise ProcessRecordRegistryError(definition_name) from None
 
 
-def _load_registry_document(filename: str) -> dict[str, Any]:
+def _load_registry_document(
+    filename: str,
+    root: Traversable | None = None,
+) -> dict[str, Any]:
     """Load a canonical registry document shipped as package data.
 
     Uses the same ``importlib.resources`` mechanism as
     ``traigent_schema/data/fp2_conformance.json`` so these documents are
     ordinary package data rather than Python literals duplicated between
     this module and its tests.
+
+    ``root`` overrides the package the document is read from. Production
+    callers pass nothing; it exists so a test can point the loader at a
+    synthetic tree (an absent file, undecodable bytes) and exercise the read
+    path directly instead of only through a whole-package copy in a
+    subprocess.
+
+    Reading and decoding are content-bearing: ``FileNotFoundError`` and
+    ``UnicodeDecodeError`` name a filesystem path and
+    ``json.JSONDecodeError`` quotes the offending document text. This
+    function therefore has no error handling of its own and MUST only be
+    called from inside :func:`_load_registry_constant`'s boundary.
     """
     # Chained single-argument joinpath: ``Traversable.joinpath`` is typed as
     # taking one child name, so the multi-argument form does not type-check.
-    root = resources.files("traigent_schema")
-    text = root.joinpath("data").joinpath("certification").joinpath(filename).read_text(
+    package = resources.files("traigent_schema") if root is None else root
+    text = package.joinpath("data").joinpath("certification").joinpath(filename).read_text(
         encoding="utf-8"
     )
     return cast(dict[str, Any], json.loads(text))
 
 
-_CAPTURE_POLICY_DOCUMENT: dict[str, Any] = _load_registry_document("capture_policy_document.json")
-_PROCESS_DEFINITION_DOCUMENT: dict[str, Any] = _load_registry_document(
-    "process_definition_document.json"
-)
-# The digests below are only as trustworthy as the documents they cover, so the
-# shipped package data is checked against its schema definition here, at import
-# and BEFORE it is hashed, rather than being assumed well-formed because it once
-# was. Validating first is what makes the self-digest guard in
-# ``_validate_registry_document`` reach the preimage these constants are taken
-# over, not just the copy the validator sees.
-_validate_registry_document(
-    _CAPTURE_POLICY_DOCUMENT,
+def _load_registry_constant(
+    filename: str,
+    definition_name: str,
+    digest_field: str,
+    domain: bytes,
+    root: Traversable | None = None,
+) -> tuple[dict[str, Any], str]:
+    """Read, validate, tie and digest one shipped registry document.
+
+    The single content-free boundary for the whole registry path. Every step
+    it wraps can raise something that carries content:
+
+    * the read/decode raises ``FileNotFoundError`` or ``UnicodeDecodeError``
+      naming a filesystem path, or ``json.JSONDecodeError`` quoting the
+      document text;
+    * :func:`_validate_registry_document` can surface a ``jsonschema`` or
+      ``referencing`` error carrying the offending instance;
+    * :func:`_role_digest` converts an ``fp2`` canonicalization failure into
+      ``ProcessRecordVerificationError("CANONICALIZATION")`` -- a
+      *verification* error, raised with implicit chaining, whose
+      ``__context__`` is the canonicalizer's own exception.
+
+    The per-site ``from None`` raises inside those helpers cover only the
+    cases they were written for; this boundary is what makes the property
+    hold for the sequence as a whole. It converts EVERY exception -- schema,
+    decode, digest, or a ``ProcessRecordVerificationError`` from ``_fail`` --
+    into the fixed :class:`ProcessRecordRegistryError` naming only
+    ``definition_name``, a constant owned by this module.
+
+    The raise is deliberately placed AFTER the handler has exited rather than
+    inside it. ``raise ... from None`` clears ``__cause__`` and stops
+    ``traceback.format_exception`` from printing ``__context__``, but inside a
+    handler the interpreter still LINKS the caught exception as
+    ``__context__`` -- and that object holds the content: a
+    ``UnicodeDecodeError`` carries the undecodable bytes, a
+    ``json.JSONDecodeError`` the document text, a ``ValidationError`` the
+    offending instance. Suppressed from printing is not absent; anything that
+    walks the chain explicitly, or reprs the exception, would still see it.
+    Once the handler has exited there is no exception being handled, so
+    ``__context__`` is genuinely ``None`` and the caught exception -- with its
+    traceback and its frames' locals -- becomes unreachable. The ``from None``
+    is kept for the case where this module is imported from inside some other
+    caller's ``except`` block.
+    """
+    loaded: tuple[dict[str, Any], str] | None
+    try:
+        document = _load_registry_document(filename, root)
+        _validate_registry_document(document, definition_name, digest_field, domain)
+        _validate_registry_expected_steps(document, definition_name)
+        loaded = (document, _role_digest(domain, document))
+    except Exception:
+        loaded = None
+    if loaded is None:
+        raise ProcessRecordRegistryError(definition_name) from None
+    return loaded
+
+
+# The digests below are only as trustworthy as the documents they cover, so each
+# shipped document is read, checked against its schema definition, tied to
+# ``_EXPECTED_STEPS``, and only then hashed -- at import, and all four steps
+# inside one ``_load_registry_constant`` boundary. Validating BEFORE hashing is
+# what makes the self-digest guard in ``_validate_registry_document`` reach the
+# preimage these constants are taken over, not just the copy the validator sees;
+# doing the read and the digest inside the boundary is what keeps a missing
+# file, undecodable bytes, or a canonicalization failure from putting a
+# filesystem path or document content into the import-time traceback.
+# ``expected_steps`` is carried by both shipped documents and ``_EXPECTED_STEPS``
+# is the third copy -- the one the report is built from -- so the boundary ties
+# the constant to each document before that document's digest is taken.
+_CAPTURE_POLICY_DOCUMENT, _CAPTURE_POLICY_DIGEST = _load_registry_constant(
+    "capture_policy_document.json",
     "CapturePolicyDocumentV1",
     "policy_digest",
     _CAPTURE_POLICY_DOMAIN,
 )
-_validate_registry_document(
-    _PROCESS_DEFINITION_DOCUMENT,
+_PROCESS_DEFINITION_DOCUMENT, _PROCESS_DEFINITION_DIGEST = _load_registry_constant(
+    "process_definition_document.json",
     "ProcessDefinitionDocumentV1",
     "definition_digest",
     _PROCESS_DEFINITION_DOMAIN,
 )
-# Both shipped documents carry ``expected_steps``; ``_EXPECTED_STEPS`` is the
-# third copy and the one the report is built from, so it is tied to both here.
-_validate_registry_expected_steps(_CAPTURE_POLICY_DOCUMENT, "CapturePolicyDocumentV1")
-_validate_registry_expected_steps(_PROCESS_DEFINITION_DOCUMENT, "ProcessDefinitionDocumentV1")
-
-_CAPTURE_POLICY_DIGEST = _role_digest(_CAPTURE_POLICY_DOMAIN, _CAPTURE_POLICY_DOCUMENT)
-_PROCESS_DEFINITION_DIGEST = _role_digest(_PROCESS_DEFINITION_DOMAIN, _PROCESS_DEFINITION_DOCUMENT)
 _EXPECTED_STEPS_DIGEST = _role_digest(_EXPECTED_STEPS_DOMAIN, list(_EXPECTED_STEPS))
 
 _CAPTURE_POLICY_IDENTITY: dict[str, Any] = {

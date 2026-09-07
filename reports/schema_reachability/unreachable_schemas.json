@@ -13,8 +13,8 @@
       "refOrEndpointGraph": 361
     },
     "reachableCount": 395,
-    "schemaFileCount": 434,
-    "unreachableCount": 39
+    "schemaFileCount": 435,
+    "unreachableCount": 40
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -33,6 +33,7 @@
     "certification/certificate_registry_agent_revision_v0_schema.json",
     "certification/certificate_registry_measurement_contract_v0_schema.json",
     "certification/certificate_rejection_v0_schema.json",
+    "certification/process_record_v1_schema.json",
     "evaluation/evaluation_request_schema.json",
     "evaluation/evaluation_results_schema.json",
     "evaluation/evaluation_schema.json",

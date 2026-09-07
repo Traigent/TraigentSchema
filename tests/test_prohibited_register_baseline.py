@@ -133,7 +133,9 @@ class TestDocumentValidatesAgainstSchema:
         Draft7Validator.check_schema(schema)
 
     def test_shape_fields_fixed(self, document: dict) -> None:
-        assert document["schema_version"] == "traigent.certification.prohibited_register_baseline.v1"
+        assert (
+            document["schema_version"] == "traigent.certification.prohibited_register_baseline.v1"
+        )
         assert document["hash_algorithm"] == "sha256"
         assert document["closed"] is True
         assert document["baseline_size"] == 40
@@ -604,12 +606,24 @@ class TestImportBoundarySubprocess:
         if corrupt == "malformed_json":
             assert sentinel not in imported.stderr
 
+        # Attempt the failing import IN the probing interpreter and check
+        # ``sys.modules`` in that same process: a fresh interpreter that never
+        # imported the module would trivially satisfy an absence assertion.
         probe = (
             "import sys\n"
-            "assert 'traigent_schema.certification.prohibited_register' not in sys.modules\n"
+            "try:\n"
+            "    import traigent_schema.certification.prohibited_register\n"
+            "except Exception as exc:\n"
+            "    assert type(exc).__name__ == 'ProhibitedRegisterBaselineError', "
+            "type(exc).__name__\n"
+            "    name = 'traigent_schema.certification.prohibited_register'\n"
+            "    assert name not in sys.modules, 'partial module left in sys.modules'\n"
+            "    print('CLEAN')\n"
+            "    sys.exit(0)\n"
+            "sys.exit(9)\n"
         )
-        # The failed import above already exited the interpreter; re-run in a
-        # fresh one to confirm no partial module was left importable/cached
-        # across a clean process boundary.
         probed = self._run(probe, env, root)
         assert probed.returncode == 0, probed.stderr
+        assert probed.stdout.strip() == "CLEAN"
+        if corrupt == "malformed_json":
+            assert sentinel not in probed.stderr

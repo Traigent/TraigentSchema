@@ -498,10 +498,13 @@ def _load_registry_constant(
 
     The per-site ``from None`` raises inside those helpers cover only the
     cases they were written for; this boundary is what makes the property
-    hold for the sequence as a whole. It converts EVERY exception -- schema,
+    hold for the sequence as a whole. It converts every ``Exception`` -- schema,
     decode, digest, or a ``ProcessRecordVerificationError`` from ``_fail`` --
     into the fixed :class:`ProcessRecordRegistryError` naming only
-    ``definition_name``, a constant owned by this module.
+    ``definition_name``, a constant owned by this module. ``BaseException``
+    control-flow exceptions (``KeyboardInterrupt``, ``SystemExit``,
+    ``GeneratorExit``) are deliberately outside the guarantee and propagate
+    unchanged.
 
     The raise is deliberately placed AFTER the handler has exited rather than
     inside it. ``raise ... from None`` clears ``__cause__`` and stops
@@ -514,9 +517,11 @@ def _load_registry_constant(
     walks the chain explicitly, or reprs the exception, would still see it.
     Once the handler has exited there is no exception being handled, so
     ``__context__`` is genuinely ``None`` and the caught exception -- with its
-    traceback and its frames' locals -- becomes unreachable. The ``from None``
-    is kept for the case where this module is imported from inside some other
-    caller's ``except`` block.
+    traceback and its frames' locals -- becomes unreachable. One case remains:
+    when this module is imported from inside some other caller's ``except``
+    block, the raise links the caller's in-flight exception as ``__context__``
+    (``from None`` only suppresses its display), so the error is caught once
+    more, its ``__context__`` cleared, and the same object re-raised.
     """
     loaded: tuple[dict[str, Any], str] | None
     try:
@@ -527,7 +532,18 @@ def _load_registry_constant(
     except Exception:
         loaded = None
     if loaded is None:
-        raise ProcessRecordRegistryError(definition_name) from None
+        failure = ProcessRecordRegistryError(definition_name)
+        try:
+            raise failure from None
+        except ProcessRecordRegistryError:
+            # ``from None`` clears ``__cause__`` and suppresses display, but if
+            # this module is imported from inside a caller's own ``except``
+            # block the interpreter still links that caller's exception as
+            # ``__context__`` at raise time. Clear the link and re-raise the
+            # same object so the registry error references nothing outside
+            # this module.
+            failure.__context__ = None
+            raise
     return loaded
 
 

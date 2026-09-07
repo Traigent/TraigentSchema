@@ -1660,6 +1660,34 @@ def test_missing_registry_resource_is_a_content_free_registry_error(tmp_path: Pa
     assert "PROCESS_RECORD_REGISTRY_DOCUMENT_INVALID:CapturePolicyDocumentV1" in rendered
 
 
+def test_registry_error_raised_inside_a_callers_handler_carries_no_context(
+    tmp_path: Path,
+) -> None:
+    """Importing from inside a caller's ``except`` block must not link that caller's exception.
+
+    ``raise ... from None`` clears ``__cause__`` and suppresses the display of
+    ``__context__``, but at raise time the interpreter still LINKS whatever
+    exception the caller is currently handling as ``__context__``. The
+    registry error must reference nothing outside this module, so the
+    boundary clears that link and re-raises the same object.
+    """
+    root = _synthetic_registry_root(tmp_path, "capture_policy_document.json", None)
+    caught: pr_impl.ProcessRecordRegistryError | None = None
+    try:
+        raise ValueError(SENTINEL)
+    except ValueError:
+        try:
+            _load_capture_policy_constant(root)
+        except pr_impl.ProcessRecordRegistryError as err:
+            caught = err
+
+    assert caught is not None
+    assert caught.__cause__ is None
+    assert caught.__context__ is None
+    assert SENTINEL not in _rendered_traceback(caught)
+    assert SENTINEL not in repr(caught)
+
+
 @pytest.mark.parametrize(
     "payload",
     [

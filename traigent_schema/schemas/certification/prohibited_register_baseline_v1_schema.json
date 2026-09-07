@@ -1,0 +1,312 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/prohibited_register_baseline_v1_schema.json",
+  "title": "Prohibited-Claims Register — Historical Baseline (P-1..P-40) v1",
+  "description": "The owner-ratified 40-entry historical baseline of the certificate-compiler prohibited-claims register (P-1 through P-40, catalog `cat.cert.prohibited.baseline.v0`), transcribed verbatim from the 'Prohibited sentence form' column of runs/response-comparison-debugging/prohibited-register-P1-P40-DRAFT.md (owner ratification decision A, 2026-09-07). This document is the CANONICAL BASELINE ONLY — it does not include the two already-merged Wave-C addition tables (WAVE_C_C6_C1_ADDITIONS, WAVE_C_C2_C5_ADDITIONS) that TraigentBackend's prohibited_claims.py ships alongside this baseline; those remain owned by TraigentBackend. Closed shape: exactly 40 entries, no additional properties anywhere. The document is content-addressed by a separate sibling pin file (prohibited_register_baseline.digest.json) rather than a self-embedded digest field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_id",
+    "canonicalization_profile",
+    "hash_algorithm",
+    "closed",
+    "baseline_size",
+    "entry_count",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "traigent.certification.prohibited_register_baseline.v1"
+    },
+    "catalog_id": {
+      "const": "cat.cert.prohibited.baseline.v0"
+    },
+    "canonicalization_profile": {
+      "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+    },
+    "hash_algorithm": {
+      "const": "sha256"
+    },
+    "closed": {
+      "const": true
+    },
+    "baseline_size": {
+      "const": 40
+    },
+    "entry_count": {
+      "const": 40
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 40,
+      "maxItems": 40,
+      "items": [
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-1" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-2" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-3" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-4" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-5" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-6" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-7" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-8" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-9" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-10" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-11" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-12" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-13" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-14" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-15" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-16" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-17" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-18" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-19" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-20" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-21" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-22" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-23" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-24" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-25" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-26" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-27" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-28" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-29" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-30" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-31" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-32" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-33" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-34" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-35" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-36" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-37" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-38" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-39" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/definitions/ProhibitedRegisterBaselineEntryV1" },
+            { "properties": { "local_id": { "const": "CERT-P-40" } } }
+          ]
+        }
+      ],
+      "additionalItems": false
+    }
+  },
+  "definitions": {
+    "ProhibitedRegisterBaselineEntryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog_id", "local_id", "text"],
+      "properties": {
+        "catalog_id": {
+          "const": "cat.cert.prohibited.baseline.v0"
+        },
+        "local_id": {
+          "type": "string",
+          "enum": ["CERT-P-1", "CERT-P-2", "CERT-P-3", "CERT-P-4", "CERT-P-5", "CERT-P-6", "CERT-P-7", "CERT-P-8", "CERT-P-9", "CERT-P-10", "CERT-P-11", "CERT-P-12", "CERT-P-13", "CERT-P-14", "CERT-P-15", "CERT-P-16", "CERT-P-17", "CERT-P-18", "CERT-P-19", "CERT-P-20", "CERT-P-21", "CERT-P-22", "CERT-P-23", "CERT-P-24", "CERT-P-25", "CERT-P-26", "CERT-P-27", "CERT-P-28", "CERT-P-29", "CERT-P-30", "CERT-P-31", "CERT-P-32", "CERT-P-33", "CERT-P-34", "CERT-P-35", "CERT-P-36", "CERT-P-37", "CERT-P-38", "CERT-P-39", "CERT-P-40"],
+          "description": "Stable canonical identifier CERT-P-1..CERT-P-40. The legacy P-1..P-40 coordinates used by the ratifying draft survive only as the numeric suffix here."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600,
+          "description": "The prohibited sentence form, verbatim from the draft's 'Prohibited sentence form' column, including its own literal quotation marks."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,211 @@
+{
+  "schema_version": "traigent.certification.prohibited_register_baseline.v1",
+  "catalog_id": "cat.cert.prohibited.baseline.v0",
+  "canonicalization_profile": "jcs_v1",
+  "hash_algorithm": "sha256",
+  "closed": true,
+  "baseline_size": 40,
+  "entry_count": 40,
+  "entries": [
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-1",
+      "text": "\"This certificate's build-step history is complete.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-2",
+      "text": "\"No build step was omitted from this certificate.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-3",
+      "text": "\"Every failed attempt, waived step, or replan is represented in this certificate.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-4",
+      "text": "\"This certificate's step universe was reconciled against a plan; nothing outside the plan happened.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-5",
+      "text": "\"This certificate's event ledger is provably free of deletion, reordering, or truncation by any party, including Traigent staff.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-6",
+      "text": "\"A signed chain root proves the underlying event sequence is complete and unaltered.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-7",
+      "text": "\"This certificate is tamper-resistant against the party that issues it.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-8",
+      "text": "\"The agent revision certified here is the agent revision currently deployed.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-9",
+      "text": "\"No drift has occurred between certification and now.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-10",
+      "text": "\"This certificate remains authoritative for the agent wherever it is running.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-11",
+      "text": "\"The evaluation dataset used correctly measures the target task.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-12",
+      "text": "\"The evaluator (judge/scorer) used is a correct or unbiased measure of the metric it reports.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-13",
+      "text": "\"The certified agent behaves correctly, or as intended, in general.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-14",
+      "text": "\"The certified result generalizes to inputs, workloads, or deployments beyond the declared evaluation.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-15",
+      "text": "\"Because the certified configuration won on the declared dataset, it is the best configuration for the customer's production traffic.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-16",
+      "text": "\"Passing this certificate's evaluation implies the agent will pass a materially different or expanded evaluation.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-17",
+      "text": "\"The certified configuration is statistically better than the alternatives evaluated against it.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-18",
+      "text": "\"The certified winner is reproducible / would win again if re-run.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-19",
+      "text": "\"The margin between the winning configuration and the runner-up is meaningful or reliable.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-20",
+      "text": "\"The certificate's statistical language remains valid across a criteria change.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-21",
+      "text": "\"No data leaves the customer's environment under this certificate's disclosed scope.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-22",
+      "text": "\"This certificate proves privacy-preserving operation.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-23",
+      "text": "\"Free-form content never crosses the certified boundary, as a general product statement.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-24",
+      "text": "\"A cryptographic commitment on this certificate proves the underlying content is private.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-25",
+      "text": "\"This certificate can be independently verified without contacting Traigent.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-26",
+      "text": "\"A relying party outside Traigent can reproduce this certificate's verification result today.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-27",
+      "text": "\"This certificate remains verifiable after Traigent upgrades its schemas or software.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-28",
+      "text": "\"The private key used to sign this certificate is held under audited custody with restricted mint authority.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-29",
+      "text": "\"This certificate can be checked against a revocation list to confirm the signing key was not compromised.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-30",
+      "text": "\"Only Traigent-authorized principals can mint a certificate with this issuer key.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-31",
+      "text": "\"No LLM involved in producing this certificate or the report it certifies ever hallucinated.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-32",
+      "text": "\"This certificate's free-text narrative sections are factually accurate.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-33",
+      "text": "\"A high claim-acceptance rate under C1 means the underlying work was correct.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-34",
+      "text": "\"Fields withheld from this disclosure profile are still provably present and accounted for.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-35",
+      "text": "\"This certificate is interoperable with third-party selective-disclosure standards (e.g., C2PA).\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-36",
+      "text": "\"A customer's choice to withhold a field from disclosure is itself concealed.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-37",
+      "text": "\"This certificate remains valid indefinitely once issued.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-38",
+      "text": "\"A certificate that has not been re-checked recently is still current.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-39",
+      "text": "\"Re-issuing a certificate under upgraded verifiers is an update to the original certificate.\""
+    },
+    {
+      "catalog_id": "cat.cert.prohibited.baseline.v0",
+      "local_id": "CERT-P-40",
+      "text": "\"The absence of a drift, revocation, or re-verification finding on this certificate means none occurred.\""
+    }
+  ]
+}

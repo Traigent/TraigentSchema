@@ -2206,8 +2206,6 @@
         "NC_EVQ_DESCRIPTOR_UNOPENED",
         "NC_EVQ_NO_SELECTION_UNBIASEDNESS",
         "NC_EVQ_NOMINAL_COVERAGE_ONLY",
-        "NC_EVQ_STATISTICS_NOT_RECOMPUTED",
-        "NC_EVQ_REF_LINKABILITY",
         "NC_EVQ_FRONTIER_NOT_CAUSAL",
         "NC_EVQ_COST_MEASURED_NOT_QUOTED",
         "NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE",
@@ -2231,8 +2229,6 @@
         "tmpl.noncert.evq_descriptor_commitment_unopened.v1",
         "tmpl.noncert.evq_no_selection_unbiasedness_claim.v1",
         "tmpl.noncert.evq_nominal_coverage_only.v1",
-        "tmpl.noncert.evq_statistics_not_recomputed_by_verifier.v1",
-        "tmpl.noncert.evq_ref_linkability.v1",
         "tmpl.noncert.evq_frontier_descriptive_only.v1",
         "tmpl.noncert.evq_cost_at_pinned_price_list.v1",
         "tmpl.noncert.evq_plan_ordering_out_of_scope.v1",
@@ -2271,10 +2267,10 @@
       }
     },
     "EvaluatorQualityNonClaimsFixedTupleV1": {
-      "description": "The TWENTY mandatory printed non-claims in canonical print order. additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid, mirroring the frozen NonClaimsFixedTupleV0.",
+      "description": "The EIGHTEEN mandatory printed non-claims in canonical print order. additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid, mirroring the frozen NonClaimsFixedTupleV0.",
       "type": "array",
-      "minItems": 20,
-      "maxItems": 20,
+      "minItems": 18,
+      "maxItems": 18,
       "additionalItems": false,
       "items": [
         {
@@ -2425,40 +2421,6 @@
                 },
                 "reason_template_id": {
                   "const": "tmpl.noncert.evq_nominal_coverage_only.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "NC_EVQ_STATISTICS_NOT_RECOMPUTED"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.evq_statistics_not_recomputed_by_verifier.v1"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
-            },
-            {
-              "properties": {
-                "non_claim_id": {
-                  "const": "NC_EVQ_REF_LINKABILITY"
-                },
-                "reason_template_id": {
-                  "const": "tmpl.noncert.evq_ref_linkability.v1"
                 }
               }
             }

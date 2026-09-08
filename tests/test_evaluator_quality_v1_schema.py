@@ -550,7 +550,7 @@ def test_measurement_set_requires_at_least_one_axis_block() -> None:
 
 def test_non_claims_tuple_is_fixed_length_and_ordered() -> None:
     rows = _non_claim_rows()
-    assert len(rows) == 20
+    assert len(rows) == 18
     assert _errors(rows, "EvaluatorQualityNonClaimsFixedTupleV1") == []
 
     too_few = rows[:-1]

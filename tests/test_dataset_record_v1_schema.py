@@ -545,3 +545,62 @@ def test_schema_cells_max_items_still_pins_the_declared_partition_guard() -> Non
         "wire-reachable below the schema bound and needs a wire negative, not "
         "just a unit call"
     )
+
+
+def test_schema_claim_support_rows_still_forecloses_a_duplicate_claim_id() -> None:
+    """Sibling to ``test_schema_still_pins_the_wire_shape_two_unit_called_guards_rely_on``
+    (T3 round 6 P3-2).
+
+    ``dataset_record_verifier._check_support_rows`` builds
+    ``by_id = {row["claim_id"]: row for row in claim_support_rows}`` and
+    guards it only with ``set(by_id) != set(_CLAIM_IDS)`` -- a dict
+    comprehension is last-entry-wins, so a SIXTH row repeating an existing
+    ``claim_id`` would be silently dropped from ``by_id`` and the set check
+    would still pass, exactly the same last-entry-wins shape astra's F1
+    exploited against ``leaf_list_digests`` (see
+    ``test_duplicate_corpus_ref_descriptor_hides_a_contradictory_signed_count``
+    in ``test_dataset_record_verifier.py``). Nothing in the verifier itself
+    checks ``len(claim_support_rows) == 5`` or row-position uniqueness; the
+    guard is foreclosed ONLY by ``DatasetRecordClaimSupportRowsV1`` fixing
+    the array at exactly five ordered, positionally ``const``-pinned rows
+    (``minItems``/``maxItems: 5``, ``additionalItems: false``, one ``const``
+    ``claim_id`` per index) -- a sixth row, or a repeated ``claim_id`` at the
+    wrong index, is schema-invalid before ``by_id`` is ever built.
+
+    If a future schema change widens ``maxItems`` past 5, drops
+    ``additionalItems: false``, or removes a per-index ``claim_id`` const,
+    THIS test fails -- the signal that ``by_id``'s last-entry-wins lookup in
+    ``_check_support_rows`` just became wire-reachable with no negative test
+    proving it still rejects the widened shape.
+    """
+    from traigent_schema.certification import dataset_record_verifier as dr
+
+    rows_schema = SCHEMA["definitions"]["DatasetRecordClaimSupportRowsV1"]
+    assert rows_schema["minItems"] == 5, (
+        "DatasetRecordClaimSupportRowsV1.minItems narrowed below 5 -- "
+        "dataset_record_verifier._check_support_rows's `by_id` lookup "
+        "no longer has a schema guarantee of exactly five rows"
+    )
+    assert rows_schema["maxItems"] == 5, (
+        "DatasetRecordClaimSupportRowsV1.maxItems widened past 5 -- "
+        "a sixth, duplicate-claim_id row is now wire-reachable and would be "
+        "silently dropped by _check_support_rows's last-entry-wins `by_id` "
+        "lookup; needs a wire negative, not just this schema pin"
+    )
+    assert rows_schema.get("additionalItems") is False, (
+        "DatasetRecordClaimSupportRowsV1.additionalItems is no longer `false` -- "
+        "extra rows past the five positional schemas are now wire-reachable, "
+        "reopening the `by_id` last-entry-wins channel"
+    )
+    for index, claim_id in enumerate(dr._CLAIM_IDS):
+        item_schema = rows_schema["items"][index]
+        pinned = next(
+            member["properties"]["claim_id"]
+            for member in item_schema["allOf"]
+            if "properties" in member
+        )
+        assert pinned == {"const": claim_id}, (
+            f"DatasetRecordClaimSupportRowsV1 item {index} no longer const-pins "
+            f"claim_id to {claim_id!r} -- a reordered or repeated claim_id row "
+            "is now wire-reachable and needs a wire negative"
+        )

@@ -1299,17 +1299,13 @@ def _check_leaf_list_digests(
     corpus, the plain sorted leaf token list for use by the overlap/
     disjointness checks. The reserved item-set key
     (``identity["dataset_ref"]``, see ``_check_cell_roots``) is not a
-    leakage corpus and is skipped here."""
+    leakage corpus and is skipped here.
+
+    Uniqueness of ``corpus_ref`` across ``leaf_list_digests`` is established
+    unconditionally in ``_check_corpus_ref_descriptors``, not here: it is a
+    property of the signed material alone (T3 round 6 P2), and this function
+    only runs when the caller supplied a fifth input at all."""
     recomputed: dict[str, list[str]] = {}
-    seen_refs: set[str] = set()
-    for index, entry in enumerate(leakage_report["leaf_list_digests"]):
-        corpus_ref = entry["corpus_ref"]
-        if corpus_ref in seen_refs:
-            _fail(
-                "LEAF_LIST_DIGEST_MISMATCH",
-                f"/leakage_report/leaf_list_digests/{index}/corpus_ref",
-            )
-        seen_refs.add(corpus_ref)
     declared_by_ref = {entry["corpus_ref"]: entry for entry in leakage_report["leaf_list_digests"]}
     dataset_ref = identity["dataset_ref"]
     for corpus_ref, entries in leaf_lists.items():
@@ -1436,12 +1432,23 @@ def _check_corpus_ref_descriptors(
     have DS4 verify over them: a free, signed, issuer-chosen channel in the
     exact field ``CorpusRefV1`` exists to close.
 
-    Two things are established here. First, every entry in
+    Three things are established here. First, every entry in
     ``leaf_list_digests`` must have a ``corpus_ref`` re-derived from its OWN
     ``leaf_list_digest`` under this record's leakage scope -- a descriptor
-    cannot name a ref unrelated to the digest it publishes. Second, both refs
-    of every finding must land in the set of refs so derived, unioned with
-    the attestation's own (already re-derived) corpus refs.
+    cannot name a ref unrelated to the digest it publishes. Second, no two
+    entries may repeat a ``corpus_ref`` (T3 round 6 P2): the schema permits a
+    duplicate, and a lookup built from ``leaf_list_digests`` elsewhere in this
+    module (``_check_leaf_list_digests``) is last-entry-wins, so an issuer
+    could sign a first, wrong descriptor for a corpus (a fabricated
+    ``leaf_count``) ahead of the correct one -- and the earlier signed entry
+    would silently be dropped from every reader's lookup. This check runs
+    unconditionally, over signed material alone, so the same bundle is
+    rejected whether or not the caller happens to hold any leaf list; making
+    it depend on the fifth (caller-supplied, optional) input would let two
+    relying parties reach different verdicts on one signed record purely
+    because of what they, not the issuer, chose to bring. Third, both refs of
+    every finding must land in the set of refs so derived, unioned with the
+    attestation's own (already re-derived) corpus refs.
 
     This runs whether or not leaf lists were supplied: the derivation is over
     signed record material only, so the fifth input has no bearing on it.
@@ -1459,6 +1466,12 @@ def _check_corpus_ref_descriptors(
         expected = _derive_corpus_ref(entry["leaf_list_digest"], leakage_scope_ref)
         if entry["corpus_ref"] != expected:
             _fail("REF_NOT_DERIVED", f"/leakage_report/leaf_list_digests/{index}/corpus_ref")
+        if entry["corpus_ref"] in known:
+            # Bare container path, not an index: with two signed entries for
+            # one corpus_ref the verifier cannot tell which is forged, so it
+            # must not point at either as though it alone were at fault
+            # (T3 round 6 P3-1).
+            _fail("LEAF_LIST_DIGEST_MISMATCH", "/leakage_report/leaf_list_digests")
         known.add(entry["corpus_ref"])
     if attestation is not None:
         for corpus in attestation["corpora"]:

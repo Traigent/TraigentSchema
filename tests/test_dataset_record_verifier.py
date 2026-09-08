@@ -1376,7 +1376,8 @@ def test_leaf_list_whose_length_disagrees_with_leaf_count_fails() -> None:
 
 
 def test_duplicate_corpus_ref_descriptor_hides_a_contradictory_signed_count() -> None:
-    """Test 28b (astra round 5 F1, executed and confirmed on head 876ee3f).
+    """Test 28b (astra round 5 F1, executed and confirmed on head 876ee3f;
+    relocated and re-scoped per T3 round 6 P2/P3-1).
 
     ``_check_leaf_list_digests`` built ``declared_by_ref`` with a dict
     comprehension over ``leaf_list_digests`` -- last-entry-wins on a
@@ -1387,7 +1388,13 @@ def test_duplicate_corpus_ref_descriptor_hides_a_contradictory_signed_count() ->
     earlier signed entry and only the last is ever checked. Astra's probe
     against the unfixed verifier reached ``DATASET_RECORD_VERIFIED`` with
     all five claims, never examining the dropped descriptor's contradictory
-    count. Uniqueness must be established before the lookup is built."""
+    count. Uniqueness must be established before the lookup is built --
+    now in ``_check_corpus_ref_descriptors``, which runs unconditionally
+    over signed material alone (see the sibling
+    ``..._without_any_leaf_lists_supplied`` regression below for the case
+    that originally survived this fix, T3 round 6 P2). The failure location
+    is the bare container, not either entry's index: the verifier cannot
+    tell which of the pair is forged (T3 round 6 P3-1)."""
     built = _build()
     report = built.bundle["leakage_report"]
     correct_entry = next(
@@ -1398,7 +1405,35 @@ def test_duplicate_corpus_ref_descriptor_hides_a_contradictory_signed_count() ->
     _redigest_leakage(built)
     _refresh_leakage_evidence_refs(built)
     error = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH")
-    assert error.location == "/leakage_report/leaf_list_digests/1/corpus_ref"
+    assert error.location == "/leakage_report/leaf_list_digests"
+
+
+def test_duplicate_corpus_ref_descriptor_rejected_without_any_leaf_lists_supplied() -> None:
+    """Test 28b-2 (T3 round 6 P2, team-lead REVISE on 8494b06).
+
+    Reviewer probe, confirmed by captain-1 against 8494b06: a relying party
+    holding NO leaf lists at all still reached
+    ``DATASET_RECORD_VERIFIED_CLAIMS_PARTIAL`` on a bundle carrying two
+    signed ``leaf_list_digests`` descriptors for one ``corpus_ref`` (leaf
+    counts 0 and 60), because the uniqueness loop lived inside
+    ``_check_leaf_list_digests``, which only runs when the caller supplies
+    the fifth (optional) input. ``corpus_ref`` uniqueness is a property of
+    the SIGNED record alone, so the same bundle must be rejected identically
+    whether or not the caller happens to hold any leaf list -- two relying
+    parties reading one signed record must not disagree on whether it is
+    acceptable. Uses the same contradictory-count fixture as the sibling
+    test above, but verifies with ``leaf_lists=None``."""
+    built = _build(include_leaf_lists=False)
+    report = built.bundle["leakage_report"]
+    correct_entry = next(
+        entry for entry in report["leaf_list_digests"] if entry["corpus_ref"] == built.corpus_a_ref
+    )
+    bogus_entry = {**correct_entry, "leaf_count": 0}
+    report["leaf_list_digests"].insert(0, bogus_entry)
+    _redigest_leakage(built)
+    _refresh_leakage_evidence_refs(built)
+    error = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH", leaf_lists=None)
+    assert error.location == "/leakage_report/leaf_list_digests"
 
 
 def test_orphaned_leakage_report_attestation_digest_fails_when_attestation_absent() -> None:

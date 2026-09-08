@@ -1701,9 +1701,79 @@
           "type": "array",
           "minItems": 5,
           "maxItems": 5,
-          "items": {
-            "$ref": "#/definitions/ProbeResultV1"
-          }
+          "additionalItems": false,
+          "items": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ProbeResultV1"
+                },
+                {
+                  "properties": {
+                    "probe_id": {
+                      "const": "constant_output"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ProbeResultV1"
+                },
+                {
+                  "properties": {
+                    "probe_id": {
+                      "const": "verbosity"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ProbeResultV1"
+                },
+                {
+                  "properties": {
+                    "probe_id": {
+                      "const": "position"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ProbeResultV1"
+                },
+                {
+                  "properties": {
+                    "probe_id": {
+                      "const": "self_preference"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ProbeResultV1"
+                },
+                {
+                  "properties": {
+                    "probe_id": {
+                      "const": "one_token_fool"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
         },
         "perturbation_set_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"

@@ -148,6 +148,14 @@ def _measurement_set() -> dict:
         "measurement_window_start": "2026-09-05T10:11:12Z",
         "measurement_window_end": "2026-09-05T11:11:12Z",
         "measurement_set_digest": SHA,
+        "calibration": {
+            "expected_calibration_error": _measurement(
+                "calibration_ece", direction="lower_is_better"
+            ),
+            "calibration_slope": _measurement("calibration_slope"),
+            "binning_policy": "equal_width",
+            "bin_count": 10,
+        },
     }
 
 
@@ -521,6 +529,12 @@ def test_evaluation_scope_is_required_on_the_measurement_set() -> None:
     assert _errors(document, "EvaluatorMeasurementSetV1")
 
 
+def test_measurement_set_requires_at_least_one_axis_block() -> None:
+    document = _measurement_set()
+    del document["calibration"]
+    assert _errors(document, "EvaluatorMeasurementSetV1")
+
+
 # --------------------------------------------------------------------------
 # Group 5 -- the printed surface and the #458-class defect surface
 # --------------------------------------------------------------------------
@@ -630,3 +644,41 @@ def test_no_open_map_or_free_text_field_exists() -> None:
                 exceptions.append((definition_name, prop_name))
 
     assert set(exceptions) == _ALLOWED_PATTERN_ONLY_STRINGS
+
+
+def _probe_result(probe_id: str) -> dict:
+    return {
+        "probe_id": probe_id,
+        "status": "skipped",
+        "skip_reason": "insufficient_probe_cells",
+    }
+
+
+def _probe_results() -> list:
+    return [
+        _probe_result(probe_id)
+        for probe_id in ("constant_output", "verbosity", "position", "self_preference", "one_token_fool")
+    ]
+
+
+def test_probe_results_are_exactly_five_pinned_to_registry_order() -> None:
+    reliability = {
+        "probe_results": _probe_results(),
+        "perturbation_set_digest": SHA,
+    }
+    assert _errors(reliability, "ReliabilityBlockV1") == []
+
+    # The registry order pinned into the tuple must match PerturbationProbeIdV1's
+    # own enum order -- if the registry is ever reordered, the packaged
+    # perturbation_set document and this tuple must be reordered together.
+    assert [item["probe_id"] for item in _probe_results()] == DEFS["PerturbationProbeIdV1"]["enum"]
+
+    all_one_probe = {
+        "probe_results": [_probe_result("constant_output") for _ in range(5)],
+        "perturbation_set_digest": SHA,
+    }
+    assert _errors(all_one_probe, "ReliabilityBlockV1")
+
+    swapped = _probe_results()
+    swapped[0], swapped[1] = swapped[1], swapped[0]
+    assert _errors({"probe_results": swapped, "perturbation_set_digest": SHA}, "ReliabilityBlockV1")

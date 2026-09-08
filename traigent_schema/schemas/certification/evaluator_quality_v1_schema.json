@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/evaluator_quality_v1_schema.json",
   "title": "Traigent Evaluator Quality Certificate v1",
-  "description": "Traigent Evaluator Quality Certificate v1 (pillar 3): a signed statement of how well an evaluator (LLM judge, rubric scorer, unit-test harness) agrees with a pinned reference standard, over a pinned evaluation scope, against a declared measurement plan. Every measurement interval in v1 is an issuer attestation (basis issuer_attested_v1) and is not independently recomputed by the verifier or by a relying party; the shape reserves a construction_recomputed_v1 basis for a future contract version, but no v1 document can construct it. Evaluator efficiency (EVQ6) and the agreement-per-cost frontier (EVQ7) are registered claim ids and measurement roles with defined shapes, but neither is asserted by this contract: EVQ6 and EVQ7 carry no support row, and no v1 document can construct an efficiency or frontier measurement. EVQ1 (evaluator identity) under disclosure_mode private_commitment is an attestation: the descriptor's component commitments are secret and no DescriptorOpeningV1 travels in this bundle shape, so a relying party cannot recompute the binding and cannot verify it beyond tier 1. Evaluator efficiency and the agreement-per-cost frontier carry no schema shapes in v1: EVQ6 and EVQ7 remain registered claim ids and their measurement roles remain registered, but no efficiency or frontier object is defined, so neither claim can be constructed at all. Pre-registration is not verified by this certificate; ordering evidence is out of scope for v1.",
+  "description": "Traigent Evaluator Quality Certificate v1 (pillar 3): a signed statement of how well an evaluator (LLM judge, rubric scorer, unit-test harness) agrees with a pinned reference standard, over a pinned evaluation scope, against a declared measurement plan. Every measurement interval in v1 is an issuer attestation (basis issuer_attested_v1) and is not independently recomputed by the verifier or by a relying party; the shape reserves a construction_recomputed_v1 basis for a future contract version, but no v1 document can construct it. Evaluator efficiency (EVQ6) and the agreement-per-cost frontier (EVQ7) are registered claim ids and measurement roles, but neither is asserted by this contract: EVQ6 and EVQ7 carry no support row, and no v1 document can construct an efficiency or frontier measurement. EVQ1 (evaluator identity) under disclosure_mode private_commitment is an attestation: the descriptor's component commitments are secret and no DescriptorOpeningV1 travels in this bundle shape, so a relying party cannot recompute the binding and cannot verify it beyond tier 1. Ordering evidence -- that the declared plan was authored before the results -- is out of scope for v1 and is not verified by this certificate.",
   "definitions": {
     "EvaluatorQualityDigestDomainRegistryV1": {
       "description": "Normative fixed role domains for this family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded). This is a SEPARATE registry from ProcessRecordDigestDomainRegistryV1: adding members there would modify a shipped V1 contract and break its own required-list test.",
@@ -213,7 +213,7 @@
       }
     },
     "IntervalParamsBootstrapV1": {
-      "description": "Percentile or BCa bootstrap. resample_seed_commitment is a secret-blinded commitment to the client-local seed under the FROZEN CommitmentSchemeV0, adopted verbatim from the pillar-1 agent-quality family: without it, 'run the bootstrap until the interval looks good, then report that seed' is invisible. It BINDS the seed; it does not prove the seed predates the replicates -- ordering evidence is out of scope for v1, per NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE. resample_unit MUST equal the measurement's sample_unit - resampling a different unit than the one the sample size counts is the pseudo-replication error the shipped ACET code already warns about.",
+      "description": "Percentile or BCa bootstrap. resample_seed_commitment is a secret-blinded commitment to the client-local seed under the FROZEN CommitmentSchemeV0, adopted verbatim from the pillar-1 agent-quality family: without it, 'run the bootstrap until the interval looks good, then report that seed' is invisible. It BINDS the seed; it does not establish any temporal relationship between the seed and the replicates -- ordering evidence is out of scope for v1, per NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE. resample_unit MUST equal the measurement's sample_unit - resampling a different unit than the one the sample size counts is the pseudo-replication error the shipped ACET code already warns about.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1333,7 +1333,7 @@
       }
     },
     "AggregationPolicyV1": {
-      "description": "Declared BEFORE results. weights are exactly one entry per AggregationAxisV1 member, in that fixed order, and MUST sum to exactly 1000000 (verifier obligation; draft-07 cannot sum). Renormalising over the axes that happen to have evidence is forbidden: if any required_axis lacks a passed/directional claim the overall verdict MUST be abstain. The efficiency axis is structurally barred from raising the overall verdict: efficiency_offset_forbidden is a const, and the verifier caps overall.verdict at the WORST verdict among the four instrument-adequacy axes. A cheap evaluator cannot buy its way past weak calibration, agreement, sensitivity or reliability.",
+      "description": "weights are exactly one entry per AggregationAxisV1 member, in that fixed order, and MUST sum to exactly 1000000 (verifier obligation; draft-07 cannot sum). Renormalising over the axes that happen to have evidence is forbidden: if any required_axis lacks a passed/directional claim the overall verdict MUST be abstain. The efficiency axis is structurally barred from raising the overall verdict: efficiency_offset_forbidden is a const, and the verifier caps overall.verdict at the WORST verdict among the four instrument-adequacy axes. A cheap evaluator cannot buy its way past weak calibration, agreement, sensitivity or reliability.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1417,6 +1417,12 @@
                   "properties": {
                     "axis": {
                       "const": "efficiency"
+                    },
+                    "weight_ppm": {
+                      "const": 0
+                    },
+                    "required_axis": {
+                      "const": false
                     }
                   }
                 }
@@ -2755,14 +2761,7 @@
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
         "descriptor_opening_digest": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-            }
-          ]
+          "const": null
         },
         "reference_standard_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
@@ -2786,14 +2785,7 @@
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
         "frontier_digest": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-            }
-          ]
+          "const": null
         },
         "claim_support_rows_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"

@@ -20,9 +20,9 @@ SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 DEFS = SCHEMA["definitions"]
 MERGE_BASE = "3f0529c1ba94a21afbcee749d6543dd0c4778229"
 SHA = "sha256:" + "a" * 64
-PREREG_SENTENCE = (
-    "Pre-registration is not verified by this certificate; ordering evidence is "
-    "out of scope for v1."
+NON_CLAIM_SENTENCE = (
+    "Ordering evidence -- that the declared plan was authored before the results -- "
+    "is out of scope for v1 and is not verified by this certificate."
 )
 
 
@@ -281,10 +281,18 @@ def test_every_object_is_closed() -> None:
 
 def test_no_preregistration_vocabulary_survives() -> None:
     text = SCHEMA_PATH.read_text(encoding="utf-8")
-    assert PREREG_SENTENCE in text
-    rest = text.replace(PREREG_SENTENCE, "", 1)
-    assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", rest, re.I) is None
-    assert SCHEMA["description"][-len(PREREG_SENTENCE):] == PREREG_SENTENCE
+    assert NON_CLAIM_SENTENCE in text
+    assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", text, re.I) is None
+    assert SCHEMA["description"][-len(NON_CLAIM_SENTENCE):] == NON_CLAIM_SENTENCE
+
+
+def test_no_unqualified_ordering_assertion_survives() -> None:
+    text = SCHEMA_PATH.read_text(encoding="utf-8")
+    rest = text.replace(NON_CLAIM_SENTENCE, "", 1)
+    assert (
+        re.search(r"before results|prior to results|predates|in advance of", rest, re.I)
+        is None
+    )
 
 
 def test_evq_ids_do_not_widen_the_v0_claim_id_vocabulary() -> None:

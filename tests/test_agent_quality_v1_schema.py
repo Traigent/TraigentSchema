@@ -396,13 +396,7 @@ def test_every_object_is_closed() -> None:
 
 
 def test_no_preregistration_vocabulary_survives() -> None:
-    sentence = (
-        "Pre-registration is not verified by this certificate; "
-        "ordering evidence is out of scope for v1."
-    )
-    assert SCHEMA["description"].endswith(sentence)
-    rest = SCHEMA_TEXT.replace(sentence, "", 1)
-    assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", rest, re.I) is None
+    assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", SCHEMA_TEXT, re.I) is None
 
 
 def test_aq1_does_not_widen_the_v0_claim_id_vocabulary() -> None:

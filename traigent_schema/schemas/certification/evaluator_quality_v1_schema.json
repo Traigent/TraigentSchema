@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/evaluator_quality_v1_schema.json",
   "title": "Traigent Evaluator Quality Certificate v1",
-  "description": "PLACEHOLDER",
+  "description": "Traigent Evaluator Quality Certificate v1 (pillar 3): a signed statement of how well an evaluator (LLM judge, rubric scorer, unit-test harness) agrees with a pinned reference standard, over a pinned evaluation scope, against a declared measurement plan. Every measurement interval in v1 is an issuer attestation (basis issuer_attested_v1) and is not independently recomputed by the verifier or by a relying party; the shape reserves a construction_recomputed_v1 basis for a future contract version, but no v1 document can construct it. Evaluator efficiency (EVQ6) and the agreement-per-cost frontier (EVQ7) are registered claim ids and measurement roles with defined shapes, but neither is asserted by this contract: EVQ6 and EVQ7 carry no support row, and no v1 document can construct an efficiency or frontier measurement. EVQ1 (evaluator identity) under disclosure_mode private_commitment is an attestation: the descriptor's component commitments are secret and no DescriptorOpeningV1 travels in this bundle shape, so a relying party cannot recompute the binding and cannot verify it beyond tier 1. Pre-registration is not verified by this certificate; ordering evidence is out of scope for v1.",
   "definitions": {
     "EvaluatorQualityDigestDomainRegistryV1": {
       "description": "Normative fixed role domains for this family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded). This is a SEPARATE registry from ProcessRecordDigestDomainRegistryV1: adding members there would modify a shipped V1 contract and break its own required-list test.",
@@ -14,7 +14,6 @@
         "descriptor_opening",
         "reference_standard",
         "evaluation_scope",
-        "preregistration",
         "measurement_set",
         "frontier",
         "claim_material",
@@ -24,7 +23,8 @@
         "issuer_signature",
         "measurement_registry",
         "perturbation_set",
-        "assertion_templates"
+        "assertion_templates",
+        "declared_plan"
       ],
       "properties": {
         "scope_binding": {
@@ -42,8 +42,8 @@
         "evaluation_scope": {
           "const": "traigent.evaluator_quality.evaluation_scope.v1"
         },
-        "preregistration": {
-          "const": "traigent.evaluator_quality.preregistration.v1"
+        "declared_plan": {
+          "const": "traigent.evaluator_quality.declared_plan.v1"
         },
         "measurement_set": {
           "const": "traigent.evaluator_quality.measurement_set.v1"
@@ -110,7 +110,7 @@
       ]
     },
     "NominalCoveragePpmV1": {
-      "description": "Closed nominal-coverage vocabulary in ppm: 90%, 95%, 99%. Name and members converge with the pillar-1 family. NOMINAL, not measured: this is the estimator's stated coverage under its own assumptions, and whether those assumptions hold on this data is not established by anything in this certificate. That limit is the printed non-claim NC_EVQ_NOMINAL_COVERAGE_ONLY. A free-choice level would also invite level-shopping after results are seen; the pre-registration pins one per role and the verifier checks equality.",
+      "description": "Closed nominal-coverage vocabulary in ppm: 90%, 95%, 99%. Name and members converge with the pillar-1 family. NOMINAL, not measured: this is the estimator's stated coverage under its own assumptions, and whether those assumptions hold on this data is not established by anything in this certificate. That limit is the printed non-claim NC_EVQ_NOMINAL_COVERAGE_ONLY. A free-choice level would also invite level-shopping after results are seen; the declared plan pins one per role and the verifier checks equality.",
       "type": "integer",
       "enum": [
         900000,
@@ -119,17 +119,15 @@
       ]
     },
     "MeasurementBasisV1": {
-      "description": "Who produced this number, and on what footing. The offline verifier can check shape, digests, signatures and declared consistency; it CANNOT check that an estimate was correctly computed from raw customer data, because that data is never in the bundle. This field makes that limit machine-readable instead of implicit. issuer_recomputed: the issuer re-ran the registered estimator over data it holds, and computation_transcript_digest binds a content-free computation transcript an auditor holding the raw data can check. issuer_observed: the issuer observed the raw per-unit scores but the estimate is not independently recomputable. client_attested: the customer computed and asserted it; it can NEVER support a passed verdict. third_party_attested: a named external assessor computed it under its own key.",
+      "description": "Who produced this number, and on what footing. The offline verifier can check shape, digests, signatures and declared consistency; it CANNOT check that an estimate was correctly computed from raw customer data, because that data is never in the bundle. issuer_attested_v1: the issuer signs the value as its own assertion. No per-measurement sufficient statistics are defined in v1, so nothing could be independently recomputed even in principle -- this is the only basis this contract can emit. construction_recomputed_v1: a future contract version defines a sufficient-statistics transcript a holder of the raw data could recompute against; it is a member of this enum so the wire vocabulary does not have to change to add it, but EmittableMeasurementBasisV1 below makes it STRUCTURALLY UNCONSTRUCTIBLE in v1, the same device the frozen v0 uses for ClaimTier 4.",
       "type": "string",
       "enum": [
-        "issuer_recomputed",
-        "issuer_observed",
-        "client_attested",
-        "third_party_attested"
+        "issuer_attested_v1",
+        "construction_recomputed_v1"
       ]
     },
     "MeasurementRoleV1": {
-      "description": "Closed sub-metric role vocabulary. Pre-registration containment is keyed by ROLE, not by claim_id: EVQ2, EVQ4, EVQ5, EVQ6 and EVQ7 each carry several measurements, and keying only by claim would leave post-hoc choice of estimator, interval, side and sample unit free within a claim.",
+      "description": "Closed sub-metric role vocabulary. Declared-plan containment is keyed by ROLE, not by claim_id: EVQ2, EVQ4, EVQ5, EVQ6 and EVQ7 each carry several measurements, and keying only by claim would leave post-hoc choice of estimator, interval, side and sample unit free within a claim.",
       "type": "string",
       "enum": [
         "calibration_ece",
@@ -190,7 +188,7 @@
       ]
     },
     "EstimatorParametersV1": {
-      "description": "The estimator's semantic knobs, bound into the measurement and pre-registered per role. Without these, 'estimator_id + interval_kind' leaves the one-sided side, the score scale, the label kind and the better-is-higher direction undeclared - each of which changes the number or its interpretation. The interval machinery lives separately in IntervalParamsV1.",
+      "description": "The estimator's semantic knobs, bound into the measurement and declared per role. Without these, 'estimator_id + interval_kind' leaves the one-sided side, the score scale, the label kind and the better-is-higher direction undeclared - each of which changes the number or its interpretation. The interval machinery lives separately in IntervalParamsV1.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -215,7 +213,7 @@
       }
     },
     "IntervalParamsBootstrapV1": {
-      "description": "Percentile or BCa bootstrap. resample_seed_commitment is a secret-blinded commitment to the client-local seed under the FROZEN CommitmentSchemeV0, adopted verbatim from the pillar-1 agent-quality family: without it, 'run the bootstrap until the interval looks good, then report that seed' is invisible. It BINDS the seed; it does not prove the seed predates the replicates, which is the same ordering limit the pre-registration has and is covered by the same printed non-claim. resample_unit MUST equal the measurement's sample_unit - resampling a different unit than the one the sample size counts is the pseudo-replication error the shipped ACET code already warns about.",
+      "description": "Percentile or BCa bootstrap. resample_seed_commitment is a secret-blinded commitment to the client-local seed under the FROZEN CommitmentSchemeV0, adopted verbatim from the pillar-1 agent-quality family: without it, 'run the bootstrap until the interval looks good, then report that seed' is invisible. It BINDS the seed; it does not prove the seed predates the replicates -- ordering evidence is out of scope for v1, per NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE. resample_unit MUST equal the measurement's sample_unit - resampling a different unit than the one the sample size counts is the pseudo-replication error the shipped ACET code already warns about.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -398,7 +396,7 @@
       ],
       "properties": {
         "measurement_role": {
-          "$ref": "#/definitions/MeasurementRoleV1"
+          "$ref": "#/definitions/EmittableMeasurementRoleV1"
         },
         "estimator_id": {
           "$ref": "#/definitions/EstimatorIdV1"
@@ -439,10 +437,10 @@
           "$ref": "#/definitions/SampleUnitV1"
         },
         "basis": {
-          "$ref": "#/definitions/MeasurementBasisV1"
+          "$ref": "#/definitions/EmittableMeasurementBasisV1"
         },
         "computation_transcript_digest": {
-          "description": "Digest of a content-free computation transcript (the ordered per-sample-unit score vector plus the estimator inputs). REQUIRED non-null when basis is issuer_recomputed or third_party_attested; null otherwise. The transcript itself is NOT in the bundle - it would carry customer content - so this digest does not let the relying party check the arithmetic. It lets an auditor who lawfully holds the raw data check it, and it makes the issuer's arithmetic tamper-evident after the fact. Stating this plainly is the point: without it, 'the verifier checked the statistics' would be false.",
+          "description": "Digest of a content-free computation transcript (the ordered per-sample-unit score vector plus the estimator inputs). Would be REQUIRED non-null when basis is construction_recomputed_v1; that basis is unconstructible in v1 (see EmittableMeasurementBasisV1), so this field is always null on a valid v1 document. It is kept in the shape for forward compatibility with a future contract version that defines the recomputation. The transcript itself is NOT in the bundle -- it would carry customer content -- so this digest could never let the relying party check the arithmetic directly; it would let an auditor who lawfully holds the raw data check it.",
           "oneOf": [
             {
               "type": "null"
@@ -595,14 +593,11 @@
           }
         },
         {
-          "description": "A transcript digest is required exactly when the basis claims a computation the issuer or a third party actually ran.",
+          "description": "A transcript digest is required exactly when the basis claims a computation someone actually ran. construction_recomputed_v1 is the only such basis, and it is unconstructible in v1 (see EmittableMeasurementBasisV1), so a valid v1 measurement always carries a null transcript digest.",
           "if": {
             "properties": {
               "basis": {
-                "enum": [
-                  "issuer_recomputed",
-                  "third_party_attested"
-                ]
+                "const": "construction_recomputed_v1"
               }
             },
             "required": [
@@ -709,7 +704,7 @@
           "const": "traigent.evaluator_quality.descriptor.v1"
         },
         "disclosure_mode": {
-          "$ref": "#/definitions/EvaluatorDisclosureModeV1"
+          "$ref": "#/definitions/EmittableDisclosureModeV1"
         },
         "evaluator_kind": {
           "$ref": "#/definitions/EvaluatorKindV1"
@@ -1259,7 +1254,7 @@
       ]
     },
     "SensitivityPairSetV1": {
-      "description": "The pre-registered pair sets. known_equivalent_pair_count may not be 0 when an EVQ4 claim is present: an evaluator with perfect discriminating power and a 40% false-difference rate is a random number generator, and a one-sided sensitivity claim is therefore not representable.",
+      "description": "The declared pair sets. known_equivalent_pair_count may not be 0 when an EVQ4 claim is present: an evaluator with perfect discriminating power and a 40% false-difference rate is a random number generator, and a one-sided sensitivity claim is therefore not representable.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1456,7 +1451,7 @@
       ],
       "properties": {
         "measurement_role": {
-          "$ref": "#/definitions/MeasurementRoleV1"
+          "$ref": "#/definitions/EmittableMeasurementRoleV1"
         },
         "estimator_id": {
           "$ref": "#/definitions/EstimatorIdV1"
@@ -1492,114 +1487,12 @@
           "maximum": 1000000000000000
         },
         "threshold_comparison": {
-          "description": "Which side of the pre-registered threshold the CONSERVATIVE end of the interval must fall on: interval_low_ge for higher_is_better, interval_high_le for lower_is_better. Comparing the POINT to a threshold would let a wide interval pass on luck.",
+          "description": "Which side of the declared threshold the CONSERVATIVE end of the interval must fall on: interval_low_ge for higher_is_better, interval_high_le for lower_is_better. Comparing the POINT to a threshold would let a wide interval pass on luck.",
           "type": "string",
           "enum": [
             "interval_low_ge",
             "interval_high_le"
           ]
-        }
-      }
-    },
-    "PreRegistrationBasisV1": {
-      "description": "How the plan's precedence over the results is established. digest_bound_attestation: nothing but the issuer's own signature and timestamps. It catches post-signature mutation and NOTHING else - an issuer that observed the results first can author a matching plan and backdate issued_at, and every digest check still passes. That basis is NOT pre-registration in any meaningful sense and is capped accordingly. caller_pinned_before_results: the relying party independently held the preregistration_digest BEFORE receiving this certificate and supplies it in its verification context; the verifier compares and fails closed on mismatch. This is the same caller-pin pattern the shipped process-record verifier already uses for expected_evaluator_commitment_ref, needs no new infrastructure, and matches the real procurement flow (the buyer receives the measurement plan, then later receives the certificate). log_inclusion_proof: an inclusion proof against a pinned append-only log - the ONLY one of the three that is proof rather than evidence. The same log would also close the issuer non-equivocation gap the four-pillar plan already names, so it is one V2 item, not two. It is a member of this enum but is made STRUCTURALLY UNCONSTRUCTIBLE in v1 by EmittablePreRegistrationBasisV1 below - the same 'keep it in the enum, make emission a compile error' device the frozen v0 uses for ClaimTier 4.",
-      "type": "string",
-      "enum": [
-        "digest_bound_attestation",
-        "caller_pinned_before_results",
-        "log_inclusion_proof"
-      ]
-    },
-    "EmittablePreRegistrationBasisV1": {
-      "description": "The v1 emission constraint. log_inclusion_proof remains a member of PreRegistrationBasisV1 above, but NO valid v1 pre-registration can carry it - enabling it requires the log, an inclusion-proof contract, and fresh verifier evidence, i.e. a new contract version, not a new value. Mirrors certification_common_v0_schema.json#/definitions/EmittableClaimTierV0 exactly.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/PreRegistrationBasisV1"
-        },
-        {
-          "not": {
-            "const": "log_inclusion_proof"
-          }
-        }
-      ]
-    },
-    "EvaluatorPreRegistrationV1": {
-      "description": "The pre-registered measurement plan, signed as its own artifact. Its shape makes a measured value STRUCTURALLY unrepresentable: additionalProperties:false plus a property set containing no point/interval field and no verdict. preregistration_digest is SHA-256 over UTF8(traigent.evaluator_quality.preregistration.v1) || 0x00 || jcs_v1(this document with preregistration_digest excluded). NON-CLAIM, stated here because it is the family's sharpest limit: issued_at proves only that the ISSUER asserted the plan preceded the measurement window. Under basis digest_bound_attestation a dishonest issuer can observe results, author a matching plan, backdate issued_at, and pass every check in this contract - so that basis can never support a passed verdict. Only basis caller_pinned_before_results, where a party other than the issuer held the digest first, establishes real precedence.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "schema_version",
-        "basis",
-        "evaluator_commitment_digest",
-        "reference_standard_digest",
-        "evaluation_scope_digest",
-        "planned_measurements",
-        "sensitivity_pair_set",
-        "perturbation_set_digest",
-        "measurement_registry_digest",
-        "binning_policy",
-        "bin_count",
-        "aggregation_policy",
-        "issued_at",
-        "measurement_window_start",
-        "preregistration_digest"
-      ],
-      "properties": {
-        "schema_version": {
-          "const": "traigent.evaluator_quality.preregistration.v1"
-        },
-        "basis": {
-          "$ref": "#/definitions/EmittablePreRegistrationBasisV1"
-        },
-        "evaluator_commitment_digest": {
-          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-        },
-        "reference_standard_digest": {
-          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-        },
-        "evaluation_scope_digest": {
-          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-        },
-        "planned_measurements": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 64,
-          "items": {
-            "$ref": "#/definitions/PlannedMeasurementV1"
-          }
-        },
-        "sensitivity_pair_set": {
-          "$ref": "#/definitions/SensitivityPairSetV1"
-        },
-        "perturbation_set_digest": {
-          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-        },
-        "measurement_registry_digest": {
-          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-        },
-        "binning_policy": {
-          "type": "string",
-          "enum": [
-            "equal_width",
-            "equal_mass"
-          ]
-        },
-        "bin_count": {
-          "type": "integer",
-          "minimum": 3,
-          "maximum": 32
-        },
-        "aggregation_policy": {
-          "$ref": "#/definitions/AggregationPolicyV1"
-        },
-        "issued_at": {
-          "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
-        },
-        "measurement_window_start": {
-          "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
-        },
-        "preregistration_digest": {
-          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         }
       }
     },
@@ -1617,7 +1510,7 @@
       ]
     },
     "EvaluatorQualityVerdictV1": {
-      "description": "Closed verdict vocabulary, byte-identical to the shipped traigent_smartopt VerdictStatus (passed, directional, abstain, failed). Ordered worst-to-best as failed < abstain < directional < passed for the capping rules.",
+      "description": "Closed verdict vocabulary, byte-identical to the shipped traigent_smartopt VerdictStatus (passed, directional, abstain, failed). Ordered worst-to-best as failed < abstain < directional < passed for the capping rules. A `passed` verdict on any axis or overall claim asserts only that the issuer-attested measurements for that axis passed the structural, unit, plan-containment and reference-limit checks this contract defines -- it is never an unqualified statement of evaluator quality, and neither EVALUATOR_QUALITY_VERIFIED nor EVALUATOR_QUALITY_VERIFIED_CLAIMS_PARTIAL should be read as one.",
       "type": "string",
       "enum": [
         "passed",
@@ -1634,12 +1527,11 @@
         "reference_standard_proxy_only",
         "reference_not_evaluator_independent",
         "reference_single_human_rater",
-        "sample_size_below_preregistered_minimum",
-        "interval_width_above_preregistered_maximum",
+        "sample_size_below_declared_plan_minimum",
+        "interval_width_above_declared_plan_maximum",
         "threshold_not_met_at_interval_bound",
         "probe_coverage_incomplete",
-        "preregistration_absent",
-        "preregistration_digest_bound_only",
+        "declared_plan_absent",
         "measurement_client_attested_only",
         "selection_set_overlaps_estimation_set",
         "required_axis_missing"
@@ -2082,7 +1974,7 @@
       }
     },
     "EvaluatorMeasurementSetV1": {
-      "description": "The complete measured result set, over one pinned evaluation scope. Which blocks are present is governed by the pre-registration's planned measurement roles; a block present with no corresponding planned role is a PREREGISTRATION_SCOPE_VIOLATION. measurement_set_digest is SHA-256 over UTF8(traigent.evaluator_quality.measurement_set.v1) || 0x00 || jcs_v1(this document with measurement_set_digest excluded).",
+      "description": "The complete measured result set, over one pinned evaluation scope. Which blocks are present is governed by the declared plan's planned measurement roles; a block present with no corresponding planned role is a DECLARED_PLAN_SCOPE_VIOLATION. measurement_set_digest is SHA-256 over UTF8(traigent.evaluator_quality.measurement_set.v1) || 0x00 || jcs_v1(this document with measurement_set_digest excluded).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -2110,12 +2002,6 @@
         },
         "reliability": {
           "$ref": "#/definitions/ReliabilityBlockV1"
-        },
-        "efficiency": {
-          "$ref": "#/definitions/EfficiencyBlockV1"
-        },
-        "frontier": {
-          "$ref": "#/definitions/EfficiencyFrontierV1"
         },
         "measurement_window_start": {
           "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
@@ -2153,8 +2039,7 @@
         "descriptor_digest",
         "reference_standard_digest",
         "evaluation_scope_digest",
-        "preregistration_digest",
-        "preregistration_basis"
+        "declared_plan_digest"
       ],
       "properties": {
         "claim_id": {
@@ -2178,11 +2063,8 @@
         "evaluation_scope_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
-        "preregistration_digest": {
+        "declared_plan_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-        },
-        "preregistration_basis": {
-          "$ref": "#/definitions/EmittablePreRegistrationBasisV1"
         }
       }
     },
@@ -2198,7 +2080,7 @@
       ],
       "properties": {
         "claim_id": {
-          "$ref": "#/definitions/EvaluatorQualityClaimIdV1"
+          "$ref": "#/definitions/EmittableEvaluatorQualityClaimIdV1"
         },
         "tier": {
           "$ref": "certification_common_v0_schema.json#/definitions/EmittableClaimTierV0"
@@ -2221,7 +2103,7 @@
         "evaluation_scope_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
-        "preregistration_digest": {
+        "declared_plan_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
         "measurement_set_digest": {
@@ -2251,7 +2133,7 @@
               "descriptor_digest",
               "reference_standard_digest",
               "evaluation_scope_digest",
-              "preregistration_digest",
+              "declared_plan_digest",
               "measurement_set_digest",
               "verifier_result",
               "claim_material_digest"
@@ -2288,7 +2170,7 @@
           "then": {
             "required": [
               "descriptor_digest",
-              "preregistration_digest",
+              "declared_plan_digest",
               "claim_material_digest"
             ],
             "properties": {
@@ -2360,7 +2242,7 @@
                 },
                 {
                   "required": [
-                    "preregistration_digest"
+                    "declared_plan_digest"
                   ]
                 },
                 {
@@ -2385,10 +2267,10 @@
       ]
     },
     "EvaluatorQualityClaimSupportRowsV1": {
-      "description": "Exactly seven ordered rows, one per EVQ claim id. Every claim exists as a row; an unsupported claim is a printed abstention, never an omission.",
+      "description": "Exactly FIVE ordered rows, one per emittable EVQ claim id (EVQ1..EVQ5). EVQ6 (efficiency) and EVQ7 (frontier) are registered claim ids that are not asserted in v1 -- see EmittableEvaluatorQualityClaimIdV1, NC_EVQ_EFFICIENCY_NOT_CLAIMED and NC_EVQ_FRONTIER_NOT_CLAIMED -- so they carry no support row at all, printed or abstained. Every emittable claim exists as a row; an unsupported claim is a printed abstention, never an omission.",
       "type": "array",
-      "minItems": 7,
-      "maxItems": 7,
+      "minItems": 5,
+      "maxItems": 5,
       "additionalItems": false,
       "items": [
         {
@@ -2460,34 +2342,6 @@
               }
             }
           ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
-            },
-            {
-              "properties": {
-                "claim_id": {
-                  "const": "EVQ6"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            {
-              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
-            },
-            {
-              "properties": {
-                "claim_id": {
-                  "const": "EVQ7"
-                }
-              }
-            }
-          ]
         }
       ]
     },
@@ -2507,8 +2361,13 @@
         "NC_EVQ_REF_LINKABILITY",
         "NC_EVQ_FRONTIER_NOT_CAUSAL",
         "NC_EVQ_COST_MEASURED_NOT_QUOTED",
-        "NC_EVQ_PREREG_PRECEDENCE_BASIS",
-        "NC_EVQ_NO_SAFETY_CLAIM"
+        "NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE",
+        "NC_EVQ_NO_SAFETY_CLAIM",
+        "NC_EVQ_INTERVALS_NOT_RECOMPUTED",
+        "NC_EVQ_EFFICIENCY_NOT_CLAIMED",
+        "NC_EVQ_FRONTIER_NOT_CLAIMED",
+        "NC_EVQ_REF_MINTING_IS_AN_ISSUER_OBLIGATION",
+        "NC_EVQ_REFS_ARE_A_LINKABILITY_CHANNEL"
       ]
     },
     "EvaluatorQualityNonClaimReasonCatalogV1": {
@@ -2527,8 +2386,13 @@
         "tmpl.noncert.evq_ref_linkability.v1",
         "tmpl.noncert.evq_frontier_descriptive_only.v1",
         "tmpl.noncert.evq_cost_at_pinned_price_list.v1",
-        "tmpl.noncert.evq_prereg_precedence_by_declared_basis.v1",
-        "tmpl.noncert.evq_no_safety_claim.v1"
+        "tmpl.noncert.evq_plan_ordering_out_of_scope.v1",
+        "tmpl.noncert.evq_no_safety_claim.v1",
+        "tmpl.noncert.evq_intervals_not_recomputed.v1",
+        "tmpl.noncert.evq_efficiency_not_claimed.v1",
+        "tmpl.noncert.evq_frontier_not_claimed.v1",
+        "tmpl.noncert.evq_ref_minting_is_an_issuer_obligation.v1",
+        "tmpl.noncert.evq_refs_are_a_linkability_channel.v1"
       ]
     },
     "EvaluatorQualityNonClaimV1": {
@@ -2558,10 +2422,10 @@
       }
     },
     "EvaluatorQualityNonClaimsFixedTupleV1": {
-      "description": "The FIFTEEN mandatory printed non-claims in canonical print order. additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid, mirroring the frozen NonClaimsFixedTupleV0.",
+      "description": "The TWENTY mandatory printed non-claims in canonical print order. additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid, mirroring the frozen NonClaimsFixedTupleV0.",
       "type": "array",
-      "minItems": 15,
-      "maxItems": 15,
+      "minItems": 20,
+      "maxItems": 20,
       "additionalItems": false,
       "items": [
         {
@@ -2793,10 +2657,10 @@
             {
               "properties": {
                 "non_claim_id": {
-                  "const": "NC_EVQ_PREREG_PRECEDENCE_BASIS"
+                  "const": "NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE"
                 },
                 "reason_template_id": {
-                  "const": "tmpl.noncert.evq_prereg_precedence_by_declared_basis.v1"
+                  "const": "tmpl.noncert.evq_plan_ordering_out_of_scope.v1"
                 }
               }
             }
@@ -2818,11 +2682,96 @@
               }
             }
           ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_INTERVALS_NOT_RECOMPUTED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_intervals_not_recomputed.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_EFFICIENCY_NOT_CLAIMED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_efficiency_not_claimed.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_FRONTIER_NOT_CLAIMED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_frontier_not_claimed.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_REF_MINTING_IS_AN_ISSUER_OBLIGATION"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_ref_minting_is_an_issuer_obligation.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_REFS_ARE_A_LINKABILITY_CHANNEL"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_refs_are_a_linkability_channel.v1"
+                }
+              }
+            }
+          ]
         }
       ]
     },
     "EvaluatorQualityOverallV1": {
-      "description": "The pre-registered weighted aggregate. overall_quality_ppm is DERIVED: the verifier recomputes it as the round_half_even weighted sum of each axis's point value under the pre-registered weights, using exact integer arithmetic. Two hard caps apply on top of the arithmetic. (1) If any required_axis lacks a passed/directional row, verdict MUST be abstain and overall_quality_ppm MUST be absent - weights may NOT be rescaled over the present axes. (2) verdict may never exceed the WORST verdict among the four instrument-adequacy axes (calibration, agreement, sensitivity, reliability): efficiency can lower the overall picture, never raise it. instrument_adequacy_verdict records that floor explicitly so a reader sees it without recomputing.",
+      "description": "The declared-plan weighted aggregate. overall_quality_ppm is DERIVED: the verifier recomputes it as the round_half_even weighted sum of each axis's point value under the declared-plan weights, using exact integer arithmetic. Two hard caps apply on top of the arithmetic. (1) If any required_axis lacks a passed/directional row, verdict MUST be abstain and overall_quality_ppm MUST be absent - weights may NOT be rescaled over the present axes. (2) verdict may never exceed the WORST verdict among the four instrument-adequacy axes (calibration, agreement, sensitivity, reliability): efficiency can lower the overall picture, never raise it. instrument_adequacy_verdict records that floor explicitly so a reader sees it without recomputing.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -2889,8 +2838,6 @@
         "descriptor_opening_digest",
         "reference_standard_digest",
         "evaluation_scope_digest",
-        "preregistration_digest",
-        "preregistration_basis",
         "measurement_registry_digest",
         "perturbation_set_digest",
         "assertion_templates_digest",
@@ -2902,7 +2849,8 @@
         "trust_ring_ref",
         "issuer_key_ref",
         "issuer_signature_algorithm",
-        "coverage"
+        "coverage",
+        "declared_plan_digest"
       ],
       "properties": {
         "schema_version": {
@@ -2938,11 +2886,8 @@
         "evaluation_scope_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
-        "preregistration_digest": {
+        "declared_plan_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
-        },
-        "preregistration_basis": {
-          "$ref": "#/definitions/EmittablePreRegistrationBasisV1"
         },
         "measurement_registry_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
@@ -2993,8 +2938,7 @@
             "descriptor_opening_digest",
             "reference_standard_digest",
             "evaluation_scope_digest",
-            "preregistration_digest",
-            "preregistration_basis",
+            "declared_plan_digest",
             "measurement_registry_digest",
             "perturbation_set_digest",
             "assertion_templates_digest",
@@ -3066,10 +3010,9 @@
         "reference_standard.raters",
         "evaluation_scope",
         "evaluation_scope.held_out",
-        "preregistration",
-        "preregistration.basis",
-        "preregistration.planned_measurements",
-        "preregistration.aggregation_policy",
+        "declared_plan",
+        "declared_plan.planned_measurements",
+        "declared_plan.aggregation_policy",
         "measurements",
         "measurements.calibration",
         "measurements.agreement",
@@ -3110,7 +3053,7 @@
           "type": "string",
           "enum": [
             "evaluator_quality_invalid_measurement",
-            "evaluator_quality_preregistration_violation",
+            "evaluator_quality_declared_plan_violation",
             "evaluator_quality_limit_exceeded",
             "evaluator_quality_verification_failed"
           ]
@@ -3121,7 +3064,7 @@
       }
     },
     "EvaluatorQualityCertificateBundleV1": {
-      "description": "The identifying evaluator-quality envelope. It is a SEPARATE artifact from ProcessRecordCertificateBundleV1 and is never embedded in it: a process record is issued once per build, an evaluator-quality certificate once per (evaluator, reference standard, evaluation scope) and reused across many builds, so they have different signer scopes and different lifetimes. The frozen v0 artifacts and the shipped V1 process-record file are untouched by this family.",
+      "description": "The identifying evaluator-quality envelope. It is a SEPARATE artifact from ProcessRecordCertificateBundleV1 and is never embedded in it: a process record is issued once per build, an evaluator-quality certificate once per (evaluator, reference standard, evaluation scope) and reused across many builds, so they have different signer scopes and different lifetimes. The frozen v0 artifacts and the shipped V1 process-record file are untouched by this family. No DescriptorOpeningV1 travels in this bundle shape: descriptor_opening was removed from both required and properties, so EVQ1 can never be represented above tier 1 in v1.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -3129,15 +3072,14 @@
         "unsigned_manifest",
         "signature",
         "descriptor",
-        "descriptor_opening",
         "reference_standard",
         "evaluation_scope",
-        "preregistration",
         "measurements",
         "claim_material",
         "claim_support_rows",
         "non_claims",
-        "verification_materials_v0"
+        "verification_materials_v0",
+        "declared_plan"
       ],
       "properties": {
         "schema_version": {
@@ -3152,24 +3094,14 @@
         "descriptor": {
           "$ref": "#/definitions/EvaluatorDescriptorV1"
         },
-        "descriptor_opening": {
-          "oneOf": [
-            {
-              "type": "null"
-            },
-            {
-              "$ref": "#/definitions/DescriptorOpeningV1"
-            }
-          ]
-        },
         "reference_standard": {
           "$ref": "#/definitions/ReferenceStandardV1"
         },
         "evaluation_scope": {
           "$ref": "#/definitions/EvaluationScopeV1"
         },
-        "preregistration": {
-          "$ref": "#/definitions/EvaluatorPreRegistrationV1"
+        "declared_plan": {
+          "$ref": "#/definitions/EvaluatorDeclaredPlanV1"
         },
         "measurements": {
           "$ref": "#/definitions/EvaluatorMeasurementSetV1"
@@ -3192,6 +3124,129 @@
           "$ref": "certificate_verification_materials_v0_schema.json"
         }
       }
+    },
+    "EvaluatorDeclaredPlanV1": {
+      "description": "The declared measurement plan, signed as its own artifact. Its shape makes a measured value STRUCTURALLY unrepresentable: additionalProperties:false plus a property set containing no point/interval field and no verdict. declared_plan_digest is SHA-256 over UTF8(traigent.evaluator_quality.declared_plan.v1) || 0x00 || jcs_v1(this document with declared_plan_digest excluded). NON-CLAIM, stated here because it is the family's sharpest limit: this document carries no basis, no ordering timestamp, and no verdict cap keyed to a plan grade. It pins WHAT was planned (roles, estimators, thresholds); it makes no representation about WHEN it was authored relative to the results, and the verifier checks containment only, never precedence. See NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "evaluator_commitment_digest",
+        "reference_standard_digest",
+        "evaluation_scope_digest",
+        "planned_measurements",
+        "sensitivity_pair_set",
+        "perturbation_set_digest",
+        "measurement_registry_digest",
+        "binning_policy",
+        "bin_count",
+        "aggregation_policy",
+        "declared_plan_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.declared_plan.v1"
+        },
+        "evaluator_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "reference_standard_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_scope_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "planned_measurements": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/definitions/PlannedMeasurementV1"
+          }
+        },
+        "sensitivity_pair_set": {
+          "$ref": "#/definitions/SensitivityPairSetV1"
+        },
+        "perturbation_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "measurement_registry_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "binning_policy": {
+          "type": "string",
+          "enum": [
+            "equal_width",
+            "equal_mass"
+          ]
+        },
+        "bin_count": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 32
+        },
+        "aggregation_policy": {
+          "$ref": "#/definitions/AggregationPolicyV1"
+        },
+        "declared_plan_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EmittableEvaluatorQualityClaimIdV1": {
+      "description": "The v1 emission constraint on claim ids. EVQ6 (efficiency) and EVQ7 (frontier) remain members of EvaluatorQualityClaimIdV1 above -- the vocabulary is not shrunk -- but neither is emittable in v1: efficiency and the agreement-per-cost frontier are registered, measured-shape-ready concepts, not asserted claims this contract issues a verdict on. See NC_EVQ_EFFICIENCY_NOT_CLAIMED and NC_EVQ_FRONTIER_NOT_CLAIMED. Mirrors the same 'keep it in the enum, make emission a compile error' device certification_common_v0_schema.json#/definitions/EmittableClaimTierV0 uses for ClaimTier 4.",
+      "type": "string",
+      "enum": [
+        "EVQ1",
+        "EVQ2",
+        "EVQ3",
+        "EVQ4",
+        "EVQ5"
+      ]
+    },
+    "EmittableMeasurementRoleV1": {
+      "description": "The v1 emission constraint on measurement roles. All twenty MeasurementRoleV1 members stay registered; the eight efficiency_* and frontier_* roles are structurally excluded from anything this contract actually emits, because EVQ6 and EVQ7 are not asserted claims in v1 (see EmittableEvaluatorQualityClaimIdV1). Any measurement or planned measurement carrying one of those eight roles is therefore unconstructible.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/MeasurementRoleV1"
+        },
+        {
+          "not": {
+            "enum": [
+              "efficiency_cost_per_eval",
+              "efficiency_latency_per_eval",
+              "efficiency_latency_p95",
+              "frontier_baseline_agreement",
+              "frontier_baseline_cost",
+              "frontier_point_agreement",
+              "frontier_point_cost",
+              "frontier_agreement_retained"
+            ]
+          }
+        }
+      ]
+    },
+    "EmittableMeasurementBasisV1": {
+      "description": "The v1 emission constraint: only issuer_attested_v1 may appear on the wire. construction_recomputed_v1 remains a member of MeasurementBasisV1 above but cannot be constructed by any v1 document.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/MeasurementBasisV1"
+        },
+        {
+          "const": "issuer_attested_v1"
+        }
+      ]
+    },
+    "EmittableDisclosureModeV1": {
+      "description": "The v1 emission constraint: only private_commitment may appear on the wire. public_descriptor remains a member of EvaluatorDisclosureModeV1 above -- a future contract version may carry a DescriptorOpeningV1 and let EVQ1 reach tier 3 -- but no opening travels in this bundle shape (see EvaluatorQualityCertificateBundleV1), so declaring public_descriptor here would promise a verified binding this contract cannot deliver. EVQ1 is therefore tier 1, client_declared, directional at best.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/EvaluatorDisclosureModeV1"
+        },
+        {
+          "const": "private_commitment"
+        }
+      ]
     }
   }
 }

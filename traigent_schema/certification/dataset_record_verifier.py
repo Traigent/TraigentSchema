@@ -1491,12 +1491,16 @@ def _check_corpus_ref_descriptors(
     * ``leaf_list_digests`` -- (A) checked unconditionally, right above.
     * ``leaf_generation_attestation.corpora`` -- (A) checked unconditionally,
       right below, own tracking set.
-    * ``claim_support_rows`` -- (B) foreclosed, not by a schema keyword but by
-      ``_check_claim_support_rows``'s ``set(by_id) != set(_CLAIM_IDS)`` check
-      against the fixed, required claim-id set: a duplicate ``claim_id``
-      collapses the dict and drops a required id, which the set-equality
-      comparison catches on its own -- no separate uniqueness check is
-      needed, and none is added here.
+    * ``claim_support_rows`` -- (B) foreclosed by the schema's ``maxItems: 5``
+      on the array (dataset_record_v1_schema.json, pinned by a tripwire),
+      NOT by ``_check_claim_support_rows``'s ``set(by_id) != set(_CLAIM_IDS)``
+      check alone: a duplicate ``claim_id`` does not necessarily drop a
+      required id from that set -- a 6-row list carrying all five required
+      ids plus one duplicate leaves ``set(by_id) == set(_CLAIM_IDS)`` true
+      while one signed row is silently overwritten in the dict comprehension.
+      It is the fixed array length that forecloses that extra row from
+      existing in the first place; the set-equality check alone is
+      insufficient and must not be read as doing this job.
     * ``leakage_report.findings`` -- (C) not a keyed/deduplicable list at
       all: nothing looks findings up by key, each is walked by ``index`` and
       independently reverified (see ``_check_overlap_and_disjointness``), so
@@ -1505,8 +1509,48 @@ def _check_corpus_ref_descriptors(
       unconditionally in ``_check_declared_partition``'s ``seen`` set over
       ``(category_id, difficulty_stratum)``.
     * ``evidence_refs`` per claim-support row -- (B) foreclosed by the schema
-      (``maxItems: 1``, so no second entry can exist to duplicate the first),
-      with a defence-in-depth length check in ``_check_claim_support_rows``.
+      (``maxItems: 1``, pinned by a tripwire, so no second entry can exist to
+      duplicate the first), with a defence-in-depth ``len(refs) != 1`` guard
+      in ``_check_claim_support_rows`` that fires for any wire caller that
+      bypasses schema validation and calls the verifier directly.
+
+    T3 round 8 P2/programmer attempt 11 -- mechanical inventory (sol
+    round-2 ask): every site in this module where a signed or
+    signed-derived list is collapsed or selected by key (dict/set
+    comprehension over a signed list, ``dict()``, ``.update(``,
+    ``.setdefault(``, ``next(``, or a first/last/``[0]``/``[-1]``
+    selection), found by grepping the module for those constructs and
+    classifying each hit. Sites over the caller-supplied, UNSIGNED fifth
+    input (``leaf_lists`` / ``_check_leaf_list_input``'s ``rows``/
+    ``by_cell``) are out of scope: this class is about signed material
+    only.
+
+    +------+--------------------------------------------+---+------------------------------------------------+
+    | line | site / key                                  | class | constraint that does the work               |
+    +------+--------------------------------------------+---+------------------------------------------------+
+    | 1309 | ``declared_by_ref`` in                      | A | dedup on ``corpus_ref`` established           |
+    |      | ``_check_leaf_list_digests``, keyed on      |   | unconditionally in                            |
+    |      | ``entry["corpus_ref"]`` over                |   | ``_check_corpus_ref_descriptors`` (line 1426, |
+    |      | ``leakage_report["leaf_list_digests"]``     |   | ``known``/duplicate check, called             |
+    |      |                                              |   | unconditionally at line 2266) before this     |
+    |      |                                              |   | function ever runs                            |
+    | 2092 | ``by_id`` in ``_check_support_rows``,       | B | schema ``maxItems: 5`` on                     |
+    |      | keyed on ``row["claim_id"]`` over            |   | ``claim_support_rows``, pinned by a tripwire  |
+    |      | ``claim_support_rows``                      |   | (see corrected entry above); the              |
+    |      |                                              |   | ``set(by_id) != set(_CLAIM_IDS)`` check is    |
+    |      |                                              |   | a second, non-sufficient layer                |
+    | 2132 | ``refs[0]`` in ``_check_support_rows``,     | B | schema ``maxItems: 1`` on ``evidence_refs``,  |
+    |      | first/only selection over                   |   | pinned by a tripwire, plus a defence-in-depth |
+    |      | ``row["evidence_refs"]``                    |   | ``len(refs) != 1`` guard in the same function |
+    +------+--------------------------------------------+---+------------------------------------------------+
+
+    No site found in this sweep is outside A/B/C: every signed-list
+    collapse or selection in the module is covered by one of the three
+    rows above, plus the two already-enumerated (A) sites
+    (``leaf_generation_attestation.corpora`` at line 1538 and composition
+    cells in ``_check_declared_partition``) and the (C) site
+    (``leakage_report.findings``, walked by index, never collapsed by
+    key). No unconditional check was added as a result of this sweep.
     """
     leakage_scope_ref = identity["leakage_scope_ref"]
     known: set[str] = set()

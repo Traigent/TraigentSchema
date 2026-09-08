@@ -3736,3 +3736,46 @@ def test_a_support_row_with_two_evidence_refs_is_rejected_directly() -> None:
         dr_impl._check_support_rows(unsigned, identity, claim_support_rows, claim_bases)
     assert exc_info.value.code == "CLAIM_SUPPORT_ROW_MISMATCH"
     assert exc_info.value.location == f"/claim_support_rows/{dr_impl._CLAIM_IDS.index('DS4')}"
+
+
+def test_six_claim_support_rows_with_the_id_set_preserved_is_schema_rejected() -> None:
+    """T3 round 8 P1-1 (sol round 2, captain-1 probe). The sweep table
+    previously claimed ``claim_support_rows`` is foreclosed because a
+    duplicate ``claim_id`` collapses ``by_id`` and therefore drops a
+    required id, which ``set(by_id) != set(_CLAIM_IDS)`` catches. That is
+    false in general: a 6-row list carrying all five required ids PLUS one
+    duplicate leaves the id SET intact (``set(by_id) == set(_CLAIM_IDS)``)
+    while one signed row is silently overwritten in the dict comprehension.
+    It is the schema's ``maxItems: 5`` on ``claim_support_rows`` that
+    forecloses the sixth row from existing at all -- not the set check,
+    which never even runs because schema validation rejects first.
+
+    Fully re-signed: the extra row is a duplicate of DS1 (same claim_id,
+    same content), so the id set is exactly ``{DS1..DS5}`` and the row
+    count is 6.
+    """
+    built = _build()
+    claim_support_rows = built.bundle["claim_support_rows"]
+    ds1_row = _row(built, "DS1")
+    claim_support_rows.insert(0, dict(ds1_row))
+    assert len(claim_support_rows) == 6
+    assert {row["claim_id"] for row in claim_support_rows} == set(dr_impl._CLAIM_IDS)
+    _redigest_claim_rows(built)
+    _expect_error(built, "SCHEMA")
+
+
+def test_two_evidence_refs_on_one_support_row_is_schema_rejected() -> None:
+    """T3 round 8 P1-2 (sol round 2, captain-1 probe). Pinned alongside the
+    ``claim_support_rows`` sixth-row regression above so both mechanisms
+    captain-1 hand-verified are regression-tested rather than folklore.
+    Same fixture shape as
+    ``test_a_second_evidence_ref_is_rejected_at_schema_validation``: the
+    schema's ``evidence_refs.maxItems: 1`` rejects a two-ref row before
+    ``_check_support_rows`` ever runs.
+    """
+    built = _build()
+    row = _row(built, "DS4")
+    assert row["evidence_basis"] != "abstained"
+    row["evidence_refs"] = [*row["evidence_refs"], dict(row["evidence_refs"][0])]
+    _redigest_claim_rows(built)
+    _expect_error(built, "SCHEMA")

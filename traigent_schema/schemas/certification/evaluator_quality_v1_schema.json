@@ -692,7 +692,7 @@
       }
     },
     "EvaluatorDescriptorV1": {
-      "description": "The content-free evaluator identity document. Five orthogonal component commitments, so a relying party comparing two certificates learns, per component, only whether the two commitments are equal or unequal -- an equal commitment means the same blinded value was committed, and an unequal one means it was not, and that comparison is all a relying party learns about that component. A changed blind can leave the commitment unequal even when the content it protects is identical, and an unchanged blind over changed content leaves it unequal too, so equality/inequality of the commitment is a comparison over commitments, not a claim about the underlying content. This is still enough to interpret the sensitivity claim against a stated dimension of change. NO rubric text, prompt, model-name string, or per-item rationale is representable here: the shipped SDK descriptor still carries a literal 'prompt' key and the Backend reads ('prompt','judge_prompt','rubric'); those are internal analytics channels and this schema makes them unrepresentable rather than discouraged. Under disclosure_mode private_commitment, the five commitments are blinded and NOT recomputable by a relying party - EVQ1 is an attestation, not a verified binding. Under public_descriptor, an accompanying DescriptorOpeningV1 supplies the component documents so the binding IS recomputable offline. descriptor_digest is SHA-256 over UTF8(traigent.evaluator_quality.descriptor.v1) || 0x00 || jcs_v1(this document with descriptor_digest excluded).",
+      "description": "The content-free evaluator identity document. Five orthogonal component commitments, so a relying party comparing two certificates learns, per component, only whether the two commitments are equal or unequal. Equal digest strings match; unequal strings differ. Neither comparison verifies the underlying content or its relationship across certificates. A changed blind can leave the commitment unequal even when the content it protects is identical, and an unchanged blind over changed content leaves it unequal too, so equality/inequality of the commitment is a comparison over commitments, not a claim about the underlying content. This is still enough to interpret the sensitivity claim against a stated dimension of change. NO rubric text, prompt, model-name string, or per-item rationale is representable here: the shipped SDK descriptor still carries a literal 'prompt' key and the Backend reads ('prompt','judge_prompt','rubric'); those are internal analytics channels and this schema makes them unrepresentable rather than discouraged. Under disclosure_mode private_commitment, the five commitments are blinded and NOT recomputable by a relying party - EVQ1 is an attestation, not a verified binding. Under public_descriptor, an accompanying DescriptorOpeningV1 supplies the component documents so the binding IS recomputable offline. descriptor_digest is SHA-256 over UTF8(traigent.evaluator_quality.descriptor.v1) || 0x00 || jcs_v1(this document with descriptor_digest excluded).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -2665,7 +2665,7 @@
       ]
     },
     "EvaluatorQualityOverallV1": {
-      "description": "The declared-plan weighted aggregate. overall_quality_ppm is DERIVED: the verifier recomputes it as the round_half_even weighted sum of each axis's point value under the declared-plan weights, using exact integer arithmetic. This shape implements a one-directional cap on POSITIVE verdicts only: instrument_adequacy_verdict may never exceed the worst verdict among the four instrument-adequacy claims (EVQ2 agreement, EVQ3 calibration, EVQ4 sensitivity, EVQ5 reliability), so a passed reading on any one axis can never raise the aggregate past what the weakest axis supports, and efficiency can lower the overall picture but never raise it. abstain is an explicit EXCEPTION to that ordering, not a rung on it: an abstained axis withholds a verdict rather than asserting a floor, so abstain may sit above, below, or alongside a failed axis without contradiction, and this schema does not attempt to rank abstain against failed. Coupling instrument_adequacy_verdict to the ACTUAL per-axis support rows (rather than to the value an issuer chooses to write here) and enforcing required-axis completeness against the declared plan are DEFERRED VERIFIER DERIVATIONS: this object only constrains the internal consistency of the fields an issuer declares in this block; it does not by itself prove those declared fields agree with claim_support_rows or the declared plan's required_axis list. Two hard caps this object DOES enforce structurally. (1) If any required_axis lacks a passed/directional row, verdict MUST be abstain and overall_quality_ppm MUST be absent - weights may NOT be rescaled over the present axes. (2) verdict may never exceed the WORST verdict among the four instrument-adequacy axes (calibration, agreement, sensitivity, reliability): efficiency can lower the overall picture, never raise it. instrument_adequacy_verdict records that floor explicitly so a reader sees it without recomputing.",
+      "description": "The declared-plan weighted aggregate. overall_quality_ppm is DERIVED: the verifier recomputes it as the round_half_even weighted sum of each axis's point value under the declared-plan weights, using exact integer arithmetic. abstain is an explicit EXCEPTION to the passed/directional/failed ordering, not a rung on it: an abstained axis withholds a verdict rather than asserting a floor, so abstain may sit above, below, or alongside a failed axis without contradiction, and this schema does not attempt to rank abstain against failed. What THIS OBJECT enforces structurally, on its own fields only: overall_quality_ppm MUST be absent when verdict is abstain or failed, and MUST be present otherwise; verdict:passed requires instrument_adequacy_verdict:passed; verdict:directional requires instrument_adequacy_verdict in {directional, passed}. This is self-consistency among the fields an issuer declares in this block -- it does not by itself prove those declared fields agree with claim_support_rows. That agreement is enforced structurally one level up, on EvaluatorQualityBundleV1: an allOf there couples this object's verdict AND instrument_adequacy_verdict to the actual claim_support_rows for the four instrument-adequacy claims (EVQ2 agreement, EVQ3 calibration, EVQ4 sensitivity, EVQ5 reliability) -- verdict/instrument_adequacy_verdict may not read passed unless all four rows read passed, and may not read directional unless all four rows read passed or directional, so a passed or directional reading here can never claim more than the weakest instrument-adequacy row supports. Two things remain DEFERRED VERIFIER DERIVATIONS, not enforced by any schema in this family: recomputation of overall_quality_ppm from the per-axis point values, and required-axis completeness -- i.e. checking that every axis the declared plan's required_axis list names actually has a passed/directional row, and that verdict is abstain when one does not. Weights may NOT be rescaled over axes absent from the declared plan; a verifier, not this schema, is what proves that.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -2819,7 +2819,7 @@
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
         "claim_material_digest": {
-          "description": "Binds the complete signed bundle's claim_material array as a whole -- SHA-256 over UTF8(traigent.evaluator_quality.claim_material.v1) || 0x00 || jcs_v1(the ordered claim_material array). coverage names the string 'claim_material', not this digest, so coverage alone signs no bytes of the array; this field is what actually binds it into the signed manifest.",
+          "description": "Binds the complete signed bundle's claim_material array as a whole -- SHA-256 over UTF8(traigent.evaluator_quality.claim_material.v1) || 0x00 || jcs_v1(the ordered claim_material array). coverage names claim_material_digest, and that binding holds only when a verifier recomputes this digest over the ordered claim_material array and compares it -- coverage listing the field name is not itself proof the array was checked.",
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
         "measurement_registry_digest": {
@@ -3123,7 +3123,246 @@
       },
       "allOf": [
         {
-          "description": "Structural half of F4's floor coupling: instrument_adequacy_verdict cannot read passed while any instrument-adequacy support row (EVQ2 agreement, EVQ3 calibration, EVQ4 sensitivity, EVQ5 reliability -- claim_support_rows indices 1-4) is abstain or failed. This is a structural check on the fields present in THIS bundle; it is not a recomputation of the aggregate and does not prove required-axis completeness against the declared plan -- see EvaluatorQualityOverallV1's description for what remains a deferred verifier derivation.",
+          "description": "Structural half of F4's floor coupling, passed rung: verdict/instrument_adequacy_verdict cannot read passed while any instrument-adequacy support row (EVQ2 agreement, EVQ3 calibration, EVQ4 sensitivity, EVQ5 reliability -- claim_support_rows indices 1-4) is directional, abstain, or failed -- i.e. anything short of passed. This is a structural check on the fields present in THIS bundle; it is not a recomputation of the aggregate and does not prove required-axis completeness against the declared plan -- see EvaluatorQualityOverallV1's description for what remains a deferred verifier derivation.",
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {},
+                  {
+                    "properties": {
+                      "verdict": {
+                        "enum": [
+                          "directional",
+                          "abstain",
+                          "failed"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "verdict"
+                    ]
+                  }
+                ]
+              }
+            },
+            "required": [
+              "claim_support_rows"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "overall": {
+                    "allOf": [
+                      {
+                        "not": {
+                          "properties": {
+                            "verdict": {
+                              "const": "passed"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "instrument_adequacy_verdict": {
+                              "const": "passed"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {},
+                  {},
+                  {
+                    "properties": {
+                      "verdict": {
+                        "enum": [
+                          "directional",
+                          "abstain",
+                          "failed"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "verdict"
+                    ]
+                  }
+                ]
+              }
+            },
+            "required": [
+              "claim_support_rows"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "overall": {
+                    "allOf": [
+                      {
+                        "not": {
+                          "properties": {
+                            "verdict": {
+                              "const": "passed"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "instrument_adequacy_verdict": {
+                              "const": "passed"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {},
+                  {},
+                  {},
+                  {
+                    "properties": {
+                      "verdict": {
+                        "enum": [
+                          "directional",
+                          "abstain",
+                          "failed"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "verdict"
+                    ]
+                  }
+                ]
+              }
+            },
+            "required": [
+              "claim_support_rows"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "overall": {
+                    "allOf": [
+                      {
+                        "not": {
+                          "properties": {
+                            "verdict": {
+                              "const": "passed"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "instrument_adequacy_verdict": {
+                              "const": "passed"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {},
+                  {},
+                  {},
+                  {},
+                  {
+                    "properties": {
+                      "verdict": {
+                        "enum": [
+                          "directional",
+                          "abstain",
+                          "failed"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "verdict"
+                    ]
+                  }
+                ]
+              }
+            },
+            "required": [
+              "claim_support_rows"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "overall": {
+                    "allOf": [
+                      {
+                        "not": {
+                          "properties": {
+                            "verdict": {
+                              "const": "passed"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "instrument_adequacy_verdict": {
+                              "const": "passed"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "Structural half of F4's floor coupling, directional rung: verdict/instrument_adequacy_verdict cannot read directional while any instrument-adequacy support row (EVQ2..EVQ5, indices 1-4) is abstain or failed -- directional requires every instrument axis to be at least directional.",
           "if": {
             "properties": {
               "claim_support_rows": {
@@ -3154,13 +3393,26 @@
               "unsigned_manifest": {
                 "properties": {
                   "overall": {
-                    "not": {
-                      "properties": {
-                        "instrument_adequacy_verdict": {
-                          "const": "passed"
+                    "allOf": [
+                      {
+                        "not": {
+                          "properties": {
+                            "verdict": {
+                              "const": "directional"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "instrument_adequacy_verdict": {
+                              "const": "directional"
+                            }
+                          }
                         }
                       }
-                    }
+                    ]
                   }
                 }
               }
@@ -3199,13 +3451,26 @@
               "unsigned_manifest": {
                 "properties": {
                   "overall": {
-                    "not": {
-                      "properties": {
-                        "instrument_adequacy_verdict": {
-                          "const": "passed"
+                    "allOf": [
+                      {
+                        "not": {
+                          "properties": {
+                            "verdict": {
+                              "const": "directional"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "instrument_adequacy_verdict": {
+                              "const": "directional"
+                            }
+                          }
                         }
                       }
-                    }
+                    ]
                   }
                 }
               }
@@ -3245,13 +3510,26 @@
               "unsigned_manifest": {
                 "properties": {
                   "overall": {
-                    "not": {
-                      "properties": {
-                        "instrument_adequacy_verdict": {
-                          "const": "passed"
+                    "allOf": [
+                      {
+                        "not": {
+                          "properties": {
+                            "verdict": {
+                              "const": "directional"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "instrument_adequacy_verdict": {
+                              "const": "directional"
+                            }
+                          }
                         }
                       }
-                    }
+                    ]
                   }
                 }
               }
@@ -3292,13 +3570,26 @@
               "unsigned_manifest": {
                 "properties": {
                   "overall": {
-                    "not": {
-                      "properties": {
-                        "instrument_adequacy_verdict": {
-                          "const": "passed"
+                    "allOf": [
+                      {
+                        "not": {
+                          "properties": {
+                            "verdict": {
+                              "const": "directional"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "not": {
+                          "properties": {
+                            "instrument_adequacy_verdict": {
+                              "const": "directional"
+                            }
+                          }
                         }
                       }
-                    }
+                    ]
                   }
                 }
               }

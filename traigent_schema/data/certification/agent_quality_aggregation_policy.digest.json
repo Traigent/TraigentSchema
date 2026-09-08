@@ -1,0 +1,5 @@
+{
+  "document": "agent_quality_aggregation_policy.json",
+  "construction": "sha256 over UTF8(domain) || 0x00 || jcs_v1(document) -- domain = AgentQualityDigestDomainRegistryV1.aggregation_policy, read from agent_quality_v1_schema.json",
+  "digest": "sha256:5d498b94053b672465f39b5e75661042d30f0af8f3f5b9e5d7a3f20334904cf3"
+}

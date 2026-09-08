@@ -500,6 +500,19 @@ def test_coverage_const_names_only_real_manifest_properties() -> None:
     assert coverage - real_properties == set()
 
 
+# coverage omits these two manifest properties: "coverage" cannot name itself, and
+# schema_version is a fixed const rather than digest-bound content -- both are
+# manifest properties that are not, and were never meant to be, covered content.
+COVERAGE_EXCLUSIONS = {"coverage", "schema_version"}
+
+
+def test_coverage_const_equals_manifest_properties_minus_exclusions() -> None:
+    manifest = DEFS["EvaluatorQualityUnsignedManifestV1"]
+    coverage = set(manifest["properties"]["coverage"]["const"])
+    real_properties = set(manifest["properties"])
+    assert coverage == real_properties - COVERAGE_EXCLUSIONS
+
+
 def test_every_object_is_closed() -> None:
     for node in _walk(SCHEMA):
         if node.get("type") == "object":
@@ -927,3 +940,133 @@ def test_probe_results_are_exactly_five_pinned_to_registry_order() -> None:
     swapped = _probe_results()
     swapped[0], swapped[1] = swapped[1], swapped[0]
     assert _errors({"probe_results": swapped, "perturbation_set_digest": SHA}, "ReliabilityBlockV1")
+
+
+# --------------------------------------------------------------------------
+# Group 6 -- the positive-verdict floor over the four instrument-adequacy rows
+# --------------------------------------------------------------------------
+
+
+def _iv_row(cid: str, verdict: str) -> dict:
+    return {
+        "claim_id": cid,
+        "tier": 3,
+        "evidence_basis": "issuer_verified",
+        "verdict": verdict,
+        "verifier_result": "pass",
+        "descriptor_digest": SHA,
+        "reference_standard_digest": SHA,
+        "evaluation_scope_digest": SHA,
+        "declared_plan_digest": SHA,
+        "measurement_set_digest": SHA,
+        "claim_material_digest": SHA,
+    }
+
+
+def _cd_row(cid: str) -> dict:
+    return {
+        "claim_id": cid,
+        "tier": 1,
+        "evidence_basis": "client_declared",
+        "verdict": "directional",
+        "descriptor_digest": SHA,
+        "declared_plan_digest": SHA,
+        "claim_material_digest": SHA,
+    }
+
+
+def _ab_row(cid: str, verdict: str = "failed") -> dict:
+    return {
+        "claim_id": cid,
+        "tier": 1,
+        "evidence_basis": "abstained",
+        "verdict": verdict,
+        "abstention_code": "verifier_not_run_or_not_pass",
+    }
+
+
+def test_overall_passed_requires_all_four_instrument_rows_passed() -> None:
+    rows = [_cd_row("EVQ1")] + [_iv_row(c, "directional") for c in ("EVQ2", "EVQ3", "EVQ4", "EVQ5")]
+    assert _errors(rows, "EvaluatorQualityClaimSupportRowsV1") == []
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(verdict="passed", instrument_adequacy_verdict="passed", overall_quality_ppm=500000),
+    )
+    assert _errors(bundle) != []
+
+
+def test_overall_directional_forbids_a_failed_instrument_row() -> None:
+    rows = [
+        _cd_row("EVQ1"),
+        _iv_row("EVQ2", "directional"),
+        _ab_row("EVQ3", "failed"),
+        _iv_row("EVQ4", "directional"),
+        _iv_row("EVQ5", "directional"),
+    ]
+    assert _errors(rows, "EvaluatorQualityClaimSupportRowsV1") == []
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(
+            verdict="directional", instrument_adequacy_verdict="directional", overall_quality_ppm=400000
+        ),
+    )
+    assert _errors(bundle) != []
+
+
+def test_overall_passed_over_a_failed_instrument_row_stays_forbidden() -> None:
+    # Control: guards against over-correcting Finding 1 into a schema that no
+    # longer rejects the case round 2 already closed.
+    rows = [
+        _cd_row("EVQ1"),
+        _iv_row("EVQ2", "passed"),
+        _ab_row("EVQ3", "failed"),
+        _iv_row("EVQ4", "passed"),
+        _iv_row("EVQ5", "passed"),
+    ]
+    assert _errors(rows, "EvaluatorQualityClaimSupportRowsV1") == []
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(verdict="passed", instrument_adequacy_verdict="passed", overall_quality_ppm=900000),
+    )
+    assert _errors(bundle) != []
+
+
+def test_overall_passed_with_all_four_instrument_rows_passed_is_valid() -> None:
+    rows = [_cd_row("EVQ1")] + [_iv_row(c, "passed") for c in ("EVQ2", "EVQ3", "EVQ4", "EVQ5")]
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(verdict="passed", instrument_adequacy_verdict="passed", overall_quality_ppm=900000),
+    )
+    assert _errors(bundle) == []
+
+
+def test_overall_abstain_bundle_stays_valid_regardless_of_instrument_rows() -> None:
+    # The abstain exception: an abstained axis withholds a verdict rather than
+    # asserting a floor, so it must not trip the passed/directional coupling.
+    rows = [
+        _cd_row("EVQ1"),
+        _iv_row("EVQ2", "passed"),
+        _ab_row("EVQ3", "failed"),
+        _iv_row("EVQ4", "passed"),
+        _iv_row("EVQ5", "passed"),
+    ]
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(
+            verdict="abstain", instrument_adequacy_verdict="abstain", overall_quality_ppm=None
+        ),
+    )
+    assert _errors(bundle) == []
+
+
+@pytest.mark.parametrize(
+    "needle",
+    [
+        "not this digest",
+        "same blinded value was committed",
+        "DOES enforce structurally",
+    ],
+)
+def test_stale_or_overclaiming_prose_is_absent(needle: str) -> None:
+    text = SCHEMA_PATH.read_text(encoding="utf-8")
+    assert needle not in text

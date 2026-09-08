@@ -3527,3 +3527,36 @@ def test_one_evidence_ref_per_support_row_verifies() -> None:
         if row["evidence_basis"] != "abstained":
             assert len(row["evidence_refs"]) == 1
     assert _verify(built).code == "DATASET_RECORD_VERIFIED"
+
+
+def test_a_support_row_with_two_evidence_refs_is_rejected_directly() -> None:
+    """T3 team-lead round 1, P2. F9 tightened ``evidence_refs`` to
+    ``maxItems: 1``, so a two-ref row is now SCHEMA-rejected before
+    ``_check_support_rows`` ever runs (see
+    ``test_a_second_evidence_ref_is_rejected_at_schema_validation``). That
+    leaves this function's own ``len(refs) != 1`` guard unreachable through
+    the wire -- the same situation as F6a's manifest pins -- so it is
+    exercised here as a direct unit call for the same reason.
+
+    Coverage-only: this guard predates F9 and nothing about its own behavior
+    changed, so there is no fail-before to show; it passes against the
+    current code both before and after this test is added.
+    """
+    built = _build()
+    claim_support_rows = built.bundle["claim_support_rows"]
+    identity = built.bundle["unsigned_manifest"]["identity"]
+    claim_bases = {row["claim_id"]: row["evidence_basis"] for row in claim_support_rows}
+
+    row = _row(built, "DS4")
+    assert row["evidence_basis"] != "abstained"
+    row["evidence_refs"] = [*row["evidence_refs"], dict(row["evidence_refs"][0])]
+    unsigned = {
+        **built.bundle["unsigned_manifest"],
+        "claim_support_rows_digest": dr_impl._role_digest(
+            dr_impl._CLAIM_SUPPORT_ROWS_DOMAIN, claim_support_rows
+        ),
+    }
+    with pytest.raises(DatasetRecordVerificationError) as exc_info:
+        dr_impl._check_support_rows(unsigned, identity, claim_support_rows, claim_bases)
+    assert exc_info.value.code == "CLAIM_SUPPORT_ROW_MISMATCH"
+    assert exc_info.value.location == f"/claim_support_rows/{dr_impl._CLAIM_IDS.index('DS4')}"

@@ -15,6 +15,7 @@ import copy
 import hashlib
 import json
 import traceback
+from collections.abc import Mapping
 from dataclasses import asdict, replace
 from typing import Any
 
@@ -75,6 +76,14 @@ def _derive_dataset_ref(identity_root: str, epoch: int) -> str:
         b"traigent.dataset_record.dataset_ref.v1",
         identity_root.encode("utf-8"),
         struct.pack(">Q", epoch),
+    )
+
+
+def _derive_dataset_ref_from_item_set(item_set_root: str) -> str:
+    return _derive_ref(
+        "dsr",
+        b"traigent.dataset_record.dataset_ref_item_set.v1",
+        item_set_root.encode("utf-8"),
     )
 
 
@@ -191,8 +200,21 @@ class _Built:
         self.__dict__.update(kwargs)
 
 
-def _evref(digest_value: str) -> list[dict[str, str]]:
-    return [{"evidence_kind": "verifier_report_digest", "evidence_digest": digest_value}]
+def _evref(digest_value: str, kind: str = "verifier_report_digest") -> list[dict[str, str]]:
+    return [{"evidence_kind": kind, "evidence_digest": digest_value}]
+
+
+APPLIED_POLICY_COVERAGE = [
+    "score_metric",
+    "per_item_weighting",
+    "per_category_weighting",
+    "missing_outcome_policy",
+    "tie_break",
+    "bootstrap_unit",
+    "bootstrap_resamples",
+    "random_seed",
+    "minimum_sample_size_n",
+]
 
 
 def _build(
@@ -279,6 +301,12 @@ def _build(
     }
     if identity_over:
         identity.update(identity_over)
+    if identity["dataset_identity_root"] is None and (
+        identity_over is None or "dataset_ref" not in identity_over
+    ):
+        # Null identity selects the item-set derivation (sol round 1 P1).
+        dataset_ref = _derive_dataset_ref_from_item_set(identity["item_set_root"])
+        identity["dataset_ref"] = dataset_ref
 
     composition_cells = [
         {
@@ -353,6 +381,7 @@ def _build(
                 "corpus_ref": corpus_a_ref,
                 "leaf_count": len(corpus_a_leaves),
                 "leaf_root": corpus_a_root,
+                "scope_blind_commitment": scope_blind_commitment,
                 "observation_basis": "backend_observed",
             }
         ]
@@ -362,6 +391,7 @@ def _build(
                     "corpus_ref": corpus_b_ref,
                     "leaf_count": len(corpus_b_leaves),
                     "leaf_root": corpus_b_root,
+                    "scope_blind_commitment": scope_blind_commitment,
                     "observation_basis": "backend_observed",
                 }
             )
@@ -501,6 +531,11 @@ def _build(
         "prereg_digest": prereg_digest,
         "candidate_set_commitment": candidate_set_commitment,
         "candidate_count": 2,
+        "applied_policy": {
+            "schema_version": "traigent.dataset_record.applied_policy.v1",
+            **{field: prereg_no_digest[field] for field in APPLIED_POLICY_COVERAGE},
+            "coverage": list(APPLIED_POLICY_COVERAGE),
+        },
         "information_method": "irt_2pl_mml_v1",
         "mean_item_information": mean_item_information,
         "information_unit": "fisher_micro",
@@ -541,7 +576,9 @@ def _build(
                     "verifier_id": "ver.dataset.identity_v1",
                     "verifier_version": "0.1.0",
                     "verifier_result": "pass",
-                    "evidence_refs": _evref(identity_root),
+                    "evidence_refs": _evref(
+                        identity["dataset_identity_root"], "client_commitment_digest"
+                    ),
                 }
                 if ds1_root is not None
                 else {"abstention_code": "missing_evidence_binding"}
@@ -758,6 +795,66 @@ def _resign(built: _Built) -> None:
     built.bundle["signature"]["signature"] = _sign(
         built.issuer_private_key, built.algorithm, material
     )
+
+
+def _redigest_efficiency(built: _Built) -> None:
+    report = built.bundle["efficiency_report"]
+    report["efficiency_report_digest"] = _digest(
+        b"traigent.dataset_record.efficiency_report.v1",
+        {k: v for k, v in report.items() if k != "efficiency_report_digest"},
+    )
+    built.bundle["unsigned_manifest"]["efficiency_report_digest"] = report[
+        "efficiency_report_digest"
+    ]
+    _resign(built)
+
+
+def _redigest_leakage(built: _Built) -> None:
+    report = built.bundle["leakage_report"]
+    report["leakage_report_digest"] = _digest(
+        b"traigent.dataset_record.leakage_report.v1",
+        {k: v for k, v in report.items() if k != "leakage_report_digest"},
+    )
+    built.bundle["unsigned_manifest"]["leakage_report_digest"] = report["leakage_report_digest"]
+    _resign(built)
+
+
+def _redigest_attestation(built: _Built) -> None:
+    attestation = built.bundle["leaf_generation_attestation"]
+    attestation["attestation_digest"] = _digest(
+        b"traigent.dataset_record.leaf_generation_attestation.v1",
+        {k: v for k, v in attestation.items() if k != "attestation_digest"},
+    )
+    built.bundle["unsigned_manifest"]["leaf_generation_attestation_digest"] = attestation[
+        "attestation_digest"
+    ]
+    built.bundle["leakage_report"]["leaf_generation_attestation_digest"] = attestation[
+        "attestation_digest"
+    ]
+    _redigest_leakage(built)
+
+
+def _redigest_claim_rows(built: _Built) -> None:
+    built.bundle["unsigned_manifest"]["claim_support_rows_digest"] = _digest(
+        b"traigent.dataset_record.claim_support_rows.v1", built.bundle["claim_support_rows"]
+    )
+    _resign(built)
+
+
+def _row(built: _Built, claim_id: str) -> dict[str, Any]:
+    return next(r for r in built.bundle["claim_support_rows"] if r["claim_id"] == claim_id)
+
+
+def _refresh_efficiency_evidence_ref(built: _Built) -> None:
+    """Re-point DS5's evidence ref at the efficiency report as it now stands.
+    A test that edits that report must do this, or the exact row profile
+    rejects the bundle for a stale ref before the check under test runs."""
+    row = _row(built, "DS5")
+    if row["evidence_basis"] != "abstained":
+        row["evidence_refs"] = _evref(
+            built.bundle["efficiency_report"]["efficiency_report_digest"]
+        )
+    _redigest_claim_rows(built)
 
 
 def _verify(built: _Built, **overrides: Any) -> DatasetRecordVerificationResult:
@@ -1351,61 +1448,61 @@ def test_report_citing_a_policy_field_absent_from_the_plan_coverage_fails() -> N
 
 
 @pytest.mark.parametrize(
-    "field,new_value",
+    "field,new_value,expected_code",
     [
-        ("score_metric", "graded_0_1_v1"),
-        ("missing_outcome_policy", "exclude_pairwise_v1"),
-        ("tie_break", "lowest_candidate_index_v1"),
-        ("bootstrap_unit", "item_config_cell_v1"),
-        ("bootstrap_resamples", 2000),
-        ("random_seed", 7),
-        ("minimum_sample_size_n", 20),
+        ("score_metric", "graded_0_1_v1", "PREREGISTRATION_SCOPE_VIOLATION"),
+        ("per_item_weighting", "weighted_v1", "SCHEMA"),
+        ("per_category_weighting", "weighted_v1", "SCHEMA"),
+        ("missing_outcome_policy", "exclude_pairwise_v1", "PREREGISTRATION_SCOPE_VIOLATION"),
+        ("tie_break", "lowest_candidate_index_v1", "PREREGISTRATION_SCOPE_VIOLATION"),
+        ("bootstrap_unit", "item_config_cell_v1", "PREREGISTRATION_SCOPE_VIOLATION"),
+        ("bootstrap_resamples", 2000, "PREREGISTRATION_SCOPE_VIOLATION"),
+        ("random_seed", 7, "PREREGISTRATION_SCOPE_VIOLATION"),
+        ("minimum_sample_size_n", 20, "PREREGISTRATION_SCOPE_VIOLATION"),
     ],
 )
-def test_each_of_the_nine_added_policy_fields_is_contained(field: str, new_value: object) -> None:
-    """Test 37 (subset -- per_item_weighting and per_category_weighting are
-    const 'unweighted_v1' and cannot vary, so they are covered by schema
-    rejection rather than a plan/report disagreement). Changing any one of
-    these fields in the report/estimate alone, without the plan agreeing,
-    fails containment."""
+def test_each_of_the_nine_added_policy_fields_is_contained(
+    field: str, new_value: object, expected_code: str
+) -> None:
+    """Test 37, rewritten after sol round 1 P1 on policy completeness.
+
+    All nine now have a report-side echo (``efficiency_report.applied_policy``)
+    inside the signed report digest, so each is a REAL plan-vs-report
+    comparison: changing the echo alone, with the plan untouched and every
+    digest and signature legitimately recomputed around the edit, fails
+    containment. The previous version asserted only that editing the PLAN
+    changed the plan's own digest for four of these fields -- a restatement
+    of SHA-256, not a containment check, which is precisely what sol
+    flagged. The two weightings are schema consts, so a divergent echo is
+    unrepresentable rather than merely rejected; that difference is the
+    parametrised ``expected_code``, not an exemption.
+    """
     built = _build()
-    if field in ("bootstrap_resamples", "random_seed", "bootstrap_unit"):
-        estimate_field = {
-            "bootstrap_resamples": "resample_count",
-            "random_seed": "random_seed",
-            "bootstrap_unit": "bootstrap_unit",
-        }[field]
-        built.bundle["efficiency_report"]["mean_item_information"][estimate_field] = new_value
-        built.bundle["efficiency_report"]["efficiency_report_digest"] = _digest(
-            b"traigent.dataset_record.efficiency_report.v1",
-            {
-                k: v
-                for k, v in built.bundle["efficiency_report"].items()
-                if k != "efficiency_report_digest"
-            },
-        )
-        built.bundle["unsigned_manifest"]["efficiency_report_digest"] = built.bundle[
-            "efficiency_report"
-        ]["efficiency_report_digest"]
-        _resign(built)
-        _expect_error(built, "PREREGISTRATION_SCOPE_VIOLATION")
-    else:
-        # score_metric / missing_outcome_policy / tie_break / minimum_sample_size_n
-        # are plan-only fields with no independent report-side echo in this
-        # contract's wire shape; the containment property they protect is
-        # exercised via the plan's own coverage tuple (test 36) and via the
-        # estimate-level fields above. Assert the plan carries the field and
-        # that editing it changes the plan digest (post-hoc-mutation guard).
-        built2 = _build(prereg_over={field: new_value})
-        assert (
-            built2.bundle["preregistration_envelope"]["preregistration"][field]
-            == built.bundle["preregistration_envelope"]["preregistration"][field]
-            or new_value == built2.bundle["preregistration_envelope"]["preregistration"][field]
-        )
-        assert (
-            built2.bundle["preregistration_envelope"]["preregistration"]["prereg_digest"]
-            != built.bundle["preregistration_envelope"]["preregistration"]["prereg_digest"]
-        )
+    assert (
+        built.bundle["efficiency_report"]["applied_policy"][field]
+        == built.bundle["preregistration_envelope"]["preregistration"][field]
+    )
+    built.bundle["efficiency_report"]["applied_policy"][field] = new_value
+    _redigest_efficiency(built)
+    _refresh_efficiency_evidence_ref(built)
+    _expect_error(built, expected_code)
+
+
+def test_a_dropped_policy_echo_is_schema_rejected_not_silently_uncompared() -> None:
+    """Test 37a. The applied-policy projection's ``coverage`` const and its
+    required tuple are what stop an issuer from omitting the one field its
+    report would not survive being compared on."""
+    built = _build()
+    del built.bundle["efficiency_report"]["applied_policy"]["score_metric"]
+    _redigest_efficiency(built)
+    _expect_error(built, "SCHEMA")
+
+    built2 = _build()
+    built2.bundle["efficiency_report"]["applied_policy"]["coverage"] = list(
+        APPLIED_POLICY_COVERAGE
+    )[:-1]
+    _redigest_efficiency(built2)
+    _expect_error(built2, "SCHEMA")
 
 
 def test_prereg_registered_after_the_first_evaluate_receipt_fails() -> None:
@@ -2298,3 +2395,381 @@ class _DirTraversable:
 
     def read_text(self, encoding="utf-8"):
         return self._path.read_bytes().decode(encoding)
+
+
+# ---------------------------------------------------------------------------
+# Round-2 controls: the ten findings from sol's first review of this packet.
+# Every test below fails on the pre-review verifier for the reason named in
+# its docstring; none of them is satisfied by a shape check alone.
+# ---------------------------------------------------------------------------
+
+
+def _set_row(built: _Built, claim_id: str, row: dict[str, Any]) -> None:
+    """Replace one support row and re-derive the two digests over it."""
+    rows = built.bundle["claim_support_rows"]
+    for index, existing in enumerate(rows):
+        if existing["claim_id"] == claim_id:
+            rows[index] = row
+            break
+    _redigest_claim_rows(built)
+
+
+def _refresh_leakage_evidence_refs(built: _Built) -> None:
+    """Re-point DS3's and DS4's evidence refs at the leakage report as it now
+    stands. Both rows cite that report, and the row profile requires the ref
+    to name the artifact this verification consumed -- so a test that edits
+    the report must re-point them, or it fails for a stale-ref reason instead
+    of the reason it is about."""
+    for claim_id in ("DS3", "DS4"):
+        row = _row(built, claim_id)
+        if row["evidence_basis"] != "abstained":
+            row["evidence_refs"] = _evref(
+                built.bundle["leakage_report"]["leakage_report_digest"]
+            )
+    _redigest_claim_rows(built)
+
+
+def _rekey_item_set_list(built: _Built, dataset_ref: str) -> None:
+    """Put a different ``dataset_ref`` in the manifest AND move the committed
+    item set's leaf list to the same key, so the ref is the ONLY thing wrong.
+    Without the re-key the fifth input would also stop naming the record's
+    item set, and the bundle would be rejected for that instead -- true, but
+    it would not isolate the derivation under test."""
+    old_ref = built.bundle["unsigned_manifest"]["identity"]["dataset_ref"]
+    built.bundle["unsigned_manifest"]["identity"]["dataset_ref"] = dataset_ref
+    _resign(built)
+    built.leaf_lists = {
+        (dataset_ref if key == old_ref else key): value
+        for key, value in built.leaf_lists.items()
+    }
+    built.dataset_ref = dataset_ref
+
+
+def _declared_ds3_row(built: _Built) -> dict[str, Any]:
+    return {
+        "claim_id": "DS3",
+        "evidence_basis": "client_declared",
+        "attestation_basis": "client_signed_declaration_v1",
+        "evidence_refs": _evref(built.bundle["leakage_report"]["leakage_report_digest"]),
+    }
+
+
+def test_a_record_under_a_leakage_scope_the_caller_did_not_pin_fails() -> None:
+    """Test 87 (sol P1(a)). The record is internally perfect -- every corpus
+    ref derives, the attestation matches, the report's own scope ref agrees
+    with the identity's -- but the whole thing describes a DIFFERENT leakage
+    scope than the one the relying party asked about. Before this check the
+    caller pin existed and was compared to nothing, so this bundle verified
+    and every disjointness statement in it silently described another
+    comparison universe."""
+    built = _build()
+    other_scope = _derive_leakage_scope_ref("sha256:" + "5" * 64)
+    assert other_scope != built.leakage_scope_ref
+    bad_context = replace(built.context, expected_leakage_scope_ref=other_scope)
+    _expect_error(built, "LEAKAGE_SCOPE_MISMATCH", context=bad_context)
+
+    # Same record, the pin the caller actually holds: verifies.
+    assert _verify(built).code == "DATASET_RECORD_VERIFIED"
+
+
+def test_ds3_cannot_verify_when_a_relevant_corpus_list_was_never_supplied() -> None:
+    """Test 88 (sol P1(b), supply half). Both disjointness findings name
+    corpus B, but no leaf list for B is supplied, so the intersection that IS
+    the DS3 claim was never recomputed. The row must not read
+    issuer_verified."""
+    built = _build(include_corpus_b=False)
+    _expect_error(built, "CLAIM_NOT_VERIFIED")
+
+    honest = _build(include_corpus_b=False)
+    _set_row(honest, "DS3", _declared_ds3_row(honest))
+    result = _verify(honest)
+    assert "DS3" in result.claims_declared
+    assert result.disjointness_evidence == "token_lists_only"
+    # The over-abstention guard still holds: DS4 does not depend on any of it.
+    assert "DS4" in result.claims_verified
+
+
+def test_ds3_cannot_verify_when_a_relevant_corpus_is_supplied_but_unattested() -> None:
+    """Test 89 (sol P1(b), attestation half). Corpus B's list is supplied and
+    digest-checked, but the leaf-generation attestation does not cover B --
+    so for B the three premises the attestation exists to close (common
+    blind, real preimages, completeness) are exactly as open as they were
+    without it."""
+    built = _build()
+    attestation = built.bundle["leaf_generation_attestation"]
+    attestation["corpora"] = [
+        corpus for corpus in attestation["corpora"] if corpus["corpus_ref"] != built.corpus_b_ref
+    ]
+    _redigest_attestation(built)
+    _refresh_leakage_evidence_refs(built)
+    _expect_error(built, "CLAIM_NOT_VERIFIED")
+
+
+def test_ds3_cannot_verify_with_no_disjointness_finding_to_verify() -> None:
+    """Test 90 (sol P1(b), the vacuous case). A record whose only leakage
+    finding is a near-duplicate screen makes no token-list disjointness
+    statement at all. A DS3 row reading 'issuer_verified / pass' over that is
+    a pass printed about nothing."""
+    built = _build()
+    report = built.bundle["leakage_report"]
+    report["findings"] = [
+        finding
+        for finding in report["findings"]
+        if finding["finding_kind"] == "near_duplicate_overlap"
+    ]
+    _redigest_leakage(built)
+    _refresh_leakage_evidence_refs(built)
+    _expect_error(built, "CLAIM_NOT_VERIFIED")
+
+    honest = _build()
+    honest_report = honest.bundle["leakage_report"]
+    honest_report["findings"] = [
+        finding
+        for finding in honest_report["findings"]
+        if finding["finding_kind"] == "near_duplicate_overlap"
+    ]
+    _redigest_leakage(honest)
+    _refresh_leakage_evidence_refs(honest)
+    _set_row(honest, "DS3", _declared_ds3_row(honest))
+    result = _verify(honest)
+    assert "DS3" in result.claims_declared
+    assert "DS4" in result.claims_verified
+
+
+def test_a_corpus_attested_under_a_different_blind_fails() -> None:
+    """Test 91 (sol P2(g)). The common-blind premise is now per-corpus and
+    therefore violable: one corpus entry names a different scope-blind
+    commitment than the attestation it sits in. The previous check built a
+    one-element set from the single top-level field and compared its length
+    to 1 -- it could not fire for any input whatsoever."""
+    built = _build()
+    attestation = built.bundle["leaf_generation_attestation"]
+    for corpus in attestation["corpora"]:
+        if corpus["corpus_ref"] == built.corpus_b_ref:
+            corpus["scope_blind_commitment"] = "sha256:" + "6" * 64
+    _redigest_attestation(built)
+    _refresh_leakage_evidence_refs(built)
+    _expect_error(built, "LEAF_SCOPE_BLIND_MISMATCH")
+
+
+def test_manifest_signature_algorithm_must_equal_the_signed_manifests_own() -> None:
+    """Test 92 (sol P2(i)). issuer_signature_algorithm is inside the
+    manifest's coverage tuple, so the issuer SIGNS a statement about which
+    primitive signed it. The signature block here still verifies -- the bytes
+    are a real ed25519 signature over this exact manifest -- but the manifest
+    it authenticates says the record was signed with ECDSA."""
+    built = _build()
+    built.bundle["unsigned_manifest"]["issuer_signature_algorithm"] = "ecdsa_p256_sha256"
+    _resign(built)
+    assert built.bundle["signature"]["algorithm"] == "ed25519"
+    _expect_error(built, "ISSUER_SIGNATURE_INVALID")
+
+
+@pytest.mark.parametrize(
+    "claim_id,mutation",
+    [
+        ("DS4", "verifier_id"),
+        ("DS2", "evidence_digest"),
+        ("DS5", "evidence_kind"),
+        ("DS1", "extra_evidence_ref"),
+    ],
+)
+def test_a_support_row_must_name_the_verifier_and_evidence_actually_used(
+    claim_id: str, mutation: str
+) -> None:
+    """Test 93 (sol P2(f)). Before this, only evidence_basis was read, so a
+    row could name any verifier in the enum and cite any digest -- including
+    an artifact no check for that claim consumed -- and still print as
+    support."""
+    built = _build()
+    row = _row(built, claim_id)
+    if mutation == "verifier_id":
+        row["verifier_id"] = "ver.dataset.efficiency_v1"
+    elif mutation == "evidence_digest":
+        row["evidence_refs"] = _evref(built.bundle["leakage_report"]["leakage_report_digest"])
+    elif mutation == "evidence_kind":
+        row["evidence_refs"] = _evref(
+            built.bundle["efficiency_report"]["efficiency_report_digest"],
+            "audit_report_digest",
+        )
+    else:
+        row["evidence_refs"] = [
+            *row["evidence_refs"],
+            {
+                "evidence_kind": "verifier_report_digest",
+                "evidence_digest": built.bundle["unsigned_manifest"]["composition_digest"],
+            },
+        ]
+    _redigest_claim_rows(built)
+    _expect_error(built, "CLAIM_SUPPORT_ROW_MISMATCH")
+
+
+def test_a_client_declared_row_where_the_verifier_abstained_fails() -> None:
+    """Test 94 (sol P2(f), the branch the first draft never compared). With
+    no leaf lists DS3 ABSTAINS; a row that instead records a signed client
+    declaration asserts a declaration the verifier never saw, and only the
+    issuer_verified branch was checked, so it passed."""
+    built = _build(include_leaf_lists=False)
+    _set_row(built, "DS3", _declared_ds3_row(built))
+    _expect_error(built, "CLAIM_SUPPORT_ROW_MISMATCH", leaf_lists=None)
+
+
+def test_an_abstained_row_must_carry_the_abstention_this_verifier_reached() -> None:
+    """Test 94a. The frozen v0 vocabulary has five abstention codes; four of
+    them describe conditions this family never establishes, and an
+    abstention explained by a reason nobody checked is not an honest row."""
+    built = _build(include_leaf_lists=False)
+    row = _row(built, "DS3")
+    row["abstention_code"] = "verifier_not_run_or_not_pass"
+    _redigest_claim_rows(built)
+    _expect_error(built, "CLAIM_SUPPORT_ROW_MISMATCH", leaf_lists=None)
+
+
+def test_null_identity_dataset_ref_is_derived_from_the_item_set_not_supplied() -> None:
+    """Test 95 (sol P1(e)). dataset_ref stays required when the customer
+    declines the identity blind, so before this it was the one dsr: value in
+    the contract that nothing derived -- a free 43-character channel in the
+    exact field DatasetRefV1 exists to close."""
+    built = _build(identity_over={"dataset_identity_root": None, "identity_blind_epoch": 0})
+    context = replace(built.context, expected_dataset_identity_root=None)
+    identity = built.bundle["unsigned_manifest"]["identity"]
+    assert identity["dataset_ref"] == _derive_dataset_ref_from_item_set(identity["item_set_root"])
+    result = _verify(built, context=context)
+    assert "DS1" in result.claims_abstained
+    assert "DS2" in result.claims_verified
+
+    supplied = _build(identity_over={"dataset_identity_root": None, "identity_blind_epoch": 0})
+    _rekey_item_set_list(supplied, "dsr:" + "C" * 43)
+    _expect_error(
+        supplied, "REF_NOT_DERIVED", context=context, leaf_lists=supplied.leaf_lists
+    )
+
+
+def test_the_two_dataset_ref_derivations_are_domain_separated() -> None:
+    """Test 95a. A null-identity record may not carry the identity-rooted
+    derivation, and an identity-rooted record may not carry the item-set one:
+    without separate domains the weaker derivation could stand in for the
+    stronger."""
+    null_identity = _build(
+        identity_over={"dataset_identity_root": None, "identity_blind_epoch": 0}
+    )
+    context = replace(null_identity.context, expected_dataset_identity_root=None)
+    _rekey_item_set_list(
+        null_identity, _derive_dataset_ref(null_identity.identity_root, 0)
+    )
+    _expect_error(
+        null_identity, "REF_NOT_DERIVED", context=context, leaf_lists=null_identity.leaf_lists
+    )
+
+    rooted = _build()
+    _rekey_item_set_list(
+        rooted, _derive_dataset_ref_from_item_set(rooted.identity["item_set_root"])
+    )
+    _expect_error(rooted, "REF_NOT_DERIVED", leaf_lists=rooted.leaf_lists)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "free_text_category",
+        "unregistered_stratum",
+        "unknown_member",
+        "missing_tag",
+        "non_digest_leaf",
+        "tagged_corpus_entry",
+        "duplicate_leaf",
+    ],
+)
+def test_the_fifth_input_is_validated_against_its_own_contract_artifact(mutation: str) -> None:
+    """Test 96 (sol P1(d)). The item-set leaf list is now
+    DatasetItemSetLeafListV1 and every supplied list is validated against its
+    definition before a single cell root is recomputed. Previously the
+    category/stratum tags beside each leaf were untyped caller input on an
+    overloaded corpus map: a free-text tag was read straight into the
+    grouping and surfaced, at best, as a confusing digest mismatch."""
+    built = _build()
+    entries = list(built.leaf_lists[built.dataset_ref])
+    if mutation == "free_text_category":
+        entries[0] = {**entries[0], "category_id": SENTINEL}
+    elif mutation == "unregistered_stratum":
+        entries[0] = {**entries[0], "difficulty_stratum": "s9_impossible"}
+    elif mutation == "unknown_member":
+        entries[0] = {**entries[0], "reference_answer": SENTINEL}
+    elif mutation == "missing_tag":
+        entries[0] = {"leaf": entries[0]["leaf"], "category_id": entries[0]["category_id"]}
+    elif mutation == "non_digest_leaf":
+        entries[0] = {**entries[0], "leaf": SENTINEL}
+    elif mutation == "duplicate_leaf":
+        entries[1] = dict(entries[0])
+    leaf_lists = dict(built.leaf_lists)
+    if mutation == "tagged_corpus_entry":
+        leaf_lists[built.corpus_a_ref] = [
+            {"leaf": entry["leaf"], "category_id": "arithmetic", "difficulty_stratum": "s1_easy"}
+            for entry in leaf_lists[built.corpus_a_ref]
+        ]
+    else:
+        leaf_lists[built.dataset_ref] = entries
+    error = _expect_error(built, "LEAF_LIST_SHAPE", leaf_lists=leaf_lists)
+    assert error.location == ""
+    assert SENTINEL not in str(error)
+    assert SENTINEL not in "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+
+
+def test_fail_from_inside_a_handler_carries_no_suppressed_context() -> None:
+    """Test 97 (sol P2(j), the general case). ``raise ... from None`` sets
+    __suppress_context__ and leaves __context__ populated, so the suppressed
+    exception object -- and anything it was built from -- stays reachable on
+    the escaping error. Every _fail() reachable from an except block had this
+    shape, not only the catch-all sol named."""
+    with pytest.raises(DatasetRecordVerificationError) as exc_info:
+        try:
+            raise ValueError(f"canonicalization of {SENTINEL} failed")
+        except ValueError:
+            dr_impl._fail("CANONICALIZATION")
+    assert exc_info.value.__context__ is None
+    assert exc_info.value.__cause__ is None
+    rendered = "".join(
+        traceback.format_exception(
+            type(exc_info.value), exc_info.value, exc_info.value.__traceback__
+        )
+    )
+    assert SENTINEL not in rendered
+
+
+class _ExplodingLeafLists(Mapping):
+    """A hostile fifth input: a well-typed Mapping whose iteration raises,
+    carrying supplied content in the exception it raises."""
+
+    def __getitem__(self, key: object) -> object:
+        raise KeyError("absent")
+
+    def __iter__(self):
+        return iter(())
+
+    def __len__(self) -> int:
+        return 0
+
+    def items(self):
+        raise ValueError(f"leaf list for {SENTINEL}")
+
+
+def test_a_hostile_fifth_input_cannot_reach_the_generic_failures_context() -> None:
+    """Test 98 (sol P2(j), the case sol named). The generic
+    VERIFICATION_FAILED is classified inside the handler and raised outside
+    it, so the suppressed exception is not merely suppressed -- it is not
+    there."""
+    built = _build()
+    with pytest.raises(DatasetRecordVerificationError) as exc_info:
+        _verify(built, leaf_lists=_ExplodingLeafLists())
+    assert exc_info.value.code == "VERIFICATION_FAILED"
+    assert exc_info.value.__context__ is None
+    assert exc_info.value.__cause__ is None
+    rendered = "".join(
+        traceback.format_exception(
+            type(exc_info.value), exc_info.value, exc_info.value.__traceback__
+        )
+    )
+    assert SENTINEL not in rendered
+    assert SENTINEL not in str(exc_info.value)

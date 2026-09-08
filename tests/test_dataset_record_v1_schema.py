@@ -174,6 +174,93 @@ def test_evidence_grade_enum_matches_pillars_one_and_three() -> None:
     )
 
 
+def test_every_verifier_digest_domain_is_registered() -> None:
+    """Test 99 (sol round 1 P2). Set equality BOTH ways between the domain
+    constants the verifier actually hashes under and
+    DatasetRecordDigestDomainRegistryV1. The first draft used
+    claim_support_rows without registering it and argued the omission was
+    harmless; the harm is that the registry then documents a partial list,
+    so a second implementer reading the schema alone cannot reproduce this
+    module's preimages. This test is what stops the next one drifting."""
+    from traigent_schema.certification import dataset_record_verifier as dr
+
+    prefix = b"traigent.dataset_record."
+    module_domains = {
+        value.decode("utf-8")
+        for name, value in vars(dr).items()
+        if name.endswith("_DOMAIN") and isinstance(value, bytes) and value.startswith(prefix)
+    }
+    # The only *_DOMAIN constant in that namespace belonging to another
+    # family is the v0 issuer-SPKI domain this module imports to reuse the
+    # shipped signature primitives; naming it here keeps the filter above
+    # from quietly hiding a mis-prefixed dataset-record domain.
+    foreign = {
+        value.decode("utf-8")
+        for name, value in vars(dr).items()
+        if name.endswith("_DOMAIN") and isinstance(value, bytes) and not value.startswith(prefix)
+    }
+    assert foreign == {"traigent.agent_certificate.issuer_spki_der.v0"}
+
+    registry = SCHEMA["definitions"]["DatasetRecordDigestDomainRegistryV1"]
+    registry_domains = {
+        definition["const"] for definition in registry["properties"].values()
+    }
+    assert module_domains == registry_domains
+
+
+def test_the_item_set_leaf_list_is_a_first_class_definition() -> None:
+    """Test 100 (sol round 1 P1). The composition-cell tags the verifier
+    groups by are a named, closed artifact of this contract -- not untyped
+    caller input on an overloaded corpus map. Both tag fields resolve to the
+    pinned taxonomy enums, so a free-text category is unrepresentable."""
+    definition = SCHEMA["definitions"]["DatasetItemSetLeafListV1"]
+    entry = definition["properties"]["entries"]["items"]
+    assert definition["additionalProperties"] is False
+    assert entry["additionalProperties"] is False
+    assert set(entry["required"]) == {"leaf", "category_id", "difficulty_stratum"}
+    assert entry["properties"]["category_id"]["$ref"] == "#/definitions/DatasetCategoryIdV1"
+    assert (
+        entry["properties"]["difficulty_stratum"]["$ref"]
+        == "#/definitions/DatasetDifficultyStratumV1"
+    )
+    assert _errors(
+        {
+            "schema_version": "traigent.dataset_record.item_set_leaf_list.v1",
+            "dataset_ref": "dsr:" + "A" * 43,
+            "item_set_root": "sha256:" + "a" * 64,
+            "entries": [
+                {
+                    "leaf": "sha256:" + "b" * 64,
+                    "category_id": "customer_private_label",
+                    "difficulty_stratum": "s1_easy",
+                }
+            ],
+        },
+        "DatasetItemSetLeafListV1",
+    )
+
+
+def test_the_applied_policy_projection_covers_every_planned_policy_field() -> None:
+    """Test 101 (sol round 1 P1). The report-side echo is not a subset: the
+    nine policy fields the plan fixes and the projection's own const coverage
+    tuple are the same set, so no policy field can be pre-registered with
+    nothing able to contradict it."""
+    projection = SCHEMA["definitions"]["DatasetAppliedPolicyProjectionV1"]
+    plan = SCHEMA["definitions"]["DatasetEfficiencyPreRegistrationV1"]
+    coverage = tuple(projection["properties"]["coverage"]["const"])
+    assert set(coverage) <= set(plan["properties"])
+    assert set(coverage) == set(projection["properties"]) - {"schema_version", "coverage"}
+    assert set(projection["required"]) == set(projection["properties"])
+    for field in coverage:
+        # Same TYPE on both sides (prose differs): an echo whose admissible
+        # values were wider than the plan's could carry a policy the plan
+        # cannot express, and equality against it would then be untestable.
+        echoed = {k: v for k, v in projection["properties"][field].items() if k != "description"}
+        planned = {k: v for k, v in plan["properties"][field].items() if k != "description"}
+        assert echoed == planned, field
+    assert "applied_policy" in SCHEMA["definitions"]["DatasetEfficiencyReportV1"]["required"]
+
+
 def _git_show(ref: str, path: str) -> bytes:
     result = subprocess.run(
         ["git", "show", f"{ref}:{path}"],

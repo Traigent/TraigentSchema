@@ -5,7 +5,7 @@
   "description": "Closed, content-free dataset-quality certificate contract (pillar 2). dataset_record_v1 is a separate contract family: it does not add identifiers or templates to the frozen Agent Certificate v0 claim-ID/template vocabulary and it modifies neither v0 nor Process Record V1. It binds the process record's already-verified unsigned manifest by digest -- the process record is the only join key across the four pillars -- and the bound bundle arrives as a SEPARATE verification input, never embedded. Direction of binding is dataset-record to process-record, never the reverse. The subject of this certificate IS the data, so composition and leakage coverage open a new, named, registered disclosure channel (item_count and per-cell counts) beyond what certificate_client_evidence_manifest_v0_schema.json's evaluation_dataset slot discloses; every other field is a const, an enum, a digest, or a derived non-semantic ref. The verifier MUST reject decoded booleans and floating-point values for every integer-valued field, even where a Draft-07 implementation would accept 1.0 as integer-compatible, and every declared integer maximum in this family is bounded below the fp2 JCS safe-integer ceiling (2**53 - 1).",
   "definitions": {
     "DatasetRecordDigestDomainRegistryV1": {
-      "description": "Normative fixed role domains for the dataset-record family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded). Mirrors ProcessRecordDigestDomainRegistryV1 (process_record_v1_schema.json#/definitions/ProcessRecordDigestDomainRegistryV1); it does not extend it.",
+      "description": "Normative fixed role domains for the dataset-record family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded); the four derived-ref domains (dataset_ref, dataset_ref_item_set, corpus_ref, leakage_scope_ref) instead prefix a length-prefixed part list, as their own definitions state. Mirrors ProcessRecordDigestDomainRegistryV1 (process_record_v1_schema.json#/definitions/ProcessRecordDigestDomainRegistryV1); it does not extend it. This registry is CLOSED over the verifier's domain constants: every b\"traigent.dataset_record.*\" constant the verifier uses must appear here (sol round 1 P2 -- claim_support_rows was used but unregistered, which made the registry a partial list a reader could not rely on).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -28,7 +28,9 @@
         "dataset_ref",
         "corpus_ref",
         "leakage_scope_ref",
-        "scope_binding"
+        "scope_binding",
+        "claim_support_rows",
+        "dataset_ref_item_set"
       ],
       "properties": {
         "item_leaf": {
@@ -90,6 +92,12 @@
         },
         "scope_binding": {
           "const": "traigent.dataset_record.scope_binding.v1"
+        },
+        "claim_support_rows": {
+          "const": "traigent.dataset_record.claim_support_rows.v1"
+        },
+        "dataset_ref_item_set": {
+          "const": "traigent.dataset_record.dataset_ref_item_set.v1"
         }
       }
     },
@@ -115,7 +123,7 @@
       }
     },
     "DatasetRefV1": {
-      "description": "Named semantic type: the dataset identifier. It is DERIVED, never caller-selected -- `dsr:` plus base64url-without-padding of SHA-256(UTF8(traigent.dataset_record.dataset_ref.v1) || uint64be(len(dataset_identity_root)) || UTF8(dataset_identity_root) || uint64be(8) || uint64be(identity_blind_epoch)), rendered as exactly 43 base64url characters. Shape and derivation discipline copied from certification_common_v0_schema.json#/definitions/ClientKeyRefV0. This closes the channel an OpaqueRef leaves open: OpaqueRef admits 8-128 arbitrary characters, which holds a customer or dataset name, and the shipped verifier already records that the schema cannot prove such a ref carries no content. The verifier RECOMPUTES this value; a hand-written ref fails REF_NOT_DERIVED. Pseudonymous and stable across builds within one epoch, so it is a disclosed linkability channel with its own Disclosure Register entry; it carries no customer label.",
+      "description": "Named semantic type: the dataset identifier. It is DERIVED, never caller-selected -- `dsr:` plus base64url-without-padding of SHA-256(UTF8(traigent.dataset_record.dataset_ref.v1) || uint64be(len(dataset_identity_root)) || UTF8(dataset_identity_root) || uint64be(8) || uint64be(identity_blind_epoch)), rendered as exactly 43 base64url characters. Shape and derivation discipline copied from certification_common_v0_schema.json#/definitions/ClientKeyRefV0. This closes the channel an OpaqueRef leaves open: OpaqueRef admits 8-128 arbitrary characters, which holds a customer or dataset name, and the shipped verifier already records that the schema cannot prove such a ref carries no content. NULL-IDENTITY DERIVATION (sol round 1 P1): a customer who declines the long-lived identity blind carries dataset_identity_root null, and the first draft then had no derivation at all -- the field stayed required, so such a record carried a SUPPLIED dsr: value, i.e. exactly the free channel this type exists to close. With a null root the ref is instead derived from a non-label source under its OWN domain: SHA-256(UTF8(traigent.dataset_record.dataset_ref_item_set.v1) || uint64be(len(item_set_root)) || UTF8(item_set_root)). The separate domain is what keeps the two derivations non-interchangeable, so a null-identity ref can never be replayed as an identity-rooted one. item_set_root is already public in this manifest and is itself a digest over blinded leaves, so this opens no channel the record did not already carry. The verifier RECOMPUTES this value under whichever derivation the record's own dataset_identity_root selects; a hand-written ref fails REF_NOT_DERIVED. Pseudonymous and stable across builds within one epoch, so it is a disclosed linkability channel with its own Disclosure Register entry; it carries no customer label.",
       "type": "string",
       "pattern": "^dsr:[A-Za-z0-9_-]{43}$"
     },
@@ -608,7 +616,7 @@
       }
     },
     "DatasetLeafGenerationAttestationV1": {
-      "description": "The backend-observed, issuer-signed record that closes the three premises Tier-A intersection cannot prove on its own. scope_blind_commitment is a commitment TO the shared scope blind, never the blind (which is client-local and never transmitted, certification_common_v0_schema.json#/definitions/CommitmentSchemeV0); every corpus in this scope having the same value is what evidences a common blind. leaf_domain is const, so a leaf built under a different preimage is out of scope by construction. completeness is const and states that the listed leaves are EVERY leaf the backend generated for that corpus under this scope -- which is the premise an incomplete list would violate. NON-CLAIM (DS_NC_LEAF_GENERATION_ATTESTED): this is an issuer attestation over its own generation process, not a proof; it raises DS3 from client_declared to issuer_verified and no further.",
+      "description": "The backend-observed, issuer-signed record that closes the three premises Tier-A intersection cannot prove on its own. scope_blind_commitment is a commitment TO the shared scope blind, never the blind (which is client-local and never transmitted, certification_common_v0_schema.json#/definitions/CommitmentSchemeV0); every corpus in this scope having the same value is what evidences a common blind. PER-CORPUS COMMITMENTS (sol round 1 P2): the first draft carried the commitment ONLY at this top level, so 'every corpus has the same value' was a set of one and the verifier's equality check could not fire -- a check that reads as evidence and is vacuous is worse than no check. Each corpora[] entry now carries its own scope_blind_commitment and every one MUST equal this object's; a divergent entry is representable and rejected (LEAF_SCOPE_BLIND_MISMATCH), which is what makes the common-blind premise checked rather than merely asserted. leaf_domain is const, so a leaf built under a different preimage is out of scope by construction. completeness is const and states that the listed leaves are EVERY leaf the backend generated for that corpus under this scope -- which is the premise an incomplete list would violate. NON-CLAIM (DS_NC_LEAF_GENERATION_ATTESTED): this is an issuer attestation over its own generation process, not a proof; it raises DS3 from client_declared to issuer_verified and no further.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -647,6 +655,7 @@
               "corpus_ref",
               "leaf_count",
               "leaf_root",
+              "scope_blind_commitment",
               "observation_basis"
             ],
             "properties": {
@@ -659,6 +668,10 @@
                 "maximum": 65536
               },
               "leaf_root": {
+                "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+              },
+              "scope_blind_commitment": {
+                "description": "This corpus's own commitment to the scope blind under which its leaves were generated. MUST equal the attestation's top-level scope_blind_commitment; draft-07 cannot express the cross-field equality, so it is a verifier obligation (LEAF_SCOPE_BLIND_MISMATCH).",
                 "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
               },
               "observation_basis": {
@@ -700,6 +713,53 @@
           "uniqueItems": true,
           "items": {
             "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+          }
+        }
+      }
+    },
+    "DatasetItemSetLeafListV1": {
+      "description": "The COMMITTED ITEM SET's own leaf list -- the second projection of the fifth verification input, and the one composition-cell reconstruction reads. It is a FIRST-CLASS artifact of this contract (sol round 1 P1): the first draft carried it as an untyped extra key inside the corpus-keyed leaf_lists map, so the (category, stratum) tag beside each leaf was neither schema-validated nor named anywhere in the contract, while composition cell roots were recomputed from it. Every supplied instance is now validated against THIS definition before any cell root is recomputed, so the tags are closed-enum values of the pinned taxonomy and a malformed or free-text tag is rejected as input shape rather than surfacing as a digest mismatch. WHAT THE TAGS ARE AND ARE NOT: offline nothing can bind a tag to its leaf's HMAC preimage -- the verifier holds no blind, which is the whole point of the commitment scheme -- so the tags are never TRUSTED, only CHECKED: the (category, stratum) grouping they induce must reproduce every declared cell's issuer-signed cell_leaf_root, and the whole sorted leaf set must reproduce the issuer-signed item_set_root, both of which sit inside the issuer signature. A mis-tagged, truncated, padded, or fabricated list therefore FAILS verification; it cannot manufacture one, and that asymmetry -- not the tags' own trustworthiness -- is what DS2's issuer_verified upgrade rests on. item_set_root is carried here so the artifact names the manifest value it is offered against; the verifier compares it to the manifest's own and recomputes it from the leaves regardless. No instance of this definition crosses the wire inside a certificate bundle.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "dataset_ref",
+        "item_set_root",
+        "entries"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.item_set_leaf_list.v1"
+        },
+        "dataset_ref": {
+          "$ref": "#/definitions/DatasetRefV1"
+        },
+        "item_set_root": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "leaf",
+              "category_id",
+              "difficulty_stratum"
+            ],
+            "properties": {
+              "leaf": {
+                "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+              },
+              "category_id": {
+                "$ref": "#/definitions/DatasetCategoryIdV1"
+              },
+              "difficulty_stratum": {
+                "$ref": "#/definitions/DatasetDifficultyStratumV1"
+              }
+            }
           }
         }
       }
@@ -1292,8 +1352,77 @@
         }
       }
     },
+    "DatasetAppliedPolicyProjectionV1": {
+      "description": "The report's own echo of the nine aggregation-policy fields the signed plan fixes: what the issuer states it ACTUALLY applied when producing the figures in this report. Added after sol round 1 P1 on policy completeness. The first draft pre-registered score_metric, the two weightings, missing_outcome_policy and tie_break but gave the report no field carrying them, so containment could compare only the fields that happened to appear twice (candidate set, interval parameters); the four that most change a statistic were unfalsifiable -- 'pre-registered' with nothing to compare against. Every field here MUST equal the plan's field of the same name, or PREREGISTRATION_SCOPE_VIOLATION. NON-CLAIM: this closes the CONTAINMENT gap only. It states which policy the issuer applied and binds that statement inside the signed report digest; it is not evidence that the arithmetic obeyed it -- that needs the outcome matrix, which this contract does not carry (DS_NC_EFFICIENCY_NOT_RECOMPUTABLE stands unchanged). coverage is a const tuple naming the nine, so a projection that silently drops one is schema-invalid rather than quietly uncompared.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "score_metric",
+        "per_item_weighting",
+        "per_category_weighting",
+        "missing_outcome_policy",
+        "tie_break",
+        "bootstrap_unit",
+        "bootstrap_resamples",
+        "random_seed",
+        "minimum_sample_size_n",
+        "coverage"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.applied_policy.v1"
+        },
+        "score_metric": {
+          "$ref": "#/definitions/DatasetScoreMetricV1"
+        },
+        "per_item_weighting": {
+          "const": "unweighted_v1"
+        },
+        "per_category_weighting": {
+          "const": "unweighted_v1"
+        },
+        "missing_outcome_policy": {
+          "$ref": "#/definitions/DatasetMissingOutcomePolicyV1"
+        },
+        "tie_break": {
+          "$ref": "#/definitions/DatasetTieBreakV1"
+        },
+        "bootstrap_unit": {
+          "$ref": "#/definitions/DatasetBootstrapUnitV1"
+        },
+        "bootstrap_resamples": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 100000
+        },
+        "random_seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "minimum_sample_size_n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "coverage": {
+          "const": [
+            "score_metric",
+            "per_item_weighting",
+            "per_category_weighting",
+            "missing_outcome_policy",
+            "tie_break",
+            "bootstrap_unit",
+            "bootstrap_resamples",
+            "random_seed",
+            "minimum_sample_size_n"
+          ]
+        }
+      }
+    },
     "DatasetEfficiencyReportV1": {
-      "description": "The three efficiency measures. E1 information: mean_item_information in the pre-registered unit, plus uninformative_item_count (items whose interval lies wholly below information_floor). E2 redundancy: inert_item_count and inert_fraction_ppm under the pre-registered inertness_criterion, plus decisive_subset_upper_bound -- the size surviving greedy backward elimination in the pre-registered order, an UPPER bound on the minimum decisive subset and never the minimum. E3 cost: cost_efficiency_ppm and latency_efficiency_ppm are floor integer division, (decisive * 1000000) // full, so the verifier's recomputation is bit-exact; a zero denominator abstains rather than dividing. inert_item_count and decisive_subset_upper_bound measure different quantities and are NOT required to sum to item_count. NON-CLAIM: every number here is relative to the pre-registered candidate set and selection rule; it is not a property of the dataset alone, and a different agent population may re-inform items that measured as inert. efficiency_report_digest is SHA-256 over UTF8(traigent.dataset_record.efficiency_report.v1) || 0x00 || jcs_v1(this object with efficiency_report_digest excluded).",
+      "description": "The three efficiency measures. E1 information: mean_item_information in the pre-registered unit, plus uninformative_item_count (items whose interval lies wholly below information_floor). E2 redundancy: inert_item_count and inert_fraction_ppm under the pre-registered inertness_criterion, plus decisive_subset_upper_bound -- the size surviving greedy backward elimination in the pre-registered order, an UPPER bound on the minimum decisive subset and never the minimum. E3 cost: cost_efficiency_ppm and latency_efficiency_ppm are floor integer division, (decisive * 1000000) // full, so the verifier's recomputation is bit-exact; a zero denominator abstains rather than dividing. inert_item_count and decisive_subset_upper_bound measure different quantities and are NOT required to sum to item_count. NON-CLAIM: every number here is relative to the pre-registered candidate set and selection rule; it is not a property of the dataset alone, and a different agent population may re-inform items that measured as inert. applied_policy is the report's own echo of the nine aggregation-policy fields the plan fixes, so containment can compare them instead of taking them on trust (see DatasetAppliedPolicyProjectionV1). efficiency_report_digest is SHA-256 over UTF8(traigent.dataset_record.efficiency_report.v1) || 0x00 || jcs_v1(this object with efficiency_report_digest excluded), so the echoed policy is inside the issuer signature by the same path as every figure it governs.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1301,6 +1430,7 @@
         "prereg_digest",
         "candidate_set_commitment",
         "candidate_count",
+        "applied_policy",
         "information_method",
         "mean_item_information",
         "information_unit",
@@ -1331,6 +1461,9 @@
           "type": "integer",
           "minimum": 2,
           "maximum": 1024
+        },
+        "applied_policy": {
+          "$ref": "#/definitions/DatasetAppliedPolicyProjectionV1"
         },
         "information_method": {
           "$ref": "#/definitions/DatasetInformationMethodV1"

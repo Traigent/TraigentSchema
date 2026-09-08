@@ -26,22 +26,32 @@ lists a relying party holds locally. No Backend imports, callbacks, network
 access, database access, or private-key signing are involved.
 
 Leaf lists are supplied as ``leaf_lists: Mapping[str, Sequence[Mapping]]``,
-keyed by the record's derived ``corpus_ref``. Each entry is
-``{"leaf": "sha256:...", "category_id": "...", "difficulty_stratum": "..."}``:
-the pre-computed, client-side, HMAC-derived opaque leaf token (D3) plus its
-cleartext category/stratum tag. The wire ``DatasetLeafListV1.leaves`` array
-(the fifth input's on-the-wire projection) carries the ``leaf`` tokens alone,
-sorted; the category/stratum tag never crosses the wire and exists only in
-this out-of-band, caller-supplied local input, where it is what lets this
-verifier bucket leaves by (category, stratum) and recompute a composition
-cell's root (D5) -- a grouping the opaque wire tokens alone cannot support,
-since each token is a one-way HMAC over a preimage that embeds those values.
-This shape is an implementer's choice filling a gap the design's Python
-signature sketch left as a bare ``object``; see the packet report for the
-concrete gap this fills and the corpus/composition scoping decisions built on
-top of it (composition-cell reconstruction pools leaves from every supplied
-corpus rather than binding one designated corpus to the item set, since the
-schema carries no such binding field).
+keyed by the record's derived ``corpus_ref`` for a leakage corpus and by its
+derived ``dataset_ref`` for the committed item set. Each entry carries the
+pre-computed, client-side, HMAC-derived opaque leaf token (D3) --
+``{"leaf": "sha256:..."}`` for a corpus, and additionally its cleartext
+``category_id`` / ``difficulty_stratum`` tag for the item set. Both shapes are
+now FIRST-CLASS artifacts of the contract rather than an implementer's
+convention: :func:`_check_leaf_list_input` projects each supplied list onto
+``DatasetLeafListV1`` / ``DatasetItemSetLeafListV1`` and validates it against
+that definition before any digest, cell root or intersection is computed, so a
+free-text tag, a non-digest leaf, an out-of-taxonomy category or a duplicated
+leaf is rejected as input shape (``LEAF_LIST_SHAPE``) instead of surfacing
+later as a confusing digest mismatch (sol round 1 P1).
+
+The category/stratum tag never crosses the wire; it exists only in this
+out-of-band, caller-supplied local input, where it is what lets this verifier
+bucket leaves by (category, stratum) and recompute a composition cell's root
+(D5) -- a grouping the opaque wire tokens alone cannot support, since each
+token is a one-way HMAC over a preimage that embeds those values. Offline
+nothing can bind a tag to its leaf's preimage (this module holds no blind, by
+design), so the tags are never TRUSTED, only CHECKED: the grouping they induce
+must reproduce every declared cell's issuer-SIGNED ``cell_leaf_root`` and the
+issuer-SIGNED ``item_set_root``. A mis-tagged or fabricated list therefore
+fails; it cannot manufacture a pass. That asymmetry, not the tags' own
+trustworthiness, is what DS2's ``issuer_verified`` upgrade rests on.
+Composition-cell reconstruction reads only the item-set entry, since the
+schema carries no field binding a leakage corpus to the committed item set.
 
 Verification failures expose only stable, content-free error codes plus a
 bounded field location built from this schema's own key names and integer
@@ -100,11 +110,13 @@ _LEAKAGE_SCOPE_REF_RE = re.compile(r"^lsr:[A-Za-z0-9_-]{43}$")
 _UTC_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z$")
 _EPOCH_ORDINAL = date(1970, 1, 1).toordinal()
 
-# Every registered role-digest domain from DatasetRecordDigestDomainRegistryV1,
-# plus the one further domain (claim_support_rows) the schema's own prose
-# names but the registry object omits -- a design-doc inconsistency, not a
-# functional gap: using an unregistered-but-documented domain constant does
-# not widen anything this contract signs.
+# Every role-digest domain this module uses, and NOTHING ELSE: each constant
+# below must appear in DatasetRecordDigestDomainRegistryV1, which
+# test_every_verifier_digest_domain_is_registered mechanises in both
+# directions. The first draft used claim_support_rows without registering it
+# and argued the omission was harmless (sol round 1 P2); the harm is that the
+# registry then documents a partial list, so a second implementer reading the
+# schema alone cannot reproduce this module's preimages.
 _ITEM_LEAF_DOMAIN = b"traigent.dataset_record.item_leaf.v1"
 _ITEM_SET_ROOT_DOMAIN = b"traigent.dataset_record.item_set_root.v1"
 _CELL_ROOT_DOMAIN = b"traigent.dataset_record.cell_root.v1"
@@ -122,6 +134,7 @@ _UNSIGNED_MANIFEST_DOMAIN = b"traigent.dataset_record.unsigned_manifest.v1"
 _ISSUER_SIGNATURE_DOMAIN = b"traigent.dataset_record.issuer_signature.v1"
 _LEAF_LIST_DOMAIN = b"traigent.dataset_record.leaf_list.v1"
 _DATASET_REF_DOMAIN = b"traigent.dataset_record.dataset_ref.v1"
+_DATASET_REF_ITEM_SET_DOMAIN = b"traigent.dataset_record.dataset_ref_item_set.v1"
 _CORPUS_REF_DOMAIN = b"traigent.dataset_record.corpus_ref.v1"
 _LEAKAGE_SCOPE_REF_DOMAIN = b"traigent.dataset_record.leakage_scope_ref.v1"
 _SCOPE_BINDING_DOMAIN = b"traigent.dataset_record.scope_binding.v1"
@@ -229,6 +242,72 @@ _EVIDENCE_GRADES = (
     "log_inclusion_proof",
 )
 
+# The nine aggregation-policy fields the signed plan fixes and the efficiency
+# report must echo, in the order DatasetAppliedPolicyProjectionV1.coverage
+# pins. Equality is enforced field by field against the plan.
+_APPLIED_POLICY_FIELDS = (
+    "score_metric",
+    "per_item_weighting",
+    "per_category_weighting",
+    "missing_outcome_policy",
+    "tie_break",
+    "bootstrap_unit",
+    "bootstrap_resamples",
+    "random_seed",
+    "minimum_sample_size_n",
+)
+
+# The two leakage-finding kinds whose verification IS the DS3 claim: DS3
+# asserts that the supplied token lists for two corpora are disjoint, so the
+# corpora those findings name are exactly the corpora DS3 depends on.
+_DS3_RELEVANT_FINDING_KINDS = frozenset({"declared_corpus_overlap", "split_disjointness"})
+
+# The exact per-claim support-row profile (sol round 1 P2). For every claim,
+# the verifier fixes which verifier id may appear beside it and which artifact
+# its single evidence ref must commit to -- the artifact THIS module actually
+# recomputed for that claim. ``evidence_source`` names the manifest field (or,
+# for DS1, the identity field) holding that digest.
+_CLAIM_ROW_PROFILE: dict[str, dict[str, str]] = {
+    "DS1": {
+        "verifier_id": "ver.dataset.identity_v1",
+        "evidence_kind": "client_commitment_digest",
+        "evidence_source": "identity.dataset_identity_root",
+    },
+    "DS2": {
+        "verifier_id": "ver.dataset.composition_v1",
+        "evidence_kind": "verifier_report_digest",
+        "evidence_source": "composition_digest",
+    },
+    "DS3": {
+        "verifier_id": "ver.dataset.token_disjointness_v1",
+        "evidence_kind": "verifier_report_digest",
+        "evidence_source": "leakage_report_digest",
+    },
+    "DS4": {
+        "verifier_id": "ver.dataset.near_duplicate_v1",
+        "evidence_kind": "verifier_report_digest",
+        "evidence_source": "leakage_report_digest",
+    },
+    "DS5": {
+        "verifier_id": "ver.dataset.efficiency_v1",
+        "evidence_kind": "verifier_report_digest",
+        "evidence_source": "efficiency_report_digest",
+    },
+}
+
+# The only abstention code this contract's abstentions can carry. The frozen
+# v0 vocabulary has five; the other four describe conditions this family
+# cannot reach (an unregistered claim id, a versionless verifier, a verifier
+# that ran and did not pass, a prohibited-register violation), so admitting
+# them here would let a row explain its abstention with a reason the verifier
+# never established.
+_ABSTENTION_CODE = "missing_evidence_binding"
+
+# The only attestation basis a client_declared row may carry (the closed
+# DatasetAttestationBasisV1 vocabulary is a single value today; naming it here
+# keeps the row profile complete rather than implicitly schema-delegated).
+_ATTESTATION_BASIS = "client_signed_declaration_v1"
+
 
 class DatasetRecordVerificationError(ValueError):
     """A fixed-code verification failure that never includes certificate data."""
@@ -256,7 +335,28 @@ class DatasetRecordRegistryError(RuntimeError):
 
 
 def _fail(code: str, location: str = "") -> NoReturn:
-    raise DatasetRecordVerificationError(code, location)
+    """Raise the fixed-code failure with a guaranteed-empty ``__context__``.
+
+    ``_fail`` is called from inside ``except`` blocks (canonicalization,
+    schema-dependency resolution, signature primitives), and a plain ``raise``
+    there implicitly chains the in-flight exception onto ``__context__``.
+    ``raise ... from None`` does NOT clear it -- it only sets
+    ``__suppress_context__``, so the suppressed object, which may have been
+    built from caller-supplied content, is still reachable on the escaping
+    error (sol round 1 P2 on the catch-all; the same defect class applies to
+    every ``_fail`` reachable from a handler). Constructing the error, raising
+    it under ``from None``, then clearing ``__context__`` and re-raising the
+    same object is the discipline ``_load_registry_constant`` already uses:
+    the bare ``raise`` re-raises the exception currently being handled, and
+    Python never chains an exception onto itself, so ``__context__`` stays
+    ``None``.
+    """
+    failure = DatasetRecordVerificationError(code, location)
+    try:
+        raise failure from None
+    except DatasetRecordVerificationError:
+        failure.__context__ = None
+        raise
 
 
 # Public, closed, content-free failure vocabulary. DatasetRecordVerificationError
@@ -275,6 +375,7 @@ DATASET_RECORD_ERROR_CODES = frozenset(
         "STRICT_INTEGER",
         "CANONICALIZATION",
         "VERIFICATION_FAILED",
+        "LEAF_LIST_SHAPE",
         # Binding
         "PROCESS_RECORD_INVALID",
         "SCOPE_BINDING_MISMATCH",
@@ -559,6 +660,30 @@ def _derive_dataset_ref(identity_root: str, epoch: int) -> str:
     )
 
 
+def _derive_dataset_ref_from_item_set(item_set_root: str) -> str:
+    """The null-identity derivation (sol round 1 P1).
+
+    ``dataset_ref`` is required by the schema whether or not the customer
+    holds a long-lived identity blind, and the first draft derived it only
+    from ``dataset_identity_root`` -- so a record with a null root carried a
+    SUPPLIED ``dsr:`` value, i.e. precisely the free string channel
+    ``DatasetRefV1`` exists to close. With a null root the ref is derived
+    instead from ``item_set_root``, a non-label value already public in the
+    manifest, under its OWN domain so the two derivations can never be
+    interchanged.
+    """
+    return _derive_ref(
+        "dsr", _DATASET_REF_ITEM_SET_DOMAIN, item_set_root.encode("utf-8")
+    )
+
+
+def _expected_dataset_ref(identity: dict[str, Any]) -> str:
+    root = identity["dataset_identity_root"]
+    if root is None:
+        return _derive_dataset_ref_from_item_set(identity["item_set_root"])
+    return _derive_dataset_ref(root, identity["identity_blind_epoch"])
+
+
 def _derive_corpus_ref(corpus_leaf_root: str, leakage_scope_ref: str) -> str:
     return _derive_ref(
         "cpr",
@@ -793,18 +918,27 @@ def _check_identity(identity: dict[str, Any], context: DatasetRecordVerification
     _fail("DATASET_IDENTITY_MISMATCH", "/unsigned_manifest/identity/dataset_identity_root")
 
 
+def _check_derived_dataset_ref(identity: dict[str, Any]) -> None:
+    """Row 9a, checked FIRST and on its own.
+
+    Derived under BOTH identity branches (sol round 1 P1): with a null
+    ``dataset_identity_root`` the ref is derived from ``item_set_root`` under
+    the ``dataset_ref_item_set`` domain, so no record can carry a supplied
+    ``dsr:`` value. It is checked before the fifth input is read because the
+    committed item set's leaf list is keyed BY this ref -- an underived ref
+    would otherwise make a correct list look like a malformed corpus list,
+    blaming the relying party's input for the record's defect.
+    """
+    if identity["dataset_ref"] != _expected_dataset_ref(identity):
+        _fail("REF_NOT_DERIVED", "/unsigned_manifest/identity/dataset_ref")
+
+
 def _check_derived_refs(
     unsigned: dict[str, Any],
     leaf_lists: Mapping[str, Sequence[Mapping[str, Any]]] | None,
     attestation: dict[str, Any] | None,
 ) -> None:
     identity = unsigned["identity"]
-    root = identity["dataset_identity_root"]
-    if root is not None:
-        expected = _derive_dataset_ref(root, identity["identity_blind_epoch"])
-        if identity["dataset_ref"] != expected:
-            _fail("REF_NOT_DERIVED", "/unsigned_manifest/identity/dataset_ref")
-
     leakage_scope_ref = identity["leakage_scope_ref"]
     if attestation is not None:
         expected_scope = _derive_leakage_scope_ref(attestation["scope_blind_commitment"])
@@ -827,6 +961,104 @@ def _check_derived_refs(
             expected_corpus = _derive_corpus_ref(corpus_leaf_root, leakage_scope_ref)
             if corpus_ref != expected_corpus:
                 _fail("REF_NOT_DERIVED", "/leakage_report/leaf_list_digests")
+
+
+def _leaf_list_projection_error(definition_name: str, projection: dict[str, Any]) -> bool:
+    """``True`` iff ``projection`` violates its definition.
+
+    The error objects are consumed and discarded inside the generator
+    expression: a jsonschema error carries ``instance``, so binding one to a
+    local would put caller-supplied material in this frame. Nothing but the
+    boolean survives.
+    """
+    try:
+        validator = _definition_validator(definition_name)
+    except (OSError, UnicodeError, json.JSONDecodeError, Unresolvable):
+        _fail("SCHEMA_DEPENDENCY")
+    try:
+        return any(True for _ in validator.iter_errors(projection))
+    except Unresolvable:
+        _fail("SCHEMA_DEPENDENCY")
+
+
+def _check_leaf_list_input(
+    identity: dict[str, Any],
+    leaf_lists: Mapping[str, Sequence[Mapping[str, Any]]] | None,
+) -> None:
+    """Validate the fifth verification input against its own definitions.
+
+    The fifth input is caller-supplied and unsigned, so before ANY digest,
+    cell root or intersection is computed from it, each supplied list is
+    projected onto its contract artifact -- ``DatasetItemSetLeafListV1`` for
+    the reserved ``dataset_ref`` key, ``DatasetLeafListV1`` for every corpus
+    key -- and validated against that definition (sol round 1 P1: the tags
+    were previously neither schema-validated nor named in the contract).
+
+    Failures raise the fixed, content-free ``LEAF_LIST_SHAPE`` with NO
+    location: the input is not part of the signed bundle, so there is no
+    bundle path to name, and inventing one would point a reader at a
+    certificate field that is not at fault.
+    """
+    if leaf_lists is None:
+        return
+    if not isinstance(leaf_lists, Mapping):
+        _fail("LEAF_LIST_SHAPE")
+    dataset_ref = identity["dataset_ref"]
+    leakage_scope_ref = identity["leakage_scope_ref"]
+    for key, entries in leaf_lists.items():
+        if type(key) is not str:
+            _fail("LEAF_LIST_SHAPE")
+        if isinstance(entries, (str, bytes)) or not isinstance(entries, Sequence):
+            _fail("LEAF_LIST_SHAPE")
+        is_item_set = key == dataset_ref
+        expected_keys = (
+            ("leaf", "category_id", "difficulty_stratum") if is_item_set else ("leaf",)
+        )
+        rows: list[dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, Mapping):
+                _fail("LEAF_LIST_SHAPE")
+            row = {field: entry[field] for field in expected_keys if field in entry}
+            if len(row) != len(expected_keys) or len(row) != len(entry):
+                # Missing a required member, or carrying one this projection
+                # does not define. A leakage corpus list carries the opaque
+                # token ALONE: the category/stratum tag is meaningful only
+                # for the committed item set, and accepting it on a corpus
+                # would imply a per-corpus partition this contract does not
+                # define.
+                _fail("LEAF_LIST_SHAPE")
+            if type(row["leaf"]) is not str or not _SHA256_RE.fullmatch(row["leaf"]):
+                _fail("LEAF_LIST_SHAPE")
+            rows.append(row)
+        leaves = [cast(str, row["leaf"]) for row in rows]
+        if len(set(leaves)) != len(leaves):
+            _fail("LEAF_LIST_SHAPE")
+        if len(rows) > _MAX_LEAF_LIST:
+            # Above the cap the projection is deliberately NOT schema-checked:
+            # both definitions bound their arrays at _MAX_LEAF_LIST, so
+            # validating here would turn an oversized list -- which this
+            # contract answers by ABSTAINING DS3 (row 20) -- into a hard
+            # shape failure. The explicit checks above already guarantee
+            # every downstream read is type-safe.
+            continue
+        if is_item_set:
+            projection: dict[str, Any] = {
+                "schema_version": "traigent.dataset_record.item_set_leaf_list.v1",
+                "dataset_ref": key,
+                "item_set_root": identity["item_set_root"],
+                "entries": rows,
+            }
+            if _leaf_list_projection_error("DatasetItemSetLeafListV1", projection):
+                _fail("LEAF_LIST_SHAPE")
+            continue
+        corpus_projection: dict[str, Any] = {
+            "schema_version": "traigent.dataset_record.leaf_list.v1",
+            "corpus_ref": key,
+            "leakage_scope_ref": leakage_scope_ref,
+            "leaves": sorted(leaves),
+        }
+        if _leaf_list_projection_error("DatasetLeafListV1", corpus_projection):
+            _fail("LEAF_LIST_SHAPE")
 
 
 def _check_taxonomy_and_registry_pins(unsigned: dict[str, Any]) -> None:
@@ -949,6 +1181,35 @@ def _check_leakage_basis_coupling(leakage_report: dict[str, Any]) -> None:
             _fail("LEAKAGE_BASIS_COUPLING", f"/leakage_report/findings/{index}/observation_basis")
 
 
+def _check_leakage_scope_pin(
+    identity: dict[str, Any], context: DatasetRecordVerificationContext
+) -> None:
+    """Row 8b: the record's leakage scope IS the scope the caller asked about.
+
+    ``expected_leakage_scope_ref`` was a caller pin the first draft never
+    compared to anything (sol round 1 P1), so a record could verify under a
+    leakage scope the relying party had not asked for -- every downstream
+    disjointness statement then describes a different comparison universe
+    than the one the caller believes it read. Unlike the commitment-ref pin
+    this is a two-way comparison (the record's field against the pin): the
+    process record carries no leakage scope, so there is no third party to
+    the comparison.
+    """
+    if identity["leakage_scope_ref"] != context.expected_leakage_scope_ref:
+        _fail("LEAKAGE_SCOPE_MISMATCH", "/unsigned_manifest/identity/leakage_scope_ref")
+
+
+def _ds3_relevant_corpus_refs(leakage_report: dict[str, Any]) -> set[str]:
+    """The corpora DS3's claim is actually about: those named by a finding
+    whose verification IS the token-list disjointness statement."""
+    refs: set[str] = set()
+    for finding in leakage_report["findings"]:
+        if finding["finding_kind"] in _DS3_RELEVANT_FINDING_KINDS:
+            refs.add(finding["corpus_a_ref"])
+            refs.add(finding["corpus_b_ref"])
+    return refs
+
+
 def _check_leakage_scope(
     identity: dict[str, Any],
     leakage_report: dict[str, Any],
@@ -1051,9 +1312,16 @@ def _check_leaf_generation_attestation(
     if attestation["leakage_scope_ref"] != leakage_report["leakage_scope_ref"]:
         _fail("LEAF_SCOPE_BLIND_MISMATCH", "/leaf_generation_attestation/leakage_scope_ref")
 
-    scope_blind_commitments = {attestation["scope_blind_commitment"]}
-    if len(scope_blind_commitments) != 1:
-        _fail("LEAF_SCOPE_BLIND_MISMATCH", "/leaf_generation_attestation/scope_blind_commitment")
+    # The common-blind premise, checked rather than asserted (sol round 1
+    # P2). The first draft built a one-element set from the single top-level
+    # field and compared its length to 1 -- a condition that cannot fire.
+    # Every corpus now carries its own commitment and every one must equal
+    # the attestation's, so a corpus generated under a different blind is
+    # representable and rejected.
+    scope_blind_commitment = attestation["scope_blind_commitment"]
+    for corpus in attestation["corpora"]:
+        if corpus["scope_blind_commitment"] != scope_blind_commitment:
+            _fail("LEAF_SCOPE_BLIND_MISMATCH", "/leaf_generation_attestation/corpora")
 
     for corpus in attestation["corpora"]:
         corpus_ref = corpus["corpus_ref"]
@@ -1187,6 +1455,25 @@ def _check_prereg_coverage(prereg: dict[str, Any]) -> None:
         _fail(
             "PREREGISTRATION_SCOPE_VIOLATION", "/preregistration_envelope/preregistration/coverage"
         )
+
+
+def _check_applied_policy(prereg: dict[str, Any], efficiency_report: dict[str, Any]) -> None:
+    """Row 28b: the nine aggregation-policy fields, compared not assumed.
+
+    Sol round 1 P1: the plan pre-registers ``score_metric``, both weightings,
+    ``missing_outcome_policy`` and ``tie_break``, but the first draft's report
+    had no field carrying any of them, so containment could only compare the
+    fields that happened to appear twice. A policy that nothing can contradict
+    is not pre-registered in any sense a relying party can act on. The report
+    now echoes all nine in a signed projection and each must equal the plan's.
+    """
+    applied = efficiency_report["applied_policy"]
+    for field in _APPLIED_POLICY_FIELDS:
+        if applied[field] != prereg[field]:
+            _fail(
+                "PREREGISTRATION_SCOPE_VIOLATION",
+                f"/efficiency_report/applied_policy/{field}",
+            )
 
 
 def _check_containment(
@@ -1413,12 +1700,40 @@ def _check_non_claims(unsigned: dict[str, Any]) -> None:
             _fail("NON_CLAIMS_MISMATCH", f"/unsigned_manifest/non_claims/{index}")
 
 
+def _expected_evidence_digest(
+    unsigned: dict[str, Any], identity: dict[str, Any], claim_id: str
+) -> str | None:
+    source = _CLAIM_ROW_PROFILE[claim_id]["evidence_source"]
+    if source == "identity.dataset_identity_root":
+        return cast("str | None", identity["dataset_identity_root"])
+    return cast(str, unsigned[source])
+
+
 def _check_support_rows(
     unsigned: dict[str, Any],
+    identity: dict[str, Any],
     claim_support_rows: list[dict[str, Any]],
-    verified: dict[str, bool],
-    declared: dict[str, bool],
+    claim_bases: dict[str, str],
 ) -> tuple[str, dict[str, Any]]:
+    """Rows 42/43: every row must be the row this verification produced.
+
+    Sol round 1 P2: the first draft read ``evidence_basis`` and nothing else,
+    so a row could name any verifier id and any evidence refs -- including
+    refs to artifacts no check consumed -- and a ``client_declared`` row was
+    accepted for a claim the verifier had ABSTAINED, because only the
+    issuer_verified branch was compared at all. The row profile is now exact
+    in three ways: the basis must EQUAL the basis this verification derived
+    (not merely be no stronger); the verifier id must be the one registered
+    for that claim; and ``evidence_refs`` must be exactly one ref, of the
+    kind that claim's evidence actually is, committing to the artifact THIS
+    module recomputed for it. Anything else is a row that reads as support
+    for a check that did not happen.
+
+    ``evidence_refs``' schema admits one to four refs and an optional opaque
+    locator; requiring exactly one here is deliberate -- a second ref would be
+    support this verifier did not establish -- and the locator, being
+    operational rather than evidential, is not compared.
+    """
     digest = _role_digest(_CLAIM_SUPPORT_ROWS_DOMAIN, claim_support_rows)
     if digest != unsigned["claim_support_rows_digest"]:
         _fail("CLAIM_SUPPORT_ROW_MISMATCH", "/unsigned_manifest/claim_support_rows_digest")
@@ -1427,26 +1742,52 @@ def _check_support_rows(
     if set(by_id) != set(_CLAIM_IDS):
         _fail("CLAIM_SUPPORT_ROW_MISMATCH", "/claim_support_rows")
 
-    claims_verified: list[str] = []
-    claims_declared: list[str] = []
-    claims_abstained: list[str] = []
+    tallies: dict[str, list[str]] = {
+        "issuer_verified": [],
+        "client_declared": [],
+        "abstained": [],
+    }
     for index, claim_id in enumerate(_CLAIM_IDS):
         row = by_id[claim_id]
         basis = row["evidence_basis"]
-        if basis == "issuer_verified":
-            if not verified.get(claim_id):
+        expected_basis = claim_bases[claim_id]
+        if basis != expected_basis:
+            # A row claiming MORE than the verifier established is the
+            # headline failure and keeps its own code; every other
+            # disagreement (a declaration where the verifier abstained, an
+            # abstention where it verified) is a row that does not describe
+            # this verification.
+            if basis == "issuer_verified":
                 _fail("CLAIM_NOT_VERIFIED", f"/claim_support_rows/{index}")
-            claims_verified.append(claim_id)
-        elif basis == "client_declared":
-            claims_declared.append(claim_id)
-        elif basis == "abstained":
-            claims_abstained.append(claim_id)
-        else:
             _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
+
+        profile = _CLAIM_ROW_PROFILE[claim_id]
+        if basis == "abstained":
+            if row["abstention_code"] != _ABSTENTION_CODE:
+                _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
+            tallies[basis].append(claim_id)
+            continue
+
+        expected_digest = _expected_evidence_digest(unsigned, identity, claim_id)
+        refs = row["evidence_refs"]
+        if len(refs) != 1:
+            _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
+        if (
+            expected_digest is None
+            or refs[0]["evidence_kind"] != profile["evidence_kind"]
+            or refs[0]["evidence_digest"] != expected_digest
+        ):
+            _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
+        if basis == "issuer_verified":
+            if row["verifier_id"] != profile["verifier_id"]:
+                _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
+        elif row["attestation_basis"] != _ATTESTATION_BASIS:
+            _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
+        tallies[basis].append(claim_id)
     return digest, {
-        "claims_verified": tuple(claims_verified),
-        "claims_declared": tuple(claims_declared),
-        "claims_abstained": tuple(claims_abstained),
+        "claims_verified": tuple(tallies["issuer_verified"]),
+        "claims_declared": tuple(tallies["client_declared"]),
+        "claims_abstained": tuple(tallies["abstained"]),
     }
 
 
@@ -1456,6 +1797,15 @@ def _check_manifest_digest_and_signature(
     digest = _role_digest(_UNSIGNED_MANIFEST_DOMAIN, unsigned)
     if signature["unsigned_manifest_digest"] != digest:
         _fail("UNSIGNED_MANIFEST_DIGEST_MISMATCH", "/signature/unsigned_manifest_digest")
+    # The algorithm is SIGNED metadata: issuer_signature_algorithm sits inside
+    # the manifest's coverage tuple, so the issuer states which algorithm this
+    # manifest is signed under. The first draft verified with
+    # signature["algorithm"] and never compared the two (sol round 1 P2), so a
+    # signature block could nominate a different primitive than the manifest
+    # it accompanies -- the bytes then verify under an algorithm the signed
+    # record does not claim.
+    if signature["algorithm"] != unsigned["issuer_signature_algorithm"]:
+        _fail("ISSUER_SIGNATURE_INVALID", "/signature/algorithm")
     if (
         signature["issuer_key_ref"] != unsigned["issuer_key_ref"]
         or signature["trust_ring_ref"] != unsigned["trust_ring_ref"]
@@ -1507,6 +1857,10 @@ def _verify(
     ds1_basis = _check_identity(identity, context)
 
     attestation = bundle.get("leaf_generation_attestation")
+    _check_derived_dataset_ref(identity)
+    # The fifth input is validated against its own contract artifacts BEFORE
+    # any value is read out of it.
+    _check_leaf_list_input(identity, leaf_lists)
     _check_derived_refs(unsigned, leaf_lists, attestation)
 
     _check_taxonomy_and_registry_pins(unsigned)
@@ -1524,6 +1878,8 @@ def _verify(
             ds2_basis = "issuer_verified"
 
     leakage_report = bundle["leakage_report"]
+    # The caller's leakage-scope pin gates every leakage check below it.
+    _check_leakage_scope_pin(identity, context)
     _check_leakage_digest(unsigned, leakage_report)
     _check_leakage_basis_coupling(leakage_report)
     _check_leakage_scope(identity, leakage_report, leaf_lists)
@@ -1538,9 +1894,28 @@ def _verify(
 
     disjointness_evidence = "token_lists_only"
     ds3_basis = "client_declared"
-    if leaf_lists and _check_leaf_generation_attestation(
+    attestation_consistent = bool(leaf_lists) and _check_leaf_generation_attestation(
         unsigned, leakage_report, attestation, corpora_leaves
-    ):
+    )
+    # DS3 upgrades only when EVERY corpus its claim is about was supplied,
+    # digest-checked AND attested (sol round 1 P1). The first draft skipped
+    # findings whose corpora were not supplied and skipped attestation
+    # corpora with no supplied list, then upgraded DS3 if any leaf list plus
+    # an attestation existed -- so a record could reach issuer_verified with
+    # the one disjointness check that mattered never recomputed. A relevant
+    # set that is EMPTY does not upgrade either: with no disjointness finding
+    # there is no token-list disjointness to verify, and a pass printed over
+    # nothing is the vacuous-check failure this contract exists to prevent.
+    ds3_relevant = _ds3_relevant_corpus_refs(leakage_report)
+    attested_refs = (
+        {corpus["corpus_ref"] for corpus in attestation["corpora"]}
+        if attestation is not None
+        else set()
+    )
+    ds3_fully_covered = bool(ds3_relevant) and ds3_relevant <= (
+        set(corpora_leaves) & attested_refs
+    )
+    if attestation_consistent and ds3_fully_covered:
         disjointness_evidence = "generation_attested"
         ds3_basis = "issuer_verified"
     ds3_abstains = not leaf_lists or any(
@@ -1562,6 +1937,7 @@ def _verify(
     _check_prereg_coverage(prereg)
 
     efficiency_report = bundle["efficiency_report"]
+    _check_applied_policy(prereg, efficiency_report)
     _check_containment(prereg, efficiency_report, leakage_report)
     _check_ordering(unsigned, prereg, cast(dict[str, Any], process_record_bundle))
     evidence_grade = _check_evidence_grade(unsigned, prereg, context)
@@ -1604,10 +1980,8 @@ def _verify(
         "DS4": "issuer_verified" if ds4_available else "abstained",
         "DS5": ds5_basis,
     }
-    verified = {cid: basis == "issuer_verified" for cid, basis in claim_bases.items()}
-    declared = {cid: basis == "client_declared" for cid, basis in claim_bases.items()}
     _digest_unused, claim_tallies = _check_support_rows(
-        unsigned, bundle["claim_support_rows"], verified, declared
+        unsigned, identity, bundle["claim_support_rows"], claim_bases
     )
 
     _check_manifest_digest_and_signature(unsigned, bundle["signature"], materials_issuer)
@@ -1680,6 +2054,14 @@ def verify_dataset_record_certificate(
         _fail("CONTEXT")
     if type(bundle) is not dict:
         _fail("BUNDLE_SHAPE")
+    # The catch-all is CLASSIFIED inside the handler and RAISED outside it
+    # (sol round 1 P2). ``raise ... from None`` sets __suppress_context__ but
+    # leaves __context__ populated, so the suppressed exception -- which a
+    # hostile fifth input could have filled with supplied material -- stays
+    # reachable on the escaping error. Leaving the ``except`` block first
+    # clears the in-flight exception, so the raise below chains nothing:
+    # __context__ IS None, not merely suppressed.
+    failure: DatasetRecordVerificationError | None = None
     try:
         return _verify(
             cast(dict[str, Any], bundle),
@@ -1690,7 +2072,8 @@ def verify_dataset_record_certificate(
     except DatasetRecordVerificationError:
         raise
     except Exception:
-        raise DatasetRecordVerificationError("VERIFICATION_FAILED") from None
+        failure = DatasetRecordVerificationError("VERIFICATION_FAILED")
+    raise failure
 
 
 __all__ = [

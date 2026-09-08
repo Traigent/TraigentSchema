@@ -1,0 +1,3197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/evaluator_quality_v1_schema.json",
+  "title": "Traigent Evaluator Quality Certificate v1",
+  "description": "PLACEHOLDER",
+  "definitions": {
+    "EvaluatorQualityDigestDomainRegistryV1": {
+      "description": "Normative fixed role domains for this family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded). This is a SEPARATE registry from ProcessRecordDigestDomainRegistryV1: adding members there would modify a shipped V1 contract and break its own required-list test.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_binding",
+        "descriptor",
+        "descriptor_opening",
+        "reference_standard",
+        "evaluation_scope",
+        "preregistration",
+        "measurement_set",
+        "frontier",
+        "claim_material",
+        "claim_support_rows",
+        "non_claims",
+        "unsigned_manifest",
+        "issuer_signature",
+        "measurement_registry",
+        "perturbation_set",
+        "assertion_templates"
+      ],
+      "properties": {
+        "scope_binding": {
+          "const": "traigent.evaluator_quality.scope_binding.v1"
+        },
+        "descriptor": {
+          "const": "traigent.evaluator_quality.descriptor.v1"
+        },
+        "descriptor_opening": {
+          "const": "traigent.evaluator_quality.descriptor_opening.v1"
+        },
+        "reference_standard": {
+          "const": "traigent.evaluator_quality.reference_standard.v1"
+        },
+        "evaluation_scope": {
+          "const": "traigent.evaluator_quality.evaluation_scope.v1"
+        },
+        "preregistration": {
+          "const": "traigent.evaluator_quality.preregistration.v1"
+        },
+        "measurement_set": {
+          "const": "traigent.evaluator_quality.measurement_set.v1"
+        },
+        "frontier": {
+          "const": "traigent.evaluator_quality.efficiency_frontier.v1"
+        },
+        "claim_material": {
+          "const": "traigent.evaluator_quality.claim_material.v1"
+        },
+        "claim_support_rows": {
+          "const": "traigent.evaluator_quality.claim_support_rows.v1"
+        },
+        "non_claims": {
+          "const": "traigent.evaluator_quality.non_claims.v1"
+        },
+        "unsigned_manifest": {
+          "const": "traigent.evaluator_quality.unsigned_manifest.v1"
+        },
+        "issuer_signature": {
+          "const": "traigent.evaluator_quality.issuer_signature.v1"
+        },
+        "measurement_registry": {
+          "const": "traigent.evaluator_quality.measurement_registry.v1"
+        },
+        "perturbation_set": {
+          "const": "traigent.evaluator_quality.perturbation_set.v1"
+        },
+        "assertion_templates": {
+          "const": "traigent.evaluator_quality.assertion_templates.v1"
+        }
+      }
+    },
+    "EvaluatorQualitySignaturePreimageV1": {
+      "description": "Normative issuer-signature preimage profile; signature bytes and the outer signature block are excluded. Mirrors ProcessRecordSignaturePreimageV1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "framing",
+        "signed_projection"
+      ],
+      "properties": {
+        "domain": {
+          "const": "traigent.evaluator_quality.issuer_signature.v1"
+        },
+        "framing": {
+          "const": "UTF8(domain) || 0x00 || jcs_v1(unsigned_manifest)"
+        },
+        "signed_projection": {
+          "const": "unsigned_manifest"
+        }
+      }
+    },
+    "MeasurementUnitV1": {
+      "description": "Closed unit vocabulary for every measured value. REQUIRED because the previous revision reused a single ppm-bounded integer for money and time, which made a cost above 1.00 USD unrepresentable. Each unit carries its own bounds, enforced by the unit/bounds coupling in MeasurementV1. Names converge with the pillar-1 agent-quality family's MeasurementUnitV1: microusd and microsecond are spelled identically, and ppm_unsigned means exactly what pillar 1 calls ppm. This family adds ppm_signed because Cohen's kappa, Kendall's tau and a paired difference are genuinely negative below chance, which pillar 1's non-negative objectives never are. The microusd and microsecond bounds are byte-identical to the shipped RegisteredValuesV1.cost_microusd and .latency_us maxima, so cross-artifact comparison is exact.",
+      "type": "string",
+      "enum": [
+        "ppm_signed",
+        "ppm_unsigned",
+        "microusd",
+        "microsecond",
+        "count"
+      ]
+    },
+    "NominalCoveragePpmV1": {
+      "description": "Closed nominal-coverage vocabulary in ppm: 90%, 95%, 99%. Name and members converge with the pillar-1 family. NOMINAL, not measured: this is the estimator's stated coverage under its own assumptions, and whether those assumptions hold on this data is not established by anything in this certificate. That limit is the printed non-claim NC_EVQ_NOMINAL_COVERAGE_ONLY. A free-choice level would also invite level-shopping after results are seen; the pre-registration pins one per role and the verifier checks equality.",
+      "type": "integer",
+      "enum": [
+        900000,
+        950000,
+        990000
+      ]
+    },
+    "MeasurementBasisV1": {
+      "description": "Who produced this number, and on what footing. The offline verifier can check shape, digests, signatures and declared consistency; it CANNOT check that an estimate was correctly computed from raw customer data, because that data is never in the bundle. This field makes that limit machine-readable instead of implicit. issuer_recomputed: the issuer re-ran the registered estimator over data it holds, and computation_transcript_digest binds a content-free computation transcript an auditor holding the raw data can check. issuer_observed: the issuer observed the raw per-unit scores but the estimate is not independently recomputable. client_attested: the customer computed and asserted it; it can NEVER support a passed verdict. third_party_attested: a named external assessor computed it under its own key.",
+      "type": "string",
+      "enum": [
+        "issuer_recomputed",
+        "issuer_observed",
+        "client_attested",
+        "third_party_attested"
+      ]
+    },
+    "MeasurementRoleV1": {
+      "description": "Closed sub-metric role vocabulary. Pre-registration containment is keyed by ROLE, not by claim_id: EVQ2, EVQ4, EVQ5, EVQ6 and EVQ7 each carry several measurements, and keying only by claim would leave post-hoc choice of estimator, interval, side and sample unit free within a claim.",
+      "type": "string",
+      "enum": [
+        "calibration_ece",
+        "calibration_slope",
+        "agreement_primary",
+        "sensitivity_discriminating_power",
+        "sensitivity_false_difference_rate",
+        "reliability_repeat",
+        "reliability_position",
+        "reliability_probe_constant_output",
+        "reliability_probe_verbosity",
+        "reliability_probe_position",
+        "reliability_probe_self_preference",
+        "reliability_probe_one_token_fool",
+        "efficiency_cost_per_eval",
+        "efficiency_latency_per_eval",
+        "efficiency_latency_p95",
+        "frontier_baseline_agreement",
+        "frontier_baseline_cost",
+        "frontier_point_agreement",
+        "frontier_point_cost",
+        "frontier_agreement_retained"
+      ]
+    },
+    "IntervalSideV1": {
+      "type": "string",
+      "enum": [
+        "two_sided",
+        "lower_one_sided",
+        "upper_one_sided"
+      ]
+    },
+    "DirectionV1": {
+      "description": "Whether a larger value is better. Load-bearing: the reference standard's ceiling constrains higher_is_better quantities from above, and its noise FLOOR constrains lower_is_better quantities (ECE, false-difference rate) from below. Applying a single ceiling to both, as the previous revision did, is wrong for every error rate.",
+      "type": "string",
+      "enum": [
+        "higher_is_better",
+        "lower_is_better"
+      ]
+    },
+    "ScoreScaleV1": {
+      "type": "string",
+      "enum": [
+        "binary",
+        "ordinal_likert_5",
+        "ordinal_likert_7",
+        "unit_interval",
+        "pairwise_preference"
+      ]
+    },
+    "LabelKindV1": {
+      "type": "string",
+      "enum": [
+        "binary",
+        "ordinal",
+        "nominal",
+        "continuous"
+      ]
+    },
+    "EstimatorParametersV1": {
+      "description": "The estimator's semantic knobs, bound into the measurement and pre-registered per role. Without these, 'estimator_id + interval_kind' leaves the one-sided side, the score scale, the label kind and the better-is-higher direction undeclared - each of which changes the number or its interpretation. The interval machinery lives separately in IntervalParamsV1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interval_side",
+        "direction",
+        "score_scale",
+        "label_kind"
+      ],
+      "properties": {
+        "interval_side": {
+          "$ref": "#/definitions/IntervalSideV1"
+        },
+        "direction": {
+          "$ref": "#/definitions/DirectionV1"
+        },
+        "score_scale": {
+          "$ref": "#/definitions/ScoreScaleV1"
+        },
+        "label_kind": {
+          "$ref": "#/definitions/LabelKindV1"
+        }
+      }
+    },
+    "IntervalParamsBootstrapV1": {
+      "description": "Percentile or BCa bootstrap. resample_seed_commitment is a secret-blinded commitment to the client-local seed under the FROZEN CommitmentSchemeV0, adopted verbatim from the pillar-1 agent-quality family: without it, 'run the bootstrap until the interval looks good, then report that seed' is invisible. It BINDS the seed; it does not prove the seed predates the replicates, which is the same ordering limit the pre-registration has and is covered by the same printed non-claim. resample_unit MUST equal the measurement's sample_unit - resampling a different unit than the one the sample size counts is the pseudo-replication error the shipped ACET code already warns about.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interval_kind",
+        "replicate_count",
+        "resample_unit",
+        "commitment_scheme",
+        "canonicalization_profile",
+        "resample_seed_commitment"
+      ],
+      "properties": {
+        "interval_kind": {
+          "type": "string",
+          "enum": [
+            "bootstrap_percentile",
+            "bootstrap_bca"
+          ]
+        },
+        "replicate_count": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 100000
+        },
+        "resample_unit": {
+          "$ref": "#/definitions/SampleUnitV1"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization_profile": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "resample_seed_commitment": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "IntervalParamsAnalyticV1": {
+      "description": "A closed-form interval with no resampling: Wilson, Clopper-Pearson, normal approximation, or exact permutation. continuity_correction is meaningful only for wilson_score and is const 'none' otherwise.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interval_kind",
+        "continuity_correction"
+      ],
+      "properties": {
+        "interval_kind": {
+          "type": "string",
+          "enum": [
+            "wilson_score",
+            "clopper_pearson",
+            "normal_approximation",
+            "exact_permutation"
+          ]
+        },
+        "continuity_correction": {
+          "type": "string",
+          "enum": [
+            "none",
+            "yates_v1"
+          ]
+        }
+      }
+    },
+    "IntervalParamsEmpiricalBernsteinV1": {
+      "description": "The one-sided empirical-Bernstein bound (Maurer & Pontil, COLT 2009 Thm 4) already shipped in traigent_smartopt/guarantee/noninf.py. delta1_ppm is the per-one-sided-bound failure probability AFTER multiplicity allocation, which that module makes explicit; carrying it means a bound tightened by quietly skipping the multiplicity correction is visible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interval_kind",
+        "delta1_ppm",
+        "multiplicity_corrected"
+      ],
+      "properties": {
+        "interval_kind": {
+          "const": "empirical_bernstein_one_sided"
+        },
+        "delta1_ppm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500000
+        },
+        "multiplicity_corrected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "IntervalParamsV1": {
+      "description": "Discriminated union on interval_kind; exactly one branch can validate. Shape converges with the pillar-1 family's IntervalParamsV1.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/IntervalParamsBootstrapV1"
+        },
+        {
+          "$ref": "#/definitions/IntervalParamsAnalyticV1"
+        },
+        {
+          "$ref": "#/definitions/IntervalParamsEmpiricalBernsteinV1"
+        }
+      ]
+    },
+    "EstimatorIdV1": {
+      "description": "Closed estimator vocabulary. These ids are the projection of the shipped package-data registry evaluator_measurement_registry_document.json, which is the authority for each id's admissible sample units, admissible interval kinds, admissible value unit, and admissible measurement roles. A contract test pins set-equality between this enum and that document so the two cannot drift.",
+      "type": "string",
+      "enum": [
+        "cohens_kappa",
+        "fleiss_kappa",
+        "krippendorff_alpha",
+        "scotts_pi",
+        "gwets_ac1",
+        "kendall_tau_b",
+        "spearman_rho",
+        "pearson_r",
+        "pairwise_agreement_rate",
+        "soft_pairwise_accuracy",
+        "expected_calibration_error",
+        "adaptive_calibration_error",
+        "brier_score",
+        "calibration_slope",
+        "calibration_intercept",
+        "paired_difference_bound",
+        "discrimination_rate",
+        "false_difference_rate",
+        "mann_whitney_auc",
+        "test_retest_agreement_rate",
+        "intraclass_correlation",
+        "position_swap_agreement_rate",
+        "perturbation_agreement_rate",
+        "stability_tau",
+        "mean_cost_per_evaluation",
+        "mean_latency_per_evaluation",
+        "p95_latency_per_evaluation",
+        "paired_agreement_cost_ratio"
+      ]
+    },
+    "IntervalKindV1": {
+      "description": "Closed uncertainty-interval vocabulary. This is the discriminant of IntervalParamsV1 and the key the shipped measurement registry uses to state which interval kinds each estimator admits. empirical_bernstein_one_sided is the one-sided Maurer-Pontil (COLT 2009, Thm 4) bound already shipped in traigent_smartopt/guarantee/noninf.py; bootstrap_percentile is what the shipped ACET service computes.",
+      "type": "string",
+      "enum": [
+        "bootstrap_percentile",
+        "bootstrap_bca",
+        "empirical_bernstein_one_sided",
+        "wilson_score",
+        "clopper_pearson",
+        "normal_approximation",
+        "exact_permutation"
+      ]
+    },
+    "SampleUnitV1": {
+      "description": "Closed sample-unit vocabulary. REQUIRED on every measurement because an interval whose n counts the wrong unit is not conservative, it is wrong: the shipped ACET service records that flattening [C, I] cells 'pseudo-replicates the sample and inflates the advertised effective-vote / redundancy precision' (traigent_smartopt/evaluator_quality/service.py Issue #141 comment). Naming the unit makes that mistake visible in the artifact.",
+      "type": "string",
+      "enum": [
+        "evaluation_item",
+        "item_pair",
+        "rater_pair",
+        "repeat_pair",
+        "config",
+        "evaluator_pair",
+        "perturbation_pair"
+      ]
+    },
+    "MeasurementV1": {
+      "description": "The ONLY way this contract family can express a measured quantity. Every field is required, so a bare number carrying no uncertainty, no estimator, no unit, no basis and no sample size is not representable. Values are unit-tagged integers, never ppm-for-everything: the unit/bounds coupling below is what makes a cost of 2.00 USD or a latency of 4 seconds representable at all. point_value MUST lie within [interval_low_value, interval_high_value] and interval_low_value <= interval_high_value: verifier obligations draft-07 cannot express across sibling fields. basis states who produced the number and on what footing; the verifier CANNOT check the arithmetic and does not pretend to.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement_role",
+        "estimator_id",
+        "estimator_parameters",
+        "value_unit",
+        "point_value",
+        "interval_low_value",
+        "interval_high_value",
+        "interval_params",
+        "nominal_coverage_ppm",
+        "sample_size_n",
+        "sample_unit",
+        "basis",
+        "computation_transcript_digest"
+      ],
+      "properties": {
+        "measurement_role": {
+          "$ref": "#/definitions/MeasurementRoleV1"
+        },
+        "estimator_id": {
+          "$ref": "#/definitions/EstimatorIdV1"
+        },
+        "estimator_parameters": {
+          "$ref": "#/definitions/EstimatorParametersV1"
+        },
+        "value_unit": {
+          "$ref": "#/definitions/MeasurementUnitV1"
+        },
+        "point_value": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000000000000
+        },
+        "interval_low_value": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000000000000
+        },
+        "interval_high_value": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000000000000
+        },
+        "interval_params": {
+          "$ref": "#/definitions/IntervalParamsV1"
+        },
+        "nominal_coverage_ppm": {
+          "$ref": "#/definitions/NominalCoveragePpmV1"
+        },
+        "sample_size_n": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100000000
+        },
+        "sample_unit": {
+          "$ref": "#/definitions/SampleUnitV1"
+        },
+        "basis": {
+          "$ref": "#/definitions/MeasurementBasisV1"
+        },
+        "computation_transcript_digest": {
+          "description": "Digest of a content-free computation transcript (the ordered per-sample-unit score vector plus the estimator inputs). REQUIRED non-null when basis is issuer_recomputed or third_party_attested; null otherwise. The transcript itself is NOT in the bundle - it would carry customer content - so this digest does not let the relying party check the arithmetic. It lets an auditor who lawfully holds the raw data check it, and it makes the issuer's arithmetic tamper-evident after the fact. Stating this plainly is the point: without it, 'the verifier checked the statistics' would be false.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "value_unit": {
+                "const": "ppm_signed"
+              }
+            },
+            "required": [
+              "value_unit"
+            ]
+          },
+          "then": {
+            "properties": {
+              "point_value": {
+                "minimum": -1000000,
+                "maximum": 1000000
+              },
+              "interval_low_value": {
+                "minimum": -1000000,
+                "maximum": 1000000
+              },
+              "interval_high_value": {
+                "minimum": -1000000,
+                "maximum": 1000000
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "value_unit": {
+                "const": "ppm_unsigned"
+              }
+            },
+            "required": [
+              "value_unit"
+            ]
+          },
+          "then": {
+            "properties": {
+              "point_value": {
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "interval_low_value": {
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "interval_high_value": {
+                "minimum": 0,
+                "maximum": 1000000
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "value_unit": {
+                "const": "microusd"
+              }
+            },
+            "required": [
+              "value_unit"
+            ]
+          },
+          "then": {
+            "properties": {
+              "point_value": {
+                "minimum": 0,
+                "maximum": 1000000000000000
+              },
+              "interval_low_value": {
+                "minimum": 0,
+                "maximum": 1000000000000000
+              },
+              "interval_high_value": {
+                "minimum": 0,
+                "maximum": 1000000000000000
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "value_unit": {
+                "const": "microsecond"
+              }
+            },
+            "required": [
+              "value_unit"
+            ]
+          },
+          "then": {
+            "properties": {
+              "point_value": {
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "interval_low_value": {
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "interval_high_value": {
+                "minimum": 0,
+                "maximum": 1000000000000
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "value_unit": {
+                "const": "count"
+              }
+            },
+            "required": [
+              "value_unit"
+            ]
+          },
+          "then": {
+            "properties": {
+              "point_value": {
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "interval_low_value": {
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "interval_high_value": {
+                "minimum": 0,
+                "maximum": 1000000000
+              }
+            }
+          }
+        },
+        {
+          "description": "A transcript digest is required exactly when the basis claims a computation the issuer or a third party actually ran.",
+          "if": {
+            "properties": {
+              "basis": {
+                "enum": [
+                  "issuer_recomputed",
+                  "third_party_attested"
+                ]
+              }
+            },
+            "required": [
+              "basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "computation_transcript_digest": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "computation_transcript_digest": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EvaluatorKindV1": {
+      "type": "string",
+      "enum": [
+        "exact_match",
+        "execution_check",
+        "unit_test_suite",
+        "programmatic_metric",
+        "llm_judge_pointwise",
+        "llm_judge_pairwise",
+        "llm_judge_rubric",
+        "human_panel",
+        "ensemble_panel"
+      ]
+    },
+    "DeterminismV1": {
+      "description": "Load-bearing, not descriptive: repeat-stability measurement is REQUIRED iff this is not 'deterministic', and a 'deterministic' evaluator reporting repeat disagreement is a contradiction the verifier rejects.",
+      "type": "string",
+      "enum": [
+        "deterministic",
+        "seeded_stochastic",
+        "unseeded_stochastic"
+      ]
+    },
+    "EvaluatorDisclosureModeV1": {
+      "description": "Whether the descriptor's content is secret. private_commitment: the descriptor's components are secret (a proprietary LLM rubric), so every component crosses as a BLINDED commitment and no relying party can recompute the binding - EVQ1 is therefore tier 1, an attestation. public_descriptor: the evaluator is public and deterministic (an exact-match scorer, a published unit-test suite), there is no enumerable secret to protect, the full descriptor document is supplied, and the issuer CAN recompute the binding offline - EVQ1 may then reach tier 3. Mixing is not permitted: a descriptor is wholly public or wholly committed.",
+      "type": "string",
+      "enum": [
+        "private_commitment",
+        "public_descriptor"
+      ]
+    },
+    "ComponentCommitmentV1": {
+      "description": "One blinded component commitment. commitment_digest is 'sha256:' + lowercase hex HMAC-SHA-256 with key=blind, data=UTF8('traigent.cert.v0.slot_commitment.v1') || 0x00 || UTF8(artifact_kind) || 0x00 || jcs_v1(component_document), per the FROZEN certification_common_v0_schema.json#/definitions/CommitmentSchemeV0. Each component carries its OWN independently generated 32-byte blind. This is the fix for the previous revision's self-contradiction: it argued that an evaluator descriptor is enumerable and therefore needs blinding, then exposed five UNBLINDED sha256 digests of exactly those enumerable components (a model id is one of a few dozen public strings). The frozen v0 text is explicit that a bare digest over an enumerable preimage is guessable: 'commitments over enumerable preimages require secret blinding, not public salt'.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "commitment_scheme",
+        "canonicalization",
+        "commitment_digest"
+      ],
+      "properties": {
+        "component": {
+          "type": "string",
+          "enum": [
+            "implementation",
+            "rubric",
+            "model_identity",
+            "parameters",
+            "harness"
+          ]
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluatorDescriptorV1": {
+      "description": "The content-free evaluator identity document. Five orthogonal component commitments, so a relying party comparing two certificates can tell 'same rubric, new model' from 'same model, new rubric', and so the sensitivity claim is interpretable against a stated dimension of change. NO rubric text, prompt, model-name string, or per-item rationale is representable here: the shipped SDK descriptor still carries a literal 'prompt' key and the Backend reads ('prompt','judge_prompt','rubric'); those are internal analytics channels and this schema makes them unrepresentable rather than discouraged. Under disclosure_mode private_commitment, the five commitments are blinded and NOT recomputable by a relying party - EVQ1 is an attestation, not a verified binding. Under public_descriptor, an accompanying DescriptorOpeningV1 supplies the component documents so the binding IS recomputable offline. descriptor_digest is SHA-256 over UTF8(traigent.evaluator_quality.descriptor.v1) || 0x00 || jcs_v1(this document with descriptor_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "disclosure_mode",
+        "evaluator_kind",
+        "evaluator_version",
+        "determinism",
+        "component_commitments",
+        "descriptor_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.descriptor.v1"
+        },
+        "disclosure_mode": {
+          "$ref": "#/definitions/EvaluatorDisclosureModeV1"
+        },
+        "evaluator_kind": {
+          "$ref": "#/definitions/EvaluatorKindV1"
+        },
+        "evaluator_version": {
+          "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+        },
+        "determinism": {
+          "$ref": "#/definitions/DeterminismV1"
+        },
+        "component_commitments": {
+          "description": "Exactly five commitments in fixed component order: implementation, rubric, model_identity, parameters, harness. harness covers ordering, batching, retry and parse/repair policy - not padding: the shipped bias battery's position_robustness probe exists because ordering moves judge scores, so an identity omitting the harness would let a vendor change ordering policy and keep the certificate.",
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "additionalItems": false,
+          "items": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ComponentCommitmentV1"
+                },
+                {
+                  "properties": {
+                    "component": {
+                      "const": "implementation"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ComponentCommitmentV1"
+                },
+                {
+                  "properties": {
+                    "component": {
+                      "const": "rubric"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ComponentCommitmentV1"
+                },
+                {
+                  "properties": {
+                    "component": {
+                      "const": "model_identity"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ComponentCommitmentV1"
+                },
+                {
+                  "properties": {
+                    "component": {
+                      "const": "parameters"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ComponentCommitmentV1"
+                },
+                {
+                  "properties": {
+                    "component": {
+                      "const": "harness"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "descriptor_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "ComponentOpeningV1": {
+      "description": "One opened component: the blind plus a bounded structural fingerprint of the component document. blind_b64 is base64 of exactly 32 bytes. The component DOCUMENT itself is not carried here; the opening supplies the blind so a relying party can recompute the commitment from a component document it obtains independently (a public scorer's source, a published unit-test suite). An opening is admissible ONLY under disclosure_mode public_descriptor: opening a private rubric's blind would publish the rubric to anyone with a wordlist, which is the exact attack blinding exists to stop.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "blind_b64",
+        "component_document_digest"
+      ],
+      "properties": {
+        "component": {
+          "type": "string",
+          "enum": [
+            "implementation",
+            "rubric",
+            "model_identity",
+            "parameters",
+            "harness"
+          ]
+        },
+        "blind_b64": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw]=$"
+        },
+        "component_document_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DescriptorOpeningV1": {
+      "description": "The optional opening that upgrades EVQ1 from attestation to verified binding. Present iff disclosure_mode is public_descriptor. Carries the five blinds so the verifier recomputes every component commitment and proves the descriptor binds. Signed by the client key alongside the issuer, so the opening is the CLIENT's disclosure decision, never the issuer's. opening_digest is SHA-256 over UTF8(traigent.evaluator_quality.descriptor_opening.v1) || 0x00 || jcs_v1(this document with opening_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "descriptor_digest",
+        "component_openings",
+        "client_key_ref",
+        "opening_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.descriptor_opening.v1"
+        },
+        "descriptor_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "component_openings": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/definitions/ComponentOpeningV1"
+          }
+        },
+        "client_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/ClientKeyRefV0"
+        },
+        "opening_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluatorCommitmentV1": {
+      "description": "The top-level commitment to one EvaluatorDescriptorV1, reusing the FROZEN v0 scheme unchanged. UNOPENED under private_commitment: it proves only which descriptor was committed, never that the descriptor is truthful, and a relying party cannot recompute it because the blind is client-local and never transmitted. That limit is printed as NC_EVQ_DESCRIPTOR_UNOPENED and caps EVQ1 at tier 1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "commitment_scheme",
+        "canonicalization",
+        "artifact_kind",
+        "commitment_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.commitment.v1"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "artifact_kind": {
+          "const": "evaluator"
+        },
+        "commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "ReferenceKindV1": {
+      "description": "Closed reference-standard provenance vocabulary. A superset of the shipped ACET AnchorProvenanceKind (execution_match, unit_test_pass, mcq_exact, partial_order, proxy, none) with the human tiers split: a single unadjudicated rater and an adjudicated panel are different instruments and the difference decides whether an agreement number means anything.",
+      "type": "string",
+      "enum": [
+        "verifiable_execution",
+        "unit_test_pass",
+        "exact_match_gold",
+        "human_panel_adjudicated",
+        "human_single_rater",
+        "partial_order",
+        "proxy_evaluator"
+      ]
+    },
+    "ReferenceIndependenceV1": {
+      "description": "Closed independence vocabulary. This field stops the central self-certification failure: an LLM judge 'validated' against a reference produced by the same model family is measuring its own agreement with itself. Anything other than evaluator_independent caps the achievable verdict at directional.",
+      "type": "string",
+      "enum": [
+        "evaluator_independent",
+        "shares_model_family",
+        "shares_prompt_lineage",
+        "shares_implementation",
+        "not_independent"
+      ]
+    },
+    "ReferenceStandardV1": {
+      "description": "The pinned reference standard. No calibration, agreement, or sensitivity claim exists without one. reference_commitment_digest pins the reference's OWN identity by the same blinded scheme. The reference's resolution is expressed as TWO directional limits, not one: agreement_ceiling_ppm caps how high a higher_is_better estimate may claim, and error_floor_ppm bounds how low a lower_is_better estimate (ECE, false-difference rate) may claim - an error rate cannot honestly be reported below the reference's own noise. The previous revision applied a single ceiling to both, which is vacuous for every error rate. reference_standard_digest is SHA-256 over UTF8(traigent.evaluator_quality.reference_standard.v1) || 0x00 || jcs_v1(this document with reference_standard_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "reference_kind",
+        "reference_independence",
+        "reference_commitment_digest",
+        "label_count",
+        "rater_count",
+        "adjudication_policy",
+        "agreement_ceiling_ppm",
+        "error_floor_ppm",
+        "reference_standard_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.reference_standard.v1"
+        },
+        "reference_kind": {
+          "$ref": "#/definitions/ReferenceKindV1"
+        },
+        "reference_independence": {
+          "$ref": "#/definitions/ReferenceIndependenceV1"
+        },
+        "reference_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "label_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100000000
+        },
+        "rater_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        },
+        "adjudication_policy": {
+          "type": "string",
+          "enum": [
+            "none",
+            "majority",
+            "unanimous",
+            "expert_arbiter",
+            "not_applicable"
+          ]
+        },
+        "agreement_ceiling_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "error_floor_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "reference_standard_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "allOf": [
+        {
+          "description": "An adjudicated human panel needs at least two raters and a real adjudication policy; a single-rater human reference has exactly one rater and no adjudication; a non-human reference has no raters at all.",
+          "if": {
+            "properties": {
+              "reference_kind": {
+                "const": "human_panel_adjudicated"
+              }
+            },
+            "required": [
+              "reference_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "rater_count": {
+                "minimum": 2
+              },
+              "adjudication_policy": {
+                "enum": [
+                  "majority",
+                  "unanimous",
+                  "expert_arbiter"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reference_kind": {
+                "const": "human_single_rater"
+              }
+            },
+            "required": [
+              "reference_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "rater_count": {
+                "const": 1
+              },
+              "adjudication_policy": {
+                "const": "none"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reference_kind": {
+                "enum": [
+                  "verifiable_execution",
+                  "unit_test_pass",
+                  "exact_match_gold",
+                  "partial_order",
+                  "proxy_evaluator"
+                ]
+              }
+            },
+            "required": [
+              "reference_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "rater_count": {
+                "const": 0
+              },
+              "adjudication_policy": {
+                "const": "not_applicable"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "HeldOutStatusV1": {
+      "description": "The selection/estimation relationship, machine-readable. no_selection_performed: this evaluator was not chosen from a panel on any evidence, so selection optimism does not arise. held_out_disjoint: an evaluator was selected, and the reported intervals were re-estimated on an estimation set provably disjoint from the selection set (disjointness is a digest inequality plus an issuer attestation, not a proof of set contents). overlaps_selection_set: the reported intervals were computed on data that also chose the winner - the winner's-curse case, capped. unknown: nothing is asserted, capped.",
+      "type": "string",
+      "enum": [
+        "no_selection_performed",
+        "held_out_disjoint",
+        "overlaps_selection_set",
+        "unknown"
+      ]
+    },
+    "EvaluationScopeV1": {
+      "description": "WHAT the measurements were taken over. Without this, EVQ2/EVQ3/EVQ5 read as general statements about the evaluator rather than statements about its behaviour on one item set drawn one way - which is the single most likely misreading by a relying party. evaluation_set_digest pins the item set; sampling_policy_digest pins how it was drawn; selection_set_digest and estimation_set_digest make the winner's-curse question answerable rather than rhetorical. evaluation_scope_digest is SHA-256 over UTF8(traigent.evaluator_quality.evaluation_scope.v1) || 0x00 || jcs_v1(this document with evaluation_scope_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "evaluation_set_digest",
+        "evaluation_item_count",
+        "sampling_policy_digest",
+        "sampling_frame",
+        "held_out_status",
+        "selection_set_digest",
+        "estimation_set_digest",
+        "evaluation_scope_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.evaluation_scope.v1"
+        },
+        "evaluation_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_item_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100000000
+        },
+        "sampling_policy_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "sampling_frame": {
+          "type": "string",
+          "enum": [
+            "full_declared_dataset",
+            "uniform_random_subset",
+            "stratified_subset",
+            "curated_subset",
+            "convenience_subset"
+          ]
+        },
+        "held_out_status": {
+          "$ref": "#/definitions/HeldOutStatusV1"
+        },
+        "selection_set_digest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        },
+        "estimation_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_scope_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "allOf": [
+        {
+          "description": "held_out_disjoint requires a selection set to be disjoint FROM; no_selection_performed forbids one.",
+          "if": {
+            "properties": {
+              "held_out_status": {
+                "const": "held_out_disjoint"
+              }
+            },
+            "required": [
+              "held_out_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "selection_set_digest": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "held_out_status": {
+                "const": "no_selection_performed"
+              }
+            },
+            "required": [
+              "held_out_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "selection_set_digest": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PerturbationProbeIdV1": {
+      "description": "Closed perturbation-probe vocabulary. Members are exactly the shipped traigent_smartopt bias battery (constant_output, verbosity, position, self_preference, one_token_fool). The set ships as package data with a pinned digest, so 'which perturbations were tried' is a registry identity, not prose.",
+      "type": "string",
+      "enum": [
+        "constant_output",
+        "verbosity",
+        "position",
+        "self_preference",
+        "one_token_fool"
+      ]
+    },
+    "ProbeSkipReasonV1": {
+      "type": "string",
+      "enum": [
+        "not_applicable_to_evaluator_kind",
+        "requires_labelled_adversarial_cells",
+        "requires_paired_position_scores",
+        "insufficient_probe_cells"
+      ]
+    },
+    "ProbeResultV1": {
+      "description": "One probe: either measured, or explicitly skipped with a registered reason. A probe that is neither is a coverage failure, lifting the shipped battery's own fail-closed required_probes gate into the contract.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probe_id",
+        "status"
+      ],
+      "properties": {
+        "probe_id": {
+          "$ref": "#/definitions/PerturbationProbeIdV1"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "measured",
+            "skipped"
+          ]
+        },
+        "measurement": {
+          "$ref": "#/definitions/MeasurementV1"
+        },
+        "skip_reason": {
+          "$ref": "#/definitions/ProbeSkipReasonV1"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "measured"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "measurement"
+            ],
+            "not": {
+              "required": [
+                "skip_reason"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "skip_reason"
+            ],
+            "not": {
+              "required": [
+                "measurement"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "SensitivityPairSetV1": {
+      "description": "The pre-registered pair sets. known_equivalent_pair_count may not be 0 when an EVQ4 claim is present: an evaluator with perfect discriminating power and a 40% false-difference rate is a random number generator, and a one-sided sensitivity claim is therefore not representable.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "known_different_pair_count",
+        "known_equivalent_pair_count",
+        "equivalence_basis",
+        "pair_set_digest"
+      ],
+      "properties": {
+        "known_different_pair_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "known_equivalent_pair_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "equivalence_basis": {
+          "type": "string",
+          "enum": [
+            "identical_configuration",
+            "seed_only_difference",
+            "semantically_equivalent_rewrite",
+            "declared_by_reference_standard"
+          ]
+        },
+        "pair_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "AggregationAxisV1": {
+      "type": "string",
+      "enum": [
+        "calibration",
+        "agreement",
+        "sensitivity",
+        "reliability",
+        "efficiency"
+      ]
+    },
+    "AggregationWeightV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "axis",
+        "weight_ppm",
+        "required_axis",
+        "minimum_sample_size_n",
+        "maximum_interval_width_ppm"
+      ],
+      "properties": {
+        "axis": {
+          "$ref": "#/definitions/AggregationAxisV1"
+        },
+        "weight_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "required_axis": {
+          "type": "boolean"
+        },
+        "minimum_sample_size_n": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100000000
+        },
+        "maximum_interval_width_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      }
+    },
+    "AggregationPolicyV1": {
+      "description": "Declared BEFORE results. weights are exactly one entry per AggregationAxisV1 member, in that fixed order, and MUST sum to exactly 1000000 (verifier obligation; draft-07 cannot sum). Renormalising over the axes that happen to have evidence is forbidden: if any required_axis lacks a passed/directional claim the overall verdict MUST be abstain. The efficiency axis is structurally barred from raising the overall verdict: efficiency_offset_forbidden is a const, and the verifier caps overall.verdict at the WORST verdict among the four instrument-adequacy axes. A cheap evaluator cannot buy its way past weak calibration, agreement, sensitivity or reliability.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "weights",
+        "rounding_mode",
+        "efficiency_offset_forbidden"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.aggregation_policy.v1"
+        },
+        "weights": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "additionalItems": false,
+          "items": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/AggregationWeightV1"
+                },
+                {
+                  "properties": {
+                    "axis": {
+                      "const": "calibration"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/AggregationWeightV1"
+                },
+                {
+                  "properties": {
+                    "axis": {
+                      "const": "agreement"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/AggregationWeightV1"
+                },
+                {
+                  "properties": {
+                    "axis": {
+                      "const": "sensitivity"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/AggregationWeightV1"
+                },
+                {
+                  "properties": {
+                    "axis": {
+                      "const": "reliability"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/AggregationWeightV1"
+                },
+                {
+                  "properties": {
+                    "axis": {
+                      "const": "efficiency"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "rounding_mode": {
+          "const": "round_half_even"
+        },
+        "efficiency_offset_forbidden": {
+          "const": true
+        }
+      }
+    },
+    "PlannedMeasurementV1": {
+      "description": "One planned measurement, keyed by measurement_role rather than by claim_id, so every sub-metric of a multi-measurement claim is pinned individually. Carries NO value: this object has no point/interval field and no verdict, so a result cannot be smuggled into the plan document.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement_role",
+        "estimator_id",
+        "estimator_parameters",
+        "value_unit",
+        "interval_params",
+        "nominal_coverage_ppm",
+        "sample_unit",
+        "minimum_sample_size_n",
+        "maximum_interval_width_ppm",
+        "threshold_value",
+        "threshold_comparison"
+      ],
+      "properties": {
+        "measurement_role": {
+          "$ref": "#/definitions/MeasurementRoleV1"
+        },
+        "estimator_id": {
+          "$ref": "#/definitions/EstimatorIdV1"
+        },
+        "estimator_parameters": {
+          "$ref": "#/definitions/EstimatorParametersV1"
+        },
+        "value_unit": {
+          "$ref": "#/definitions/MeasurementUnitV1"
+        },
+        "interval_params": {
+          "$ref": "#/definitions/IntervalParamsV1"
+        },
+        "nominal_coverage_ppm": {
+          "$ref": "#/definitions/NominalCoveragePpmV1"
+        },
+        "sample_unit": {
+          "$ref": "#/definitions/SampleUnitV1"
+        },
+        "minimum_sample_size_n": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100000000
+        },
+        "maximum_interval_width_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "threshold_value": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000000000000
+        },
+        "threshold_comparison": {
+          "description": "Which side of the pre-registered threshold the CONSERVATIVE end of the interval must fall on: interval_low_ge for higher_is_better, interval_high_le for lower_is_better. Comparing the POINT to a threshold would let a wide interval pass on luck.",
+          "type": "string",
+          "enum": [
+            "interval_low_ge",
+            "interval_high_le"
+          ]
+        }
+      }
+    },
+    "PreRegistrationBasisV1": {
+      "description": "How the plan's precedence over the results is established. digest_bound_attestation: nothing but the issuer's own signature and timestamps. It catches post-signature mutation and NOTHING else - an issuer that observed the results first can author a matching plan and backdate issued_at, and every digest check still passes. That basis is NOT pre-registration in any meaningful sense and is capped accordingly. caller_pinned_before_results: the relying party independently held the preregistration_digest BEFORE receiving this certificate and supplies it in its verification context; the verifier compares and fails closed on mismatch. This is the same caller-pin pattern the shipped process-record verifier already uses for expected_evaluator_commitment_ref, needs no new infrastructure, and matches the real procurement flow (the buyer receives the measurement plan, then later receives the certificate). log_inclusion_proof: an inclusion proof against a pinned append-only log - the ONLY one of the three that is proof rather than evidence. The same log would also close the issuer non-equivocation gap the four-pillar plan already names, so it is one V2 item, not two. It is a member of this enum but is made STRUCTURALLY UNCONSTRUCTIBLE in v1 by EmittablePreRegistrationBasisV1 below - the same 'keep it in the enum, make emission a compile error' device the frozen v0 uses for ClaimTier 4.",
+      "type": "string",
+      "enum": [
+        "digest_bound_attestation",
+        "caller_pinned_before_results",
+        "log_inclusion_proof"
+      ]
+    },
+    "EmittablePreRegistrationBasisV1": {
+      "description": "The v1 emission constraint. log_inclusion_proof remains a member of PreRegistrationBasisV1 above, but NO valid v1 pre-registration can carry it - enabling it requires the log, an inclusion-proof contract, and fresh verifier evidence, i.e. a new contract version, not a new value. Mirrors certification_common_v0_schema.json#/definitions/EmittableClaimTierV0 exactly.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/PreRegistrationBasisV1"
+        },
+        {
+          "not": {
+            "const": "log_inclusion_proof"
+          }
+        }
+      ]
+    },
+    "EvaluatorPreRegistrationV1": {
+      "description": "The pre-registered measurement plan, signed as its own artifact. Its shape makes a measured value STRUCTURALLY unrepresentable: additionalProperties:false plus a property set containing no point/interval field and no verdict. preregistration_digest is SHA-256 over UTF8(traigent.evaluator_quality.preregistration.v1) || 0x00 || jcs_v1(this document with preregistration_digest excluded). NON-CLAIM, stated here because it is the family's sharpest limit: issued_at proves only that the ISSUER asserted the plan preceded the measurement window. Under basis digest_bound_attestation a dishonest issuer can observe results, author a matching plan, backdate issued_at, and pass every check in this contract - so that basis can never support a passed verdict. Only basis caller_pinned_before_results, where a party other than the issuer held the digest first, establishes real precedence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "basis",
+        "evaluator_commitment_digest",
+        "reference_standard_digest",
+        "evaluation_scope_digest",
+        "planned_measurements",
+        "sensitivity_pair_set",
+        "perturbation_set_digest",
+        "measurement_registry_digest",
+        "binning_policy",
+        "bin_count",
+        "aggregation_policy",
+        "issued_at",
+        "measurement_window_start",
+        "preregistration_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.preregistration.v1"
+        },
+        "basis": {
+          "$ref": "#/definitions/EmittablePreRegistrationBasisV1"
+        },
+        "evaluator_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "reference_standard_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_scope_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "planned_measurements": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/definitions/PlannedMeasurementV1"
+          }
+        },
+        "sensitivity_pair_set": {
+          "$ref": "#/definitions/SensitivityPairSetV1"
+        },
+        "perturbation_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "measurement_registry_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "binning_policy": {
+          "type": "string",
+          "enum": [
+            "equal_width",
+            "equal_mass"
+          ]
+        },
+        "bin_count": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 32
+        },
+        "aggregation_policy": {
+          "$ref": "#/definitions/AggregationPolicyV1"
+        },
+        "issued_at": {
+          "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
+        },
+        "measurement_window_start": {
+          "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
+        },
+        "preregistration_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluatorQualityClaimIdV1": {
+      "description": "A NEW, SEPARATE claim vocabulary. It does not extend, add to, or indirectly change the frozen v0 ClaimIdV0 enum (B1, C1, D2, F1, G1, G3, REG1).",
+      "type": "string",
+      "enum": [
+        "EVQ1",
+        "EVQ2",
+        "EVQ3",
+        "EVQ4",
+        "EVQ5",
+        "EVQ6",
+        "EVQ7"
+      ]
+    },
+    "EvaluatorQualityVerdictV1": {
+      "description": "Closed verdict vocabulary, byte-identical to the shipped traigent_smartopt VerdictStatus (passed, directional, abstain, failed). Ordered worst-to-best as failed < abstain < directional < passed for the capping rules.",
+      "type": "string",
+      "enum": [
+        "passed",
+        "directional",
+        "abstain",
+        "failed"
+      ]
+    },
+    "EvaluatorAbstentionCodeV1": {
+      "description": "New V1 abstention vocabulary. The frozen AbstentionCodeV0 (unregistered_claim_id, missing_or_versionless_verifier, verifier_not_run_or_not_pass, missing_evidence_binding, prohibited_register_violation) cannot express 'sample too small', 'reference is a proxy', or 'the plan was only issuer-attested', and widening it would edit a frozen v0 file.",
+      "type": "string",
+      "enum": [
+        "verifier_not_run_or_not_pass",
+        "reference_standard_proxy_only",
+        "reference_not_evaluator_independent",
+        "reference_single_human_rater",
+        "sample_size_below_preregistered_minimum",
+        "interval_width_above_preregistered_maximum",
+        "threshold_not_met_at_interval_bound",
+        "probe_coverage_incomplete",
+        "preregistration_absent",
+        "preregistration_digest_bound_only",
+        "measurement_client_attested_only",
+        "selection_set_overlaps_estimation_set",
+        "required_axis_missing"
+      ]
+    },
+    "CalibrationBlockV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_calibration_error",
+        "calibration_slope",
+        "binning_policy",
+        "bin_count"
+      ],
+      "properties": {
+        "expected_calibration_error": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "calibration_ece"
+                }
+              }
+            }
+          ]
+        },
+        "calibration_slope": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "calibration_slope"
+                }
+              }
+            }
+          ]
+        },
+        "binning_policy": {
+          "type": "string",
+          "enum": [
+            "equal_width",
+            "equal_mass"
+          ]
+        },
+        "bin_count": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 32
+        }
+      }
+    },
+    "AgreementBlockV1": {
+      "description": "Agreement against the pinned reference standard, over the pinned evaluation scope. A bare number is unrepresentable: agreement is a MeasurementV1 and therefore always carries its estimator, parameters, unit, interval, level, sample size, sample unit and basis.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agreement"
+      ],
+      "properties": {
+        "agreement": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "agreement_primary"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "SensitivityBlockV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discriminating_power",
+        "false_difference_rate",
+        "pair_set"
+      ],
+      "properties": {
+        "discriminating_power": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "sensitivity_discriminating_power"
+                }
+              }
+            }
+          ]
+        },
+        "false_difference_rate": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "sensitivity_false_difference_rate"
+                }
+              }
+            }
+          ]
+        },
+        "pair_set": {
+          "$ref": "#/definitions/SensitivityPairSetV1"
+        }
+      }
+    },
+    "ReliabilityBlockV1": {
+      "description": "probe_results carries exactly one entry per registered PerturbationProbeIdV1, in registry order. repeat_stability and repeat_count are present iff the descriptor's determinism is not 'deterministic'; position_stability is required iff evaluator_kind is llm_judge_pairwise or ensemble_panel. Both are verifier obligations across artifacts. NON-CLAIM: reliability is one-sided over the declared probe set exactly as process coverage is one-sided over the declared workflow; an unprobed failure mode is not detectable.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probe_results",
+        "perturbation_set_digest"
+      ],
+      "properties": {
+        "repeat_stability": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "reliability_repeat"
+                }
+              }
+            }
+          ]
+        },
+        "repeat_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 16
+        },
+        "position_stability": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "reliability_position"
+                }
+              }
+            }
+          ]
+        },
+        "probe_results": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/definitions/ProbeResultV1"
+          }
+        },
+        "perturbation_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "dependencies": {
+        "repeat_stability": [
+          "repeat_count"
+        ],
+        "repeat_count": [
+          "repeat_stability"
+        ]
+      }
+    },
+    "EfficiencyBlockV1": {
+      "description": "Per-evaluation cost and latency, unit-tagged. Units reuse the shipped RegisteredValuesV1 conventions verbatim (cost_microusd, latency_us) with identical maxima, so cross-artifact comparison is exact. Both are MeasurementV1 objects: efficiency gets the same estimator/parameters/interval/sample-size/basis discipline as any quality claim, and its value_unit is checked against the registry so a cost can never be encoded as ppm.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cost_per_eval",
+        "latency_per_eval",
+        "price_list_version",
+        "measured_evaluation_count"
+      ],
+      "properties": {
+        "cost_per_eval": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "efficiency_cost_per_eval"
+                },
+                "value_unit": {
+                  "const": "microusd"
+                }
+              }
+            }
+          ]
+        },
+        "latency_per_eval": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "efficiency_latency_per_eval"
+                },
+                "value_unit": {
+                  "const": "microsecond"
+                }
+              }
+            }
+          ]
+        },
+        "latency_p95_per_eval": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "efficiency_latency_p95"
+                },
+                "value_unit": {
+                  "const": "microsecond"
+                }
+              }
+            }
+          ]
+        },
+        "price_list_version": {
+          "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+        },
+        "measured_evaluation_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100000000
+        }
+      }
+    },
+    "FrontierBaselineV1": {
+      "description": "The baseline the whole frontier is expressed relative to. REQUIRED and carrying its own agreement and cost MEASUREMENTS: the previous revision named only a baseline commitment digest, which left the ratio checks V28/V29 arithmetically undecidable because the denominators were not in the bundle. cost_point_value must be strictly positive - a zero denominator is rejected, not treated as infinite savings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_commitment_digest",
+        "agreement",
+        "cost_per_eval"
+      ],
+      "properties": {
+        "evaluator_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "agreement": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "frontier_baseline_agreement"
+                },
+                "point_value": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        "cost_per_eval": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "frontier_baseline_cost"
+                },
+                "value_unit": {
+                  "const": "microusd"
+                },
+                "point_value": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "FrontierPointV1": {
+      "description": "One point on the agreement-per-cost curve. cost_ratio_ppm and agreement_retained.point_value are DERIVED and recomputed by the verifier as round_half_even(1000000 * point / baseline_point) from integers now guaranteed present in the bundle. agreement_retained's INTERVAL is deliberately NOT derived: the ratio of two intervals is not the interval of the ratio, so it must come from a paired estimator over the same items, bound by paired_sample_set_digest. The verifier can check that the interval is not the naive endpoint quotient and that the paired sample-set digest matches; it CANNOT check that a paired bootstrap was actually run, so agreement_retained's basis is what carries that - a client_attested ratio can never support a passed EVQ7.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_commitment_digest",
+        "reference_standard_digest",
+        "paired_sample_set_digest",
+        "agreement",
+        "cost_per_eval",
+        "agreement_retained",
+        "cost_ratio_ppm",
+        "dominated"
+      ],
+      "properties": {
+        "evaluator_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "reference_standard_digest": {
+          "description": "MUST equal the frontier's own reference_standard_digest. Comparing agreement across two different reference standards is meaningless, and per-point pinning is what makes that checkable.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "paired_sample_set_digest": {
+          "description": "The item set over which THIS point and the baseline were scored pairwise. MUST be identical across every point and the baseline; a ratio computed over two different item sets is not a ratio.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "agreement": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "frontier_point_agreement"
+                }
+              }
+            }
+          ]
+        },
+        "cost_per_eval": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "frontier_point_cost"
+                },
+                "value_unit": {
+                  "const": "microusd"
+                },
+                "point_value": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        "agreement_retained": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasurementV1"
+            },
+            {
+              "properties": {
+                "measurement_role": {
+                  "const": "frontier_agreement_retained"
+                },
+                "estimator_id": {
+                  "const": "paired_agreement_cost_ratio"
+                },
+                "sample_unit": {
+                  "const": "item_pair"
+                },
+                "value_unit": {
+                  "const": "ppm_unsigned"
+                }
+              }
+            }
+          ]
+        },
+        "cost_ratio_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "dominated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "EfficiencyFrontierV1": {
+      "description": "The trade curve a customer reads to see 'this cheap evaluator buys 95% of the agreement at 10% of the cost' as a CHECKED statement rather than a marketing line - with the honest caveat that what is checked is the derivation and the declared consistency, not that a paired bootstrap was really run. Points are ordered by ascending cost point, ties by descending agreement point; every point's agreement is measured against the SAME ReferenceStandardV1 and over the SAME paired sample set as the baseline. frontier_digest is SHA-256 over UTF8(traigent.evaluator_quality.efficiency_frontier.v1) || 0x00 || jcs_v1(this document with frontier_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "baseline",
+        "reference_standard_digest",
+        "paired_sample_set_digest",
+        "points",
+        "frontier_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.efficiency_frontier.v1"
+        },
+        "baseline": {
+          "$ref": "#/definitions/FrontierBaselineV1"
+        },
+        "reference_standard_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "paired_sample_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/definitions/FrontierPointV1"
+          }
+        },
+        "frontier_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluatorMeasurementSetV1": {
+      "description": "The complete measured result set, over one pinned evaluation scope. Which blocks are present is governed by the pre-registration's planned measurement roles; a block present with no corresponding planned role is a PREREGISTRATION_SCOPE_VIOLATION. measurement_set_digest is SHA-256 over UTF8(traigent.evaluator_quality.measurement_set.v1) || 0x00 || jcs_v1(this document with measurement_set_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "evaluation_scope_digest",
+        "measurement_window_start",
+        "measurement_window_end",
+        "measurement_set_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.measurement_set.v1"
+        },
+        "evaluation_scope_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "calibration": {
+          "$ref": "#/definitions/CalibrationBlockV1"
+        },
+        "agreement": {
+          "$ref": "#/definitions/AgreementBlockV1"
+        },
+        "sensitivity": {
+          "$ref": "#/definitions/SensitivityBlockV1"
+        },
+        "reliability": {
+          "$ref": "#/definitions/ReliabilityBlockV1"
+        },
+        "efficiency": {
+          "$ref": "#/definitions/EfficiencyBlockV1"
+        },
+        "frontier": {
+          "$ref": "#/definitions/EfficiencyFrontierV1"
+        },
+        "measurement_window_start": {
+          "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
+        },
+        "measurement_window_end": {
+          "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
+        },
+        "measurement_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluatorAssertionTemplateIdV1": {
+      "description": "Closed assertion-template vocabulary, one template per EVQ claim, shipped as package data. This REPLACES a pattern-bounded string in the previous revision (^tmpl\\.evq\\.[a-z0-9_]{1,64}\\.v1$), which was a 64-character lowercase free-text channel - 'acme_customer_support_rubric' matches it. A pattern is not a closed vocabulary; the frozen v0 NonClaimReasonCatalogV0 is an enum for exactly this reason and this family follows it.",
+      "type": "string",
+      "enum": [
+        "tmpl.evq.identity_commitment.v1",
+        "tmpl.evq.calibration_against_reference.v1",
+        "tmpl.evq.agreement_with_reference.v1",
+        "tmpl.evq.sensitivity_two_sided.v1",
+        "tmpl.evq.reliability_declared_probe_set.v1",
+        "tmpl.evq.efficiency_per_evaluation.v1",
+        "tmpl.evq.agreement_per_cost_frontier.v1"
+      ]
+    },
+    "EvaluatorQualityClaimMaterialV1": {
+      "description": "The exact claim-material projection whose digest each issuer_verified support row binds. It deliberately EXCLUDES the signature, the measurement set, the frontier and the support rows themselves, avoiding digest cycles - the same exclusion discipline the shipped ProcessRecordClaimMaterialV1 uses. The previous revision referenced claim_material_digest without defining the artifact it covers; this is that artifact. claim_material_digest is SHA-256 over UTF8(traigent.evaluator_quality.claim_material.v1) || 0x00 || jcs_v1(this projection).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "tier",
+        "verdict",
+        "assertion_template_id",
+        "descriptor_digest",
+        "reference_standard_digest",
+        "evaluation_scope_digest",
+        "preregistration_digest",
+        "preregistration_basis"
+      ],
+      "properties": {
+        "claim_id": {
+          "$ref": "#/definitions/EvaluatorQualityClaimIdV1"
+        },
+        "tier": {
+          "$ref": "certification_common_v0_schema.json#/definitions/EmittableClaimTierV0"
+        },
+        "verdict": {
+          "$ref": "#/definitions/EvaluatorQualityVerdictV1"
+        },
+        "assertion_template_id": {
+          "$ref": "#/definitions/EvaluatorAssertionTemplateIdV1"
+        },
+        "descriptor_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "reference_standard_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_scope_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "preregistration_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "preregistration_basis": {
+          "$ref": "#/definitions/EmittablePreRegistrationBasisV1"
+        }
+      }
+    },
+    "EvaluatorQualityClaimSupportRowV1": {
+      "description": "One support row per claim id, now carrying its TIER explicitly. evidence_basis REUSES the frozen v0 EvidenceBasisV0 by $ref, exactly as the shipped ProcessRecordClaimSupportRowV1 does, but the previous revision's coupling was wrong: it forced every non-issuer_verified row to abstain/failed, which made a client_declared EVQ1 - the ONLY form a private evaluator descriptor can take - unrepresentable. Corrected coupling: issuer_verified rows may reach passed or directional and MUST bind every artifact digest; client_declared rows are tier 1, may reach directional at best, and bind the artifacts the client actually presented; abstained rows carry a registered abstention code and no digests.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "tier",
+        "evidence_basis",
+        "verdict"
+      ],
+      "properties": {
+        "claim_id": {
+          "$ref": "#/definitions/EvaluatorQualityClaimIdV1"
+        },
+        "tier": {
+          "$ref": "certification_common_v0_schema.json#/definitions/EmittableClaimTierV0"
+        },
+        "evidence_basis": {
+          "$ref": "certificate_audit_report_v0_schema.json#/definitions/EvidenceBasisV0"
+        },
+        "verdict": {
+          "$ref": "#/definitions/EvaluatorQualityVerdictV1"
+        },
+        "abstention_code": {
+          "$ref": "#/definitions/EvaluatorAbstentionCodeV1"
+        },
+        "descriptor_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "reference_standard_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_scope_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "preregistration_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "measurement_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "verifier_result": {
+          "const": "pass"
+        },
+        "claim_material_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_basis": {
+                "const": "issuer_verified"
+              }
+            },
+            "required": [
+              "evidence_basis"
+            ]
+          },
+          "then": {
+            "required": [
+              "descriptor_digest",
+              "reference_standard_digest",
+              "evaluation_scope_digest",
+              "preregistration_digest",
+              "measurement_set_digest",
+              "verifier_result",
+              "claim_material_digest"
+            ],
+            "properties": {
+              "verdict": {
+                "enum": [
+                  "passed",
+                  "directional"
+                ]
+              },
+              "tier": {
+                "const": 3
+              }
+            },
+            "not": {
+              "required": [
+                "abstention_code"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_basis": {
+                "const": "client_declared"
+              }
+            },
+            "required": [
+              "evidence_basis"
+            ]
+          },
+          "then": {
+            "required": [
+              "descriptor_digest",
+              "preregistration_digest",
+              "claim_material_digest"
+            ],
+            "properties": {
+              "verdict": {
+                "const": "directional"
+              },
+              "tier": {
+                "const": 1
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "abstention_code"
+                  ]
+                },
+                {
+                  "required": [
+                    "verifier_result"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_basis": {
+                "const": "abstained"
+              }
+            },
+            "required": [
+              "evidence_basis"
+            ]
+          },
+          "then": {
+            "required": [
+              "abstention_code"
+            ],
+            "properties": {
+              "verdict": {
+                "enum": [
+                  "abstain",
+                  "failed"
+                ]
+              },
+              "tier": {
+                "const": 1
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "descriptor_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "reference_standard_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "evaluation_scope_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "preregistration_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "measurement_set_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "verifier_result"
+                  ]
+                },
+                {
+                  "required": [
+                    "claim_material_digest"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "EvaluatorQualityClaimSupportRowsV1": {
+      "description": "Exactly seven ordered rows, one per EVQ claim id. Every claim exists as a row; an unsupported claim is a printed abstention, never an omission.",
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "additionalItems": false,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "EVQ1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "EVQ2"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "EVQ3"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "EVQ4"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "EVQ5"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "EVQ6"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "EVQ7"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "EvaluatorQualityNonClaimIdV1": {
+      "type": "string",
+      "enum": [
+        "NC_EVQ_NOT_GROUND_TRUTH",
+        "NC_EVQ_REFERENCE_SCOPE",
+        "NC_EVQ_EVALUATION_SET_SCOPE",
+        "NC_EVQ_NO_DISTRIBUTION_SHIFT",
+        "NC_EVQ_NO_ADAPTIVE_ADVERSARY",
+        "NC_EVQ_PERTURBATION_SET_CLOSED",
+        "NC_EVQ_DESCRIPTOR_UNOPENED",
+        "NC_EVQ_NO_SELECTION_UNBIASEDNESS",
+        "NC_EVQ_NOMINAL_COVERAGE_ONLY",
+        "NC_EVQ_STATISTICS_NOT_RECOMPUTED",
+        "NC_EVQ_REF_LINKABILITY",
+        "NC_EVQ_FRONTIER_NOT_CAUSAL",
+        "NC_EVQ_COST_MEASURED_NOT_QUOTED",
+        "NC_EVQ_PREREG_PRECEDENCE_BASIS",
+        "NC_EVQ_NO_SAFETY_CLAIM"
+      ]
+    },
+    "EvaluatorQualityNonClaimReasonCatalogV1": {
+      "type": "string",
+      "enum": [
+        "tmpl.noncert.evq_agreement_is_not_correctness.v1",
+        "tmpl.noncert.evq_relative_to_pinned_reference.v1",
+        "tmpl.noncert.evq_pinned_evaluation_set_only.v1",
+        "tmpl.noncert.evq_no_distribution_shift.v1",
+        "tmpl.noncert.evq_no_adaptive_adversary.v1",
+        "tmpl.noncert.evq_unprobed_failure_not_detectable.v1",
+        "tmpl.noncert.evq_descriptor_commitment_unopened.v1",
+        "tmpl.noncert.evq_no_selection_unbiasedness_claim.v1",
+        "tmpl.noncert.evq_nominal_coverage_only.v1",
+        "tmpl.noncert.evq_statistics_not_recomputed_by_verifier.v1",
+        "tmpl.noncert.evq_ref_linkability.v1",
+        "tmpl.noncert.evq_frontier_descriptive_only.v1",
+        "tmpl.noncert.evq_cost_at_pinned_price_list.v1",
+        "tmpl.noncert.evq_prereg_precedence_by_declared_basis.v1",
+        "tmpl.noncert.evq_no_safety_claim.v1"
+      ]
+    },
+    "EvaluatorQualityNonClaimV1": {
+      "description": "A printed NON-claim record, structurally distinct from a claim: no verifier field and no tier, mirroring the frozen NonClaimV0. Non-claims are printed, never implied by absence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "non_claim_id",
+        "reason_template_id"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "non_claim"
+        },
+        "non_claim_id": {
+          "$ref": "#/definitions/EvaluatorQualityNonClaimIdV1"
+        },
+        "reason_template_id": {
+          "$ref": "#/definitions/EvaluatorQualityNonClaimReasonCatalogV1"
+        }
+      },
+      "not": {
+        "required": [
+          "verifier"
+        ]
+      }
+    },
+    "EvaluatorQualityNonClaimsFixedTupleV1": {
+      "description": "The FIFTEEN mandatory printed non-claims in canonical print order. additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid, mirroring the frozen NonClaimsFixedTupleV0.",
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 15,
+      "additionalItems": false,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_NOT_GROUND_TRUTH"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_agreement_is_not_correctness.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_REFERENCE_SCOPE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_relative_to_pinned_reference.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_EVALUATION_SET_SCOPE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_pinned_evaluation_set_only.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_NO_DISTRIBUTION_SHIFT"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_no_distribution_shift.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_NO_ADAPTIVE_ADVERSARY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_no_adaptive_adversary.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_PERTURBATION_SET_CLOSED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_unprobed_failure_not_detectable.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_DESCRIPTOR_UNOPENED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_descriptor_commitment_unopened.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_NO_SELECTION_UNBIASEDNESS"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_no_selection_unbiasedness_claim.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_NOMINAL_COVERAGE_ONLY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_nominal_coverage_only.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_STATISTICS_NOT_RECOMPUTED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_statistics_not_recomputed_by_verifier.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_REF_LINKABILITY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_ref_linkability.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_FRONTIER_NOT_CAUSAL"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_frontier_descriptive_only.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_COST_MEASURED_NOT_QUOTED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_cost_at_pinned_price_list.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_PREREG_PRECEDENCE_BASIS"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_prereg_precedence_by_declared_basis.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluatorQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NC_EVQ_NO_SAFETY_CLAIM"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.noncert.evq_no_safety_claim.v1"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "EvaluatorQualityOverallV1": {
+      "description": "The pre-registered weighted aggregate. overall_quality_ppm is DERIVED: the verifier recomputes it as the round_half_even weighted sum of each axis's point value under the pre-registered weights, using exact integer arithmetic. Two hard caps apply on top of the arithmetic. (1) If any required_axis lacks a passed/directional row, verdict MUST be abstain and overall_quality_ppm MUST be absent - weights may NOT be rescaled over the present axes. (2) verdict may never exceed the WORST verdict among the four instrument-adequacy axes (calibration, agreement, sensitivity, reliability): efficiency can lower the overall picture, never raise it. instrument_adequacy_verdict records that floor explicitly so a reader sees it without recomputing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verdict",
+        "instrument_adequacy_verdict",
+        "aggregation_policy_digest"
+      ],
+      "properties": {
+        "verdict": {
+          "$ref": "#/definitions/EvaluatorQualityVerdictV1"
+        },
+        "instrument_adequacy_verdict": {
+          "$ref": "#/definitions/EvaluatorQualityVerdictV1"
+        },
+        "overall_quality_ppm": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "aggregation_policy_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "enum": [
+                  "abstain",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "verdict"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "overall_quality_ppm"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "overall_quality_ppm"
+            ]
+          }
+        }
+      ]
+    },
+    "EvaluatorQualityUnsignedManifestV1": {
+      "description": "The complete signed evaluator-quality manifest. It carries only typed digests, closed enums, and bounded integers; signature bytes, measurement blocks, support rows, and the non-claim tuple are excluded from its own preimage and bound as digests. coverage is a const list, so a field silently dropped from the signed set is schema-invalid rather than merely unsigned.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "scope_binding_digest",
+        "evaluator_commitment_ref",
+        "evaluator_commitment",
+        "descriptor_digest",
+        "descriptor_opening_digest",
+        "reference_standard_digest",
+        "evaluation_scope_digest",
+        "preregistration_digest",
+        "preregistration_basis",
+        "measurement_registry_digest",
+        "perturbation_set_digest",
+        "assertion_templates_digest",
+        "measurement_set_digest",
+        "frontier_digest",
+        "claim_support_rows_digest",
+        "non_claims_digest",
+        "overall",
+        "trust_ring_ref",
+        "issuer_key_ref",
+        "issuer_signature_algorithm",
+        "coverage"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.unsigned_manifest.v1"
+        },
+        "scope_binding_digest": {
+          "description": "Replaces a signed project_ref. ProjectRefV0 is bounded (^[A-Za-z0-9_.-]{1,128}$) but NOT content-free - 128 characters hold a customer name or an evaluator codename - so this family carries NO caller-influenced string at all. The scope value crosses only inside this digest's preimage, SHA-256 over UTF8(traigent.evaluator_quality.scope_binding.v1) || 0x00 || jcs_v1({\"project_ref\": <the caller's pin>}), which the verifier REBUILDS from its own context pins and compares. A sentinel has no field to sit in, which is structurally stronger than a minting policy. Adopted from the pillar-1 agent-quality family for cross-pillar consistency.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluator_commitment_ref": {
+          "description": "THE BINDING FIELD. MUST byte-equal ProcessRecordUnsignedManifestV1.evaluator_commitment_ref of any process record this certificate is presented alongside. Nothing in the shipped V1 file changes to support this; the relying party checks equality across the two verified bundles.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluator_commitment": {
+          "$ref": "#/definitions/EvaluatorCommitmentV1"
+        },
+        "descriptor_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "descriptor_opening_digest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        },
+        "reference_standard_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_scope_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "preregistration_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "preregistration_basis": {
+          "$ref": "#/definitions/EmittablePreRegistrationBasisV1"
+        },
+        "measurement_registry_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "perturbation_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "assertion_templates_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "measurement_set_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "frontier_digest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        },
+        "claim_support_rows_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "non_claims_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "overall": {
+          "$ref": "#/definitions/EvaluatorQualityOverallV1"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "issuer_signature_algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "coverage": {
+          "const": [
+            "scope_binding_digest",
+            "evaluator_commitment_ref",
+            "evaluator_commitment",
+            "descriptor_digest",
+            "descriptor_opening_digest",
+            "reference_standard_digest",
+            "evaluation_scope_digest",
+            "preregistration_digest",
+            "preregistration_basis",
+            "measurement_registry_digest",
+            "perturbation_set_digest",
+            "assertion_templates_digest",
+            "measurement_set_digest",
+            "frontier_digest",
+            "claim_support_rows_digest",
+            "non_claims_digest",
+            "overall",
+            "trust_ring_ref",
+            "issuer_key_ref",
+            "issuer_signature_algorithm"
+          ]
+        }
+      }
+    },
+    "EvaluatorQualitySignatureV1": {
+      "description": "External issuer signature block. The issuer signs only the canonical unsigned manifest under UTF8(traigent.evaluator_quality.issuer_signature.v1) || 0x00 || jcs_v1(unsigned_manifest). This block is outside that manifest, so signature self-reference is impossible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "algorithm",
+        "issuer_key_ref",
+        "trust_ring_ref",
+        "signed_payload",
+        "unsigned_manifest_digest",
+        "signature"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.signature.v1"
+        },
+        "algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "signed_payload": {
+          "const": "unsigned_evaluator_quality_manifest"
+        },
+        "unsigned_manifest_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "signature": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"
+        }
+      }
+    },
+    "EvaluatorQualityFieldLocationV1": {
+      "description": "Closed field-location vocabulary: ONE token from this fixed list, never a path built from instance data. The dots inside a token are part of the literal token, not a composition. This deviates deliberately from the reviewer's suggestion of 'an array of schema-property enums and bounded indices': an index is derived from the instance, so it discloses WHICH probe or WHICH frontier point failed, and the pillar-1 agent-quality family - reviewed by the same reviewer - landed on a closed single-token enum for exactly that reason. Convergence and the tighter privacy property both point the same way. The previous revision promised a '/'-joined path in prose and defined nothing in schema; a joined string is an unbounded channel however it is built.",
+      "type": "string",
+      "enum": [
+        "bundle",
+        "unsigned_manifest",
+        "signature",
+        "context",
+        "scope_binding",
+        "descriptor",
+        "descriptor.component_commitments",
+        "descriptor_opening",
+        "evaluator_commitment",
+        "commitment_refs",
+        "reference_standard",
+        "reference_standard.ceiling",
+        "reference_standard.raters",
+        "evaluation_scope",
+        "evaluation_scope.held_out",
+        "preregistration",
+        "preregistration.basis",
+        "preregistration.planned_measurements",
+        "preregistration.aggregation_policy",
+        "measurements",
+        "measurements.calibration",
+        "measurements.agreement",
+        "measurements.sensitivity",
+        "measurements.reliability",
+        "measurements.efficiency",
+        "measurements.interval",
+        "measurements.interval_params",
+        "measurements.sample_size",
+        "measurements.basis",
+        "frontier",
+        "frontier.baseline",
+        "frontier.points",
+        "frontier.ratio",
+        "claim_material",
+        "claim_support_rows",
+        "non_claims",
+        "overall",
+        "measurement_registry",
+        "perturbation_set",
+        "assertion_templates"
+      ]
+    },
+    "EvaluatorQualityErrorV1": {
+      "description": "Closed evaluator-quality error shape for the API boundary. Deliberately COARSER than the verifier's internal code vocabulary: the coarseness IS the privacy property, mirroring the shipped ProcessRecordErrorV1. No request data, rubric text, per-item rationale, free-form detail, or content-bearing diagnostic may cross this boundary. Adding a new verifier code must NOT widen this enum. field_location is ONE token from a closed schema-owned vocabulary, never a path built from instance data.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "code",
+        "field_location"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.error.v1"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "evaluator_quality_invalid_measurement",
+            "evaluator_quality_preregistration_violation",
+            "evaluator_quality_limit_exceeded",
+            "evaluator_quality_verification_failed"
+          ]
+        },
+        "field_location": {
+          "$ref": "#/definitions/EvaluatorQualityFieldLocationV1"
+        }
+      }
+    },
+    "EvaluatorQualityCertificateBundleV1": {
+      "description": "The identifying evaluator-quality envelope. It is a SEPARATE artifact from ProcessRecordCertificateBundleV1 and is never embedded in it: a process record is issued once per build, an evaluator-quality certificate once per (evaluator, reference standard, evaluation scope) and reused across many builds, so they have different signer scopes and different lifetimes. The frozen v0 artifacts and the shipped V1 process-record file are untouched by this family.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "unsigned_manifest",
+        "signature",
+        "descriptor",
+        "descriptor_opening",
+        "reference_standard",
+        "evaluation_scope",
+        "preregistration",
+        "measurements",
+        "claim_material",
+        "claim_support_rows",
+        "non_claims",
+        "verification_materials_v0"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.evaluator_quality.certificate_bundle.v1"
+        },
+        "unsigned_manifest": {
+          "$ref": "#/definitions/EvaluatorQualityUnsignedManifestV1"
+        },
+        "signature": {
+          "$ref": "#/definitions/EvaluatorQualitySignatureV1"
+        },
+        "descriptor": {
+          "$ref": "#/definitions/EvaluatorDescriptorV1"
+        },
+        "descriptor_opening": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/DescriptorOpeningV1"
+            }
+          ]
+        },
+        "reference_standard": {
+          "$ref": "#/definitions/ReferenceStandardV1"
+        },
+        "evaluation_scope": {
+          "$ref": "#/definitions/EvaluationScopeV1"
+        },
+        "preregistration": {
+          "$ref": "#/definitions/EvaluatorPreRegistrationV1"
+        },
+        "measurements": {
+          "$ref": "#/definitions/EvaluatorMeasurementSetV1"
+        },
+        "claim_material": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "$ref": "#/definitions/EvaluatorQualityClaimMaterialV1"
+          }
+        },
+        "claim_support_rows": {
+          "$ref": "#/definitions/EvaluatorQualityClaimSupportRowsV1"
+        },
+        "non_claims": {
+          "$ref": "#/definitions/EvaluatorQualityNonClaimsFixedTupleV1"
+        },
+        "verification_materials_v0": {
+          "$ref": "certificate_verification_materials_v0_schema.json"
+        }
+      }
+    }
+  }
+}

@@ -1757,7 +1757,29 @@
         "measurement_set_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         }
-      }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "calibration"
+          ]
+        },
+        {
+          "required": [
+            "agreement"
+          ]
+        },
+        {
+          "required": [
+            "sensitivity"
+          ]
+        },
+        {
+          "required": [
+            "reliability"
+          ]
+        }
+      ]
     },
     "EvaluatorAssertionTemplateIdV1": {
       "description": "Closed assertion-template vocabulary, one template per EVQ claim, shipped as package data. This REPLACES a pattern-bounded string in the previous revision (^tmpl\\.evq\\.[a-z0-9_]{1,64}\\.v1$), which was a 64-character lowercase free-text channel - 'acme_customer_support_rubric' matches it. A pattern is not a closed vocabulary; the frozen v0 NonClaimReasonCatalogV0 is an enum for exactly this reason and this family follows it.",
@@ -2572,6 +2594,47 @@
             "required": [
               "overall_quality_ppm"
             ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "verdict"
+            ]
+          },
+          "then": {
+            "properties": {
+              "instrument_adequacy_verdict": {
+                "const": "passed"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "directional"
+              }
+            },
+            "required": [
+              "verdict"
+            ]
+          },
+          "then": {
+            "properties": {
+              "instrument_adequacy_verdict": {
+                "enum": [
+                  "directional",
+                  "passed"
+                ]
+              }
+            }
           }
         }
       ]

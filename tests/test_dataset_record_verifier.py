@@ -1375,6 +1375,52 @@ def test_leaf_list_whose_length_disagrees_with_leaf_count_fails() -> None:
     _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH")
 
 
+def test_duplicate_corpus_ref_descriptor_hides_a_contradictory_signed_count() -> None:
+    """Test 28b (astra round 5 F1, executed and confirmed on head 876ee3f).
+
+    ``_check_leaf_list_digests`` built ``declared_by_ref`` with a dict
+    comprehension over ``leaf_list_digests`` -- last-entry-wins on a
+    repeated ``corpus_ref``. The schema permits duplicate ``corpus_ref``
+    entries and nothing else checked uniqueness, so a first, WRONG
+    descriptor (correct ref, incorrect signed ``leaf_count``) could be
+    prepended ahead of the correct one: the lookup silently drops the
+    earlier signed entry and only the last is ever checked. Astra's probe
+    against the unfixed verifier reached ``DATASET_RECORD_VERIFIED`` with
+    all five claims, never examining the dropped descriptor's contradictory
+    count. Uniqueness must be established before the lookup is built."""
+    built = _build()
+    report = built.bundle["leakage_report"]
+    correct_entry = next(
+        entry for entry in report["leaf_list_digests"] if entry["corpus_ref"] == built.corpus_a_ref
+    )
+    bogus_entry = {**correct_entry, "leaf_count": 0}
+    report["leaf_list_digests"].insert(0, bogus_entry)
+    _redigest_leakage(built)
+    _refresh_leakage_evidence_refs(built)
+    error = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH")
+    assert error.location == "/leakage_report/leaf_list_digests/1/corpus_ref"
+
+
+def test_orphaned_leakage_report_attestation_digest_fails_when_attestation_absent() -> None:
+    """Test 28c (astra round 5 F2, executed and confirmed on head 876ee3f).
+
+    ``_check_leaf_generation_attestation``'s ``attestation is None`` branch
+    checked only ``unsigned_manifest.leaf_generation_attestation_digest`` --
+    the manifest side closed by the earlier F4 fix. Its sibling,
+    ``leakage_report.leaf_generation_attestation_digest``, went unchecked,
+    so a record could name a nonexistent attestation there while
+    verification returned ``DATASET_RECORD_VERIFIED_CLAIMS_PARTIAL``. When
+    the attestation is absent both digest fields must be null, each failing
+    at its own field location."""
+    built = _build(include_attestation=False)
+    report = built.bundle["leakage_report"]
+    report["leaf_generation_attestation_digest"] = "sha256:" + "7" * 64
+    _redigest_leakage(built)
+    _refresh_leakage_evidence_refs(built)
+    error = _expect_error(built, "LEAF_GENERATION_ATTESTATION_MISSING")
+    assert error.location == "/leakage_report/leaf_generation_attestation_digest"
+
+
 # ---------------------------------------------------------------------------
 # Limitations (negatives)
 # ---------------------------------------------------------------------------

@@ -1301,6 +1301,15 @@ def _check_leaf_list_digests(
     (``identity["dataset_ref"]``, see ``_check_cell_roots``) is not a
     leakage corpus and is skipped here."""
     recomputed: dict[str, list[str]] = {}
+    seen_refs: set[str] = set()
+    for index, entry in enumerate(leakage_report["leaf_list_digests"]):
+        corpus_ref = entry["corpus_ref"]
+        if corpus_ref in seen_refs:
+            _fail(
+                "LEAF_LIST_DIGEST_MISMATCH",
+                f"/leakage_report/leaf_list_digests/{index}/corpus_ref",
+            )
+        seen_refs.add(corpus_ref)
     declared_by_ref = {entry["corpus_ref"]: entry for entry in leakage_report["leaf_list_digests"]}
     dataset_ref = identity["dataset_ref"]
     for corpus_ref, entries in leaf_lists.items():
@@ -1473,6 +1482,11 @@ def _check_leaf_generation_attestation(
             _fail(
                 "LEAF_GENERATION_ATTESTATION_MISSING",
                 "/unsigned_manifest/leaf_generation_attestation_digest",
+            )
+        if leakage_report["leaf_generation_attestation_digest"] is not None:
+            _fail(
+                "LEAF_GENERATION_ATTESTATION_MISSING",
+                "/leakage_report/leaf_generation_attestation_digest",
             )
         return False
     projection = {k: v for k, v in attestation.items() if k != "attestation_digest"}

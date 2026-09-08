@@ -477,6 +477,11 @@ def test_schema_still_pins_the_wire_shape_two_unit_called_guards_rely_on() -> No
       by ``const``-pinning ``taxonomy_id``/``taxonomy_version`` on
       ``DatasetTaxonomyIdentityV1`` and ``registry_id``/``registry_version``
       on ``DatasetMethodRegistryIdentityV1``.
+    - ``dataset_record_verifier._check_declared_partition``'s
+      ``len(cells) > _MAX_CELLS`` guard (astra F3, round 5) is schema-blocked
+      by ``composition.cells.maxItems: 40`` on ``DatasetCompositionV1``. The
+      guard is exercised only as a direct unit call, never through a wire
+      negative, so this pin is what keeps it foreclosed.
 
     If a future schema change relaxes any of these -- widens ``maxItems``,
     or drops a ``const`` in favour of a plain ``type: string`` -- THIS test
@@ -517,4 +522,26 @@ def test_schema_still_pins_the_wire_shape_two_unit_called_guards_rely_on() -> No
         "registry_version is no longer const-pinned -- "
         "dataset_record_verifier._check_taxonomy_and_registry_pins's identity "
         "comparison is now wire-reachable and needs a wire negative"
+    )
+
+
+def test_schema_cells_max_items_still_pins_the_declared_partition_guard() -> None:
+    """Sibling to ``test_schema_still_pins_the_wire_shape_two_unit_called_guards_rely_on``
+    (astra round 5 F3, minor). ``_check_declared_partition`` retains a
+    schema-blocked ``len(cells) > _MAX_CELLS`` guard, called only as a direct
+    unit call and never exercised through a wire negative. It stays
+    foreclosed only because ``DatasetCompositionV1.cells.maxItems`` matches
+    ``_MAX_CELLS`` exactly. If a future schema change relaxes ``maxItems``
+    past ``_MAX_CELLS``, THIS test fails -- the signal that the guard just
+    became wire-reachable with no negative test proving it still rejects the
+    widened shape."""
+    from traigent_schema.certification import dataset_record_verifier as dr
+
+    cells_schema = SCHEMA["definitions"]["DatasetCompositionV1"]["properties"]["cells"]
+    assert cells_schema["maxItems"] == dr._MAX_CELLS, (
+        f"composition.cells.maxItems ({cells_schema['maxItems']}) no longer matches "
+        f"dataset_record_verifier._MAX_CELLS ({dr._MAX_CELLS}) -- "
+        "_check_declared_partition's `len(cells) > _MAX_CELLS` guard is now "
+        "wire-reachable below the schema bound and needs a wire negative, not "
+        "just a unit call"
     )

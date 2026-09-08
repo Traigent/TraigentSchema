@@ -1054,7 +1054,7 @@
       ]
     },
     "AgentQualityNonClaimIdV1": {
-      "description": "The twenty-eight mandatory printed non-claims. Items 1-10 restate ratified prohibited-register entries CERT-P-11..CERT-P-20; items 11-28 are contract-specific refusals. Item 16 (NCQ_PLAN_ORDERING_OUT_OF_SCOPE) replaces the pre-registration ordering claim entirely: this pillar makes no ordering assertion at all, not even an unproven one. Items 21-24 name exactly which quantity is attested rather than recomputed; item 25 discloses that stable refs correlate certificates even when they carry no content; items 26-28 are new: non-use of the holdout split is not proven, ref minting is an issuer obligation this certificate does not verify, and score scale is the evaluator's own. Non-claims are printed records, never implied by absence.",
+      "description": "The twenty-eight mandatory printed non-claims. Items 1-10 restate ratified prohibited-register entries CERT-P-11..CERT-P-20; items 11-28 are contract-specific refusals. Item 16 (NCQ_PLAN_ORDERING_OUT_OF_SCOPE) replaces the ordering claim entirely: this pillar makes no ordering assertion at all, not even an unproven one. Items 21-24 name exactly which quantity is attested rather than recomputed; item 25 discloses that stable refs correlate certificates even when they carry no content; items 26-28 are new: non-use of the holdout split is not proven, ref minting is an issuer obligation this certificate does not verify, and score scale is the evaluator's own. Non-claims are printed records, never implied by absence.",
       "type": "string",
       "enum": [
         "NCQ_NO_GENERALIZATION",

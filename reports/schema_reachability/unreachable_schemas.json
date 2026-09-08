@@ -28,6 +28,7 @@
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
     "auth/rbac_privilege_vocabulary_schema.json",
+    "certification/agent_quality_v1_schema.json",
     "certification/certificate_claim_templates_v0_schema.json",
     "certification/certificate_client_evidence_manifest_v0_schema.json",
     "certification/certificate_registry_agent_revision_v0_schema.json",

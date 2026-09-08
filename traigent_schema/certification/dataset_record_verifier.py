@@ -1554,6 +1554,7 @@ def _check_corpus_ref_descriptors(
     """
     leakage_scope_ref = identity["leakage_scope_ref"]
     known: set[str] = set()
+    leaf_counts_by_ref: dict[str, int] = {}
     for index, entry in enumerate(leakage_report["leaf_list_digests"]):
         expected = _derive_corpus_ref(entry["leaf_list_digest"], leakage_scope_ref)
         if entry["corpus_ref"] != expected:
@@ -1565,6 +1566,7 @@ def _check_corpus_ref_descriptors(
             # (T3 round 6 P3-1).
             _fail("LEAF_LIST_DIGEST_MISMATCH", "/leakage_report/leaf_list_digests")
         known.add(entry["corpus_ref"])
+        leaf_counts_by_ref[entry["corpus_ref"]] = entry["leaf_count"]
     if attestation is not None:
         # T3 round 7: a separate tracking set, over attestation.corpora ONLY
         # -- a corpus_ref that also appears (once) in leaf_list_digests above
@@ -1579,6 +1581,33 @@ def _check_corpus_ref_descriptors(
                 _fail("LEAF_LIST_DIGEST_MISMATCH", "/leaf_generation_attestation/corpora")
             seen_attestation_refs.add(ref)
             known.add(ref)
+            # T3 round 9 (captain-1/astra): a corpus_ref legitimately appears
+            # in BOTH signed lists (the ordinary case, per the note above),
+            # but nothing before this point compares the two lists' signed
+            # claims about the SAME corpus_ref to each other -- only their
+            # re-derivation (leaf_list_digests, above) or their internal
+            # self-consistency (leaf_root/leaf_count vs the caller-supplied
+            # leaf lists, in ``_check_leaf_generation_attestation``, which is
+            # leaf-list-dependent and therefore not signed-material-only).
+            # This check runs unconditionally over signed material regardless
+            # of whether leaf lists were supplied, closing the same
+            # caller-mode asymmetry this function's family exists to close,
+            # this time across the two lists rather than within one.
+            # ``leaf_count`` is the only field both entry shapes declare for
+            # a corpus_ref (``leaf_list_digests`` also has ``leaf_list_digest``,
+            # ``corpora`` also has ``leaf_root``/``scope_blind_commitment`` --
+            # neither list declares the other's remaining fields, so there is
+            # nothing else in common to compare).
+            declared_leaf_count = leaf_counts_by_ref.get(ref)
+            if declared_leaf_count is not None and declared_leaf_count != corpus["leaf_count"]:
+                # Bare bundle-root location, not either container: the
+                # verifier cannot tell which of the two signed statements
+                # about this corpus_ref is forged, so it must not point at
+                # ``leakage_report`` or ``leaf_generation_attestation`` alone
+                # as though that one were at fault. The bundle root is the
+                # smallest container that holds both signed lists without
+                # attributing fault to either.
+                _fail("LEAF_LIST_DIGEST_MISMATCH", "")
     for index, finding in enumerate(leakage_report["findings"]):
         for field in ("corpus_a_ref", "corpus_b_ref"):
             if finding[field] not in known:

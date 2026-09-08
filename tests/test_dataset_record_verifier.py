@@ -1495,6 +1495,49 @@ def test_duplicate_attestation_corpus_ref_verdict_agrees_across_both_caller_mode
     )
 
 
+def test_cross_list_leaf_count_disagreement_rejected_in_both_caller_modes() -> None:
+    """Test 28e (T3 round 9, captain-1 executing astra's predicted fifth
+    bypass). ``corpus_a_ref`` legitimately appears in both signed lists --
+    ``leakage_report.leaf_list_digests`` and
+    ``leaf_generation_attestation.corpora`` -- the ordinary, expected shape
+    for a corpus the record both digests and attests (see the docstring on
+    ``_check_corpus_ref_descriptors``). Uniqueness is now enforced WITHIN
+    each list (T3 rounds 6/7), but nothing compared the two signed
+    ``leaf_count``s for the SAME corpus_ref to EACH OTHER: only
+    ``_check_leaf_generation_attestation`` cross-checked the attestation's
+    ``leaf_count`` against the caller-supplied leaf lists, and that check is
+    leaf-list-dependent (``corpora_leaves.get(corpus_ref)`` is ``None``, and
+    the loop ``continue``s, whenever the caller holds none). A relying party
+    with leaf lists rejected on ``LEAF_COMPLETENESS_MISMATCH`` (a coincidence
+    of that path also catching this particular contradiction); a relying
+    party with none accepted with all five claims verified -- the same
+    caller-mode asymmetry this whole check family exists to close, this time
+    across two lists rather than within one.
+
+    One mutated bundle -- attestation ``leaf_count`` bumped from the correct
+    value to a different one, fully re-signed -- verified BOTH ways. Both
+    must reject, with the SAME code, from the new unconditional check in
+    ``_check_corpus_ref_descriptors`` (which runs before
+    ``_check_leaf_generation_attestation``, so neither mode ever reaches the
+    leaf-list-dependent completeness check for this bundle)."""
+    built = _build()
+    attestation = built.bundle["leaf_generation_attestation"]
+    corpus = next(
+        c for c in attestation["corpora"] if c["corpus_ref"] == built.corpus_a_ref
+    )
+    corpus["leaf_count"] = corpus["leaf_count"] + 7
+    _redigest_attestation(built)
+    error_with_leaf_lists = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH")
+    error_without_leaf_lists = _expect_error(
+        built, "LEAF_LIST_DIGEST_MISMATCH", leaf_lists=None
+    )
+    assert error_with_leaf_lists.location == ""
+    assert (error_with_leaf_lists.code, error_with_leaf_lists.location) == (
+        error_without_leaf_lists.code,
+        error_without_leaf_lists.location,
+    )
+
+
 def test_orphaned_leakage_report_attestation_digest_fails_when_attestation_absent() -> None:
     """Test 28c (astra round 5 F2, executed and confirmed on head 876ee3f).
 

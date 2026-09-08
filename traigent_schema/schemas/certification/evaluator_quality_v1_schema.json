@@ -1788,7 +1788,7 @@
       ],
       "properties": {
         "claim_id": {
-          "$ref": "#/definitions/EvaluatorQualityClaimIdV1"
+          "$ref": "#/definitions/EmittableEvaluatorQualityClaimIdV1"
         },
         "tier": {
           "$ref": "certification_common_v0_schema.json#/definitions/EmittableClaimTierV0"
@@ -2695,6 +2695,7 @@
             "assertion_templates_digest",
             "measurement_set_digest",
             "frontier_digest",
+            "claim_material",
             "claim_support_rows_digest",
             "non_claims_digest",
             "overall",
@@ -2859,11 +2860,81 @@
         },
         "claim_material": {
           "type": "array",
-          "minItems": 7,
-          "maxItems": 7,
-          "items": {
-            "$ref": "#/definitions/EvaluatorQualityClaimMaterialV1"
-          }
+          "minItems": 5,
+          "maxItems": 5,
+          "additionalItems": false,
+          "items": [
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/EvaluatorQualityClaimMaterialV1"
+                },
+                {
+                  "properties": {
+                    "claim_id": {
+                      "const": "EVQ1"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/EvaluatorQualityClaimMaterialV1"
+                },
+                {
+                  "properties": {
+                    "claim_id": {
+                      "const": "EVQ2"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/EvaluatorQualityClaimMaterialV1"
+                },
+                {
+                  "properties": {
+                    "claim_id": {
+                      "const": "EVQ3"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/EvaluatorQualityClaimMaterialV1"
+                },
+                {
+                  "properties": {
+                    "claim_id": {
+                      "const": "EVQ4"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/EvaluatorQualityClaimMaterialV1"
+                },
+                {
+                  "properties": {
+                    "claim_id": {
+                      "const": "EVQ5"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
         },
         "claim_support_rows": {
           "$ref": "#/definitions/EvaluatorQualityClaimSupportRowsV1"

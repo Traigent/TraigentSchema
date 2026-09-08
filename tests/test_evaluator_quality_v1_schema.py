@@ -21,8 +21,9 @@ DEFS = SCHEMA["definitions"]
 MERGE_BASE = "3f0529c1ba94a21afbcee749d6543dd0c4778229"
 SHA = "sha256:" + "a" * 64
 NON_CLAIM_SENTENCE = (
-    "Ordering evidence -- that the declared plan was authored before the results -- "
-    "is out of scope for v1 and is not verified by this certificate."
+    "Ordering evidence is out of scope for v1: nothing here establishes when the "
+    "declared plan was authored relative to the measurements, and this certificate "
+    "does not verify it."
 )
 
 
@@ -287,10 +288,18 @@ def test_no_preregistration_vocabulary_survives() -> None:
 
 
 def test_no_unqualified_ordering_assertion_survives() -> None:
+    # No exemption for the non-claim sentence itself: it was rewritten so that
+    # neither the preregistration stem nor any ordering phrase appears in it,
+    # so the scan runs over the WHOLE schema, including that sentence.
     text = SCHEMA_PATH.read_text(encoding="utf-8")
-    rest = text.replace(NON_CLAIM_SENTENCE, "", 1)
+    assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", text, re.I) is None
     assert (
-        re.search(r"before results|prior to results|predates|in advance of", rest, re.I)
+        re.search(
+            r"before the results|before results|prior to results|predates"
+            r"|in advance of|authored before",
+            text,
+            re.I,
+        )
         is None
     )
 
@@ -593,9 +602,10 @@ def test_containment_is_keyed_per_sub_metric_by_measurement_role() -> None:
     What JSON Schema cannot express here, stated rather than assumed: rejecting a
     DUPLICATE ``measurement_role`` inside ``planned_measurements`` (or two
     measurements claiming the same role with different payloads) is a verifier
-    obligation, not a schema one. It is pinned by the verifier's own test against
-    ``MEASUREMENT_ROLE_DUPLICATE``; this test exists so that removing the key from
-    either side breaks here first.
+    obligation, not a schema one. No verifier exists in this PR, so
+    ``MEASUREMENT_ROLE_DUPLICATE`` is currently UNTESTED -- this test exists so
+    that removing the key from either side breaks here first, not so that it
+    stands in for the verifier coverage that has not been written yet.
     """
     planned = DEFS["PlannedMeasurementV1"]
     measured = DEFS["MeasurementV1"]

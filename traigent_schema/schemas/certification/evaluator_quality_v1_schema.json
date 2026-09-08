@@ -2,7 +2,8 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/evaluator_quality_v1_schema.json",
   "title": "Traigent Evaluator Quality Certificate v1",
-  "description": "Traigent Evaluator Quality Certificate v1 (pillar 3): a signed statement of how well an evaluator (LLM judge, rubric scorer, unit-test harness) agrees with a pinned reference standard, over a pinned evaluation scope, against a declared measurement plan. Every measurement interval in v1 is an issuer attestation (basis issuer_attested_v1) and is not independently recomputed by the verifier or by a relying party; the shape reserves a construction_recomputed_v1 basis for a future contract version, but no v1 document can construct it. Evaluator efficiency (EVQ6) and the agreement-per-cost frontier (EVQ7) are registered claim ids and measurement roles, but neither is asserted by this contract: EVQ6 and EVQ7 carry no support row, and no v1 document can construct an efficiency or frontier measurement. EVQ1 (evaluator identity) under disclosure_mode private_commitment is an attestation: the descriptor's component commitments are secret and no DescriptorOpeningV1 travels in this bundle shape, so a relying party cannot recompute the binding and cannot verify it beyond tier 1. Ordering evidence -- that the declared plan was authored before the results -- is out of scope for v1 and is not verified by this certificate.",
+  "description": "Traigent Evaluator Quality Certificate v1 (pillar 3): a signed statement of how well an evaluator (LLM judge, rubric scorer, unit-test harness) agrees with a pinned reference standard, over a pinned evaluation scope, against a declared measurement plan. Every measurement interval in v1 is an issuer attestation (basis issuer_attested_v1) and is not independently recomputed by the verifier or by a relying party; the shape reserves a construction_recomputed_v1 basis for a future contract version, but no v1 document can construct it. Evaluator efficiency (EVQ6) and the agreement-per-cost frontier (EVQ7) are registered claim ids and measurement roles, but neither is asserted by this contract: EVQ6 and EVQ7 carry no support row, and no v1 document can construct an efficiency or frontier measurement. EVQ1 (evaluator identity) under disclosure_mode private_commitment is an attestation: the descriptor's component commitments are secret and no DescriptorOpeningV1 travels in this bundle shape, so a relying party cannot recompute the binding and cannot verify it beyond tier 1. Ordering evidence is out of scope for v1: nothing here establishes when the declared plan was authored relative to the measurements, and this certificate does not verify it.",
+  "$ref": "#/definitions/EvaluatorQualityCertificateBundleV1",
   "definitions": {
     "EvaluatorQualityDigestDomainRegistryV1": {
       "description": "Normative fixed role domains for this family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded). This is a SEPARATE registry from ProcessRecordDigestDomainRegistryV1: adding members there would modify a shipped V1 contract and break its own required-list test.",
@@ -687,7 +688,7 @@
       }
     },
     "EvaluatorDescriptorV1": {
-      "description": "The content-free evaluator identity document. Five orthogonal component commitments, so a relying party comparing two certificates can tell 'same rubric, new model' from 'same model, new rubric', and so the sensitivity claim is interpretable against a stated dimension of change. NO rubric text, prompt, model-name string, or per-item rationale is representable here: the shipped SDK descriptor still carries a literal 'prompt' key and the Backend reads ('prompt','judge_prompt','rubric'); those are internal analytics channels and this schema makes them unrepresentable rather than discouraged. Under disclosure_mode private_commitment, the five commitments are blinded and NOT recomputable by a relying party - EVQ1 is an attestation, not a verified binding. Under public_descriptor, an accompanying DescriptorOpeningV1 supplies the component documents so the binding IS recomputable offline. descriptor_digest is SHA-256 over UTF8(traigent.evaluator_quality.descriptor.v1) || 0x00 || jcs_v1(this document with descriptor_digest excluded).",
+      "description": "The content-free evaluator identity document. Five orthogonal component commitments, so a relying party comparing two certificates learns, per component, only whether the two commitments are equal or unequal -- an equal commitment means the same blinded value was committed, and an unequal one means it was not, and that comparison is all a relying party learns about that component. A changed blind can leave the commitment unequal even when the content it protects is identical, and an unchanged blind over changed content leaves it unequal too, so equality/inequality of the commitment is a comparison over commitments, not a claim about the underlying content. This is still enough to interpret the sensitivity claim against a stated dimension of change. NO rubric text, prompt, model-name string, or per-item rationale is representable here: the shipped SDK descriptor still carries a literal 'prompt' key and the Backend reads ('prompt','judge_prompt','rubric'); those are internal analytics channels and this schema makes them unrepresentable rather than discouraged. Under disclosure_mode private_commitment, the five commitments are blinded and NOT recomputable by a relying party - EVQ1 is an attestation, not a verified binding. Under public_descriptor, an accompanying DescriptorOpeningV1 supplies the component documents so the binding IS recomputable offline. descriptor_digest is SHA-256 over UTF8(traigent.evaluator_quality.descriptor.v1) || 0x00 || jcs_v1(this document with descriptor_digest excluded).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -996,7 +997,7 @@
       ]
     },
     "HeldOutStatusV1": {
-      "description": "The selection/estimation relationship, machine-readable. no_selection_performed: this evaluator was not chosen from a panel on any evidence, so selection optimism does not arise. held_out_disjoint: an evaluator was selected, and the reported intervals were re-estimated on an estimation set provably disjoint from the selection set (disjointness is a digest inequality plus an issuer attestation, not a proof of set contents). overlaps_selection_set: the reported intervals were computed on data that also chose the winner - the winner's-curse case, capped. unknown: nothing is asserted, capped.",
+      "description": "The selection/estimation relationship, machine-readable. no_selection_performed: this evaluator was not chosen from a panel on any evidence, so selection optimism does not arise. held_out_disjoint: an evaluator was selected, and the issuer DECLARES that the reported intervals were re-estimated on an estimation set disjoint from the selection set; the certificate carries the two sets' digests plus an issuer attestation of that declared relationship, which establishes neither the sets' contents nor their disjointness -- unequal digests are consistent with disjoint sets but do not by themselves establish it. overlaps_selection_set: the reported intervals were computed on data that also chose the winner - the winner's-curse case, capped. unknown: nothing is asserted, capped.",
       "type": "string",
       "enum": [
         "no_selection_performed",
@@ -1846,7 +1847,126 @@
         "declared_plan_digest": {
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         }
-      }
+      },
+      "allOf": [
+        {
+          "not": {
+            "properties": {
+              "assertion_template_id": {
+                "enum": [
+                  "tmpl.evq.efficiency_per_evaluation.v1",
+                  "tmpl.evq.agreement_per_cost_frontier.v1"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "EVQ1"
+              }
+            },
+            "required": [
+              "claim_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "tier": {
+                "const": 1
+              },
+              "verdict": {
+                "enum": [
+                  "directional",
+                  "abstain",
+                  "failed"
+                ]
+              },
+              "assertion_template_id": {
+                "const": "tmpl.evq.identity_commitment.v1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "EVQ2"
+              }
+            },
+            "required": [
+              "claim_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "assertion_template_id": {
+                "const": "tmpl.evq.agreement_with_reference.v1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "EVQ3"
+              }
+            },
+            "required": [
+              "claim_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "assertion_template_id": {
+                "const": "tmpl.evq.calibration_against_reference.v1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "EVQ4"
+              }
+            },
+            "required": [
+              "claim_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "assertion_template_id": {
+                "const": "tmpl.evq.sensitivity_two_sided.v1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "EVQ5"
+              }
+            },
+            "required": [
+              "claim_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "assertion_template_id": {
+                "const": "tmpl.evq.reliability_declared_probe_set.v1"
+              }
+            }
+          }
+        }
+      ]
     },
     "EvaluatorQualityClaimSupportRowV1": {
       "description": "One support row per claim id, now carrying its TIER explicitly. evidence_basis REUSES the frozen v0 EvidenceBasisV0 by $ref, exactly as the shipped ProcessRecordClaimSupportRowV1 does, but the previous revision's coupling was wrong: it forced every non-issuer_verified row to abstain/failed, which made a client_declared EVQ1 - the ONLY form a private evaluator descriptor can take - unrepresentable. Corrected coupling: issuer_verified rows may reach passed or directional and MUST bind every artifact digest; client_declared rows are tier 1, may reach directional at best, and bind the artifacts the client actually presented; abstained rows carry a registered abstention code and no digests.",
@@ -2541,7 +2661,7 @@
       ]
     },
     "EvaluatorQualityOverallV1": {
-      "description": "The declared-plan weighted aggregate. overall_quality_ppm is DERIVED: the verifier recomputes it as the round_half_even weighted sum of each axis's point value under the declared-plan weights, using exact integer arithmetic. Two hard caps apply on top of the arithmetic. (1) If any required_axis lacks a passed/directional row, verdict MUST be abstain and overall_quality_ppm MUST be absent - weights may NOT be rescaled over the present axes. (2) verdict may never exceed the WORST verdict among the four instrument-adequacy axes (calibration, agreement, sensitivity, reliability): efficiency can lower the overall picture, never raise it. instrument_adequacy_verdict records that floor explicitly so a reader sees it without recomputing.",
+      "description": "The declared-plan weighted aggregate. overall_quality_ppm is DERIVED: the verifier recomputes it as the round_half_even weighted sum of each axis's point value under the declared-plan weights, using exact integer arithmetic. This shape implements a one-directional cap on POSITIVE verdicts only: instrument_adequacy_verdict may never exceed the worst verdict among the four instrument-adequacy claims (EVQ2 agreement, EVQ3 calibration, EVQ4 sensitivity, EVQ5 reliability), so a passed reading on any one axis can never raise the aggregate past what the weakest axis supports, and efficiency can lower the overall picture but never raise it. abstain is an explicit EXCEPTION to that ordering, not a rung on it: an abstained axis withholds a verdict rather than asserting a floor, so abstain may sit above, below, or alongside a failed axis without contradiction, and this schema does not attempt to rank abstain against failed. Coupling instrument_adequacy_verdict to the ACTUAL per-axis support rows (rather than to the value an issuer chooses to write here) and enforcing required-axis completeness against the declared plan are DEFERRED VERIFIER DERIVATIONS: this object only constrains the internal consistency of the fields an issuer declares in this block; it does not by itself prove those declared fields agree with claim_support_rows or the declared plan's required_axis list. Two hard caps this object DOES enforce structurally. (1) If any required_axis lacks a passed/directional row, verdict MUST be abstain and overall_quality_ppm MUST be absent - weights may NOT be rescaled over the present axes. (2) verdict may never exceed the WORST verdict among the four instrument-adequacy axes (calibration, agreement, sensitivity, reliability): efficiency can lower the overall picture, never raise it. instrument_adequacy_verdict records that floor explicitly so a reader sees it without recomputing.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -2654,6 +2774,7 @@
         "assertion_templates_digest",
         "measurement_set_digest",
         "frontier_digest",
+        "claim_material_digest",
         "claim_support_rows_digest",
         "non_claims_digest",
         "overall",
@@ -2691,6 +2812,10 @@
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
         "declared_plan_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "claim_material_digest": {
+          "description": "Binds the complete signed bundle's claim_material array as a whole -- SHA-256 over UTF8(traigent.evaluator_quality.claim_material.v1) || 0x00 || jcs_v1(the ordered claim_material array). coverage names the string 'claim_material', not this digest, so coverage alone signs no bytes of the array; this field is what actually binds it into the signed manifest.",
           "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
         },
         "measurement_registry_digest": {
@@ -2991,7 +3116,150 @@
         "verification_materials_v0": {
           "$ref": "certificate_verification_materials_v0_schema.json"
         }
-      }
+      },
+      "allOf": [
+        {
+          "description": "Structural half of F4's floor coupling: instrument_adequacy_verdict cannot read passed while any instrument-adequacy support row (EVQ2 agreement, EVQ3 calibration, EVQ4 sensitivity, EVQ5 reliability -- claim_support_rows indices 1-4) is abstain or failed. This is a structural check on the fields present in THIS bundle; it is not a recomputation of the aggregate and does not prove required-axis completeness against the declared plan -- see EvaluatorQualityOverallV1's description for what remains a deferred verifier derivation.",
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {},
+                  {
+                    "properties": {
+                      "verdict": {
+                        "enum": ["abstain", "failed"]
+                      }
+                    },
+                    "required": ["verdict"]
+                  }
+                ]
+              }
+            },
+            "required": ["claim_support_rows"]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "overall": {
+                    "not": {
+                      "properties": {
+                        "instrument_adequacy_verdict": {"const": "passed"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {}, {},
+                  {
+                    "properties": {
+                      "verdict": {
+                        "enum": ["abstain", "failed"]
+                      }
+                    },
+                    "required": ["verdict"]
+                  }
+                ]
+              }
+            },
+            "required": ["claim_support_rows"]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "overall": {
+                    "not": {
+                      "properties": {
+                        "instrument_adequacy_verdict": {"const": "passed"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {}, {}, {},
+                  {
+                    "properties": {
+                      "verdict": {
+                        "enum": ["abstain", "failed"]
+                      }
+                    },
+                    "required": ["verdict"]
+                  }
+                ]
+              }
+            },
+            "required": ["claim_support_rows"]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "overall": {
+                    "not": {
+                      "properties": {
+                        "instrument_adequacy_verdict": {"const": "passed"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {}, {}, {}, {},
+                  {
+                    "properties": {
+                      "verdict": {
+                        "enum": ["abstain", "failed"]
+                      }
+                    },
+                    "required": ["verdict"]
+                  }
+                ]
+              }
+            },
+            "required": ["claim_support_rows"]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "overall": {
+                    "not": {
+                      "properties": {
+                        "instrument_adequacy_verdict": {"const": "passed"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "EvaluatorDeclaredPlanV1": {
       "description": "The declared measurement plan, signed as its own artifact. Its shape makes a measured value STRUCTURALLY unrepresentable: additionalProperties:false plus a property set containing no point/interval field and no verdict. declared_plan_digest is SHA-256 over UTF8(traigent.evaluator_quality.declared_plan.v1) || 0x00 || jcs_v1(this document with declared_plan_digest excluded). NON-CLAIM, stated here because it is the family's sharpest limit: this document carries no basis, no ordering timestamp, and no verdict cap keyed to a plan grade. It pins WHAT was planned (roles, estimators, thresholds); it makes no representation about WHEN it was authored relative to the results, and the verifier checks containment only, never precedence. See NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE.",

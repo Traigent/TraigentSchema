@@ -1,5 +1,5 @@
 {
   "document": "agent_quality_non_claim_catalog.json",
   "construction": "sha256 over UTF8(domain) || 0x00 || jcs_v1(document) -- domain = AgentQualityDigestDomainRegistryV1.non_claim_catalog, read from agent_quality_v1_schema.json",
-  "digest": "sha256:12ba979a1cbc73db01dc270e4397cdb304d67c89a4e1e6bafb8293e0d4b503e0"
+  "digest": "sha256:4c3ee7a0d9da234675bb18d83d6b0195252fee20abcee0efa2949de5b2faf31d"
 }

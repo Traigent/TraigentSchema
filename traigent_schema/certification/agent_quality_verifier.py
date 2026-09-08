@@ -10,9 +10,9 @@ declared endpoints against that recomputation. It does not recompute the
 sufficient statistics themselves (they remain issuer attestations), does not
 establish which items belong to the selection split versus the holdout split
 (split membership is also an issuer attestation in v1, since v1 defines no
-opening path), and makes no claim about when, or whether, any evaluation
-plan was pre-registered ahead of results -- pre-registration ordering is out
-of scope for this certificate family in v1.
+opening path), and makes no claim about ordering evidence -- that the
+declared plan was authored before the results -- which is out of scope for
+this certificate family in v1.
 
 This packet ships the module's private building blocks only: the closed
 error and field-location vocabularies, the caller-facing context and result
@@ -84,6 +84,8 @@ AGENT_QUALITY_ERROR_CODES = frozenset(
         "CONTEXT",
         "PACKAGE_DATA_INVALID",
         "QUANTILE_TABLE_LOOKUP_FAILED",
+        "OBJECTIVE_DUPLICATE",
+        "SELECTION_ESTIMATE_DUPLICATE",
     }
 )
 
@@ -198,10 +200,10 @@ class AgentQualityVerificationContext:
     caller must make rather than inherit silently.
 
     ``expected_declared_plan_digest`` is a BINDING pin only: it establishes
-    WHICH declared plan this verification expects the bundle to cite, never
-    WHEN that plan was written or whether it preceded any result --
-    pre-registration ordering is out of scope for this certificate family in
-    v1 (see the module docstring).
+    WHICH declared plan this verification expects the bundle to cite -- not
+    ordering evidence that the plan was authored before the results, which
+    is out of scope for this certificate family in v1 (see the module
+    docstring).
     """
 
     process_record_context: object
@@ -259,8 +261,8 @@ class AgentQualityVerificationResult:
     copied from a signed bundle field into this object unexamined.
 
     ``plan_ordering_note`` is fixed: this certificate never establishes
-    pre-registration ordering, so the note is not conditional on anything
-    the bundle claims.
+    ordering evidence that the declared plan was authored before the
+    results, so the note is not conditional on anything the bundle claims.
 
     ``__post_init__`` couples ``(code, evidence_basis)`` to exactly the two
     outcomes this family can reach -- an ``issuer_verified`` support row
@@ -268,11 +270,14 @@ class AgentQualityVerificationResult:
     ``AGENT_QUALITY_CLAIM_ABSTAINED`` -- and additionally pins
     ``split_verification_level`` to ``issuer_attested_v1`` (v1 defines no
     opening path, so any other value would assert a recomputation this
-    verifier never performs) and ``interval_verification_level`` to
-    ``construction_recomputed_v1`` (the one level this verifier's estimator
-    recomputation actually establishes). A violation of any of these
-    invariants is a defect in THIS module, not a verification finding, so it
-    raises a plain ``ValueError`` rather than
+    verifier never performs). ``interval_verification_level`` is pinned to
+    ``construction_recomputed_v1`` for a VERIFIED result (the one level this
+    verifier's estimator recomputation actually establishes) and MUST NOT be
+    ``construction_recomputed_v1`` for an ABSTAINED result: an abstained
+    bundle carries no measured claims, so no recomputation ever ran, and a
+    result asserting otherwise would overstate what this verifier checked.
+    A violation of any of these invariants is a defect in THIS module, not a
+    verification finding, so it raises a plain ``ValueError`` rather than
     :class:`AgentQualityVerificationError`.
     """
 
@@ -287,8 +292,9 @@ class AgentQualityVerificationResult:
     dataset_condition_code: str
     evaluator_condition_code: str
     plan_ordering_note: str = (
-        "Pre-registration is not verified by this certificate; ordering "
-        "evidence is out of scope for v1."
+        "Ordering evidence — that the declared plan was authored "
+        "before the results — is out of scope for v1 and is not "
+        "verified by this certificate."
     )
 
     def __post_init__(self) -> None:
@@ -299,11 +305,16 @@ class AgentQualityVerificationResult:
             raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
         if self.split_verification_level != "issuer_attested_v1":
             raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
-        if self.interval_verification_level != "construction_recomputed_v1":
-            raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
+        if self.code == "AGENT_QUALITY_VERIFIED":
+            if self.interval_verification_level != "construction_recomputed_v1":
+                raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
+        else:
+            if self.interval_verification_level == "construction_recomputed_v1":
+                raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
         if self.plan_ordering_note != (
-            "Pre-registration is not verified by this certificate; ordering "
-            "evidence is out of scope for v1."
+            "Ordering evidence — that the declared plan was authored "
+            "before the results — is out of scope for v1 and is not "
+            "verified by this certificate."
         ):
             raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
 
@@ -404,6 +415,19 @@ def _load_agent_quality_document(stem: str) -> dict[str, Any]:
     return loaded
 
 
+# Import-time package-data validation: this loads and digest-checks all four
+# of this pillar's registries as soon as the module is imported, so a
+# corrupt or tampered package installation is caught unconditionally rather
+# than only on whichever caller happens to be first to touch one of the lazy
+# loaders above. A failure here raises the same
+# ``AgentQualityVerificationError("PACKAGE_DATA_INVALID", field)`` --
+# str(exc) == "PACKAGE_DATA_INVALID", and its chain carries no document text
+# -- straight out of module import / ``importlib.reload``.
+for _agent_quality_registry_stem in _AGENT_QUALITY_REGISTRY_DOMAINS:
+    _load_agent_quality_document(_agent_quality_registry_stem)
+del _agent_quality_registry_stem
+
+
 @lru_cache(maxsize=1)
 def _quantile_buckets_by_coverage() -> dict[int, tuple[tuple[int, int], ...]]:
     """The pinned Student-t quantile table, grouped by nominal coverage and
@@ -480,15 +504,28 @@ def _wilson_bounds(successes: int, trials: int, coverage_ppm: int) -> tuple[int,
 
     Each endpoint is then found by INTEGER BRACKETING rather than a closed
     form: the low endpoint is the largest integer ``e`` with ``Q(e) >= 0`` on
-    the branch left of the point estimate (the floor of the true lower
+    the branch left of the parabola's vertex (the floor of the true lower
     root -- rounding the low bound DOWN, i.e. outward); the high endpoint is
     the smallest integer ``e`` with ``Q(e) >= 0`` on the branch right of the
-    point estimate (the ceiling of the true upper root -- rounding the high
-    bound UP, i.e. outward). ``Q`` at the point estimate itself is always
-    ``<= 0`` (algebraically: ``Q(k/n) = z^2 * k * (k-n) / n <= 0`` since
-    ``k <= n``), and ``Q(0) = k^2 * _T_SCALE**4 >= 0``, ``Q(_T_SCALE) =
-    (n-k)^2 >= 0`` always hold, so both bisections always have a valid
-    bracket to search.
+    vertex (the ceiling of the true upper root -- rounding the high bound
+    UP, i.e. outward).
+
+    The split point for the two bisections is the parabola's own EXACT
+    rational vertex ``e_v = -B / (2A)`` -- floored for the low-endpoint
+    search, ceiled for the high-endpoint search -- computed by plain integer
+    floor/ceil division, never the rounded point estimate
+    (``_wilson_point``). ``Q`` is convex, so it is weakly decreasing on
+    ``(-inf, e_v]`` and weakly increasing on ``[e_v, +inf)``; the true roots
+    ``r1 <= e_v <= r2`` bracket the vertex exactly, so splitting there is
+    always safe. Splitting at the HALF-UP-ROUNDED point estimate instead is
+    NOT always safe: when the true interval is narrower than one ppm unit
+    (e.g. 1 success in 10**9 trials), the rounded point estimate can round
+    to an integer already OUTSIDE the true root interval, on the wrong side
+    of the true upper root -- collapsing the high-endpoint bisection's
+    search range to a single point below the true root and silently
+    NARROWING the certified interval instead of widening it. ``Q(0) = k^2 *
+    _T_SCALE**4 >= 0`` and ``Q(_T_SCALE) = (n-k)^2 >= 0`` always hold, so
+    both bisections always have a valid bracket to search.
     """
     z_scaled = _lookup_t_scaled(coverage_ppm, _INFINITY_DF_BUCKET)
     n = trials
@@ -504,9 +541,14 @@ def _wilson_bounds(successes: int, trials: int, coverage_ppm: int) -> tuple[int,
     def q(e: int) -> int:
         return coeff_a * e * e + coeff_b * e + coeff_c
 
-    point = _wilson_point(successes, trials)
+    vertex_numerator = -coeff_b
+    vertex_denominator = 2 * coeff_a
+    vertex_floor = vertex_numerator // vertex_denominator
+    vertex_ceil = -(-vertex_numerator // vertex_denominator)
+    vertex_floor = max(0, min(scale, vertex_floor))
+    vertex_ceil = max(0, min(scale, vertex_ceil))
 
-    low, high = 0, point
+    low, high = 0, vertex_floor
     while low < high:
         mid = (low + high + 1) // 2
         if q(mid) >= 0:
@@ -515,7 +557,7 @@ def _wilson_bounds(successes: int, trials: int, coverage_ppm: int) -> tuple[int,
             high = mid - 1
     low_endpoint = low
 
-    low2, high2 = point, scale
+    low2, high2 = vertex_ceil, scale
     while low2 < high2:
         mid2 = (low2 + high2) // 2
         if q(mid2) >= 0:

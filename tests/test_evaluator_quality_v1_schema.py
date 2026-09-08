@@ -361,7 +361,11 @@ def test_public_descriptor_disclosure_mode_is_registered_but_unconstructible() -
 
 
 def test_descriptor_opening_cannot_appear_in_the_bundle() -> None:
-    assert "DescriptorOpeningV1" in DEFS
+    # DescriptorOpeningV1 and ComponentOpeningV1 are dead surface -- referenced by
+    # nothing -- and were deleted outright rather than kept as registered-but-unused
+    # definitions, matching this PR's own treatment of the efficiency/frontier shapes.
+    assert "DescriptorOpeningV1" not in DEFS
+    assert "ComponentOpeningV1" not in DEFS
     bundle_def = DEFS["EvaluatorQualityCertificateBundleV1"]
     assert "descriptor_opening" not in bundle_def["properties"]
     assert "descriptor_opening" not in bundle_def["required"]
@@ -627,12 +631,7 @@ def test_wire_error_code_enum_is_coarse() -> None:
     assert len(codes) <= 6
 
 
-# One documented, bounded exception: a fixed-length base64-encoded blind is
-# not free text (it is anchored and length-capped), but it is neither a
-# const/enum nor a $ref to a named bounded primitive, so it is called out
-# explicitly here rather than silently passed by a generic "has a pattern"
-# allowance.
-_ALLOWED_PATTERN_ONLY_STRINGS = {("ComponentOpeningV1", "blind_b64")}
+_ALLOWED_PATTERN_ONLY_STRINGS: set[tuple[str, str]] = set()
 
 
 def test_no_open_map_or_free_text_field_exists() -> None:

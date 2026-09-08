@@ -1328,6 +1328,14 @@ def _check_overlap_and_disjointness(
 ) -> int:
     """Returns the number of Tier-A findings actually recomputed.
 
+    T3 round 7 class sweep: ``leakage_report.findings`` is NOT in the
+    duplicate-signed-list family the corpus_ref checks close. No lookup here
+    collapses the list to one entry per key -- every finding is walked by
+    ``index`` and independently reverified against the recomputed leaf-list
+    intersection (below), so two findings signed over the same corpus pair
+    are each checked on their own terms; a forged/contradictory duplicate
+    simply fails its own comparison rather than shadowing the honest one.
+
     Astra P1 (DS3 can certify overlapping lists as disjoint), second half:
     the ``overlap_count`` recomputation was guarded on
     ``declared_corpus_overlap``, so a ``split_disjointness`` finding's own
@@ -1602,6 +1610,11 @@ def _check_limitations_digest(unsigned: dict[str, Any], limitations: dict[str, A
 
 
 def _check_derivable_limitations(composition: dict[str, Any], limitations: dict[str, Any]) -> None:
+    # T3 round 7 class sweep: ``limitations.limitations`` is signed but not in
+    # the duplicate-list family either -- ``codes`` is presence-only (a repeat
+    # cannot hide a rejected one), and every entry is separately validated by
+    # index in `_check_limitation_basis_coupling` below, so a duplicate
+    # `limitation_code` is just checked twice, never shadowed.
     codes = {item["limitation_code"] for item in limitations["limitations"]}
     counts = [cell["item_count"] for cell in composition["cells"]]
     if any(0 < count < _MIN_STRATUM_SIZE for count in counts):

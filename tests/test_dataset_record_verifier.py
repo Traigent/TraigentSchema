@@ -1436,6 +1436,65 @@ def test_duplicate_corpus_ref_descriptor_rejected_without_any_leaf_lists_supplie
     assert error.location == "/leakage_report/leaf_list_digests"
 
 
+def _build_with_duplicate_attestation_corpus_ref(*, include_leaf_lists: bool = True) -> _Built:
+    """Shared fixture for the round-7 attestation.corpora duplicate probes: a
+    first, WRONG descriptor (correct ``corpus_ref``, incorrect signed
+    ``leaf_count``) prepended ahead of the correct one, fully re-signed."""
+    built = _build(include_leaf_lists=include_leaf_lists)
+    attestation = built.bundle["leaf_generation_attestation"]
+    correct_entry = next(
+        corpus for corpus in attestation["corpora"] if corpus["corpus_ref"] == built.corpus_a_ref
+    )
+    bogus_entry = {**correct_entry, "leaf_count": 0}
+    attestation["corpora"].insert(0, bogus_entry)
+    _redigest_attestation(built)
+    return built
+
+
+def test_duplicate_attestation_corpus_ref_hides_a_contradictory_signed_leaf_count() -> None:
+    """Test 28d (T3 round 7, closing the class one field over from round 6:
+    ``leaf_generation_attestation.corpora`` shares the identical last-entry-
+    wins lookup defect ``leaf_list_digests`` had. ``_check_leaf_generation_
+    attestation``'s per-corpus loop (``corpora_leaves.get(corpus_ref)``) is
+    exactly as last-entry-agnostic as ``_check_leaf_list_digests`` was, and
+    nothing before this fix compared one attestation entry to another: a
+    first, WRONG descriptor (correct ref, incorrect signed ``leaf_count``)
+    could be prepended ahead of the correct one. Fixed in
+    ``_check_corpus_ref_descriptors`` with its own tracking set, run
+    unconditionally over signed material alone -- same container-level
+    location convention as its ``leaf_list_digests`` sibling, for the same
+    reason: the verifier cannot tell which of the pair is forged."""
+    built = _build_with_duplicate_attestation_corpus_ref()
+    error = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH")
+    assert error.location == "/leaf_generation_attestation/corpora"
+
+
+def test_duplicate_attestation_corpus_ref_rejected_without_any_leaf_lists_supplied() -> None:
+    """Test 28d-2 (T3 round 7). Sibling of 28b-2: a relying party holding NO
+    leaf lists at all must reject the same signed bundle identically -- the
+    uniqueness check runs unconditionally over signed material alone, not
+    gated on the caller's optional fifth input."""
+    built = _build_with_duplicate_attestation_corpus_ref(include_leaf_lists=False)
+    error = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH", leaf_lists=None)
+    assert error.location == "/leaf_generation_attestation/corpora"
+
+
+def test_duplicate_attestation_corpus_ref_verdict_agrees_across_both_caller_modes() -> None:
+    """Test 28d-3 (T3 round 7). Strong form: ONE signed record, verified BOTH
+    ways -- once with the caller's own leaf lists, once with none at all --
+    asserting the two readers reach the IDENTICAL verdict (same code, same
+    location). Two relying parties reading one signed record must not
+    disagree on whether it is acceptable (T3 round 6 P2's own framing,
+    applied here to the sibling field)."""
+    built = _build_with_duplicate_attestation_corpus_ref()
+    error_with_leaf_lists = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH")
+    error_without_leaf_lists = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH", leaf_lists=None)
+    assert (error_with_leaf_lists.code, error_with_leaf_lists.location) == (
+        error_without_leaf_lists.code,
+        error_without_leaf_lists.location,
+    )
+
+
 def test_orphaned_leakage_report_attestation_digest_fails_when_attestation_absent() -> None:
     """Test 28c (astra round 5 F2, executed and confirmed on head 876ee3f).
 

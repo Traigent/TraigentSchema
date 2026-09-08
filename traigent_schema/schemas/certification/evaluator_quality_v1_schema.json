@@ -2043,6 +2043,28 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "claim_id": {
+                "const": "EVQ1"
+              }
+            },
+            "required": [
+              "claim_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence_basis": {
+                "enum": [
+                  "client_declared",
+                  "abstained"
+                ]
+              }
+            }
+          }
         }
       ]
     },

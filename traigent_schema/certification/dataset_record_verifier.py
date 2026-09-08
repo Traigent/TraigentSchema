@@ -1965,12 +1965,11 @@ def _check_support_rows(
 
     F9 tightened ``evidence_refs`` to ``maxItems: 1``, so the ``len(refs) !=
     1`` check below is now defence in depth, unreachable through the wire --
-    a caller that bypasses ``_validate_schema`` and invokes this function
-    directly is the only path that still reaches it. It stays: this is a
-    public offline verifier, and requiring exactly one ref here remains
-    deliberate on its own terms -- a second ref would be support this
-    verifier did not establish -- with the locator, being operational rather
-    than evidential, not compared.
+    a caller that reaches into this private helper directly, bypassing
+    ``_validate_schema``, is the only path that still reaches it. It stays:
+    requiring exactly one ref here remains deliberate on its own terms -- a
+    second ref would be support this verifier did not establish -- with the
+    locator, being operational rather than evidential, not compared.
 
     Sol round 2 P1: ``EvidenceRefV0`` also admits an OPTIONAL third key,
     ``evidence_ref`` -- an opaque linkability/content channel by that type's
@@ -2027,9 +2026,9 @@ def _check_support_rows(
         refs = row["evidence_refs"]
         if len(refs) != 1:
             # Defence in depth: the schema pins evidence_refs to maxItems: 1
-            # (F9), so this is unreachable through the wire -- kept because
-            # this function is a public offline verifier a caller may invoke
-            # directly, bypassing schema validation.
+            # (F9), so this is unreachable through the wire -- kept in case a
+            # caller reaches into this private helper directly, bypassing
+            # schema validation.
             _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
         if (
             expected_digest is None

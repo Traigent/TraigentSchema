@@ -574,7 +574,7 @@ def _build(
             **(
                 {
                     "verifier_id": "ver.dataset.identity_v1",
-                    "verifier_version": "0.1.0",
+                    "verifier_version": "1.0.0",
                     "verifier_result": "pass",
                     "evidence_refs": _evref(
                         identity["dataset_identity_root"], "client_commitment_digest"
@@ -590,7 +590,7 @@ def _build(
             **(
                 {
                     "verifier_id": "ver.dataset.composition_v1",
-                    "verifier_version": "0.1.0",
+                    "verifier_version": "1.0.0",
                     "verifier_result": "pass",
                     "evidence_refs": _evref(composition_digest),
                 }
@@ -609,7 +609,7 @@ def _build(
             **(
                 {
                     "verifier_id": "ver.dataset.token_disjointness_v1",
-                    "verifier_version": "0.1.0",
+                    "verifier_version": "1.0.0",
                     "verifier_result": "pass",
                     "evidence_refs": _evref(leakage_report_digest),
                 }
@@ -628,7 +628,7 @@ def _build(
             "claim_id": "DS4",
             "evidence_basis": "issuer_verified",
             "verifier_id": "ver.dataset.near_duplicate_v1",
-            "verifier_version": "0.1.0",
+            "verifier_version": "1.0.0",
             "verifier_result": "pass",
             "evidence_refs": _evref(leakage_report_digest),
         },
@@ -643,7 +643,7 @@ def _build(
             **(
                 {
                     "verifier_id": "ver.dataset.efficiency_v1",
-                    "verifier_version": "0.1.0",
+                    "verifier_version": "1.0.0",
                     "verifier_result": "pass",
                     "evidence_refs": _evref(efficiency_report_digest),
                 }
@@ -1235,7 +1235,7 @@ def test_ds3_claiming_issuer_verified_without_an_attestation_fails() -> None:
         if row["claim_id"] == "DS3":
             row["evidence_basis"] = "issuer_verified"
             row["verifier_id"] = "ver.dataset.token_disjointness_v1"
-            row["verifier_version"] = "0.1.0"
+            row["verifier_version"] = "1.0.0"
             row["verifier_result"] = "pass"
             row.pop("attestation_basis", None)
             row["evidence_refs"] = _evref(built.leakage_report["leakage_report_digest"])
@@ -1899,7 +1899,7 @@ def test_claim_row_marked_issuer_verified_without_its_check_having_run_fails() -
         if row["claim_id"] == "DS2":
             row["evidence_basis"] = "issuer_verified"
             row["verifier_id"] = "ver.dataset.composition_v1"
-            row["verifier_version"] = "0.1.0"
+            row["verifier_version"] = "1.0.0"
             row["verifier_result"] = "pass"
             row.pop("attestation_basis", None)
             row["evidence_refs"] = _evref(built.composition["composition_digest"])
@@ -2773,3 +2773,215 @@ def test_a_hostile_fifth_input_cannot_reach_the_generic_failures_context() -> No
     )
     assert SENTINEL not in rendered
     assert SENTINEL not in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# Round-3 controls: the three findings from sol's second review of this
+# packet (packet report pillar2-round2-sol-review-impl.txt). Every test below
+# fails on the pre-review verifier for the reason named in its docstring.
+# ---------------------------------------------------------------------------
+
+
+def test_a_support_row_evidence_ref_may_not_carry_the_optional_v0_locator() -> None:
+    """Test 99 (sol round 2 finding 1, P1). ``EvidenceRefV0`` admits an
+    OPTIONAL third key, ``evidence_ref`` -- a linkability/content channel by
+    that type's own description in certificate_evidence_refs_v0_schema.json.
+    Nothing forbade a Dataset Record support row from carrying it alongside
+    the checked ``evidence_kind``/``evidence_digest``, so a signed manifest
+    could smuggle an arbitrary opaque channel through this path even though
+    pillars 1 and 3 removed such ref fields from their signed bundles
+    entirely. The row otherwise matches this verification exactly.
+
+    Fail-before: on the pre-fix verifier this row (and the whole bundle)
+    verifies, because only ``evidence_kind``/``evidence_digest`` were
+    compared.
+    """
+    built = _build()
+    row = _row(built, "DS4")
+    # A syntactically-valid OpaqueRef (certification_common_v0_schema.json),
+    # so schema validation admits the row and only this module's own
+    # closed-shape check can reject it.
+    row["evidence_refs"][0]["evidence_ref"] = "op:AAAAAAAA"
+    _redigest_claim_rows(built)
+    _expect_error(built, "CLAIM_SUPPORT_ROW_MISMATCH")
+
+
+def test_issuer_verified_row_must_name_the_pinned_verifier_version() -> None:
+    """Test 100 (sol round 2 finding 2, P2). The schema requires
+    ``verifier_version`` on every issuer_verified row (a BoundedSemver
+    token), but nothing in this module ever read or compared it -- any
+    syntactically-valid version string passed, including one naming a
+    release of the verifier that never ran.
+
+    Fail-before: on the pre-fix verifier this row (naming a version this
+    module never shipped) verifies.
+    """
+    built = _build()
+    row = _row(built, "DS4")
+    assert row["verifier_version"] == dr_impl._VERIFIER_VERSION
+    row["verifier_version"] = "9.9.9"
+    _redigest_claim_rows(built)
+    _expect_error(built, "CLAIM_SUPPORT_ROW_MISMATCH")
+
+
+def _shrink_corpus_a(built: _Built, keep: int) -> None:
+    """Replace corpus_a's SIGNED leaf list with a smaller genuine subset of
+    its own leaves, re-deriving ``corpus_a_ref`` and updating every place it
+    is echoed (findings, ``leaf_list_digests``, the attestation, the two
+    support rows that cite the leakage report). ``_build()`` ties
+    ``corpus_a_leaves`` to the item set's own leaves, so a genuinely large
+    item set makes corpus_a's SIGNED ``leaf_count`` large too -- and
+    ``DatasetLeafListDigestV1.leaf_count`` is schema-capped at exactly
+    ``_MAX_LEAF_LIST``, so the bundle would fail ``SCHEMA`` before any
+    verifier logic under test even ran. This decouples corpus_a so DS2's
+    oversized-item-set test can use a REAL oversized item set (the only way
+    to prove DS2 would otherwise have upgraded) without also oversizing the
+    one corpus DS3's claim depends on.
+    """
+    old_ref = built.corpus_a_ref
+    old_leaves = [entry["leaf"] for entry in built.leaf_lists[old_ref]]
+    assert keep < len(old_leaves)
+    new_leaves = old_leaves[:keep]
+    new_root = _leaf_list_digest(new_leaves)
+    new_ref = _derive_corpus_ref(new_root, built.leakage_scope_ref)
+
+    report = built.bundle["leakage_report"]
+    for finding in report["findings"]:
+        if finding.get("corpus_a_ref") == old_ref:
+            finding["corpus_a_ref"] = new_ref
+    for entry in report["leaf_list_digests"]:
+        if entry["corpus_ref"] == old_ref:
+            entry["corpus_ref"] = new_ref
+            entry["leaf_count"] = len(new_leaves)
+            entry["leaf_list_digest"] = new_root
+
+    attestation = built.bundle.get("leaf_generation_attestation")
+    if attestation is not None:
+        for corpus in attestation["corpora"]:
+            if corpus["corpus_ref"] == old_ref:
+                corpus["corpus_ref"] = new_ref
+                corpus["leaf_count"] = len(new_leaves)
+                corpus["leaf_root"] = new_root
+        _redigest_attestation(built)
+    else:
+        _redigest_leakage(built)
+    _refresh_leakage_evidence_refs(built)
+
+    built.leaf_lists = {
+        (new_ref if key == old_ref else key): (
+            [{"leaf": leaf} for leaf in new_leaves] if key == old_ref else value
+        )
+        for key, value in built.leaf_lists.items()
+    }
+    built.corpus_a_ref = new_ref
+
+
+def test_ds2_declines_issuer_verified_when_the_item_set_leaf_list_is_oversized() -> None:
+    """Test 101 (sol round 2 finding 3a, P2). Above ``_MAX_LEAF_LIST``,
+    ``_check_leaf_list_input`` deliberately never schema-projects a supplied
+    leaf list (the cap is answered by DS3's abstention, not a hard shape
+    failure) -- but DS2's upgrade path, ``_check_cell_roots``, read the
+    oversized, never-structurally-checked item-set list anyway. This item
+    set is genuinely correct (real leaves, a real per-cell root, a real
+    ``item_set_root``) -- ``_check_cell_roots`` reconstructs everything
+    successfully regardless of the cap, so before this fix DS2 upgraded on
+    a list this module never actually validated.
+
+    Fail-before: this test's support row honestly declares DS2
+    client_declared (the correct, post-fix answer). On the pre-fix
+    verifier that row is REJECTED with ``CLAIM_SUPPORT_ROW_MISMATCH`` --
+    not because it is malformed, but because the pre-fix verifier itself
+    silently computed ``issuer_verified`` for this exact oversized-but-
+    genuine item set, so the honest row reads as an understatement of what
+    the (buggy) old code actually reached.
+    """
+    item_count = dr_impl._MAX_LEAF_LIST + 1
+    built = _build(item_count=item_count, cells=[("factual_lookup", "s1_easy", item_count)])
+    # corpus_a shares the item set's leaves by construction (_build); shrink
+    # it back down so DS3's claim (which genuinely depends on corpus_a) is
+    # isolated from the oversized item set this test is actually about.
+    _shrink_corpus_a(built, keep=100)
+    assert len(built.leaf_lists[built.dataset_ref]) > dr_impl._MAX_LEAF_LIST
+    assert len(built.leaf_lists[built.corpus_a_ref]) <= dr_impl._MAX_LEAF_LIST
+
+    _set_row(
+        built,
+        "DS2",
+        {
+            "claim_id": "DS2",
+            "evidence_basis": "client_declared",
+            "attestation_basis": "client_signed_declaration_v1",
+            "evidence_refs": _evref(built.composition["composition_digest"]),
+        },
+    )
+    result = _verify(built)
+    # One claim (DS2) is now merely declared rather than verified, so the
+    # bundle is honestly partial -- not the all-claims-verified code.
+    assert result.code == "DATASET_RECORD_VERIFIED_CLAIMS_PARTIAL"
+    assert result.composition_evidence == "declared_counts_only"
+    assert "DS2" not in result.claims_verified
+    assert "DS2" in result.claims_declared
+    # DS3 is untouched by this fix: corpus_a (now shrunk back down) and
+    # corpus_b are both well within the cap, so it still verifies.
+    assert "DS3" in result.claims_verified
+
+
+def test_ds3_reaches_issuer_verified_despite_an_oversized_irrelevant_leaf_list() -> None:
+    """Test 102 (sol round 2 finding 3b, P2). DS3's abstention inspected
+    EVERY key in the supplied ``leaf_lists`` -- including the reserved
+    item-set key, which is never a member of ``_ds3_relevant_corpus_refs``
+    (a ``dsr:`` ref can never equal a finding's ``cpr:`` corpus ref) --
+    instead of only the corpora DS3's own disjointness finding names. An
+    oversized list for a key DS3 never reads about therefore forced an
+    abstention it had no bearing on.
+
+    (A genuinely oversized, irrelevant CORPUS cannot itself reach this
+    check: ``DatasetLeafListDigestV1.leaf_count`` is schema-capped at
+    exactly ``_MAX_LEAF_LIST``, so no signed corpus declaration -- relevant
+    or not -- can validate above the cap; ``_check_leaf_list_digests``
+    would reject it long before ``ds3_abstains`` is ever computed. The
+    item-set key is the one entry in ``leaf_lists`` this constraint does
+    not apply to, which is exactly why it is the reachable case.)
+
+    Fail-before: an oversized item-set list is, pre-fix, unconditionally
+    read by DS2's ``_check_cell_roots`` too (finding 3a's mechanism) -- and
+    this padding does not reconstruct any real cell, so the pre-fix
+    verifier rejects the whole bundle with ``COMPOSITION_CELL_COUNT_
+    MISMATCH`` before DS3's abstention condition is ever reached. Only
+    with BOTH parts of this fix landed does the bundle verify at all, with
+    DS3 issuer_verified as it honestly should be.
+    """
+    built = _build()
+    padding = [
+        {
+            "leaf": "sha256:" + hashlib.sha256(f"ds3-oversize-{i}".encode()).hexdigest(),
+            "category_id": "factual_lookup",
+            "difficulty_stratum": "s1_easy",
+        }
+        for i in range(dr_impl._MAX_LEAF_LIST + 1)
+    ]
+    leaf_lists = dict(built.leaf_lists)
+    leaf_lists[built.dataset_ref] = [*leaf_lists[built.dataset_ref], *padding]
+    assert len(leaf_lists[built.dataset_ref]) > dr_impl._MAX_LEAF_LIST
+    assert built.dataset_ref not in dr_impl._ds3_relevant_corpus_refs(
+        built.bundle["leakage_report"]
+    )
+
+    # The same padding also oversizes DS2's item-set input (finding 3a), so
+    # its row must honestly read client_declared here too -- this test is
+    # about DS3's abstention condition, not DS2's, and asserts nothing about
+    # DS2's basis.
+    _set_row(
+        built,
+        "DS2",
+        {
+            "claim_id": "DS2",
+            "evidence_basis": "client_declared",
+            "attestation_basis": "client_signed_declaration_v1",
+            "evidence_refs": _evref(built.composition["composition_digest"]),
+        },
+    )
+    result = _verify(built, leaf_lists=leaf_lists)
+    assert result.code == "DATASET_RECORD_VERIFIED_CLAIMS_PARTIAL"
+    assert result.disjointness_evidence == "generation_attested"
+    assert "DS3" in result.claims_verified

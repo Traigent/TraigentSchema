@@ -262,34 +262,50 @@ _APPLIED_POLICY_FIELDS = (
 # corpora those findings name are exactly the corpora DS3 depends on.
 _DS3_RELEVANT_FINDING_KINDS = frozenset({"declared_corpus_overlap", "split_disjointness"})
 
+# The single verifier_version every issuer_verified row must carry (sol
+# round 2 P2). This module ships one fixed release of the five DSn verifiers
+# it implements, so one pinned constant covers every claim -- the same
+# "1.0.0" convention already used for taxonomy_version/registry_version in
+# this contract (see dataset_record_v1_schema.json's TaxonomyIdentityV1 /
+# MethodRegistryIdentityV1). A row is free to satisfy the schema's
+# BoundedSemver pattern with any syntactically-valid string; only comparing
+# it against this constant proves the row names the verifier that actually
+# ran.
+_VERIFIER_VERSION = "1.0.0"
+
 # The exact per-claim support-row profile (sol round 1 P2). For every claim,
-# the verifier fixes which verifier id may appear beside it and which artifact
-# its single evidence ref must commit to -- the artifact THIS module actually
-# recomputed for that claim. ``evidence_source`` names the manifest field (or,
-# for DS1, the identity field) holding that digest.
+# the verifier fixes which verifier id (and version) may appear beside it and
+# which artifact its single evidence ref must commit to -- the artifact THIS
+# module actually recomputed for that claim. ``evidence_source`` names the
+# manifest field (or, for DS1, the identity field) holding that digest.
 _CLAIM_ROW_PROFILE: dict[str, dict[str, str]] = {
     "DS1": {
         "verifier_id": "ver.dataset.identity_v1",
+        "verifier_version": _VERIFIER_VERSION,
         "evidence_kind": "client_commitment_digest",
         "evidence_source": "identity.dataset_identity_root",
     },
     "DS2": {
         "verifier_id": "ver.dataset.composition_v1",
+        "verifier_version": _VERIFIER_VERSION,
         "evidence_kind": "verifier_report_digest",
         "evidence_source": "composition_digest",
     },
     "DS3": {
         "verifier_id": "ver.dataset.token_disjointness_v1",
+        "verifier_version": _VERIFIER_VERSION,
         "evidence_kind": "verifier_report_digest",
         "evidence_source": "leakage_report_digest",
     },
     "DS4": {
         "verifier_id": "ver.dataset.near_duplicate_v1",
+        "verifier_version": _VERIFIER_VERSION,
         "evidence_kind": "verifier_report_digest",
         "evidence_source": "leakage_report_digest",
     },
     "DS5": {
         "verifier_id": "ver.dataset.efficiency_v1",
+        "verifier_version": _VERIFIER_VERSION,
         "evidence_kind": "verifier_report_digest",
         "evidence_source": "efficiency_report_digest",
     },
@@ -1733,6 +1749,23 @@ def _check_support_rows(
     locator; requiring exactly one here is deliberate -- a second ref would be
     support this verifier did not establish -- and the locator, being
     operational rather than evidential, is not compared.
+
+    Sol round 2 P1: ``EvidenceRefV0`` also admits an OPTIONAL third key,
+    ``evidence_ref`` -- an opaque linkability/content channel by that type's
+    own description. Nothing upstream forbade a support row from carrying it
+    alongside the checked kind/digest, so a signed manifest could smuggle an
+    arbitrary opaque locator through this path. Pillars 1 and 3 close this by
+    never admitting the field into their signed bundles at all; here the
+    field is admitted by the shared v0 evidence-ref definition, so this
+    function closes it structurally instead -- a support row's single ref may
+    carry ``evidence_kind``/``evidence_digest`` and NOTHING else.
+
+    Sol round 2 P2: the schema requires ``verifier_version`` on every
+    issuer_verified row (a BoundedSemver token), but nothing compared it to
+    anything -- any syntactically-valid string passed, including one naming a
+    verifier release that never ran. ``_CLAIM_ROW_PROFILE`` now pins the one
+    version this module implements, and an issuer_verified row must name it
+    exactly, beside the verifier id.
     """
     digest = _role_digest(_CLAIM_SUPPORT_ROWS_DOMAIN, claim_support_rows)
     if digest != unsigned["claim_support_rows_digest"]:
@@ -1776,10 +1809,23 @@ def _check_support_rows(
             expected_digest is None
             or refs[0]["evidence_kind"] != profile["evidence_kind"]
             or refs[0]["evidence_digest"] != expected_digest
+            or set(refs[0]) - {"evidence_kind", "evidence_digest"}
         ):
+            # The last disjunct is sol round 2 P1: a support row's evidence
+            # ref may name the checked kind/digest and nothing else --
+            # EvidenceRefV0's optional third key (``evidence_ref``) is
+            # structurally forbidden here even though the shared v0
+            # definition permits it.
             _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
         if basis == "issuer_verified":
-            if row["verifier_id"] != profile["verifier_id"]:
+            if (
+                row["verifier_id"] != profile["verifier_id"]
+                or row["verifier_version"] != profile["verifier_version"]
+            ):
+                # Sol round 2 P2: the verifier id AND the pinned version it
+                # ran at must both match -- a row naming a different version
+                # of the right verifier is a row for a check that did not
+                # run under this module's implementation.
                 _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
         elif row["attestation_basis"] != _ATTESTATION_BASIS:
             _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
@@ -1873,7 +1919,17 @@ def _verify(
     composition_evidence = "declared_counts_only"
     ds2_basis = "client_declared"
     if leaf_lists:
-        if _check_cell_roots(identity, composition, leaf_lists):
+        # Sol round 2 P3(a): the item-set leaf list is the ONE input DS2's
+        # upgrade reads (_check_cell_roots), and _check_leaf_list_input
+        # deliberately never schema-validates a list above _MAX_LEAF_LIST
+        # (it is answered instead by DS3's abstention). DS2 must not read an
+        # unvalidated list as if it had been checked -- an oversized item-set
+        # list keeps DS2 at client_declared rather than hard-failing the
+        # whole verification, consistent with every other insufficient-
+        # evidence outcome in this function.
+        item_set_entries = leaf_lists.get(identity["dataset_ref"])
+        item_set_oversized = item_set_entries is not None and len(item_set_entries) > _MAX_LEAF_LIST
+        if not item_set_oversized and _check_cell_roots(identity, composition, leaf_lists):
             composition_evidence = "cell_roots_recomputed"
             ds2_basis = "issuer_verified"
 
@@ -1918,8 +1974,14 @@ def _verify(
     if attestation_consistent and ds3_fully_covered:
         disjointness_evidence = "generation_attested"
         ds3_basis = "issuer_verified"
+    # Sol round 2 P3(b): abstention must inspect only the corpus lists DS3's
+    # OWN claim depends on (``ds3_relevant``, derived above from the
+    # disjointness/overlap findings), not every key in ``leaf_lists`` --
+    # that included the reserved item-set key and any corpus irrelevant to
+    # this claim, so an oversized list for a corpus DS3 never reads about
+    # forced an abstention it had no bearing on.
     ds3_abstains = not leaf_lists or any(
-        len(entries) > _MAX_LEAF_LIST for entries in (leaf_lists or {}).values()
+        len(leaf_lists.get(corpus_ref, ())) > _MAX_LEAF_LIST for corpus_ref in ds3_relevant
     )
     if ds3_abstains and context.require_leaf_lists:
         _fail("CLAIM_SUPPORT_ROW_MISMATCH", "/claim_support_rows/2")

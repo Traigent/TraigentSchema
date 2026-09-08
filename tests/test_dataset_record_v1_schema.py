@@ -302,15 +302,43 @@ def test_the_applied_policy_projection_covers_every_planned_policy_field() -> No
     assert "applied_policy" in SCHEMA["definitions"]["DatasetEfficiencyReportV1"]["required"]
 
 
-def _git_show(ref: str, path: str) -> bytes | None:
-    """The blob at ``ref``, or ``None`` when the object is not in this clone.
+def _commit_is_reachable(ref: str) -> bool:
+    """Whether ``ref`` resolves to a commit object THIS CLONE actually has.
 
-    ``None`` is returned ONLY for a genuinely absent object (a shallow CI
-    checkout). Any other git failure -- a corrupt object, a path that does not
-    exist at that ref -- is raised, because those are real findings and
+    Checked independently of any path lookup: a shallow clone (the
+    workspace's ``test`` CI job checks out with the default ``fetch-depth``,
+    i.e. depth 1 -- no ``fetch-depth: 0``) has no object for a historical
+    commit at all. In that state ``git show <ref>:<path>`` does NOT fail with
+    "unknown revision" -- git resolves the working tree's HEAD fine and, on
+    seeing that ``path`` exists in the current checkout, reports the
+    unrelated-sounding "path '<path>' exists on disk, but not in '<ref>'".
+    Matching on that specific stderr text (the previous version of this
+    helper) is exactly backwards: it is the message a shallow checkout
+    produces, not a message it never produces, so it was raising on the one
+    condition the guard exists to tolerate.
+    """
+
+    result = subprocess.run(
+        ["git", "cat-file", "-e", f"{ref}^{{commit}}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _git_show(ref: str, path: str) -> bytes | None:
+    """The blob at ``ref``, or ``None`` when the commit is not in this clone.
+
+    ``None`` is returned ONLY when the commit object itself is absent (a
+    shallow CI checkout). Once the commit is confirmed present, any further
+    git failure -- a corrupt object, a path that does not exist in that
+    commit's tree -- is raised, because those are real findings and
     swallowing them is how a guard quietly stops guarding.
     """
 
+    if not _commit_is_reachable(ref):
+        return None
     result = subprocess.run(
         ["git", "show", f"{ref}:{path}"],
         cwd=ROOT,
@@ -320,8 +348,6 @@ def _git_show(ref: str, path: str) -> bytes | None:
     if result.returncode == 0:
         return result.stdout
     stderr = result.stderr.decode("utf-8", "replace")
-    if "unknown revision" in stderr or "bad object" in stderr or "not a tree object" in stderr:
-        return None
     raise AssertionError(f"git show {ref}:{path} failed unexpectedly: {stderr}")
 
 

@@ -1483,6 +1483,30 @@ def _check_corpus_ref_descriptors(
     record is weakest: a Tier-C finding must publish a ``leaf_list_digests``
     descriptor (or an attestation entry) for each corpus it names, exactly as
     every other kind must.
+
+    T3 round 8 -- full enumeration of every signed list keyed by a ref/id in
+    this record, and how each is closed against the last-entry-wins /
+    mode-dependent duplicate class this function's family exists to close:
+
+    * ``leaf_list_digests`` -- (A) checked unconditionally, right above.
+    * ``leaf_generation_attestation.corpora`` -- (A) checked unconditionally,
+      right below, own tracking set.
+    * ``claim_support_rows`` -- (B) foreclosed, not by a schema keyword but by
+      ``_check_claim_support_rows``'s ``set(by_id) != set(_CLAIM_IDS)`` check
+      against the fixed, required claim-id set: a duplicate ``claim_id``
+      collapses the dict and drops a required id, which the set-equality
+      comparison catches on its own -- no separate uniqueness check is
+      needed, and none is added here.
+    * ``leakage_report.findings`` -- (C) not a keyed/deduplicable list at
+      all: nothing looks findings up by key, each is walked by ``index`` and
+      independently reverified (see ``_check_overlap_and_disjointness``), so
+      a duplicated finding is simply checked twice, never shadowed.
+    * composition cells / declared partition -- (A) already checked
+      unconditionally in ``_check_declared_partition``'s ``seen`` set over
+      ``(category_id, difficulty_stratum)``.
+    * ``evidence_refs`` per claim-support row -- (B) foreclosed by the schema
+      (``maxItems: 1``, so no second entry can exist to duplicate the first),
+      with a defence-in-depth length check in ``_check_claim_support_rows``.
     """
     leakage_scope_ref = identity["leakage_scope_ref"]
     known: set[str] = set()

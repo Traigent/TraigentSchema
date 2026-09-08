@@ -8,6 +8,13 @@ fresh relying-party context, and an explicit pinned policy; it does not
 resolve keys, contact Traigent, access a database, or inspect private evidence.
 """
 
+from traigent_schema.certification.dataset_record_verifier import (
+    DATASET_RECORD_ERROR_CODES,
+    DatasetRecordVerificationContext,
+    DatasetRecordVerificationError,
+    DatasetRecordVerificationResult,
+    verify_dataset_record_certificate,
+)
 from traigent_schema.certification.process_record_verifier import (
     PROCESS_RECORD_ERROR_CODES,
     ProcessRecordVerificationContext,
@@ -45,6 +52,10 @@ __all__ = [
     "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS",
     "ClientCertificateProjection",
     "ClientCoAttestationContext",
+    "DATASET_RECORD_ERROR_CODES",
+    "DatasetRecordVerificationContext",
+    "DatasetRecordVerificationError",
+    "DatasetRecordVerificationResult",
     "derive_client_key_ref",
     "PROCESS_RECORD_ERROR_CODES",
     "ProcessRecordVerificationContext",
@@ -64,6 +75,7 @@ __all__ = [
     "verify_agent_certificate",
     "verify",
     "verify_certificate_with_materials",
+    "verify_dataset_record_certificate",
     "verify_process_record_certificate",
     "prepare_client_co_attestation",
 ]

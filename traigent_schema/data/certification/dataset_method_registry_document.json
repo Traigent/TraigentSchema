@@ -1,0 +1,34 @@
+{
+  "schema_version": "traigent.dataset_method_registry_document.v1",
+  "registry_id": "traigent.dataset_method_registry.asap.v1",
+  "registry_version": "1.0.0",
+  "information_methods": [
+    "irt_2pl_mml_v1",
+    "point_biserial_v1",
+    "score_variance_v1"
+  ],
+  "selection_rules": [
+    "argmax_mean_score_v1",
+    "argmax_mean_score_cost_tiebreak_v1",
+    "pareto_first_by_declared_order_v1"
+  ],
+  "inertness_criteria": [
+    "winner_preserving",
+    "rank_preserving"
+  ],
+  "elimination_orders": [
+    "item_index_ascending",
+    "estimated_information_ascending"
+  ],
+  "near_duplicate_methods": [
+    "exact_normalized_v1",
+    "minhash_jaccard_v1",
+    "simhash_hamming_v1"
+  ],
+  "interval_methods": [
+    "none",
+    "bootstrap_percentile_v1",
+    "wilson_score_v1"
+  ],
+  "canonicalization": "jcs_v1"
+}

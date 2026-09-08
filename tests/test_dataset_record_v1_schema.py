@@ -21,20 +21,63 @@ SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 # The exact commit this design is anchored to (see the design document's
 # header); an ancestor of this branch's HEAD.
 _FROZEN_REF = "93030ccef7f50acbd205078b7da3e701f5b1dcf4"
-_FROZEN_FILES = (
-    "traigent_schema/schemas/certification/process_record_v1_schema.json",
-    "traigent_schema/certification/process_record_verifier.py",
-    "traigent_schema/schemas/certification/certification_common_v0_schema.json",
-    "traigent_schema/schemas/certification/agent_certificate_v0_schema.json",
-    "traigent_schema/schemas/certification/certificate_claims_v0_schema.json",
-    "traigent_schema/schemas/certification/certificate_evidence_refs_v0_schema.json",
-    "traigent_schema/schemas/certification/certificate_audit_report_v0_schema.json",
-    "traigent_schema/schemas/certification/certificate_client_evidence_manifest_v0_schema.json",
-    "traigent_schema/schemas/certification/certificate_unsigned_manifest_v0_schema.json",
-    "traigent_schema/schemas/certification/certificate_signatures_v0_schema.json",
-    "traigent_schema/schemas/certification/certificate_verification_materials_v0_schema.json",
-    "traigent_schema/schemas/certification/certification_endpoints_v0.json",
-)
+#: SHA-256 of each frozen artifact AS IT STANDS AT ``_FROZEN_REF``, pinned as
+#: data rather than read out of git at test time.
+#:
+#: The first version of this test ran ``git show 93030cc:<path>`` and compared
+#: bytes. That passes locally and CANNOT pass in CI: the checkout is shallow,
+#: the anchor commit is not in it, and ``git show`` exits 128 -- so the test
+#: was green on the one machine where nothing could go wrong and red on the
+#: one machine that gates the merge.
+#:
+#: Pinning the digests is STRICTER, not weaker. It runs everywhere with no
+#: history, it still fails the instant any frozen byte changes, and
+#: ``test_the_pinned_frozen_digests_match_the_anchor_ref`` below re-derives
+#: every one of these constants from ``_FROZEN_REF`` wherever the object IS
+#: reachable, so a constant cannot drift away from the ref unnoticed.
+#:
+#: Regenerate only when the anchor ref is deliberately moved:
+#:   git -C <schema checkout> show <ref>:<path> | sha256sum
+_FROZEN_DIGESTS: dict[str, str] = {
+    "traigent_schema/schemas/certification/process_record_v1_schema.json": (
+        "1844ecf3e8e22110d5c8827e59c9219159fba3a05f0a60c3f681b534eca2b8ef"
+    ),
+    "traigent_schema/certification/process_record_verifier.py": (
+        "b726bbf7065f4874b3e40a5de1668760336000a6f999dd2ff99e707a645a9eaa"
+    ),
+    "traigent_schema/schemas/certification/certification_common_v0_schema.json": (
+        "069e488b794a35f4b85c66f796cd7278bbb4deb7b8b17c9483b21461c91f3c4f"
+    ),
+    "traigent_schema/schemas/certification/agent_certificate_v0_schema.json": (
+        "df29e85888df6de1166f19b2f17ec4238864be5afa96421ed75e37059aceb390"
+    ),
+    "traigent_schema/schemas/certification/certificate_claims_v0_schema.json": (
+        "cc9df368af739642b852dcf69da56b4eee803ee9d3c6ca720b56743132fc0d78"
+    ),
+    "traigent_schema/schemas/certification/certificate_evidence_refs_v0_schema.json": (
+        "c8890632f16392e8df667def8090e89cb709bda0e4c583c1db2e3258f958e723"
+    ),
+    "traigent_schema/schemas/certification/certificate_audit_report_v0_schema.json": (
+        "0ec8481e84c2aa894be869e13efc92ba3fd6d56ca6d8f6cde121866f1121f370"
+    ),
+    "traigent_schema/schemas/certification/certificate_client_evidence_manifest_v0_schema.json": (
+        "2ea9ad3fa07cfdd006c44b2de7c65c63a0e6ef3d91b2e3bc1409776f00188aed"
+    ),
+    "traigent_schema/schemas/certification/certificate_unsigned_manifest_v0_schema.json": (
+        "aaaa004541af79c9b5221f95dbdf15d9f5759edb78a9f0b53cd95e2f854bd9f8"
+    ),
+    "traigent_schema/schemas/certification/certificate_signatures_v0_schema.json": (
+        "bf7d37ab402d509d7e8af087d0d12829b87b601808da9a7ec56ae13ba9df8b88"
+    ),
+    "traigent_schema/schemas/certification/certificate_verification_materials_v0_schema.json": (
+        "232911c85d697d5793d5dd2a7f9aefbba53e5544159408d60134f457679f3a8e"
+    ),
+    "traigent_schema/schemas/certification/certification_endpoints_v0.json": (
+        "da60d93ed3aa1c4a97f671972fecea967a756ffa15df1f884cb0105819a4542e"
+    ),
+}
+
+_FROZEN_FILES = tuple(_FROZEN_DIGESTS)
 
 
 def _registry() -> Registry:
@@ -202,9 +245,7 @@ def test_every_verifier_digest_domain_is_registered() -> None:
     assert foreign == {"traigent.agent_certificate.issuer_spki_der.v0"}
 
     registry = SCHEMA["definitions"]["DatasetRecordDigestDomainRegistryV1"]
-    registry_domains = {
-        definition["const"] for definition in registry["properties"].values()
-    }
+    registry_domains = {definition["const"] for definition in registry["properties"].values()}
     assert module_domains == registry_domains
 
 
@@ -261,22 +302,60 @@ def test_the_applied_policy_projection_covers_every_planned_policy_field() -> No
     assert "applied_policy" in SCHEMA["definitions"]["DatasetEfficiencyReportV1"]["required"]
 
 
-def _git_show(ref: str, path: str) -> bytes:
+def _git_show(ref: str, path: str) -> bytes | None:
+    """The blob at ``ref``, or ``None`` when the object is not in this clone.
+
+    ``None`` is returned ONLY for a genuinely absent object (a shallow CI
+    checkout). Any other git failure -- a corrupt object, a path that does not
+    exist at that ref -- is raised, because those are real findings and
+    swallowing them is how a guard quietly stops guarding.
+    """
+
     result = subprocess.run(
         ["git", "show", f"{ref}:{path}"],
         cwd=ROOT,
         capture_output=True,
-        check=True,
+        check=False,
     )
-    return result.stdout
+    if result.returncode == 0:
+        return result.stdout
+    stderr = result.stderr.decode("utf-8", "replace")
+    if "unknown revision" in stderr or "bad object" in stderr or "not a tree object" in stderr:
+        return None
+    raise AssertionError(f"git show {ref}:{path} failed unexpectedly: {stderr}")
 
 
 @pytest.mark.parametrize("relative_path", _FROZEN_FILES)
 def test_process_record_v1_schema_is_byte_identical_to_the_shipped_ref(relative_path: str) -> None:
     """Test 86. Asserts this PR modified no existing schema file (the D1
     property, mechanised); same for every frozen v0 file and the shipped
-    process-record verifier module."""
-    frozen = _git_show(_FROZEN_REF, relative_path)
+    process-record verifier module.
+
+    Unconditional and history-free: the working file's digest is compared to
+    the constant pinned in ``_FROZEN_DIGESTS``, so it runs identically on a
+    developer machine and in a shallow CI checkout. It is never skipped.
+    """
+
     current = (ROOT / relative_path).read_bytes()
-    assert hashlib.sha256(current).hexdigest() == hashlib.sha256(frozen).hexdigest(), relative_path
-    assert current == frozen, relative_path
+    assert hashlib.sha256(current).hexdigest() == _FROZEN_DIGESTS[relative_path], (
+        f"{relative_path} is not byte-identical to the frozen artifact at {_FROZEN_REF}"
+    )
+
+
+@pytest.mark.parametrize("relative_path", _FROZEN_FILES)
+def test_the_pinned_frozen_digests_match_the_anchor_ref(relative_path: str) -> None:
+    """The guard on the guard: a pinned constant that had drifted from the ref
+    would let a frozen file be edited and still pass test 86.
+
+    Wherever the anchor object is reachable -- every developer machine, and
+    any CI job with full history -- the constant is RE-DERIVED from the ref
+    and compared. Where it is not, there is nothing to compare against; test
+    86 above still holds unconditionally, so no property goes unchecked.
+    """
+
+    frozen = _git_show(_FROZEN_REF, relative_path)
+    if frozen is None:
+        pytest.skip(f"anchor {_FROZEN_REF} is not in this clone (shallow checkout)")
+    assert hashlib.sha256(frozen).hexdigest() == _FROZEN_DIGESTS[relative_path], (
+        f"_FROZEN_DIGESTS[{relative_path!r}] has drifted from {_FROZEN_REF}"
+    )

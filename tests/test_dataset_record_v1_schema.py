@@ -385,3 +385,76 @@ def test_the_pinned_frozen_digests_match_the_anchor_ref(relative_path: str) -> N
     assert hashlib.sha256(frozen).hexdigest() == _FROZEN_DIGESTS[relative_path], (
         f"_FROZEN_DIGESTS[{relative_path!r}] has drifted from {_FROZEN_REF}"
     )
+
+
+def test_the_attestation_basis_restriction_is_not_a_sibling_of_a_ref() -> None:
+    """Astra P2 (F7). Under draft-07 a keyword sitting BESIDE ``$ref`` is
+    ignored, so the attestation corpus entry's ``const: backend_observed``
+    restricted nothing and a ``client_attested`` entry validated. Asserted
+    both structurally (the reference and the restriction are combined with
+    ``allOf``) and behaviourally, against this repo's own validator."""
+    entry = SCHEMA["definitions"]["DatasetLeafGenerationAttestationV1"]["properties"]["corpora"][
+        "items"
+    ]["properties"]["observation_basis"]
+    assert "$ref" not in entry, "a $ref sibling would silence the restriction again"
+    assert entry["allOf"] == [
+        {"$ref": "process_record_v1_schema.json#/definitions/ObservationBasisV1"},
+        {"const": "backend_observed"},
+    ]
+
+    def attestation(basis: str) -> dict:
+        return {
+            "schema_version": "traigent.dataset_record.leaf_generation_attestation.v1",
+            "leakage_scope_ref": "lsr:" + "A" * 43,
+            "scope_blind_commitment": "sha256:" + "b" * 64,
+            "leaf_domain": "traigent.dataset_record.item_leaf.v1",
+            "completeness": (
+                "every_leaf_generated_for_this_corpus_under_this_scope_is_listed"
+            ),
+            "corpora": [
+                {
+                    "corpus_ref": "cpr:" + "A" * 43,
+                    "leaf_count": 1,
+                    "leaf_root": "sha256:" + "a" * 64,
+                    "scope_blind_commitment": "sha256:" + "b" * 64,
+                    "observation_basis": basis,
+                }
+            ],
+            "attestation_digest": "sha256:" + "c" * 64,
+        }
+
+    assert _errors(attestation("backend_observed"), "DatasetLeafGenerationAttestationV1") == []
+    rejected = _errors(attestation("client_attested"), "DatasetLeafGenerationAttestationV1")
+    assert [error.message for error in rejected] == ["'backend_observed' was expected"]
+
+
+def test_a_support_row_may_carry_exactly_one_evidence_ref() -> None:
+    """Astra's second review (F9). The schema advertised ``maxItems: 4``
+    while ``dataset_record_verifier._check_support_rows`` accepts exactly
+    one, so a producer following the schema could emit a record no relying
+    party could verify. The one-ref profile is the deliberate side (the same
+    function separately forbids EvidenceRefV0's optional opaque locator), so
+    the SCHEMA is what narrows."""
+    refs = SCHEMA["definitions"]["DatasetRecordClaimSupportRowV1"]["properties"]["evidence_refs"]
+    assert (refs["minItems"], refs["maxItems"]) == (1, 1)
+
+    def row(count: int) -> dict:
+        return {
+            "claim_id": "DS4",
+            "evidence_basis": "issuer_verified",
+            "verifier_id": "ver.dataset.near_duplicate_v1",
+            "verifier_version": "1.0.0",
+            "verifier_result": "pass",
+            "evidence_refs": [
+                {
+                    "evidence_kind": "verifier_report_digest",
+                    "evidence_digest": "sha256:" + chr(ord("a") + index) * 64,
+                }
+                for index in range(count)
+            ],
+        }
+
+    assert _errors(row(1), "DatasetRecordClaimSupportRowV1") == []
+    assert [
+        error.validator for error in _errors(row(2), "DatasetRecordClaimSupportRowV1")
+    ] == ["maxItems"]

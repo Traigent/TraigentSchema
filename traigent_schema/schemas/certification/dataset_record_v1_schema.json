@@ -675,8 +675,15 @@
                 "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
               },
               "observation_basis": {
-                "$ref": "process_record_v1_schema.json#/definitions/ObservationBasisV1",
-                "const": "backend_observed"
+                "description": "MUST be backend_observed: a leaf-generation attestation is a statement about generation the BACKEND observed, and a client_attested corpus entry would let DS3 upgrade on a basis nothing observed. Expressed as allOf rather than a const sibling of $ref -- under draft-07 a keyword sitting beside $ref is IGNORED, so the sibling form admitted client_attested (astra P2).",
+                "allOf": [
+                  {
+                    "$ref": "process_record_v1_schema.json#/definitions/ObservationBasisV1"
+                  },
+                  {
+                    "const": "backend_observed"
+                  }
+                ]
               }
             }
           }
@@ -2099,9 +2106,10 @@
           "$ref": "#/definitions/DatasetAttestationBasisV1"
         },
         "evidence_refs": {
+          "description": "EXACTLY one evidence ref, committing to the artifact this contract's verifier recomputed for this claim. The first draft admitted up to four, which the verifier rejects (dataset_record_verifier.py's _check_support_rows requires len(refs) == 1, and separately forbids EvidenceRefV0's optional opaque locator), so a producer following the schema could emit a record that no relying party could verify -- a live schema/verifier compatibility defect. The one-ref profile is the deliberate side: a second ref would be support this verifier did not establish.",
           "type": "array",
           "minItems": 1,
-          "maxItems": 4,
+          "maxItems": 1,
           "uniqueItems": true,
           "items": {
             "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"

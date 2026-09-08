@@ -1078,13 +1078,60 @@ def _check_leaf_list_input(
 
 
 def _check_taxonomy_and_registry_pins(unsigned: dict[str, Any]) -> None:
-    if unsigned["taxonomy"]["taxonomy_digest"] != _TAXONOMY_DIGEST:
-        _fail("TAXONOMY_DIGEST_MISMATCH", "/unsigned_manifest/taxonomy/taxonomy_digest")
-    if unsigned["method_registry"]["registry_digest"] != _METHOD_REGISTRY_DIGEST:
+    """The manifest's registry identities are the INSTALLED identities.
+
+    Astra P2 (report registry identities): the first draft compared only the
+    two digest FIELDS, so the id and version members beside each digest were
+    manifest-supplied values nothing in this module ever read -- a manifest
+    could name registry ``x`` version ``9.9.9`` while carrying the digest of
+    the document actually installed here, and every downstream check would
+    then run against a registry the record does not claim. The comparison is
+    now against the whole identity object (``_TAXONOMY_IDENTITY`` /
+    ``_METHOD_REGISTRY_IDENTITY``), which is exactly the three-member
+    projection the shipped documents produce.
+
+    The schema independently pins ``taxonomy_id``/``taxonomy_version`` (and
+    the registry pair) as ``const``, so a divergent id or version is
+    schema-rejected before this function runs; that makes this comparison
+    defence in depth against a schema that later widens those consts rather
+    than a separately-reachable rejection through the wire bundle. It IS
+    directly exercised as a unit
+    (``test_manifest_registry_identity_is_compared_as_a_whole_object``).
+    """
+    if unsigned["taxonomy"] != _TAXONOMY_IDENTITY:
+        _fail("TAXONOMY_DIGEST_MISMATCH", "/unsigned_manifest/taxonomy")
+    if unsigned["method_registry"] != _METHOD_REGISTRY_IDENTITY:
         _fail(
             "METHOD_REGISTRY_DIGEST_MISMATCH",
-            "/unsigned_manifest/method_registry/registry_digest",
+            "/unsigned_manifest/method_registry",
         )
+
+
+def _check_report_registry_identities(
+    unsigned: dict[str, Any], composition: dict[str, Any], leakage_report: dict[str, Any]
+) -> None:
+    """The reports' own registry identities are the manifest's (astra P2).
+
+    ``composition.taxonomy`` and ``leakage_report.method_registry`` are
+    signed, report-side copies of the identities the manifest pins, and
+    nothing compared them: a re-signed composition could name a different
+    ``taxonomy_digest``, or a re-signed leakage report a different
+    ``registry_digest``, while this module went on verifying every term
+    against the INSTALLED documents. The record then reads as though its
+    composition was classified under one taxonomy and its leakage findings
+    computed under one method registry, when the checks were performed
+    against others.
+
+    Compared against the manifest's copies, which
+    :func:`_check_taxonomy_and_registry_pins` has already required to equal
+    the installed constants -- so equality here is equality with the
+    installed documents too, established transitively rather than by
+    repeating the constant.
+    """
+    if composition["taxonomy"] != unsigned["taxonomy"]:
+        _fail("TAXONOMY_DIGEST_MISMATCH", "/composition/taxonomy")
+    if leakage_report["method_registry"] != unsigned["method_registry"]:
+        _fail("METHOD_REGISTRY_DIGEST_MISMATCH", "/leakage_report/method_registry")
 
 
 def _check_composition_digest(unsigned: dict[str, Any], composition: dict[str, Any]) -> None:
@@ -1274,26 +1321,143 @@ def _check_leaf_list_digests(
 def _check_overlap_and_disjointness(
     leakage_report: dict[str, Any], corpora_leaves: dict[str, list[str]]
 ) -> int:
-    """Returns the number of Tier-A findings actually recomputed."""
+    """Returns the number of Tier-A findings actually recomputed.
+
+    Astra P1 (DS3 can certify overlapping lists as disjoint), second half:
+    the ``overlap_count`` recomputation was guarded on
+    ``declared_corpus_overlap``, so a ``split_disjointness`` finding's own
+    ``overlap_count`` -- a required member of every finding, schema-capped
+    but otherwise unconstrained -- was a number no check ever reproduced. A
+    record could therefore report a truthful overlap on one finding kind and
+    an arbitrary one on the other. Both kinds are now recomputed under the
+    same rule.
+
+    The disjointness assertion is evaluated BEFORE the count. Both defects
+    can be present in one finding (an asserted-disjoint pair that intersects
+    will also, usually, be miscounted), and the assertion is the stronger,
+    more specific claim; checking it first keeps
+    ``SPLIT_DISJOINTNESS_VIOLATION`` the code such a finding raises rather
+    than making it depend on which comparison happens to run first.
+    """
     checked = 0
     for index, finding in enumerate(leakage_report["findings"]):
-        if finding["finding_kind"] not in ("declared_corpus_overlap", "split_disjointness"):
+        if finding["finding_kind"] not in _DS3_RELEVANT_FINDING_KINDS:
             continue
         a_ref = finding["corpus_a_ref"]
         b_ref = finding["corpus_b_ref"]
         if a_ref not in corpora_leaves or b_ref not in corpora_leaves:
             continue
         intersection = set(corpora_leaves[a_ref]) & set(corpora_leaves[b_ref])
-        if finding["finding_kind"] == "declared_corpus_overlap":
-            if len(intersection) != finding["overlap_count"]:
-                _fail("LEAKAGE_OVERLAP_MISMATCH", f"/leakage_report/findings/{index}/overlap_count")
         if finding.get("disjointness_asserted") and intersection:
             _fail(
                 "SPLIT_DISJOINTNESS_VIOLATION",
                 f"/leakage_report/findings/{index}/disjointness_asserted",
             )
+        if len(intersection) != finding["overlap_count"]:
+            _fail("LEAKAGE_OVERLAP_MISMATCH", f"/leakage_report/findings/{index}/overlap_count")
         checked += 1
     return checked
+
+
+def _ds3_disjointness_established(
+    leakage_report: dict[str, Any], corpora_leaves: dict[str, list[str]]
+) -> bool:
+    """Whether a POSITIVE, recomputed disjointness statement covers every
+    corpus pair DS3's claim is about (astra P1).
+
+    DS3 says the token lists for the corpora it names are disjoint. The
+    first draft upgraded it on coverage alone -- every relevant corpus
+    supplied, digest-checked and attested -- and coverage is not the claim:
+    with the ``split_disjointness`` finding removed, or its
+    ``disjointness_asserted`` set to ``false``, a record could report a
+    truthful non-zero overlap on the sibling ``declared_corpus_overlap``
+    finding and still reach ``issuer_verified`` for DS3. Nothing was
+    dishonest in that record; the row was.
+
+    The unit is the corpus PAIR, not the finding: the two DS3-relevant kinds
+    describe the same pair from two angles, and only ``split_disjointness``
+    may carry ``disjointness_asserted`` at all (the schema forbids the member
+    on every other kind). So a pair is established only when SOME finding
+    about it asserts disjointness AND both its lists were supplied AND their
+    recomputed intersection is empty. A pair that is merely reported honestly
+    as overlapping leaves DS3 at ``client_declared`` -- which is what such a
+    record actually supports.
+
+    Pair keys are order-normalised, so a pair stated as (b, a) by one finding
+    and (a, b) by another is one pair, not two.
+    """
+    pairs: dict[tuple[str, str], bool] = {}
+    for finding in leakage_report["findings"]:
+        if finding["finding_kind"] not in _DS3_RELEVANT_FINDING_KINDS:
+            continue
+        key = cast(
+            "tuple[str, str]",
+            tuple(sorted((finding["corpus_a_ref"], finding["corpus_b_ref"]))),
+        )
+        asserted = finding.get("disjointness_asserted") is True
+        pairs[key] = pairs.get(key, False) or asserted
+    if not pairs:
+        return False
+    for (a_ref, b_ref), asserted in pairs.items():
+        if not asserted:
+            return False
+        a_leaves = corpora_leaves.get(a_ref)
+        b_leaves = corpora_leaves.get(b_ref)
+        if a_leaves is None or b_leaves is None:
+            return False
+        if set(a_leaves) & set(b_leaves):
+            return False
+    return True
+
+
+def _check_corpus_ref_descriptors(
+    identity: dict[str, Any],
+    leakage_report: dict[str, Any],
+    attestation: dict[str, Any] | None,
+) -> None:
+    """Every finding ref resolves to a signed, re-derived corpus descriptor
+    (astra P1: finding refs retain an arbitrary content channel).
+
+    ``_check_derived_refs`` re-derives the attestation's corpus refs and the
+    refs of any leaf list the caller happened to SUPPLY -- never the refs a
+    finding names. A finding's ``corpus_a_ref``/``corpus_b_ref`` are
+    43-character pattern-conformant strings inside the signed leakage report,
+    so an issuer could point a near-duplicate finding at two ``cpr:`` values
+    that describe no corpus in the record at all, re-digest, re-sign, and
+    have DS4 verify over them: a free, signed, issuer-chosen channel in the
+    exact field ``CorpusRefV1`` exists to close.
+
+    Two things are established here. First, every entry in
+    ``leaf_list_digests`` must have a ``corpus_ref`` re-derived from its OWN
+    ``leaf_list_digest`` under this record's leakage scope -- a descriptor
+    cannot name a ref unrelated to the digest it publishes. Second, both refs
+    of every finding must land in the set of refs so derived, unioned with
+    the attestation's own (already re-derived) corpus refs.
+
+    This runs whether or not leaf lists were supplied: the derivation is over
+    signed record material only, so the fifth input has no bearing on it.
+
+    A ``training_corpus_contamination`` or ``prior_output_contamination``
+    finding is NOT exempt. Those are the two kinds that carry no recomputable
+    evidence, so exempting them would reopen the channel precisely where the
+    record is weakest: a Tier-C finding must publish a ``leaf_list_digests``
+    descriptor (or an attestation entry) for each corpus it names, exactly as
+    every other kind must.
+    """
+    leakage_scope_ref = identity["leakage_scope_ref"]
+    known: set[str] = set()
+    for index, entry in enumerate(leakage_report["leaf_list_digests"]):
+        expected = _derive_corpus_ref(entry["leaf_list_digest"], leakage_scope_ref)
+        if entry["corpus_ref"] != expected:
+            _fail("REF_NOT_DERIVED", f"/leakage_report/leaf_list_digests/{index}/corpus_ref")
+        known.add(entry["corpus_ref"])
+    if attestation is not None:
+        for corpus in attestation["corpora"]:
+            known.add(corpus["corpus_ref"])
+    for index, finding in enumerate(leakage_report["findings"]):
+        for field in ("corpus_a_ref", "corpus_b_ref"):
+            if finding[field] not in known:
+                _fail("REF_NOT_DERIVED", f"/leakage_report/findings/{index}/{field}")
 
 
 def _check_leaf_generation_attestation(
@@ -1495,6 +1659,25 @@ def _check_applied_policy(prereg: dict[str, Any], efficiency_report: dict[str, A
 def _check_containment(
     prereg: dict[str, Any], efficiency_report: dict[str, Any], leakage_report: dict[str, Any]
 ) -> None:
+    """Astra P2 (the efficiency report's policy reference is never checked).
+
+    ``efficiency_report.prereg_digest`` is the report's own statement of
+    WHICH signed plan it was computed under, and the first draft compared it
+    with nothing: an issuer could point it at another (even genuinely
+    signed) plan, update the report and support-row digests, re-sign, and
+    every containment comparison below would still run against the plan in
+    the envelope -- so the record would read as "computed under plan X" while
+    being checked against plan Y.
+
+    Checked first, before any field-by-field comparison, because a report
+    naming a different plan makes those comparisons meaningless rather than
+    merely unequal. ``_check_prereg_digest`` has already established that the
+    envelope's plan digest equals the manifest's, and F2's caller-pin check
+    that it equals any pin the caller holds, so this single equality
+    transitively binds report, envelope, manifest and caller pin to one plan.
+    """
+    if efficiency_report["prereg_digest"] != prereg["prereg_digest"]:
+        _fail("PREREGISTRATION_DIGEST_MISMATCH", "/efficiency_report/prereg_digest")
     # information_method/information_unit are deliberately NOT checked here:
     # row 34's dedicated INFORMATION_UNIT_RANGE check (_check_information_
     # range) already covers "unit equals the plan's" under its own more
@@ -1608,6 +1791,24 @@ def _check_evidence_grade(
             "PREREGISTRATION_GRADE_MISMATCH",
             "/preregistration_envelope/preregistration/evidence_grade",
         )
+    # Astra P1: the issuer could bypass the caller's registered-policy pin by
+    # declaring a WEAKER grade. The pin was consulted only inside the
+    # caller_pinned_before_results branch above, so an issuer holding a
+    # different signed plan simply declared digest_bound_attestation and the
+    # substituted plan verified with the caller's own pin sitting unused in
+    # the context object. A supplied pin is the caller's statement about
+    # WHICH plan this verification is for; it binds at every grade. Appended
+    # at this tail rather than at the head of the function so the two
+    # grade-specific branches above keep raising their own
+    # PREREGISTRATION_GRADE_* codes for grade defects.
+    if (
+        context.expected_prereg_digest is not None
+        and context.expected_prereg_digest != prereg["prereg_digest"]
+    ):
+        _fail(
+            "PREREGISTRATION_DIGEST_MISMATCH",
+            "/preregistration_envelope/preregistration/prereg_digest",
+        )
     return "digest_bound_attestation"
 
 
@@ -1640,7 +1841,24 @@ def _check_estimate_shape(estimate: dict[str, Any], location: str) -> None:
         _fail("SAMPLE_SIZE_INSUFFICIENT", f"{location}/effective_sample_size_n")
 
 
-def _check_information_range(efficiency_report: dict[str, Any], prereg: dict[str, Any]) -> None:
+def _check_information_range(
+    efficiency_report: dict[str, Any], prereg: dict[str, Any], identity: dict[str, Any]
+) -> None:
+    # Astra P2 (DS5 accepts an impossible item count): only inert_item_count
+    # received the dataset-relative bound check, so a 60-item dataset could
+    # report uninformative_item_count = 61 -- more uninformative items than
+    # items -- and, with the efficiency/support digests and the signature
+    # updated around it, verify. The schema's own 0..1_000_000 bound is
+    # dataset-INDEPENDENT and cannot express this; it is the same defect the
+    # second review reported at dataset_record_v1_schema.json:1477, closed
+    # once, here.
+    #
+    # The code is E1's INFORMATION_UNIT_RANGE, not E2's
+    # INERT_FRACTION_MISMATCH: this is a range violation on an
+    # information-model quantity, and borrowing the inert-fraction code would
+    # tell a relying party that a ratio it never computed disagreed.
+    if efficiency_report["uninformative_item_count"] > identity["item_count"]:
+        _fail("INFORMATION_UNIT_RANGE", "/efficiency_report/uninformative_item_count")
     method = efficiency_report["information_method"]
     unit = efficiency_report["information_unit"]
     expected_unit = {
@@ -1939,10 +2157,30 @@ def _verify(
     _check_leakage_digest(unsigned, leakage_report)
     _check_leakage_basis_coupling(leakage_report)
     _check_leakage_scope(identity, leakage_report, leaf_lists)
+    # Signed-material-only checks: neither reads the fifth input, so both run
+    # whether or not the caller holds any leaf list.
+    _check_corpus_ref_descriptors(identity, leakage_report, attestation)
+    _check_report_registry_identities(unsigned, composition, leakage_report)
 
     corpora_leaves: dict[str, list[str]] = {}
     if leaf_lists:
         corpora_leaves = _check_leaf_list_digests(identity, leakage_report, leaf_lists)
+    # Astra P1: the attestation is authenticated UNCONDITIONALLY. Guarding
+    # this call on ``bool(leaf_lists)`` meant that, with no leaf lists
+    # supplied, an included attestation's own digest bindings were never
+    # recomputed -- an attested leaf_count could be altered without updating
+    # a single digest or signature and the bundle stayed acceptable -- and a
+    # manifest could declare a non-null leaf_generation_attestation_digest
+    # with no attestation present at all. Only the leaf-DEPENDENT comparisons
+    # inside it are gated on supply, which they already self-gate
+    # (``corpora_leaves.get(corpus_ref) is None`` skips).
+    #
+    # It is called BEFORE _check_overlap_and_disjointness because
+    # _ds3_disjointness_established below reads the attestation-covered
+    # corpora, and both feed the one DS3 decision.
+    attestation_consistent = _check_leaf_generation_attestation(
+        unsigned, leakage_report, attestation, corpora_leaves
+    )
     leakage_findings_checked = _check_overlap_and_disjointness(leakage_report, corpora_leaves)
     leakage_findings_attested = sum(
         1 for f in leakage_report["findings"] if f["finding_kind"] in _TIER_C_FINDING_KINDS
@@ -1950,9 +2188,6 @@ def _verify(
 
     disjointness_evidence = "token_lists_only"
     ds3_basis = "client_declared"
-    attestation_consistent = bool(leaf_lists) and _check_leaf_generation_attestation(
-        unsigned, leakage_report, attestation, corpora_leaves
-    )
     # DS3 upgrades only when EVERY corpus its claim is about was supplied,
     # digest-checked AND attested (sol round 1 P1). The first draft skipped
     # findings whose corpora were not supplied and skipped attestation
@@ -1971,7 +2206,15 @@ def _verify(
     ds3_fully_covered = bool(ds3_relevant) and ds3_relevant <= (
         set(corpora_leaves) & attested_refs
     )
-    if attestation_consistent and ds3_fully_covered:
+    # ...and only when the disjointness DS3 asserts was actually recomputed
+    # and came out empty for every pair the claim covers (astra P1). Coverage
+    # answers "were the lists there"; this answers "did they say what DS3
+    # says they say".
+    if (
+        attestation_consistent
+        and ds3_fully_covered
+        and _ds3_disjointness_established(leakage_report, corpora_leaves)
+    ):
         disjointness_evidence = "generation_attested"
         ds3_basis = "issuer_verified"
     # Sol round 2 P3(b): abstention must inspect only the corpus lists DS3's
@@ -2012,7 +2255,7 @@ def _verify(
         efficiency_report["decisive_subset_upper_bound"],
         "/efficiency_report/decisive_subset_upper_bound",
     )
-    _check_information_range(efficiency_report, prereg)
+    _check_information_range(efficiency_report, prereg, identity)
     _check_inert_fraction(identity, efficiency_report)
     _check_decisive_subset(identity, efficiency_report)
     _check_cost_and_latency(efficiency_report)

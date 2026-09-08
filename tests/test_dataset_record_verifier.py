@@ -224,7 +224,8 @@ def _build(
     cells: list[tuple[str, str, int]] | None = None,
     include_attestation: bool = True,
     include_leaf_lists: bool = True,
-    include_corpus_b: bool = True,
+    supply_corpus_b_leaf_list: bool = True,
+    item_leaf_tags: list[str] | None = None,
     corpus_b_extra_leaves: list[str] | None = None,
     share_first_item_with_corpus_b: bool = False,
     extra_findings: list[dict[str, Any]] | None = None,
@@ -241,6 +242,24 @@ def _build(
     expected_prereg_digest: str | None = None,
     allow_unchecked_base_status: bool = True,
 ) -> _Built:
+    """Build one fully-signed dataset-record bundle and everything around it.
+
+    ``supply_corpus_b_leaf_list=False`` withholds corpus B's leaf list from
+    the CALLER'S fifth input only; the signed record still declares corpus B
+    in ``leaf_list_digests`` and in the attestation, exactly as a real record
+    naming B in a finding must (see ``_check_corpus_ref_descriptors``). It
+    was previously ``include_corpus_b``, which dropped B from those signed
+    descriptors too while the findings went on naming it -- a record that is
+    now, correctly, ``REF_NOT_DERIVED``. Its two users are about "no leaf
+    LIST supplied for a corpus DS3's claim depends on", so withholding only
+    the caller's input is a more faithful isolation of what they test, not a
+    weakening.
+
+    ``item_leaf_tags`` supplies the preimage tags the committed item leaves
+    are derived from (``_item_leaf``), so a test can make the record's own
+    leaves the one-way images of specific content -- which is what the two
+    privacy canaries need in order to be about data that was actually fed in.
+    """
     pr_bundle, pr_context, streams = _build_process_bundle(
         algorithm, allow_unchecked_base_status=allow_unchecked_base_status
     )
@@ -263,7 +282,12 @@ def _build(
     all_leaves: list[str] = []
     counter = 0
     for category_id, stratum, count in cells:
-        leaves = [_item_leaf(f"{category_id}-{stratum}-{counter + i}") for i in range(count)]
+        if item_leaf_tags is not None:
+            tags = item_leaf_tags[counter : counter + count]
+            assert len(tags) == count, "item_leaf_tags must cover every committed item"
+        else:
+            tags = [f"{category_id}-{stratum}-{counter + i}" for i in range(count)]
+        leaves = [_item_leaf(tag) for tag in tags]
         counter += count
         leaves_by_cell[(category_id, stratum)] = leaves
         all_leaves.extend(leaves)
@@ -363,15 +387,12 @@ def _build(
             "leaf_count": len(corpus_a_leaves),
             "leaf_list_digest": corpus_a_root,
         },
+        {
+            "corpus_ref": corpus_b_ref,
+            "leaf_count": len(corpus_b_leaves),
+            "leaf_list_digest": corpus_b_root,
+        },
     ]
-    if include_corpus_b:
-        leaf_list_digests.append(
-            {
-                "corpus_ref": corpus_b_ref,
-                "leaf_count": len(corpus_b_leaves),
-                "leaf_list_digest": corpus_b_root,
-            }
-        )
 
     attestation = None
     attestation_digest = None
@@ -383,18 +404,15 @@ def _build(
                 "leaf_root": corpus_a_root,
                 "scope_blind_commitment": scope_blind_commitment,
                 "observation_basis": "backend_observed",
-            }
+            },
+            {
+                "corpus_ref": corpus_b_ref,
+                "leaf_count": len(corpus_b_leaves),
+                "leaf_root": corpus_b_root,
+                "scope_blind_commitment": scope_blind_commitment,
+                "observation_basis": "backend_observed",
+            },
         ]
-        if include_corpus_b:
-            attestation_corpora.append(
-                {
-                    "corpus_ref": corpus_b_ref,
-                    "leaf_count": len(corpus_b_leaves),
-                    "leaf_root": corpus_b_root,
-                    "scope_blind_commitment": scope_blind_commitment,
-                    "observation_basis": "backend_observed",
-                }
-            )
         attestation_no_digest = {
             "schema_version": "traigent.dataset_record.leaf_generation_attestation.v1",
             "leakage_scope_ref": leakage_scope_ref,
@@ -742,7 +760,7 @@ def _build(
             dataset_ref: item_set_entries,
             corpus_a_ref: [{"leaf": leaf} for leaf in corpus_a_leaves],
         }
-        if include_corpus_b:
+        if supply_corpus_b_leaf_list:
             leaf_lists[corpus_b_ref] = [{"leaf": leaf} for leaf in corpus_b_leaves]
 
     context = DatasetRecordVerificationContext(
@@ -1373,8 +1391,36 @@ def test_prereg_edited_after_signing_fails_the_digest() -> None:
     _expect_error(built, "PREREGISTRATION_DIGEST_MISMATCH")
 
 
+def _redigest_prereg_signature(built: _Built) -> None:
+    """Re-derive the manifest's digest-as-value of the plan SIGNATURE BLOCK,
+    then re-sign the manifest.
+
+    A test that edits the signature block and does not call this is rejected
+    at ``/unsigned_manifest/prereg_signature_digest`` -- a stale-digest
+    rejection reached BEFORE any cryptographic verification of the signature
+    bytes. That is a real check, but it is not the check such a test is
+    about, and a rejection on it proves nothing about signature verification.
+    """
+    built.bundle["unsigned_manifest"]["prereg_signature_digest"] = _digest(
+        b"traigent.dataset_record.prereg_signature.v1",
+        built.bundle["preregistration_envelope"]["signature"],
+    )
+    _resign(built)
+
+
 def test_prereg_signed_by_a_different_key_fails() -> None:
-    """Test 33."""
+    """Test 33, repaired for astra's test-assurance finding.
+
+    The plan is genuinely signed by an impostor key over this exact plan's
+    own canonical preimage, and every digest binding around that signature
+    block -- the manifest's ``prereg_signature_digest`` and the manifest
+    signature itself -- is legitimately re-derived, so the ONLY thing wrong
+    is who signed. The assertion on ``location`` is what pins that: before
+    ``_redigest_prereg_signature`` was added this test was rejected at
+    ``/unsigned_manifest/prereg_signature_digest``, i.e. on a stale digest,
+    and the cryptographic verification of the signature bytes was never
+    reached at all.
+    """
     built = _build()
     impostor_private_key, _ = _private_keys("ecdsa_p256_sha256")
     prereg = built.bundle["preregistration_envelope"]["preregistration"]
@@ -1387,7 +1433,9 @@ def test_prereg_signed_by_a_different_key_fails() -> None:
     built.bundle["preregistration_envelope"]["signature"]["signature"] = _sign(
         impostor_private_key, "ecdsa_p256_sha256", material
     )
-    _expect_error(built, "PREREGISTRATION_SIGNATURE_INVALID")
+    _redigest_prereg_signature(built)
+    error = _expect_error(built, "PREREGISTRATION_SIGNATURE_INVALID")
+    assert error.location == "/preregistration_envelope/signature/signature"
 
 
 def test_preregistration_cannot_carry_a_result() -> None:
@@ -2054,28 +2102,62 @@ def _bundle_and_result_surfaces_are_clean(
     assert SENTINEL not in json.dumps(asdict(result), sort_keys=True, default=str)
 
 
+def _sentinel_item_tags(field: str, count: int) -> list[str]:
+    """``count`` distinct client-local item preimages, each carrying the
+    sentinel in ``field``, serialised exactly as a client would hash them."""
+    return [json.dumps({field: f"{SENTINEL}-{index}"}, sort_keys=True) for index in range(count)]
+
+
 def test_item_content_sentinel_never_reaches_the_record() -> None:
-    """Test 67."""
-    client_local_item = {"input": f"what is the capital of {SENTINEL}?"}
-    input_digest = "sha256:" + hashlib.sha256(json.dumps(client_local_item).encode()).hexdigest()
-    assert SENTINEL in json.dumps(client_local_item)
-    built = _build()
+    """Test 67, repaired for astra's test-assurance finding.
+
+    The sentinel-bearing item content is now the ACTUAL preimage of the
+    record's committed item leaves: ``_build(item_leaf_tags=...)`` derives
+    every leaf in the signed bundle -- and therefore every cell root and the
+    ``item_set_root`` the issuer signs -- from these strings via
+    ``_item_leaf``. The previous version built a default bundle from
+    unrelated tags and asserted the sentinel's absence from it, which no
+    verifier behaviour could have made false: the data was never fed in, so
+    the canary was vacuous. The absence asserted here is a property of the
+    one-way commitment, established over content that really did enter the
+    record.
+    """
+    item_count = 60
+    tags = _sentinel_item_tags("input", item_count)
+    assert all(SENTINEL in tag for tag in tags)
+    built = _build(item_leaf_tags=tags)
+    committed_leaves = {entry["leaf"] for entry in built.leaf_lists[built.dataset_ref]}
+    # The sentinel-bearing content really is what this record committed to.
+    assert committed_leaves == {_item_leaf(tag) for tag in tags}
     result = _verify(built)
+    assert result.code == "DATASET_RECORD_VERIFIED"
     _bundle_and_result_surfaces_are_clean(built.bundle, result)
-    assert input_digest not in json.dumps(built.bundle, sort_keys=True)
+    # ...and the plain digest of that same content is not in the record
+    # either: what IS there is the domain-separated leaf, not a bare hash a
+    # holder of the cleartext could confirm by hashing it.
+    for tag in tags:
+        plain = "sha256:" + hashlib.sha256(tag.encode()).hexdigest()
+        assert plain not in json.dumps(built.bundle, sort_keys=True)
 
 
 def test_reference_answer_sentinel_never_reaches_the_record() -> None:
-    """Test 68. This is the field customers most fear leaking."""
-    client_local_reference_answer = {"answer": SENTINEL}
-    reference_answer_digest = (
-        "sha256:" + hashlib.sha256(json.dumps(client_local_reference_answer).encode()).hexdigest()
-    )
-    assert SENTINEL in json.dumps(client_local_reference_answer)
-    built = _build()
+    """Test 68, repaired for astra's test-assurance finding. This is the
+    field customers most fear leaking, and, as with test 67, the sentinel now
+    reaches the record's committed leaves as their real preimage rather than
+    sitting in a local variable the bundle never saw.
+    """
+    item_count = 60
+    tags = _sentinel_item_tags("answer", item_count)
+    assert all(SENTINEL in tag for tag in tags)
+    built = _build(item_leaf_tags=tags)
+    committed_leaves = {entry["leaf"] for entry in built.leaf_lists[built.dataset_ref]}
+    assert committed_leaves == {_item_leaf(tag) for tag in tags}
     result = _verify(built)
+    assert result.code == "DATASET_RECORD_VERIFIED"
     _bundle_and_result_surfaces_are_clean(built.bundle, result)
-    assert reference_answer_digest not in json.dumps(built.bundle, sort_keys=True)
+    for tag in tags:
+        plain = "sha256:" + hashlib.sha256(tag.encode()).hexdigest()
+        assert plain not in json.dumps(built.bundle, sort_keys=True)
 
 
 @pytest.mark.parametrize(
@@ -2476,11 +2558,16 @@ def test_ds3_cannot_verify_when_a_relevant_corpus_list_was_never_supplied() -> N
     """Test 88 (sol P1(b), supply half). Both disjointness findings name
     corpus B, but no leaf list for B is supplied, so the intersection that IS
     the DS3 claim was never recomputed. The row must not read
-    issuer_verified."""
-    built = _build(include_corpus_b=False)
+    issuer_verified.
+
+    The record itself still declares corpus B in ``leaf_list_digests`` and in
+    the attestation (astra P1: every finding ref must resolve to a signed,
+    re-derived descriptor); only the CALLER'S fifth input withholds B, which
+    is exactly the condition this test is named for."""
+    built = _build(supply_corpus_b_leaf_list=False)
     _expect_error(built, "CLAIM_NOT_VERIFIED")
 
-    honest = _build(include_corpus_b=False)
+    honest = _build(supply_corpus_b_leaf_list=False)
     _set_row(honest, "DS3", _declared_ds3_row(honest))
     result = _verify(honest)
     assert "DS3" in result.claims_declared
@@ -2566,21 +2653,31 @@ def test_manifest_signature_algorithm_must_equal_the_signed_manifests_own() -> N
 
 
 @pytest.mark.parametrize(
-    "claim_id,mutation",
+    "claim_id,mutation,expected_code",
     [
-        ("DS4", "verifier_id"),
-        ("DS2", "evidence_digest"),
-        ("DS5", "evidence_kind"),
-        ("DS1", "extra_evidence_ref"),
+        ("DS4", "verifier_id", "CLAIM_SUPPORT_ROW_MISMATCH"),
+        ("DS2", "evidence_digest", "CLAIM_SUPPORT_ROW_MISMATCH"),
+        ("DS5", "evidence_kind", "CLAIM_SUPPORT_ROW_MISMATCH"),
+        ("DS1", "extra_evidence_ref", "SCHEMA"),
     ],
 )
 def test_a_support_row_must_name_the_verifier_and_evidence_actually_used(
-    claim_id: str, mutation: str
+    claim_id: str, mutation: str, expected_code: str
 ) -> None:
     """Test 93 (sol P2(f)). Before this, only evidence_basis was read, so a
     row could name any verifier in the enum and cite any digest -- including
     an artifact no check for that claim consumed -- and still print as
-    support."""
+    support.
+
+    ``extra_evidence_ref``'s expected code moved from
+    ``CLAIM_SUPPORT_ROW_MISMATCH`` to ``SCHEMA`` with astra's second-review
+    finding (F9): ``DatasetRecordClaimSupportRowV1.evidence_refs`` advertised
+    ``maxItems: 4`` while the verifier accepted exactly one, so a second ref
+    was schema-LEGAL and rejected only by this module. The schema now says
+    ``maxItems: 1``, so the same mutation is rejected one stage earlier, at
+    schema validation. Strictly earlier and strictly stronger -- the
+    parametrised code records WHICH stage rejects it, which is the whole
+    content of that finding."""
     built = _build()
     row = _row(built, claim_id)
     if mutation == "verifier_id":
@@ -2601,7 +2698,7 @@ def test_a_support_row_must_name_the_verifier_and_evidence_actually_used(
             },
         ]
     _redigest_claim_rows(built)
-    _expect_error(built, "CLAIM_SUPPORT_ROW_MISMATCH")
+    _expect_error(built, expected_code)
 
 
 def test_a_client_declared_row_where_the_verifier_abstained_fails() -> None:
@@ -2985,3 +3082,448 @@ def test_ds3_reaches_issuer_verified_despite_an_oversized_irrelevant_leaf_list()
     assert result.code == "DATASET_RECORD_VERIFIED_CLAIMS_PARTIAL"
     assert result.disjointness_evidence == "generation_attested"
     assert "DS3" in result.claims_verified
+
+
+# ---------------------------------------------------------------------------
+# Round-4 controls: astra's independent review of this packet (F1-F9). Every
+# test below FAILS on 6f56bb35b for the reason named in its docstring, with
+# the record fully re-signed AROUND the mutation unless the docstring says
+# otherwise and says why.
+# ---------------------------------------------------------------------------
+
+
+def _refresh_composition_evidence_ref(built: _Built) -> None:
+    """Re-point DS2's evidence ref at the composition as it now stands."""
+    row = _row(built, "DS2")
+    if row["evidence_basis"] != "abstained":
+        row["evidence_refs"] = _evref(built.bundle["composition"]["composition_digest"])
+    _redigest_claim_rows(built)
+
+
+def _redigest_composition(built: _Built) -> None:
+    composition = built.bundle["composition"]
+    composition["composition_digest"] = _digest(
+        b"traigent.dataset_record.composition.v1",
+        {k: v for k, v in composition.items() if k != "composition_digest"},
+    )
+    built.bundle["unsigned_manifest"]["composition_digest"] = composition["composition_digest"]
+    _resign(built)
+
+
+def test_ds3_cannot_verify_without_a_positive_recomputed_disjointness_assertion() -> None:
+    """F1a (astra P1). DS3's upgrade rested on COVERAGE -- every corpus its
+    findings name supplied, digest-checked and attested -- which is not its
+    claim. Here the ``split_disjointness`` finding is simply dropped: the
+    record then makes no disjointness assertion at all about the pair, every
+    remaining figure in it is truthful, and every digest, evidence ref and
+    signature is legitimately re-derived around the edit by the builder's own
+    helpers. Only the DS3 support row is dishonest.
+
+    Fail-before: on 6f56bb35b this bundle verifies and DS3 reads
+    issuer_verified.
+    """
+    built = _build()
+    report = built.bundle["leakage_report"]
+    report["findings"] = [
+        finding for finding in report["findings"] if finding["finding_kind"] != "split_disjointness"
+    ]
+    assert any(f["finding_kind"] == "declared_corpus_overlap" for f in report["findings"])
+    _redigest_leakage(built)
+    _refresh_leakage_evidence_refs(built)
+    error = _expect_error(built, "CLAIM_NOT_VERIFIED")
+    assert error.location == "/claim_support_rows/2"
+
+    # The same record with an honest row: everything else about it verifies,
+    # so the finding is precisely the row, not the record.
+    honest = _build()
+    honest_report = honest.bundle["leakage_report"]
+    honest_report["findings"] = [
+        finding
+        for finding in honest_report["findings"]
+        if finding["finding_kind"] != "split_disjointness"
+    ]
+    _redigest_leakage(honest)
+    _refresh_leakage_evidence_refs(honest)
+    _set_row(honest, "DS3", _declared_ds3_row(honest))
+    result = _verify(honest)
+    assert "DS3" in result.claims_declared
+    assert result.disjointness_evidence == "token_lists_only"
+
+
+def test_a_split_disjointness_findings_own_overlap_count_is_recomputed() -> None:
+    """F1b (astra P1, second half). ``overlap_count`` is a required member of
+    EVERY finding, but its recomputation was guarded on
+    ``declared_corpus_overlap`` -- so the number a ``split_disjointness``
+    finding published was one nothing reproduced. The two corpora here are
+    genuinely disjoint and the finding still asserts disjointness; only its
+    count is invented.
+
+    Fail-before: on 6f56bb35b this bundle verifies, the invented count
+    unexamined.
+    """
+    built = _build()
+    for finding in built.bundle["leakage_report"]["findings"]:
+        if finding["finding_kind"] == "split_disjointness":
+            assert finding["disjointness_asserted"] is True
+            finding["overlap_count"] = 5
+    _redigest_leakage(built)
+    _refresh_leakage_evidence_refs(built)
+    error = _expect_error(built, "LEAKAGE_OVERLAP_MISMATCH")
+    assert error.location.endswith("/overlap_count")
+
+
+def test_a_caller_prereg_pin_binds_at_every_declared_evidence_grade() -> None:
+    """F2 (astra P1). ``expected_prereg_digest`` was consulted only inside
+    the ``caller_pinned_before_results`` branch, so an issuer holding a
+    different signed plan simply declared the WEAKER
+    ``digest_bound_attestation`` grade and the substituted plan verified with
+    the caller's own pin sitting unused.
+
+    Proved as an accept/reject PAIR on ONE unmodified, fully-signed bundle,
+    because the location alone cannot prove the stage: ``_check_prereg_digest``
+    already reports the same path for a self-inconsistent plan digest. The
+    bundle is byte-identical across all three calls; only the caller's pin
+    changes.
+
+    Fail-before: on 6f56bb35b the third call VERIFIES -- a pin naming a
+    different plan is silently ignored at this grade.
+    """
+    built = _build()
+    prereg = built.bundle["preregistration_envelope"]["preregistration"]
+    assert prereg["evidence_grade"] == "digest_bound_attestation"
+
+    # (a) no pin held: verifies.
+    assert built.context.expected_prereg_digest is None
+    assert _verify(built).code == "DATASET_RECORD_VERIFIED"
+
+    # (b) the pin the caller actually holds for THIS plan: verifies.
+    matching = replace(built.context, expected_prereg_digest=prereg["prereg_digest"])
+    assert _verify(built, context=matching).code == "DATASET_RECORD_VERIFIED"
+
+    # (c) a pin naming a different registered plan: rejected.
+    substituted = replace(built.context, expected_prereg_digest="sha256:" + "8" * 64)
+    error = _expect_error(built, "PREREGISTRATION_DIGEST_MISMATCH", context=substituted)
+    assert error.location == "/preregistration_envelope/preregistration/prereg_digest"
+
+
+def test_a_finding_ref_that_resolves_to_no_signed_corpus_descriptor_fails() -> None:
+    """F3 (astra P1). A finding's ``corpus_a_ref``/``corpus_b_ref`` are
+    43-character pattern-conformant strings inside the signed leakage report
+    and nothing re-derived them: ``_check_derived_refs`` examines the
+    attestation and any SUPPLIED leaf list, never a finding's own refs. So an
+    issuer could point a near-duplicate finding at sentinel-bearing ``cpr:``
+    values naming no corpus in the record, re-digest, re-sign, and have DS4
+    verify over them -- an arbitrary, signed, issuer-chosen content channel.
+
+    Fully re-signed: the report digest, the manifest, both leakage-citing
+    evidence refs and the issuer signature are all legitimately re-derived
+    around the substituted refs, so this is not a stale-digest rejection. It
+    is asserted BOTH with and without the fifth input, since the derivation
+    is over signed material only.
+
+    Fail-before: on 6f56bb35b this bundle verifies.
+    """
+    built = _build()
+    smuggled = "cpr:" + SENTINEL[:43].ljust(43, "A")
+    assert smuggled != built.corpus_a_ref and smuggled != built.corpus_b_ref
+    for finding in built.bundle["leakage_report"]["findings"]:
+        if finding["finding_kind"] == "near_duplicate_overlap":
+            finding["corpus_b_ref"] = smuggled
+    _redigest_leakage(built)
+    _refresh_leakage_evidence_refs(built)
+
+    error = _expect_error(built, "REF_NOT_DERIVED")
+    assert error.location.startswith("/leakage_report/findings/")
+    assert error.location.endswith("/corpus_b_ref")
+    assert SENTINEL not in error.location
+    assert SENTINEL not in str(error)
+
+    # Same record, no fifth input at all: still rejected, same code.
+    _expect_error(built, "REF_NOT_DERIVED", leaf_lists=None)
+
+
+def test_a_leaf_list_descriptor_must_derive_its_ref_from_its_own_digest() -> None:
+    """F3 sibling: the descriptor half of the same check. A
+    ``leaf_list_digests`` entry whose ``corpus_ref`` does not derive from the
+    ``leaf_list_digest`` it publishes would otherwise let ANY ref be
+    legitimised for the finding check above simply by declaring it.
+
+    Fail-before: on 6f56bb35b this bundle verifies -- with no leaf list
+    supplied for the renamed corpus, nothing recomputed the entry at all.
+    """
+    built = _build(supply_corpus_b_leaf_list=False)
+    forged = "cpr:" + "D" * 43
+    for entry in built.bundle["leakage_report"]["leaf_list_digests"]:
+        if entry["corpus_ref"] == built.corpus_b_ref:
+            entry["corpus_ref"] = forged
+    for finding in built.bundle["leakage_report"]["findings"]:
+        if finding.get("corpus_b_ref") == built.corpus_b_ref:
+            finding["corpus_b_ref"] = forged
+    attestation = built.bundle["leaf_generation_attestation"]
+    attestation["corpora"] = [
+        corpus for corpus in attestation["corpora"] if corpus["corpus_ref"] != built.corpus_b_ref
+    ]
+    _redigest_attestation(built)
+    _set_row(built, "DS3", _declared_ds3_row(built))
+    _refresh_leakage_evidence_refs(built)
+    error = _expect_error(built, "REF_NOT_DERIVED")
+    assert error.location.endswith("/corpus_ref")
+
+
+def test_an_included_attestation_is_authenticated_even_with_no_leaf_lists() -> None:
+    """F4a (astra P1). With no leaf lists supplied, ``bool(leaf_lists) and``
+    short-circuited ``_check_leaf_generation_attestation`` away entirely, so
+    an attested ``leaf_count`` could be altered without updating a single
+    digest or signature and the partial bundle stayed acceptable.
+
+    Deliberately NOT re-signed, and that is the point: the invariant under
+    test IS that the attestation's digest binding is skipped, so the
+    unsigned manifest is untouched and its issuer signature stays valid --
+    this is a rejection ON the attestation's binding, not a staleness
+    rejection of the record.
+
+    Fail-before: on 6f56bb35b this bundle verifies.
+    """
+    built = _build(include_leaf_lists=False)
+    attestation = built.bundle["leaf_generation_attestation"]
+    before = json.dumps(built.bundle["unsigned_manifest"], sort_keys=True)
+    attestation["corpora"][0]["leaf_count"] += 1
+    assert json.dumps(built.bundle["unsigned_manifest"], sort_keys=True) == before
+    error = _expect_error(built, "LEAF_GENERATION_ATTESTATION_MISSING", leaf_lists=None)
+    assert error.location == "/leaf_generation_attestation"
+
+
+def test_the_manifests_attestation_digest_is_reconciled_with_no_leaf_lists() -> None:
+    """F4b: the second binding the same short-circuit left unchecked. The
+    manifest's ``leaf_generation_attestation_digest`` is a SIGNED statement
+    about which attestation this record carries, and with no leaf lists
+    supplied nothing recomputed it -- so the manifest could name one
+    attestation while the bundle carried another.
+
+    Fully re-signed, unlike F4a: only the manifest field is changed and the
+    issuer signature is legitimately re-derived over the edited manifest, so
+    this is not a staleness rejection of the record -- it is the digest
+    binding between the manifest and the attestation, recomputed.
+
+    (The packet also names "a non-null manifest attestation digest with no
+    attestation present" as part of this hole. MEASURED CORRECTION: that
+    combination is not reachable through the wire at all --
+    ``DatasetRecordCertificateBundleV1``'s own ``allOf`` makes it
+    unrepresentable, so such a bundle is rejected at SCHEMA validation one
+    stage earlier, on 6f56bb35b as well as after this change. The verifier's
+    branch for it is defence in depth, not a reachable second negative.)
+
+    Fail-before: on 6f56bb35b this bundle verifies.
+    """
+    built = _build(include_leaf_lists=False)
+    unsigned = built.bundle["unsigned_manifest"]
+    attestation_digest = unsigned["leaf_generation_attestation_digest"]
+    assert attestation_digest is not None
+    assert (
+        built.bundle["leaf_generation_attestation"]["attestation_digest"] == attestation_digest
+    )
+    unsigned["leaf_generation_attestation_digest"] = "sha256:" + "7" * 64
+    _resign(built)
+    error = _expect_error(built, "LEAF_GENERATION_ATTESTATION_MISSING", leaf_lists=None)
+    assert error.location == "/unsigned_manifest/leaf_generation_attestation_digest"
+
+    # The unrepresentable pairing above, pinned at the stage that DOES reject
+    # it, so a later widening of that schema conditional cannot pass silently.
+    absent = _build(include_leaf_lists=False)
+    del absent.bundle["leaf_generation_attestation"]
+    _expect_error(absent, "SCHEMA", leaf_lists=None)
+
+
+def test_an_efficiency_report_naming_a_different_signed_plan_fails() -> None:
+    """F5 (astra P2). ``efficiency_report.prereg_digest`` is the report's own
+    statement of which plan produced it, and containment never compared it
+    with the verified plan -- so the record could read "computed under plan
+    X" while every containment comparison ran against plan Y.
+
+    Fully signed AROUND the mutation: the builder applies
+    ``efficiency_over`` before deriving the report digest, the manifest and
+    the support rows, so nothing about this bundle is stale.
+
+    Fail-before: on 6f56bb35b this bundle verifies.
+    """
+    built = _build(efficiency_over={"prereg_digest": "sha256:" + "4" * 64})
+    assert (
+        built.bundle["efficiency_report"]["prereg_digest"]
+        != built.bundle["unsigned_manifest"]["prereg_digest"]
+    )
+    error = _expect_error(built, "PREREGISTRATION_DIGEST_MISMATCH")
+    assert error.location == "/efficiency_report/prereg_digest"
+
+
+def test_manifest_registry_identity_is_compared_as_a_whole_object() -> None:
+    """F6a (astra P2, manifest half). Only the two digest FIELDS were
+    compared, so the ``*_id`` and ``*_version`` members beside them were
+    manifest-supplied values nothing read.
+
+    Exercised as a direct unit call: the schema pins ``taxonomy_id`` /
+    ``taxonomy_version`` (and the registry pair) as ``const``, so a divergent
+    id or version is schema-rejected before ``_verify`` reaches this
+    function. That makes the whole-object comparison defence in depth against
+    a later widening of those consts rather than a separately reachable
+    rejection through the wire bundle -- which is exactly why it is asserted
+    here rather than via ``_build``.
+
+    Fail-before: on 6f56bb35b both mutations pass this function silently.
+    """
+    healthy = {
+        "taxonomy": dict(dr_impl._TAXONOMY_IDENTITY),
+        "method_registry": dict(dr_impl._METHOD_REGISTRY_IDENTITY),
+    }
+    dr_impl._check_taxonomy_and_registry_pins(healthy)
+
+    for key, mutation, code in (
+        ("taxonomy", {"taxonomy_version": "9.9.9"}, "TAXONOMY_DIGEST_MISMATCH"),
+        (
+            "taxonomy",
+            {"taxonomy_id": "traigent.dataset_taxonomy.other.v1"},
+            "TAXONOMY_DIGEST_MISMATCH",
+        ),
+        ("method_registry", {"registry_version": "9.9.9"}, "METHOD_REGISTRY_DIGEST_MISMATCH"),
+    ):
+        unsigned = {
+            "taxonomy": dict(dr_impl._TAXONOMY_IDENTITY),
+            "method_registry": dict(dr_impl._METHOD_REGISTRY_IDENTITY),
+        }
+        unsigned[key] = {**unsigned[key], **mutation}
+        with pytest.raises(DatasetRecordVerificationError) as exc_info:
+            dr_impl._check_taxonomy_and_registry_pins(unsigned)
+        assert exc_info.value.code == code, (key, mutation)
+
+
+@pytest.mark.parametrize(
+    "target,code",
+    [
+        ("composition", "TAXONOMY_DIGEST_MISMATCH"),
+        ("leakage_report", "METHOD_REGISTRY_DIGEST_MISMATCH"),
+    ],
+)
+def test_a_report_registry_identity_contradicting_the_manifest_fails(
+    target: str, code: str
+) -> None:
+    """F6b (astra P2, report half -- the reachable one). Only MANIFEST
+    registry digests were checked, so a re-signed composition could name a
+    different ``taxonomy_digest``, or a re-signed leakage report a different
+    ``registry_digest``, while verification went on using the installed
+    registries. The record then reads as though its cells were classified
+    under one taxonomy, or its findings computed under one method registry,
+    when neither is what was checked.
+
+    Fully re-signed: the containing report's digest, the manifest's copy of
+    it, the support row that cites it and the issuer signature are all
+    re-derived around the edit.
+
+    Fail-before: on 6f56bb35b both bundles verify.
+    """
+    built = _build()
+    if target == "composition":
+        composition = built.bundle["composition"]
+        composition["taxonomy"] = {
+            **composition["taxonomy"],
+            "taxonomy_digest": "sha256:" + "2" * 64,
+        }
+        assert composition["taxonomy"] != built.bundle["unsigned_manifest"]["taxonomy"]
+        _redigest_composition(built)
+        _refresh_composition_evidence_ref(built)
+    else:
+        report = built.bundle["leakage_report"]
+        report["method_registry"] = {
+            **report["method_registry"],
+            "registry_digest": "sha256:" + "3" * 64,
+        }
+        assert report["method_registry"] != built.bundle["unsigned_manifest"]["method_registry"]
+        _redigest_leakage(built)
+        _refresh_leakage_evidence_refs(built)
+    _expect_error(built, code)
+
+
+def test_a_client_attested_attestation_corpus_is_schema_rejected() -> None:
+    """F7 (astra P2). ``DatasetLeafGenerationAttestationV1``'s corpus entry
+    carried ``const: backend_observed`` as a SIBLING of ``$ref`` -- and
+    draft-07 ignores a keyword sitting beside ``$ref``, so the restriction
+    validated nothing and a corpus entry could carry ``client_attested``.
+    DS3 would then upgrade on a generation basis nothing observed.
+
+    Closed in the schema (``allOf`` of the ``$ref`` and the ``const``), not
+    in the verifier: ``_validate_schema(bundle)`` is the FIRST thing
+    ``_verify`` does, so a verifier-side basis check would be unreachable
+    code. The rejection stage is therefore schema validation.
+
+    Fully re-signed: the attestation digest, both places it is echoed, the
+    leakage report digest, the manifest and the issuer signature are all
+    re-derived around the edit -- so on the pre-fix schema this bundle is
+    entirely valid.
+
+    Fail-before: on 6f56bb35b this bundle VERIFIES.
+    """
+    built = _build()
+    for corpus in built.bundle["leaf_generation_attestation"]["corpora"]:
+        corpus["observation_basis"] = "client_attested"
+    _redigest_attestation(built)
+    _refresh_leakage_evidence_refs(built)
+    _expect_error(built, "SCHEMA")
+
+
+def test_more_uninformative_items_than_the_dataset_has_items_fails() -> None:
+    """F8 (astra P2). Only ``inert_item_count`` received the
+    dataset-relative bound check, so a 60-item dataset could report
+    ``uninformative_item_count = 61``. The schema's own 0..1_000_000 bound is
+    dataset-INDEPENDENT and cannot express this -- it is the same defect the
+    second review reported at ``dataset_record_v1_schema.json:1477``, and it
+    is closed once, here, under E1's code rather than by borrowing E2's.
+
+    Fully signed AROUND the mutation via ``efficiency_over``.
+
+    Fail-before: on 6f56bb35b this bundle verifies.
+    """
+    built = _build(efficiency_over={"uninformative_item_count": 61})
+    assert built.bundle["unsigned_manifest"]["identity"]["item_count"] == 60
+    error = _expect_error(built, "INFORMATION_UNIT_RANGE")
+    assert error.location == "/efficiency_report/uninformative_item_count"
+
+    # The boundary itself is admissible: every item may be uninformative.
+    boundary = _build(efficiency_over={"uninformative_item_count": 60})
+    assert _verify(boundary).code == "DATASET_RECORD_VERIFIED"
+
+
+def test_a_second_evidence_ref_is_rejected_at_schema_validation() -> None:
+    """F9 (astra's second review). The schema advertised
+    ``evidence_refs.maxItems: 4`` while ``_check_support_rows`` accepts
+    exactly one, so a producer following the schema could emit a record no
+    relying party could verify -- a live compatibility defect. Closed by
+    tightening the SCHEMA to ``maxItems: 1``, not by widening the verifier:
+    the one-ref profile is deliberate (the same function separately forbids
+    ``EvidenceRefV0``'s optional opaque locator, so the single-ref shape is a
+    decision, not an oversight).
+
+    Fail-before: on 6f56bb35b this bundle is SCHEMA-VALID and is rejected by
+    the verifier's own row check with ``CLAIM_SUPPORT_ROW_MISMATCH`` -- a
+    different, later stage. After the fix it is rejected at schema
+    validation, before any verifier logic runs.
+    """
+    built = _build()
+    row = _row(built, "DS4")
+    row["evidence_refs"] = [
+        *row["evidence_refs"],
+        {
+            "evidence_kind": "verifier_report_digest",
+            "evidence_digest": built.bundle["unsigned_manifest"]["composition_digest"],
+        },
+    ]
+    _redigest_claim_rows(built)
+    _expect_error(built, "SCHEMA")
+
+
+def test_one_evidence_ref_per_support_row_verifies() -> None:
+    """F9, the accepting side: the profile this contract actually issues --
+    exactly one ref per non-abstaining row -- is inside the tightened bound
+    and still verifies end to end."""
+    built = _build()
+    for row in built.bundle["claim_support_rows"]:
+        if row["evidence_basis"] != "abstained":
+            assert len(row["evidence_refs"]) == 1
+    assert _verify(built).code == "DATASET_RECORD_VERIFIED"

@@ -33,10 +33,11 @@ import hashlib
 import json
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
-from typing import Any, Callable, NoReturn, TypeVar, cast
+from typing import Any, NoReturn, TypeVar, cast
 
 import traigent_schema.fp2 as fp2
 

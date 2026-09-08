@@ -1525,30 +1525,30 @@ def _check_corpus_ref_descriptors(
     ``by_cell``) are out of scope: this class is about signed material
     only.
 
-    +------+--------------------------------------------+---+------------------------------------------------+
-    | line | site / key                                  | class | constraint that does the work               |
-    +------+--------------------------------------------+---+------------------------------------------------+
-    | 1309 | ``declared_by_ref`` in                      | A | dedup on ``corpus_ref`` established           |
-    |      | ``_check_leaf_list_digests``, keyed on      |   | unconditionally in                            |
-    |      | ``entry["corpus_ref"]`` over                |   | ``_check_corpus_ref_descriptors`` (line 1426, |
-    |      | ``leakage_report["leaf_list_digests"]``     |   | ``known``/duplicate check, called             |
-    |      |                                              |   | unconditionally at line 2266) before this     |
-    |      |                                              |   | function ever runs                            |
-    | 2092 | ``by_id`` in ``_check_support_rows``,       | B | schema ``maxItems: 5`` on                     |
-    |      | keyed on ``row["claim_id"]`` over            |   | ``claim_support_rows``, pinned by a tripwire  |
-    |      | ``claim_support_rows``                      |   | (see corrected entry above); the              |
-    |      |                                              |   | ``set(by_id) != set(_CLAIM_IDS)`` check is    |
-    |      |                                              |   | a second, non-sufficient layer                |
-    | 2132 | ``refs[0]`` in ``_check_support_rows``,     | B | schema ``maxItems: 1`` on ``evidence_refs``,  |
-    |      | first/only selection over                   |   | pinned by a tripwire, plus a defence-in-depth |
-    |      | ``row["evidence_refs"]``                    |   | ``len(refs) != 1`` guard in the same function |
-    +------+--------------------------------------------+---+------------------------------------------------+
+    Inventory (line / key / class / constraint):
+
+    * line 1309, ``declared_by_ref`` in ``_check_leaf_list_digests``, keyed
+      on ``entry["corpus_ref"]`` over ``leakage_report["leaf_list_digests"]``
+      -- (A): dedup on ``corpus_ref`` is established unconditionally in
+      ``_check_corpus_ref_descriptors`` (its ``known``/duplicate check,
+      called unconditionally at the ``_check_corpus_ref_descriptors(...)``
+      call site) before this function ever runs.
+    * line 2130, ``by_id`` in ``_check_support_rows``, keyed on
+      ``row["claim_id"]`` over ``claim_support_rows`` -- (B): the schema's
+      ``maxItems: 5`` on ``claim_support_rows``, pinned by a tripwire (see
+      the corrected entry above); ``set(by_id) != set(_CLAIM_IDS)`` is a
+      second, non-sufficient layer, not the mechanism that forecloses this.
+    * line ~2170 (``refs[0]``) in ``_check_support_rows``, first/only
+      selection over ``row["evidence_refs"]`` -- (B): the schema's
+      ``maxItems: 1`` on ``evidence_refs``, pinned by a tripwire, plus a
+      defence-in-depth ``len(refs) != 1`` guard in the same function.
 
     No site found in this sweep is outside A/B/C: every signed-list
     collapse or selection in the module is covered by one of the three
-    rows above, plus the two already-enumerated (A) sites
-    (``leaf_generation_attestation.corpora`` at line 1538 and composition
-    cells in ``_check_declared_partition``) and the (C) site
+    sites above, plus the two already-enumerated (A) sites
+    (``leaf_generation_attestation.corpora``'s ``seen_attestation_refs``
+    tracking set, and composition cells in
+    ``_check_declared_partition``) and the (C) site
     (``leakage_report.findings``, walked by index, never collapsed by
     key). No unconditional check was added as a result of this sweep.
     """

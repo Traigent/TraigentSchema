@@ -1286,6 +1286,42 @@ def built_corpus_placeholder() -> str:
     return "cpr:" + "A" * 43
 
 
+def test_training_and_prior_output_contamination_verify_with_signed_corpus_descriptors() -> None:
+    """Positive control for the Tier-C issuer contract (F3, sol round-3 P2-1).
+
+    Test 25 proves the verifier REJECTS a Tier-C finding whose basis is
+    wrong. It does not prove a conformant issuer can satisfy the tightened
+    shape at all. Here both Tier-C kinds carry ``client_attested`` and point
+    at corpus refs that already resolve to signed ``leaf_list_digests``
+    entries in the base bundle (``_check_corpus_ref_descriptors``), so the
+    record should reach ``DATASET_RECORD_VERIFIED`` with DS4 still
+    issuer_verified -- Tier-C findings ride alongside DS4's near-duplicate
+    evidence, they do not replace it.
+    """
+    base = _build()
+    built = _build(
+        extra_findings=[
+            {
+                "finding_kind": "training_corpus_contamination",
+                "observation_basis": "client_attested",
+                "corpus_a_ref": base.corpus_a_ref,
+                "corpus_b_ref": base.corpus_b_ref,
+                "overlap_count": 0,
+            },
+            {
+                "finding_kind": "prior_output_contamination",
+                "observation_basis": "client_attested",
+                "corpus_a_ref": base.corpus_a_ref,
+                "corpus_b_ref": base.corpus_b_ref,
+                "overlap_count": 0,
+            },
+        ]
+    )
+    result = _verify(built)
+    assert result.code == "DATASET_RECORD_VERIFIED"
+    assert result.claims_verified == ("DS1", "DS2", "DS3", "DS4", "DS5")
+
+
 def test_near_duplicate_finding_with_a_method_absent_from_the_plan_fails() -> None:
     """Test 26."""
     built = _build()

@@ -458,3 +458,63 @@ def test_a_support_row_may_carry_exactly_one_evidence_ref() -> None:
     assert [
         error.validator for error in _errors(row(2), "DatasetRecordClaimSupportRowV1")
     ] == ["maxItems"]
+
+
+def test_schema_still_pins_the_wire_shape_two_unit_called_guards_rely_on() -> None:
+    """Re-arm tripwire (sol round-3 P2-2).
+
+    Two verifier guards are reachable through the wire bundle ONLY because
+    the schema forecloses the shapes that would otherwise reach them, and
+    each guard is exercised directly as a unit, not through a wire negative:
+
+    - ``dataset_record_verifier._check_support_rows``'s ``len(refs) != 1``
+      branch (astra F9) is schema-blocked by ``evidence_refs.maxItems: 1``
+      on ``DatasetRecordClaimSupportRowV1`` -- see
+      ``test_a_support_row_may_carry_exactly_one_evidence_ref`` above, which
+      already re-derives this from ``SCHEMA``.
+    - ``dataset_record_verifier._check_taxonomy_and_registry_pins`` and
+      ``_check_report_registry_identities`` (astra F6a) are schema-blocked
+      by ``const``-pinning ``taxonomy_id``/``taxonomy_version`` on
+      ``DatasetTaxonomyIdentityV1`` and ``registry_id``/``registry_version``
+      on ``DatasetMethodRegistryIdentityV1``.
+
+    If a future schema change relaxes any of these -- widens ``maxItems``,
+    or drops a ``const`` in favour of a plain ``type: string`` -- THIS test
+    fails, and failing here is the signal that the guard it names just
+    became reachable through the wire with no negative test proving it
+    still rejects the widened shape.
+    """
+    support_row_refs = SCHEMA["definitions"]["DatasetRecordClaimSupportRowV1"]["properties"][
+        "evidence_refs"
+    ]
+    assert support_row_refs["maxItems"] == 1, (
+        "evidence_refs.maxItems widened past 1 -- "
+        "dataset_record_verifier._check_support_rows's `len(refs) != 1` guard "
+        "is now wire-reachable and needs a wire negative, not just a unit call"
+    )
+
+    taxonomy_identity = SCHEMA["definitions"]["DatasetTaxonomyIdentityV1"]["properties"]
+    assert taxonomy_identity["taxonomy_id"] == {"const": "traigent.dataset_taxonomy.asap.v1"}, (
+        "taxonomy_id is no longer const-pinned -- "
+        "dataset_record_verifier._check_taxonomy_and_registry_pins's identity "
+        "comparison is now wire-reachable and needs a wire negative"
+    )
+    assert taxonomy_identity["taxonomy_version"] == {"const": "1.0.0"}, (
+        "taxonomy_version is no longer const-pinned -- "
+        "dataset_record_verifier._check_taxonomy_and_registry_pins's identity "
+        "comparison is now wire-reachable and needs a wire negative"
+    )
+
+    registry_identity = SCHEMA["definitions"]["DatasetMethodRegistryIdentityV1"]["properties"]
+    assert registry_identity["registry_id"] == {
+        "const": "traigent.dataset_method_registry.asap.v1"
+    }, (
+        "registry_id is no longer const-pinned -- "
+        "dataset_record_verifier._check_taxonomy_and_registry_pins's identity "
+        "comparison is now wire-reachable and needs a wire negative"
+    )
+    assert registry_identity["registry_version"] == {"const": "1.0.0"}, (
+        "registry_version is no longer const-pinned -- "
+        "dataset_record_verifier._check_taxonomy_and_registry_pins's identity "
+        "comparison is now wire-reachable and needs a wire negative"
+    )

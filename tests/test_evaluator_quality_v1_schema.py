@@ -246,6 +246,220 @@ def _non_claim_rows() -> list:
     return rows
 
 
+_CLAIM_TEMPLATE_BY_ID = {
+    "EVQ1": "tmpl.evq.identity_commitment.v1",
+    "EVQ2": "tmpl.evq.agreement_with_reference.v1",
+    "EVQ3": "tmpl.evq.calibration_against_reference.v1",
+    "EVQ4": "tmpl.evq.sensitivity_two_sided.v1",
+    "EVQ5": "tmpl.evq.reliability_declared_probe_set.v1",
+}
+
+OPAQUE_REF = "trustring:aaaaaaaa"
+OPAQUE_KEY_REF = "issuerkey:aaaaaaaa"
+SIGNATURE_BYTES = "A" * 86 + "=="
+SPKI_DER_B64 = "A" * 44
+
+
+def _claim_material(claim_id: str, *, tier: int = 1, verdict: str = "directional") -> dict:
+    return {
+        "claim_id": claim_id,
+        "tier": tier,
+        "verdict": verdict,
+        "assertion_template_id": _CLAIM_TEMPLATE_BY_ID[claim_id],
+        "descriptor_digest": SHA,
+        "reference_standard_digest": SHA,
+        "evaluation_scope_digest": SHA,
+        "declared_plan_digest": SHA,
+    }
+
+
+def _claim_material_list() -> list:
+    return [_claim_material(claim_id) for claim_id in ("EVQ1", "EVQ2", "EVQ3", "EVQ4", "EVQ5")]
+
+
+def _component_commitment(component: str) -> dict:
+    return {
+        "component": component,
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "canonicalization": "jcs_v1",
+        "commitment_digest": SHA,
+    }
+
+
+def _descriptor() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.descriptor.v1",
+        "disclosure_mode": "private_commitment",
+        "evaluator_kind": "llm_judge_rubric",
+        "evaluator_version": "1.0.0",
+        "determinism": "deterministic",
+        "component_commitments": [
+            _component_commitment(component)
+            for component in ("implementation", "rubric", "model_identity", "parameters", "harness")
+        ],
+        "descriptor_digest": SHA,
+    }
+
+
+def _evaluator_commitment() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.commitment.v1",
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "canonicalization": "jcs_v1",
+        "artifact_kind": "evaluator",
+        "commitment_digest": SHA,
+    }
+
+
+def _evaluation_scope() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.evaluation_scope.v1",
+        "evaluation_set_digest": SHA,
+        "evaluation_item_count": 1000,
+        "sampling_policy_digest": SHA,
+        "sampling_frame": "full_declared_dataset",
+        "held_out_status": "unknown",
+        "selection_set_digest": SHA,
+        "estimation_set_digest": SHA,
+        "evaluation_scope_digest": SHA,
+    }
+
+
+def _planned_measurement() -> dict:
+    return {
+        "measurement_role": "calibration_ece",
+        "estimator_id": "cohens_kappa",
+        "estimator_parameters": {
+            "interval_side": "two_sided",
+            "direction": "lower_is_better",
+            "score_scale": "binary",
+            "label_kind": "binary",
+        },
+        "value_unit": "ppm_unsigned",
+        "interval_params": {
+            "interval_kind": "wilson_score",
+            "continuity_correction": "none",
+        },
+        "nominal_coverage_ppm": 950000,
+        "sample_unit": "evaluation_item",
+        "minimum_sample_size_n": 30,
+        "maximum_interval_width_ppm": 200000,
+        "threshold_value": 500000,
+        "threshold_comparison": "interval_high_le",
+    }
+
+
+def _declared_plan() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.declared_plan.v1",
+        "evaluator_commitment_digest": SHA,
+        "reference_standard_digest": SHA,
+        "evaluation_scope_digest": SHA,
+        "planned_measurements": [_planned_measurement()],
+        "sensitivity_pair_set": _sensitivity_block()["pair_set"],
+        "perturbation_set_digest": SHA,
+        "measurement_registry_digest": SHA,
+        "binning_policy": "equal_width",
+        "bin_count": 10,
+        "aggregation_policy": _aggregation_policy(),
+        "declared_plan_digest": SHA,
+    }
+
+
+def _unsigned_manifest(*, overall: dict | None = None) -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.unsigned_manifest.v1",
+        "scope_binding_digest": SHA,
+        "evaluator_commitment_ref": SHA,
+        "evaluator_commitment": _evaluator_commitment(),
+        "descriptor_digest": SHA,
+        "descriptor_opening_digest": None,
+        "reference_standard_digest": SHA,
+        "evaluation_scope_digest": SHA,
+        "declared_plan_digest": SHA,
+        "measurement_registry_digest": SHA,
+        "perturbation_set_digest": SHA,
+        "assertion_templates_digest": SHA,
+        "measurement_set_digest": SHA,
+        "frontier_digest": None,
+        "claim_material_digest": SHA,
+        "claim_support_rows_digest": SHA,
+        "non_claims_digest": SHA,
+        "overall": overall if overall is not None else _overall(
+            verdict="abstain", instrument_adequacy_verdict="abstain", overall_quality_ppm=None
+        ),
+        "trust_ring_ref": OPAQUE_REF,
+        "issuer_key_ref": OPAQUE_KEY_REF,
+        "issuer_signature_algorithm": "ed25519",
+        "coverage": DEFS["EvaluatorQualityUnsignedManifestV1"]["properties"]["coverage"]["const"],
+    }
+
+
+def _signature() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.signature.v1",
+        "algorithm": "ed25519",
+        "issuer_key_ref": OPAQUE_KEY_REF,
+        "trust_ring_ref": OPAQUE_REF,
+        "signed_payload": "unsigned_evaluator_quality_manifest",
+        "unsigned_manifest_digest": SHA,
+        "signature": SIGNATURE_BYTES,
+    }
+
+
+def _verifier_binding(verifier_id: str) -> dict:
+    return {
+        "verifier_id": verifier_id,
+        "verifier_ref": f"ver.cert.{verifier_id.lower()}",
+        "verifier_version": "1.0.0",
+    }
+
+
+def _verification_materials() -> dict:
+    return {
+        "schema_version": "traigent.certificate_verification_materials.v0",
+        "distribution_role": "discovery_only",
+        "requires_independent_pins": True,
+        "certificate_ref": OPAQUE_REF,
+        "issuer": {
+            "key_ref": OPAQUE_KEY_REF,
+            "trust_ring_ref": OPAQUE_REF,
+            "algorithm": "ed25519",
+            "public_key_der_b64": SPKI_DER_B64,
+            "public_key_digest": SHA,
+        },
+        "relying_party_policy": {
+            "compiler_register_versions": {
+                "compiler_version": "1.0.0",
+                "semantics_manifest_digest": SHA,
+                "claim_template_catalog_digest": SHA,
+                "prohibited_register_digest": SHA,
+                "verifier_catalog_digest": SHA,
+                "non_claim_reason_catalog_digest": SHA,
+            },
+            "verifier_bindings": [_verifier_binding("B1"), _verifier_binding("G1")],
+        },
+        "materials_digest": SHA,
+    }
+
+
+def _bundle(*, support_rows: list | None = None, overall: dict | None = None) -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.certificate_bundle.v1",
+        "unsigned_manifest": _unsigned_manifest(overall=overall),
+        "signature": _signature(),
+        "descriptor": _descriptor(),
+        "reference_standard": _reference_standard(),
+        "evaluation_scope": _evaluation_scope(),
+        "declared_plan": _declared_plan(),
+        "measurements": _measurement_set(),
+        "claim_material": _claim_material_list(),
+        "claim_support_rows": support_rows if support_rows is not None else _support_rows(),
+        "non_claims": _non_claim_rows(),
+        "verification_materials_v0": _verification_materials(),
+    }
+
+
 # --------------------------------------------------------------------------
 # Group 1 -- the file
 # --------------------------------------------------------------------------
@@ -270,6 +484,20 @@ def test_schema_is_valid_draft7_and_every_ref_resolves() -> None:
         except Exception:  # noqa: BLE001 -- collecting every failure for the assertion message
             unresolved.append(ref)
     assert unresolved == []
+
+
+def test_root_rejects_a_non_bundle_document() -> None:
+    validator = _validator(None)
+    for non_bundle in (None, {}, [], "x", DEFS["EvaluatorQualityOverallV1"]):
+        assert not validator.is_valid(non_bundle), non_bundle
+    assert validator.is_valid(_bundle())
+
+
+def test_coverage_const_names_only_real_manifest_properties() -> None:
+    manifest = DEFS["EvaluatorQualityUnsignedManifestV1"]
+    coverage = set(manifest["properties"]["coverage"]["const"])
+    real_properties = set(manifest["properties"])
+    assert coverage - real_properties == set()
 
 
 def test_every_object_is_closed() -> None:

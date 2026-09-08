@@ -3,7 +3,11 @@
   "$id": "https://schemas.traigent.ai/certification/evaluator_quality_v1_schema.json",
   "title": "Traigent Evaluator Quality Certificate v1",
   "description": "Traigent Evaluator Quality Certificate v1 (pillar 3): a signed statement of how well an evaluator (LLM judge, rubric scorer, unit-test harness) agrees with a pinned reference standard, over a pinned evaluation scope, against a declared measurement plan. Every measurement interval in v1 is an issuer attestation (basis issuer_attested_v1) and is not independently recomputed by the verifier or by a relying party; the shape reserves a construction_recomputed_v1 basis for a future contract version, but no v1 document can construct it. Evaluator efficiency (EVQ6) and the agreement-per-cost frontier (EVQ7) are registered claim ids and measurement roles, but neither is asserted by this contract: EVQ6 and EVQ7 carry no support row, and no v1 document can construct an efficiency or frontier measurement. EVQ1 (evaluator identity) under disclosure_mode private_commitment is an attestation: the descriptor's component commitments are secret and no DescriptorOpeningV1 travels in this bundle shape, so a relying party cannot recompute the binding and cannot verify it beyond tier 1. Ordering evidence is out of scope for v1: nothing here establishes when the declared plan was authored relative to the measurements, and this certificate does not verify it.",
-  "$ref": "#/definitions/EvaluatorQualityCertificateBundleV1",
+  "allOf": [
+    {
+      "$ref": "#/definitions/EvaluatorQualityCertificateBundleV1"
+    }
+  ],
   "definitions": {
     "EvaluatorQualityDigestDomainRegistryV1": {
       "description": "Normative fixed role domains for this family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded). This is a SEPARATE registry from ProcessRecordDigestDomainRegistryV1: adding members there would modify a shipped V1 contract and break its own required-list test.",
@@ -2866,7 +2870,7 @@
             "assertion_templates_digest",
             "measurement_set_digest",
             "frontier_digest",
-            "claim_material",
+            "claim_material_digest",
             "claim_support_rows_digest",
             "non_claims_digest",
             "overall",
@@ -3128,15 +3132,22 @@
                   {
                     "properties": {
                       "verdict": {
-                        "enum": ["abstain", "failed"]
+                        "enum": [
+                          "abstain",
+                          "failed"
+                        ]
                       }
                     },
-                    "required": ["verdict"]
+                    "required": [
+                      "verdict"
+                    ]
                   }
                 ]
               }
             },
-            "required": ["claim_support_rows"]
+            "required": [
+              "claim_support_rows"
+            ]
           },
           "then": {
             "properties": {
@@ -3145,7 +3156,9 @@
                   "overall": {
                     "not": {
                       "properties": {
-                        "instrument_adequacy_verdict": {"const": "passed"}
+                        "instrument_adequacy_verdict": {
+                          "const": "passed"
+                        }
                       }
                     }
                   }
@@ -3159,19 +3172,27 @@
             "properties": {
               "claim_support_rows": {
                 "items": [
-                  {}, {},
+                  {},
+                  {},
                   {
                     "properties": {
                       "verdict": {
-                        "enum": ["abstain", "failed"]
+                        "enum": [
+                          "abstain",
+                          "failed"
+                        ]
                       }
                     },
-                    "required": ["verdict"]
+                    "required": [
+                      "verdict"
+                    ]
                   }
                 ]
               }
             },
-            "required": ["claim_support_rows"]
+            "required": [
+              "claim_support_rows"
+            ]
           },
           "then": {
             "properties": {
@@ -3180,7 +3201,9 @@
                   "overall": {
                     "not": {
                       "properties": {
-                        "instrument_adequacy_verdict": {"const": "passed"}
+                        "instrument_adequacy_verdict": {
+                          "const": "passed"
+                        }
                       }
                     }
                   }
@@ -3194,19 +3217,28 @@
             "properties": {
               "claim_support_rows": {
                 "items": [
-                  {}, {}, {},
+                  {},
+                  {},
+                  {},
                   {
                     "properties": {
                       "verdict": {
-                        "enum": ["abstain", "failed"]
+                        "enum": [
+                          "abstain",
+                          "failed"
+                        ]
                       }
                     },
-                    "required": ["verdict"]
+                    "required": [
+                      "verdict"
+                    ]
                   }
                 ]
               }
             },
-            "required": ["claim_support_rows"]
+            "required": [
+              "claim_support_rows"
+            ]
           },
           "then": {
             "properties": {
@@ -3215,7 +3247,9 @@
                   "overall": {
                     "not": {
                       "properties": {
-                        "instrument_adequacy_verdict": {"const": "passed"}
+                        "instrument_adequacy_verdict": {
+                          "const": "passed"
+                        }
                       }
                     }
                   }
@@ -3229,19 +3263,29 @@
             "properties": {
               "claim_support_rows": {
                 "items": [
-                  {}, {}, {}, {},
+                  {},
+                  {},
+                  {},
+                  {},
                   {
                     "properties": {
                       "verdict": {
-                        "enum": ["abstain", "failed"]
+                        "enum": [
+                          "abstain",
+                          "failed"
+                        ]
                       }
                     },
-                    "required": ["verdict"]
+                    "required": [
+                      "verdict"
+                    ]
                   }
                 ]
               }
             },
-            "required": ["claim_support_rows"]
+            "required": [
+              "claim_support_rows"
+            ]
           },
           "then": {
             "properties": {
@@ -3250,7 +3294,9 @@
                   "overall": {
                     "not": {
                       "properties": {
-                        "instrument_adequacy_verdict": {"const": "passed"}
+                        "instrument_adequacy_verdict": {
+                          "const": "passed"
+                        }
                       }
                     }
                   }

@@ -1,0 +1,2338 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/agent_quality_v1_schema.json",
+  "title": "Traigent Agent Quality Certificate v1",
+  "description": "Closed, content-free measured-agent-quality contract (pillar 1). A separate contract family: it adds no identifier, template, tier, or claim id to the frozen Agent Certificate v0 vocabulary and modifies no v0 file. Every certified value is an INTERVAL on a HELD-OUT split, and every interval carries the bounded sufficient statistics its endpoints are recomputed from, so a well-formed but arithmetically wrong interval is rejected rather than merely shaped. VERIFICATION LEVELS ARE EXPLICIT AND PER QUANTITY: interval CONSTRUCTION is recomputed offline (construction_recomputed_v1); the sufficient statistics, the quantile endpoint values, and split membership are ISSUER ATTESTATIONS, and each carries a matching printed non-claim. No sum or sum-of-squares crosses the wire: jcs_v1 (traigent_schema/fp2.py) rejects integers above 2**53-1, so every statistic is a bounded aggregate in the objective's own unit. The verifier MUST reject decoded booleans and floating-point values for every integer-valued field even where a Draft-07 implementation accepts 1.0 as integer-compatible. Pre-registration is not verified by this certificate; ordering evidence is out of scope for v1.",
+  "definitions": {
+    "AgentQualityDigestDomainRegistryV1": {
+      "description": "Normative fixed role domains for this family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its own self-digest and any stated outer signature excluded). V1-family domains only; the frozen DigestRoleDomainTagV0 enum is not touched.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_binding",
+        "measured_objective",
+        "measured_claims",
+        "selection_estimates",
+        "evaluation_split",
+        "evaluation_splits",
+        "split_derivation",
+        "declared_plan",
+        "declared_plan_signature",
+        "aggregation_policy",
+        "objective_registry",
+        "non_claim_catalog",
+        "quantile_table",
+        "non_claims",
+        "assertion",
+        "claim_material",
+        "claim_support_rows",
+        "unsigned_manifest",
+        "issuer_signature"
+      ],
+      "properties": {
+        "scope_binding": {
+          "const": "traigent.agent_quality.scope_binding.v1"
+        },
+        "measured_objective": {
+          "const": "traigent.agent_quality.measured_objective.v1"
+        },
+        "measured_claims": {
+          "const": "traigent.agent_quality.measured_claims.v1"
+        },
+        "selection_estimates": {
+          "const": "traigent.agent_quality.selection_estimates.v1"
+        },
+        "evaluation_split": {
+          "const": "traigent.agent_quality.evaluation_split.v1"
+        },
+        "evaluation_splits": {
+          "const": "traigent.agent_quality.evaluation_splits.v1"
+        },
+        "split_derivation": {
+          "const": "traigent.agent_quality.split_derivation.v1"
+        },
+        "aggregation_policy": {
+          "const": "traigent.agent_quality.aggregation_policy.v1"
+        },
+        "objective_registry": {
+          "const": "traigent.agent_quality.objective_registry.v1"
+        },
+        "non_claim_catalog": {
+          "const": "traigent.agent_quality.non_claim_catalog.v1"
+        },
+        "quantile_table": {
+          "const": "traigent.agent_quality.quantile_table.v1"
+        },
+        "non_claims": {
+          "const": "traigent.agent_quality.non_claims.v1"
+        },
+        "assertion": {
+          "const": "traigent.agent_quality.assertion.v1"
+        },
+        "claim_material": {
+          "const": "traigent.agent_quality.claim_material.v1"
+        },
+        "claim_support_rows": {
+          "const": "traigent.agent_quality.claim_support_rows.v1"
+        },
+        "unsigned_manifest": {
+          "const": "traigent.agent_quality.unsigned_manifest.v1"
+        },
+        "issuer_signature": {
+          "const": "traigent.agent_quality.issuer_signature.v1"
+        },
+        "declared_plan": {
+          "const": "traigent.agent_quality.declared_plan.v1"
+        },
+        "declared_plan_signature": {
+          "const": "traigent.agent_quality.declared_plan_signature.v1"
+        }
+      }
+    },
+    "AgentQualitySignaturePreimageV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "framing",
+        "signed_projection"
+      ],
+      "properties": {
+        "domain": {
+          "const": "traigent.agent_quality.issuer_signature.v1"
+        },
+        "framing": {
+          "const": "UTF8(domain) || 0x00 || jcs_v1(unsigned_manifest)"
+        },
+        "signed_projection": {
+          "const": "unsigned_manifest"
+        }
+      }
+    },
+    "ScopeBindingProjectionV1": {
+      "description": "The ONLY place project_ref and build_session_ref appear in this family, and it is a digest preimage, never a bundle field. The verifier constructs this projection itself from context.expected_project_ref, context.expected_build_session_ref and the verified process record, hashes it under traigent.agent_quality.scope_binding.v1, and compares against the manifest's scope_binding_digest. Both refs are CALLER-INFLUENCEABLE strings -- ProjectRefV0's pattern bounds the alphabet and the length but not the meaning, and its own v0 description carves out only agent/evaluator/dataset/build-process content, not customer or organisation identity -- so they are hashed rather than carried. This definition exists to pin the preimage shape; no instance of it is ever transmitted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_ref",
+        "build_session_ref"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.scope_binding.v1"
+        },
+        "project_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/ProjectRefV0"
+        },
+        "build_session_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        }
+      }
+    },
+    "RecomputationProfileV1": {
+      "description": "Pinned arithmetic profile for offline interval recomputation. exact_integer_rational_v1: all comparisons in exact integer/rational arithmetic, no floating point anywhere in verification. Wilson endpoints are checked by integer bracketing of the quadratic's roots (no square root is taken). Student-t half-widths use an exact integer square root and a t-quantile read from the pinned package-data table. Order-statistic ranks use exact big-integer binomial tails computed INSIDE the verifier, which never cross the wire and are therefore not subject to the fp2 safe-integer cap. All rounding is OUTWARD: a low endpoint floors, a high endpoint ceils, so a rounding difference can only widen an interval, never narrow it.",
+      "type": "string",
+      "const": "exact_integer_rational_v1"
+    },
+    "VerificationLevelV1": {
+      "description": "The full verification ladder. L3 opened_and_recomputed_v1: the value itself is recomputed from opened evidence the relying party holds -- registered for a future major version; v1 defines no opening path. L2 construction_recomputed_v1: the interval endpoints are recomputed exactly from declared sufficient statistics, which themselves remain issuer attestations. L1 issuer_attested_v1: neither. v1 certified claims MUST use EmittableVerificationLevelV1, which keeps the other two members registered while making their emission structurally impossible.",
+      "type": "string",
+      "enum": [
+        "opened_and_recomputed_v1",
+        "construction_recomputed_v1",
+        "issuer_attested_v1"
+      ]
+    },
+    "EmittableVerificationLevelV1": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/VerificationLevelV1"
+        },
+        {
+          "not": {
+            "enum": [
+              "issuer_attested_v1",
+              "opened_and_recomputed_v1"
+            ]
+          }
+        }
+      ]
+    },
+    "ObjectiveIdV1": {
+      "description": "Closed objective vocabulary. Duplicated from the shipped objective registry (which has no $id and cannot be $ref'd); a contract test pins set-equality so the two cannot drift.",
+      "type": "string",
+      "enum": [
+        "obj.accuracy.exact_match.v1",
+        "obj.accuracy.evaluator_score_mean.v1",
+        "obj.cost.mean_microusd_per_item.v1",
+        "obj.latency.mean_us.v1",
+        "obj.latency.p50_us.v1"
+      ]
+    },
+    "ObjectiveKindV1": {
+      "description": "nonnegative_total was REMOVED in rev 1: a total over the holdout has no sampling interval to state, so certifying one was an interval on a quantity that does not have one. Cost is certified as a mean per item.",
+      "type": "string",
+      "enum": [
+        "binary_rate",
+        "bounded_mean",
+        "nonnegative_mean",
+        "nonnegative_quantile"
+      ]
+    },
+    "MeasurementUnitV1": {
+      "type": "string",
+      "enum": [
+        "ppm",
+        "microusd",
+        "microsecond"
+      ]
+    },
+    "ObjectiveDirectionV1": {
+      "type": "string",
+      "enum": [
+        "maximize",
+        "minimize"
+      ]
+    },
+    "DistributionAssumptionV1": {
+      "description": "Closed distribution-assumption vocabulary for objectives whose estimator needs one. clt_adequate_n200_v1: the objective's registry entry asserts that a normal approximation to the sampling distribution of the mean is adequate at n >= 200 for this quantity. The assumption is a printed, digested registry field so a relying party can see what the interval rests on; it is an assumption, not a verified property, and is covered by NCQ_SUFFICIENT_STATISTICS_ATTESTED.",
+      "type": "string",
+      "enum": [
+        "clt_adequate_n200_v1"
+      ]
+    },
+    "IntervalMethodV1": {
+      "description": "Full estimator vocabulary. bootstrap_percentile_v1 remains a registered NAME but is unconstructible in v1 (EmittableIntervalMethodV1): a percentile bootstrap cannot be recomputed from any bounded content-free statistic -- it needs the per-item score vector, which must never cross the boundary -- so emitting one would ship an issuer attestation dressed as a recomputed interval. Enabling it requires an opened-evidence path and is a MAJOR version event.",
+      "type": "string",
+      "enum": [
+        "wilson_score_v1",
+        "student_t_normal_approx_v1",
+        "order_statistic_quantile_v1",
+        "bootstrap_percentile_v1"
+      ]
+    },
+    "EmittableIntervalMethodV1": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/IntervalMethodV1"
+        },
+        {
+          "not": {
+            "enum": [
+              "bootstrap_percentile_v1",
+              "order_statistic_quantile_v1"
+            ]
+          }
+        }
+      ]
+    },
+    "NominalCoveragePpmV1": {
+      "description": "Closed nominal-coverage vocabulary in ppm, and the key set of the pinned t-quantile table -- an unlisted coverage has no table row and is unconstructible twice over. NOMINAL, not measured: NCQ_NOMINAL_COVERAGE_ONLY is a mandatory printed non-claim.",
+      "type": "integer",
+      "enum": [
+        900000,
+        950000,
+        990000
+      ]
+    },
+    "ContinuityCorrectionV1": {
+      "type": "string",
+      "enum": [
+        "none",
+        "yates_v1"
+      ]
+    },
+    "IntervalParamsWilsonV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interval_method",
+        "continuity_correction",
+        "recomputation_profile"
+      ],
+      "properties": {
+        "interval_method": {
+          "const": "wilson_score_v1"
+        },
+        "continuity_correction": {
+          "$ref": "#/definitions/ContinuityCorrectionV1"
+        },
+        "recomputation_profile": {
+          "$ref": "#/definitions/RecomputationProfileV1"
+        }
+      }
+    },
+    "IntervalParamsStudentTV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interval_method",
+        "degrees_of_freedom",
+        "quantile_table",
+        "recomputation_profile"
+      ],
+      "properties": {
+        "interval_method": {
+          "const": "student_t_normal_approx_v1"
+        },
+        "degrees_of_freedom": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "quantile_table": {
+          "$ref": "#/definitions/QuantileTableIdentityV1"
+        },
+        "recomputation_profile": {
+          "$ref": "#/definitions/RecomputationProfileV1"
+        }
+      }
+    },
+    "IntervalParamsOrderStatisticV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interval_method",
+        "quantile_ppm",
+        "recomputation_profile"
+      ],
+      "properties": {
+        "interval_method": {
+          "const": "order_statistic_quantile_v1"
+        },
+        "quantile_ppm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 999999
+        },
+        "recomputation_profile": {
+          "$ref": "#/definitions/RecomputationProfileV1"
+        }
+      }
+    },
+    "IntervalParamsV1": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/IntervalParamsWilsonV1"
+        },
+        {
+          "$ref": "#/definitions/IntervalParamsStudentTV1"
+        }
+      ]
+    },
+    "SufficientStatisticsBinomialV1": {
+      "description": "Wilson inputs. Both counts are bounded aggregates already disclosed in spirit by the process record's evaluated_count. The verifier recomputes the point estimate as round(success_count * 1000000 / trial_count) and both endpoints from these two integers alone.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stat_kind",
+        "success_count",
+        "trial_count"
+      ],
+      "properties": {
+        "stat_kind": {
+          "const": "binomial_v1"
+        },
+        "success_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "trial_count": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 1000000000
+        }
+      }
+    },
+    "SufficientStatisticsMeanVarianceV1": {
+      "description": "Student-t inputs. Deliberately NOT a sum and sum-of-squares: jcs_v1 (traigent_schema/fp2.py) rejects integers above 2**53-1, and a sum of squares of microsecond latencies over a million items is ~10**24, so such a certificate could not be canonicalised or signed at all. mean_fixed and sample_stddev_fixed are bounded by the objective's own unit maximum instead. Both are issuer attestations; only the interval CONSTRUCTION is recomputed from them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stat_kind",
+        "sample_count",
+        "mean_fixed",
+        "sample_stddev_fixed",
+        "unit_scale"
+      ],
+      "properties": {
+        "stat_kind": {
+          "const": "mean_variance_v1"
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 1000000000
+        },
+        "mean_fixed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "sample_stddev_fixed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "unit_scale": {
+          "$ref": "#/definitions/MeasurementUnitV1"
+        }
+      }
+    },
+    "SufficientStatisticsOrderStatisticV1": {
+      "description": "Distribution-free quantile inputs. The verifier recomputes lower_rank and upper_rank from sample_count, quantile_ppm and the nominal coverage using exact binomial tails, and checks the declared endpoints equal the declared order-statistic values at those ranks. The three VALUES are attested -- they are individual observations of the measured quantity (a latency), not aggregates, which is why NCQ_QUANTILE_ENDPOINTS_ATTESTED is printed and why this branch is admitted only for microsecond-unit objectives carrying no customer content.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stat_kind",
+        "sample_count",
+        "quantile_ppm",
+        "lower_rank",
+        "point_rank",
+        "upper_rank",
+        "lower_value",
+        "point_value",
+        "upper_value"
+      ],
+      "properties": {
+        "stat_kind": {
+          "const": "order_statistic_v1"
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 1000000000
+        },
+        "quantile_ppm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 999999
+        },
+        "lower_rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "point_rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "upper_rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "lower_value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "point_value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "upper_value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        }
+      }
+    },
+    "SufficientStatisticsV1": {
+      "description": "Discriminated union on stat_kind; exactly one branch validates. Presence is REQUIRED on every certified claim, so an interval the verifier cannot recompute is schema-invalid.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/SufficientStatisticsBinomialV1"
+        },
+        {
+          "$ref": "#/definitions/SufficientStatisticsMeanVarianceV1"
+        }
+      ]
+    },
+    "MeasuredObjectiveClaimV1": {
+      "description": "One CERTIFIED objective estimate. point_estimate, interval_low, interval_high, interval_params, nominal_coverage_ppm, sample_size AND sufficient_statistics are all required, so both a bare number and an unrecomputable interval are schema-invalid. evaluated_split_id is const 'holdout': a selection-set estimate cannot appear here. verification_level records, per quantity, what the relying party can actually recompute. Verifier obligations Draft-07 cannot express: interval_low <= point_estimate <= interval_high; interval_high > interval_low; sample_size == holdout item_count == the statistics' own count; declared endpoints equal the endpoints recomputed from the statistics under the pinned profile.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "objective_id",
+        "objective_kind",
+        "unit",
+        "direction",
+        "evaluated_split_id",
+        "sample_size",
+        "point_estimate",
+        "interval_low",
+        "interval_high",
+        "interval_params",
+        "sufficient_statistics",
+        "verification_level",
+        "nominal_coverage_ppm",
+        "measurement_contract_ref",
+        "measurement_contract_record_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.measured_objective.v1"
+        },
+        "objective_id": {
+          "$ref": "#/definitions/EmittableObjectiveIdV1"
+        },
+        "objective_kind": {
+          "$ref": "#/definitions/EmittableObjectiveKindV1"
+        },
+        "unit": {
+          "$ref": "#/definitions/MeasurementUnitV1"
+        },
+        "direction": {
+          "$ref": "#/definitions/ObjectiveDirectionV1"
+        },
+        "evaluated_split_id": {
+          "const": "holdout"
+        },
+        "sample_size": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 1000000000
+        },
+        "point_estimate": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "interval_low": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "interval_high": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "interval_params": {
+          "$ref": "#/definitions/IntervalParamsV1"
+        },
+        "sufficient_statistics": {
+          "$ref": "#/definitions/SufficientStatisticsV1"
+        },
+        "verification_level": {
+          "$ref": "#/definitions/EmittableVerificationLevelV1"
+        },
+        "nominal_coverage_ppm": {
+          "$ref": "#/definitions/NominalCoveragePpmV1"
+        },
+        "measurement_contract_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "measurement_contract_record_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "objective_kind": {
+                "const": "binary_rate"
+              }
+            },
+            "required": [
+              "objective_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "ppm"
+              },
+              "point_estimate": {
+                "maximum": 1000000
+              },
+              "interval_low": {
+                "maximum": 1000000
+              },
+              "interval_high": {
+                "maximum": 1000000
+              },
+              "interval_params": {
+                "$ref": "#/definitions/IntervalParamsWilsonV1"
+              },
+              "sufficient_statistics": {
+                "$ref": "#/definitions/SufficientStatisticsBinomialV1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "objective_kind": {
+                "const": "bounded_mean"
+              }
+            },
+            "required": [
+              "objective_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "ppm"
+              },
+              "point_estimate": {
+                "maximum": 1000000
+              },
+              "interval_low": {
+                "maximum": 1000000
+              },
+              "interval_high": {
+                "maximum": 1000000
+              },
+              "interval_params": {
+                "$ref": "#/definitions/IntervalParamsStudentTV1"
+              },
+              "sufficient_statistics": {
+                "$ref": "#/definitions/SufficientStatisticsMeanVarianceV1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "objective_kind": {
+                "const": "nonnegative_mean"
+              }
+            },
+            "required": [
+              "objective_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "enum": [
+                  "microusd",
+                  "microsecond"
+                ]
+              },
+              "sample_size": {
+                "minimum": 200
+              },
+              "interval_params": {
+                "$ref": "#/definitions/IntervalParamsStudentTV1"
+              },
+              "sufficient_statistics": {
+                "$ref": "#/definitions/SufficientStatisticsMeanVarianceV1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "objective_kind": {
+                "const": "nonnegative_quantile"
+              }
+            },
+            "required": [
+              "objective_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unit": {
+                "const": "microsecond"
+              },
+              "sample_size": {
+                "minimum": 100
+              },
+              "interval_params": {
+                "$ref": "#/definitions/IntervalParamsOrderStatisticV1"
+              },
+              "sufficient_statistics": {
+                "$ref": "#/definitions/SufficientStatisticsOrderStatisticV1"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MeasuredClaimsV1": {
+      "description": "The certified objective set. At most one record per objective_id is a verifier obligation (OBJECTIVE_DUPLICATE); uniqueItems cannot express it because two records may differ only in interval_params.",
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/MeasuredObjectiveClaimV1"
+      }
+    },
+    "NonCertifiedSelectionEstimateV1": {
+      "description": "The selection-set estimate, if printed at all. Structurally a DIFFERENT type from MeasuredObjectiveClaimV1 so it can never be mistaken for, or moved into, the certified set. An agent chosen as best of N configurations has an optimistically biased score on the data used to choose it; that is what this record is, and NCQ_SELECTION_ESTIMATE_NOT_CERTIFIED is printed alongside it. The rendered assertion never references this array, and an abstained bundle may not carry one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_kind",
+        "certifiable",
+        "objective_id",
+        "objective_kind",
+        "unit",
+        "evaluated_split_id",
+        "sample_size",
+        "point_estimate"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.selection_estimate.v1"
+        },
+        "record_kind": {
+          "const": "non_certified_selection_estimate"
+        },
+        "certifiable": {
+          "const": "no"
+        },
+        "objective_id": {
+          "$ref": "#/definitions/ObjectiveIdV1"
+        },
+        "objective_kind": {
+          "$ref": "#/definitions/ObjectiveKindV1"
+        },
+        "unit": {
+          "$ref": "#/definitions/MeasurementUnitV1"
+        },
+        "evaluated_split_id": {
+          "const": "selection"
+        },
+        "sample_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "point_estimate": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        }
+      }
+    },
+    "NonCertifiedSelectionEstimatesV1": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/NonCertifiedSelectionEstimateV1"
+      }
+    },
+    "SplitIdV1": {
+      "type": "string",
+      "enum": [
+        "selection",
+        "holdout"
+      ]
+    },
+    "SplitRuleIdV1": {
+      "description": "Closed split-derivation rule vocabulary. hmac_sha256_prefix_threshold_v1: item i goes to holdout iff the first 8 bytes of HMAC-SHA256(split_key, UTF8(item_id)), read big-endian, are strictly less than floor(holdout_fraction_ppm * 2**64 / 1000000). The rule is a TOTAL function into {selection, holdout}. NOTE, corrected in rev 1: totality makes the rule's OWN partition disjoint, but it does not establish that the committed sets ARE that partition -- only SplitOpeningWitnessV1 does. Without an opening, split membership is an issuer attestation (NCQ_SPLIT_MEMBERSHIP_NOT_OPENED).",
+      "type": "string",
+      "enum": [
+        "hmac_sha256_prefix_threshold_v1"
+      ]
+    },
+    "SplitDerivationDeclarationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "split_rule_id",
+        "dataset_commitment_ref",
+        "evaluated_universe_item_count",
+        "holdout_fraction_ppm",
+        "commitment_scheme",
+        "canonicalization_profile",
+        "split_key_commitment",
+        "split_derivation_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.split_derivation.v1"
+        },
+        "split_rule_id": {
+          "$ref": "#/definitions/SplitRuleIdV1"
+        },
+        "dataset_commitment_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluated_universe_item_count": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 1000000000
+        },
+        "holdout_fraction_ppm": {
+          "type": "integer",
+          "minimum": 50000,
+          "maximum": 500000
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization_profile": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "split_key_commitment": {
+          "description": "Secret-blinded commitment to the client-local split key. It binds WHICH key was used; it does not prove WHEN the key was chosen, which is NCQ_SPLIT_KEY_TIMING_NOT_PROVEN.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "split_derivation_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluationSplitRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "split_id",
+        "item_count",
+        "commitment_scheme",
+        "canonicalization_profile",
+        "split_commitment_digest",
+        "split_derivation_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.evaluation_split.v1"
+        },
+        "split_id": {
+          "$ref": "#/definitions/SplitIdV1"
+        },
+        "item_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "canonicalization_profile": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "split_commitment_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "split_derivation_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "EvaluationSplitSetV1": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluationSplitRecordV1"
+            },
+            {
+              "properties": {
+                "split_id": {
+                  "const": "selection"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EvaluationSplitRecordV1"
+            },
+            {
+              "properties": {
+                "split_id": {
+                  "const": "holdout"
+                },
+                "item_count": {
+                  "minimum": 30
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AggregationPolicyIdentityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "policy_version",
+        "policy_digest"
+      ],
+      "properties": {
+        "policy_id": {
+          "const": "traigent.aggregation_policy.pillar1.v1"
+        },
+        "policy_version": {
+          "const": "1.0.0"
+        },
+        "policy_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "ObjectiveRegistryIdentityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_id",
+        "registry_version",
+        "registry_digest"
+      ],
+      "properties": {
+        "registry_id": {
+          "const": "traigent.objective_registry.pillar1.v1"
+        },
+        "registry_version": {
+          "const": "1.0.0"
+        },
+        "registry_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "NonClaimCatalogIdentityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_id",
+        "catalog_version",
+        "catalog_digest"
+      ],
+      "properties": {
+        "catalog_id": {
+          "const": "traigent.agent_quality.non_claim_catalog.v1"
+        },
+        "catalog_version": {
+          "const": "1.0.0"
+        },
+        "catalog_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "QuantileTableIdentityV1": {
+      "description": "Identity of the pinned Student-t quantile table the verifier reads instead of computing a transcendental at verification time. Keyed by (nominal coverage, degrees-of-freedom bucket) in fixed point.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "table_id",
+        "table_version",
+        "table_digest"
+      ],
+      "properties": {
+        "table_id": {
+          "const": "traigent.quantile_table.student_t.v1"
+        },
+        "table_version": {
+          "const": "1.0.0"
+        },
+        "table_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "PillarStatusV1": {
+      "description": "The pillar-support scale for this pillar's cross-references. assessed_supported is registered for a future version in which this pillar can verify another pillar's certificate inline; v1 defines no such verifier entry point, so EmittablePillarStatusV1 keeps only condition_declared_unverified.",
+      "type": "string",
+      "enum": [
+        "condition_declared_unverified",
+        "assessed_supported"
+      ]
+    },
+    "EmittablePillarStatusV1": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/PillarStatusV1"
+        },
+        {
+          "not": {
+            "const": "assessed_supported"
+          }
+        }
+      ]
+    },
+    "PillarSupportEntryV1": {
+      "description": "One pillar's disposition, printed as a condition rather than an assessment: this certificate does not verify the referenced dataset or evaluator certificate, and says so. The corresponding printed non-claims are NCQ_DATASET_VALIDITY_UNASSESSED (prohibited register CERT-P-11) and NCQ_EVALUATOR_VALIDITY_UNASSESSED (CERT-P-12).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "support_subject",
+        "status",
+        "bound_commitment_ref",
+        "condition_code"
+      ],
+      "properties": {
+        "support_subject": {
+          "$ref": "#/definitions/PillarSupportSubjectV1"
+        },
+        "status": {
+          "$ref": "#/definitions/EmittablePillarStatusV1"
+        },
+        "bound_commitment_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "condition_code": {
+          "type": "string",
+          "enum": [
+            "dataset_certificate_not_verified",
+            "evaluator_certificate_not_verified"
+          ]
+        },
+        "bound_manifest_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evidence_ref": {
+          "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+        },
+        "trust_anchor_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        }
+      }
+    },
+    "PillarSupportV1": {
+      "description": "The explicit conditionality of this certificate on the other two pillars, tuple-validated in the fixed order [dataset, evaluator]. process_record is NOT a support subject here: the process record is verified in full by verify_process_record_certificate and bound by digest, so a partial-status support row for it would be a category error.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PillarSupportEntryV1"
+            },
+            {
+              "properties": {
+                "support_subject": {
+                  "const": "dataset"
+                },
+                "condition_code": {
+                  "const": "dataset_certificate_not_verified"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PillarSupportEntryV1"
+            },
+            {
+              "properties": {
+                "support_subject": {
+                  "const": "evaluator"
+                },
+                "condition_code": {
+                  "const": "evaluator_certificate_not_verified"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AgentQualityNonClaimIdV1": {
+      "description": "The twenty-eight mandatory printed non-claims. Items 1-10 restate ratified prohibited-register entries CERT-P-11..CERT-P-20; items 11-28 are contract-specific refusals. Item 16 (NCQ_PLAN_ORDERING_OUT_OF_SCOPE) replaces the pre-registration ordering claim entirely: this pillar makes no ordering assertion at all, not even an unproven one. Items 21-24 name exactly which quantity is attested rather than recomputed; item 25 discloses that stable refs correlate certificates even when they carry no content; items 26-28 are new: non-use of the holdout split is not proven, ref minting is an issuer obligation this certificate does not verify, and score scale is the evaluator's own. Non-claims are printed records, never implied by absence.",
+      "type": "string",
+      "enum": [
+        "NCQ_NO_GENERALIZATION",
+        "NCQ_NO_EXPANDED_EVALUATION",
+        "NCQ_NO_PRODUCTION_TRAFFIC",
+        "NCQ_NO_GENERAL_CORRECTNESS",
+        "NCQ_NO_STATISTICAL_SUPERIORITY",
+        "NCQ_NO_WINNER_REPRODUCIBILITY",
+        "NCQ_NO_MARGIN_MEANING",
+        "NCQ_NO_CRITERIA_CHANGE_VALIDITY",
+        "NCQ_DATASET_VALIDITY_UNASSESSED",
+        "NCQ_EVALUATOR_VALIDITY_UNASSESSED",
+        "NCQ_NO_SAFETY_OR_HARM",
+        "NCQ_NO_DISTRIBUTION_SHIFT",
+        "NCQ_NO_FITNESS_FOR_PURPOSE",
+        "NCQ_NO_UNCERTIFIED_COMPARISON",
+        "NCQ_NOMINAL_COVERAGE_ONLY",
+        "NCQ_PLAN_ORDERING_OUT_OF_SCOPE",
+        "NCQ_SELECTION_ESTIMATE_NOT_CERTIFIED",
+        "NCQ_NO_COST_LATENCY_SLA",
+        "NCQ_NO_LONGITUDINAL_STABILITY",
+        "NCQ_HOLDOUT_ONE_SHOT_SCOPE",
+        "NCQ_SUFFICIENT_STATISTICS_ATTESTED",
+        "NCQ_SPLIT_MEMBERSHIP_NOT_OPENED",
+        "NCQ_QUANTILE_ENDPOINTS_ATTESTED",
+        "NCQ_SPLIT_KEY_TIMING_NOT_PROVEN",
+        "NCQ_REFS_ARE_A_LINKABILITY_CHANNEL",
+        "NCQ_HOLDOUT_NONUSE_NOT_PROVEN",
+        "NCQ_REF_MINTING_IS_AN_ISSUER_OBLIGATION",
+        "NCQ_SCORE_SCALE_IS_THE_EVALUATORS"
+      ]
+    },
+    "AgentQualityNonClaimReasonCatalogV1": {
+      "description": "Closed reason-template vocabulary, one per non-claim id in the same order. Sentences live in the shipped package-data catalog under a pinned digest; the wire record carries identifiers only.",
+      "type": "string",
+      "enum": [
+        "tmpl.aq.noncert.no_generalization.v1",
+        "tmpl.aq.noncert.no_expanded_evaluation.v1",
+        "tmpl.aq.noncert.no_production_traffic.v1",
+        "tmpl.aq.noncert.no_general_correctness.v1",
+        "tmpl.aq.noncert.no_statistical_superiority.v1",
+        "tmpl.aq.noncert.no_winner_reproducibility.v1",
+        "tmpl.aq.noncert.no_margin_meaning.v1",
+        "tmpl.aq.noncert.no_criteria_change_validity.v1",
+        "tmpl.aq.noncert.dataset_validity_unassessed.v1",
+        "tmpl.aq.noncert.evaluator_validity_unassessed.v1",
+        "tmpl.aq.noncert.no_safety_or_harm.v1",
+        "tmpl.aq.noncert.no_distribution_shift.v1",
+        "tmpl.aq.noncert.no_fitness_for_purpose.v1",
+        "tmpl.aq.noncert.no_uncertified_comparison.v1",
+        "tmpl.aq.noncert.nominal_coverage_only.v1",
+        "tmpl.aq.noncert.plan_ordering_out_of_scope.v1",
+        "tmpl.aq.noncert.selection_estimate_not_certified.v1",
+        "tmpl.aq.noncert.no_cost_latency_sla.v1",
+        "tmpl.aq.noncert.no_longitudinal_stability.v1",
+        "tmpl.aq.noncert.holdout_one_shot_scope.v1",
+        "tmpl.aq.noncert.sufficient_statistics_attested.v1",
+        "tmpl.aq.noncert.split_membership_not_opened.v1",
+        "tmpl.aq.noncert.quantile_endpoints_attested.v1",
+        "tmpl.aq.noncert.split_key_timing_not_proven.v1",
+        "tmpl.aq.noncert.refs_are_a_linkability_channel.v1",
+        "tmpl.aq.noncert.holdout_nonuse_not_proven.v1",
+        "tmpl.aq.noncert.ref_minting_is_an_issuer_obligation.v1",
+        "tmpl.aq.noncert.score_scale_is_the_evaluators.v1"
+      ]
+    },
+    "AgentQualityNonClaimV1": {
+      "description": "A printed non-claim record: no verifier field, no tier -- a non-claim asserts nothing, so tiering it would be a category error. Mirrors NonClaimV0 exactly.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "non_claim_id",
+        "reason_template_id"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "non_claim"
+        },
+        "non_claim_id": {
+          "$ref": "#/definitions/AgentQualityNonClaimIdV1"
+        },
+        "reason_template_id": {
+          "$ref": "#/definitions/AgentQualityNonClaimReasonCatalogV1"
+        }
+      },
+      "not": {
+        "required": [
+          "verifier"
+        ]
+      }
+    },
+    "AgentQualityNonClaimsFixedTupleV1": {
+      "description": "The twenty-eight mandatory printed non-claims, tuple-validated in canonical print order. additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid.",
+      "type": "array",
+      "minItems": 28,
+      "maxItems": 28,
+      "additionalItems": false,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_GENERALIZATION"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_generalization.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_EXPANDED_EVALUATION"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_expanded_evaluation.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_PRODUCTION_TRAFFIC"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_production_traffic.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_GENERAL_CORRECTNESS"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_general_correctness.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_STATISTICAL_SUPERIORITY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_statistical_superiority.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_WINNER_REPRODUCIBILITY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_winner_reproducibility.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_MARGIN_MEANING"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_margin_meaning.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_CRITERIA_CHANGE_VALIDITY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_criteria_change_validity.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_DATASET_VALIDITY_UNASSESSED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.dataset_validity_unassessed.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_EVALUATOR_VALIDITY_UNASSESSED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.evaluator_validity_unassessed.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_SAFETY_OR_HARM"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_safety_or_harm.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_DISTRIBUTION_SHIFT"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_distribution_shift.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_FITNESS_FOR_PURPOSE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_fitness_for_purpose.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_UNCERTIFIED_COMPARISON"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_uncertified_comparison.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NOMINAL_COVERAGE_ONLY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.nominal_coverage_only.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_PLAN_ORDERING_OUT_OF_SCOPE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.plan_ordering_out_of_scope.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_SELECTION_ESTIMATE_NOT_CERTIFIED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.selection_estimate_not_certified.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_COST_LATENCY_SLA"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_cost_latency_sla.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_NO_LONGITUDINAL_STABILITY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.no_longitudinal_stability.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_HOLDOUT_ONE_SHOT_SCOPE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.holdout_one_shot_scope.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_SUFFICIENT_STATISTICS_ATTESTED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.sufficient_statistics_attested.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_SPLIT_MEMBERSHIP_NOT_OPENED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.split_membership_not_opened.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_QUANTILE_ENDPOINTS_ATTESTED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.quantile_endpoints_attested.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_SPLIT_KEY_TIMING_NOT_PROVEN"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.split_key_timing_not_proven.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_REFS_ARE_A_LINKABILITY_CHANNEL"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.refs_are_a_linkability_channel.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_HOLDOUT_NONUSE_NOT_PROVEN"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.holdout_nonuse_not_proven.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_REF_MINTING_IS_AN_ISSUER_OBLIGATION"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.ref_minting_is_an_issuer_obligation.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AgentQualityNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "NCQ_SCORE_SCALE_IS_THE_EVALUATORS"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.aq.noncert.score_scale_is_the_evaluators.v1"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AgentQualityAssertionV1": {
+      "description": "The sole registered agent-quality assertion. assertion_digest is SHA-256 over UTF8(traigent.agent_quality.assertion.v1) || 0x00 || jcs_v1(this assertion with assertion_digest excluded). The certified sentence names only facts the verifier recomputes or the issuer attests, and makes no claim about when the declared plan was authored relative to the results. It references no number and never mentions the selection-set estimate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "claim_id",
+        "assertion_template_id",
+        "aggregation_policy",
+        "objective_registry",
+        "rendered_text",
+        "assertion_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.assertion.v1"
+        },
+        "claim_id": {
+          "const": "AQ1"
+        },
+        "assertion_template_id": {
+          "const": "agent_quality_measured_interval_v1"
+        },
+        "aggregation_policy": {
+          "$ref": "#/definitions/AggregationPolicyIdentityV1"
+        },
+        "objective_registry": {
+          "$ref": "#/definitions/ObjectiveRegistryIdentityV1"
+        },
+        "rendered_text": {
+          "const": "For the committed agent, evaluation dataset, evaluator, and registered measurement contract named in this certificate, each certified objective is reported as an interval whose endpoints a relying party recomputes offline from the printed sufficient statistics at the stated nominal coverage. The sufficient statistics are the issuer's attestation, not a recomputed fact. The claim is declared against the split labelled holdout. The aggregation policy is the one stated in a separately signed declared plan, bound here by digest. No comparison, ranking, generalisation, safety, or fitness conclusion is asserted, and the dataset's and the evaluator's own validity are not assessed."
+        },
+        "assertion_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "AgentQualityClaimMaterialV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "tier",
+        "assertion_template_id",
+        "rendered_text",
+        "assertion_digest"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "AQ1"
+        },
+        "tier": {
+          "const": 3
+        },
+        "assertion_template_id": {
+          "const": "agent_quality_measured_interval_v1"
+        },
+        "rendered_text": {
+          "$ref": "#/definitions/AgentQualityAssertionV1/properties/rendered_text"
+        },
+        "assertion_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "AgentQualityClaimSupportRowV1": {
+      "description": "The single AQ1 support row, reusing the frozen v0 EvidenceBasisV0/AbstentionCodeV0 vocabularies unchanged. Before the estimator runtime witness it MUST be abstained with verifier_not_run_or_not_pass and may carry none of the bindings. See the bundle-level coupling: an abstained row forces measured_claims and non_certified_selection_estimates to be EMPTY, so an abstained bundle carries no numbers at all.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "evidence_basis"
+      ],
+      "properties": {
+        "claim_id": {
+          "const": "AQ1"
+        },
+        "evidence_basis": {
+          "$ref": "certificate_audit_report_v0_schema.json#/definitions/EvidenceBasisV0"
+        },
+        "abstention_code": {
+          "$ref": "certificate_audit_report_v0_schema.json#/definitions/AbstentionCodeV0"
+        },
+        "assertion_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "measured_claims_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_splits_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "verifier_result": {
+          "const": "pass"
+        },
+        "claim_material_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "declared_plan_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_basis": {
+                "const": "issuer_verified"
+              }
+            },
+            "required": [
+              "evidence_basis"
+            ]
+          },
+          "then": {
+            "required": [
+              "assertion_digest",
+              "measured_claims_digest",
+              "evaluation_splits_digest",
+              "declared_plan_digest",
+              "verifier_result",
+              "claim_material_digest"
+            ],
+            "not": {
+              "required": [
+                "abstention_code"
+              ]
+            }
+          },
+          "else": {
+            "properties": {
+              "evidence_basis": {
+                "const": "abstained"
+              },
+              "abstention_code": {
+                "const": "verifier_not_run_or_not_pass"
+              }
+            },
+            "required": [
+              "abstention_code"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "assertion_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "measured_claims_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "evaluation_splits_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "declared_plan_digest"
+                  ]
+                },
+                {
+                  "required": [
+                    "verifier_result"
+                  ]
+                },
+                {
+                  "required": [
+                    "claim_material_digest"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "AgentQualityClaimSupportRowsV1": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "$ref": "#/definitions/AgentQualityClaimSupportRowV1"
+        }
+      ]
+    },
+    "AgentQualityUnsignedManifestV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "base_process_record_unsigned_manifest_digest",
+        "scope_binding_digest",
+        "agent_commitment_ref",
+        "dataset_commitment_ref",
+        "evaluator_commitment_ref",
+        "build_definition_commitment_ref",
+        "measurement_contract_ref",
+        "measurement_contract_record_digest",
+        "aggregation_policy",
+        "objective_registry",
+        "non_claim_catalog",
+        "quantile_table",
+        "declared_plan_digest",
+        "declared_plan_signature_digest",
+        "split_derivation_digest",
+        "evaluation_splits_digest",
+        "measured_claims_digest",
+        "non_certified_selection_estimates_digest",
+        "primary_objective_id",
+        "selection_arm_count",
+        "holdout_scored_arm_count",
+        "pillar_support",
+        "assertion_digest",
+        "non_claims_digest",
+        "agent_quality_claim_support_rows_digest",
+        "trust_ring_ref",
+        "issuer_key_ref",
+        "issuer_signature_algorithm",
+        "coverage"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.unsigned_manifest.v1"
+        },
+        "base_process_record_unsigned_manifest_digest": {
+          "description": "Role digest of the process record's unsigned manifest under traigent.process_record.unsigned_manifest.v1. MUST equal the verifier's recomputed digest over the supplied ProcessRecordCertificateBundleV1.unsigned_manifest.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "scope_binding_digest": {
+          "description": "Role digest over ScopeBindingProjectionV1 under traigent.agent_quality.scope_binding.v1. REPLACES the plain project_ref and build_session_ref, which are caller-influenceable strings: bounded is not content-free, and a 128-character ProjectRefV0 comfortably holds a customer name. The verifier recomputes this digest from its own caller pins and the verified process record, so scope is bound exactly as tightly while no caller-supplied string exists in this bundle for a sentinel to appear in.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "agent_commitment_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "dataset_commitment_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluator_commitment_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "build_definition_commitment_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "measurement_contract_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "measurement_contract_record_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "aggregation_policy": {
+          "$ref": "#/definitions/AggregationPolicyIdentityV1"
+        },
+        "objective_registry": {
+          "$ref": "#/definitions/ObjectiveRegistryIdentityV1"
+        },
+        "non_claim_catalog": {
+          "$ref": "#/definitions/NonClaimCatalogIdentityV1"
+        },
+        "quantile_table": {
+          "$ref": "#/definitions/QuantileTableIdentityV1"
+        },
+        "split_derivation_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "evaluation_splits_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "measured_claims_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "non_certified_selection_estimates_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "primary_objective_id": {
+          "$ref": "#/definitions/ObjectiveIdV1"
+        },
+        "selection_arm_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "holdout_scored_arm_count": {
+          "const": 1
+        },
+        "pillar_support": {
+          "$ref": "#/definitions/PillarSupportV1"
+        },
+        "assertion_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "non_claims_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "agent_quality_claim_support_rows_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "issuer_signature_algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "coverage": {
+          "const": [
+            "base_process_record_unsigned_manifest_digest",
+            "scope_binding_digest",
+            "agent_commitment_ref",
+            "dataset_commitment_ref",
+            "evaluator_commitment_ref",
+            "build_definition_commitment_ref",
+            "measurement_contract_ref",
+            "measurement_contract_record_digest",
+            "aggregation_policy",
+            "objective_registry",
+            "non_claim_catalog",
+            "quantile_table",
+            "declared_plan_digest",
+            "declared_plan_signature_digest",
+            "split_derivation_digest",
+            "evaluation_splits_digest",
+            "measured_claims_digest",
+            "non_certified_selection_estimates_digest",
+            "primary_objective_id",
+            "selection_arm_count",
+            "holdout_scored_arm_count",
+            "pillar_support",
+            "assertion_digest",
+            "non_claims_digest",
+            "agent_quality_claim_support_rows_digest",
+            "trust_ring_ref",
+            "issuer_key_ref",
+            "issuer_signature_algorithm"
+          ]
+        },
+        "declared_plan_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "declared_plan_signature_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "AgentQualitySignatureV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "algorithm",
+        "issuer_key_ref",
+        "trust_ring_ref",
+        "signed_payload",
+        "unsigned_manifest_digest",
+        "signature"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.signature.v1"
+        },
+        "algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "signed_payload": {
+          "const": "unsigned_agent_quality_manifest"
+        },
+        "unsigned_manifest_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "signature": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"
+        }
+      }
+    },
+    "AgentQualityFieldLocationV1": {
+      "description": "Closed field-location vocabulary. An error carries one of these tokens, never a JSON Pointer built from instance data (a pointer over an array carries an index; one built from a caller key carries the caller's key). These are schema-owned constants and are therefore safe on the wire as well as in the Python exception.",
+      "type": "string",
+      "enum": [
+        "bundle",
+        "scope_binding",
+        "unsigned_manifest",
+        "signature",
+        "declared_plan",
+        "declared_plan_signature",
+        "split_derivation",
+        "evaluation_splits",
+        "evaluation_splits.selection",
+        "evaluation_splits.holdout",
+        "split_opening_witness",
+        "measured_claims",
+        "measured_claims.interval",
+        "measured_claims.interval_params",
+        "measured_claims.sufficient_statistics",
+        "measured_claims.objective",
+        "measured_claims.sample_size",
+        "measured_claims.verification_level",
+        "non_certified_selection_estimates",
+        "assertion",
+        "claim_support_rows",
+        "non_claims",
+        "pillar_support",
+        "pillar_support.dataset",
+        "pillar_support.evaluator",
+        "aggregation_policy",
+        "objective_registry",
+        "non_claim_catalog",
+        "quantile_table",
+        "process_record_binding",
+        "commitment_refs",
+        "measurement_contract",
+        "context"
+      ]
+    },
+    "AgentQualityErrorV1": {
+      "description": "Closed agent-quality wire error shape: a coarse code PLUS a required schema-owned field location. The code enum is deliberately coarser than the verifier's own 70-code vocabulary, and that coarseness is the privacy property -- adding a verifier code must NOT widen this enum. The field token is safe on the wire because it is drawn from a closed schema-owned vocabulary, never built from instance data. NOTE a deliberate deviation from ProcessRecordErrorV1, which carries no field: the property that must hold is that the wire shape cannot carry content, not that it is minimal.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "code",
+        "field"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.error.v1"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "agent_quality_invalid_measurement",
+            "agent_quality_invalid_split",
+            "agent_quality_invalid_declared_plan",
+            "agent_quality_verification_failed"
+          ]
+        },
+        "field": {
+          "$ref": "#/definitions/AgentQualityFieldLocationV1"
+        }
+      }
+    },
+    "AgentQualityCertificateBundleV1": {
+      "description": "Identifying V1 agent-quality envelope. Like the pillar-3 evaluator family and unlike the pillar-2 dataset family, it does NOT embed the process-record bundle: it binds by digest and takes the verified bundle as a verification-time argument. The declared plan envelope travels INSIDE the bundle because the same issuer signs both and both are fixed at issuance -- unlike a trust-status snapshot, which has a different signer and a different lifetime. The split opening witness is NOT here: there is no opening path in v1. The final allOf is the abstention coupling: a bundle whose support row is not issuer_verified carries no measured claims and no selection estimates, so an abstained certificate can never be screenshotted as if it certified numbers.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "unsigned_manifest",
+        "signature",
+        "declared_plan_envelope",
+        "assertion",
+        "claim_support_rows",
+        "non_claims",
+        "evaluation_splits",
+        "measured_claims",
+        "non_certified_selection_estimates",
+        "split_derivation"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.certificate_bundle.v1"
+        },
+        "unsigned_manifest": {
+          "$ref": "#/definitions/AgentQualityUnsignedManifestV1"
+        },
+        "signature": {
+          "$ref": "#/definitions/AgentQualitySignatureV1"
+        },
+        "assertion": {
+          "$ref": "#/definitions/AgentQualityAssertionV1"
+        },
+        "claim_support_rows": {
+          "$ref": "#/definitions/AgentQualityClaimSupportRowsV1"
+        },
+        "non_claims": {
+          "$ref": "#/definitions/AgentQualityNonClaimsFixedTupleV1"
+        },
+        "evaluation_splits": {
+          "$ref": "#/definitions/EvaluationSplitSetV1"
+        },
+        "measured_claims": {
+          "$ref": "#/definitions/MeasuredClaimsV1"
+        },
+        "non_certified_selection_estimates": {
+          "$ref": "#/definitions/NonCertifiedSelectionEstimatesV1"
+        },
+        "split_derivation": {
+          "$ref": "#/definitions/SplitDerivationDeclarationV1"
+        },
+        "declared_plan_envelope": {
+          "$ref": "#/definitions/AgentQualityDeclaredPlanEnvelopeV1"
+        }
+      },
+      "allOf": [
+        {
+          "description": "Abstention coupling (rev 1). An abstained support row forces both payload arrays empty; an issuer_verified row requires at least one certified claim.",
+          "if": {
+            "properties": {
+              "claim_support_rows": {
+                "items": [
+                  {
+                    "properties": {
+                      "evidence_basis": {
+                        "const": "issuer_verified"
+                      }
+                    },
+                    "required": [
+                      "evidence_basis"
+                    ]
+                  }
+                ]
+              }
+            },
+            "required": [
+              "claim_support_rows"
+            ]
+          },
+          "then": {
+            "properties": {
+              "measured_claims": {
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "measured_claims": {
+                "maxItems": 0
+              },
+              "non_certified_selection_estimates": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AgentQualityDeclaredPlanV1": {
+      "description": "The plan declared before results were observed, and separately issuer-signed. Every field must equal the certificate's own copy, so a post-hoc reweight (which changes aggregation_policy.policy_digest) or a re-drawn split (which changes split_derivation_digest) cannot validate. holdout_scored_arm_count is const 1: scoring N arms on the holdout and certifying the best is unrepresentable. This record is bound by digest only -- it carries no timestamp and supports no ordering check; NCQ_PLAN_ORDERING_OUT_OF_SCOPE is printed because ordering evidence is out of scope for v1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "scope_binding_digest",
+        "aggregation_policy",
+        "objective_registry",
+        "objective_ids",
+        "primary_objective_id",
+        "split_derivation",
+        "selection_arm_count",
+        "holdout_scored_arm_count",
+        "declared_plan_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.declared_plan.v1"
+        },
+        "scope_binding_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "aggregation_policy": {
+          "$ref": "#/definitions/AggregationPolicyIdentityV1"
+        },
+        "objective_registry": {
+          "$ref": "#/definitions/ObjectiveRegistryIdentityV1"
+        },
+        "objective_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/ObjectiveIdV1"
+          }
+        },
+        "primary_objective_id": {
+          "$ref": "#/definitions/ObjectiveIdV1"
+        },
+        "split_derivation": {
+          "$ref": "#/definitions/SplitDerivationDeclarationV1"
+        },
+        "selection_arm_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "holdout_scored_arm_count": {
+          "const": 1
+        },
+        "declared_plan_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "AgentQualityDeclaredPlanSignatureV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "algorithm",
+        "issuer_key_ref",
+        "trust_ring_ref",
+        "signed_payload",
+        "declared_plan_digest",
+        "signature"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.declared_plan_signature.v1"
+        },
+        "algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "signed_payload": {
+          "const": "agent_quality_declared_plan"
+        },
+        "signature": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"
+        },
+        "declared_plan_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "AgentQualityDeclaredPlanEnvelopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "declared_plan",
+        "signature"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.agent_quality.declared_plan_envelope.v1"
+        },
+        "signature": {
+          "$ref": "#/definitions/AgentQualityDeclaredPlanSignatureV1"
+        },
+        "declared_plan": {
+          "$ref": "#/definitions/AgentQualityDeclaredPlanV1"
+        }
+      }
+    },
+    "EmittableObjectiveIdV1": {
+      "description": "The three objective ids emission is restricted to in v1. The other two ObjectiveIdV1 members remain registered but unconstructible.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ObjectiveIdV1"
+        },
+        {
+          "enum": [
+            "obj.accuracy.exact_match.v1",
+            "obj.accuracy.evaluator_score_mean.v1",
+            "obj.cost.mean_microusd_per_item.v1"
+          ]
+        }
+      ]
+    },
+    "EmittableObjectiveKindV1": {
+      "description": "ObjectiveKindV1 without nonnegative_quantile: a quantile branch would require an order-statistic interval, which v1 does not emit.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ObjectiveKindV1"
+        },
+        {
+          "not": {
+            "const": "nonnegative_quantile"
+          }
+        }
+      ]
+    },
+    "PillarSupportSubjectV1": {
+      "type": "string",
+      "enum": [
+        "dataset",
+        "evaluator"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/AgentQualityCertificateBundleV1"
+    }
+  ]
+}

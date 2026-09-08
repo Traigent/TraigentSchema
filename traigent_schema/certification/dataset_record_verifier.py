@@ -1573,33 +1573,41 @@ def _check_corpus_ref_descriptors(
         # is the normal case and must not trip this. Same bare-container
         # location convention as the sibling check above and for the same
         # reason: the verifier cannot tell which of the duplicate pair is
-        # forged.
+        # forged. This loop only establishes uniqueness within
+        # ``attestation.corpora`` and must fully resolve (fail on any
+        # in-list duplicate) before the cross-list comparison below reads
+        # any of its entries -- interleaving the two would let the
+        # cross-list check fire on a still-unresolved duplicate's bogus
+        # entry before the in-list duplicate check ever reaches the pair.
         seen_attestation_refs: set[str] = set()
+        attestation_leaf_counts_by_ref: dict[str, int] = {}
         for corpus in attestation["corpora"]:
             ref = corpus["corpus_ref"]
             if ref in seen_attestation_refs:
                 _fail("LEAF_LIST_DIGEST_MISMATCH", "/leaf_generation_attestation/corpora")
             seen_attestation_refs.add(ref)
             known.add(ref)
-            # T3 round 9 (captain-1/astra): a corpus_ref legitimately appears
-            # in BOTH signed lists (the ordinary case, per the note above),
-            # but nothing before this point compares the two lists' signed
-            # claims about the SAME corpus_ref to each other -- only their
-            # re-derivation (leaf_list_digests, above) or their internal
-            # self-consistency (leaf_root/leaf_count vs the caller-supplied
-            # leaf lists, in ``_check_leaf_generation_attestation``, which is
-            # leaf-list-dependent and therefore not signed-material-only).
-            # This check runs unconditionally over signed material regardless
-            # of whether leaf lists were supplied, closing the same
-            # caller-mode asymmetry this function's family exists to close,
-            # this time across the two lists rather than within one.
-            # ``leaf_count`` is the only field both entry shapes declare for
-            # a corpus_ref (``leaf_list_digests`` also has ``leaf_list_digest``,
-            # ``corpora`` also has ``leaf_root``/``scope_blind_commitment`` --
-            # neither list declares the other's remaining fields, so there is
-            # nothing else in common to compare).
+            attestation_leaf_counts_by_ref[ref] = corpus["leaf_count"]
+        # T3 round 9 (captain-1/astra): a corpus_ref legitimately appears in
+        # BOTH signed lists (the ordinary case, per the note above), but
+        # nothing before this point compares the two lists' signed claims
+        # about the SAME corpus_ref to each other -- only their re-derivation
+        # (leaf_list_digests, above) or their internal self-consistency
+        # (leaf_root/leaf_count vs the caller-supplied leaf lists, in
+        # ``_check_leaf_generation_attestation``, which is leaf-list-
+        # dependent and therefore not signed-material-only). This check runs
+        # unconditionally over signed material regardless of whether leaf
+        # lists were supplied, closing the same caller-mode asymmetry this
+        # function's family exists to close, this time across the two lists
+        # rather than within one. ``leaf_count`` is the only field both
+        # entry shapes declare for a corpus_ref (``leaf_list_digests`` also
+        # has ``leaf_list_digest``, ``corpora`` also has
+        # ``leaf_root``/``scope_blind_commitment`` -- neither list declares
+        # the other's remaining fields, so there is nothing else in common
+        # to compare).
+        for ref, attested_leaf_count in attestation_leaf_counts_by_ref.items():
             declared_leaf_count = leaf_counts_by_ref.get(ref)
-            if declared_leaf_count is not None and declared_leaf_count != corpus["leaf_count"]:
+            if declared_leaf_count is not None and declared_leaf_count != attested_leaf_count:
                 # Bare bundle-root location, not either container: the
                 # verifier cannot tell which of the two signed statements
                 # about this corpus_ref is forged, so it must not point at

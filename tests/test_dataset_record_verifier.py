@@ -1217,33 +1217,40 @@ def test_corpora_in_one_scope_with_different_blind_commitments_fail() -> None:
 
 
 def test_attested_leaf_count_disagreeing_with_the_supplied_list_fails() -> None:
-    """Test 23. The truncated-list attack: the attestation's leaf_count for
-    a corpus no longer matches the length of the (unchanged, correctly
-    digest-matching) supplied list for that same corpus."""
+    """Test 23 (retargeted, T3 round 9). The truncated-list attack: the
+    attestation's ``leaf_count`` for a corpus no longer matches the length
+    of the (unchanged, correctly digest-matching) supplied list for that
+    same corpus.
+
+    Originally this asserted ``LEAF_COMPLETENESS_MISMATCH`` from
+    ``_check_leaf_generation_attestation``'s attested-vs-actual-supplied-
+    list comparison. As of T3 round 9, ``_check_corpus_ref_descriptors``
+    unconditionally compares the two signed lists' ``leaf_count``s for a
+    shared ``corpus_ref`` to each other, and runs BEFORE the completeness
+    check. ``_check_leaf_list_digests`` already forces the supplied list's
+    actual length to equal ``leaf_list_digests``'s declared ``leaf_count``
+    for any corpus the caller holds leaves for (or the bundle is rejected
+    there first), so ANY attested-``leaf_count`` mismatch against the
+    actual supplied list is, by construction, also a mismatch against the
+    declared ``leaf_list_digests`` entry -- the new cross-list check now
+    catches this exact scenario earlier, every time, making the
+    completeness check's own ``leaf_count`` branch unreachable for a
+    shared corpus. (``leaf_root`` fares no better as an alternative
+    mutation: it is re-derived against ``corpus_ref`` in
+    ``_check_derived_refs``, which runs earlier still, so it trips
+    ``REF_NOT_DERIVED`` instead -- independently of this round's change.)
+    This test now documents that the truncated-list attack is still
+    rejected, just earlier and under the signed-material-only code; see
+    ``test_cross_list_leaf_count_disagreement_rejected_in_both_caller_modes``
+    for the same mechanism proven to agree across both caller modes."""
     built = _build()
     attestation = built.bundle["leaf_generation_attestation"]
     for corpus in attestation["corpora"]:
         if corpus["corpus_ref"] == built.corpus_a_ref:
             corpus["leaf_count"] -= 1
-    attestation["attestation_digest"] = _digest(
-        b"traigent.dataset_record.leaf_generation_attestation.v1",
-        {k: v for k, v in attestation.items() if k != "attestation_digest"},
-    )
-    built.bundle["unsigned_manifest"]["leaf_generation_attestation_digest"] = attestation[
-        "attestation_digest"
-    ]
-    built.bundle["leakage_report"]["leaf_generation_attestation_digest"] = attestation[
-        "attestation_digest"
-    ]
-    built.bundle["leakage_report"]["leakage_report_digest"] = _digest(
-        b"traigent.dataset_record.leakage_report.v1",
-        {k: v for k, v in built.bundle["leakage_report"].items() if k != "leakage_report_digest"},
-    )
-    built.bundle["unsigned_manifest"]["leakage_report_digest"] = built.bundle["leakage_report"][
-        "leakage_report_digest"
-    ]
-    _resign(built)
-    _expect_error(built, "LEAF_COMPLETENESS_MISMATCH")
+    _redigest_attestation(built)
+    error = _expect_error(built, "LEAF_LIST_DIGEST_MISMATCH")
+    assert error.location == ""
 
 
 def test_ds3_claiming_issuer_verified_without_an_attestation_fails() -> None:
@@ -3502,11 +3509,25 @@ def test_an_included_attestation_is_authenticated_even_with_no_leaf_lists() -> N
     rejection of the record.
 
     Fail-before: on 6f56bb35b this bundle verifies.
-    """
+
+    T3 round 9: retargeted from ``leaf_count`` to ``scope_blind_commitment``
+    -- both fixture corpora are shared with
+    ``leakage_report.leaf_list_digests`` (the ordinary case), and a
+    ``leaf_count``-only tamper now trips
+    ``_check_corpus_ref_descriptors``'s unconditional cross-list agreement
+    check, which runs before this digest-binding check and does not itself
+    depend on the attestation's digest being valid. ``leaf_root`` was tried
+    next, but it is re-derived against ``corpus_ref`` in
+    ``_check_derived_refs`` (also earlier in the pipeline), so it trips
+    ``REF_NOT_DERIVED`` instead. ``scope_blind_commitment`` has no
+    counterpart in ``leaf_list_digests`` and nothing re-derives it ahead of
+    the digest check, so mutating it exercises the same
+    tampered-without-redigesting scenario this test isolates without
+    tripping either earlier check."""
     built = _build(include_leaf_lists=False)
     attestation = built.bundle["leaf_generation_attestation"]
     before = json.dumps(built.bundle["unsigned_manifest"], sort_keys=True)
-    attestation["corpora"][0]["leaf_count"] += 1
+    attestation["corpora"][0]["scope_blind_commitment"] = "sha256:" + "e" * 64
     assert json.dumps(built.bundle["unsigned_manifest"], sort_keys=True) == before
     error = _expect_error(built, "LEAF_GENERATION_ATTESTATION_MISSING", leaf_lists=None)
     assert error.location == "/leaf_generation_attestation"

@@ -1,0 +1,5 @@
+{
+  "document": "agent_quality_objective_registry.json",
+  "construction": "sha256 over UTF8(domain) || 0x00 || jcs_v1(document) -- domain = AgentQualityDigestDomainRegistryV1.objective_registry, read from agent_quality_v1_schema.json",
+  "digest": "sha256:56b051f87f645d72adbe9e514b162be8aa85583dc22c37962b6941bc58bb12bd"
+}

@@ -1,0 +1,5 @@
+{
+  "document": "agent_quality_quantile_table.json",
+  "construction": "sha256 over UTF8(domain) || 0x00 || jcs_v1(document) -- domain = AgentQualityDigestDomainRegistryV1.quantile_table, read from agent_quality_v1_schema.json",
+  "digest": "sha256:b0ef5d21cef830b7d801b0708c49355009edba622255706d8477ea61cbc7f9cb"
+}

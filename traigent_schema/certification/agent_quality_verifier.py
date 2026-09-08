@@ -1,0 +1,600 @@
+# SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Traigent-Commercial
+# Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
+"""Standalone, offline relying-party verifier for Agent Quality Record v1 (pillar 1).
+
+This module decides whether a supplied certificate bundle's measured
+objective claims are internally reconstructible: for each certified claim it
+recomputes the claimed interval's CONSTRUCTION from the printed sufficient
+statistics under the bundle's own declared interval method, and checks the
+declared endpoints against that recomputation. It does not recompute the
+sufficient statistics themselves (they remain issuer attestations), does not
+establish which items belong to the selection split versus the holdout split
+(split membership is also an issuer attestation in v1, since v1 defines no
+opening path), and makes no claim about when, or whether, any evaluation
+plan was pre-registered ahead of results -- pre-registration ordering is out
+of scope for this certificate family in v1.
+
+This packet ships the module's private building blocks only: the closed
+error and field-location vocabularies, the caller-facing context and result
+shapes, the content-free package-data loading boundary for this pillar's
+four registries (objective registry, aggregation policy, non-claim catalog,
+quantile table), the role-digest helper, and the exact-integer estimator
+recomputation (Wilson score bounds and Student-t half-widths). It defines no
+public entry point: a verifier that only half-checks a bundle and reports
+success is worse than one that does not exist, so the public
+``verify_agent_quality_record_certificate`` is deferred to the packet that
+can run the complete check sequence.
+"""
+
+from __future__ import annotations
+
+import bisect
+import hashlib
+import json
+import math
+import re
+from collections.abc import Callable
+from dataclasses import dataclass
+from functools import lru_cache
+from importlib import resources
+from typing import Any, NoReturn, TypeVar, cast
+
+import traigent_schema.fp2 as fp2
+
+_SHA256_PREFIX = "sha256:"
+_SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
+_PROJECT_REF_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
+_REF_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$")
+
+# The four package-data registries this pillar ships, keyed by the same stem
+# used in their filenames (``agent_quality_<stem>.json`` /
+# ``agent_quality_<stem>.digest.json``) and in
+# ``AgentQualityDigestDomainRegistryV1`` (agent_quality_v1_schema.json), whose
+# ``const`` values are copied here verbatim as the role-digest domain for
+# each document. Each stem doubles as a valid ``AgentQualityFieldLocationV1``
+# token, so a package-data failure for one of these four can carry a real,
+# schema-owned field location rather than a synthetic one.
+_AGENT_QUALITY_REGISTRY_DOMAINS: dict[str, str] = {
+    "objective_registry": "traigent.agent_quality.objective_registry.v1",
+    "aggregation_policy": "traigent.agent_quality.aggregation_policy.v1",
+    "non_claim_catalog": "traigent.agent_quality.non_claim_catalog.v1",
+    "quantile_table": "traigent.agent_quality.quantile_table.v1",
+}
+
+# ppm / fixed-point scale shared by NominalCoveragePpmV1, the point-estimate
+# fields, and the pinned quantile table's ``quantile_x1e6`` column.
+_T_SCALE = 1_000_000
+# QuantileTableDocumentV1's own sentinel: the df_bucket row that carries the
+# standard-normal (infinite-degrees-of-freedom) quantile. _wilson_bounds
+# reads exactly this row -- Wilson has no "degrees of freedom" of its own;
+# the pinned table's infinity rung IS the z-quantile it needs.
+_INFINITY_DF_BUCKET = 1_000_000_000
+# Internal precision scale for the exact, floored integer square root used
+# by _student_t_half_width. Not part of any wire contract.
+_ISQRT_SCALE = 1_000_000
+
+
+# Public, closed, content-free failure vocabulary. AgentQualityVerificationError
+# never raises a code outside this set. This packet raises only the codes its
+# own helpers use; the complete-check-sequence packet extends this frozenset
+# as it adds the checks that need the rest of the vocabulary -- it must never
+# shrink or rename what is already here, since these codes are load-bearing.
+AGENT_QUALITY_ERROR_CODES = frozenset(
+    {
+        "CONTEXT",
+        "PACKAGE_DATA_INVALID",
+        "QUANTILE_TABLE_LOOKUP_FAILED",
+    }
+)
+
+# Closed field-location vocabulary, copied verbatim from
+# AgentQualityFieldLocationV1 in agent_quality_v1_schema.json -- the schema
+# is the authority for this set; see the check script for the assertion that
+# ties the two together. Never a JSON Pointer built from instance data.
+AGENT_QUALITY_FIELD_LOCATIONS = frozenset(
+    {
+        "bundle",
+        "scope_binding",
+        "unsigned_manifest",
+        "signature",
+        "declared_plan",
+        "declared_plan_signature",
+        "split_derivation",
+        "evaluation_splits",
+        "evaluation_splits.selection",
+        "evaluation_splits.holdout",
+        "split_opening_witness",
+        "measured_claims",
+        "measured_claims.interval",
+        "measured_claims.interval_params",
+        "measured_claims.sufficient_statistics",
+        "measured_claims.objective",
+        "measured_claims.sample_size",
+        "measured_claims.verification_level",
+        "non_certified_selection_estimates",
+        "assertion",
+        "claim_support_rows",
+        "non_claims",
+        "pillar_support",
+        "pillar_support.dataset",
+        "pillar_support.evaluator",
+        "aggregation_policy",
+        "objective_registry",
+        "non_claim_catalog",
+        "quantile_table",
+        "process_record_binding",
+        "commitment_refs",
+        "measurement_contract",
+        "context",
+    }
+)
+
+
+class AgentQualityVerificationError(ValueError):
+    """A fixed-code, fixed-field verification failure that never includes
+    certificate data.
+
+    Both ``code`` and ``field`` are validated against the module's two closed
+    vocabularies at construction time, so an invalid pair can never be raised
+    -- ``str(exc)`` returns the code alone, printing no field path and no
+    instance data in a bare traceback.
+    """
+
+    def __init__(self, code: str, field: str) -> None:
+        if code not in AGENT_QUALITY_ERROR_CODES:
+            raise ValueError("AGENT_QUALITY_VERIFICATION_ERROR_CODE")
+        if field not in AGENT_QUALITY_FIELD_LOCATIONS:
+            raise ValueError("AGENT_QUALITY_VERIFICATION_ERROR_FIELD")
+        self.code = code
+        self.field = field
+        super().__init__(code)
+
+
+def _fail(code: str, field: str) -> NoReturn:
+    """Raise :class:`AgentQualityVerificationError` with a guaranteed-empty
+    ``__context__``.
+
+    Mirrors the raise/clear/re-raise discipline in
+    ``traigent_schema/certification/dataset_record_verifier.py``'s ``_fail``:
+    a plain ``raise ... from None`` inside an ``except`` block only suppresses
+    *display* of the chained exception, it does not clear ``__context__``, so
+    a caught exception built from caller-supplied content would still be
+    reachable on the object that escapes. Raising, catching, clearing, and
+    re-raising the SAME object -- outside any ``except`` block -- is what
+    makes it genuinely unreachable.
+    """
+    failure = AgentQualityVerificationError(code, field)
+    try:
+        raise failure from None
+    except AgentQualityVerificationError:
+        failure.__context__ = None
+        raise
+
+
+@dataclass(frozen=True, slots=True)
+class AgentQualityVerificationContext:
+    """Fresh, caller-supplied bindings for one Agent Quality Record verification.
+
+    Tenant identity is deliberately absent, exactly as in
+    ``ProcessRecordVerificationContext``: this verifier enforces exact scope
+    and commitment consistency, never tenant authorization, which remains a
+    Backend/caller responsibility.
+
+    ``process_record_context`` is forwarded, unexamined by this dataclass, to
+    the already-shipped process-record verifier the complete check sequence
+    calls; its shape is that verifier's concern, not this one's.
+
+    The five ``expected_*_ref`` / ``expected_*_digest`` fields are the
+    caller's pins for the build this verification is FOR: the project and
+    build-session scope, the four commitment refs, and the measurement
+    contract this record's claims must cite. Every one of them is a
+    verification INPUT only -- none is ever copied into a bundle or a result;
+    each enters only the digest preimage of the scope-binding/commitment
+    checks the complete check sequence performs.
+
+    ``accept_abstained_bundle`` has no default: whether an abstained
+    (``AGENT_QUALITY_CLAIM_ABSTAINED``) bundle is an acceptable outcome for
+    this caller, as opposed to a hard failure, is a deliberate choice every
+    caller must make rather than inherit silently.
+
+    ``expected_declared_plan_digest`` is a BINDING pin only: it establishes
+    WHICH declared plan this verification expects the bundle to cite, never
+    WHEN that plan was written or whether it preceded any result --
+    pre-registration ordering is out of scope for this certificate family in
+    v1 (see the module docstring).
+    """
+
+    process_record_context: object
+    expected_project_ref: str
+    expected_build_session_ref: str
+    expected_agent_commitment_ref: str
+    expected_dataset_commitment_ref: str
+    expected_evaluator_commitment_ref: str
+    expected_build_definition_commitment_ref: str
+    expected_measurement_contract_ref: str
+    expected_measurement_contract_record_digest: str
+    accept_abstained_bundle: bool
+    expected_declared_plan_digest: str | None = None
+    trust_status: object | None = None
+
+    def __post_init__(self) -> None:
+        if type(self.expected_project_ref) is not str or not _PROJECT_REF_RE.fullmatch(
+            self.expected_project_ref
+        ):
+            _fail("CONTEXT", "context")
+        if type(self.expected_build_session_ref) is not str or not _REF_RE.fullmatch(
+            self.expected_build_session_ref
+        ):
+            _fail("CONTEXT", "context")
+        for commitment_ref in (
+            self.expected_agent_commitment_ref,
+            self.expected_dataset_commitment_ref,
+            self.expected_evaluator_commitment_ref,
+            self.expected_build_definition_commitment_ref,
+        ):
+            if type(commitment_ref) is not str or not _SHA256_RE.fullmatch(commitment_ref):
+                _fail("CONTEXT", "context")
+        if type(
+            self.expected_measurement_contract_ref
+        ) is not str or not _REF_RE.fullmatch(self.expected_measurement_contract_ref):
+            _fail("CONTEXT", "context")
+        if type(
+            self.expected_measurement_contract_record_digest
+        ) is not str or not _SHA256_RE.fullmatch(self.expected_measurement_contract_record_digest):
+            _fail("CONTEXT", "context")
+        if type(self.accept_abstained_bundle) is not bool:
+            _fail("CONTEXT", "context")
+        if self.expected_declared_plan_digest is not None and (
+            type(self.expected_declared_plan_digest) is not str
+            or not _SHA256_RE.fullmatch(self.expected_declared_plan_digest)
+        ):
+            _fail("CONTEXT", "context")
+
+
+@dataclass(frozen=True, slots=True)
+class AgentQualityVerificationResult:
+    """Bounded, content-free success result.
+
+    Every field is set from what THIS verifier computed -- nothing is ever
+    copied from a signed bundle field into this object unexamined.
+
+    ``plan_ordering_note`` is fixed: this certificate never establishes
+    pre-registration ordering, so the note is not conditional on anything
+    the bundle claims.
+
+    ``__post_init__`` couples ``(code, evidence_basis)`` to exactly the two
+    outcomes this family can reach -- an ``issuer_verified`` support row
+    yields ``AGENT_QUALITY_VERIFIED``, an ``abstained`` one yields
+    ``AGENT_QUALITY_CLAIM_ABSTAINED`` -- and additionally pins
+    ``split_verification_level`` to ``issuer_attested_v1`` (v1 defines no
+    opening path, so any other value would assert a recomputation this
+    verifier never performs) and ``interval_verification_level`` to
+    ``construction_recomputed_v1`` (the one level this verifier's estimator
+    recomputation actually establishes). A violation of any of these
+    invariants is a defect in THIS module, not a verification finding, so it
+    raises a plain ``ValueError`` rather than
+    :class:`AgentQualityVerificationError`.
+    """
+
+    code: str
+    claim_id: str
+    evidence_basis: str
+    primary_objective_id: str
+    nominal_coverage_ppm: int
+    holdout_item_count: int
+    interval_verification_level: str
+    split_verification_level: str
+    dataset_condition_code: str
+    evaluator_condition_code: str
+    plan_ordering_note: str = (
+        "Pre-registration is not verified by this certificate; ordering "
+        "evidence is out of scope for v1."
+    )
+
+    def __post_init__(self) -> None:
+        if (self.code, self.evidence_basis) not in (
+            ("AGENT_QUALITY_VERIFIED", "issuer_verified"),
+            ("AGENT_QUALITY_CLAIM_ABSTAINED", "abstained"),
+        ):
+            raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
+        if self.split_verification_level != "issuer_attested_v1":
+            raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
+        if self.interval_verification_level != "construction_recomputed_v1":
+            raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
+        if self.plan_ordering_note != (
+            "Pre-registration is not verified by this certificate; ordering "
+            "evidence is out of scope for v1."
+        ):
+            raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
+
+
+def _role_digest(domain: str, payload: object) -> str:
+    """``sha256:`` + hex over ``UTF8(domain) || 0x00 || jcs_v1(payload)``.
+
+    A second implementation of the same construction used throughout this
+    repo's certification verifiers (``process_record_verifier``,
+    ``dataset_record_verifier``), not a shared import -- this is a separate
+    contract family. Deliberately does NOT catch ``fp2.Fp2UnsupportedValue``:
+    every caller in this module reaches this function from inside its own
+    content-free boundary (see :func:`_load_agent_quality_document`), which
+    already converts any exception into its own fixed error with the field
+    location that call site knows and this function does not.
+    """
+    canonical = cast(str, fp2.canonicalize(payload)).encode("utf-8")
+    return _SHA256_PREFIX + hashlib.sha256(domain.encode("utf-8") + b"\x00" + canonical).hexdigest()
+
+
+def _strip_self_digest(payload: dict[str, Any], field_name: str) -> dict[str, Any]:
+    """Return ``payload`` with ``field_name`` removed -- the digest preimage
+    for a document that carries its own digest as a member and excludes it
+    from what it signs over.
+    """
+    return {key: value for key, value in payload.items() if key != field_name}
+
+
+def _read_agent_quality_package_json(filename: str) -> Any:
+    """Read and JSON-decode one file from ``traigent_schema/data/certification``.
+
+    No error handling of its own -- ``FileNotFoundError``, ``UnicodeError``
+    and ``json.JSONDecodeError`` all carry content (a path or a text
+    fragment) and MUST only be caught from inside
+    :func:`_load_agent_quality_document`'s boundary.
+    """
+    package = resources.files("traigent_schema")
+    node = package.joinpath("data").joinpath("certification").joinpath(filename)
+    return json.loads(node.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=4)
+def _load_agent_quality_document(stem: str) -> dict[str, Any]:
+    """Load, digest-check, and cache one of this pillar's four registries.
+
+    ``stem`` is one of ``"objective_registry"``, ``"aggregation_policy"``,
+    ``"non_claim_catalog"``, ``"quantile_table"`` -- the same token used in
+    the shipped filenames and in ``AgentQualityDigestDomainRegistryV1``. The
+    document is read from ``agent_quality_<stem>.json``, its pinned digest
+    from the sidecar ``agent_quality_<stem>.digest.json``, and compared
+    against a freshly computed :func:`_role_digest` under the domain named in
+    the schema's own digest-domain registry.
+
+    On ANY failure -- an unregistered stem, a missing file, undecodable or
+    non-object JSON, a missing or non-string pinned digest, or a digest
+    mismatch -- this raises the single fixed
+    ``AgentQualityVerificationError("PACKAGE_DATA_INVALID", field)``, where
+    ``field`` is ``stem`` itself when it names a real registry (every
+    registered stem is also a valid ``AgentQualityFieldLocationV1`` token) or
+    the generic ``"bundle"`` location for an unregistered one. No document
+    text, filesystem path, or original exception ever reaches the raised
+    error or its chain -- the raise happens OUTSIDE the ``except`` block that
+    caught the underlying failure, and the object's ``__context__`` is
+    explicitly cleared before re-raising, exactly as
+    ``process_record_verifier._load_registry_constant`` documents.
+
+    Cached per process: the four registries are read and validated at most
+    once per interpreter, not once per verification call.
+    """
+    field = stem if stem in AGENT_QUALITY_FIELD_LOCATIONS else "bundle"
+    loaded: dict[str, Any] | None
+    try:
+        domain = _AGENT_QUALITY_REGISTRY_DOMAINS[stem]
+        document = _read_agent_quality_package_json(f"agent_quality_{stem}.json")
+        pin = _read_agent_quality_package_json(f"agent_quality_{stem}.digest.json")
+        if not isinstance(document, dict):
+            raise ValueError("document is not an object")
+        pinned_digest = pin["digest"] if isinstance(pin, dict) else None
+        if type(pinned_digest) is not str:
+            raise ValueError("pin file missing a string digest field")
+        computed_digest = _role_digest(domain, document)
+        if computed_digest != pinned_digest:
+            raise ValueError("digest mismatch")
+        loaded = document
+    except Exception:
+        loaded = None
+    if loaded is None:
+        failure = AgentQualityVerificationError("PACKAGE_DATA_INVALID", field)
+        try:
+            raise failure from None
+        except AgentQualityVerificationError:
+            # See _fail's docstring: this two-step raise/clear/re-raise is
+            # what makes the caught exception above -- which may carry
+            # document content -- genuinely unreachable, not merely
+            # undisplayed.
+            failure.__context__ = None
+            raise
+    return loaded
+
+
+@lru_cache(maxsize=1)
+def _quantile_buckets_by_coverage() -> dict[int, tuple[tuple[int, int], ...]]:
+    """The pinned Student-t quantile table, grouped by nominal coverage and
+    sorted by ``df_bucket`` ascending, ready for :func:`_lookup_t_scaled`'s
+    bracket search.
+    """
+    document = _load_agent_quality_document("quantile_table")
+    grouped: dict[int, list[tuple[int, int]]] = {}
+    for row in document["rows"]:
+        grouped.setdefault(row["nominal_coverage_ppm"], []).append(
+            (row["df_bucket"], row["quantile_x1e6"])
+        )
+    return {coverage: tuple(sorted(rows)) for coverage, rows in grouped.items()}
+
+
+def _lookup_t_scaled(coverage_ppm: int, df: int) -> int:
+    """The pinned table's ``quantile_x1e6`` for ``coverage_ppm`` at ``df``,
+    bucketed CONSERVATIVELY.
+
+    ``df`` need not name a rung the table carries. The Student-t quantile
+    strictly decreases as degrees of freedom increase, so borrowing the
+    largest pinned ``df_bucket`` that is ``<= df`` always borrows a value
+    from a bucket with EQUAL OR FEWER degrees of freedom than the true one --
+    i.e. an equal-or-LARGER quantile -- so bucketing can only widen an
+    interval, never narrow it. ``df`` at or above the table's infinity
+    sentinel resolves to the standard-normal row; :func:`_wilson_bounds`
+    reads exactly that row directly (Wilson has no degrees-of-freedom
+    parameter of its own).
+
+    Raises ``AgentQualityVerificationError("QUANTILE_TABLE_LOOKUP_FAILED",
+    "quantile_table")`` for an unregistered ``coverage_ppm`` or a ``df``
+    below the table's smallest bucket for that coverage (df < 1 cannot occur
+    for a schema-valid claim, but this function does not assume that).
+    """
+    buckets = _quantile_buckets_by_coverage().get(coverage_ppm)
+    if not buckets:
+        _fail("QUANTILE_TABLE_LOOKUP_FAILED", "quantile_table")
+    keys = [bucket for bucket, _ in buckets]
+    index = bisect.bisect_right(keys, df) - 1
+    if index < 0:
+        _fail("QUANTILE_TABLE_LOOKUP_FAILED", "quantile_table")
+    return buckets[index][1]
+
+
+def _wilson_point(successes: int, trials: int) -> int:
+    """The Wilson point estimate in ppm: ``round(successes * 1e6 / trials)``.
+
+    Rounding rule is explicit HALF-UP (ties round away from zero), computed
+    exactly via ``(2*successes*_T_SCALE + trials) // (2*trials)`` -- the
+    standard integer identity for half-up rounding of a nonnegative ratio,
+    with no intermediate float.
+    """
+    return (2 * successes * _T_SCALE + trials) // (2 * trials)
+
+
+def _wilson_bounds(successes: int, trials: int, coverage_ppm: int) -> tuple[int, int]:
+    """Recompute the Wilson score interval's endpoints, in ppm, from
+    ``successes``/``trials`` alone -- no square root anywhere.
+
+    The Wilson endpoints are the two roots, in the proportion ``p``, of
+
+        n(n + z^2) p^2 - n(2k + z^2) p + k^2 = 0
+
+    (``k`` = ``successes``, ``n`` = ``trials``, ``z`` the two-sided quantile
+    for ``coverage_ppm`` read from the pinned table's infinity rung). This
+    equation is irrational in ``z^2`` in general, so its roots cannot be
+    represented exactly as a fixed-point integer even though every
+    COEFFICIENT can. Substituting ``z = z_scaled / _T_SCALE`` and
+    ``p = e / _T_SCALE`` (``e`` the ppm endpoint) and clearing every
+    denominator yields a pure-integer quadratic ``Q(e) = A*e^2 + B*e + C``
+    with integer ``A``, ``B``, ``C``; ``A > 0`` so ``Q`` is an upward
+    parabola, negative strictly between the true roots and non-negative
+    outside them (equal to zero exactly at a root).
+
+    Each endpoint is then found by INTEGER BRACKETING rather than a closed
+    form: the low endpoint is the largest integer ``e`` with ``Q(e) >= 0`` on
+    the branch left of the point estimate (the floor of the true lower
+    root -- rounding the low bound DOWN, i.e. outward); the high endpoint is
+    the smallest integer ``e`` with ``Q(e) >= 0`` on the branch right of the
+    point estimate (the ceiling of the true upper root -- rounding the high
+    bound UP, i.e. outward). ``Q`` at the point estimate itself is always
+    ``<= 0`` (algebraically: ``Q(k/n) = z^2 * k * (k-n) / n <= 0`` since
+    ``k <= n``), and ``Q(0) = k^2 * _T_SCALE**4 >= 0``, ``Q(_T_SCALE) =
+    (n-k)^2 >= 0`` always hold, so both bisections always have a valid
+    bracket to search.
+    """
+    z_scaled = _lookup_t_scaled(coverage_ppm, _INFINITY_DF_BUCKET)
+    n = trials
+    k = successes
+    scale = _T_SCALE
+    scale_sq = scale * scale
+    z_sq = z_scaled * z_scaled
+
+    coeff_a = n * (n * scale_sq + z_sq)
+    coeff_b = -n * (2 * k * scale_sq + z_sq) * scale
+    coeff_c = k * k * scale_sq * scale_sq
+
+    def q(e: int) -> int:
+        return coeff_a * e * e + coeff_b * e + coeff_c
+
+    point = _wilson_point(successes, trials)
+
+    low, high = 0, point
+    while low < high:
+        mid = (low + high + 1) // 2
+        if q(mid) >= 0:
+            low = mid
+        else:
+            high = mid - 1
+    low_endpoint = low
+
+    low2, high2 = point, scale
+    while low2 < high2:
+        mid2 = (low2 + high2) // 2
+        if q(mid2) >= 0:
+            high2 = mid2
+        else:
+            low2 = mid2 + 1
+    high_endpoint = low2
+
+    return low_endpoint, high_endpoint
+
+
+def _student_t_half_width(
+    mean_fixed: int,
+    sample_stddev_fixed: int,
+    sample_count: int,
+    coverage_ppm: int,
+    unit_scale: str,
+) -> int:
+    """Outward-rounded Student-t half-width: ``ceil(t * sd / sqrt(n))``, in
+    the objective's own fixed-point unit -- no square root, no float.
+
+    ``t_scaled`` (``t * _T_SCALE``) is read from the pinned quantile table at
+    ``df = sample_count - 1`` via :func:`_lookup_t_scaled`'s conservative
+    bucket lookup. ``sqrt(sample_count)`` is approximated by
+    ``math.isqrt(sample_count * _ISQRT_SCALE**2)`` -- an EXACT, FLOORED
+    integer square root (``math.isqrt`` never touches a float), scaled by
+    ``_ISQRT_SCALE`` for fixed-point precision. Flooring can only
+    UNDERESTIMATE ``sqrt(sample_count)``, which makes the denominator here no
+    larger than the true value, so this approximation can only WIDEN the
+    result, never narrow it; the final division is then rounded up
+    (ceiling), an independent second source of outward widening.
+
+    ``mean_fixed`` and ``unit_scale`` are accepted, and deliberately unused
+    here, so that every recomputation input for a bounded_mean /
+    nonnegative_mean claim's interval travels through one function
+    signature: the half-width itself depends only on the sample's spread and
+    size, never its location, but the caller (the complete check sequence)
+    needs ``mean_fixed`` alongside this return value to reconstruct
+    ``mean_fixed - half_width`` / ``mean_fixed + half_width`` and needs
+    ``unit_scale`` to know which bounded range the result must respect.
+    """
+    df = sample_count - 1
+    t_scaled = _lookup_t_scaled(coverage_ppm, df)
+    sqrt_n_scaled = math.isqrt(sample_count * _ISQRT_SCALE * _ISQRT_SCALE)
+    numerator = t_scaled * sample_stddev_fixed * _ISQRT_SCALE
+    denominator = _T_SCALE * sqrt_n_scaled
+    return -(-numerator // denominator)
+
+
+_RowT = TypeVar("_RowT")
+_KeyT = TypeVar("_KeyT")
+
+
+def _unique_by(
+    rows: list[_RowT],
+    key_fn: Callable[[_RowT], _KeyT],
+    duplicate_code: str,
+    field: str,
+) -> dict[_KeyT, _RowT]:
+    """Build a ``key -> row`` mapping over a SIGNED list, raising on any
+    repeated key before any mapping is built.
+
+    A ``{key_fn(row): row for row in rows}`` dict comprehension over a signed
+    list silently keeps the LAST row for a repeated key -- exactly the shape
+    that let a #458-class defect through: two rows sharing a key but
+    disagreeing in payload would coalesce into whichever happened to be
+    written last, with the disagreement never surfaced. This function instead
+    makes a first pass over a plain ``set`` of keys ALONE and raises the
+    moment a key repeats, before the second pass that builds the mapping ever
+    runs -- so the failure is unconditional on whether the two rows' payloads
+    happen to agree, not just on whether they differ.
+    """
+    seen_keys: set[_KeyT] = set()
+    for row in rows:
+        key = key_fn(row)
+        if key in seen_keys:
+            _fail(duplicate_code, field)
+        seen_keys.add(key)
+    by_key: dict[_KeyT, _RowT] = {}
+    for row in rows:
+        by_key[key_fn(row)] = row
+    return by_key

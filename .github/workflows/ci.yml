@@ -346,8 +346,16 @@ jobs:
         python-version: ${{ fromJSON( github.event_name == 'schedule' && '["3.10","3.11","3.12"]' || (github.event_name == 'pull_request' && github.base_ref == 'develop') && '["3.12"]' || '["3.11","3.12"]' ) }}
 
     steps:
+      # fetch-depth: 0 (not the actions/checkout default of 1) -- certification
+      # contract tests (test_*_v1_schema.py::test_frozen_v0_files_are_byte_identical_
+      # to_the_merge_base and siblings) shell out to `git show <fixed-sha>:<path>` to
+      # diff shipped v0/v1 schema files against a named historical commit. A shallow
+      # checkout doesn't have that commit's object, so `git show` fails with exit 128
+      # -- a checkout-depth bug, not a schema defect. `changes` and
+      # `breaking-schema-check` already set this for the same reason.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}

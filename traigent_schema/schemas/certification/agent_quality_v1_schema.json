@@ -739,7 +739,7 @@
       ]
     },
     "SplitRuleIdV1": {
-      "description": "Closed split-derivation rule vocabulary. hmac_sha256_prefix_threshold_v1: item i goes to holdout iff the first 8 bytes of HMAC-SHA256(split_key, UTF8(item_id)), read big-endian, are strictly less than floor(holdout_fraction_ppm * 2**64 / 1000000). The rule is a TOTAL function into {selection, holdout}. NOTE, corrected in rev 1: totality makes the rule's OWN partition disjoint, but it does not establish that the committed sets ARE that partition -- only SplitOpeningWitnessV1 does. Without an opening, split membership is an issuer attestation (NCQ_SPLIT_MEMBERSHIP_NOT_OPENED).",
+      "description": "Closed split-derivation rule vocabulary. hmac_sha256_prefix_threshold_v1: item i goes to holdout iff the first 8 bytes of HMAC-SHA256(split_key, UTF8(item_id)), read big-endian, are strictly less than floor(holdout_fraction_ppm * 2**64 / 1000000). The rule is a TOTAL function into {selection, holdout}. NOTE, corrected in rev 1: totality makes the rule's OWN partition disjoint, but it does not establish that the committed sets ARE that partition -- only an opening witness does, and v1 defines none. Without an opening, split membership is an issuer attestation (NCQ_SPLIT_MEMBERSHIP_NOT_OPENED).",
       "type": "string",
       "enum": [
         "hmac_sha256_prefix_threshold_v1"

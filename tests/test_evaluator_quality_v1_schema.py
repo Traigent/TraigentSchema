@@ -379,17 +379,43 @@ def test_support_rows_are_exactly_five_in_order() -> None:
 
 
 def test_measurement_set_cannot_carry_efficiency_or_frontier() -> None:
+    """Guard: EVQ6 (efficiency) and EVQ7 (agreement-per-cost frontier) are not
+    asserted in v1, so they are unconstructible at three independent levels and a
+    reviewer should not "restore" any of them:
+
+      1. the claim ids stay in ``EvaluatorQualityClaimIdV1`` but are rejected by
+         ``EmittableEvaluatorQualityClaimIdV1`` (covered by its own test);
+      2. their measurement roles stay in ``MeasurementRoleV1`` but are rejected by
+         ``EmittableMeasurementRoleV1`` (covered by its own test);
+      3. **no efficiency or frontier object is defined at all**, so even a hand-built
+         document has no shape to put one in.
+
+    Level 3 replaced an earlier draft that kept ``EfficiencyFrontierV1`` as a
+    registered-but-unreferenced definition. That draft was removed because the
+    repository's client-facing leak guard
+    (``tests/test_agent_lifecycle_schemas.py::TestClientFacingSchemaLeakGuard``)
+    correctly flagged its ``baseline`` property as a TIER-2 reserved artifact-state
+    token. Dead schema surface for a claim the contract does not make is not worth a
+    reserved-vocabulary collision, and deleting it strictly reduces what can be
+    expressed.
+    """
+    measurement_set = DEFS["EvaluatorMeasurementSetV1"]
+    assert "efficiency" not in measurement_set["properties"]
+    assert "frontier" not in measurement_set["properties"]
+    assert measurement_set["additionalProperties"] is False
+    for removed in (
+        "EfficiencyBlockV1",
+        "EfficiencyFrontierV1",
+        "FrontierBaselineV1",
+        "FrontierPointV1",
+    ):
+        assert removed not in DEFS, f"{removed} is dead surface for a claim v1 does not make"
     document = _measurement_set()
     assert _errors(document, "EvaluatorMeasurementSetV1") == []
-
-    with_efficiency = {**document, "efficiency": {}}
-    assert _errors(with_efficiency, "EvaluatorMeasurementSetV1")
-
-    with_frontier = {**document, "frontier": {}}
-    assert _errors(with_frontier, "EvaluatorMeasurementSetV1")
-
-    assert "EfficiencyFrontierV1" in DEFS
-
+    for smuggled in ("efficiency", "frontier"):
+        poisoned = dict(document)
+        poisoned[smuggled] = {}
+        assert _errors(poisoned, "EvaluatorMeasurementSetV1")
 
 def test_efficiency_and_frontier_roles_are_registered_but_not_emittable() -> None:
     assert len(DEFS["MeasurementRoleV1"]["enum"]) == 20

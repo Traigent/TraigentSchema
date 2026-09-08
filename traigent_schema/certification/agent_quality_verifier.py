@@ -85,9 +85,29 @@ AGENT_QUALITY_ERROR_CODES = frozenset(
         "PACKAGE_DATA_INVALID",
         "QUANTILE_TABLE_LOOKUP_FAILED",
         "OBJECTIVE_DUPLICATE",
+        # Registered and enforced by _unique_by; no verification path in
+        # this packet calls it yet -- the public entry point that would
+        # apply it to non_certified_selection_estimates does not exist here.
+        # It exists so the code is not invented later ad hoc, not because
+        # anything in this module currently raises it.
         "SELECTION_ESTIMATE_DUPLICATE",
     }
 )
+
+# The verification-ladder levels this v1 packet can ever legitimately emit,
+# copied verbatim from EmittableVerificationLevelV1 (agent_quality_v1_schema.json):
+# construction_recomputed_v1 and issuer_attested_v1 only. opened_and_recomputed_v1
+# is registered in the schema's VerificationLevelV1 for a future major version but
+# EmittableVerificationLevelV1 keeps it out of anything a v1 bundle can carry, so it
+# is deliberately excluded here too -- any other string, including that one, is an
+# unregistered level and MUST be rejected regardless of which code it accompanies.
+_EMITTABLE_VERIFICATION_LEVELS = frozenset(
+    {"construction_recomputed_v1", "issuer_attested_v1"}
+)
+# The only interval_verification_level an ABSTAINED result can honestly carry:
+# an abstained bundle asserts no measured claim, so no recomputation ever ran,
+# leaving issuer_attested_v1 (attested, not recomputed) as the sole truthful value.
+_ABSTAINED_INTERVAL_VERIFICATION_LEVELS = frozenset({"issuer_attested_v1"})
 
 # Closed field-location vocabulary, copied verbatim from
 # AgentQualityFieldLocationV1 in agent_quality_v1_schema.json -- the schema
@@ -270,12 +290,20 @@ class AgentQualityVerificationResult:
     ``AGENT_QUALITY_CLAIM_ABSTAINED`` -- and additionally pins
     ``split_verification_level`` to ``issuer_attested_v1`` (v1 defines no
     opening path, so any other value would assert a recomputation this
-    verifier never performs). ``interval_verification_level`` is pinned to
+    verifier never performs). Both ``interval_verification_level`` and
+    ``split_verification_level`` MUST be one of the two levels registered in
+    :data:`_EMITTABLE_VERIFICATION_LEVELS` -- any other string, for either
+    code, is an unregistered level and is rejected outright, closing the
+    vocabulary rather than merely forbidding one named value.
+    ``interval_verification_level`` is further pinned to
     ``construction_recomputed_v1`` for a VERIFIED result (the one level this
-    verifier's estimator recomputation actually establishes) and MUST NOT be
-    ``construction_recomputed_v1`` for an ABSTAINED result: an abstained
-    bundle carries no measured claims, so no recomputation ever ran, and a
-    result asserting otherwise would overstate what this verifier checked.
+    verifier's estimator recomputation actually establishes) and, for an
+    ABSTAINED result, MUST be a member of
+    :data:`_ABSTAINED_INTERVAL_VERIFICATION_LEVELS` (``issuer_attested_v1``
+    only): an abstained bundle carries no measured claims, so no
+    recomputation ever ran, and a result asserting otherwise -- whether
+    ``construction_recomputed_v1`` or any unregistered string -- would
+    overstate what this verifier checked.
     A violation of any of these invariants is a defect in THIS module, not a
     verification finding, so it raises a plain ``ValueError`` rather than
     :class:`AgentQualityVerificationError`.
@@ -303,13 +331,17 @@ class AgentQualityVerificationResult:
             ("AGENT_QUALITY_CLAIM_ABSTAINED", "abstained"),
         ):
             raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
+        if self.split_verification_level not in _EMITTABLE_VERIFICATION_LEVELS:
+            raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
         if self.split_verification_level != "issuer_attested_v1":
+            raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
+        if self.interval_verification_level not in _EMITTABLE_VERIFICATION_LEVELS:
             raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
         if self.code == "AGENT_QUALITY_VERIFIED":
             if self.interval_verification_level != "construction_recomputed_v1":
                 raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
         else:
-            if self.interval_verification_level == "construction_recomputed_v1":
+            if self.interval_verification_level not in _ABSTAINED_INTERVAL_VERIFICATION_LEVELS:
                 raise ValueError("AGENT_QUALITY_VERIFICATION_RESULT")
         if self.plan_ordering_note != (
             "Ordering evidence — that the declared plan was authored "

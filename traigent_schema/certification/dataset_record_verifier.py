@@ -1432,7 +1432,7 @@ def _check_corpus_ref_descriptors(
     have DS4 verify over them: a free, signed, issuer-chosen channel in the
     exact field ``CorpusRefV1`` exists to close.
 
-    Three things are established here. First, every entry in
+    Four things are established here. First, every entry in
     ``leaf_list_digests`` must have a ``corpus_ref`` re-derived from its OWN
     ``leaf_list_digest`` under this record's leakage scope -- a descriptor
     cannot name a ref unrelated to the digest it publishes. Second, no two
@@ -1441,17 +1441,33 @@ def _check_corpus_ref_descriptors(
     module (``_check_leaf_list_digests``) is last-entry-wins, so an issuer
     could sign a first, wrong descriptor for a corpus (a fabricated
     ``leaf_count``) ahead of the correct one -- and the earlier signed entry
-    would silently be dropped from every reader's lookup. This check runs
-    unconditionally, over signed material alone, so the same bundle is
-    rejected whether or not the caller happens to hold any leaf list; making
-    it depend on the fifth (caller-supplied, optional) input would let two
-    relying parties reach different verdicts on one signed record purely
-    because of what they, not the issuer, chose to bring. Third, both refs of
-    every finding must land in the set of refs so derived, unioned with the
-    attestation's own (already re-derived) corpus refs.
+    would silently be dropped from every reader's lookup. Third -- T3 round 7,
+    closing the instance round 6 left open in the SAME field it named --
+    ``leaf_generation_attestation.corpora`` gets the identical uniqueness
+    check under its own tracking set: a repeated ``corpus_ref`` there is the
+    same defect one field over (two signed entries, e.g. ``leaf_count`` 0 and
+    60, with the same, correctly-derived ``corpus_ref``; nothing before this
+    check compares one attestation entry to another), and
+    ``_check_leaf_generation_attestation``'s per-corpus loop
+    (``corpora_leaves.get(corpus_ref)``) is exactly as last-entry-agnostic as
+    ``_check_leaf_list_digests`` was -- it only ever reaches ONE of a
+    duplicated pair when a leaf list happens to be supplied for that corpus,
+    and reaches NEITHER when one is not, which is precisely the mode-
+    dependent bypass this whole check family exists to close. The two
+    tracking sets are kept separate on purpose: one ``corpus_ref`` appearing
+    once in ``leaf_list_digests`` and once in ``attestation.corpora`` is the
+    ordinary, expected shape for a corpus the record both digests and
+    attests, not a duplicate. Fourth, both refs of every finding must land in
+    the set of refs so derived, unioned with the attestation's own
+    (duplicate-checked) corpus refs.
 
     This runs whether or not leaf lists were supplied: the derivation is over
-    signed record material only, so the fifth input has no bearing on it.
+    signed record material only, so the fifth input has no bearing on it. That
+    is also why the checks above must never move inside a ``leaf_lists``-gated
+    branch elsewhere in this module -- doing so is exactly the defect class
+    three prior rounds (astra round 5, T3 round 6, T3 round 7) each closed one
+    instance of: a check on signed-only material that only ran when the
+    caller happened to also supply the optional fifth input.
 
     A ``training_corpus_contamination`` or ``prior_output_contamination``
     finding is NOT exempt. Those are the two kinds that carry no recomputable
@@ -1474,8 +1490,19 @@ def _check_corpus_ref_descriptors(
             _fail("LEAF_LIST_DIGEST_MISMATCH", "/leakage_report/leaf_list_digests")
         known.add(entry["corpus_ref"])
     if attestation is not None:
+        # T3 round 7: a separate tracking set, over attestation.corpora ONLY
+        # -- a corpus_ref that also appears (once) in leaf_list_digests above
+        # is the normal case and must not trip this. Same bare-container
+        # location convention as the sibling check above and for the same
+        # reason: the verifier cannot tell which of the duplicate pair is
+        # forged.
+        seen_attestation_refs: set[str] = set()
         for corpus in attestation["corpora"]:
-            known.add(corpus["corpus_ref"])
+            ref = corpus["corpus_ref"]
+            if ref in seen_attestation_refs:
+                _fail("LEAF_LIST_DIGEST_MISMATCH", "/leaf_generation_attestation/corpora")
+            seen_attestation_refs.add(ref)
+            known.add(ref)
     for index, finding in enumerate(leakage_report["findings"]):
         for field in ("corpus_a_ref", "corpus_b_ref"):
             if finding[field] not in known:

@@ -2027,6 +2027,12 @@
               "properties": {
                 "claim_id": {
                   "const": "EVQ1"
+                },
+                "evidence_basis": {
+                  "enum": [
+                    "client_declared",
+                    "abstained"
+                  ]
                 }
               }
             }

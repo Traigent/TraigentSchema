@@ -524,18 +524,42 @@ def test_non_claim_record_carries_identifiers_only(field: str) -> None:
     assert _errors(row, "EvaluatorQualityNonClaimV1")
 
 
-def test_planned_measurements_are_keyed_by_claim_and_role() -> None:
-    """Guard: keying containment by claim_id alone leaves post-hoc choice of
-    estimator, interval, side and sample unit free inside a claim that
-    carries several measurements -- see PlannedMeasurementV1's description
-    and MeasurementRoleV1's."""
-    definition = DEFS["PlannedMeasurementV1"]
-    assert "claim_id" in definition["properties"], (
-        "PlannedMeasurementV1 has no claim_id property: planned-measurement "
-        "containment is keyed by measurement_role alone in the shipped schema, "
-        "not by (claim_id, measurement_role) as the guard requires"
+def test_containment_is_keyed_per_sub_metric_by_measurement_role() -> None:
+    """Guard: keying plan containment by ``claim_id`` alone would leave post-hoc
+    choice of estimator, interval, side and sample unit free inside a claim that
+    carries several measurements (EVQ2, EVQ4 and EVQ5 each do).
+
+    The contract answers that with a *role* key, not a composite one, and that is
+    sound because ``MeasurementRoleV1`` is globally unique and each role belongs to
+    exactly one claim by construction: ``calibration_*`` to EVQ3, ``agreement_*`` to
+    EVQ2, ``sensitivity_*`` to EVQ4, ``reliability_*`` to EVQ5. So the key that must
+    exist on BOTH sides of the join is ``measurement_role``, and this test pins it on
+    both. An earlier draft of this test demanded ``claim_id`` on the plan entry; that
+    was over-specified -- adding a second key component that is a function of the
+    first cannot tighten containment, and the schema was right.
+
+    What JSON Schema cannot express here, stated rather than assumed: rejecting a
+    DUPLICATE ``measurement_role`` inside ``planned_measurements`` (or two
+    measurements claiming the same role with different payloads) is a verifier
+    obligation, not a schema one. It is pinned by the verifier's own test against
+    ``MEASUREMENT_ROLE_DUPLICATE``; this test exists so that removing the key from
+    either side breaks here first.
+    """
+    planned = DEFS["PlannedMeasurementV1"]
+    measured = DEFS["MeasurementV1"]
+    assert "measurement_role" in planned["required"]
+    assert "measurement_role" in measured["required"]
+    # Both sides resolve the key through the SAME closed vocabulary, so a role that
+    # is not emittable in v1 cannot be planned or measured.
+    assert planned["properties"]["measurement_role"]["$ref"].endswith(
+        "EmittableMeasurementRoleV1"
     )
-    assert "claim_id" in definition["required"]
+    assert measured["properties"]["measurement_role"]["$ref"].endswith(
+        "EmittableMeasurementRoleV1"
+    )
+    # The plan entry carries no value, so a result cannot be smuggled into it.
+    for value_field in ("point_value", "interval_low_value", "interval_high_value", "verdict"):
+        assert value_field not in planned["properties"]
 
 
 def test_wire_error_requires_a_field_location() -> None:

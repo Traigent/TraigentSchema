@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
 import json
 from importlib import resources
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -17,6 +19,7 @@ from referencing import Registry, Resource
 
 from traigent_schema import fp2
 from traigent_schema.certification import evaluator_quality_verifier as evq
+from traigent_schema.certification.process_record_verifier import _ISSUER_SPKI_DOMAIN
 
 ROOT = resources.files("traigent_schema")
 SCHEMA = json.loads(
@@ -33,6 +36,95 @@ PUBLIC_DER = PRIVATE_KEY.public_key().public_bytes(
     serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
 )
 PUBLIC_B64 = base64.b64encode(PUBLIC_DER).decode("ascii")
+PUBLIC_KEY_DIGEST = (
+    "sha256:" + hashlib.sha256(_ISSUER_SPKI_DOMAIN + b"\x00" + PUBLIC_DER).hexdigest()
+)
+PROJECT_REF = "demo_project"
+COMMITMENT_REF = "sha256:" + "c" * 64
+DEFAULT_CONTEXT = SimpleNamespace(
+    expected_project_ref=PROJECT_REF, expected_evaluator_commitment_ref=COMMITMENT_REF
+)
+
+
+def _bootstrap_params(unit: str) -> dict[str, Any]:
+    return {
+        "interval_kind": "bootstrap_percentile",
+        "replicate_count": 2000,
+        "resample_unit": unit,
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "canonicalization_profile": "jcs_v1",
+        "resample_seed_commitment": SHA,
+    }
+
+
+def _analytic_params(kind: str) -> dict[str, Any]:
+    return {"interval_kind": kind, "continuity_correction": "none"}
+
+
+# Every role below is registry-admissible: (estimator_id, sample_unit,
+# interval_kind, value_unit) is a real row of
+# traigent_schema/data/certification/evaluator_measurement_registry.json, so
+# a bundle built from these specs passes the P3-V.3 plan-containment stage
+# without any guard needing to be relaxed.
+ROLE_SPECS: dict[str, dict[str, Any]] = {
+    "calibration_ece": {
+        "estimator_id": "expected_calibration_error",
+        "sample_unit": "evaluation_item",
+        "value_unit": "ppm_unsigned",
+        "interval_params": _bootstrap_params("evaluation_item"),
+        "direction": "lower_is_better",
+    },
+    "calibration_slope": {
+        "estimator_id": "calibration_slope",
+        "sample_unit": "evaluation_item",
+        "value_unit": "ppm_unsigned",
+        "interval_params": _analytic_params("normal_approximation"),
+        "direction": "higher_is_better",
+    },
+    "agreement_primary": {
+        "estimator_id": "cohens_kappa",
+        "sample_unit": "evaluation_item",
+        "value_unit": "ppm_unsigned",
+        "interval_params": _analytic_params("wilson_score"),
+        "direction": "higher_is_better",
+    },
+    "sensitivity_discriminating_power": {
+        "estimator_id": "discrimination_rate",
+        "sample_unit": "item_pair",
+        "value_unit": "ppm_unsigned",
+        "interval_params": _analytic_params("wilson_score"),
+        "direction": "higher_is_better",
+    },
+    "sensitivity_false_difference_rate": {
+        "estimator_id": "false_difference_rate",
+        "sample_unit": "item_pair",
+        "value_unit": "ppm_unsigned",
+        "interval_params": _analytic_params("wilson_score"),
+        "direction": "lower_is_better",
+    },
+}
+for _probe in ("constant_output", "verbosity", "position", "self_preference", "one_token_fool"):
+    ROLE_SPECS["reliability_probe_" + _probe] = {
+        "estimator_id": "perturbation_agreement_rate",
+        "sample_unit": "perturbation_pair",
+        "value_unit": "ppm_unsigned",
+        "interval_params": _analytic_params("wilson_score"),
+        "direction": "higher_is_better",
+    }
+del _probe
+
+PLANNED_ROLE_ORDER = (
+    "calibration_ece",
+    "calibration_slope",
+    "agreement_primary",
+    "sensitivity_discriminating_power",
+    "sensitivity_false_difference_rate",
+    "reliability_probe_constant_output",
+    "reliability_probe_verbosity",
+    "reliability_probe_position",
+    "reliability_probe_self_preference",
+    "reliability_probe_one_token_fool",
+)
 
 
 def _digest(role: str, projection: Any) -> str:
@@ -56,45 +148,46 @@ def _merge(value: Any, override: Any) -> Any:
     return copy.deepcopy(override)
 
 
-def _measurement(
-    role: str, *, point: int = 900000, direction: str = "higher_is_better"
-) -> dict[str, Any]:
+def _measurement(role: str, *, point: int = 900000) -> dict[str, Any]:
+    spec = ROLE_SPECS[role]
     return {
         "measurement_role": role,
-        "estimator_id": "cohens_kappa",
+        "estimator_id": spec["estimator_id"],
         "estimator_parameters": {
             "interval_side": "two_sided",
-            "direction": direction,
+            "direction": spec["direction"],
             "score_scale": "binary",
             "label_kind": "binary",
         },
-        "value_unit": "ppm_unsigned",
+        "value_unit": spec["value_unit"],
         "point_value": point,
         "interval_low_value": max(0, point - 10000),
         "interval_high_value": min(1000000, point + 10000),
-        "interval_params": {"interval_kind": "wilson_score", "continuity_correction": "none"},
+        "interval_params": dict(spec["interval_params"]),
         "nominal_coverage_ppm": 950000,
         "sample_size_n": 100,
-        "sample_unit": "evaluation_item",
+        "sample_unit": spec["sample_unit"],
         "basis": "issuer_attested_v1",
         "computation_transcript_digest": None,
     }
 
 
-def _planned(role: str, *, direction: str = "higher_is_better") -> dict[str, Any]:
+def _planned(role: str) -> dict[str, Any]:
+    spec = ROLE_SPECS[role]
+    direction = spec["direction"]
     return {
         "measurement_role": role,
-        "estimator_id": "cohens_kappa",
+        "estimator_id": spec["estimator_id"],
         "estimator_parameters": {
             "interval_side": "two_sided",
             "direction": direction,
             "score_scale": "binary",
             "label_kind": "binary",
         },
-        "value_unit": "ppm_unsigned",
-        "interval_params": {"interval_kind": "wilson_score", "continuity_correction": "none"},
+        "value_unit": spec["value_unit"],
+        "interval_params": dict(spec["interval_params"]),
         "nominal_coverage_ppm": 950000,
-        "sample_unit": "evaluation_item",
+        "sample_unit": spec["sample_unit"],
         "minimum_sample_size_n": 30,
         "maximum_interval_width_ppm": 200000,
         "threshold_value": 500000,
@@ -189,18 +282,6 @@ def _base_bundle() -> dict[str, Any]:
         "selection_set_digest": SHA,
         "estimation_set_digest": SHA,
     }
-    planned_roles = [
-        ("calibration_ece", "lower_is_better"),
-        ("calibration_slope", "higher_is_better"),
-        ("agreement_primary", "higher_is_better"),
-        ("sensitivity_discriminating_power", "higher_is_better"),
-        ("sensitivity_false_difference_rate", "lower_is_better"),
-        ("reliability_probe_constant_output", "higher_is_better"),
-        ("reliability_probe_verbosity", "higher_is_better"),
-        ("reliability_probe_position", "higher_is_better"),
-        ("reliability_probe_self_preference", "higher_is_better"),
-        ("reliability_probe_one_token_fool", "higher_is_better"),
-    ]
     pair_set = {
         "known_different_pair_count": 100,
         "known_equivalent_pair_count": 50,
@@ -227,7 +308,7 @@ def _base_bundle() -> dict[str, Any]:
         "evaluator_commitment_digest": SHA,
         "reference_standard_digest": SHA,
         "evaluation_scope_digest": SHA,
-        "planned_measurements": [_planned(r, direction=d) for r, d in planned_roles],
+        "planned_measurements": [_planned(r) for r in PLANNED_ROLE_ORDER],
         "sensitivity_pair_set": pair_set,
         "perturbation_set_digest": SHA,
         "measurement_registry_digest": SHA,
@@ -241,9 +322,7 @@ def _base_bundle() -> dict[str, Any]:
         "measurement_window_start": "2026-09-05T10:11:12Z",
         "measurement_window_end": "2026-09-05T11:11:12Z",
         "calibration": {
-            "expected_calibration_error": _measurement(
-                "calibration_ece", point=100000, direction="lower_is_better"
-            ),
+            "expected_calibration_error": _measurement("calibration_ece", point=100000),
             "calibration_slope": _measurement("calibration_slope"),
             "binning_policy": "equal_width",
             "bin_count": 10,
@@ -252,7 +331,7 @@ def _base_bundle() -> dict[str, Any]:
         "sensitivity": {
             "discriminating_power": _measurement("sensitivity_discriminating_power", point=880000),
             "false_difference_rate": _measurement(
-                "sensitivity_false_difference_rate", point=100000, direction="lower_is_better"
+                "sensitivity_false_difference_rate", point=100000
             ),
             "pair_set": pair_set,
         },
@@ -337,7 +416,7 @@ def _base_bundle() -> dict[str, Any]:
             "trust_ring_ref": OPAQUE_REF,
             "algorithm": "ed25519",
             "public_key_der_b64": PUBLIC_B64,
-            "public_key_digest": SHA,
+            "public_key_digest": PUBLIC_KEY_DIGEST,
         },
         "relying_party_policy": {
             "compiler_register_versions": {
@@ -412,25 +491,33 @@ def _close(bundle: dict[str, Any]) -> dict[str, Any]:
             d["declared_plan"], b["declared_plan"]["aggregation_policy"]
         ),
     }
+    scope_binding_digest = evq._role_digest(
+        evq._EVALUATOR_SCOPE_BINDING_DOMAIN,
+        {"schema_version": evq._EVALUATOR_SCOPE_BINDING_DOMAIN, "project_ref": PROJECT_REF},
+    )
+    registry_digests = {
+        stem: evq._role_digest(evq._domain(stem), evq._load_evaluator_quality_document(stem))
+        for stem in ("measurement_registry", "perturbation_set", "assertion_templates")
+    }
     b["unsigned_manifest"] = {
         "schema_version": "traigent.evaluator_quality.unsigned_manifest.v1",
-        "scope_binding_digest": SHA,
-        "evaluator_commitment_ref": SHA,
+        "scope_binding_digest": scope_binding_digest,
+        "evaluator_commitment_ref": COMMITMENT_REF,
         "evaluator_commitment": {
             "schema_version": "traigent.evaluator_quality.commitment.v1",
             "commitment_scheme": "sha256_secret_blinded_v1",
             "canonicalization": "jcs_v1",
             "artifact_kind": "evaluator",
-            "commitment_digest": SHA,
+            "commitment_digest": COMMITMENT_REF,
         },
         "descriptor_digest": b["descriptor"]["descriptor_digest"],
         "descriptor_opening_digest": None,
         "reference_standard_digest": b["reference_standard"]["reference_standard_digest"],
         "evaluation_scope_digest": b["evaluation_scope"]["evaluation_scope_digest"],
         "declared_plan_digest": b["declared_plan"]["declared_plan_digest"],
-        "measurement_registry_digest": SHA,
-        "perturbation_set_digest": SHA,
-        "assertion_templates_digest": SHA,
+        "measurement_registry_digest": registry_digests["measurement_registry"],
+        "perturbation_set_digest": registry_digests["perturbation_set"],
+        "assertion_templates_digest": registry_digests["assertion_templates"],
         "measurement_set_digest": b["measurements"]["measurement_set_digest"],
         "frontier_digest": None,
         "claim_material_digest": claim_digest,
@@ -670,8 +757,26 @@ def test_p3v2_private_guard_rejection_codes_are_reachable() -> None:
             ),
         ),
         (
+            "EVALUATOR_KEY_RING_MISMATCH",
+            lambda: evq._check_manifest_signature(
+                (
+                    lambda b: (
+                        b["verification_materials_v0"]["issuer"].update(public_key_digest=SHA),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
+        ),
+        (
             "EVALUATOR_ISSUER_SIGNATURE_INVALID",
-            lambda: evq._check_manifest_signature(build_bundle()),
+            lambda: evq._check_manifest_signature(
+                (
+                    lambda b: (
+                        b["signature"].update(signature=base64.b64encode(b"\x00" * 64).decode()),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
         ),
         (
             "EVALUATOR_COMMITMENT_MISMATCH",
@@ -680,8 +785,425 @@ def test_p3v2_private_guard_rejection_codes_are_reachable() -> None:
                 SimpleNamespace(expected_evaluator_commitment_ref="sha256:" + "b" * 64),
             ),
         ),
+        ("CONTEXT", lambda: evq._check_scope_binding(build_bundle(), None)),
+        ("CONTEXT", lambda: evq._check_commitment(build_bundle(), None)),
         ("EVALUATOR_CANONICALIZATION", lambda: evq._role_digest("test", float("nan"))),
+        (
+            "DECLARED_PLAN_SCOPE_VIOLATION",
+            lambda: evq._check_plan_containment(
+                (
+                    lambda b: (
+                        b["measurements"]["agreement"]["agreement"].update(
+                            estimator_id="fleiss_kappa"
+                        ),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
+        ),
+        (
+            "ESTIMATOR_NOT_REGISTERED",
+            lambda: evq._check_measurement_registry_admissibility(
+                {
+                    "estimator_id": "not_a_real_estimator",
+                    "value_unit": "ppm_unsigned",
+                    "sample_unit": "evaluation_item",
+                    "interval_params": {"interval_kind": "wilson_score"},
+                }
+            ),
+        ),
+        (
+            "UNIT_NOT_ADMISSIBLE",
+            lambda: evq._check_measurement_registry_admissibility(
+                {
+                    "estimator_id": "cohens_kappa",
+                    "value_unit": "microusd",
+                    "sample_unit": "evaluation_item",
+                    "interval_params": {"interval_kind": "wilson_score"},
+                }
+            ),
+        ),
+        (
+            "INTERVAL_MALFORMED",
+            lambda: evq._check_interval_well_formed(
+                {
+                    "interval_low_value": 10,
+                    "point_value": 5,
+                    "interval_high_value": 20,
+                    "value_unit": "ppm_unsigned",
+                }
+            ),
+        ),
+        (
+            "RESAMPLE_UNIT_MISMATCH",
+            lambda: evq._check_resample_unit(
+                {
+                    "interval_params": {
+                        "interval_kind": "bootstrap_percentile",
+                        "resample_unit": "item_pair",
+                    },
+                    "sample_unit": "evaluation_item",
+                }
+            ),
+        ),
+        (
+            "SAMPLE_SIZE_INSUFFICIENT",
+            lambda: evq._check_plan_containment(
+                (
+                    lambda b: (
+                        b["measurements"]["agreement"]["agreement"].update(sample_size_n=2),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
+        ),
+        (
+            "INTERVAL_WIDTH_EXCEEDED",
+            lambda: evq._check_plan_containment(
+                (
+                    lambda b: (
+                        b["measurements"]["agreement"]["agreement"].update(
+                            interval_low_value=0, interval_high_value=1000000
+                        ),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
+        ),
+        (
+            "THRESHOLD_NOT_MET",
+            lambda: evq._check_plan_containment(
+                (
+                    lambda b: (
+                        b["measurements"]["agreement"]["agreement"].update(
+                            point_value=100000, interval_low_value=90000, interval_high_value=110000
+                        ),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
+        ),
     ]
     for code, action in cases:
         with pytest.raises(evq.EvaluatorQualityVerificationError, match=code):
             action()
+
+
+def _expect(
+    bundle: dict[str, Any], code: str, *, context: object = DEFAULT_CONTEXT
+) -> evq.EvaluatorQualityVerificationError:
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._verify_evaluator_quality_private(bundle, context=context)
+    assert caught.value.code == code, caught.value.code
+    return caught.value
+
+
+def test_private_pipeline_accepts_a_fully_closed_bundle() -> None:
+    assert evq._verify_evaluator_quality_private(build_bundle(), context=DEFAULT_CONTEXT) is None
+
+
+# --- Step-0 P1-1: the issuer signature check now has real coverage --------
+
+
+def test_forged_signature_is_rejected_full_pipeline() -> None:
+    bundle = build_bundle()
+    bundle["signature"]["signature"] = base64.b64encode(b"\x00" * 64).decode("ascii")
+    _expect(bundle, "EVALUATOR_ISSUER_SIGNATURE_INVALID")
+
+
+def test_valid_signature_over_a_tampered_manifest_is_rejected_full_pipeline() -> None:
+    bundle = build_bundle()
+    original_signature = bundle["signature"]["signature"]
+    bundle["unsigned_manifest"]["overall"]["overall_quality_ppm"] = 915001
+    bundle["signature"]["unsigned_manifest_digest"] = evq._role_digest(
+        evq._domain("unsigned_manifest"), bundle["unsigned_manifest"]
+    )
+    bundle["signature"]["signature"] = original_signature
+    _expect(bundle, "EVALUATOR_ISSUER_SIGNATURE_INVALID")
+
+
+# --- Step-0 P2-2: key-material failure is its own code, not the broad catch
+
+
+def test_malformed_issuer_key_material_is_key_ring_mismatch_not_signature_invalid() -> None:
+    bundle = build_bundle(verification_materials_v0={"issuer": {"public_key_digest": SHA}})
+    _expect(bundle, "EVALUATOR_KEY_RING_MISMATCH")
+
+
+def test_delete_signature_verification_guard_leaves_forged_signature_rejected() -> None:
+    """Mutate-the-guard probe for S7-sigverify (packet-2 review probe, template G)."""
+    source = Path(evq.__file__).read_text()
+    target = '        _verify_signature(key, issuer["algorithm"], material, signature["signature"])'
+    assert target in source
+    mutated = source.replace(target, "        pass", 1)
+    namespace: dict[str, Any] = {"__name__": "evq_mutated"}
+    exec(compile(mutated, "<mutated evq>", "exec"), namespace)
+    forged = build_bundle()
+    forged["signature"]["signature"] = base64.b64encode(b"\x00" * 64).decode("ascii")
+    with pytest.raises(namespace["EvaluatorQualityVerificationError"]):
+        namespace["_verify_evaluator_quality_private"](forged, context=DEFAULT_CONTEXT)
+
+
+# --- Step-0 P1-2: S5's manifest-side digests are covered, one per artifact -
+
+
+def test_claim_material_manifest_side_digest_mismatch() -> None:
+    bundle = build_bundle()
+    bundle["claim_material"][1]["reference_standard_digest"] = SHA
+    _expect(bundle, "EVALUATOR_ARTIFACT_DIGEST_MISMATCH")
+
+
+def test_claim_support_rows_manifest_side_digest_mismatch() -> None:
+    bundle = build_bundle()
+    bundle["claim_support_rows"][1]["measurement_set_digest"] = SHA
+    _expect(bundle, "EVALUATOR_ARTIFACT_DIGEST_MISMATCH")
+
+
+# non_claims is a fixed, positionally-const-pinned 18-tuple (S8); any content
+# mutation that keeps the bundle schema-valid is not constructible, so its
+# manifest-side digest check is a tripwire, not a reachable runtime negative --
+# see P3-2 disposition for the same class of unconstructible path.
+
+
+# --- Step-0 item 4: ordering, not just reachability ------------------------
+
+
+def test_ordering_s3_duplicate_before_s4_scope_binding() -> None:
+    duplicate_plan = [_planned(r) for r in PLANNED_ROLE_ORDER]
+    extra = {**dict(duplicate_plan[0]), "minimum_sample_size_n": 999}
+    bundle = build_bundle(declared_plan={"planned_measurements": [*duplicate_plan, extra]})
+    _expect(
+        bundle,
+        "MEASUREMENT_ROLE_DUPLICATE",
+        context=SimpleNamespace(
+            expected_project_ref="wrong", expected_evaluator_commitment_ref=COMMITMENT_REF
+        ),
+    )
+
+
+def test_ordering_s4_scope_binding_before_s5_artifact_digest() -> None:
+    bundle = build_bundle()
+    bundle["descriptor"]["evaluator_version"] = "9.9.9"
+    _expect(
+        bundle,
+        "SCOPE_BINDING_MISMATCH",
+        context=SimpleNamespace(
+            expected_project_ref="wrong", expected_evaluator_commitment_ref=COMMITMENT_REF
+        ),
+    )
+
+
+def test_ordering_s7_signature_before_s9_commitment() -> None:
+    bundle = build_bundle()
+    bundle["signature"]["signature"] = base64.b64encode(b"\x00" * 64).decode("ascii")
+    _expect(
+        bundle,
+        "EVALUATOR_ISSUER_SIGNATURE_INVALID",
+        context=SimpleNamespace(
+            expected_project_ref=PROJECT_REF, expected_evaluator_commitment_ref="sha256:" + "b" * 64
+        ),
+    )
+
+
+def test_ordering_s9_commitment_before_plan_containment() -> None:
+    bundle = build_bundle(
+        measurements={"agreement": {"agreement": {"estimator_id": "fleiss_kappa"}}}
+    )
+    _expect(
+        bundle,
+        "EVALUATOR_COMMITMENT_MISMATCH",
+        context=SimpleNamespace(
+            expected_project_ref=PROJECT_REF, expected_evaluator_commitment_ref="sha256:" + "b" * 64
+        ),
+    )
+
+
+# --- Step-0 item 5: MEASUREMENT_ROLE_DUPLICATE through the full pipeline ---
+
+
+def test_measurement_role_duplicate_same_role_different_payload_through_pipeline() -> None:
+    """The #458 regression: two plan entries share a role with a different payload."""
+    duplicate_plan = [_planned(r) for r in PLANNED_ROLE_ORDER]
+    extra = {
+        **dict(duplicate_plan[1]),
+        "measurement_role": "calibration_ece",
+        "minimum_sample_size_n": 999,
+    }
+    bundle = build_bundle(declared_plan={"planned_measurements": [*duplicate_plan, extra]})
+    _expect(bundle, "MEASUREMENT_ROLE_DUPLICATE")
+
+
+# --- Step-0 item 6: context pin is mandatory for S4/S9 ---------------------
+
+
+def test_missing_context_fails_closed_at_scope_binding() -> None:
+    _expect(build_bundle(), "CONTEXT", context=None)
+
+
+def test_missing_context_fails_closed_at_commitment() -> None:
+    _expect(build_bundle(), "CONTEXT", context=SimpleNamespace(expected_project_ref=PROJECT_REF))
+
+
+# --- P3-1: genuine on-disk sidecar corruption, all three sidecars ----------
+
+
+@pytest.mark.parametrize(
+    "stem", ["measurement_registry", "perturbation_set", "assertion_templates"]
+)
+def test_sidecar_on_disk_corruption_is_detected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stem: str
+) -> None:
+    src = resources.files("traigent_schema").joinpath("data").joinpath("certification")
+    data_dir = tmp_path / "data" / "certification"
+    data_dir.mkdir(parents=True)
+    for filename in (f"evaluator_{stem}.json", f"evaluator_{stem}.digest.json"):
+        (data_dir / filename).write_bytes(src.joinpath(filename).read_bytes())
+
+    sidecar_path = data_dir / f"evaluator_{stem}.digest.json"
+    corrupted = json.loads(sidecar_path.read_text())
+    corrupted["digest"] = "sha256:" + "0" * 64
+    sidecar_path.write_text(json.dumps(corrupted))
+
+    class _FakePackage:
+        def joinpath(self, *parts: str) -> Path:
+            return tmp_path.joinpath(*parts)
+
+    monkeypatch.setattr(evq.resources, "files", lambda _name: _FakePackage())
+    evq._load_evaluator_quality_document.cache_clear()
+    try:
+        with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+            evq._load_evaluator_quality_document(stem)
+        assert caught.value.code == "REGISTRY_DIGEST_MISMATCH"
+    finally:
+        monkeypatch.undo()
+        evq._load_evaluator_quality_document.cache_clear()
+        assert isinstance(evq._load_evaluator_quality_document(stem), dict)
+
+
+# --- P3-V.3: the semantic layer, each reached through the full pipeline ----
+
+
+def test_declared_plan_scope_violation_estimator_shopping() -> None:
+    """Headline post-hoc test: a claim-level (not role-level) key would pass this."""
+    bundle = build_bundle(
+        measurements={"agreement": {"agreement": {"estimator_id": "fleiss_kappa"}}}
+    )
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_declared_plan_scope_violation_coverage_level_shopping() -> None:
+    bundle = build_bundle(
+        measurements={"agreement": {"agreement": {"nominal_coverage_ppm": 900000}}}
+    )
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_sample_size_insufficient_below_declared_plan_minimum() -> None:
+    bundle = build_bundle(measurements={"agreement": {"agreement": {"sample_size_n": 2}}})
+    _expect(bundle, "SAMPLE_SIZE_INSUFFICIENT")
+
+
+def test_interval_width_exceeded_over_declared_plan_maximum() -> None:
+    bundle = build_bundle(
+        measurements={
+            "agreement": {"agreement": {"interval_low_value": 0, "interval_high_value": 1000000}}
+        }
+    )
+    _expect(bundle, "INTERVAL_WIDTH_EXCEEDED")
+
+
+def test_threshold_not_met_at_the_conservative_bound() -> None:
+    """Point above threshold, conservative (low) bound below it -- never the point."""
+    bundle = build_bundle(
+        measurements={
+            "agreement": {
+                "agreement": {
+                    "point_value": 400000,
+                    "interval_low_value": 300000,
+                    "interval_high_value": 500000,
+                }
+            }
+        }
+    )
+    _expect(bundle, "THRESHOLD_NOT_MET")
+
+
+def test_threshold_conservative_bound_is_inverted_for_lower_is_better() -> None:
+    bundle = build_bundle(
+        measurements={
+            "calibration": {
+                "expected_calibration_error": {
+                    "point_value": 500000,
+                    "interval_low_value": 400000,
+                    "interval_high_value": 600000,
+                }
+            }
+        }
+    )
+    _expect(bundle, "THRESHOLD_NOT_MET")
+
+
+def test_resample_unit_mismatch_pseudo_replication() -> None:
+    bundle = build_bundle(
+        measurements={
+            "calibration": {
+                "expected_calibration_error": {
+                    "interval_params": {"resample_unit": "item_pair"},
+                }
+            }
+        }
+    )
+    _expect(bundle, "RESAMPLE_UNIT_MISMATCH")
+
+
+@pytest.mark.parametrize(
+    ("guard_name", "target", "replacement", "expect_code"),
+    [
+        (
+            "plan-containment-scope",
+            '            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
+            '"declared_plan.planned_measurements")',
+            "            pass",
+            None,
+        ),
+        (
+            "sample-size-insufficient",
+            '            _fail("SAMPLE_SIZE_INSUFFICIENT", "measurements.sample_size")',
+            "            pass",
+            None,
+        ),
+        (
+            "interval-width-exceeded",
+            '            _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")',
+            "            pass",
+            None,
+        ),
+    ],
+)
+def test_mutate_the_plan_containment_guard_is_caught(
+    guard_name: str, target: str, replacement: str, expect_code: str | None
+) -> None:
+    """Delete only the named guard; the matching negative must go RED."""
+    source = Path(evq.__file__).read_text()
+    assert target in source, guard_name
+    mutated = source.replace(target, replacement, 1)
+    namespace: dict[str, Any] = {"__name__": "evq_mutated_plan"}
+    exec(compile(mutated, "<mutated evq>", "exec"), namespace)
+    negatives = {
+        "plan-containment-scope": build_bundle(
+            measurements={"agreement": {"agreement": {"estimator_id": "fleiss_kappa"}}}
+        ),
+        "sample-size-insufficient": build_bundle(
+            measurements={"agreement": {"agreement": {"sample_size_n": 2}}}
+        ),
+        "interval-width-exceeded": build_bundle(
+            measurements={
+                "agreement": {
+                    "agreement": {"interval_low_value": 0, "interval_high_value": 1000000}
+                }
+            }
+        ),
+    }
+    bundle = negatives[guard_name]
+    with pytest.raises(namespace["EvaluatorQualityVerificationError"]):
+        namespace["_verify_evaluator_quality_private"](bundle, context=DEFAULT_CONTEXT)

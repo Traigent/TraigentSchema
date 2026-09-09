@@ -250,6 +250,13 @@ def _check_schema(bundle: dict[str, Any]) -> None:
 
 
 def _check_semantic_uniqueness(bundle: dict[str, Any]) -> None:
+    """S3: the plan-side duplicate sweep, before any map is built.
+
+    ``measurements.reliability.probe_results[*].measurement.measurement_role``
+    is a separate, measurement-side duplicate surface; it is swept by
+    :func:`_measurement_role_rows`, which the plan-containment stage (S12)
+    owns.
+    """
     roles = [row.get("measurement_role") for row in bundle["declared_plan"]["planned_measurements"]]
     if len(roles) != len(set(roles)):
         _fail("MEASUREMENT_ROLE_DUPLICATE", "declared_plan")
@@ -257,6 +264,8 @@ def _check_semantic_uniqueness(bundle: dict[str, Any]) -> None:
 
 def _check_scope_binding(bundle: dict[str, Any], context: object) -> None:
     project_ref = getattr(context, "expected_project_ref", None)
+    if type(project_ref) is not str:
+        _fail("CONTEXT", "context")
     projection = {"schema_version": _EVALUATOR_SCOPE_BINDING_DOMAIN, "project_ref": project_ref}
     expected = _role_digest(_EVALUATOR_SCOPE_BINDING_DOMAIN, projection)
     if bundle["unsigned_manifest"]["scope_binding_digest"] != expected:
@@ -329,14 +338,20 @@ def _check_manifest_signature(bundle: dict[str, Any]) -> None:
         _fail("EVALUATOR_KEY_RING_MISMATCH", "signature")
     try:
         key = _material_public_key(issuer, _ISSUER_SPKI_DOMAIN)
-        if (
-            issuer.get("key_ref") != manifest["issuer_key_ref"]
-            or issuer.get("trust_ring_ref") != manifest["trust_ring_ref"]
-        ):
-            _fail("EVALUATOR_KEY_RING_MISMATCH", "signature")
-        material = (
-            _domain("issuer_signature").encode() + b"\0" + fp2.canonicalize(manifest).encode()
-        )
+    except EvaluatorQualityVerificationError:
+        raise
+    except Exception:
+        # Malformed/unmatched issuer key material (RelyingPartyVerificationError
+        # "MATERIALS_KEY") is a key-resolution failure, not a forged-signature
+        # finding -- keep it distinguishable from EVALUATOR_ISSUER_SIGNATURE_INVALID.
+        _fail("EVALUATOR_KEY_RING_MISMATCH", "signature")
+    if (
+        issuer.get("key_ref") != manifest["issuer_key_ref"]
+        or issuer.get("trust_ring_ref") != manifest["trust_ring_ref"]
+    ):
+        _fail("EVALUATOR_KEY_RING_MISMATCH", "signature")
+    material = _domain("issuer_signature").encode() + b"\0" + fp2.canonicalize(manifest).encode()
+    try:
         _verify_signature(key, issuer["algorithm"], material, signature["signature"])
     except EvaluatorQualityVerificationError:
         raise
@@ -346,17 +361,113 @@ def _check_manifest_signature(bundle: dict[str, Any]) -> None:
 
 def _check_commitment(bundle: dict[str, Any], context: object) -> None:
     manifest = bundle["unsigned_manifest"]
+    expected_ref = getattr(context, "expected_evaluator_commitment_ref", None)
+    if type(expected_ref) is not str:
+        _fail("CONTEXT", "context")
     if (
-        getattr(context, "expected_evaluator_commitment_ref", None)
-        != manifest["evaluator_commitment_ref"]
+        expected_ref != manifest["evaluator_commitment_ref"]
         or manifest["evaluator_commitment"]["commitment_digest"]
         != manifest["evaluator_commitment_ref"]
     ):
         _fail("EVALUATOR_COMMITMENT_MISMATCH", "commitment_refs")
 
 
+def _estimator_registry_index() -> dict[str, dict[str, Any]]:
+    document = _load_evaluator_quality_document("measurement_registry")
+    return {entry["estimator_id"]: entry for entry in document["estimators"]}
+
+
+def _measurement_role_rows(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The measurement-side role sweep S3 does not cover (see its docstring)."""
+    measurements = bundle["measurements"]
+    ordered = [
+        measurements["calibration"]["expected_calibration_error"],
+        measurements["calibration"]["calibration_slope"],
+        measurements["agreement"]["agreement"],
+        measurements["sensitivity"]["discriminating_power"],
+        measurements["sensitivity"]["false_difference_rate"],
+    ] + [
+        probe["measurement"]
+        for probe in measurements["reliability"]["probe_results"]
+        if probe["status"] == "measured"
+    ]
+    rows: dict[str, dict[str, Any]] = {}
+    for row in ordered:
+        role = row["measurement_role"]
+        if role in rows:
+            _fail("MEASUREMENT_ROLE_DUPLICATE", "measurements")
+        rows[role] = row
+    return rows
+
+
+def _check_measurement_registry_admissibility(row: dict[str, Any]) -> None:
+    entry = _estimator_registry_index().get(row["estimator_id"])
+    if entry is None:
+        _fail("ESTIMATOR_NOT_REGISTERED", "measurements")
+    if row["value_unit"] != entry["value_unit"] or row["sample_unit"] not in entry["sample_units"]:
+        _fail("UNIT_NOT_ADMISSIBLE", "measurements")
+    if row["interval_params"]["interval_kind"] not in entry["interval_kinds"]:
+        _fail("INTERVAL_MALFORMED", "measurements.interval_params")
+
+
+def _check_interval_well_formed(row: dict[str, Any]) -> None:
+    low, point, high = row["interval_low_value"], row["point_value"], row["interval_high_value"]
+    if not low <= point <= high:
+        _fail("INTERVAL_MALFORMED", "measurements.interval")
+    if row["value_unit"] in ("ppm_unsigned", "ppm_signed"):
+        floor = 0 if row["value_unit"] == "ppm_unsigned" else -1000000
+        if not (floor <= low <= 1000000 and floor <= high <= 1000000):
+            _fail("INTERVAL_MALFORMED", "measurements.interval")
+
+
+def _check_resample_unit(row: dict[str, Any]) -> None:
+    params = row["interval_params"]
+    if (
+        str(params["interval_kind"]).startswith("bootstrap_")
+        and params["resample_unit"] != row["sample_unit"]
+    ):
+        _fail("RESAMPLE_UNIT_MISMATCH", "measurements.interval_params")
+
+
+def _check_plan_containment(bundle: dict[str, Any]) -> None:
+    """S12: per-role plan containment -- the post-hoc estimator/level-shopping guard.
+
+    Only roles the plan declares AND the measurement set actually reports are
+    checked here; a role the plan requires but the bundle never measured is a
+    coverage concern the per-claim rejection stages (EVQ4/EVQ5) own, not this
+    stage.
+    """
+    rows = _measurement_role_rows(bundle)
+    for planned in bundle["declared_plan"]["planned_measurements"]:
+        row = rows.get(planned["measurement_role"])
+        if row is None:
+            continue
+        if (
+            row["estimator_id"] != planned["estimator_id"]
+            or row["interval_params"]["interval_kind"]
+            != planned["interval_params"]["interval_kind"]
+            or row["nominal_coverage_ppm"] != planned["nominal_coverage_ppm"]
+            or row["sample_unit"] != planned["sample_unit"]
+            or row["value_unit"] != planned["value_unit"]
+        ):
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
+        _check_measurement_registry_admissibility(row)
+        _check_interval_well_formed(row)
+        _check_resample_unit(row)
+        if row["sample_size_n"] < planned["minimum_sample_size_n"]:
+            _fail("SAMPLE_SIZE_INSUFFICIENT", "measurements.sample_size")
+        width = row["interval_high_value"] - row["interval_low_value"]
+        if width > planned["maximum_interval_width_ppm"]:
+            _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")
+        if planned["threshold_comparison"] == "interval_low_ge":
+            if row["interval_low_value"] < planned["threshold_value"]:
+                _fail("THRESHOLD_NOT_MET", "measurements.interval")
+        elif row["interval_high_value"] > planned["threshold_value"]:
+            _fail("THRESHOLD_NOT_MET", "measurements.interval")
+
+
 def _verify_evaluator_quality_private(bundle: object, *, context: object) -> None:
-    """Run P3-V.2. The commitment pin must come from a VERIFIED process record."""
+    """Run P3-V.2/P3-V.3. The commitment pin must come from a VERIFIED process record."""
     shaped = _check_bundle_shape(bundle)
     _check_schema(shaped)
     _check_semantic_uniqueness(shaped)
@@ -365,6 +476,7 @@ def _verify_evaluator_quality_private(bundle: object, *, context: object) -> Non
     _check_registry_digests(shaped)
     _check_manifest_signature(shaped)
     _check_commitment(shaped, context)
+    _check_plan_containment(shaped)
     try:
         fp2.canonicalize(shaped)
     except Exception:

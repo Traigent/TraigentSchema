@@ -182,7 +182,7 @@ def _exec_mutated(source: str, name: str, filename: str = "<mutated evq>") -> di
     the mutation under test is ever reached, at every one of this file's
     three mutation-test call sites.
     """
-    namespace: dict[str, Any] = {"__name__": name}
+    namespace: dict[str, Any] = {"__name__": name, "__file__": evq.__file__}
     module = types.ModuleType(name)
     sys.modules[name] = module
     try:
@@ -1651,11 +1651,16 @@ def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
             None,
         ),
         (
+            # This negative (a measured agreement estimator that diverges
+            # from the plan) is independently rejected by
+            # ``_check_interval_admissibility`` (a different, still-present
+            # guard) once the containment-tuple guard is deleted -- pinned
+            # by code so a future removal of THAT guard too is caught.
             "plan-containment-scope",
             '        ):\n            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
             '"declared_plan.planned_measurements")',
             "        ):\n            pass",
-            None,
+            "INTERVAL_MALFORMED",
         ),
         (
             "sample-size-insufficient",
@@ -1664,23 +1669,35 @@ def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
             None,
         ),
         (
+            # Independently rejected by the threshold-comparison guard once
+            # the width guard is deleted; pinned by code (see above).
             "interval-width-exceeded",
             '        _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")',
             "        pass",
-            None,
+            "THRESHOLD_NOT_MET",
         ),
     ],
 )
 def test_mutate_the_plan_containment_guard_is_caught(
     guard_name: str, target: str, replacement: str, expect_code: str | None
 ) -> None:
-    """Delete only the named guard; the matching negative must go RED."""
+    """Delete only the named guard against its matching crafted negative.
+
+    ``expect_code`` is ``None`` when the deleted guard is the SOLE
+    protection for that negative -- no other check in the pipeline reaches
+    the same defect -- so the mutated verifier must ACCEPT the negative,
+    proving the guard load-bearing (mirrors
+    ``test_delete_signature_verification_guard_lets_forged_signature_through``).
+    It names a code when a genuinely different, still-present guard
+    independently rejects the same crafted bundle for an unrelated reason;
+    pinning that code (rather than a bare ``pytest.raises``) means a future
+    edit that also removes THAT guard is caught here too.
+    """
     source = Path(evq.__file__).read_text()
     assert target in source, guard_name
     assert source.count(target) == 1, guard_name
     mutated = source.replace(target, replacement, 1)
-    namespace: dict[str, Any] = {"__name__": "evq_mutated_plan"}
-    exec(compile(mutated, "<mutated evq>", "exec"), namespace)
+    namespace = _exec_mutated(mutated, "evq_mutated_plan")
     negatives = {
         "plan-sensitivity-pair-set-binding": build_bundle(
             measurements={"sensitivity": {"pair_set": {"pair_set_digest": "sha256:" + "d" * 64}}}
@@ -1731,8 +1748,16 @@ def test_mutate_the_plan_containment_guard_is_caught(
         ),
     }
     bundle = negatives[guard_name]
-    with pytest.raises(namespace["EvaluatorQualityVerificationError"]):
-        namespace["_verify_evaluator_quality_private"](bundle, context=DEFAULT_CONTEXT)
+    valid = build_bundle()
+    assert namespace["_verify_evaluator_quality_private"](valid, context=DEFAULT_CONTEXT) is None
+    if expect_code is None:
+        assert (
+            namespace["_verify_evaluator_quality_private"](bundle, context=DEFAULT_CONTEXT) is None
+        )
+    else:
+        with pytest.raises(namespace["EvaluatorQualityVerificationError"]) as caught:
+            namespace["_verify_evaluator_quality_private"](bundle, context=DEFAULT_CONTEXT)
+        assert caught.value.code == expect_code
 
 
 @pytest.mark.parametrize(
@@ -1765,14 +1790,17 @@ def test_mutate_the_plan_containment_guard_is_caught(
 def test_mutate_the_p4e_guards_are_caught(guard_name: str, target: str, replacement: str) -> None:
     """P3-tl-review-1 P4cd packet 4e: delete only the named guard (the
     perturbation-set digest bindings, or the deterministic-presence
-    direction of the reliability determinism contradiction); the matching
-    negative must go RED."""
+    direction of the reliability determinism contradiction). None of these
+    three guards has a redundant catch elsewhere in the pipeline, so the
+    matching negative must be ACCEPTED once the guard is deleted -- proving
+    each one load-bearing (mirrors
+    ``test_delete_signature_verification_guard_lets_forged_signature_through``),
+    not that some other check happens to reject it."""
     source = Path(evq.__file__).read_text()
     assert target in source, guard_name
     assert source.count(target) == 1, guard_name
     mutated = source.replace(target, replacement, 1)
-    namespace: dict[str, Any] = {"__name__": "evq_mutated_p4e"}
-    exec(compile(mutated, "<mutated evq>", "exec"), namespace)
+    namespace = _exec_mutated(mutated, "evq_mutated_p4e")
 
     def _presence_negative() -> dict[str, Any]:
         base = _base_bundle()
@@ -1791,8 +1819,9 @@ def test_mutate_the_p4e_guards_are_caught(guard_name: str, target: str, replacem
         "reliability-determinism-presence": _presence_negative(),
     }
     bundle = negatives[guard_name]
-    with pytest.raises(namespace["EvaluatorQualityVerificationError"]):
-        namespace["_verify_evaluator_quality_private"](bundle, context=DEFAULT_CONTEXT)
+    valid = build_bundle()
+    assert namespace["_verify_evaluator_quality_private"](valid, context=DEFAULT_CONTEXT) is None
+    assert namespace["_verify_evaluator_quality_private"](bundle, context=DEFAULT_CONTEXT) is None
 
 
 # --- Step-0: four S12 comparison-granularity mutations left GREEN ----------

@@ -1271,9 +1271,7 @@ def _check_non_claim_tuple(bundle: dict[str, Any]) -> None:
     function directly against a hand-built, schema-bypassing tuple, not by
     a full-bundle runtime negative.
     """
-    actual = tuple(
-        (row["non_claim_id"], row["reason_template_id"]) for row in bundle["non_claims"]
-    )
+    actual = tuple((row["non_claim_id"], row["reason_template_id"]) for row in bundle["non_claims"])
     if actual != _NON_CLAIMS_CANONICAL:
         _fail("NON_CLAIM_TUPLE_MISMATCH", "non_claims")
 
@@ -1443,9 +1441,10 @@ def _evaluator_trust_status_shape(envelope: object) -> dict[str, Any] | None:
         return None
     if snapshot.get("max_age_seconds") != _EVALUATOR_TRUST_MAX_AGE_SECONDS:
         return None
-    if type(snapshot.get("effective_time")) is not str or type(
-        snapshot.get("trust_anchor_ref")
-    ) is not str:
+    if (
+        type(snapshot.get("effective_time")) is not str
+        or type(snapshot.get("trust_anchor_ref")) is not str
+    ):
         return None
     key_status = snapshot.get("key_status")
     if not isinstance(key_status, list) or not (
@@ -1469,7 +1468,7 @@ def _evaluator_trust_status_shape(envelope: object) -> dict[str, Any] | None:
 
 
 def _verify_evaluator_trust_status(
-    trust_status: object, context: "EvaluatorQualityVerificationContext"
+    trust_status: object, context: EvaluatorQualityVerificationContext
 ) -> dict[str, Any]:
     """Authenticate and freshness-check a caller-supplied trust-status
     snapshot; return the verified snapshot body. Establishes non-revocation
@@ -1557,7 +1556,8 @@ class EvaluatorQualityVerificationContext:
     VERIFIED process record** -- specifically, from the
     ``evaluator_commitment_ref`` field of a
     :class:`~traigent_schema.certification.process_record_verifier.ProcessRecordVerificationResult`
-    returned by :func:`~traigent_schema.certification.process_record_verifier.verify_process_record_certificate`.
+    returned by
+    :func:`~traigent_schema.certification.process_record_verifier.verify_process_record_certificate`.
     The cross-bundle equality this pin makes possible is a RELYING-PARTY
     COMPOSITION, not a single-call check: this verifier takes exactly one
     bundle and never reaches into a second one. A pin copied from an
@@ -1587,15 +1587,16 @@ class EvaluatorQualityVerificationContext:
     def __post_init__(self) -> None:
         if type(self.expected_project_ref) is not str or not self.expected_project_ref:
             _fail("CONTEXT", "context")
-        if type(
+        if type(self.expected_evaluator_commitment_ref) is not str or not _SHA256_RE.fullmatch(
             self.expected_evaluator_commitment_ref
-        ) is not str or not _SHA256_RE.fullmatch(self.expected_evaluator_commitment_ref):
+        ):
             _fail("CONTEXT", "context")
         if type(self.allow_unchecked_trust_status) is not bool:
             _fail("CONTEXT", "context")
-        if type(self.verification_time) is not str or _parse_utc_timestamp(
-            self.verification_time
-        ) is None:
+        if (
+            type(self.verification_time) is not str
+            or _parse_utc_timestamp(self.verification_time) is None
+        ):
             _fail("CONTEXT", "context")
         if (self.trust_anchor is None) != self.allow_unchecked_trust_status:
             _fail("CONTEXT", "context")

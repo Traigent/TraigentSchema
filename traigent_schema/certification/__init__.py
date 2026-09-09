@@ -15,6 +15,15 @@ from traigent_schema.certification.dataset_record_verifier import (
     DatasetRecordVerificationResult,
     verify_dataset_record_certificate,
 )
+from traigent_schema.certification.evaluator_quality_verifier import (
+    EVALUATOR_QUALITY_CLAIMS_PARTIAL,
+    EVALUATOR_QUALITY_ERROR_CODES,
+    EVALUATOR_QUALITY_VERIFIED,
+    EvaluatorQualityVerificationContext,
+    EvaluatorQualityVerificationError,
+    EvaluatorQualityVerificationResult,
+    verify_evaluator_quality_certificate,
+)
 from traigent_schema.certification.process_record_verifier import (
     PROCESS_RECORD_ERROR_CODES,
     ProcessRecordVerificationContext,
@@ -56,6 +65,12 @@ __all__ = [
     "DatasetRecordVerificationContext",
     "DatasetRecordVerificationError",
     "DatasetRecordVerificationResult",
+    "EVALUATOR_QUALITY_CLAIMS_PARTIAL",
+    "EVALUATOR_QUALITY_ERROR_CODES",
+    "EVALUATOR_QUALITY_VERIFIED",
+    "EvaluatorQualityVerificationContext",
+    "EvaluatorQualityVerificationError",
+    "EvaluatorQualityVerificationResult",
     "derive_client_key_ref",
     "PROCESS_RECORD_ERROR_CODES",
     "ProcessRecordVerificationContext",
@@ -76,6 +91,7 @@ __all__ = [
     "verify",
     "verify_certificate_with_materials",
     "verify_dataset_record_certificate",
+    "verify_evaluator_quality_certificate",
     "verify_process_record_certificate",
     "prepare_client_co_attestation",
 ]

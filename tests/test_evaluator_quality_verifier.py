@@ -6,6 +6,7 @@ import base64
 import copy
 import hashlib
 import json
+import re
 import sys
 import types
 from importlib import resources
@@ -3146,46 +3147,38 @@ def _minimal_public_bundle(
     }
 
 
-def test_gv3_dataclass_permits_claims_partial_with_adequacy_passed(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """DATACLASS-INVARIANT, not an end-to-end verifier path: with the private
-    pipeline stubbed to a no-op, the RESULT TYPE permits CLAIMS_PARTIAL with
-    a passed instrument_adequacy for a non-independent reference (sol F1's
-    one-directional __post_init__ coupling; the converse is NOT required).
-    The verifier itself never actually produces this pair end-to-end --
-    proven by test_reference_and_held_out_capping_forbid_passed_rows and the
-    exhaustive sweep in test_only_independent_disjoint_combination_reaches_verified,
-    since _check_reference_capping forbids any 'passed' EVQ2-EVQ5 row under a
-    non-independent reference, and instrument_adequacy is derived as the
-    worst row (P3-V.5 team-lead review finding F1)."""
-    monkeypatch.setattr(evq, "_verify_evaluator_quality_private", lambda bundle, *, context: None)
-    bundle = _minimal_public_bundle(reference_independence="shares_model_family")
-    context = _public_context()
-    result = evq.verify_evaluator_quality_certificate(bundle, context=context)
-    assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
-    assert result.instrument_adequacy == "passed"
+def test_gv3_dataclass_forbids_claims_partial_with_adequacy_passed() -> None:
+    """DATACLASS-INVARIANT: CLAIMS_PARTIAL paired with a passed
+    instrument_adequacy for a non-independent reference is now REJECTED at
+    construction (P3-V.5 sol milestone review finding S2). The verifier's
+    own exhaustive sweep in
+    test_only_independent_disjoint_combination_reaches_verified already
+    proves this pair is unreachable end-to-end -- a passed adequacy always
+    implies both other gates pass, which forces VERIFIED -- so the dataclass
+    no longer needs to encode it as constructible; encoding it anyway
+    invited handlers for an impossible state (the former GV3, which asserted
+    the opposite; see also test_reference_and_held_out_capping_forbid_passed_rows)."""
+    with pytest.raises(ValueError):
+        evq.EvaluatorQualityVerificationResult(
+            code=evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL,
+            instrument_adequacy="passed",
+            reference_independence="shares_model_family",
+        )
 
 
-def test_gv4_dataclass_permits_claims_partial_with_adequacy_passed(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """DATACLASS-INVARIANT, not an end-to-end verifier path: with the private
-    pipeline stubbed to a no-op, the RESULT TYPE permits CLAIMS_PARTIAL with
-    a passed instrument_adequacy for a held_out_status outside
-    {no_selection_performed, held_out_disjoint} (the third, independent
-    gate). The verifier itself never actually produces this pair end-to-end
-    -- proven by test_reference_and_held_out_capping_forbid_passed_rows and
-    the exhaustive sweep in
-    test_only_independent_disjoint_combination_reaches_verified, since
-    _check_held_out_capping forbids any 'passed' EVQ2-EVQ5 row under a bad
-    held-out status (P3-V.5 team-lead review finding F1)."""
-    monkeypatch.setattr(evq, "_verify_evaluator_quality_private", lambda bundle, *, context: None)
-    bundle = _minimal_public_bundle(held_out_status="overlaps_selection_set")
-    context = _public_context()
-    result = evq.verify_evaluator_quality_certificate(bundle, context=context)
-    assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
-    assert result.instrument_adequacy == "passed"
+def test_gv4_dataclass_forbids_claims_partial_with_adequacy_passed() -> None:
+    """DATACLASS-INVARIANT: CLAIMS_PARTIAL paired with a passed
+    instrument_adequacy for a held_out_status outside
+    {no_selection_performed, held_out_disjoint} is now REJECTED at
+    construction (P3-V.5 sol milestone review finding S2), for the same
+    reason as test_gv3_dataclass_forbids_claims_partial_with_adequacy_passed
+    -- the former GV4 asserted this pair was legal; it no longer is."""
+    with pytest.raises(ValueError):
+        evq.EvaluatorQualityVerificationResult(
+            code=evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL,
+            instrument_adequacy="passed",
+            held_out_status="overlaps_selection_set",
+        )
 
 
 def _end_to_end_signed_bundle(
@@ -3345,10 +3338,12 @@ def test_result_post_init_forbids_verified_without_all_three_gates() -> None:
             code=evq.EVALUATOR_QUALITY_VERIFIED,
             instrument_adequacy="failed",
         )
-    # The converse is legal: passed adequacy + CLAIMS_PARTIAL is fine.
+    # The converse is legal PROVIDED adequacy is not "passed" -- passed
+    # adequacy + CLAIMS_PARTIAL is forbidden by a separate invariant (sol
+    # S2); see test_gv3_dataclass_forbids_claims_partial_with_adequacy_passed.
     result = evq.EvaluatorQualityVerificationResult(
         code=evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL,
-        instrument_adequacy="passed",
+        instrument_adequacy="directional",
         reference_independence="shares_model_family",
     )
     assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
@@ -3471,6 +3466,24 @@ def test_evaluator_quality_error_codes_are_closed_and_public() -> None:
         "EVALUATOR_BUNDLE_SHAPE",
     ):
         assert code in evq.EVALUATOR_QUALITY_ERROR_CODES, code
+
+
+def test_evaluator_quality_reserved_codes_match_source_emission_audit() -> None:
+    """S1: EVALUATOR_QUALITY_RESERVED_CODES must equal declared vocabulary
+    minus everything actually emitted in source, in BOTH directions -- a
+    code that starts or stops being emitted (a ``_fail("<CODE>", ...)`` call
+    site, or a direct ``EvaluatorQualityVerificationError("<CODE>", ...)``
+    construction such as the catch-all) breaks this test rather than
+    silently drifting from the constant (P3-V.5 sol milestone review finding
+    S1)."""
+    source = Path(evq.__file__).read_text()
+    emitted = set(re.findall(r'_fail\(\s*"([A-Z_]+)"', source))
+    emitted |= set(re.findall(r'EvaluatorQualityVerificationError\(\s*"([A-Z_]+)"', source))
+    declared = evq.EVALUATOR_QUALITY_ERROR_CODES
+    assert emitted <= declared, emitted - declared
+    assert declared - emitted == evq.EVALUATOR_QUALITY_RESERVED_CODES
+    assert evq.EVALUATOR_QUALITY_RESERVED_CODES - declared == set()
+    assert len(emitted) == len(declared) - len(evq.EVALUATOR_QUALITY_RESERVED_CODES)
 
 
 def test_public_function_sentinel_never_leaks() -> None:

@@ -4,6 +4,14 @@
 The public verifier is deliberately added in a later packet.  This module
 owns the schema-derived vocabulary and the digest/signature primitives used by
 that verifier; it does not make a verification decision yet.
+
+Stricter than the current contract: this verifier enforces
+``AXIS_POINT_VALUE_ROLE`` and the reference-limit scope
+(``_REFERENCE_STANDARD_SCOPED_ROLES``, including the calibration_slope
+ceiling) as verifier-side conventions pending a Schema amendment, not as
+schema-declared rules -- so a bundle that is schema-valid on its own can
+still be rejected here, and relying parties must expect that gap until the
+amendment lands.
 """
 
 from __future__ import annotations
@@ -161,6 +169,33 @@ EVALUATOR_QUALITY_ERROR_CODES = frozenset(
 
 EVALUATOR_QUALITY_VERIFIED = "EVALUATOR_QUALITY_VERIFIED"
 EVALUATOR_QUALITY_CLAIMS_PARTIAL = "EVALUATOR_QUALITY_CLAIMS_PARTIAL"
+
+# Codes declared in EVALUATOR_QUALITY_ERROR_CODES that this verifier never
+# emits (P3-V.5 sol milestone review finding S1). Two disjoint classes:
+#
+# * tripwire -- reserved so a future guard stage cannot silently reuse the
+#   string for an unrelated failure. No schema-valid bundle can reach these:
+#   DECLARED_PLAN_BASIS_INSUFFICIENT, DECLARED_PLAN_ORDER,
+#   DESCRIPTOR_DISCLOSURE_MODE_CONFLICT, DESCRIPTOR_OPENING_INVALID.
+# * subsumed -- superseded by the generic digest sweep in
+#   _check_artifact_digests, which emits EVALUATOR_ARTIFACT_DIGEST_MISMATCH
+#   per role rather than these four role-specific codes:
+#   DECLARED_PLAN_DIGEST_MISMATCH, DESCRIPTOR_DIGEST_MISMATCH,
+#   EVALUATION_SCOPE_DIGEST_MISMATCH, REFERENCE_STANDARD_DIGEST_MISMATCH.
+EVALUATOR_QUALITY_RESERVED_CODES: frozenset[str] = frozenset(
+    {
+        # tripwire
+        "DECLARED_PLAN_BASIS_INSUFFICIENT",
+        "DECLARED_PLAN_ORDER",
+        "DESCRIPTOR_DISCLOSURE_MODE_CONFLICT",
+        "DESCRIPTOR_OPENING_INVALID",
+        # subsumed by EVALUATOR_ARTIFACT_DIGEST_MISMATCH
+        "DECLARED_PLAN_DIGEST_MISMATCH",
+        "DESCRIPTOR_DIGEST_MISMATCH",
+        "EVALUATION_SCOPE_DIGEST_MISMATCH",
+        "REFERENCE_STANDARD_DIGEST_MISMATCH",
+    }
+)
 
 
 class EvaluatorQualityVerificationError(ValueError):
@@ -493,10 +528,24 @@ def _measurement_role_rows(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return rows
 
 
-def _check_measurement_registry_admissibility(row: dict[str, Any]) -> None:
-    entry = _estimator_registry_index().get(row["estimator_id"])
+def _registered_estimator(estimator_id: str) -> dict[str, Any]:
+    """The registry entry for ``estimator_id``, or fail closed.
+
+    Extracted so the ``.get(...)``-then-``None``-check lives in one place:
+    ``_fail`` is typed ``-> NoReturn``, but that annotation is not always
+    followed by every static analyzer, which then reports a spurious
+    attribute-access-on-``None`` at every call site that dereferences the
+    entry after the check. A single non-Optional return type here removes
+    the false positive without changing behaviour.
+    """
+    entry = _estimator_registry_index().get(estimator_id)
     if entry is None:
         _fail("ESTIMATOR_NOT_REGISTERED", "measurements")
+    return entry
+
+
+def _check_measurement_registry_admissibility(row: dict[str, Any]) -> None:
+    entry = _registered_estimator(row["estimator_id"])
     if row["value_unit"] != entry["value_unit"] or row["sample_unit"] not in entry["sample_units"]:
         _fail("UNIT_NOT_ADMISSIBLE", "measurements")
     if row["interval_params"]["interval_kind"] not in entry["interval_kinds"]:
@@ -1191,6 +1240,21 @@ probes, not a single role's point_value.
 """
 
 
+def _required_measurement_role_row(bundle: dict[str, Any], role: str, code: str) -> dict[str, Any]:
+    """The measurement row for ``role``, or fail closed with ``code``.
+
+    Same extraction rationale as :func:`_registered_estimator`: keeps the
+    ``.get(...)``-then-``None``-check and the subsequent item access off the
+    Optional value, so a static analyzer that does not follow ``_fail``'s
+    ``-> NoReturn`` cannot mistake the row for possibly-``None`` at the
+    caller.
+    """
+    row = _measurement_role_rows(bundle).get(role)
+    if row is None:
+        _fail(code, "overall")
+    return row
+
+
 def _axis_point_value(bundle: dict[str, Any], axis: str) -> int:
     """The per-axis point value the A5 weighted sum is over. These values
     are themselves issuer-attested, never recomputed by this verifier
@@ -1218,9 +1282,7 @@ def _axis_point_value(bundle: dict[str, Any], axis: str) -> int:
         if not probes:
             _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
         return _round_half_even(sum(probes), len(probes))
-    row = _measurement_role_rows(bundle).get(role)
-    if row is None:
-        _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
+    row = _required_measurement_role_row(bundle, role, "AGGREGATION_DERIVATION_MISMATCH")
     return cast(int, row["point_value"])
 
 
@@ -1636,11 +1698,16 @@ class EvaluatorQualityVerificationResult:
     * ``instrument_adequacy != "passed"`` implies ``code ==
       "EVALUATOR_QUALITY_CLAIMS_PARTIAL"``;
     * a ``"passed"`` ``instrument_adequacy`` together with
-      ``"EVALUATOR_QUALITY_CLAIMS_PARTIAL"`` is LEGAL: it is exactly the case
-      where the instrument is adequate but the reference independence or
-      held-out gate is not. The earlier, symmetric coupling ("and vice
-      versa") was wrong and would have rejected valid certificates; it does
-      not appear here.
+      ``"EVALUATOR_QUALITY_CLAIMS_PARTIAL"`` is FORBIDDEN by
+      ``__post_init__`` (P3-V.5 sol milestone review finding S2): the
+      verifier's own exhaustive sweep
+      (``test_only_independent_disjoint_combination_reaches_verified``)
+      proves ``instrument_adequacy == "passed"`` always implies both the
+      reference-independence and held-out gates also pass, which forces
+      ``code == "EVALUATOR_QUALITY_VERIFIED"``, so this pair can never arise
+      from real verification. Encoding it as constructible anyway invited
+      handlers for a state the verifier cannot produce; the dataclass now
+      refuses to construct it.
 
     ``trust_status_evidence`` is ``"checked_active"`` iff a supplied
     ``trust_status`` snapshot verified as fresh, anchor-authentic, and the
@@ -1682,6 +1749,8 @@ class EvaluatorQualityVerificationResult:
         if self.code == EVALUATOR_QUALITY_VERIFIED and not fully_supported:
             raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
         if self.instrument_adequacy != "passed" and self.code != EVALUATOR_QUALITY_CLAIMS_PARTIAL:
+            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
+        if self.code == EVALUATOR_QUALITY_CLAIMS_PARTIAL and self.instrument_adequacy == "passed":
             raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
 
 
@@ -1772,6 +1841,11 @@ def verify_evaluator_quality_certificate(
     :class:`EvaluatorQualityVerificationError` is caught and re-raised as
     ``EVALUATOR_VERIFICATION_FAILED`` -- the catch-all never leaks the
     original exception's text, type, or traceback into the raised error.
+    ``EVALUATOR_QUALITY_RESERVED_CODES`` names the codes declared in
+    ``EVALUATOR_QUALITY_ERROR_CODES`` that this verifier never emits,
+    classified as either ``tripwire`` (reserved against a future stage
+    reusing the string) or ``subsumed`` (superseded by another emitted
+    code).
 
     Two verifier conventions here are pending amendment to the Schema
     contract: ``AXIS_POINT_VALUE_ROLE`` picks the per-axis point-value role

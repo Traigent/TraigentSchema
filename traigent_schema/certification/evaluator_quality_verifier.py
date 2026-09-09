@@ -1785,7 +1785,19 @@ def verify_evaluator_quality_certificate(
     except EvaluatorQualityVerificationError:
         raise
     except Exception:
-        raise EvaluatorQualityVerificationError("EVALUATOR_VERIFICATION_FAILED", "bundle") from None
+        failure = EvaluatorQualityVerificationError("EVALUATOR_VERIFICATION_FAILED", "bundle")
+        try:
+            raise failure from None
+        except EvaluatorQualityVerificationError:
+            # ``from None`` clears __cause__ and suppresses display, but while
+            # still inside the ``except Exception`` block above the
+            # interpreter has already linked the original exception as
+            # __context__ -- and that object can carry caller content (see
+            # process_record_verifier._load_registry_constant's docstring for
+            # the full rationale this mirrors). Clearing it here, once this
+            # handler has genuinely exited, is what makes it disappear.
+            failure.__context__ = None
+            raise
 
 
 __all__ = [

@@ -2859,3 +2859,487 @@ def test_declared_plan_order_is_an_unconstructible_tripwire() -> None:
     error = evq.EvaluatorQualityVerificationError("DECLARED_PLAN_ORDER", "declared_plan")
     assert error.code == "DECLARED_PLAN_ORDER"
     assert error.field == "declared_plan"
+
+
+# ---------------------------------------------------------------------------
+# P3-V.5 -- the public surface (context, result, verify_evaluator_quality_certificate).
+# ---------------------------------------------------------------------------
+
+TRUST_ANCHOR_PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(64, 96)))
+TRUST_ANCHOR_KEY_REF = "anchor:" + "b" * 8
+
+
+def _evq_trust_anchor() -> evq.TrustAnchorKeyV1:
+    public_key = TRUST_ANCHOR_PRIVATE_KEY.public_key()
+    der = public_key.public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    digest = "sha256:" + hashlib.sha256(_ISSUER_SPKI_DOMAIN + b"\x00" + der).hexdigest()
+    return evq.TrustAnchorKeyV1(
+        key_ref=TRUST_ANCHOR_KEY_REF,
+        algorithm="ed25519",
+        public_key_der_b64=base64.b64encode(der).decode("ascii"),
+        public_key_digest=digest,
+    )
+
+
+def _build_evq_trust_status(
+    *,
+    effective_time: str = "2026-09-09T00:00:00Z",
+    key_status: str = "active",
+    anchor: evq.TrustAnchorKeyV1 | None = None,
+) -> tuple[dict[str, Any], evq.TrustAnchorKeyV1]:
+    anchor = anchor or _evq_trust_anchor()
+    snapshot = {
+        "schema_version": evq._EVALUATOR_TRUST_STATUS_VERSION,
+        "trust_policy_id": evq._EVALUATOR_TRUST_POLICY_ID,
+        "max_age_seconds": evq._EVALUATOR_TRUST_MAX_AGE_SECONDS,
+        "effective_time": effective_time,
+        "trust_anchor_ref": anchor.key_ref,
+        "key_status": [
+            {"key_ref": KEY_REF, "trust_ring_ref": OPAQUE_REF, "status": key_status},
+        ],
+    }
+    material = (
+        evq._EVALUATOR_TRUST_STATUS_VERSION.encode()
+        + b"\x00"
+        + fp2.canonicalize(snapshot).encode("utf-8")
+    )
+    signature = {
+        "algorithm": "ed25519",
+        "signature": base64.b64encode(TRUST_ANCHOR_PRIVATE_KEY.sign(material)).decode("ascii"),
+        "trust_anchor_ref": anchor.key_ref,
+        "snapshot_digest": evq._role_digest(evq._EVALUATOR_TRUST_STATUS_VERSION, snapshot),
+    }
+    envelope = {
+        "schema_version": evq._EVALUATOR_TRUST_STATUS_ENVELOPE_VERSION,
+        "snapshot": snapshot,
+        "signature": signature,
+    }
+    return envelope, anchor
+
+
+def _public_context(
+    *,
+    project_ref: str = PROJECT_REF,
+    commitment_ref: str = COMMITMENT_REF,
+    allow_unchecked_trust_status: bool = True,
+    verification_time: str = "2026-09-09T00:00:00Z",
+    trust_anchor: evq.TrustAnchorKeyV1 | None = None,
+) -> evq.EvaluatorQualityVerificationContext:
+    return evq.EvaluatorQualityVerificationContext(
+        expected_project_ref=project_ref,
+        expected_evaluator_commitment_ref=commitment_ref,
+        allow_unchecked_trust_status=allow_unchecked_trust_status,
+        verification_time=verification_time,
+        trust_anchor=trust_anchor,
+    )
+
+
+def test_context_rejects_malformed_fields() -> None:
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.EvaluatorQualityVerificationContext(
+            expected_project_ref="",
+            expected_evaluator_commitment_ref=COMMITMENT_REF,
+            allow_unchecked_trust_status=True,
+            verification_time="2026-09-09T00:00:00Z",
+            trust_anchor=None,
+        )
+    assert caught.value.code == "CONTEXT"
+
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.EvaluatorQualityVerificationContext(
+            expected_project_ref=PROJECT_REF,
+            expected_evaluator_commitment_ref="not-a-sha256",
+            allow_unchecked_trust_status=True,
+            verification_time="2026-09-09T00:00:00Z",
+            trust_anchor=None,
+        )
+    assert caught.value.code == "CONTEXT"
+
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.EvaluatorQualityVerificationContext(
+            expected_project_ref=PROJECT_REF,
+            expected_evaluator_commitment_ref=COMMITMENT_REF,
+            allow_unchecked_trust_status=True,
+            verification_time="not-a-timestamp",
+            trust_anchor=None,
+        )
+    assert caught.value.code == "CONTEXT"
+
+    # allow_unchecked_trust_status=True requires trust_anchor=None (and vice versa).
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.EvaluatorQualityVerificationContext(
+            expected_project_ref=PROJECT_REF,
+            expected_evaluator_commitment_ref=COMMITMENT_REF,
+            allow_unchecked_trust_status=True,
+            verification_time="2026-09-09T00:00:00Z",
+            trust_anchor=_evq_trust_anchor(),
+        )
+    assert caught.value.code == "CONTEXT"
+
+
+def test_gv2_verified_end_to_end_with_checked_trust_status() -> None:
+    """GV2: a fully-supported bundle, verified through the public entry
+    point with a real, signed trust-status snapshot -- code VERIFIED,
+    trust_status_evidence checked_active."""
+    bundle = build_bundle()
+    envelope, anchor = _build_evq_trust_status()
+    context = _public_context(allow_unchecked_trust_status=False, trust_anchor=anchor)
+    result = evq.verify_evaluator_quality_certificate(
+        bundle, context=context, trust_status=envelope
+    )
+    assert result.code == evq.EVALUATOR_QUALITY_VERIFIED
+    assert result.instrument_adequacy == "passed"
+    assert result.trust_status_evidence == "checked_active"
+    assert result.trust_status_effective_time == "2026-09-09T00:00:00Z"
+
+
+def test_gv6_allow_unchecked_trust_status_is_not_checked() -> None:
+    """GV6: the caller's explicit opt-out is honored -- no trust_status
+    input, evidence reads not_checked, effective_time is empty."""
+    bundle = build_bundle()
+    context = _public_context(allow_unchecked_trust_status=True)
+    result = evq.verify_evaluator_quality_certificate(bundle, context=context, trust_status=None)
+    assert result.code == evq.EVALUATOR_QUALITY_VERIFIED
+    assert result.trust_status_evidence == "not_checked"
+    assert result.trust_status_effective_time == ""
+
+
+def test_trust_status_key_revoked_fails_closed() -> None:
+    bundle = build_bundle()
+    envelope, anchor = _build_evq_trust_status(key_status="revoked")
+    context = _public_context(allow_unchecked_trust_status=False, trust_anchor=anchor)
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate(bundle, context=context, trust_status=envelope)
+    assert caught.value.code == "KEY_REVOKED"
+
+
+def test_trust_status_stale_snapshot_is_revocation_status_unavailable() -> None:
+    bundle = build_bundle()
+    envelope, anchor = _build_evq_trust_status(effective_time="2020-01-01T00:00:00Z")
+    context = _public_context(allow_unchecked_trust_status=False, trust_anchor=anchor)
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate(bundle, context=context, trust_status=envelope)
+    assert caught.value.code == "REVOCATION_STATUS_UNAVAILABLE"
+
+
+def test_trust_status_wrong_anchor_signature_rejected() -> None:
+    bundle = build_bundle()
+    envelope, _ = _build_evq_trust_status()
+    wrong_anchor = _evq_trust_anchor()
+    object.__setattr__(wrong_anchor, "key_ref", "anchor:" + "c" * 8)
+    context = _public_context(allow_unchecked_trust_status=False, trust_anchor=wrong_anchor)
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate(bundle, context=context, trust_status=envelope)
+    assert caught.value.code == "TRUST_ANCHOR_MISMATCH"
+
+
+def test_gv7_commitment_pin_must_come_from_a_verified_process_record() -> None:
+    """GV7: the two-call composition. A caller who pins
+    ``expected_evaluator_commitment_ref`` from a VERIFIED process record's
+    result succeeds; a caller who pins the same-shaped ref straight out of
+    an *unverified* bundle -- one never run through
+    ``verify_process_record_certificate`` -- is refused. This verifier
+    cannot distinguish the two calls by construction (it takes one bundle
+    and never reaches into a second), so the property under test is: the
+    pin is checked for EQUALITY against the manifest either way, and only
+    the caller's own discipline in choosing where the pin came from makes
+    the check meaningful."""
+    bundle = build_bundle()
+    verified_process_record_commitment_ref = COMMITMENT_REF
+    correct_context = _public_context(commitment_ref=verified_process_record_commitment_ref)
+    result = evq.verify_evaluator_quality_certificate(bundle, context=correct_context)
+    assert result.code == evq.EVALUATOR_QUALITY_VERIFIED
+
+    unverified_bundle_commitment_ref = "sha256:" + "f" * 64
+    wrong_context = _public_context(commitment_ref=unverified_bundle_commitment_ref)
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate(bundle, context=wrong_context)
+    assert caught.value.code == "EVALUATOR_COMMITMENT_MISMATCH"
+
+
+def test_public_entry_point_rejects_non_context_and_non_dict_bundle() -> None:
+    context = _public_context()
+    fake_context = SimpleNamespace(
+        expected_project_ref=context.expected_project_ref,
+        expected_evaluator_commitment_ref=context.expected_evaluator_commitment_ref,
+        allow_unchecked_trust_status=context.allow_unchecked_trust_status,
+        verification_time=context.verification_time,
+        trust_anchor=context.trust_anchor,
+    )
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate(build_bundle(), context=fake_context)
+    assert caught.value.code == "CONTEXT"
+
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate("not-a-dict", context=_public_context())
+    assert caught.value.code == "EVALUATOR_BUNDLE_SHAPE"
+
+
+def test_public_entry_point_rejects_trust_status_when_opted_out() -> None:
+    bundle = build_bundle()
+    envelope, anchor = _build_evq_trust_status()
+    context = _public_context(allow_unchecked_trust_status=True)
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate(bundle, context=context, trust_status=envelope)
+    assert caught.value.code == "CONTEXT"
+
+
+def test_evaluator_verification_failed_catchall_never_leaks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Any exception escaping the private pipeline that is not already an
+    EvaluatorQualityVerificationError is caught and re-raised content-free
+    as EVALUATOR_VERIFICATION_FAILED."""
+    sentinel = "CANARY_UNEXPECTED_EXCEPTION_TEXT"
+
+    def _raising(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError(sentinel)
+
+    monkeypatch.setattr(evq, "_verify_evaluator_quality_private", _raising)
+    bundle = build_bundle()
+    context = _public_context()
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate(bundle, context=context)
+    exc = caught.value
+    assert exc.code == "EVALUATOR_VERIFICATION_FAILED"
+    rendered = "\n".join(
+        (str(exc), repr(exc), repr(exc.args), repr(exc.__cause__), repr(exc.__context__))
+    )
+    assert sentinel not in rendered
+    assert sentinel not in "".join(__import__("traceback").format_exception(exc))
+
+
+def _minimal_public_bundle(
+    *,
+    instrument_adequacy_verdict: str = "passed",
+    overall_verdict: str = "passed",
+    reference_independence: str = "evaluator_independent",
+    held_out_status: str = "held_out_disjoint",
+    claim_verdicts: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """A bare-minimum dict carrying only the fields
+    ``_verify_evaluator_quality_public`` itself reads, for use ONLY with
+    ``_verify_evaluator_quality_private`` monkeypatched to a no-op -- this
+    isolates the public wrapper's code/adequacy coupling (sol F1) from the
+    private pipeline's own schema/semantic/signature checks, which are
+    exercised exhaustively elsewhere in this module against real, signed
+    bundles."""
+    claim_verdicts = claim_verdicts or {}
+    rows = [
+        {"claim_id": claim_id, "verdict": claim_verdicts.get(claim_id, instrument_adequacy_verdict)}
+        for claim_id in ("EVQ2", "EVQ3", "EVQ4", "EVQ5")
+    ]
+    return {
+        "unsigned_manifest": {
+            "overall": {
+                "instrument_adequacy_verdict": instrument_adequacy_verdict,
+                "verdict": overall_verdict,
+                "overall_quality_ppm": None,
+            }
+        },
+        "reference_standard": {"reference_independence": reference_independence},
+        "evaluation_scope": {"held_out_status": held_out_status},
+        "claim_support_rows": rows,
+        "verification_materials_v0": {"issuer": {"key_ref": KEY_REF, "trust_ring_ref": OPAQUE_REF}},
+    }
+
+
+def test_gv3_claims_partial_with_adequacy_passed_is_legal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GV3: instrument_adequacy passed, but reference_independence is not
+    evaluator_independent -- code CLAIMS_PARTIAL with a passed adequacy is
+    LEGAL (sol F1's one-directional coupling; the converse is NOT required
+    and the earlier, symmetric wording would have wrongly rejected this)."""
+    monkeypatch.setattr(evq, "_verify_evaluator_quality_private", lambda bundle, *, context: None)
+    bundle = _minimal_public_bundle(reference_independence="shares_model_family")
+    context = _public_context()
+    result = evq.verify_evaluator_quality_certificate(bundle, context=context)
+    assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
+    assert result.instrument_adequacy == "passed"
+
+
+def test_gv4_claims_partial_with_held_out_status_not_acceptable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GV4: adequacy passed, reference independent, but held_out_status is
+    outside {no_selection_performed, held_out_disjoint} -- still
+    CLAIMS_PARTIAL with a passed adequacy (the third, independent gate)."""
+    monkeypatch.setattr(evq, "_verify_evaluator_quality_private", lambda bundle, *, context: None)
+    bundle = _minimal_public_bundle(held_out_status="overlaps_selection_set")
+    context = _public_context()
+    result = evq.verify_evaluator_quality_certificate(bundle, context=context)
+    assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
+    assert result.instrument_adequacy == "passed"
+
+
+def test_gv5_claims_partial_when_adequacy_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GV5: instrument_adequacy != passed always forces CLAIMS_PARTIAL,
+    never VERIFIED, regardless of the other two gates."""
+    monkeypatch.setattr(evq, "_verify_evaluator_quality_private", lambda bundle, *, context: None)
+    bundle = _minimal_public_bundle(instrument_adequacy_verdict="failed", overall_verdict="failed")
+    context = _public_context()
+    result = evq.verify_evaluator_quality_certificate(bundle, context=context)
+    assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
+    assert result.instrument_adequacy == "failed"
+
+
+def test_result_post_init_forbids_verified_without_all_three_gates() -> None:
+    with pytest.raises(ValueError):
+        evq.EvaluatorQualityVerificationResult(
+            code=evq.EVALUATOR_QUALITY_VERIFIED,
+            instrument_adequacy="passed",
+            reference_independence="shares_model_family",
+            held_out_status="held_out_disjoint",
+        )
+    with pytest.raises(ValueError):
+        evq.EvaluatorQualityVerificationResult(
+            code=evq.EVALUATOR_QUALITY_VERIFIED,
+            instrument_adequacy="failed",
+        )
+    # The converse is legal: passed adequacy + CLAIMS_PARTIAL is fine.
+    result = evq.EvaluatorQualityVerificationResult(
+        code=evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL,
+        instrument_adequacy="passed",
+        reference_independence="shares_model_family",
+    )
+    assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
+
+
+def test_mutate_the_result_coupling_guard_is_caught() -> None:
+    """Flip the one-directional coupling to its (wrong) converse -- requiring
+    CLAIMS_PARTIAL results to also carry a passed adequacy -- and confirm a
+    legitimate GV3-shaped result (passed adequacy, CLAIMS_PARTIAL) is wrongly
+    rejected by the mutant, proving the current, correct direction is
+    load-bearing rather than vacuously satisfied."""
+    source = Path(evq.__file__).read_text()
+    target = (
+        '        if self.instrument_adequacy != "passed" and self.code != '
+        "EVALUATOR_QUALITY_CLAIMS_PARTIAL:\n"
+        '            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")'
+    )
+    assert source.count(target) == 1
+    mutated = source.replace(
+        target,
+        (
+            '        if self.instrument_adequacy == "passed" and self.code == '
+            "EVALUATOR_QUALITY_CLAIMS_PARTIAL:\n"
+            '            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")'
+        ),
+        1,
+    )
+    namespace = _exec_mutated(mutated, "evq_mutated_result_coupling")
+    with pytest.raises(ValueError):
+        namespace["EvaluatorQualityVerificationResult"](
+            code=namespace["EVALUATOR_QUALITY_CLAIMS_PARTIAL"],
+            instrument_adequacy="passed",
+            reference_independence="shares_model_family",
+        )
+
+
+def test_check_non_claim_tuple_direct_call_reachability() -> None:
+    """S8: NON_CLAIM_TUPLE_MISMATCH is unreachable through the normal
+    pipeline (the schema's own per-position const pins make any tuple
+    mutation schema-invalid, so S2 always fires first) -- proven reachable
+    directly, both the accept and reject paths, per the guard's own
+    docstring."""
+    valid_bundle = build_bundle()
+    assert evq._check_non_claim_tuple(valid_bundle) is None
+
+    tampered = copy.deepcopy(valid_bundle)
+    tampered["non_claims"] = list(tampered["non_claims"])
+    tampered["non_claims"][0] = dict(tampered["non_claims"][0])
+    tampered["non_claims"][0]["non_claim_id"] = "not_a_real_non_claim_id"
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._check_non_claim_tuple(tampered)
+    assert caught.value.code == "NON_CLAIM_TUPLE_MISMATCH"
+
+
+def test_mutate_the_non_claim_tuple_guard_is_caught() -> None:
+    """Delete S8 and confirm the tampered tuple that would otherwise be
+    rejected is now silently accepted by ``_check_non_claim_tuple`` alone --
+    load-bearing at the function level (the guard is unreachable through
+    the full pipeline per its own docstring, so this cannot be
+    demonstrated end-to-end; see ``test_check_non_claim_tuple_direct_call_reachability``)."""
+    source = Path(evq.__file__).read_text()
+    target = (
+        "    if actual != _NON_CLAIMS_CANONICAL:\n"
+        '        _fail("NON_CLAIM_TUPLE_MISMATCH", "non_claims")'
+    )
+    assert source.count(target) == 1
+    mutated = source.replace(target, "    if actual != _NON_CLAIMS_CANONICAL:\n        pass", 1)
+    namespace = _exec_mutated(mutated, "evq_mutated_non_claim_tuple")
+
+    valid_bundle = build_bundle()
+    tampered = copy.deepcopy(valid_bundle)
+    tampered["non_claims"] = list(tampered["non_claims"])
+    tampered["non_claims"][0] = dict(tampered["non_claims"][0])
+    tampered["non_claims"][0]["non_claim_id"] = "not_a_real_non_claim_id"
+    assert namespace["_check_non_claim_tuple"](tampered) is None
+
+
+def test_mutate_the_trust_status_digest_guard_is_caught() -> None:
+    """Delete S10's snapshot-digest binding and confirm a snapshot whose
+    signed content diverges from its declared digest is no longer rejected
+    -- load-bearing (nothing else in this module binds the signature to
+    the exact snapshot content it authenticates)."""
+    source = Path(evq.__file__).read_text()
+    target = (
+        '    if signature["snapshot_digest"] != _role_digest(_EVALUATOR_TRUST_STATUS_VERSION, '
+        "snapshot):\n"
+        '        _fail("TRUST_STATUS_DIGEST_MISMATCH", "signature")'
+    )
+    assert source.count(target) == 1
+    mutated = source.replace(
+        target,
+        '    if signature["snapshot_digest"] != _role_digest(_EVALUATOR_TRUST_STATUS_VERSION, '
+        "snapshot):\n        pass",
+        1,
+    )
+    namespace = _exec_mutated(mutated, "evq_mutated_trust_digest")
+
+    envelope, anchor = _build_evq_trust_status()
+    envelope["signature"]["snapshot_digest"] = "sha256:" + "0" * 64
+    context = _public_context(allow_unchecked_trust_status=False, trust_anchor=anchor)
+    snapshot = namespace["_verify_evaluator_trust_status"](envelope, context)
+    assert snapshot["trust_anchor_ref"] == anchor.key_ref
+
+
+def test_evaluator_quality_error_codes_are_closed_and_public() -> None:
+    assert "EVALUATOR_QUALITY_ERROR_CODES" in evq.__all__
+    assert "EVALUATOR_QUALITY_VERIFIED" in evq.__all__
+    assert "EVALUATOR_QUALITY_CLAIMS_PARTIAL" in evq.__all__
+    for code in (
+        "TRUST_STATUS_SHAPE",
+        "TRUST_STATUS_DIGEST_MISMATCH",
+        "TRUST_ANCHOR_MISMATCH",
+        "TRUST_STATUS_SIGNATURE_INVALID",
+        "KEY_REVOKED",
+        "REVOCATION_STATUS_UNAVAILABLE",
+        "NON_CLAIM_TUPLE_MISMATCH",
+        "EVALUATOR_COMMITMENT_MISMATCH",
+        "EVALUATOR_VERIFICATION_FAILED",
+        "CONTEXT",
+        "EVALUATOR_BUNDLE_SHAPE",
+    ):
+        assert code in evq.EVALUATOR_QUALITY_ERROR_CODES, code
+
+
+def test_public_function_sentinel_never_leaks() -> None:
+    """Privacy canary at the public surface: a sentinel planted in the
+    caller-controlled bundle must never appear in the raised error's
+    message, args, code/field, or exception chain."""
+    sentinel = "CANARY_PUBLIC_SURFACE_SENTINEL"
+    bundle = build_bundle()
+    bundle["descriptor"]["evaluator_version"] = sentinel
+    context = _public_context()
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq.verify_evaluator_quality_certificate(bundle, context=context)
+    exc = caught.value
+    rendered = "\n".join(
+        (str(exc), repr(exc), repr(exc.args), repr(exc.__cause__), repr(exc.__context__))
+    )
+    assert sentinel not in rendered
+    assert sentinel not in "".join(__import__("traceback").format_exception(exc))

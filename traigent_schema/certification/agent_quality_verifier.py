@@ -94,13 +94,23 @@ AGENT_QUALITY_ERROR_CODES = frozenset(
     }
 )
 
-# The verification-ladder levels this v1 packet can ever legitimately emit,
-# copied verbatim from EmittableVerificationLevelV1 (agent_quality_v1_schema.json):
-# construction_recomputed_v1 and issuer_attested_v1 only. opened_and_recomputed_v1
-# is registered in the schema's VerificationLevelV1 for a future major version but
-# EmittableVerificationLevelV1 keeps it out of anything a v1 bundle can carry, so it
-# is deliberately excluded here too -- any other string, including that one, is an
-# unregistered level and MUST be rejected regardless of which code it accompanies.
+# NOT a copy of the schema's EmittableVerificationLevelV1. This is the union
+# of the level vocabularies of AgentQualityVerificationResult's two level
+# fields (interval_verification_level and split_verification_level), each of
+# which __post_init__ narrows independently. EmittableVerificationLevelV1 is
+# VerificationLevelV1 minus {issuer_attested_v1, opened_and_recomputed_v1},
+# i.e. {construction_recomputed_v1} alone, and it governs a bundle field --
+# the per-claim interval's verification_level -- not this result.
+# issuer_attested_v1 is a member of this constant by construction: this
+# verifier never recomputes the split derivation, so __post_init__ pins
+# split_verification_level to issuer_attested_v1 unconditionally; narrowing
+# this constant to the schema's emittable set would make
+# AgentQualityVerificationResult unconstructible. opened_and_recomputed_v1
+# and anything outside VerificationLevelV1 are unregistered here and MUST be
+# rejected regardless of which code or field they accompany.
+# See test_agent_quality_verifier.py::test_emittable_verification_levels_match_schema_contract
+# (and its neighboring tests) for the assertions that pin this relationship
+# to the schema.
 _EMITTABLE_VERIFICATION_LEVELS = frozenset(
     {"construction_recomputed_v1", "issuer_attested_v1"}
 )
@@ -111,8 +121,10 @@ _ABSTAINED_INTERVAL_VERIFICATION_LEVELS = frozenset({"issuer_attested_v1"})
 
 # Closed field-location vocabulary, copied verbatim from
 # AgentQualityFieldLocationV1 in agent_quality_v1_schema.json -- the schema
-# is the authority for this set; see the check script for the assertion that
-# ties the two together. Never a JSON Pointer built from instance data.
+# is the authority for this set; see
+# test_agent_quality_verifier.py::test_agent_quality_field_locations_match_schema_contract
+# for the assertion that ties the two together. Never a JSON Pointer built
+# from instance data.
 AGENT_QUALITY_FIELD_LOCATIONS = frozenset(
     {
         "bundle",

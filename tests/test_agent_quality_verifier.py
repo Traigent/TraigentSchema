@@ -20,10 +20,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from jsonschema import Draft7Validator
+from referencing import Registry, Resource
 
 import traigent_schema.certification.agent_quality_verifier as v
 
 ROOT = Path(__file__).resolve().parents[1]
+SCHEMAS = ROOT / "traigent_schema" / "schemas"
 SCHEMA_PATH = (
     ROOT / "traigent_schema" / "schemas" / "certification" / "agent_quality_v1_schema.json"
 )
@@ -33,6 +36,41 @@ CATALOG_PATH = (
 )
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 SCHEMA_TEXT = SCHEMA_PATH.read_text(encoding="utf-8")
+
+
+def _schema_registry() -> Registry:
+    resources: list[tuple[str, Resource]] = []
+    for path in SCHEMAS.rglob("*.json"):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(document, dict) and isinstance(document.get("$id"), str):
+            resources.append((document["$id"], Resource.from_contents(document)))
+    return Registry().with_resources(resources)
+
+
+_SCHEMA_REGISTRY = _schema_registry()
+
+
+def _schema_validator(definition: str) -> Draft7Validator:
+    document = {
+        "$schema": SCHEMA["$schema"],
+        "$id": f"{SCHEMA['$id']}#test-{definition}",
+        "definitions": SCHEMA["definitions"],
+        "allOf": [{"$ref": f"#/definitions/{definition}"}],
+    }
+    return Draft7Validator(document, registry=_SCHEMA_REGISTRY)
+
+
+def _schema_emittable_levels() -> set[str]:
+    """The schema's EmittableVerificationLevelV1, derived by validating each
+    VerificationLevelV1 enum member -- never by transcribing the schema's
+    ``not`` clause by hand, so this stays bound to the schema through
+    executed behaviour rather than a second hard-coded copy."""
+    validator = _schema_validator("EmittableVerificationLevelV1")
+    return {
+        level
+        for level in SCHEMA["definitions"]["VerificationLevelV1"]["enum"]
+        if validator.is_valid(level)
+    }
 
 
 def test_declared_plan_only_claims_the_digest_binding() -> None:
@@ -366,3 +404,100 @@ def test_wilson_bounds_never_narrow_across_a_grid(k: int, n: int) -> None:
     exact_low, exact_high = _exact_wilson_endpoints_ppm(k, n, coverage_ppm)
     assert low <= exact_low
     assert high >= exact_high
+
+
+def _verified_kwargs(**overrides: object) -> dict:
+    kwargs: dict = dict(
+        code="AGENT_QUALITY_VERIFIED",
+        claim_id="AQ1",
+        evidence_basis="issuer_verified",
+        primary_objective_id="obj.accuracy.exact_match.v1",
+        nominal_coverage_ppm=950000,
+        holdout_item_count=200,
+        interval_verification_level="construction_recomputed_v1",
+        split_verification_level="issuer_attested_v1",
+        dataset_condition_code="dataset_certificate_verified",
+        evaluator_condition_code="evaluator_certificate_verified",
+    )
+    kwargs.update(overrides)
+    return kwargs
+
+
+def test_schema_emittable_verification_level_is_construction_recomputed_only() -> None:
+    """N1: pins the schema side -- EmittableVerificationLevelV1 validates
+    exactly {construction_recomputed_v1}, derived by validating (never by
+    transcribing the schema's ``not`` clause)."""
+    assert _schema_emittable_levels() == {"construction_recomputed_v1"}
+
+
+def test_emittable_verification_levels_match_schema_contract() -> None:
+    """N1: nothing in _EMITTABLE_VERIFICATION_LEVELS is unregistered by the
+    schema's VerificationLevelV1, and the exact, named delta against the
+    schema's EmittableVerificationLevelV1 is {issuer_attested_v1} -- fails if
+    either side moves in either direction.
+
+    See the comment above _EMITTABLE_VERIFICATION_LEVELS in
+    agent_quality_verifier.py: the constant is the union of the result
+    dataclass's two level fields, not a copy of EmittableVerificationLevelV1,
+    and issuer_attested_v1 is a member by construction because
+    __post_init__ pins split_verification_level to it.
+    """
+    registered = set(SCHEMA["definitions"]["VerificationLevelV1"]["enum"])
+    schema_emittable = _schema_emittable_levels()
+
+    assert v._EMITTABLE_VERIFICATION_LEVELS <= registered
+    assert v._EMITTABLE_VERIFICATION_LEVELS - schema_emittable == {"issuer_attested_v1"}
+    assert schema_emittable <= v._EMITTABLE_VERIFICATION_LEVELS
+
+
+def test_abstained_interval_levels_disjoint_from_schema_emittable() -> None:
+    """N1: an abstained result's only honest interval_verification_level is
+    issuer_attested_v1, which is disjoint from the schema's emittable
+    (recomputed) member -- an abstained result can never carry the
+    recomputed level."""
+    assert v._ABSTAINED_INTERVAL_VERIFICATION_LEVELS == {"issuer_attested_v1"}
+    assert v._ABSTAINED_INTERVAL_VERIFICATION_LEVELS.isdisjoint(_schema_emittable_levels())
+
+
+@pytest.mark.parametrize("level", sorted(SCHEMA["definitions"]["VerificationLevelV1"]["enum"]))
+def test_verified_result_interval_level_guard_driven_by_schema_enum(level: str) -> None:
+    """N1 (behaviour): a VERIFIED result accepts interval_verification_level
+    only when it equals the schema's emittable member
+    (construction_recomputed_v1); every other member of VerificationLevelV1's
+    enum, including issuer_attested_v1 and opened_and_recomputed_v1, must be
+    rejected. Driven from the schema enum, not a hand-written list."""
+    kwargs = _verified_kwargs(interval_verification_level=level)
+    if level == "construction_recomputed_v1":
+        result = v.AgentQualityVerificationResult(**kwargs)
+        assert result.interval_verification_level == "construction_recomputed_v1"
+    else:
+        with pytest.raises(ValueError):
+            v.AgentQualityVerificationResult(**kwargs)
+
+
+@pytest.mark.parametrize("level", sorted(SCHEMA["definitions"]["VerificationLevelV1"]["enum"]))
+def test_split_verification_level_guard_driven_by_schema_enum(level: str) -> None:
+    """N1 (behaviour): split_verification_level accepts only
+    issuer_attested_v1 -- this verifier never recomputes the split
+    derivation -- and rejects every other member of VerificationLevelV1's
+    enum. Driven from the schema enum, not a hand-written list."""
+    kwargs = _verified_kwargs(split_verification_level=level)
+    if level == "issuer_attested_v1":
+        result = v.AgentQualityVerificationResult(**kwargs)
+        assert result.split_verification_level == "issuer_attested_v1"
+    else:
+        with pytest.raises(ValueError):
+            v.AgentQualityVerificationResult(**kwargs)
+
+
+def test_agent_quality_field_locations_match_schema_contract() -> None:
+    """N2: AGENT_QUALITY_FIELD_LOCATIONS is exactly
+    AgentQualityFieldLocationV1's enum in both directions -- replaces the
+    comment's stale pointer to a nonexistent "check script" with the actual
+    assertion that ties the two together."""
+    schema_locations = set(SCHEMA["definitions"]["AgentQualityFieldLocationV1"]["enum"])
+    symmetric_difference = v.AGENT_QUALITY_FIELD_LOCATIONS ^ schema_locations
+    assert v.AGENT_QUALITY_FIELD_LOCATIONS == schema_locations, (
+        f"AGENT_QUALITY_FIELD_LOCATIONS and AgentQualityFieldLocationV1 have "
+        f"drifted apart; symmetric difference: {sorted(symmetric_difference)}"
+    )

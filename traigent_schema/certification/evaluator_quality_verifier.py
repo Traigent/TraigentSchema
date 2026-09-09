@@ -26,7 +26,6 @@ from traigent_schema.certification.process_record_verifier import (
     _ISSUER_SPKI_DOMAIN,
     _SHA256_RE,
     TrustAnchorKeyV1,
-    _load_registry_constant,
     _material_public_key,
     _parse_utc_timestamp,
     _verify_signature,
@@ -1773,6 +1772,16 @@ def verify_evaluator_quality_certificate(
     :class:`EvaluatorQualityVerificationError` is caught and re-raised as
     ``EVALUATOR_VERIFICATION_FAILED`` -- the catch-all never leaks the
     original exception's text, type, or traceback into the raised error.
+
+    Two verifier conventions here are pending amendment to the Schema
+    contract: ``AXIS_POINT_VALUE_ROLE`` picks the per-axis point-value role
+    behind ``overall_quality_ppm`` (e.g. ``calibration_slope`` for the
+    calibration axis); and ``_REFERENCE_STANDARD_SCOPED_ROLES`` scopes the
+    reference-standard directional limits to non-reliability roles, with the
+    consequence that a calibration_slope above the agreement ceiling is
+    rejected as ``REFERENCE_CEILING_EXCEEDED`` even for a well-calibrated
+    evaluator. Both are verifier-side convention, not yet a schema-declared
+    rule.
     """
     if not isinstance(context, EvaluatorQualityVerificationContext):
         _fail("CONTEXT", "context")
@@ -1809,14 +1818,4 @@ __all__ = [
     "EvaluatorQualityVerificationError",
     "EvaluatorQualityVerificationResult",
     "verify_evaluator_quality_certificate",
-    "_DIGEST_DOMAINS",
-    "_domain",
-    "_fail",
-    "_load_registry_constant",
-    "_load_evaluator_quality_document",
-    "_EVALUATOR_QUALITY_REGISTRY_DOMAINS",
-    "_material_public_key",
-    "_role_digest",
-    "_strip_self_digest",
-    "_verify_signature",
 ]

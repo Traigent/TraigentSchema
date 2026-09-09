@@ -3146,13 +3146,19 @@ def _minimal_public_bundle(
     }
 
 
-def test_gv3_claims_partial_with_adequacy_passed_is_legal(
+def test_gv3_dataclass_permits_claims_partial_with_adequacy_passed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """GV3: instrument_adequacy passed, but reference_independence is not
-    evaluator_independent -- code CLAIMS_PARTIAL with a passed adequacy is
-    LEGAL (sol F1's one-directional coupling; the converse is NOT required
-    and the earlier, symmetric wording would have wrongly rejected this)."""
+    """DATACLASS-INVARIANT, not an end-to-end verifier path: with the private
+    pipeline stubbed to a no-op, the RESULT TYPE permits CLAIMS_PARTIAL with
+    a passed instrument_adequacy for a non-independent reference (sol F1's
+    one-directional __post_init__ coupling; the converse is NOT required).
+    The verifier itself never actually produces this pair end-to-end --
+    proven by test_reference_and_held_out_capping_forbid_passed_rows and the
+    exhaustive sweep in test_only_independent_disjoint_combination_reaches_verified,
+    since _check_reference_capping forbids any 'passed' EVQ2-EVQ5 row under a
+    non-independent reference, and instrument_adequacy is derived as the
+    worst row (P3-V.5 team-lead review finding F1)."""
     monkeypatch.setattr(evq, "_verify_evaluator_quality_private", lambda bundle, *, context: None)
     bundle = _minimal_public_bundle(reference_independence="shares_model_family")
     context = _public_context()
@@ -3161,18 +3167,158 @@ def test_gv3_claims_partial_with_adequacy_passed_is_legal(
     assert result.instrument_adequacy == "passed"
 
 
-def test_gv4_claims_partial_with_held_out_status_not_acceptable(
+def test_gv4_dataclass_permits_claims_partial_with_adequacy_passed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """GV4: adequacy passed, reference independent, but held_out_status is
-    outside {no_selection_performed, held_out_disjoint} -- still
-    CLAIMS_PARTIAL with a passed adequacy (the third, independent gate)."""
+    """DATACLASS-INVARIANT, not an end-to-end verifier path: with the private
+    pipeline stubbed to a no-op, the RESULT TYPE permits CLAIMS_PARTIAL with
+    a passed instrument_adequacy for a held_out_status outside
+    {no_selection_performed, held_out_disjoint} (the third, independent
+    gate). The verifier itself never actually produces this pair end-to-end
+    -- proven by test_reference_and_held_out_capping_forbid_passed_rows and
+    the exhaustive sweep in
+    test_only_independent_disjoint_combination_reaches_verified, since
+    _check_held_out_capping forbids any 'passed' EVQ2-EVQ5 row under a bad
+    held-out status (P3-V.5 team-lead review finding F1)."""
     monkeypatch.setattr(evq, "_verify_evaluator_quality_private", lambda bundle, *, context: None)
     bundle = _minimal_public_bundle(held_out_status="overlaps_selection_set")
     context = _public_context()
     result = evq.verify_evaluator_quality_certificate(bundle, context=context)
     assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
     assert result.instrument_adequacy == "passed"
+
+
+def _end_to_end_signed_bundle(
+    *,
+    reference_independence: str | None = None,
+    held_out_status: str | None = None,
+    rows_verdict: str | None = None,
+    overall: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """A genuinely re-signed, digest-closed bundle with the mutation applied
+    BEFORE ``_close`` (so every digest re-derives), then the manifest's own
+    ``overall`` block patched and the manifest RE-SIGNED -- for end-to-end
+    CLAIMS_PARTIAL vectors through the PUBLIC function that GV3/GV4's
+    monkeypatched pair cannot reach (P3-V.5 team-lead review finding F1)."""
+    base = _base_bundle()
+    if reference_independence is not None:
+        base["reference_standard"]["reference_independence"] = reference_independence
+    if held_out_status is not None:
+        base["evaluation_scope"]["held_out_status"] = held_out_status
+    if rows_verdict is not None:
+        for row in base["claim_support_rows"]:
+            if row["claim_id"] in ("EVQ2", "EVQ3", "EVQ4", "EVQ5"):
+                row["verdict"] = rows_verdict
+    bundle = _close(base)
+    if overall is not None:
+        bundle["unsigned_manifest"]["overall"].update(overall)
+        if bundle["unsigned_manifest"]["overall"].get("verdict") in ("abstain", "failed"):
+            bundle["unsigned_manifest"]["overall"]["overall_quality_ppm"] = None
+        _resign(bundle)
+    return bundle
+
+
+def test_reference_capping_reached_end_to_end_with_directional_adequacy() -> None:
+    """The reachable analogue of GV3: reference_independence is not
+    evaluator_independent, with the four instrument rows capped to
+    'directional' rather than 'passed' -- a fully signed, schema-valid,
+    unstubbed vector through the PUBLIC function (P3-V.5 team-lead review
+    finding F1, probe A2)."""
+    bundle = _end_to_end_signed_bundle(
+        reference_independence="shares_model_family",
+        rows_verdict="directional",
+        overall={"instrument_adequacy_verdict": "directional", "verdict": "directional"},
+    )
+    context = _public_context()
+    result = evq.verify_evaluator_quality_certificate(bundle, context=context)
+    assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
+    assert result.instrument_adequacy == "directional"
+    assert result.reference_independence == "shares_model_family"
+
+
+def test_held_out_capping_reached_end_to_end_with_directional_adequacy() -> None:
+    """The reachable analogue of GV4: held_out_status is outside
+    {no_selection_performed, held_out_disjoint}, with the four instrument
+    rows capped to 'directional' rather than 'passed' -- a fully signed,
+    schema-valid, unstubbed vector through the PUBLIC function (P3-V.5
+    team-lead review finding F1, probe A2b)."""
+    bundle = _end_to_end_signed_bundle(
+        held_out_status="overlaps_selection_set",
+        rows_verdict="directional",
+        overall={"instrument_adequacy_verdict": "directional", "verdict": "directional"},
+    )
+    context = _public_context()
+    result = evq.verify_evaluator_quality_certificate(bundle, context=context)
+    assert result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
+    assert result.instrument_adequacy == "directional"
+    assert result.held_out_status == "overlaps_selection_set"
+
+
+def test_reference_and_held_out_capping_forbid_passed_rows() -> None:
+    """GV3's and GV4's EXACT asserted pair -- instrument_adequacy 'passed'
+    together with a non-independent reference, or a bad held-out status --
+    is UNREACHABLE end-to-end: _check_reference_capping and
+    _check_held_out_capping reject any 'passed' EVQ2-EVQ5 row under those
+    conditions, before instrument_adequacy is ever derived (P3-V.5
+    team-lead review finding F1, probes A3/A4)."""
+    for kwargs in (
+        {"reference_independence": "shares_model_family"},
+        {"held_out_status": "overlaps_selection_set"},
+    ):
+        bundle = _end_to_end_signed_bundle(**kwargs)
+        context = _public_context()
+        with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+            evq.verify_evaluator_quality_certificate(bundle, context=context)
+        assert caught.value.code == "VERDICT_NOT_SUPPORTED"
+        assert caught.value.field == "claim_support_rows"
+
+
+def test_only_independent_disjoint_combination_reaches_verified() -> None:
+    """Exhaustive sweep over every (reference_independence, held_out_status)
+    combination, instrument rows left 'passed': exactly one combination is
+    ever accepted -- evaluator_independent x held_out_disjoint, as VERIFIED
+    -- and no combination anywhere in the sweep yields CLAIMS_PARTIAL with a
+    passed instrument_adequacy. This is the module docstring's structural
+    claim ('adequacy == passed implies VERIFIED') tested directly rather
+    than merely asserted (P3-V.5 team-lead review finding F1, probe A5)."""
+    reference_kinds = (
+        "evaluator_independent",
+        "shares_model_family",
+        "shares_prompt_lineage",
+        "shares_implementation",
+        "not_independent",
+    )
+    held_out_statuses = (
+        "no_selection_performed",
+        "held_out_disjoint",
+        "overlaps_selection_set",
+        "unknown",
+    )
+    accepted: dict[tuple[str, str], str] = {}
+    claims_partial_with_passed_adequacy: list[tuple[str, str]] = []
+    context = _public_context()
+    for reference_independence in reference_kinds:
+        for held_out_status in held_out_statuses:
+            bundle = _end_to_end_signed_bundle(
+                reference_independence=reference_independence,
+                held_out_status=held_out_status,
+            )
+            try:
+                result = evq.verify_evaluator_quality_certificate(bundle, context=context)
+            except evq.EvaluatorQualityVerificationError:
+                continue
+            accepted[(reference_independence, held_out_status)] = result.code
+            if (
+                result.code == evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL
+                and result.instrument_adequacy == "passed"
+            ):
+                claims_partial_with_passed_adequacy.append(
+                    (reference_independence, held_out_status)
+                )
+    assert accepted == {
+        ("evaluator_independent", "held_out_disjoint"): evq.EVALUATOR_QUALITY_VERIFIED
+    }
+    assert claims_partial_with_passed_adequacy == []
 
 
 def test_gv5_claims_partial_when_adequacy_failed(monkeypatch: pytest.MonkeyPatch) -> None:

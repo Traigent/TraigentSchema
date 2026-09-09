@@ -1,0 +1,1072 @@
+"""Contract tests for the closed evaluator-quality v1 schema family (pillar 3)."""
+
+from __future__ import annotations
+
+import copy
+import json
+import re
+import subprocess
+from pathlib import Path
+
+import pytest
+from jsonschema import Draft7Validator
+from referencing import Registry, Resource
+
+ROOT = Path(__file__).resolve().parents[1]
+SCHEMAS = ROOT / "traigent_schema" / "schemas"
+CERT_DIR = SCHEMAS / "certification"
+SCHEMA_PATH = CERT_DIR / "evaluator_quality_v1_schema.json"
+SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+DEFS = SCHEMA["definitions"]
+MERGE_BASE = "3f0529c1ba94a21afbcee749d6543dd0c4778229"
+SHA = "sha256:" + "a" * 64
+NON_CLAIM_SENTENCE = (
+    "Ordering evidence is out of scope for v1: nothing here establishes when the "
+    "declared plan was authored relative to the measurements, and this certificate "
+    "does not verify it."
+)
+
+
+def _registry() -> Registry:
+    resources: list[tuple[str, Resource]] = []
+    for path in SCHEMAS.rglob("*.json"):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(document, dict) and isinstance(document.get("$id"), str):
+            resources.append((document["$id"], Resource.from_contents(document)))
+    return Registry().with_resources(resources)
+
+
+REGISTRY = _registry()
+
+
+def _validator(definition: str | None = None) -> Draft7Validator:
+    if definition is None:
+        document = SCHEMA
+    else:
+        document = {
+            "$schema": SCHEMA["$schema"],
+            "$id": f"{SCHEMA['$id']}#test-{definition}",
+            "definitions": DEFS,
+            "allOf": [{"$ref": f"#/definitions/{definition}"}],
+        }
+    return Draft7Validator(document, registry=REGISTRY)
+
+
+def _errors(value: object, definition: str | None = None) -> list:
+    return list(_validator(definition).iter_errors(value))
+
+
+def _walk(node: object):
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _walk(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk(item)
+
+
+def _all_refs(node: object):
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            yield ref
+        for value in node.values():
+            yield from _all_refs(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _all_refs(item)
+
+
+# --------------------------------------------------------------------------
+# Fixture builders
+# --------------------------------------------------------------------------
+
+
+def _measurement(
+    role: str,
+    *,
+    estimator_id: str = "cohens_kappa",
+    value_unit: str = "ppm_unsigned",
+    point: int = 500000,
+    low: int = 490000,
+    high: int = 510000,
+    sample_unit: str = "evaluation_item",
+    basis: str = "issuer_attested_v1",
+    direction: str = "higher_is_better",
+) -> dict:
+    return {
+        "measurement_role": role,
+        "estimator_id": estimator_id,
+        "estimator_parameters": {
+            "interval_side": "two_sided",
+            "direction": direction,
+            "score_scale": "binary",
+            "label_kind": "binary",
+        },
+        "value_unit": value_unit,
+        "point_value": point,
+        "interval_low_value": low,
+        "interval_high_value": high,
+        "interval_params": {
+            "interval_kind": "wilson_score",
+            "continuity_correction": "none",
+        },
+        "nominal_coverage_ppm": 950000,
+        "sample_size_n": 100,
+        "sample_unit": sample_unit,
+        "basis": basis,
+        "computation_transcript_digest": None,
+    }
+
+
+def _reference_standard(
+    *,
+    reference_kind: str = "verifiable_execution",
+    rater_count: int = 0,
+    adjudication_policy: str = "not_applicable",
+    agreement_ceiling_ppm: int = 950000,
+    error_floor_ppm: int = 50000,
+) -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.reference_standard.v1",
+        "reference_kind": reference_kind,
+        "reference_independence": "evaluator_independent",
+        "reference_commitment_digest": SHA,
+        "label_count": 1000,
+        "rater_count": rater_count,
+        "adjudication_policy": adjudication_policy,
+        "agreement_ceiling_ppm": agreement_ceiling_ppm,
+        "error_floor_ppm": error_floor_ppm,
+        "reference_standard_digest": SHA,
+    }
+
+
+def _measurement_set() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.measurement_set.v1",
+        "evaluation_scope_digest": SHA,
+        "measurement_window_start": "2026-09-05T10:11:12Z",
+        "measurement_window_end": "2026-09-05T11:11:12Z",
+        "measurement_set_digest": SHA,
+        "calibration": {
+            "expected_calibration_error": _measurement(
+                "calibration_ece", direction="lower_is_better"
+            ),
+            "calibration_slope": _measurement("calibration_slope"),
+            "binning_policy": "equal_width",
+            "bin_count": 10,
+        },
+    }
+
+
+def _sensitivity_block() -> dict:
+    return {
+        "discriminating_power": _measurement("sensitivity_discriminating_power"),
+        "false_difference_rate": _measurement(
+            "sensitivity_false_difference_rate", direction="lower_is_better"
+        ),
+        "pair_set": {
+            "known_different_pair_count": 100,
+            "known_equivalent_pair_count": 50,
+            "equivalence_basis": "identical_configuration",
+            "pair_set_digest": SHA,
+        },
+    }
+
+
+def _support_row(claim_id: str) -> dict:
+    return {
+        "claim_id": claim_id,
+        "tier": 1,
+        "evidence_basis": "abstained",
+        "verdict": "abstain",
+        "abstention_code": "verifier_not_run_or_not_pass",
+    }
+
+
+def _support_rows() -> list:
+    return [_support_row(claim_id) for claim_id in ("EVQ1", "EVQ2", "EVQ3", "EVQ4", "EVQ5")]
+
+
+def _overall(
+    *,
+    verdict: str = "passed",
+    instrument_adequacy_verdict: str = "passed",
+    overall_quality_ppm: int | None = 700000,
+) -> dict:
+    document = {
+        "verdict": verdict,
+        "instrument_adequacy_verdict": instrument_adequacy_verdict,
+        "aggregation_policy_digest": SHA,
+    }
+    if overall_quality_ppm is not None:
+        document["overall_quality_ppm"] = overall_quality_ppm
+    return document
+
+
+def _aggregation_policy(*, efficiency_offset_forbidden: object = True) -> dict:
+    axes = ["calibration", "agreement", "sensitivity", "reliability", "efficiency"]
+    return {
+        "schema_version": "traigent.evaluator_quality.aggregation_policy.v1",
+        "weights": [
+            {
+                "axis": axis,
+                "weight_ppm": 0 if axis == "efficiency" else 250000,
+                "required_axis": axis != "efficiency",
+                "minimum_sample_size_n": 30,
+                "maximum_interval_width_ppm": 200000,
+            }
+            for axis in axes
+        ],
+        "rounding_mode": "round_half_even",
+        "efficiency_offset_forbidden": efficiency_offset_forbidden,
+    }
+
+
+def _wire_error(*, code: str = "evaluator_quality_invalid_measurement", field_location: str = "bundle") -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.error.v1",
+        "code": code,
+        "field_location": field_location,
+    }
+
+
+def _non_claim_rows() -> list:
+    rows = []
+    for item in DEFS["EvaluatorQualityNonClaimsFixedTupleV1"]["items"]:
+        overlay = item["allOf"][1]["properties"]
+        rows.append(
+            {
+                "record_type": "non_claim",
+                "non_claim_id": overlay["non_claim_id"]["const"],
+                "reason_template_id": overlay["reason_template_id"]["const"],
+            }
+        )
+    return rows
+
+
+_CLAIM_TEMPLATE_BY_ID = {
+    "EVQ1": "tmpl.evq.identity_commitment.v1",
+    "EVQ2": "tmpl.evq.agreement_with_reference.v1",
+    "EVQ3": "tmpl.evq.calibration_against_reference.v1",
+    "EVQ4": "tmpl.evq.sensitivity_two_sided.v1",
+    "EVQ5": "tmpl.evq.reliability_declared_probe_set.v1",
+}
+
+OPAQUE_REF = "trustring:aaaaaaaa"
+OPAQUE_KEY_REF = "issuerkey:aaaaaaaa"
+SIGNATURE_BYTES = "A" * 86 + "=="
+SPKI_DER_B64 = "A" * 44
+
+
+def _claim_material(claim_id: str, *, tier: int = 1, verdict: str = "directional") -> dict:
+    return {
+        "claim_id": claim_id,
+        "tier": tier,
+        "verdict": verdict,
+        "assertion_template_id": _CLAIM_TEMPLATE_BY_ID[claim_id],
+        "descriptor_digest": SHA,
+        "reference_standard_digest": SHA,
+        "evaluation_scope_digest": SHA,
+        "declared_plan_digest": SHA,
+    }
+
+
+def _claim_material_list() -> list:
+    return [_claim_material(claim_id) for claim_id in ("EVQ1", "EVQ2", "EVQ3", "EVQ4", "EVQ5")]
+
+
+def _component_commitment(component: str) -> dict:
+    return {
+        "component": component,
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "canonicalization": "jcs_v1",
+        "commitment_digest": SHA,
+    }
+
+
+def _descriptor() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.descriptor.v1",
+        "disclosure_mode": "private_commitment",
+        "evaluator_kind": "llm_judge_rubric",
+        "evaluator_version": "1.0.0",
+        "determinism": "deterministic",
+        "component_commitments": [
+            _component_commitment(component)
+            for component in ("implementation", "rubric", "model_identity", "parameters", "harness")
+        ],
+        "descriptor_digest": SHA,
+    }
+
+
+def _evaluator_commitment() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.commitment.v1",
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "canonicalization": "jcs_v1",
+        "artifact_kind": "evaluator",
+        "commitment_digest": SHA,
+    }
+
+
+def _evaluation_scope() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.evaluation_scope.v1",
+        "evaluation_set_digest": SHA,
+        "evaluation_item_count": 1000,
+        "sampling_policy_digest": SHA,
+        "sampling_frame": "full_declared_dataset",
+        "held_out_status": "unknown",
+        "selection_set_digest": SHA,
+        "estimation_set_digest": SHA,
+        "evaluation_scope_digest": SHA,
+    }
+
+
+def _planned_measurement() -> dict:
+    return {
+        "measurement_role": "calibration_ece",
+        "estimator_id": "cohens_kappa",
+        "estimator_parameters": {
+            "interval_side": "two_sided",
+            "direction": "lower_is_better",
+            "score_scale": "binary",
+            "label_kind": "binary",
+        },
+        "value_unit": "ppm_unsigned",
+        "interval_params": {
+            "interval_kind": "wilson_score",
+            "continuity_correction": "none",
+        },
+        "nominal_coverage_ppm": 950000,
+        "sample_unit": "evaluation_item",
+        "minimum_sample_size_n": 30,
+        "maximum_interval_width_ppm": 200000,
+        "threshold_value": 500000,
+        "threshold_comparison": "interval_high_le",
+    }
+
+
+def _declared_plan() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.declared_plan.v1",
+        "evaluator_commitment_digest": SHA,
+        "reference_standard_digest": SHA,
+        "evaluation_scope_digest": SHA,
+        "planned_measurements": [_planned_measurement()],
+        "sensitivity_pair_set": _sensitivity_block()["pair_set"],
+        "perturbation_set_digest": SHA,
+        "measurement_registry_digest": SHA,
+        "binning_policy": "equal_width",
+        "bin_count": 10,
+        "aggregation_policy": _aggregation_policy(),
+        "declared_plan_digest": SHA,
+    }
+
+
+def _unsigned_manifest(*, overall: dict | None = None) -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.unsigned_manifest.v1",
+        "scope_binding_digest": SHA,
+        "evaluator_commitment_ref": SHA,
+        "evaluator_commitment": _evaluator_commitment(),
+        "descriptor_digest": SHA,
+        "descriptor_opening_digest": None,
+        "reference_standard_digest": SHA,
+        "evaluation_scope_digest": SHA,
+        "declared_plan_digest": SHA,
+        "measurement_registry_digest": SHA,
+        "perturbation_set_digest": SHA,
+        "assertion_templates_digest": SHA,
+        "measurement_set_digest": SHA,
+        "frontier_digest": None,
+        "claim_material_digest": SHA,
+        "claim_support_rows_digest": SHA,
+        "non_claims_digest": SHA,
+        "overall": overall if overall is not None else _overall(
+            verdict="abstain", instrument_adequacy_verdict="abstain", overall_quality_ppm=None
+        ),
+        "trust_ring_ref": OPAQUE_REF,
+        "issuer_key_ref": OPAQUE_KEY_REF,
+        "issuer_signature_algorithm": "ed25519",
+        "coverage": DEFS["EvaluatorQualityUnsignedManifestV1"]["properties"]["coverage"]["const"],
+    }
+
+
+def _signature() -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.signature.v1",
+        "algorithm": "ed25519",
+        "issuer_key_ref": OPAQUE_KEY_REF,
+        "trust_ring_ref": OPAQUE_REF,
+        "signed_payload": "unsigned_evaluator_quality_manifest",
+        "unsigned_manifest_digest": SHA,
+        "signature": SIGNATURE_BYTES,
+    }
+
+
+def _verifier_binding(verifier_id: str) -> dict:
+    return {
+        "verifier_id": verifier_id,
+        "verifier_ref": f"ver.cert.{verifier_id.lower()}",
+        "verifier_version": "1.0.0",
+    }
+
+
+def _verification_materials() -> dict:
+    return {
+        "schema_version": "traigent.certificate_verification_materials.v0",
+        "distribution_role": "discovery_only",
+        "requires_independent_pins": True,
+        "certificate_ref": OPAQUE_REF,
+        "issuer": {
+            "key_ref": OPAQUE_KEY_REF,
+            "trust_ring_ref": OPAQUE_REF,
+            "algorithm": "ed25519",
+            "public_key_der_b64": SPKI_DER_B64,
+            "public_key_digest": SHA,
+        },
+        "relying_party_policy": {
+            "compiler_register_versions": {
+                "compiler_version": "1.0.0",
+                "semantics_manifest_digest": SHA,
+                "claim_template_catalog_digest": SHA,
+                "prohibited_register_digest": SHA,
+                "verifier_catalog_digest": SHA,
+                "non_claim_reason_catalog_digest": SHA,
+            },
+            "verifier_bindings": [_verifier_binding("B1"), _verifier_binding("G1")],
+        },
+        "materials_digest": SHA,
+    }
+
+
+def _bundle(*, support_rows: list | None = None, overall: dict | None = None) -> dict:
+    return {
+        "schema_version": "traigent.evaluator_quality.certificate_bundle.v1",
+        "unsigned_manifest": _unsigned_manifest(overall=overall),
+        "signature": _signature(),
+        "descriptor": _descriptor(),
+        "reference_standard": _reference_standard(),
+        "evaluation_scope": _evaluation_scope(),
+        "declared_plan": _declared_plan(),
+        "measurements": _measurement_set(),
+        "claim_material": _claim_material_list(),
+        "claim_support_rows": support_rows if support_rows is not None else _support_rows(),
+        "non_claims": _non_claim_rows(),
+        "verification_materials_v0": _verification_materials(),
+    }
+
+
+# --------------------------------------------------------------------------
+# Group 1 -- the file
+# --------------------------------------------------------------------------
+
+
+def test_schema_is_valid_draft7_and_every_ref_resolves() -> None:
+    Draft7Validator.check_schema(SCHEMA)
+    for definition in DEFS:
+        Draft7Validator.check_schema(
+            {
+                "$schema": SCHEMA["$schema"],
+                "$id": f"{SCHEMA['$id']}#check-{definition}",
+                "definitions": DEFS,
+                "allOf": [{"$ref": f"#/definitions/{definition}"}],
+            }
+        )
+    resolver = REGISTRY.resolver(base_uri=SCHEMA["$id"])
+    unresolved = []
+    for ref in _all_refs(SCHEMA):
+        try:
+            resolver.lookup(ref)
+        except Exception:  # noqa: BLE001 -- collecting every failure for the assertion message
+            unresolved.append(ref)
+    assert unresolved == []
+
+
+def test_root_rejects_a_non_bundle_document() -> None:
+    validator = _validator(None)
+    for non_bundle in (None, {}, [], "x", DEFS["EvaluatorQualityOverallV1"]):
+        assert not validator.is_valid(non_bundle), non_bundle
+    assert validator.is_valid(_bundle())
+
+
+def test_coverage_const_names_only_real_manifest_properties() -> None:
+    manifest = DEFS["EvaluatorQualityUnsignedManifestV1"]
+    coverage = set(manifest["properties"]["coverage"]["const"])
+    real_properties = set(manifest["properties"])
+    assert coverage - real_properties == set()
+
+
+# coverage omits these two manifest properties: "coverage" cannot name itself, and
+# schema_version is a fixed const rather than digest-bound content -- both are
+# manifest properties that are not, and were never meant to be, covered content.
+COVERAGE_EXCLUSIONS = {"coverage", "schema_version"}
+
+
+def test_coverage_const_equals_manifest_properties_minus_exclusions() -> None:
+    manifest = DEFS["EvaluatorQualityUnsignedManifestV1"]
+    coverage = set(manifest["properties"]["coverage"]["const"])
+    real_properties = set(manifest["properties"])
+    assert coverage == real_properties - COVERAGE_EXCLUSIONS
+
+
+def test_every_object_is_closed() -> None:
+    for node in _walk(SCHEMA):
+        if node.get("type") == "object":
+            assert node.get("additionalProperties") is False, node
+    for node in _walk(SCHEMA):
+        assert node.get("additionalProperties") is not True, node
+
+
+def test_no_preregistration_vocabulary_survives() -> None:
+    text = SCHEMA_PATH.read_text(encoding="utf-8")
+    assert NON_CLAIM_SENTENCE in text
+    assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", text, re.I) is None
+    assert SCHEMA["description"][-len(NON_CLAIM_SENTENCE):] == NON_CLAIM_SENTENCE
+
+
+def test_no_unqualified_ordering_assertion_survives() -> None:
+    # No exemption for the non-claim sentence itself: it was rewritten so that
+    # neither the preregistration stem nor any ordering phrase appears in it,
+    # so the scan runs over the WHOLE schema, including that sentence.
+    text = SCHEMA_PATH.read_text(encoding="utf-8")
+    assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", text, re.I) is None
+    assert (
+        re.search(
+            r"before the results|before results|prior to results|predates"
+            r"|in advance of|authored before",
+            text,
+            re.I,
+        )
+        is None
+    )
+
+
+def test_evq_ids_do_not_widen_the_v0_claim_id_vocabulary() -> None:
+    claims_v0 = json.loads((CERT_DIR / "certificate_claims_v0_schema.json").read_text(encoding="utf-8"))
+    v0_ids = set(claims_v0["definitions"]["ClaimIdV0"]["enum"])
+    evq_ids = set(DEFS["EvaluatorQualityClaimIdV1"]["enum"])
+    assert evq_ids.isdisjoint(v0_ids)
+
+
+def test_frozen_v0_files_are_byte_identical_to_the_merge_base() -> None:
+    v0_files = sorted(CERT_DIR.glob("*v0*.json"))
+    assert v0_files
+    for path in v0_files:
+        rel = path.relative_to(ROOT).as_posix()
+        base = subprocess.run(
+            ["git", "show", f"{MERGE_BASE}:{rel}"],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout
+        assert path.read_text(encoding="utf-8") == base, f"{rel} drifted from the merge base"
+
+
+def test_shipped_v1_contracts_are_untouched() -> None:
+    path = CERT_DIR / "process_record_v1_schema.json"
+    rel = path.relative_to(ROOT).as_posix()
+    base = subprocess.run(
+        ["git", "show", f"{MERGE_BASE}:{rel}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout
+    assert path.read_text(encoding="utf-8") == base
+
+
+# --------------------------------------------------------------------------
+# Group 2 -- the attestation ceiling
+# --------------------------------------------------------------------------
+
+
+def test_every_measurement_requires_a_basis() -> None:
+    measurement = _measurement("agreement_primary")
+    assert _errors(measurement, "MeasurementV1") == []
+    del measurement["basis"]
+    assert _errors(measurement, "MeasurementV1")
+
+
+def test_construction_recomputed_basis_is_registered_but_unconstructible() -> None:
+    assert set(DEFS["MeasurementBasisV1"]["enum"]) == {
+        "issuer_attested_v1",
+        "construction_recomputed_v1",
+    }
+    assert _errors("issuer_attested_v1", "EmittableMeasurementBasisV1") == []
+    assert _errors("construction_recomputed_v1", "EmittableMeasurementBasisV1")
+
+
+def test_public_descriptor_disclosure_mode_is_registered_but_unconstructible() -> None:
+    assert set(DEFS["EvaluatorDisclosureModeV1"]["enum"]) == {
+        "private_commitment",
+        "public_descriptor",
+    }
+    assert _errors("private_commitment", "EmittableDisclosureModeV1") == []
+    assert _errors("public_descriptor", "EmittableDisclosureModeV1")
+
+
+def test_descriptor_opening_cannot_appear_in_the_bundle() -> None:
+    # DescriptorOpeningV1 and ComponentOpeningV1 are dead surface -- referenced by
+    # nothing -- and were deleted outright rather than kept as registered-but-unused
+    # definitions, matching this PR's own treatment of the efficiency/frontier shapes.
+    assert "DescriptorOpeningV1" not in DEFS
+    assert "ComponentOpeningV1" not in DEFS
+    bundle_def = DEFS["EvaluatorQualityCertificateBundleV1"]
+    assert "descriptor_opening" not in bundle_def["properties"]
+    assert "descriptor_opening" not in bundle_def["required"]
+    assert bundle_def["additionalProperties"] is False
+
+
+# --------------------------------------------------------------------------
+# Group 3 -- EVQ6/EVQ7 are not claims
+# --------------------------------------------------------------------------
+
+
+def test_evq6_and_evq7_are_registered_but_not_emittable() -> None:
+    assert {"EVQ6", "EVQ7"} <= set(DEFS["EvaluatorQualityClaimIdV1"]["enum"])
+    for claim_id in ("EVQ6", "EVQ7"):
+        assert _errors(claim_id, "EmittableEvaluatorQualityClaimIdV1")
+
+
+def test_support_rows_are_exactly_five_in_order() -> None:
+    rows = _support_rows()
+    assert _errors(rows, "EvaluatorQualityClaimSupportRowsV1") == []
+
+    too_many = rows + [_support_row("EVQ5")]
+    assert _errors(too_many, "EvaluatorQualityClaimSupportRowsV1")
+
+    too_few = rows[:-1]
+    assert _errors(too_few, "EvaluatorQualityClaimSupportRowsV1")
+
+    swapped = copy.deepcopy(rows)
+    swapped[0], swapped[1] = swapped[1], swapped[0]
+    assert _errors(swapped, "EvaluatorQualityClaimSupportRowsV1")
+
+
+def test_measurement_set_cannot_carry_efficiency_or_frontier() -> None:
+    """Guard: EVQ6 (efficiency) and EVQ7 (agreement-per-cost frontier) are not
+    asserted in v1, so they are unconstructible at three independent levels and a
+    reviewer should not "restore" any of them:
+
+      1. the claim ids stay in ``EvaluatorQualityClaimIdV1`` but are rejected by
+         ``EmittableEvaluatorQualityClaimIdV1`` (covered by its own test);
+      2. their measurement roles stay in ``MeasurementRoleV1`` but are rejected by
+         ``EmittableMeasurementRoleV1`` (covered by its own test);
+      3. **no efficiency or frontier object is defined at all**, so even a hand-built
+         document has no shape to put one in.
+
+    Level 3 replaced an earlier draft that kept ``EfficiencyFrontierV1`` as a
+    registered-but-unreferenced definition. That draft was removed because the
+    repository's client-facing leak guard
+    (``tests/test_agent_lifecycle_schemas.py::TestClientFacingSchemaLeakGuard``)
+    correctly flagged its ``baseline`` property as a TIER-2 reserved artifact-state
+    token. Dead schema surface for a claim the contract does not make is not worth a
+    reserved-vocabulary collision, and deleting it strictly reduces what can be
+    expressed.
+    """
+    measurement_set = DEFS["EvaluatorMeasurementSetV1"]
+    assert "efficiency" not in measurement_set["properties"]
+    assert "frontier" not in measurement_set["properties"]
+    assert measurement_set["additionalProperties"] is False
+    for removed in (
+        "EfficiencyBlockV1",
+        "EfficiencyFrontierV1",
+        "FrontierBaselineV1",
+        "FrontierPointV1",
+    ):
+        assert removed not in DEFS, f"{removed} is dead surface for a claim v1 does not make"
+    document = _measurement_set()
+    assert _errors(document, "EvaluatorMeasurementSetV1") == []
+    for smuggled in ("efficiency", "frontier"):
+        poisoned = dict(document)
+        poisoned[smuggled] = {}
+        assert _errors(poisoned, "EvaluatorMeasurementSetV1")
+
+def test_efficiency_and_frontier_roles_are_registered_but_not_emittable() -> None:
+    assert len(DEFS["MeasurementRoleV1"]["enum"]) == 20
+    excluded_roles = [
+        role
+        for role in DEFS["MeasurementRoleV1"]["enum"]
+        if role.startswith("efficiency_") or role.startswith("frontier_")
+    ]
+    assert len(excluded_roles) == 8
+    for role in excluded_roles:
+        assert _errors(role, "EmittableMeasurementRoleV1")
+
+
+# --------------------------------------------------------------------------
+# Group 4 -- the instrument-adequacy floor and the reference limits
+# --------------------------------------------------------------------------
+
+
+def test_overall_requires_instrument_adequacy_verdict() -> None:
+    document = _overall()
+    assert _errors(document, "EvaluatorQualityOverallV1") == []
+    del document["instrument_adequacy_verdict"]
+    assert _errors(document, "EvaluatorQualityOverallV1")
+
+
+def test_efficiency_offset_forbidden_is_a_const_true() -> None:
+    assert DEFS["AggregationPolicyV1"]["properties"]["efficiency_offset_forbidden"]["const"] is True
+    assert _errors(_aggregation_policy(), "AggregationPolicyV1") == []
+    assert _errors(_aggregation_policy(efficiency_offset_forbidden=False), "AggregationPolicyV1")
+
+
+def test_abstain_or_failed_overall_cannot_carry_a_quality_score() -> None:
+    for verdict in ("abstain", "failed"):
+        without_score = _overall(
+            verdict=verdict, instrument_adequacy_verdict=verdict, overall_quality_ppm=None
+        )
+        assert _errors(without_score, "EvaluatorQualityOverallV1") == []
+
+        with_score = _overall(
+            verdict=verdict, instrument_adequacy_verdict=verdict, overall_quality_ppm=500000
+        )
+        assert _errors(with_score, "EvaluatorQualityOverallV1")
+
+    for verdict in ("passed", "directional"):
+        missing_score = _overall(
+            verdict=verdict, instrument_adequacy_verdict=verdict, overall_quality_ppm=None
+        )
+        assert _errors(missing_score, "EvaluatorQualityOverallV1")
+
+
+def test_reference_standard_carries_both_a_ceiling_and_a_floor() -> None:
+    document = _reference_standard()
+    assert _errors(document, "ReferenceStandardV1") == []
+
+    no_ceiling = {k: v for k, v in document.items() if k != "agreement_ceiling_ppm"}
+    assert _errors(no_ceiling, "ReferenceStandardV1")
+
+    no_floor = {k: v for k, v in document.items() if k != "error_floor_ppm"}
+    assert _errors(no_floor, "ReferenceStandardV1")
+
+
+def test_human_single_rater_requires_exactly_one_rater_and_no_adjudication() -> None:
+    document = _reference_standard(
+        reference_kind="human_single_rater", rater_count=1, adjudication_policy="none"
+    )
+    assert _errors(document, "ReferenceStandardV1") == []
+
+    two_raters = {**document, "rater_count": 2}
+    assert _errors(two_raters, "ReferenceStandardV1")
+
+    adjudicated = {**document, "adjudication_policy": "majority"}
+    assert _errors(adjudicated, "ReferenceStandardV1")
+
+
+def test_human_panel_adjudicated_requires_at_least_two_raters() -> None:
+    document = _reference_standard(
+        reference_kind="human_panel_adjudicated", rater_count=3, adjudication_policy="majority"
+    )
+    assert _errors(document, "ReferenceStandardV1") == []
+
+    one_rater = {**document, "rater_count": 1}
+    assert _errors(one_rater, "ReferenceStandardV1")
+
+    no_adjudication = {**document, "adjudication_policy": "none"}
+    assert _errors(no_adjudication, "ReferenceStandardV1")
+
+
+def test_evq4_requires_both_sensitivity_measurements() -> None:
+    block = _sensitivity_block()
+    assert _errors(block, "SensitivityBlockV1") == []
+
+    no_discriminating = {k: v for k, v in block.items() if k != "discriminating_power"}
+    assert _errors(no_discriminating, "SensitivityBlockV1")
+
+    no_false_difference = {k: v for k, v in block.items() if k != "false_difference_rate"}
+    assert _errors(no_false_difference, "SensitivityBlockV1")
+
+
+def test_evaluation_scope_is_required_on_the_measurement_set() -> None:
+    document = _measurement_set()
+    assert _errors(document, "EvaluatorMeasurementSetV1") == []
+    del document["evaluation_scope_digest"]
+    assert _errors(document, "EvaluatorMeasurementSetV1")
+
+
+def test_measurement_set_requires_at_least_one_axis_block() -> None:
+    document = _measurement_set()
+    del document["calibration"]
+    assert _errors(document, "EvaluatorMeasurementSetV1")
+
+
+# --------------------------------------------------------------------------
+# Group 5 -- the printed surface and the #458-class defect surface
+# --------------------------------------------------------------------------
+
+
+def test_non_claims_tuple_is_fixed_length_and_ordered() -> None:
+    rows = _non_claim_rows()
+    assert len(rows) == 18
+    assert _errors(rows, "EvaluatorQualityNonClaimsFixedTupleV1") == []
+
+    too_few = rows[:-1]
+    assert _errors(too_few, "EvaluatorQualityNonClaimsFixedTupleV1")
+
+    too_many = rows + [rows[-1]]
+    assert _errors(too_many, "EvaluatorQualityNonClaimsFixedTupleV1")
+
+    swapped = copy.deepcopy(rows)
+    swapped[0], swapped[1] = swapped[1], swapped[0]
+    assert _errors(swapped, "EvaluatorQualityNonClaimsFixedTupleV1")
+
+
+@pytest.mark.parametrize("field", ["sentence", "text", "verifier", "tier"])
+def test_non_claim_record_carries_identifiers_only(field: str) -> None:
+    row = _non_claim_rows()[0]
+    assert _errors(row, "EvaluatorQualityNonClaimV1") == []
+    row[field] = "unexpected"
+    assert _errors(row, "EvaluatorQualityNonClaimV1")
+
+
+def test_containment_is_keyed_per_sub_metric_by_measurement_role() -> None:
+    """Guard: keying plan containment by ``claim_id`` alone would leave post-hoc
+    choice of estimator, interval, side and sample unit free inside a claim that
+    carries several measurements (EVQ2, EVQ4 and EVQ5 each do).
+
+    The contract answers that with a *role* key, not a composite one, and that is
+    sound because ``MeasurementRoleV1`` is globally unique and each role belongs to
+    exactly one claim by construction: ``calibration_*`` to EVQ3, ``agreement_*`` to
+    EVQ2, ``sensitivity_*`` to EVQ4, ``reliability_*`` to EVQ5. So the key that must
+    exist on BOTH sides of the join is ``measurement_role``, and this test pins it on
+    both. An earlier draft of this test demanded ``claim_id`` on the plan entry; that
+    was over-specified -- adding a second key component that is a function of the
+    first cannot tighten containment, and the schema was right.
+
+    What JSON Schema cannot express here, stated rather than assumed: rejecting a
+    DUPLICATE ``measurement_role`` inside ``planned_measurements`` (or two
+    measurements claiming the same role with different payloads) is a verifier
+    obligation, not a schema one. No verifier exists in this PR, so
+    ``MEASUREMENT_ROLE_DUPLICATE`` is currently UNTESTED -- this test exists so
+    that removing the key from either side breaks here first, not so that it
+    stands in for the verifier coverage that has not been written yet.
+    """
+    planned = DEFS["PlannedMeasurementV1"]
+    measured = DEFS["MeasurementV1"]
+    assert "measurement_role" in planned["required"]
+    assert "measurement_role" in measured["required"]
+    # Both sides resolve the key through the SAME closed vocabulary, so a role that
+    # is not emittable in v1 cannot be planned or measured.
+    assert planned["properties"]["measurement_role"]["$ref"].endswith(
+        "EmittableMeasurementRoleV1"
+    )
+    assert measured["properties"]["measurement_role"]["$ref"].endswith(
+        "EmittableMeasurementRoleV1"
+    )
+    # The plan entry carries no value, so a result cannot be smuggled into it.
+    for value_field in ("point_value", "interval_low_value", "interval_high_value", "verdict"):
+        assert value_field not in planned["properties"]
+
+
+def test_wire_error_requires_a_field_location() -> None:
+    document = _wire_error()
+    assert _errors(document, "EvaluatorQualityErrorV1") == []
+    del document["field_location"]
+    assert _errors(document, "EvaluatorQualityErrorV1")
+
+
+def test_field_location_tokens_carry_no_index_or_digest() -> None:
+    for token in DEFS["EvaluatorQualityFieldLocationV1"]["enum"]:
+        assert re.fullmatch(r"[a-z][a-z_.]*", token), token
+
+
+def test_wire_error_code_enum_is_coarse() -> None:
+    codes = DEFS["EvaluatorQualityErrorV1"]["properties"]["code"]["enum"]
+    assert len(codes) <= 6
+
+
+_ALLOWED_PATTERN_ONLY_STRINGS: set[tuple[str, str]] = set()
+
+
+def test_no_open_map_or_free_text_field_exists() -> None:
+    for node in _walk(SCHEMA):
+        assert node.get("additionalProperties") is not True, node
+
+    exceptions = []
+    for definition_name, definition in DEFS.items():
+        properties = definition.get("properties", {})
+        for prop_name, prop_schema in properties.items():
+            if not isinstance(prop_schema, dict):
+                continue
+            if prop_schema.get("type") != "string":
+                continue
+            bounded = "const" in prop_schema or "enum" in prop_schema or "$ref" in prop_schema
+            if not bounded:
+                exceptions.append((definition_name, prop_name))
+
+    assert set(exceptions) == _ALLOWED_PATTERN_ONLY_STRINGS
+
+
+def _probe_result(probe_id: str) -> dict:
+    return {
+        "probe_id": probe_id,
+        "status": "skipped",
+        "skip_reason": "insufficient_probe_cells",
+    }
+
+
+def _probe_results() -> list:
+    return [
+        _probe_result(probe_id)
+        for probe_id in ("constant_output", "verbosity", "position", "self_preference", "one_token_fool")
+    ]
+
+
+def test_probe_results_are_exactly_five_pinned_to_registry_order() -> None:
+    reliability = {
+        "probe_results": _probe_results(),
+        "perturbation_set_digest": SHA,
+    }
+    assert _errors(reliability, "ReliabilityBlockV1") == []
+
+    # The registry order pinned into the tuple must match PerturbationProbeIdV1's
+    # own enum order -- if the registry is ever reordered, the packaged
+    # perturbation_set document and this tuple must be reordered together.
+    assert [item["probe_id"] for item in _probe_results()] == DEFS["PerturbationProbeIdV1"]["enum"]
+
+    all_one_probe = {
+        "probe_results": [_probe_result("constant_output") for _ in range(5)],
+        "perturbation_set_digest": SHA,
+    }
+    assert _errors(all_one_probe, "ReliabilityBlockV1")
+
+    swapped = _probe_results()
+    swapped[0], swapped[1] = swapped[1], swapped[0]
+    assert _errors({"probe_results": swapped, "perturbation_set_digest": SHA}, "ReliabilityBlockV1")
+
+
+# --------------------------------------------------------------------------
+# Group 6 -- the positive-verdict floor over the four instrument-adequacy rows
+# --------------------------------------------------------------------------
+
+
+def _iv_row(cid: str, verdict: str) -> dict:
+    return {
+        "claim_id": cid,
+        "tier": 3,
+        "evidence_basis": "issuer_verified",
+        "verdict": verdict,
+        "verifier_result": "pass",
+        "descriptor_digest": SHA,
+        "reference_standard_digest": SHA,
+        "evaluation_scope_digest": SHA,
+        "declared_plan_digest": SHA,
+        "measurement_set_digest": SHA,
+        "claim_material_digest": SHA,
+    }
+
+
+def _cd_row(cid: str) -> dict:
+    return {
+        "claim_id": cid,
+        "tier": 1,
+        "evidence_basis": "client_declared",
+        "verdict": "directional",
+        "descriptor_digest": SHA,
+        "declared_plan_digest": SHA,
+        "claim_material_digest": SHA,
+    }
+
+
+def _ab_row(cid: str, verdict: str = "failed") -> dict:
+    return {
+        "claim_id": cid,
+        "tier": 1,
+        "evidence_basis": "abstained",
+        "verdict": verdict,
+        "abstention_code": "verifier_not_run_or_not_pass",
+    }
+
+
+def test_overall_passed_requires_all_four_instrument_rows_passed() -> None:
+    rows = [_cd_row("EVQ1")] + [_iv_row(c, "directional") for c in ("EVQ2", "EVQ3", "EVQ4", "EVQ5")]
+    assert _errors(rows, "EvaluatorQualityClaimSupportRowsV1") == []
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(verdict="passed", instrument_adequacy_verdict="passed", overall_quality_ppm=500000),
+    )
+    assert _errors(bundle) != []
+
+
+def test_overall_directional_forbids_a_failed_instrument_row() -> None:
+    rows = [
+        _cd_row("EVQ1"),
+        _iv_row("EVQ2", "directional"),
+        _ab_row("EVQ3", "failed"),
+        _iv_row("EVQ4", "directional"),
+        _iv_row("EVQ5", "directional"),
+    ]
+    assert _errors(rows, "EvaluatorQualityClaimSupportRowsV1") == []
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(
+            verdict="directional", instrument_adequacy_verdict="directional", overall_quality_ppm=400000
+        ),
+    )
+    assert _errors(bundle) != []
+
+
+def test_overall_passed_over_a_failed_instrument_row_stays_forbidden() -> None:
+    # Control: guards against over-correcting Finding 1 into a schema that no
+    # longer rejects the case round 2 already closed.
+    rows = [
+        _cd_row("EVQ1"),
+        _iv_row("EVQ2", "passed"),
+        _ab_row("EVQ3", "failed"),
+        _iv_row("EVQ4", "passed"),
+        _iv_row("EVQ5", "passed"),
+    ]
+    assert _errors(rows, "EvaluatorQualityClaimSupportRowsV1") == []
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(verdict="passed", instrument_adequacy_verdict="passed", overall_quality_ppm=900000),
+    )
+    assert _errors(bundle) != []
+
+
+def test_overall_passed_with_all_four_instrument_rows_passed_is_valid() -> None:
+    rows = [_cd_row("EVQ1")] + [_iv_row(c, "passed") for c in ("EVQ2", "EVQ3", "EVQ4", "EVQ5")]
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(verdict="passed", instrument_adequacy_verdict="passed", overall_quality_ppm=900000),
+    )
+    assert _errors(bundle) == []
+
+
+def test_overall_abstain_bundle_stays_valid_regardless_of_instrument_rows() -> None:
+    # The abstain exception: an abstained axis withholds a verdict rather than
+    # asserting a floor, so it must not trip the passed/directional coupling.
+    rows = [
+        _cd_row("EVQ1"),
+        _iv_row("EVQ2", "passed"),
+        _ab_row("EVQ3", "failed"),
+        _iv_row("EVQ4", "passed"),
+        _iv_row("EVQ5", "passed"),
+    ]
+    bundle = _bundle(
+        support_rows=rows,
+        overall=_overall(
+            verdict="abstain", instrument_adequacy_verdict="abstain", overall_quality_ppm=None
+        ),
+    )
+    assert _errors(bundle) == []
+
+
+@pytest.mark.parametrize(
+    "needle",
+    [
+        "not this digest",
+        "same blinded value was committed",
+        "DOES enforce structurally",
+    ],
+)
+def test_stale_or_overclaiming_prose_is_absent(needle: str) -> None:
+    text = SCHEMA_PATH.read_text(encoding="utf-8")
+    assert needle not in text

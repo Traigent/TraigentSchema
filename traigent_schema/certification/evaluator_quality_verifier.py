@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import date
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
@@ -22,10 +24,15 @@ from referencing.exceptions import Unresolvable
 import traigent_schema.fp2 as fp2
 from traigent_schema.certification.process_record_verifier import (
     _ISSUER_SPKI_DOMAIN,
+    _SHA256_RE,
+    TrustAnchorKeyV1,
     _load_registry_constant,
     _material_public_key,
+    _parse_utc_timestamp,
     _verify_signature,
 )
+
+_EPOCH_ORDINAL = date(1970, 1, 1).toordinal()
 
 _SCHEMA_RESOURCE = (
     resources.files("traigent_schema")
@@ -139,8 +146,22 @@ EVALUATOR_QUALITY_ERROR_CODES = frozenset(
         "EVALUATOR_KEY_RING_MISMATCH",
         "EVALUATOR_ISSUER_SIGNATURE_INVALID",
         "EVALUATOR_VERIFICATION_FAILED",
+        # S10 trust-status codes (P3-V.5). There is no schema-shipped trust
+        # status envelope for this bundle family -- see
+        # _EVALUATOR_TRUST_STATUS_ENVELOPE_VERSION's docstring -- so these
+        # mirror process_record_verifier's vocabulary by convention rather
+        # than by a shared schema definition.
+        "TRUST_STATUS_SHAPE",
+        "TRUST_STATUS_DIGEST_MISMATCH",
+        "TRUST_ANCHOR_MISMATCH",
+        "TRUST_STATUS_SIGNATURE_INVALID",
+        "KEY_REVOKED",
+        "REVOCATION_STATUS_UNAVAILABLE",
     }
 )
+
+EVALUATOR_QUALITY_VERIFIED = "EVALUATOR_QUALITY_VERIFIED"
+EVALUATOR_QUALITY_CLAIMS_PARTIAL = "EVALUATOR_QUALITY_CLAIMS_PARTIAL"
 
 
 class EvaluatorQualityVerificationError(ValueError):
@@ -1225,11 +1246,44 @@ def _check_aggregation_derivation(bundle: dict[str, Any]) -> None:
         _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
 
 
+_NON_CLAIMS_CANONICAL: tuple[tuple[str, str], ...] = tuple(
+    (
+        item["allOf"][1]["properties"]["non_claim_id"]["const"],
+        item["allOf"][1]["properties"]["reason_template_id"]["const"],
+    )
+    for item in _schema_definition("EvaluatorQualityNonClaimsFixedTupleV1")["items"]
+)
+
+
+def _check_non_claim_tuple(bundle: dict[str, Any]) -> None:
+    """S8: ``non_claims`` is exactly the pinned, canonically-ordered
+    18-member ``(non_claim_id, reason_template_id)`` tuple
+    (``EvaluatorQualityNonClaimsFixedTupleV1``, eighteen at the shipped
+    contract -- not the design's fifteen).
+
+    ``EvaluatorQualityNonClaimsFixedTupleV1``'s own per-position ``allOf``/
+    ``const`` pins already make any omission, addition, reorder, or
+    id/template substitution schema-invalid, so no schema-valid bundle can
+    reach this guard through :func:`_verify_evaluator_quality_private` (S2
+    runs first) -- this is defense-in-depth, the same class as the
+    ``DESCRIPTOR_DISCLOSURE_MODE_CONFLICT`` tripwire elsewhere in this
+    module. Reachability is proven in the test module by calling this
+    function directly against a hand-built, schema-bypassing tuple, not by
+    a full-bundle runtime negative.
+    """
+    actual = tuple(
+        (row["non_claim_id"], row["reason_template_id"]) for row in bundle["non_claims"]
+    )
+    if actual != _NON_CLAIMS_CANONICAL:
+        _fail("NON_CLAIM_TUPLE_MISMATCH", "non_claims")
+
+
 def _verify_evaluator_quality_private(bundle: object, *, context: object) -> None:
     """Run P3-V.2/P3-V.3/P3-V.4/P3-V.4d. The commitment pin must come from
     a VERIFIED process record."""
     shaped = _check_bundle_shape(bundle)
     _check_schema(shaped)
+    _check_non_claim_tuple(shaped)
     _check_semantic_uniqueness(shaped)
     _check_scope_binding(shaped, context)
     _check_artifact_digests(shaped)
@@ -1331,10 +1385,417 @@ for _registry_stem in _EVALUATOR_QUALITY_REGISTRY_DOMAINS:
 del _registry_stem
 
 
+# ---------------------------------------------------------------------------
+# P3-V.5 -- the public surface.
+# ---------------------------------------------------------------------------
+
+# S10 trust status. There is NO schema-shipped trust-status envelope for
+# EvaluatorQualityCertificateBundleV1 -- unlike ProcessRecordCertificateBundleV1,
+# the evaluator-quality contract at 7cb35d0 defines no TrustStatusEnvelopeV1
+# counterpart and reserves no EvaluatorQualityFieldLocationV1 token for it.
+# (process_record_verifier's own TrustStatusEnvelopeV1 cannot be reused
+# as-is: its schema_version/max_age_seconds/certificate_status shape is
+# pinned to the process-record family and requires a certificate_status
+# entry this bundle has no certificate_ref to populate.) The constants and
+# shape checks below are therefore a VERIFIER CONVENTION pending a Schema
+# follow-up (an EvaluatorQualityTrustStatusEnvelopeV1 counterpart), mirroring
+# AXIS_POINT_VALUE_ROLE's own pending-amendment status above. Until that
+# amendment lands, this module owns the envelope shape in Python rather than
+# via jsonschema, and only the issuer key's status is consulted -- there is
+# no certificate concept in this bundle family to revoke separately from the
+# key that signed it.
+_EVALUATOR_TRUST_STATUS_ENVELOPE_VERSION = "traigent.evaluator_quality.trust_status_envelope.v1"
+_EVALUATOR_TRUST_STATUS_VERSION = "traigent.evaluator_quality.trust_status.v1"
+_EVALUATOR_TRUST_POLICY_ID = "traigent.trust_policy.evaluator_quality.v1"
+_EVALUATOR_TRUST_MAX_AGE_SECONDS = 86400
+_EVALUATOR_TRUST_SKEW_SECONDS = 0
+_MAX_EVALUATOR_TRUST_STATUS_ENTRIES = 64
+
+
+def _utc_microseconds(value: str) -> int:
+    """Integer microseconds since the Unix epoch, or fail
+    ``REVOCATION_STATUS_UNAVAILABLE`` -- see
+    ``process_record_verifier._utc_microseconds`` for the parse rationale
+    this mirrors (delegated to the shared, pure ``_parse_utc_timestamp``)."""
+    parsed = _parse_utc_timestamp(value)
+    if parsed is None:
+        _fail("REVOCATION_STATUS_UNAVAILABLE", "signature")
+    year, month, day, hour, minute, second, frac_us = parsed
+    days = date(year, month, day).toordinal() - _EPOCH_ORDINAL
+    seconds = days * 86400 + hour * 3600 + minute * 60 + second
+    return seconds * 1_000_000 + frac_us
+
+
+def _evaluator_trust_status_shape(envelope: object) -> dict[str, Any] | None:
+    """Structural check for the convention envelope shape; returns the
+    snapshot body, or ``None`` on any shape defect (caller fails closed)."""
+    if type(envelope) is not dict:
+        return None
+    if envelope.get("schema_version") != _EVALUATOR_TRUST_STATUS_ENVELOPE_VERSION:
+        return None
+    snapshot = envelope.get("snapshot")
+    signature = envelope.get("signature")
+    if type(snapshot) is not dict or type(signature) is not dict:
+        return None
+    if snapshot.get("schema_version") != _EVALUATOR_TRUST_STATUS_VERSION:
+        return None
+    if snapshot.get("trust_policy_id") != _EVALUATOR_TRUST_POLICY_ID:
+        return None
+    if snapshot.get("max_age_seconds") != _EVALUATOR_TRUST_MAX_AGE_SECONDS:
+        return None
+    if type(snapshot.get("effective_time")) is not str or type(
+        snapshot.get("trust_anchor_ref")
+    ) is not str:
+        return None
+    key_status = snapshot.get("key_status")
+    if not isinstance(key_status, list) or not (
+        1 <= len(key_status) <= _MAX_EVALUATOR_TRUST_STATUS_ENTRIES
+    ):
+        return None
+    seen: set[tuple[Any, Any]] = set()
+    for entry in key_status:
+        if not isinstance(entry, dict):
+            return None
+        if not {"key_ref", "trust_ring_ref", "status"} <= entry.keys():
+            return None
+        pair = (entry.get("key_ref"), entry.get("trust_ring_ref"))
+        if pair in seen:
+            return None
+        seen.add(pair)
+    for field_name in ("algorithm", "signature", "trust_anchor_ref", "snapshot_digest"):
+        if type(signature.get(field_name)) is not str:
+            return None
+    return cast(dict[str, Any], snapshot)
+
+
+def _verify_evaluator_trust_status(
+    trust_status: object, context: "EvaluatorQualityVerificationContext"
+) -> dict[str, Any]:
+    """Authenticate and freshness-check a caller-supplied trust-status
+    snapshot; return the verified snapshot body. Establishes non-revocation
+    of the issuer key ONLY as of the snapshot's own ``effective_time`` --
+    never current non-revocation."""
+    if trust_status is None:
+        _fail("REVOCATION_STATUS_UNAVAILABLE", "signature")
+    snapshot = _evaluator_trust_status_shape(trust_status)
+    if snapshot is None:
+        _fail("TRUST_STATUS_SHAPE", "signature")
+    signature = cast(dict[str, Any], cast(dict[str, Any], trust_status)["signature"])
+
+    if signature["snapshot_digest"] != _role_digest(_EVALUATOR_TRUST_STATUS_VERSION, snapshot):
+        _fail("TRUST_STATUS_DIGEST_MISMATCH", "signature")
+
+    trust_anchor = context.trust_anchor
+    if trust_anchor is None:
+        _fail("CONTEXT", "context")
+    if (
+        snapshot["trust_anchor_ref"] != trust_anchor.key_ref
+        or signature["trust_anchor_ref"] != trust_anchor.key_ref
+    ):
+        _fail("TRUST_ANCHOR_MISMATCH", "signature")
+
+    try:
+        anchor_key = _material_public_key(
+            {
+                "public_key_der_b64": trust_anchor.public_key_der_b64,
+                "public_key_digest": trust_anchor.public_key_digest,
+                "algorithm": trust_anchor.algorithm,
+            },
+            _ISSUER_SPKI_DOMAIN,
+        )
+    except EvaluatorQualityVerificationError:
+        raise
+    except Exception:
+        _fail("CONTEXT", "context")
+    try:
+        canonical_snapshot = cast(str, fp2.canonicalize(snapshot)).encode("utf-8")
+    except Exception:
+        _fail("EVALUATOR_CANONICALIZATION", "bundle")
+    material = _EVALUATOR_TRUST_STATUS_VERSION.encode() + b"\x00" + canonical_snapshot
+    try:
+        _verify_signature(anchor_key, signature["algorithm"], material, signature["signature"])
+    except EvaluatorQualityVerificationError:
+        raise
+    except Exception:
+        _fail("TRUST_STATUS_SIGNATURE_INVALID", "signature")
+
+    effective_us = _utc_microseconds(snapshot["effective_time"])
+    verification_us = _utc_microseconds(context.verification_time)
+    if effective_us > verification_us + _EVALUATOR_TRUST_SKEW_SECONDS * 1_000_000:
+        _fail("REVOCATION_STATUS_UNAVAILABLE", "signature")
+    if verification_us - effective_us > _EVALUATOR_TRUST_MAX_AGE_SECONDS * 1_000_000:
+        _fail("REVOCATION_STATUS_UNAVAILABLE", "signature")
+    return snapshot
+
+
+def _check_evaluator_trust_status_coverage(
+    snapshot: dict[str, Any], *, issuer_key_ref: str, trust_ring_ref: str
+) -> None:
+    """Look up the issuer key's status; a missing entry fails closed with
+    ``REVOCATION_STATUS_UNAVAILABLE`` (the snapshot does not speak to this
+    key), never a pass. There is no certificate-status lookup: this bundle
+    family carries no certificate_ref distinct from the key that signed it."""
+    for entry in snapshot["key_status"]:
+        if entry["key_ref"] == issuer_key_ref and entry["trust_ring_ref"] == trust_ring_ref:
+            if entry["status"] != "active":
+                _fail("KEY_REVOKED", "signature")
+            return
+    _fail("REVOCATION_STATUS_UNAVAILABLE", "signature")
+
+
+_HELD_OUT_ACCEPTABLE = frozenset({"no_selection_performed", "held_out_disjoint"})
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluatorQualityVerificationContext:
+    """Fresh, caller-supplied bindings for one evaluator-quality verification.
+
+    ``expected_project_ref`` is rebuilt into the scope-binding digest (S4).
+
+    ``expected_evaluator_commitment_ref`` is the caller's pin of
+    ``manifest.evaluator_commitment_ref`` (S9). **This pin must come from a
+    VERIFIED process record** -- specifically, from the
+    ``evaluator_commitment_ref`` field of a
+    :class:`~traigent_schema.certification.process_record_verifier.ProcessRecordVerificationResult`
+    returned by :func:`~traigent_schema.certification.process_record_verifier.verify_process_record_certificate`.
+    The cross-bundle equality this pin makes possible is a RELYING-PARTY
+    COMPOSITION, not a single-call check: this verifier takes exactly one
+    bundle and never reaches into a second one. A pin copied from an
+    *unverified* process-record bundle -- one the caller never ran through
+    ``verify_process_record_certificate`` -- binds nothing: an adversary who
+    controls the unverified bundle also controls the ref copied out of it.
+    The caller is the party responsible for having verified the process
+    record first; this context does not and cannot check that it did.
+
+    ``allow_unchecked_trust_status`` is a required, explicit opt-in/opt-out
+    for the S10 dynamic trust-status check, mirroring
+    ``ProcessRecordVerificationContext.allow_unchecked_base_status``. There
+    is no default, so every caller chooses deliberately. ``trust_anchor`` is
+    required iff this is ``False`` and must be ``None`` iff it is ``True``.
+
+    ``verification_time`` is the caller's own clock (this verifier is
+    offline and owns none) and is required unconditionally, even when the
+    caller opts out of the status check.
+    """
+
+    expected_project_ref: str
+    expected_evaluator_commitment_ref: str
+    allow_unchecked_trust_status: bool
+    verification_time: str
+    trust_anchor: TrustAnchorKeyV1 | None
+
+    def __post_init__(self) -> None:
+        if type(self.expected_project_ref) is not str or not self.expected_project_ref:
+            _fail("CONTEXT", "context")
+        if type(
+            self.expected_evaluator_commitment_ref
+        ) is not str or not _SHA256_RE.fullmatch(self.expected_evaluator_commitment_ref):
+            _fail("CONTEXT", "context")
+        if type(self.allow_unchecked_trust_status) is not bool:
+            _fail("CONTEXT", "context")
+        if type(self.verification_time) is not str or _parse_utc_timestamp(
+            self.verification_time
+        ) is None:
+            _fail("CONTEXT", "context")
+        if (self.trust_anchor is None) != self.allow_unchecked_trust_status:
+            _fail("CONTEXT", "context")
+        if self.trust_anchor is not None and not isinstance(self.trust_anchor, TrustAnchorKeyV1):
+            _fail("CONTEXT", "context")
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluatorQualityVerificationResult:
+    """Bounded, content-free success result. Only digest-free enum values,
+    verdicts and one integer ever cross into this object.
+
+    ``overall_quality_ppm`` is DEFINED as the round-half-even weighted sum,
+    under exact integer arithmetic, of each declared-plan axis's own point
+    value (the measurement role pinned per axis by ``AXIS_POINT_VALUE_ROLE``
+    -- a verifier convention pending a ``point_value_role`` contract
+    amendment) under the declared-plan's aggregation weights. It is
+    recomputed, never read from the issuer's declaration (A5); it is
+    ``None`` iff ``overall_verdict`` is ``abstain`` or ``failed``, per
+    ``EvaluatorQualityOverallV1``. Recomputing the arithmetic over an
+    axis's point value is NOT the same as recomputing that point value
+    itself: the point values are issuer-attested and never recomputed by
+    this offline verifier (``NC_EVQ_INTERVALS_NOT_RECOMPUTED``) -- only the
+    weighted sum over them is checked.
+
+    ``instrument_adequacy`` and the four per-axis verdicts
+    (``calibration_verdict``, ``agreement_verdict``, ``sensitivity_verdict``,
+    ``reliability_verdict``) are all recomputed by this verifier (A3),
+    never read from the issuer's own declared value.
+
+    ``code`` and ``instrument_adequacy`` are coupled ONE-DIRECTIONALLY by
+    ``__post_init__`` (never the converse):
+
+    * ``code == "EVALUATOR_QUALITY_VERIFIED"`` implies ``instrument_adequacy
+      == "passed"`` AND ``reference_independence == "evaluator_independent"``
+      AND ``held_out_status`` in ``{"no_selection_performed",
+      "held_out_disjoint"}`` -- ALL THREE gate conditions, not just adequacy;
+    * ``instrument_adequacy != "passed"`` implies ``code ==
+      "EVALUATOR_QUALITY_CLAIMS_PARTIAL"``;
+    * a ``"passed"`` ``instrument_adequacy`` together with
+      ``"EVALUATOR_QUALITY_CLAIMS_PARTIAL"`` is LEGAL: it is exactly the case
+      where the instrument is adequate but the reference independence or
+      held-out gate is not. The earlier, symmetric coupling ("and vice
+      versa") was wrong and would have rejected valid certificates; it does
+      not appear here.
+
+    ``trust_status_evidence`` is ``"checked_active"`` iff a supplied
+    ``trust_status`` snapshot verified as fresh, anchor-authentic, and the
+    issuer key active; it is ``"not_checked"`` iff the caller opted out via
+    ``context.allow_unchecked_trust_status=True``. This establishes
+    non-revocation ONLY AS OF ``trust_status_effective_time`` -- never
+    current non-revocation, and never "the key is valid" without that
+    qualifier.
+    """
+
+    valid: bool = True
+    code: str = EVALUATOR_QUALITY_VERIFIED
+    instrument_adequacy: str = "passed"
+    calibration_verdict: str = "passed"
+    agreement_verdict: str = "passed"
+    sensitivity_verdict: str = "passed"
+    reliability_verdict: str = "passed"
+    overall_verdict: str = "passed"
+    reference_independence: str = "evaluator_independent"
+    held_out_status: str = "no_selection_performed"
+    overall_quality_ppm: int | None = None
+    trust_status_evidence: str = "not_checked"
+    trust_status_effective_time: str = ""
+
+    def __post_init__(self) -> None:
+        if self.valid is not True:
+            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
+        if self.code not in (EVALUATOR_QUALITY_VERIFIED, EVALUATOR_QUALITY_CLAIMS_PARTIAL):
+            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
+        if self.instrument_adequacy not in _VERDICT_RANK:
+            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
+        if self.trust_status_evidence not in ("checked_active", "not_checked"):
+            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
+        fully_supported = (
+            self.instrument_adequacy == "passed"
+            and self.reference_independence == "evaluator_independent"
+            and self.held_out_status in _HELD_OUT_ACCEPTABLE
+        )
+        if self.code == EVALUATOR_QUALITY_VERIFIED and not fully_supported:
+            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
+        if self.instrument_adequacy != "passed" and self.code != EVALUATOR_QUALITY_CLAIMS_PARTIAL:
+            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
+
+
+def _verdict_for(rows: dict[str, dict[str, Any]], claim_id: str) -> str:
+    row = rows.get(claim_id)
+    return cast(str, row["verdict"]) if row is not None else "abstain"
+
+
+def _verify_evaluator_quality_public(
+    bundle: dict[str, Any],
+    context: EvaluatorQualityVerificationContext,
+    trust_status: object,
+) -> EvaluatorQualityVerificationResult:
+    _verify_evaluator_quality_private(bundle, context=context)
+    manifest = bundle["unsigned_manifest"]
+    overall = manifest["overall"]
+    rows = _instrument_adequacy_rows(bundle)
+    instrument_adequacy = cast(str, overall["instrument_adequacy_verdict"])
+    reference_independence = cast(str, bundle["reference_standard"]["reference_independence"])
+    held_out_status = cast(str, bundle["evaluation_scope"]["held_out_status"])
+    fully_supported = (
+        instrument_adequacy == "passed"
+        and reference_independence == "evaluator_independent"
+        and held_out_status in _HELD_OUT_ACCEPTABLE
+    )
+    code = EVALUATOR_QUALITY_VERIFIED if fully_supported else EVALUATOR_QUALITY_CLAIMS_PARTIAL
+
+    if context.allow_unchecked_trust_status:
+        trust_status_evidence = "not_checked"
+        trust_status_effective_time = ""
+    else:
+        snapshot = _verify_evaluator_trust_status(trust_status, context)
+        issuer = bundle["verification_materials_v0"]["issuer"]
+        _check_evaluator_trust_status_coverage(
+            snapshot, issuer_key_ref=issuer["key_ref"], trust_ring_ref=issuer["trust_ring_ref"]
+        )
+        trust_status_evidence = "checked_active"
+        trust_status_effective_time = cast(str, snapshot["effective_time"])
+
+    return EvaluatorQualityVerificationResult(
+        code=code,
+        instrument_adequacy=instrument_adequacy,
+        calibration_verdict=_verdict_for(rows, "EVQ3"),
+        agreement_verdict=_verdict_for(rows, "EVQ2"),
+        sensitivity_verdict=_verdict_for(rows, "EVQ4"),
+        reliability_verdict=_verdict_for(rows, "EVQ5"),
+        overall_verdict=cast(str, overall["verdict"]),
+        reference_independence=reference_independence,
+        held_out_status=held_out_status,
+        overall_quality_ppm=overall.get("overall_quality_ppm"),
+        trust_status_evidence=trust_status_evidence,
+        trust_status_effective_time=trust_status_effective_time,
+    )
+
+
+def verify_evaluator_quality_certificate(
+    bundle: object,
+    *,
+    context: EvaluatorQualityVerificationContext,
+    trust_status: object | None = None,
+) -> EvaluatorQualityVerificationResult:
+    """Verify an EvaluatorQualityCertificateBundleV1 entirely offline.
+
+    Proves: the bundle is well-formed, internally digest-consistent, signed
+    by a trusted issuer, bound to ``context.expected_project_ref`` and to one
+    process record (via ``context.expected_evaluator_commitment_ref`` --
+    see :class:`EvaluatorQualityVerificationContext` for the composition
+    contract this pin requires of the caller), and that every verdict it
+    prints is capped by the weakest evidence footing, reference standard,
+    sample size and declared plan it rests on. It does NOT prove any
+    statistic is the number that estimator would produce from the
+    underlying data (``NC_EVQ_INTERVALS_NOT_RECOMPUTED``), that a held-out
+    set is genuinely disjoint (``NC_EVQ_NO_SELECTION_UNBIASEDNESS``), or
+    that the evaluator is good.
+
+    ``trust_status`` is the fourth verification input (S10), a SEPARATE,
+    unembedded artifact signed by the anchor pinned at
+    ``context.trust_anchor`` -- see that context field and
+    :class:`EvaluatorQualityVerificationResult` for the "as of
+    ``effective_time`` only" freshness semantics this establishes. Passing
+    ``trust_status`` together with ``allow_unchecked_trust_status=True`` is
+    a caller contradiction and raises ``CONTEXT`` with no result
+    constructed.
+
+    Raises :class:`EvaluatorQualityVerificationError` on any failure, with a
+    closed, content-free ``code``/``field`` pair. Any exception escaping the
+    private pipeline that is not already an
+    :class:`EvaluatorQualityVerificationError` is caught and re-raised as
+    ``EVALUATOR_VERIFICATION_FAILED`` -- the catch-all never leaks the
+    original exception's text, type, or traceback into the raised error.
+    """
+    if not isinstance(context, EvaluatorQualityVerificationContext):
+        _fail("CONTEXT", "context")
+    if context.allow_unchecked_trust_status and trust_status is not None:
+        _fail("CONTEXT", "context")
+    if type(bundle) is not dict:
+        _fail("EVALUATOR_BUNDLE_SHAPE", "bundle")
+    try:
+        return _verify_evaluator_quality_public(cast(dict[str, Any], bundle), context, trust_status)
+    except EvaluatorQualityVerificationError:
+        raise
+    except Exception:
+        raise EvaluatorQualityVerificationError("EVALUATOR_VERIFICATION_FAILED", "bundle") from None
+
+
 __all__ = [
     "EVALUATOR_QUALITY_ERROR_CODES",
     "EVALUATOR_QUALITY_FIELD_LOCATIONS",
+    "EVALUATOR_QUALITY_VERIFIED",
+    "EVALUATOR_QUALITY_CLAIMS_PARTIAL",
+    "EvaluatorQualityVerificationContext",
     "EvaluatorQualityVerificationError",
+    "EvaluatorQualityVerificationResult",
+    "verify_evaluator_quality_certificate",
     "_DIGEST_DOMAINS",
     "_domain",
     "_fail",

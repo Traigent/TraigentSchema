@@ -6,6 +6,8 @@ import base64
 import copy
 import hashlib
 import json
+import sys
+import types
 from importlib import resources
 from pathlib import Path
 from types import SimpleNamespace
@@ -167,6 +169,27 @@ def test_role_digest_known_answer_includes_domain_and_nul() -> None:
     # test, so either framing byte is load-bearing.
     expected = "sha256:d031fd8d7058aecf5a9c6aa2ce92b3dddd821055d8d8b5bfc2dc53e6c0f0a814"
     assert evq._role_digest("traigent.test.role.v1", projection) == expected
+
+
+def _exec_mutated(source: str, name: str, filename: str = "<mutated evq>") -> dict[str, Any]:
+    """Exec a mutated copy of the module source into a throwaway namespace.
+
+    Registers ``name`` in ``sys.modules`` for the duration of the exec: the
+    module now defines ``@dataclass(slots=True)`` classes, and Python's
+    dataclass machinery resolves ``cls.__module__`` via
+    ``sys.modules.get(...)`` while building the class -- an unregistered
+    fake module name raises ``AttributeError`` on ``None.__dict__`` before
+    the mutation under test is ever reached, at every one of this file's
+    three mutation-test call sites.
+    """
+    namespace: dict[str, Any] = {"__name__": name}
+    module = types.ModuleType(name)
+    sys.modules[name] = module
+    try:
+        exec(compile(source, filename, "exec"), namespace)
+    finally:
+        del sys.modules[name]
+    return namespace
 
 
 def _merge(value: Any, override: Any) -> Any:
@@ -1035,8 +1058,7 @@ def test_delete_signature_verification_guard_lets_forged_signature_through() -> 
     target = '        _verify_signature(key, issuer["algorithm"], material, signature["signature"])'
     assert target in source
     mutated = source.replace(target, "        pass", 1)
-    namespace: dict[str, Any] = {"__name__": "evq_mutated", "__file__": evq.__file__}
-    exec(compile(mutated, evq.__file__, "exec"), namespace)
+    namespace = _exec_mutated(mutated, "evq_mutated", evq.__file__)
 
     valid = build_bundle()
     assert namespace["_verify_evaluator_quality_private"](valid, context=DEFAULT_CONTEXT) is None

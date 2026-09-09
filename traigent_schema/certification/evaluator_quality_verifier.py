@@ -584,6 +584,180 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
             _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
 
 
+def _check_sensitivity_claim_evidence(bundle: dict[str, Any]) -> None:
+    """EVQ4's own coverage guard, distinct from S12's plan-containment sweep.
+
+    S12 (`_check_plan_containment`) only rejects a role the bundle measured
+    but the plan never authorised; it deliberately punts the converse --
+    'a role the plan requires but the bundle never measured' -- to the
+    per-claim rejection stages (see its own docstring). Nothing at the
+    schema layer ties an EVQ4 support row's evidence_basis to the presence
+    of `measurements.sensitivity`: EvaluatorMeasurementSetV1's `anyOf` only
+    demands ONE of the four blocks, never sensitivity specifically. A
+    non-abstained EVQ4 row asserted while the sensitivity block is entirely
+    absent is exactly the one-sided sensitivity overclaim this claim's
+    design text describes ('an evaluator ... is a random number generator,
+    and a one-sided sensitivity claim is therefore not representable').
+
+    SensitivityPairSetV1's own `known_equivalent_pair_count` already carries
+    `minimum: 1` in the shipped schema (shared by both
+    `declared_plan.sensitivity_pair_set` and
+    `measurements.sensitivity.pair_set`), so a present pair_set with a zero
+    equivalent-pair count is schema-unconstructible -- that half of this
+    claim's rejection condition is a structural guarantee, not a live path.
+    """
+    row = _instrument_adequacy_rows(bundle).get("EVQ4")
+    if row is None or row["evidence_basis"] == "abstained":
+        return
+    if bundle["measurements"].get("sensitivity") is None:
+        _fail("SENSITIVITY_PAIR_SET_INCOMPLETE", "measurements.sensitivity")
+
+
+def _check_probe_coverage(bundle: dict[str, Any]) -> None:
+    """EVQ5's required-probe rule, stated unambiguously in the plan of
+    record after sol F7: a required probe carrying a registered skip reason
+    is `PROBE_COVERAGE_INSUFFICIENT`, not an accepted skip -- only a
+    non-required probe may be skipped. ProbeResultV1's own if/then only
+    couples `status` to `measurement`/`skip_reason` presence; nothing at the
+    schema layer ties a probe's `required` flag (a package-data property,
+    not a schema property) to whether `skipped` is an acceptable status for
+    THAT probe_id, so this is a live cross-artifact gap the verifier must
+    close.
+    """
+    reliability = bundle["measurements"].get("reliability")
+    if reliability is None:
+        return
+    required = {
+        probe["probe_id"]
+        for probe in _load_evaluator_quality_document("perturbation_set")["probes"]
+        if probe["required"]
+    }
+    for probe in reliability["probe_results"]:
+        if probe["probe_id"] in required and probe["status"] != "measured":
+            _fail("PROBE_COVERAGE_INSUFFICIENT", "measurements.reliability")
+
+
+def _check_perturbation_set_registry_binding(bundle: dict[str, Any]) -> None:
+    """PERTURBATION_SET_MISMATCH's live condition: a probe's `skip_reason`
+    drawn from the CLOSED `ProbeSkipReasonV1` enum (four members, shared
+    across all probes) but not from THAT probe_id's own narrower registered
+    list in the shipped perturbation-set document -- e.g.
+    `not_applicable_to_evaluator_kind` on `constant_output`, which the
+    registry never lists for it. ProbeResultV1's own if/then only requires
+    `skip_reason` be present and be A member of the closed enum when
+    `status == skipped`; it cannot reach into the registry to narrow that
+    enum per probe_id, which is exactly the vocabulary the registry
+    document exists to pin (registry docstring: 'which perturbations were
+    tried is a registry identity, not prose'). Probe array ORDER is already
+    schema-pinned (`ReliabilityBlockV1.items` fixes each index's `probe_id`
+    by `const`, in the registry's own order), so a reordered probe set is
+    schema-unconstructible and not checked here.
+    """
+    reliability = bundle["measurements"].get("reliability")
+    if reliability is None:
+        return
+    registry_index = {
+        probe["probe_id"]: probe
+        for probe in _load_evaluator_quality_document("perturbation_set")["probes"]
+    }
+    for probe in reliability["probe_results"]:
+        if (
+            probe["status"] == "skipped"
+            and probe["skip_reason"] not in registry_index[probe["probe_id"]]["skip_reasons"]
+        ):
+            _fail("PERTURBATION_SET_MISMATCH", "measurements.reliability")
+
+
+def _check_reliability_determinism(bundle: dict[str, Any]) -> None:
+    """ReliabilityBlockV1's own description: 'repeat_stability and
+    repeat_count are present iff the descriptor's determinism is not
+    deterministic. Both are verifier obligations across artifacts.' The
+    schema's own `dependencies` clause only couples `repeat_stability` and
+    `repeat_count` to EACH OTHER (both or neither); it cannot reach across
+    to `descriptor.determinism` at draft-07. Two live contradictions: a
+    `deterministic` descriptor whose reported repeat measurement is not
+    perfect self-agreement (`point_value != 1000000` on this
+    higher_is_better ppm role), and a non-`deterministic` descriptor that
+    omits `repeat_stability` altogether.
+    """
+    reliability = bundle["measurements"].get("reliability")
+    if reliability is None:
+        return
+    determinism = bundle["descriptor"]["determinism"]
+    repeat_stability = reliability.get("repeat_stability")
+    if determinism == "deterministic":
+        if repeat_stability is not None and repeat_stability["point_value"] != 1000000:
+            _fail("RELIABILITY_DETERMINISM_CONTRADICTION", "measurements.reliability")
+    elif repeat_stability is None:
+        _fail("RELIABILITY_DETERMINISM_CONTRADICTION", "measurements.reliability")
+
+
+def _check_reliability_axis_required(bundle: dict[str, Any]) -> None:
+    """ReliabilityBlockV1's own description: 'position_stability is
+    required iff evaluator_kind is llm_judge_pairwise or ensemble_panel.'
+    Nothing at the schema layer reaches across to `descriptor.evaluator_kind`
+    to enforce this -- `position_stability` is schema-optional
+    unconditionally.
+    """
+    reliability = bundle["measurements"].get("reliability")
+    if reliability is None:
+        return
+    if (
+        bundle["descriptor"]["evaluator_kind"] in ("llm_judge_pairwise", "ensemble_panel")
+        and "position_stability" not in reliability
+    ):
+        _fail("RELIABILITY_AXIS_MISSING", "measurements.reliability")
+
+
+def _check_selection_set_overlap(bundle: dict[str, Any]) -> None:
+    """HeldOutStatusV1's own description, `held_out_disjoint`: 'the issuer
+    DECLARES that the reported intervals were re-estimated on an estimation
+    set disjoint from the selection set ... unequal digests are consistent
+    with disjoint sets but do not by themselves establish it.' The converse
+    is the live guard here: EQUAL digests are never consistent with a
+    disjoint-sets declaration, so a `held_out_disjoint` scope whose
+    `selection_set_digest` equals its `estimation_set_digest` is an
+    internally contradictory attestation the schema's own `allOf` (which
+    only forbids a null `selection_set_digest` on this branch) does not
+    reach.
+    """
+    scope = bundle["evaluation_scope"]
+    if (
+        scope["held_out_status"] == "held_out_disjoint"
+        and scope["selection_set_digest"] == scope["estimation_set_digest"]
+    ):
+        _fail("SELECTION_SET_OVERLAP", "evaluation_scope.held_out")
+
+
+def _check_claim_support_row_binding_digests(bundle: dict[str, Any]) -> None:
+    """CLAIM_SUPPORT_ROW_MISMATCH: each row's OWN copy of the artifact
+    digests it presents must equal the bundle's actual, recomputed digests
+    -- the same binding-obligation pattern A6
+    (`_check_claim_material_row_digests`) already closes for
+    `claim_material_digest`, extended here to the row's other digest
+    fields. EvaluatorQualityClaimSupportRowV1's `allOf` only requires THAT
+    these fields be present for a given `evidence_basis`; it never
+    constrains their VALUE against the bundle's own descriptor,
+    reference_standard, evaluation_scope, declared_plan or measurement_set
+    -- a row could otherwise carry a syntactically valid but wrong digest
+    copied from an unrelated bundle and pass every other stage.
+    `claim_material_digest` is deliberately excluded here: A6 already owns
+    it, and re-checking it here would create exactly the shadow-guard
+    condition the plan's mutation discipline (sol F9) warns against.
+    """
+    bindings = (
+        ("descriptor_digest", bundle["descriptor"]["descriptor_digest"]),
+        ("reference_standard_digest", bundle["reference_standard"]["reference_standard_digest"]),
+        ("evaluation_scope_digest", bundle["evaluation_scope"]["evaluation_scope_digest"]),
+        ("declared_plan_digest", bundle["declared_plan"]["declared_plan_digest"]),
+        ("measurement_set_digest", bundle["measurements"]["measurement_set_digest"]),
+    )
+    for row in bundle["claim_support_rows"]:
+        for field, expected in bindings:
+            if field in row and row[field] != expected:
+                _fail("CLAIM_SUPPORT_ROW_MISMATCH", "claim_support_rows")
+
+
 _AXIS_MEASUREMENT_BLOCK = frozenset({"calibration", "agreement", "sensitivity", "reliability"})
 
 
@@ -969,7 +1143,8 @@ def _check_aggregation_derivation(bundle: dict[str, Any]) -> None:
 
 
 def _verify_evaluator_quality_private(bundle: object, *, context: object) -> None:
-    """Run P3-V.2/P3-V.3/P3-V.4. The commitment pin must come from a VERIFIED process record."""
+    """Run P3-V.2/P3-V.3/P3-V.4/P3-V.4d. The commitment pin must come from
+    a VERIFIED process record."""
     shaped = _check_bundle_shape(bundle)
     _check_schema(shaped)
     _check_semantic_uniqueness(shaped)
@@ -979,6 +1154,13 @@ def _verify_evaluator_quality_private(bundle: object, *, context: object) -> Non
     _check_manifest_signature(shaped)
     _check_commitment(shaped, context)
     _check_plan_containment(shaped)
+    _check_sensitivity_claim_evidence(shaped)
+    _check_probe_coverage(shaped)
+    _check_perturbation_set_registry_binding(shaped)
+    _check_reliability_determinism(shaped)
+    _check_reliability_axis_required(shaped)
+    _check_selection_set_overlap(shaped)
+    _check_claim_support_row_binding_digests(shaped)
     _check_required_axis_measurement_block(shaped)
     _check_reference_ceiling(shaped)
     _check_reference_floor(shaped)
@@ -998,6 +1180,39 @@ def _verify_evaluator_quality_private(bundle: object, *, context: object) -> Non
         fp2.canonicalize(shaped)
     except Exception:
         _fail("EVALUATOR_CANONICALIZATION", "bundle")
+
+
+# DECLARED_PLAN_BASIS_INSUFFICIENT and DECLARED_PLAN_ORDER are registered,
+# closed vocabulary (EVALUATOR_QUALITY_ERROR_CODES above) with deliberately
+# NO guard function and no call site in
+# _verify_evaluator_quality_private -- unlike the three "unconstructible but
+# defended anyway" codes above (MEASUREMENT_BASIS_INSUFFICIENT,
+# TRANSCRIPT_DIGEST_MISSING, CLAIM_TIER_MISMATCH), there is no field on
+# EvaluatorDeclaredPlanV1 for either guard to inspect: a Python guard
+# checking a key that can never be present would be dead code checking
+# nothing, not defense in depth. This mirrors the module's existing
+# DESCRIPTOR_DISCLOSURE_MODE_CONFLICT / DESCRIPTOR_OPENING_INVALID
+# precedent (P3-tl-review-1 P2-6: "unconstructibility tripwires ...
+# correctly unreachable"). The schema's own text is the proof both ways:
+#
+#   EvaluatorDeclaredPlanV1 (top-level description): "this document carries
+#   no basis, no ordering timestamp, and no verdict cap keyed to a plan
+#   grade. It pins WHAT was planned ... it makes no representation about
+#   WHEN it was authored relative to the results, and the verifier checks
+#   containment only, never precedence."
+#
+#   The bundle schema's own top-level description: "Ordering evidence is
+#   out of scope for v1: nothing here establishes when the declared plan
+#   was authored relative to the measurements, and this certificate does
+#   not verify it." -- printed unconditionally as
+#   NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE.
+#
+# additionalProperties: false on EvaluatorDeclaredPlanV1, over a
+# required/properties set naming neither "basis" nor any ordering/timestamp
+# field, makes both codes structurally unconstructible through any
+# schema-valid bundle. Reachability is proven by direct construction in
+# tests/test_evaluator_quality_verifier.py (constructing
+# EvaluatorQualityVerificationError with each code), not by a guard.
 
 
 @lru_cache(maxsize=3)

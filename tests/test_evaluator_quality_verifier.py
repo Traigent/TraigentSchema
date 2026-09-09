@@ -29,6 +29,10 @@ SCHEMA = json.loads(
     .read_text(encoding="utf-8")
 )
 SHA = "sha256:" + "a" * 64
+# Distinct from SHA: held_out_disjoint requires selection_set_digest and
+# estimation_set_digest to disagree (see _check_selection_set_overlap) --
+# reusing SHA for both would make the base scope self-contradictory.
+SHA_ESTIMATION = "sha256:" + "e" * 64
 OPAQUE_REF = "trustring:aaaaaaaa"
 KEY_REF = "issuerkey:aaaaaaaa"
 PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
@@ -280,7 +284,7 @@ def _base_bundle() -> dict[str, Any]:
         "sampling_frame": "full_declared_dataset",
         "held_out_status": "held_out_disjoint",
         "selection_set_digest": SHA,
-        "estimation_set_digest": SHA,
+        "estimation_set_digest": SHA_ESTIMATION,
     }
     pair_set = {
         "known_different_pair_count": 100,
@@ -483,6 +487,17 @@ def _close(bundle: dict[str, Any]) -> dict[str, Any]:
                     "evaluation_scope_digest": b["evaluation_scope"]["evaluation_scope_digest"],
                     "declared_plan_digest": b["declared_plan"]["declared_plan_digest"],
                     "measurement_set_digest": b["measurements"]["measurement_set_digest"],
+                }
+            )
+        else:
+            # EVQ1 (client_declared) only carries descriptor_digest and
+            # declared_plan_digest per its own schema branch -- but those
+            # two must still bind to the bundle's real artifacts, per
+            # _check_claim_support_row_binding_digests.
+            row.update(
+                {
+                    "descriptor_digest": b["descriptor"]["descriptor_digest"],
+                    "declared_plan_digest": b["declared_plan"]["declared_plan_digest"],
                 }
             )
     weights = b["declared_plan"]["aggregation_policy"]["weights"]
@@ -2377,3 +2392,220 @@ def test_aggregation_renormalized_required_axis_failed_not_abstain() -> None:
     }
     _resign(bundle)
     _expect(bundle, "AGGREGATION_RENORMALIZED")
+
+
+# --- P3-V.4d: the nine plan-mandated EVQ4/EVQ5 rejection stages (P2-6) -----
+
+
+def _repeat_measurement(point: int) -> dict[str, Any]:
+    """A MeasurementV1 for the reliability_repeat role. Not in ROLE_SPECS:
+    _measurement_role_rows never sources repeat_stability/position_stability
+    (see _check_reliability_determinism/_check_reliability_axis_required's
+    docstrings), so no plan-containment registry admissibility check ever
+    inspects this row -- only MeasurementV1's own schema shape applies."""
+    return {
+        "measurement_role": "reliability_repeat",
+        "estimator_id": "perturbation_agreement_rate",
+        "estimator_parameters": {
+            "interval_side": "two_sided",
+            "direction": "higher_is_better",
+            "score_scale": "binary",
+            "label_kind": "binary",
+        },
+        "value_unit": "ppm_unsigned",
+        "point_value": point,
+        "interval_low_value": max(0, point - 10000),
+        "interval_high_value": min(1000000, point + 10000),
+        "interval_params": _analytic_params("wilson_score"),
+        "nominal_coverage_ppm": 950000,
+        "sample_size_n": 100,
+        "sample_unit": "perturbation_pair",
+        "basis": "issuer_attested_v1",
+        "computation_transcript_digest": None,
+    }
+
+
+def test_sensitivity_pair_set_incomplete_block_absent_while_claim_non_abstained() -> None:
+    """EVQ4's own coverage guard: S12 (_check_plan_containment) explicitly
+    punts 'a role the plan requires but the bundle never measured' to the
+    per-claim rejection stages (its own docstring). Nothing at the schema
+    layer ties a non-abstained EVQ4 support row to the presence of
+    measurements.sensitivity -- EvaluatorMeasurementSetV1's anyOf only
+    requires ONE of the four blocks. The base fixture's EVQ4 row stays
+    issuer_verified/passed (untouched) while the whole sensitivity block is
+    dropped."""
+    base = _base_bundle()
+    del base["measurements"]["sensitivity"]
+    bundle = _close_without_aggregation(base)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == [], (
+        "fixture must be schema-VALID for this to test the verifier, not the schema"
+    )
+    _expect(bundle, "SENSITIVITY_PAIR_SET_INCOMPLETE")
+
+
+def test_sensitivity_pair_set_incomplete_does_not_fire_when_evq4_abstains() -> None:
+    """The converse: an EVQ4 row that legitimately abstains must not trip
+    this guard just because the block is absent -- that is a bundle an
+    issuer may honestly submit."""
+    base = _base_bundle()
+    del base["measurements"]["sensitivity"]
+    base["declared_plan"]["aggregation_policy"]["weights"] = [
+        {**w, "required_axis": False} if w["axis"] == "sensitivity" else w
+        for w in base["declared_plan"]["aggregation_policy"]["weights"]
+    ]
+    base["claim_support_rows"][3] = _abstained_row("EVQ4", "required_axis_missing")
+    bundle = _close_without_aggregation(base)
+    bundle["unsigned_manifest"]["overall"] = {
+        "verdict": "abstain",
+        "instrument_adequacy_verdict": "abstain",
+        "aggregation_policy_digest": bundle["unsigned_manifest"]["overall"][
+            "aggregation_policy_digest"
+        ],
+    }
+    _resign(bundle)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    assert evq._verify_evaluator_quality_private(bundle, context=DEFAULT_CONTEXT) is None
+
+
+def test_probe_coverage_insufficient_required_probe_skipped_with_registered_reason() -> None:
+    """EVQ5's required-probe rule, corrected per sol F7: a required probe
+    carrying an otherwise-valid REGISTERED skip reason is
+    PROBE_COVERAGE_INSUFFICIENT, not an accepted skip -- only a
+    non-required probe may be skipped. ProbeResultV1's own if/then permits
+    ANY status:skipped probe with a registered skip_reason; it cannot see
+    the package-data 'required' flag, which is exactly the cross-artifact
+    gap this guard closes."""
+    base = _base_bundle()
+    probe = base["measurements"]["reliability"]["probe_results"][0]
+    assert probe["probe_id"] == "constant_output"
+    probe["status"] = "skipped"
+    probe["skip_reason"] = "insufficient_probe_cells"
+    del probe["measurement"]
+    bundle = _close(base)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    _expect(bundle, "PROBE_COVERAGE_INSUFFICIENT")
+
+
+def test_perturbation_set_mismatch_unregistered_skip_reason() -> None:
+    """PERTURBATION_SET_MISMATCH's live condition: a skip_reason drawn from
+    the CLOSED ProbeSkipReasonV1 enum (schema-valid globally) but not from
+    THIS probe_id's own narrower registered list in the shipped
+    perturbation-set document. self_preference is non-required, so this is
+    isolated from PROBE_COVERAGE_INSUFFICIENT (which only inspects required
+    probes)."""
+    base = _base_bundle()
+    probe = base["measurements"]["reliability"]["probe_results"][3]
+    assert probe["probe_id"] == "self_preference"
+    probe["status"] = "skipped"
+    probe["skip_reason"] = "requires_labelled_adversarial_cells"
+    del probe["measurement"]
+    bundle = _close(base)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    _expect(bundle, "PERTURBATION_SET_MISMATCH")
+
+
+def test_reliability_determinism_contradiction_deterministic_reports_disagreement() -> None:
+    """ReliabilityBlockV1's own description: repeat_stability is present
+    IFF determinism is not 'deterministic'. The base descriptor is
+    deterministic; adding a repeat_stability measurement whose point_value
+    is not perfect self-agreement (1000000 on this higher_is_better ppm
+    role) is the live contradiction the schema's own `dependencies` clause
+    (repeat_stability<->repeat_count only) cannot reach."""
+    base = _base_bundle()
+    base["measurements"]["reliability"]["repeat_stability"] = _repeat_measurement(900000)
+    base["measurements"]["reliability"]["repeat_count"] = 4
+    bundle = _close(base)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    _expect(bundle, "RELIABILITY_DETERMINISM_CONTRADICTION")
+
+
+def test_reliability_determinism_contradiction_non_deterministic_missing_repeat_stability() -> None:
+    """The converse: a non-deterministic descriptor omitting
+    repeat_stability altogether -- schema-optional unconditionally, so this
+    is also a live gap."""
+    bundle = build_bundle(descriptor={"determinism": "seeded_stochastic"})
+    _expect(bundle, "RELIABILITY_DETERMINISM_CONTRADICTION")
+
+
+def test_reliability_axis_missing_llm_judge_pairwise_without_position_stability() -> None:
+    """ReliabilityBlockV1's own description: position_stability is required
+    IFF evaluator_kind is llm_judge_pairwise or ensemble_panel -- schema-
+    optional unconditionally, so nothing at the schema layer reaches across
+    to descriptor.evaluator_kind to enforce it."""
+    bundle = build_bundle(descriptor={"evaluator_kind": "llm_judge_pairwise"})
+    _expect(bundle, "RELIABILITY_AXIS_MISSING")
+
+
+def test_selection_set_overlap_held_out_disjoint_with_equal_digests() -> None:
+    """HeldOutStatusV1's own description: under held_out_disjoint,
+    'unequal digests are consistent with disjoint sets but do not by
+    themselves establish it' -- the converse (EQUAL digests) is never
+    consistent with a disjoint-sets declaration. The schema's own allOf on
+    this branch only forbids a null selection_set_digest; it never compares
+    the two digests to each other."""
+    bundle = build_bundle(evaluation_scope={"estimation_set_digest": SHA})
+    _expect(bundle, "SELECTION_SET_OVERLAP")
+
+
+def test_claim_support_row_mismatch_row_digest_diverges_from_bundle() -> None:
+    """CLAIM_SUPPORT_ROW_MISMATCH: A6 (_check_claim_material_row_digests)
+    only binds claim_material_digest; nothing else checks a row's OWN copy
+    of descriptor_digest/reference_standard_digest/evaluation_scope_digest/
+    declared_plan_digest/measurement_set_digest against the bundle's actual
+    values. Built by re-closing the manifest's claim_support_rows_digest and
+    re-signing so S5 stays consistent with the tampered row (S5 must not
+    catch this one first)."""
+    bundle = build_bundle()
+    bundle["claim_support_rows"][2]["reference_standard_digest"] = SHA_ESTIMATION
+    bundle["unsigned_manifest"]["claim_support_rows_digest"] = evq._role_digest(
+        evq._domain("claim_support_rows"), bundle["claim_support_rows"]
+    )
+    _resign(bundle)
+    _expect(bundle, "CLAIM_SUPPORT_ROW_MISMATCH")
+
+
+def test_claim_support_row_mismatch_does_not_shadow_claim_material_mismatch() -> None:
+    """Shadow-protection check (sol F9): CLAIM_SUPPORT_ROW_MISMATCH
+    deliberately excludes claim_material_digest (A6's own field) from its
+    bindings tuple. A row whose claim_material_digest alone diverges must
+    still reach CLAIM_MATERIAL_MISMATCH, not this guard."""
+    bundle = build_bundle()
+    bundle["claim_support_rows"][1]["claim_material_digest"] = SHA
+    bundle["unsigned_manifest"]["claim_support_rows_digest"] = evq._role_digest(
+        evq._domain("claim_support_rows"), bundle["claim_support_rows"]
+    )
+    _resign(bundle)
+    _expect(bundle, "CLAIM_MATERIAL_MISMATCH")
+
+
+def test_declared_plan_basis_insufficient_is_an_unconstructible_tripwire() -> None:
+    """EvaluatorDeclaredPlanV1's own top-level description, verbatim: 'this
+    document carries no basis, no ordering timestamp, and no verdict cap
+    keyed to a plan grade.' additionalProperties:false over a
+    required/properties set naming no basis field makes a
+    basis-insufficient declared_plan schema-unconstructible in v1 -- there
+    is no field for a guard to inspect, so (per the module's own
+    DESCRIPTOR_DISCLOSURE_MODE_CONFLICT / DESCRIPTOR_OPENING_INVALID
+    precedent) this code is registered, closed vocabulary with no call site
+    in _verify_evaluator_quality_private. Proven reachable as VOCABULARY by
+    direct construction, matching the constructor's own closed-code/
+    closed-field validation."""
+    error = evq.EvaluatorQualityVerificationError(
+        "DECLARED_PLAN_BASIS_INSUFFICIENT", "declared_plan"
+    )
+    assert error.code == "DECLARED_PLAN_BASIS_INSUFFICIENT"
+    assert error.field == "declared_plan"
+
+
+def test_declared_plan_order_is_an_unconstructible_tripwire() -> None:
+    """The bundle schema's own top-level description, verbatim: 'Ordering
+    evidence is out of scope for v1: nothing here establishes when the
+    declared plan was authored relative to the measurements, and this
+    certificate does not verify it.' NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE is
+    the corresponding printed non-claim. No field on EvaluatorDeclaredPlanV1
+    carries an authoring timestamp, so there is no guard to reach -- proven
+    reachable as vocabulary by direct construction, exactly as
+    DECLARED_PLAN_BASIS_INSUFFICIENT is above."""
+    error = evq.EvaluatorQualityVerificationError("DECLARED_PLAN_ORDER", "declared_plan")
+    assert error.code == "DECLARED_PLAN_ORDER"
+    assert error.field == "declared_plan"

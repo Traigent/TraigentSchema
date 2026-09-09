@@ -569,8 +569,275 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
             _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
 
 
+_AXIS_INSTRUMENT_CLAIM = {
+    "calibration": "EVQ3",
+    "agreement": "EVQ2",
+    "sensitivity": "EVQ4",
+    "reliability": "EVQ5",
+}
+_INSTRUMENT_CLAIM_IDS = ("EVQ2", "EVQ3", "EVQ4", "EVQ5")
+_VERDICT_RANK = {"failed": 0, "abstain": 1, "directional": 2, "passed": 3}
+_CAPPED_REFERENCE_KINDS = frozenset({"proxy_evaluator", "human_single_rater"})
+_NO_RATER_REFERENCE_KINDS = (
+    "verifiable_execution",
+    "unit_test_pass",
+    "exact_match_gold",
+    "partial_order",
+    "proxy_evaluator",
+)
+_RATER_COUPLING_RULES: dict[str, Any] = {
+    "human_panel_adjudicated": lambda rc, ap: (
+        rc >= 2 and ap in ("majority", "unanimous", "expert_arbiter")
+    ),
+    "human_single_rater": lambda rc, ap: rc == 1 and ap == "none",
+    **{
+        kind: (lambda rc, ap: rc == 0 and ap == "not_applicable")
+        for kind in _NO_RATER_REFERENCE_KINDS
+    },
+}
+
+
+def _check_reference_ceiling(bundle: dict[str, Any]) -> None:
+    """EVQ2's own reference limit: the agreement measurement's conservative
+    (high) bound must not exceed the reference standard's agreement ceiling.
+    """
+    row = _measurement_role_rows(bundle).get("agreement_primary")
+    if row is None:
+        return
+    if row["interval_high_value"] > bundle["reference_standard"]["agreement_ceiling_ppm"]:
+        _fail("REFERENCE_CEILING_EXCEEDED", "reference_standard.ceiling")
+
+
+def _check_reference_floor(bundle: dict[str, Any]) -> None:
+    """EVQ3's distinguishing stage: every lower_is_better ppm role (an error
+    rate) is bounded below by the reference standard's own noise floor -- a
+    single ceiling on both directions would let a perfect-calibration claim
+    of zero through, below what the reference itself can resolve.
+    """
+    floor = bundle["reference_standard"]["error_floor_ppm"]
+    for row in _measurement_role_rows(bundle).values():
+        if row["value_unit"] not in ("ppm_unsigned", "ppm_signed"):
+            continue
+        if row["estimator_parameters"]["direction"] != "lower_is_better":
+            continue
+        if row["interval_low_value"] < floor:
+            _fail("REFERENCE_FLOOR_VIOLATED", "reference_standard")
+
+
+def _check_reference_rater_coupling(bundle: dict[str, Any]) -> None:
+    """Defense in depth over ReferenceStandardV1's own kind/rater/adjudication
+    coupling (already schema-enforced via its allOf), plus the one
+    cross-field bound draft-07 cannot express within that same object:
+    rater_count may never exceed label_count.
+    """
+    reference = bundle["reference_standard"]
+    rule = _RATER_COUPLING_RULES.get(reference["reference_kind"])
+    if rule is not None and not rule(reference["rater_count"], reference["adjudication_policy"]):
+        _fail("REFERENCE_RATER_COUPLING", "reference_standard.raters")
+    if reference["rater_count"] > reference["label_count"]:
+        _fail("REFERENCE_RATER_COUPLING", "reference_standard.raters")
+
+
+def _check_reference_capping(bundle: dict[str, Any]) -> None:
+    """A proxy or non-independent reference, or a single uncorroborated
+    human rater, may never back a 'passed' instrument-adequacy claim --
+    self-certification is exactly the failure this family exists to catch.
+    """
+    reference = bundle["reference_standard"]
+    capped = (
+        reference["reference_kind"] in _CAPPED_REFERENCE_KINDS
+        or reference["reference_independence"] != "evaluator_independent"
+    )
+    if not capped:
+        return
+    for row in bundle["claim_support_rows"]:
+        if row["claim_id"] in _INSTRUMENT_CLAIM_IDS and row["verdict"] == "passed":
+            _fail("VERDICT_NOT_SUPPORTED", "claim_support_rows")
+
+
+def _check_held_out_capping(bundle: dict[str, Any]) -> None:
+    """Winner's-curse capping: intervals estimated on data whose relationship
+    to selection is unknown, or that overlaps the selection set, may not
+    back a 'passed' instrument-adequacy claim.
+    """
+    status = bundle["evaluation_scope"]["held_out_status"]
+    if status in ("no_selection_performed", "held_out_disjoint"):
+        return
+    for row in bundle["claim_support_rows"]:
+        if row["claim_id"] in _INSTRUMENT_CLAIM_IDS and row["verdict"] == "passed":
+            _fail("VERDICT_NOT_SUPPORTED", "claim_support_rows")
+
+
+def _check_measurement_basis(bundle: dict[str, Any]) -> None:
+    """Defense in depth: EmittableMeasurementBasisV1 already pins every v1
+    measurement's basis to 'issuer_attested_v1' at the schema layer, so
+    there is no live v1 path to a different basis backing any row -- this
+    guard exists for the day a future schema version widens the enum.
+    """
+    for row in _measurement_role_rows(bundle).values():
+        if row["basis"] != "issuer_attested_v1":
+            _fail("MEASUREMENT_BASIS_INSUFFICIENT", "measurements.basis")
+
+
+def _check_transcript_digest(bundle: dict[str, Any]) -> None:
+    """Defense in depth: MeasurementV1's own if/then already requires a
+    non-null computation_transcript_digest exactly when basis is
+    construction_recomputed_v1, and that basis is unconstructible in v1
+    (EmittableMeasurementBasisV1) -- so no v1 measurement ever needs one.
+    """
+    for row in _measurement_role_rows(bundle).values():
+        if (
+            row["basis"] == "construction_recomputed_v1"
+            and row["computation_transcript_digest"] is None
+        ):
+            _fail("TRANSCRIPT_DIGEST_MISSING", "measurements.basis")
+
+
+def _check_claim_tier_bound(bundle: dict[str, Any]) -> None:
+    """Defense in depth: EVQ1 can never be issuer_verified / tier 3 already
+    (EvaluatorQualityClaimSupportRowV1 pins EVQ1's evidence_basis to
+    client_declared/abstained, and both of those pin tier to 1) -- kept as
+    an explicit guard rather than relying on that coupling silently.
+    """
+    for row in bundle["claim_support_rows"]:
+        if row["claim_id"] == "EVQ1" and (
+            row["tier"] != 1 or row["evidence_basis"] == "issuer_verified"
+        ):
+            _fail("CLAIM_TIER_MISMATCH", "claim_support_rows")
+
+
+def _check_claim_material_row_digests(bundle: dict[str, Any]) -> None:
+    """A6: each non-abstained support row carries its OWN copy of
+    claim_material_digest, and it must equal the manifest's -- S5 only
+    checks the manifest's own field against the recomputed claim_material
+    digest, never each row's copy of it.
+    """
+    expected = bundle["unsigned_manifest"]["claim_material_digest"]
+    for row in bundle["claim_support_rows"]:
+        if row["evidence_basis"] == "abstained":
+            continue
+        if row.get("claim_material_digest") != expected:
+            _fail("CLAIM_MATERIAL_MISMATCH", "claim_support_rows")
+
+
+def _check_aggregation_policy_weights(bundle: dict[str, Any]) -> None:
+    """A1: draft-07 cannot sum sibling array items, so weights summing to
+    exactly 1_000_000 is a verifier obligation."""
+    weights = bundle["declared_plan"]["aggregation_policy"]["weights"]
+    if sum(w["weight_ppm"] for w in weights) != 1000000:
+        _fail("AGGREGATION_POLICY_MISMATCH", "declared_plan.aggregation_policy")
+
+
+def _instrument_adequacy_rows(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        row["claim_id"]: row
+        for row in bundle["claim_support_rows"]
+        if row["claim_id"] in _INSTRUMENT_CLAIM_IDS
+    }
+
+
+def _check_instrument_adequacy(bundle: dict[str, Any]) -> None:
+    """A3: instrument_adequacy_verdict is DERIVED -- the worst verdict among
+    the four instrument-adequacy rows -- never read from the issuer's own
+    declared value. Duplicates a coupling EvaluatorQualityCertificateBundleV1
+    already enforces structurally for the passed/directional rungs; kept
+    anyway, deliberately, as the second independent mechanism over the one
+    invariant an issuer most wants to escape.
+    """
+    rows = _instrument_adequacy_rows(bundle)
+    worst_rank = min(
+        (_VERDICT_RANK[row["verdict"]] for row in rows.values()), default=_VERDICT_RANK["passed"]
+    )
+    recomputed = next(k for k, v in _VERDICT_RANK.items() if v == worst_rank)
+    if bundle["unsigned_manifest"]["overall"]["instrument_adequacy_verdict"] != recomputed:
+        _fail("INSTRUMENT_ADEQUACY_MISMATCH", "overall")
+
+
+def _check_required_axis_completeness(bundle: dict[str, Any]) -> None:
+    """A2: weights are never renormalized over the axes that happen to have
+    evidence -- a required axis that abstains forces the overall verdict to
+    abstain too, never a narrower silent recomputation."""
+    rows = _instrument_adequacy_rows(bundle)
+    overall = bundle["unsigned_manifest"]["overall"]
+    for weight in bundle["declared_plan"]["aggregation_policy"]["weights"]:
+        if not weight["required_axis"]:
+            continue
+        claim_id = _AXIS_INSTRUMENT_CLAIM.get(weight["axis"])
+        if claim_id is None:
+            continue
+        row = rows.get(claim_id)
+        if row is not None and row["verdict"] == "abstain" and overall["verdict"] != "abstain":
+            _fail("AGGREGATION_RENORMALIZED", "overall")
+
+
+def _check_overall_verdict_capped(bundle: dict[str, Any]) -> None:
+    """A4: overall.verdict may never rank better than
+    instrument_adequacy_verdict. EvaluatorQualityOverallV1 already enforces
+    this structurally for the passed/directional rungs; this recomputation
+    covers the remaining abstain/failed pairing the schema's own if/then
+    does not reach.
+    """
+    overall = bundle["unsigned_manifest"]["overall"]
+    if _VERDICT_RANK[overall["verdict"]] > _VERDICT_RANK[overall["instrument_adequacy_verdict"]]:
+        _fail("OVERALL_VERDICT_UNSUPPORTED", "overall")
+
+
+def _round_half_even(numerator: int, denominator: int) -> int:
+    quotient, remainder = divmod(numerator, denominator)
+    twice = 2 * remainder
+    if twice < denominator:
+        return quotient
+    if twice > denominator:
+        return quotient + 1
+    return quotient if quotient % 2 == 0 else quotient + 1
+
+
+def _axis_point_value(bundle: dict[str, Any], axis: str) -> int:
+    """The per-axis point value the A5 weighted sum is over. These values
+    are themselves issuer-attested, never recomputed by this verifier
+    (NC_EVQ_INTERVALS_NOT_RECOMPUTED) -- only the arithmetic over them is
+    checked.
+    """
+    measurements = bundle["measurements"]
+    if axis == "calibration":
+        return cast(int, measurements["calibration"]["calibration_slope"]["point_value"])
+    if axis == "agreement":
+        return cast(int, measurements["agreement"]["agreement"]["point_value"])
+    if axis == "sensitivity":
+        return cast(int, measurements["sensitivity"]["discriminating_power"]["point_value"])
+    if axis == "reliability":
+        probes = [
+            probe["measurement"]["point_value"]
+            for probe in measurements["reliability"]["probe_results"]
+            if probe["status"] == "measured"
+        ]
+        return _round_half_even(sum(probes), len(probes)) if probes else 0
+    return 0
+
+
+def _check_aggregation_derivation(bundle: dict[str, Any]) -> None:
+    """A5: overall_quality_ppm is DERIVED -- the round-half-even weighted
+    sum of each axis's own point value under the declared-plan weights,
+    exact integer arithmetic throughout. Skipped when verdict is
+    abstain/failed: EvaluatorQualityOverallV1 already forbids
+    overall_quality_ppm from being present on those rows.
+    """
+    overall = bundle["unsigned_manifest"]["overall"]
+    if overall["verdict"] in ("abstain", "failed"):
+        return
+    weights = bundle["declared_plan"]["aggregation_policy"]["weights"]
+    numerator = sum(
+        _axis_point_value(bundle, w["axis"]) * w["weight_ppm"]
+        for w in weights
+        if w["axis"] != "efficiency"
+    )
+    recomputed = _round_half_even(numerator, 1000000)
+    if overall.get("overall_quality_ppm") != recomputed:
+        _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
+
+
 def _verify_evaluator_quality_private(bundle: object, *, context: object) -> None:
-    """Run P3-V.2/P3-V.3. The commitment pin must come from a VERIFIED process record."""
+    """Run P3-V.2/P3-V.3/P3-V.4. The commitment pin must come from a VERIFIED process record."""
     shaped = _check_bundle_shape(bundle)
     _check_schema(shaped)
     _check_semantic_uniqueness(shaped)
@@ -580,6 +847,20 @@ def _verify_evaluator_quality_private(bundle: object, *, context: object) -> Non
     _check_manifest_signature(shaped)
     _check_commitment(shaped, context)
     _check_plan_containment(shaped)
+    _check_reference_ceiling(shaped)
+    _check_reference_floor(shaped)
+    _check_reference_rater_coupling(shaped)
+    _check_reference_capping(shaped)
+    _check_held_out_capping(shaped)
+    _check_measurement_basis(shaped)
+    _check_transcript_digest(shaped)
+    _check_claim_tier_bound(shaped)
+    _check_claim_material_row_digests(shaped)
+    _check_aggregation_policy_weights(shaped)
+    _check_instrument_adequacy(shaped)
+    _check_required_axis_completeness(shaped)
+    _check_overall_verdict_capped(shaped)
+    _check_aggregation_derivation(shaped)
     try:
         fp2.canonicalize(shaped)
     except Exception:

@@ -470,6 +470,8 @@ def _close(bundle: dict[str, Any]) -> dict[str, Any]:
         )
     claim_digest = _digest(d["claim_material"], b["claim_material"])
     for row in b["claim_support_rows"]:
+        if row.get("evidence_basis") == "abstained":
+            continue
         row["claim_material_digest"] = claim_digest
         if row["claim_id"] != "EVQ1":
             row.update(
@@ -483,10 +485,16 @@ def _close(bundle: dict[str, Any]) -> dict[str, Any]:
                     "measurement_set_digest": b["measurements"]["measurement_set_digest"],
                 }
             )
+    weights = b["declared_plan"]["aggregation_policy"]["weights"]
+    numerator = sum(
+        evq._axis_point_value(b, w["axis"]) * w["weight_ppm"]
+        for w in weights
+        if w["axis"] != "efficiency"
+    )
     overall = {
         "verdict": "passed",
         "instrument_adequacy_verdict": "passed",
-        "overall_quality_ppm": 915000,
+        "overall_quality_ppm": evq._round_half_even(numerator, 1000000),
         "aggregation_policy_digest": _digest(
             d["declared_plan"], b["declared_plan"]["aggregation_policy"]
         ),
@@ -550,6 +558,34 @@ def _close(bundle: dict[str, Any]) -> dict[str, Any]:
 def build_bundle(**overrides: Any) -> dict[str, Any]:
     """Return a schema-valid, digest-closed, genuinely signed bundle."""
     return _close(_merge(_base_bundle(), overrides))
+
+
+def _abstained_row(claim_id: str, code: str) -> dict[str, Any]:
+    """An abstained EvaluatorQualityClaimSupportRowV1: tier 1, no digests,
+    per the schema's own abstained branch. ``_close`` skips its digest-fill
+    for any row already carrying ``evidence_basis: "abstained"``."""
+    return {
+        "claim_id": claim_id,
+        "tier": 1,
+        "evidence_basis": "abstained",
+        "verdict": "abstain",
+        "abstention_code": code,
+    }
+
+
+def _resign(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Recompute the manifest digest and re-sign, after a direct
+    ``unsigned_manifest`` mutation made outside ``_close``."""
+    bundle["signature"]["unsigned_manifest_digest"] = evq._role_digest(
+        evq._domain("unsigned_manifest"), bundle["unsigned_manifest"]
+    )
+    material = (
+        evq._domain("issuer_signature").encode()
+        + b"\0"
+        + fp2.canonicalize(bundle["unsigned_manifest"]).encode()
+    )
+    bundle["signature"]["signature"] = base64.b64encode(PRIVATE_KEY.sign(material)).decode("ascii")
+    return bundle
 
 
 def break_(field: str, value: Any) -> dict[str, Any]:
@@ -1346,10 +1382,12 @@ def test_sample_size_boundary_29_rejected_30_accepted() -> None:
 def test_interval_width_boundary_200000_accepted_200001_rejected() -> None:
     maximum_interval_width_ppm = _planned("agreement_primary")["maximum_interval_width_ppm"]
     assert maximum_interval_width_ppm == 200000
+    # Interval kept at/below the reference agreement_ceiling_ppm (950000) so
+    # REFERENCE_CEILING_EXCEEDED (P3-V.4) cannot shadow this width boundary.
     accepted = build_bundle(
         measurements={
             "agreement": {
-                "agreement": {"interval_low_value": 800000, "interval_high_value": 1000000}
+                "agreement": {"interval_low_value": 750000, "interval_high_value": 950000}
             }
         }
     )
@@ -1357,7 +1395,7 @@ def test_interval_width_boundary_200000_accepted_200001_rejected() -> None:
     rejected = build_bundle(
         measurements={
             "agreement": {
-                "agreement": {"interval_low_value": 799999, "interval_high_value": 1000000}
+                "agreement": {"interval_low_value": 749999, "interval_high_value": 950000}
             }
         }
     )
@@ -1598,3 +1636,527 @@ def test_mutate_the_plan_containment_guard_is_caught(
     bundle = negatives[guard_name]
     with pytest.raises(namespace["EvaluatorQualityVerificationError"]):
         namespace["_verify_evaluator_quality_private"](bundle, context=DEFAULT_CONTEXT)
+
+
+# --- Step-0: four S12 comparison-granularity mutations left GREEN ----------
+
+
+def test_interval_kind_not_admissible_for_estimator() -> None:
+    """S12-intervalkind-admiss: interval_kind is plan-contained (so the
+    containment tuple passes) but not registry-admissible for cohens_kappa
+    (['wilson_score', 'bootstrap_percentile']) -- exact_permutation is a
+    real IntervalKindV1 member, just not one this estimator admits."""
+    shopped_plan = [
+        {
+            **_planned(r),
+            **(
+                {"interval_params": _analytic_params("exact_permutation")}
+                if r == "agreement_primary"
+                else {}
+            ),
+        }
+        for r in PLANNED_ROLE_ORDER
+    ]
+    bundle = build_bundle(
+        declared_plan={"planned_measurements": shopped_plan},
+        measurements={
+            "agreement": {"agreement": {"interval_params": _analytic_params("exact_permutation")}}
+        },
+    )
+    _expect(bundle, "INTERVAL_MALFORMED")
+
+
+def test_interval_ppm_bounds_violation_direct() -> None:
+    """S12-ppm-bounds: MeasurementV1's own unit/bounds coupling already
+    forces interval_low_value/interval_high_value into [0, 1000000] for
+    value_unit ppm_unsigned, so there is no live path through the full
+    pipeline (any bundle exercising this branch is rejected earlier at S2)
+    -- exercised directly, mirroring the existing INTERVAL_MALFORMED
+    ordering unit test just above it in _check_interval_well_formed."""
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._check_interval_well_formed(
+            {
+                "interval_low_value": -1,
+                "point_value": 0,
+                "interval_high_value": 500000,
+                "value_unit": "ppm_unsigned",
+            }
+        )
+    assert caught.value.code == "INTERVAL_MALFORMED"
+
+
+def test_declared_plan_scope_violation_sample_unit_diverges() -> None:
+    """S12-sampleunit-containment: sample_unit alone diverges from the plan;
+    cohens_kappa admits both evaluation_item and rater_pair, so the
+    substituted unit would even pass registry admissibility -- only the
+    containment tuple comparison catches it."""
+    bundle = build_bundle(measurements={"agreement": {"agreement": {"sample_unit": "rater_pair"}}})
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_declared_plan_scope_violation_value_unit_diverges() -> None:
+    """S12-valueunit-containment: value_unit alone diverges from the plan.
+    Switched to 'count' (bounds [0, 1e9], so the unchanged point/interval
+    values stay schema-valid) rather than a unit registry admissibility
+    would also reject, to isolate the containment-tuple comparison from
+    S12's later admissibility guard."""
+    bundle = build_bundle(measurements={"agreement": {"agreement": {"value_unit": "count"}}})
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+# --- P3-V.4: verdict / capping layer ----------------------------------------
+
+
+def test_reference_ceiling_exceeded() -> None:
+    bundle = build_bundle(
+        measurements={
+            "agreement": {
+                "agreement": {
+                    "point_value": 955000,
+                    "interval_low_value": 945000,
+                    "interval_high_value": 960000,
+                }
+            }
+        }
+    )
+    _expect(bundle, "REFERENCE_CEILING_EXCEEDED")
+
+
+def test_reference_ceiling_boundary_950000_accepted_950001_rejected() -> None:
+    ceiling = _base_bundle()["reference_standard"]["agreement_ceiling_ppm"]
+    assert ceiling == 950000
+    accepted = build_bundle(
+        measurements={
+            "agreement": {
+                "agreement": {
+                    "point_value": 940000,
+                    "interval_low_value": 930000,
+                    "interval_high_value": 950000,
+                }
+            }
+        }
+    )
+    assert evq._verify_evaluator_quality_private(accepted, context=DEFAULT_CONTEXT) is None
+    rejected = build_bundle(
+        measurements={
+            "agreement": {
+                "agreement": {
+                    "point_value": 940001,
+                    "interval_low_value": 930001,
+                    "interval_high_value": 950001,
+                }
+            }
+        }
+    )
+    _expect(rejected, "REFERENCE_CEILING_EXCEEDED")
+
+
+def test_reference_floor_violated_ece_below_reference_noise_floor() -> None:
+    """The directional test a single ceiling misses (design's own note):
+    a near-zero ECE interval reads as 'perfect calibration', below what the
+    reference standard's own noise floor can resolve."""
+    bundle = build_bundle(
+        measurements={
+            "calibration": {
+                "expected_calibration_error": {
+                    "point_value": 10000,
+                    "interval_low_value": 0,
+                    "interval_high_value": 20000,
+                }
+            }
+        }
+    )
+    _expect(bundle, "REFERENCE_FLOOR_VIOLATED")
+
+
+def test_reference_floor_boundary_50000_accepted_49999_rejected() -> None:
+    floor = _base_bundle()["reference_standard"]["error_floor_ppm"]
+    assert floor == 50000
+    accepted = build_bundle(
+        measurements={
+            "calibration": {
+                "expected_calibration_error": {
+                    "point_value": 60000,
+                    "interval_low_value": 50000,
+                    "interval_high_value": 70000,
+                }
+            }
+        }
+    )
+    assert evq._verify_evaluator_quality_private(accepted, context=DEFAULT_CONTEXT) is None
+    rejected = build_bundle(
+        measurements={
+            "calibration": {
+                "expected_calibration_error": {
+                    "point_value": 59999,
+                    "interval_low_value": 49999,
+                    "interval_high_value": 69999,
+                }
+            }
+        }
+    )
+    _expect(rejected, "REFERENCE_FLOOR_VIOLATED")
+
+
+def test_reference_rater_coupling_rater_count_exceeds_label_count() -> None:
+    """rater_count > label_count is the one cross-field bound draft-07
+    cannot express within ReferenceStandardV1 -- schema-valid on its own
+    (rater_count=3 satisfies human_panel_adjudicated's own >=2 rule), but
+    three raters over two labels is not a coherent panel."""
+    bundle = build_bundle(
+        reference_standard={
+            "reference_kind": "human_panel_adjudicated",
+            "adjudication_policy": "majority",
+            "rater_count": 3,
+            "label_count": 2,
+        }
+    )
+    _expect(bundle, "REFERENCE_RATER_COUPLING")
+
+
+def test_verdict_not_supported_proxy_reference_reaching_passed() -> None:
+    """The self-certification test: a proxy reference standard may never
+    back a 'passed' instrument-adequacy claim."""
+    bundle = build_bundle(reference_standard={"reference_kind": "proxy_evaluator"})
+    _expect(bundle, "VERDICT_NOT_SUPPORTED")
+
+
+def test_verdict_not_supported_non_independent_reference_reaching_passed() -> None:
+    bundle = build_bundle(reference_standard={"reference_independence": "shares_model_family"})
+    _expect(bundle, "VERDICT_NOT_SUPPORTED")
+
+
+def test_verdict_not_supported_held_out_status_overlaps_selection_set() -> None:
+    bundle = build_bundle(evaluation_scope={"held_out_status": "overlaps_selection_set"})
+    _expect(bundle, "VERDICT_NOT_SUPPORTED")
+
+
+def test_verdict_not_supported_held_out_status_unknown() -> None:
+    bundle = build_bundle(evaluation_scope={"held_out_status": "unknown"})
+    _expect(bundle, "VERDICT_NOT_SUPPORTED")
+
+
+def test_measurement_basis_insufficient_direct() -> None:
+    """Defense in depth: EmittableMeasurementBasisV1 pins every v1
+    measurement's basis to 'issuer_attested_v1', so there is no live
+    full-pipeline path to a different basis -- exercised directly, on a
+    real bundle's full measurement shape (_measurement_role_rows walks
+    every block unconditionally)."""
+    bundle = build_bundle()
+    bundle["measurements"]["agreement"]["agreement"]["basis"] = "construction_recomputed_v1"
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._check_measurement_basis(bundle)
+    assert caught.value.code == "MEASUREMENT_BASIS_INSUFFICIENT"
+
+
+def test_transcript_digest_missing_direct() -> None:
+    """Defense in depth: MeasurementV1's own if/then already requires a
+    non-null transcript digest exactly when basis is
+    construction_recomputed_v1, and that basis is unconstructible in v1 --
+    exercised directly, past the schema, past _check_measurement_basis."""
+    bundle = build_bundle()
+    bundle["measurements"]["agreement"]["agreement"]["basis"] = "construction_recomputed_v1"
+    bundle["measurements"]["agreement"]["agreement"]["computation_transcript_digest"] = None
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._check_transcript_digest(bundle)
+    assert caught.value.code == "TRANSCRIPT_DIGEST_MISSING"
+
+
+def test_claim_tier_mismatch_direct() -> None:
+    """Defense in depth: EvaluatorQualityClaimSupportRowV1 already pins
+    EVQ1's evidence_basis to client_declared/abstained (and both pin tier
+    to 1), so there is no live full-pipeline path to an EVQ1 row claiming
+    tier 3 / issuer_verified -- exercised directly."""
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._check_claim_tier_bound(
+            {
+                "claim_support_rows": [
+                    {"claim_id": "EVQ1", "tier": 3, "evidence_basis": "issuer_verified"}
+                ]
+            }
+        )
+    assert caught.value.code == "CLAIM_TIER_MISMATCH"
+
+
+def test_claim_material_mismatch_one_row_diverges_from_the_manifest() -> None:
+    """A6: S5 only checks unsigned_manifest.claim_material_digest against
+    the recomputed claim_material digest -- it never checks each support
+    row's OWN copy of that digest. Built by re-closing then re-signing so
+    the manifest's claim_support_rows_digest stays internally consistent
+    with the tampered row (S5 must not catch this one first)."""
+    bundle = build_bundle()
+    bundle["claim_support_rows"][1]["claim_material_digest"] = SHA
+    bundle["unsigned_manifest"]["claim_support_rows_digest"] = evq._role_digest(
+        evq._domain("claim_support_rows"), bundle["claim_support_rows"]
+    )
+    _resign(bundle)
+    _expect(bundle, "CLAIM_MATERIAL_MISMATCH")
+
+
+def test_aggregation_policy_mismatch_weights_sum_to_999999() -> None:
+    weights = [
+        {**w, "weight_ppm": w["weight_ppm"] - 1 if w["axis"] == "calibration" else w["weight_ppm"]}
+        for w in _base_bundle()["declared_plan"]["aggregation_policy"]["weights"]
+    ]
+    bundle = build_bundle(
+        declared_plan={"aggregation_policy": {"weights": weights}},
+        measurements={
+            "calibration": {
+                "expected_calibration_error": {
+                    "point_value": 90000,
+                    "interval_low_value": 80000,
+                    "interval_high_value": 100000,
+                }
+            }
+        },
+    )
+    _expect(bundle, "AGGREGATION_POLICY_MISMATCH")
+
+
+def test_instrument_adequacy_mismatch_issuer_declares_directional_but_all_four_pass() -> None:
+    """GV2n: all four instrument rows read passed, but the issuer declares
+    instrument_adequacy_verdict directional -- the 'issuer declares an
+    adequacy the rows do not support' attack. overall.verdict=directional
+    stays schema-legal (nothing in the certificate bundle's structural
+    coupling forbids it when every row is passed), isolating this to A3."""
+    bundle = build_bundle()
+    bundle["unsigned_manifest"]["overall"]["verdict"] = "directional"
+    bundle["unsigned_manifest"]["overall"]["instrument_adequacy_verdict"] = "directional"
+    _resign(bundle)
+    _expect(bundle, "INSTRUMENT_ADEQUACY_MISMATCH")
+
+
+def test_aggregation_renormalized_required_axis_abstains_but_overall_not_abstain() -> None:
+    """A2: EVQ3 (calibration) abstains -- a required axis -- so
+    overall.verdict must be 'abstain', never renormalized down to 'failed'
+    over the remaining evidence. overall.verdict='failed' with
+    instrument_adequacy_verdict='abstain' (the actual recomputed worst)
+    stays schema-legal, isolating this to A2 rather than A3 or the
+    schema's own structural coupling."""
+    base = _base_bundle()
+    base["claim_support_rows"][2] = _abstained_row(
+        "EVQ3", "sample_size_below_declared_plan_minimum"
+    )
+    bundle = _close(base)
+    bundle["unsigned_manifest"]["overall"] = {
+        "verdict": "failed",
+        "instrument_adequacy_verdict": "abstain",
+        "aggregation_policy_digest": bundle["unsigned_manifest"]["overall"][
+            "aggregation_policy_digest"
+        ],
+    }
+    _resign(bundle)
+    _expect(bundle, "AGGREGATION_RENORMALIZED")
+
+
+def test_overall_verdict_unsupported_abstain_ranked_above_failed_adequacy() -> None:
+    """A4: EVQ5 (reliability, required) reads failed -- the certificate
+    bundle's structural coupling forbids overall.verdict from reading
+    passed or directional here, but says nothing about abstain vs failed.
+    overall.verdict='abstain' outranks instrument_adequacy_verdict='failed'
+    (the actual recomputed worst) on the failed<abstain<directional<passed
+    scale -- schema-legal, isolating this to A4."""
+    base = _base_bundle()
+    base["claim_support_rows"][4] = _abstained_row("EVQ5", "probe_coverage_incomplete")
+    base["claim_support_rows"][4]["verdict"] = "failed"
+    bundle = _close(base)
+    bundle["unsigned_manifest"]["overall"] = {
+        "verdict": "abstain",
+        "instrument_adequacy_verdict": "failed",
+        "aggregation_policy_digest": bundle["unsigned_manifest"]["overall"][
+            "aggregation_policy_digest"
+        ],
+    }
+    _resign(bundle)
+    _expect(bundle, "OVERALL_VERDICT_UNSUPPORTED")
+
+
+def test_aggregation_derivation_mismatch_off_by_one_both_directions() -> None:
+    """The exact recomputed value is 915000 (asserted independently by
+    test_gv1_validates_digest_closes_and_signature_verifies); pinned off by
+    one in both directions."""
+    bundle = build_bundle()
+    bundle["unsigned_manifest"]["overall"]["overall_quality_ppm"] = 915001
+    _resign(bundle)
+    _expect(bundle, "AGGREGATION_DERIVATION_MISMATCH")
+
+    bundle = build_bundle()
+    bundle["unsigned_manifest"]["overall"]["overall_quality_ppm"] = 914999
+    _resign(bundle)
+    _expect(bundle, "AGGREGATION_DERIVATION_MISMATCH")
+
+
+def test_round_half_even_ties_both_directions() -> None:
+    """round_half_even, not round_half_up: an exact .5 remainder rounds to
+    the nearest EVEN quotient, whichever direction that is."""
+    assert evq._round_half_even(5, 2) == 2  # 2.5 -> 2 (even)
+    assert evq._round_half_even(7, 2) == 4  # 3.5 -> 4 (even)
+    assert evq._round_half_even(1, 2) == 0  # 0.5 -> 0 (even)
+    assert evq._round_half_even(3, 2) == 2  # 1.5 -> 2 (even)
+
+
+def test_p3v4_verdict_capping_guard_rejection_codes_are_reachable() -> None:
+    """The P3-V.2-style reachability roll-call, for the P3-V.4 codes."""
+    cases: list[tuple[str, Any]] = [
+        (
+            "REFERENCE_CEILING_EXCEEDED",
+            lambda: evq._check_reference_ceiling(
+                (
+                    lambda b: (
+                        b["measurements"]["agreement"]["agreement"].update(
+                            interval_high_value=999999
+                        ),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
+        ),
+        (
+            "REFERENCE_FLOOR_VIOLATED",
+            lambda: evq._check_reference_floor(
+                (
+                    lambda b: (
+                        b["measurements"]["calibration"]["expected_calibration_error"].update(
+                            interval_low_value=0
+                        ),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
+        ),
+        (
+            "REFERENCE_RATER_COUPLING",
+            lambda: evq._check_reference_rater_coupling(
+                {
+                    "reference_standard": {
+                        "reference_kind": "human_single_rater",
+                        "rater_count": 1,
+                        "adjudication_policy": "none",
+                        "label_count": 0,
+                    }
+                }
+            ),
+        ),
+        (
+            "VERDICT_NOT_SUPPORTED",
+            lambda: evq._check_reference_capping(
+                {
+                    "reference_standard": {
+                        "reference_kind": "proxy_evaluator",
+                        "reference_independence": "not_independent",
+                    },
+                    "claim_support_rows": [{"claim_id": "EVQ2", "verdict": "passed"}],
+                }
+            ),
+        ),
+        (
+            "VERDICT_NOT_SUPPORTED",
+            lambda: evq._check_held_out_capping(
+                {
+                    "evaluation_scope": {"held_out_status": "unknown"},
+                    "claim_support_rows": [{"claim_id": "EVQ2", "verdict": "passed"}],
+                }
+            ),
+        ),
+        (
+            "MEASUREMENT_BASIS_INSUFFICIENT",
+            lambda: evq._check_measurement_basis(
+                (
+                    lambda b: (
+                        b["measurements"]["agreement"]["agreement"].update(
+                            basis="construction_recomputed_v1"
+                        ),
+                        b,
+                    )[1]
+                )(build_bundle())
+            ),
+        ),
+        (
+            "CLAIM_TIER_MISMATCH",
+            lambda: evq._check_claim_tier_bound(
+                {
+                    "claim_support_rows": [
+                        {"claim_id": "EVQ1", "tier": 3, "evidence_basis": "issuer_verified"}
+                    ]
+                }
+            ),
+        ),
+        (
+            "CLAIM_MATERIAL_MISMATCH",
+            lambda: evq._check_claim_material_row_digests(
+                {
+                    "unsigned_manifest": {"claim_material_digest": SHA},
+                    "claim_support_rows": [
+                        {
+                            "claim_id": "EVQ2",
+                            "evidence_basis": "issuer_verified",
+                            "claim_material_digest": "sha256:" + "b" * 64,
+                        }
+                    ],
+                }
+            ),
+        ),
+        (
+            "AGGREGATION_POLICY_MISMATCH",
+            lambda: evq._check_aggregation_policy_weights(
+                {"declared_plan": {"aggregation_policy": {"weights": [{"weight_ppm": 999999}]}}}
+            ),
+        ),
+        (
+            "INSTRUMENT_ADEQUACY_MISMATCH",
+            lambda: evq._check_instrument_adequacy(
+                {
+                    "claim_support_rows": [
+                        {"claim_id": c, "verdict": "passed"} for c in evq._INSTRUMENT_CLAIM_IDS
+                    ],
+                    "unsigned_manifest": {
+                        "overall": {"instrument_adequacy_verdict": "directional"}
+                    },
+                }
+            ),
+        ),
+        (
+            "AGGREGATION_RENORMALIZED",
+            lambda: evq._check_required_axis_completeness(
+                {
+                    "claim_support_rows": [{"claim_id": "EVQ3", "verdict": "abstain"}],
+                    "declared_plan": {
+                        "aggregation_policy": {
+                            "weights": [
+                                {
+                                    "axis": "calibration",
+                                    "required_axis": True,
+                                    "weight_ppm": 250000,
+                                }
+                            ]
+                        }
+                    },
+                    "unsigned_manifest": {"overall": {"verdict": "failed"}},
+                }
+            ),
+        ),
+        (
+            "OVERALL_VERDICT_UNSUPPORTED",
+            lambda: evq._check_overall_verdict_capped(
+                {
+                    "unsigned_manifest": {
+                        "overall": {"verdict": "passed", "instrument_adequacy_verdict": "abstain"}
+                    }
+                }
+            ),
+        ),
+        (
+            "AGGREGATION_DERIVATION_MISMATCH",
+            lambda: evq._check_aggregation_derivation(
+                {
+                    "unsigned_manifest": {
+                        "overall": {"verdict": "passed", "overall_quality_ppm": 1}
+                    },
+                    "declared_plan": {"aggregation_policy": {"weights": []}},
+                }
+            ),
+        ),
+    ]
+    for code, action in cases:
+        with pytest.raises(evq.EvaluatorQualityVerificationError, match=code):
+            action()

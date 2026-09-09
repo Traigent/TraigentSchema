@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import base64
 import copy
 import hashlib
@@ -3350,32 +3351,37 @@ def test_result_post_init_forbids_verified_without_all_three_gates() -> None:
 
 
 def test_mutate_the_result_coupling_guard_is_caught() -> None:
-    """Flip the one-directional coupling to its (wrong) converse -- requiring
-    CLAIMS_PARTIAL results to also carry a passed adequacy -- and confirm a
-    legitimate GV3-shaped result (passed adequacy, CLAIMS_PARTIAL) is wrongly
-    rejected by the mutant, proving the current, correct direction is
+    """Negate the sol S2 guard (passed adequacy + CLAIMS_PARTIAL is
+    forbidden) to its logical converse and confirm a legitimate GV3-shaped
+    result -- directional adequacy, CLAIMS_PARTIAL -- that the real guard
+    lets through is wrongly rejected by the mutant, proving the guard is
     load-bearing rather than vacuously satisfied."""
     source = Path(evq.__file__).read_text()
     target = (
-        '        if self.instrument_adequacy != "passed" and self.code != '
-        "EVALUATOR_QUALITY_CLAIMS_PARTIAL:\n"
+        "        if self.code == EVALUATOR_QUALITY_CLAIMS_PARTIAL and "
+        'self.instrument_adequacy == "passed":\n'
         '            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")'
     )
     assert source.count(target) == 1
     mutated = source.replace(
         target,
         (
-            '        if self.instrument_adequacy == "passed" and self.code == '
-            "EVALUATOR_QUALITY_CLAIMS_PARTIAL:\n"
+            "        if not (self.code == EVALUATOR_QUALITY_CLAIMS_PARTIAL and "
+            'self.instrument_adequacy == "passed"):\n'
             '            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")'
         ),
         1,
+    )
+    evq.EvaluatorQualityVerificationResult(
+        code=evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL,
+        instrument_adequacy="directional",
+        reference_independence="shares_model_family",
     )
     namespace = _exec_mutated(mutated, "evq_mutated_result_coupling")
     with pytest.raises(ValueError):
         namespace["EvaluatorQualityVerificationResult"](
             code=namespace["EVALUATOR_QUALITY_CLAIMS_PARTIAL"],
-            instrument_adequacy="passed",
+            instrument_adequacy="directional",
             reference_independence="shares_model_family",
         )
 
@@ -3484,6 +3490,59 @@ def test_evaluator_quality_reserved_codes_match_source_emission_audit() -> None:
     assert declared - emitted == evq.EVALUATOR_QUALITY_RESERVED_CODES
     assert evq.EVALUATOR_QUALITY_RESERVED_CODES - declared == set()
     assert len(emitted) == len(declared) - len(evq.EVALUATOR_QUALITY_RESERVED_CODES)
+
+
+def test_evaluator_quality_emission_audit_scans_the_audited_module_and_only_literal_codes() -> None:
+    """P3-V.5 team-lead delta review finding F1: the regex emission audit
+    above only ever *matches* string literals, so a variable-code call site
+    (e.g. ``_fail(code, "overall")``) is invisible to it rather than caught
+    by it -- this test closes that blind spot two ways.
+
+    1. An AST scan asserts every ``_fail(...)`` / ``EvaluatorQualityVerificationError(...)``
+       call in the module has a string-literal first argument, so a future
+       variable-code site fails THIS test instead of silently passing the
+       regex audit.
+    2. A module pin confirms the private verification pipeline the audit
+       above assumes lives in this file (``Path(evq.__file__)``) actually
+       does, so the "one file" scope of both audits stays true rather than
+       assumed.
+    """
+    source = Path(evq.__file__).read_text()
+    tree = ast.parse(source, filename=evq.__file__)
+    offenders: list[str] = []
+
+    class _Visitor(ast.NodeVisitor):
+        # ``_fail`` itself constructs ``EvaluatorQualityVerificationError(code,
+        # field)`` from its own parameters -- that is the one sanctioned
+        # variable-code site, the pass-through boundary every caller of
+        # ``_fail`` must approach with a literal instead.
+        function_stack: list[str] = []
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.function_stack.append(node.name)
+            self.generic_visit(node)
+            self.function_stack.pop()
+
+        def visit_Call(self, node: ast.Call) -> None:
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else None
+            if name in ("_fail", "EvaluatorQualityVerificationError") and self.function_stack[
+                -1:
+            ] != ["_fail"]:
+                if not node.args:
+                    offenders.append(f"{name}() with no positional args at line {node.lineno}")
+                else:
+                    first = node.args[0]
+                    if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+                        offenders.append(
+                            f"{name}(...) with a non-literal code at line {node.lineno}"
+                        )
+            self.generic_visit(node)
+
+    _Visitor().visit(tree)
+    assert offenders == []
+
+    assert evq._verify_evaluator_quality_private.__module__ == evq.__name__
 
 
 def test_public_function_sentinel_never_leaks() -> None:

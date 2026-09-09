@@ -171,12 +171,22 @@ EVALUATOR_QUALITY_VERIFIED = "EVALUATOR_QUALITY_VERIFIED"
 EVALUATOR_QUALITY_CLAIMS_PARTIAL = "EVALUATOR_QUALITY_CLAIMS_PARTIAL"
 
 # Codes declared in EVALUATOR_QUALITY_ERROR_CODES that this verifier never
-# emits (P3-V.5 sol milestone review finding S1). Two disjoint classes:
+# emits (P3-V.5 sol milestone review finding S1; wording corrected by the
+# P3-V.5 team-lead delta review finding F4). Two disjoint classes:
 #
-# * tripwire -- reserved so a future guard stage cannot silently reuse the
-#   string for an unrelated failure. No schema-valid bundle can reach these:
-#   DECLARED_PLAN_BASIS_INSUFFICIENT, DECLARED_PLAN_ORDER,
-#   DESCRIPTOR_DISCLOSURE_MODE_CONFLICT, DESCRIPTOR_OPENING_INVALID.
+# * tripwire -- unreachable because the V1 schema makes the condition they
+#   would guard unrepresentable, not because a future stage might reuse the
+#   string. Reserved (rather than deleted) so the string cannot be silently
+#   repurposed if a schema amendment ever makes the condition representable:
+#   - DECLARED_PLAN_ORDER, DECLARED_PLAN_BASIS_INSUFFICIENT: plan ordering
+#     is a declared non-claim -- EvaluatorDeclaredPlanV1's own description
+#     says the document "carries no basis, no ordering timestamp, and no
+#     verdict cap keyed to a plan grade"; the verifier checks containment
+#     only, never precedence (see NC_EVQ_PLAN_ORDERING_OUT_OF_SCOPE).
+#   - DESCRIPTOR_OPENING_INVALID, DESCRIPTOR_DISCLOSURE_MODE_CONFLICT:
+#     EvaluatorDescriptorV1 has no ``opening`` property at all, and
+#     ``disclosure_mode`` is a bare enum with no second field it could
+#     conflict with.
 # * subsumed -- superseded by the generic digest sweep in
 #   _check_artifact_digests, which emits EVALUATOR_ARTIFACT_DIGEST_MISMATCH
 #   per role rather than these four role-specific codes:
@@ -1240,18 +1250,22 @@ probes, not a single role's point_value.
 """
 
 
-def _required_measurement_role_row(bundle: dict[str, Any], role: str, code: str) -> dict[str, Any]:
-    """The measurement row for ``role``, or fail closed with ``code``.
+def _required_measurement_role_row(bundle: dict[str, Any], role: str) -> dict[str, Any]:
+    """The measurement row for ``role``, or fail closed with
+    ``AGGREGATION_DERIVATION_MISMATCH``.
 
     Same extraction rationale as :func:`_registered_estimator`: keeps the
     ``.get(...)``-then-``None``-check and the subsequent item access off the
     Optional value, so a static analyzer that does not follow ``_fail``'s
     ``-> NoReturn`` cannot mistake the row for possibly-``None`` at the
-    caller.
+    caller. The code is hardcoded, not a parameter, so every ``_fail`` call
+    site in this module stays a literal the S1 emission audit
+    (``test_evaluator_quality_reserved_codes_match_source_emission_audit``)
+    can see.
     """
     row = _measurement_role_rows(bundle).get(role)
     if row is None:
-        _fail(code, "overall")
+        _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
     return row
 
 
@@ -1282,7 +1296,7 @@ def _axis_point_value(bundle: dict[str, Any], axis: str) -> int:
         if not probes:
             _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
         return _round_half_even(sum(probes), len(probes))
-    row = _required_measurement_role_row(bundle, role, "AGGREGATION_DERIVATION_MISMATCH")
+    row = _required_measurement_role_row(bundle, role)
     return cast(int, row["point_value"])
 
 
@@ -1748,8 +1762,6 @@ class EvaluatorQualityVerificationResult:
         )
         if self.code == EVALUATOR_QUALITY_VERIFIED and not fully_supported:
             raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
-        if self.instrument_adequacy != "passed" and self.code != EVALUATOR_QUALITY_CLAIMS_PARTIAL:
-            raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
         if self.code == EVALUATOR_QUALITY_CLAIMS_PARTIAL and self.instrument_adequacy == "passed":
             raise ValueError("EVALUATOR_QUALITY_VERIFICATION_RESULT")
 
@@ -1843,9 +1855,11 @@ def verify_evaluator_quality_certificate(
     original exception's text, type, or traceback into the raised error.
     ``EVALUATOR_QUALITY_RESERVED_CODES`` names the codes declared in
     ``EVALUATOR_QUALITY_ERROR_CODES`` that this verifier never emits,
-    classified as either ``tripwire`` (reserved against a future stage
-    reusing the string) or ``subsumed`` (superseded by another emitted
-    code).
+    classified as either ``tripwire`` (unreachable because the V1 schema
+    makes the condition unrepresentable -- e.g. plan ordering is a declared
+    non-claim and the descriptor has no field the code could report on --
+    not merely reserved against a future stage reusing the string) or
+    ``subsumed`` (superseded by another emitted code).
 
     Two verifier conventions here are pending amendment to the Schema
     contract: ``AXIS_POINT_VALUE_ROLE`` picks the per-axis point-value role

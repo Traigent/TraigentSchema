@@ -1,1 +1,5 @@
-{"document":"evaluator_perturbation_set.json","construction":"sha256 over UTF8(domain) || 0x00 || jcs_v1(document) -- domain = EvaluatorQualityDigestDomainRegistryV1.perturbation_set","digest":"sha256:4f3723cfc6ef71df5be54e2637e14b02534420512c4751ba894d33853570ac65"}
+{
+  "document": "evaluator_perturbation_set.json",
+  "construction": "sha256 over UTF8(domain) || 0x00 || jcs_v1(document) -- domain = EvaluatorQualityDigestDomainRegistryV1.perturbation_set",
+  "digest": "sha256:4f3723cfc6ef71df5be54e2637e14b02534420512c4751ba894d33853570ac65"
+}

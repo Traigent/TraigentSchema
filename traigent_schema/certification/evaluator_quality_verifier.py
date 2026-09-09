@@ -12,10 +12,16 @@ import hashlib
 import json
 from functools import lru_cache
 from importlib import resources
+from pathlib import Path
 from typing import Any, NoReturn, cast
+
+from jsonschema import Draft7Validator  # type: ignore[import-untyped]
+from referencing import Registry, Resource
+from referencing.exceptions import Unresolvable
 
 import traigent_schema.fp2 as fp2
 from traigent_schema.certification.process_record_verifier import (
+    _ISSUER_SPKI_DOMAIN,
     _load_registry_constant,
     _material_public_key,
     _verify_signature,
@@ -52,6 +58,27 @@ _EVALUATOR_QUALITY_REGISTRY_DOMAINS = {
     "perturbation_set": _DIGEST_DOMAINS["perturbation_set"],
     "assertion_templates": _DIGEST_DOMAINS["assertion_templates"],
 }
+
+_EVALUATOR_BUNDLE_MEMBERS = frozenset(
+    {
+        "schema_version",
+        "descriptor",
+        "reference_standard",
+        "evaluation_scope",
+        "declared_plan",
+        "measurements",
+        "claim_material",
+        "claim_support_rows",
+        "non_claims",
+        "verification_materials_v0",
+        "unsigned_manifest",
+        "signature",
+    }
+)
+_EVALUATOR_SCOPE_BINDING_DOMAIN = "traigent.evaluator_quality.scope_binding.v1"
+_EVALUATOR_COVERAGE = tuple(
+    _schema_definition("EvaluatorQualityUnsignedManifestV1")["properties"]["coverage"]["const"]
+)
 
 # This is the module-owned vocabulary reserved by the complete guard sequence.
 # The public entry point and its reachable guards land in later packets; this
@@ -163,6 +190,185 @@ def _read_evaluator_quality_package_json(filename: str) -> Any:
     package = resources.files("traigent_schema")
     node = package.joinpath("data").joinpath("certification").joinpath(filename)
     return json.loads(node.read_text(encoding="utf-8"))
+
+
+def _walk_strict_values(value: Any) -> None:
+    """Reject values fp2 must never be asked to canonicalize."""
+    if isinstance(value, bool):
+        return
+    if isinstance(value, int) and not -(2**53 - 1) <= value <= 2**53 - 1:
+        _fail("EVALUATOR_STRICT_INTEGER", "bundle")
+    if isinstance(value, float):
+        _fail("EVALUATOR_STRICT_INTEGER", "bundle")
+    if isinstance(value, str):
+        try:
+            value.encode("utf-8", "strict")
+        except UnicodeEncodeError:
+            _fail("EVALUATOR_STRICT_INTEGER", "bundle")
+    elif isinstance(value, dict):
+        for key, child in value.items():
+            if not isinstance(key, str):
+                _fail("EVALUATOR_STRICT_INTEGER", "bundle")
+            _walk_strict_values(key)
+            _walk_strict_values(child)
+    elif isinstance(value, list):
+        for child in value:
+            _walk_strict_values(child)
+
+
+@lru_cache(maxsize=1)
+def _evaluator_quality_validator() -> Draft7Validator:
+    try:
+        registry = Registry()
+        schema_root = Path(__file__).resolve().parent.parent / "schemas"
+        for path in schema_root.rglob("*.json"):
+            document = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(document, dict) and isinstance(document.get("$id"), str):
+                registry = registry.with_resource(document["$id"], Resource.from_contents(document))
+        schema = json.loads(_SCHEMA_RESOURCE.read_text(encoding="utf-8"))
+        return Draft7Validator(schema, registry=registry)
+    except Exception:
+        _fail("EVALUATOR_SCHEMA_DEPENDENCY", "bundle")
+
+
+def _check_bundle_shape(bundle: object) -> dict[str, Any]:
+    if not isinstance(bundle, dict) or frozenset(bundle) != _EVALUATOR_BUNDLE_MEMBERS:
+        _fail("EVALUATOR_BUNDLE_SHAPE", "bundle")
+    _walk_strict_values(bundle)
+    return cast(dict[str, Any], bundle)
+
+
+def _check_schema(bundle: dict[str, Any]) -> None:
+    try:
+        errors = list(_evaluator_quality_validator().iter_errors(bundle))
+    except Unresolvable:
+        _fail("EVALUATOR_SCHEMA_DEPENDENCY", "bundle")
+    except Exception:
+        _fail("EVALUATOR_SCHEMA_DEPENDENCY", "bundle")
+    if errors:
+        _fail("EVALUATOR_SCHEMA", "bundle")
+
+
+def _check_semantic_uniqueness(bundle: dict[str, Any]) -> None:
+    roles = [row.get("measurement_role") for row in bundle["declared_plan"]["planned_measurements"]]
+    if len(roles) != len(set(roles)):
+        _fail("MEASUREMENT_ROLE_DUPLICATE", "declared_plan")
+
+
+def _check_scope_binding(bundle: dict[str, Any], context: object) -> None:
+    project_ref = getattr(context, "expected_project_ref", None)
+    projection = {"schema_version": _EVALUATOR_SCOPE_BINDING_DOMAIN, "project_ref": project_ref}
+    expected = _role_digest(_EVALUATOR_SCOPE_BINDING_DOMAIN, projection)
+    if bundle["unsigned_manifest"]["scope_binding_digest"] != expected:
+        _fail("SCOPE_BINDING_MISMATCH", "scope_binding")
+
+
+def _check_artifact_digests(bundle: dict[str, Any]) -> None:
+    manifest = bundle["unsigned_manifest"]
+    for name, field, role in (
+        ("descriptor", "descriptor_digest", "descriptor"),
+        ("reference_standard", "reference_standard_digest", "reference_standard"),
+        ("evaluation_scope", "evaluation_scope_digest", "evaluation_scope"),
+        ("declared_plan", "declared_plan_digest", "declared_plan"),
+        ("measurements", "measurement_set_digest", "measurement_set"),
+    ):
+        computed = _role_digest(_domain(role), _strip_self_digest(bundle[name], field))
+        if bundle[name][field] != computed or manifest.get(field) != computed:
+            _fail(
+                "EVALUATOR_ARTIFACT_DIGEST_MISMATCH",
+                {
+                    "measurement_set": "measurements",
+                    "descriptor": "descriptor",
+                    "reference_standard": "reference_standard",
+                    "evaluation_scope": "evaluation_scope",
+                    "declared_plan": "declared_plan",
+                }[role],
+            )
+    for field, role, payload in (
+        ("claim_material_digest", "claim_material", bundle["claim_material"]),
+        ("claim_support_rows_digest", "claim_support_rows", bundle["claim_support_rows"]),
+        ("non_claims_digest", "non_claims", bundle["non_claims"]),
+    ):
+        if manifest[field] != _role_digest(_domain(role), payload):
+            _fail(
+                "EVALUATOR_ARTIFACT_DIGEST_MISMATCH",
+                {
+                    "claim_material": "claim_material",
+                    "claim_support_rows": "claim_support_rows",
+                    "non_claims": "non_claims",
+                }[role],
+            )
+
+
+def _check_registry_digests(bundle: dict[str, Any]) -> None:
+    manifest = bundle["unsigned_manifest"]
+    for stem, field in (
+        ("measurement_registry", "measurement_registry_digest"),
+        ("perturbation_set", "perturbation_set_digest"),
+        ("assertion_templates", "assertion_templates_digest"),
+    ):
+        document = _load_evaluator_quality_document(stem)
+        if manifest[field] != _role_digest(_domain(stem), document):
+            _fail("REGISTRY_DIGEST_MISMATCH", stem)
+
+
+def _check_manifest_signature(bundle: dict[str, Any]) -> None:
+    manifest = bundle["unsigned_manifest"]
+    signature = bundle["signature"]
+    if tuple(manifest["coverage"]) != _EVALUATOR_COVERAGE:
+        _fail("EVALUATOR_UNSIGNED_MANIFEST_MISMATCH", "unsigned_manifest")
+    expected_manifest = _role_digest(_domain("unsigned_manifest"), manifest)
+    if signature["unsigned_manifest_digest"] != expected_manifest:
+        _fail("EVALUATOR_MANIFEST_DIGEST_MISMATCH", "signature")
+    materials = bundle["verification_materials_v0"]
+    issuer = materials.get("issuer", {})
+    if (
+        signature["issuer_key_ref"] != manifest["issuer_key_ref"]
+        or signature["trust_ring_ref"] != manifest["trust_ring_ref"]
+    ):
+        _fail("EVALUATOR_KEY_RING_MISMATCH", "signature")
+    try:
+        key = _material_public_key(issuer, _ISSUER_SPKI_DOMAIN)
+        if (
+            issuer.get("key_ref") != manifest["issuer_key_ref"]
+            or issuer.get("trust_ring_ref") != manifest["trust_ring_ref"]
+        ):
+            _fail("EVALUATOR_KEY_RING_MISMATCH", "signature")
+        material = (
+            _domain("issuer_signature").encode() + b"\0" + fp2.canonicalize(manifest).encode()
+        )
+        _verify_signature(key, issuer["algorithm"], material, signature["signature"])
+    except EvaluatorQualityVerificationError:
+        raise
+    except Exception:
+        _fail("EVALUATOR_ISSUER_SIGNATURE_INVALID", "signature")
+
+
+def _check_commitment(bundle: dict[str, Any], context: object) -> None:
+    manifest = bundle["unsigned_manifest"]
+    if (
+        getattr(context, "expected_evaluator_commitment_ref", None)
+        != manifest["evaluator_commitment_ref"]
+        or manifest["evaluator_commitment"]["commitment_digest"]
+        != manifest["evaluator_commitment_ref"]
+    ):
+        _fail("EVALUATOR_COMMITMENT_MISMATCH", "commitment_refs")
+
+
+def _verify_evaluator_quality_private(bundle: object, *, context: object) -> None:
+    """Run P3-V.2. The commitment pin must come from a VERIFIED process record."""
+    shaped = _check_bundle_shape(bundle)
+    _check_schema(shaped)
+    _check_semantic_uniqueness(shaped)
+    _check_scope_binding(shaped, context)
+    _check_artifact_digests(shaped)
+    _check_registry_digests(shaped)
+    _check_manifest_signature(shaped)
+    _check_commitment(shaped, context)
+    try:
+        fp2.canonicalize(shaped)
+    except Exception:
+        _fail("EVALUATOR_CANONICALIZATION", "bundle")
 
 
 @lru_cache(maxsize=3)

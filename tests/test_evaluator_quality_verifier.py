@@ -6,6 +6,7 @@ import base64
 import copy
 import json
 from importlib import resources
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -553,3 +554,134 @@ def test_patched_digest_without_closure_is_rejected() -> None:
     bundle["descriptor"]["descriptor_digest"] = SHA
     with pytest.raises(AssertionError):
         _assert_digests(bundle)
+
+
+@pytest.mark.parametrize(
+    ("stem", "filename"),
+    [
+        (stem, filename)
+        for stem in ("measurement_registry", "perturbation_set", "assertion_templates")
+        for filename in (
+            f"evaluator_{stem}.json",
+            f"evaluator_{stem}.digest.json",
+        )
+    ],
+)
+def test_package_data_corruption_is_content_free_and_reload_recovers(
+    monkeypatch: pytest.MonkeyPatch, stem: str, filename: str
+) -> None:
+    original = evq._read_evaluator_quality_package_json
+    sentinel = f"SENTINEL_{stem}_{filename}"
+
+    def corrupted(name: str) -> Any:
+        value = original(name)
+        if name == filename:
+            if isinstance(value, dict):
+                value = copy.deepcopy(value)
+                if name.endswith(".digest.json"):
+                    value["digest"] = sentinel
+                else:
+                    value["sentinel"] = sentinel
+            else:
+                value = sentinel
+        return value
+
+    evq._load_evaluator_quality_document.cache_clear()
+    monkeypatch.setattr(evq, "_read_evaluator_quality_package_json", corrupted)
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._load_evaluator_quality_document(stem)
+    exc = caught.value
+    rendered = "\n".join(
+        (str(exc), repr(exc), repr(exc.args), repr(exc.__cause__), repr(exc.__context__))
+    )
+    assert exc.code == "REGISTRY_DIGEST_MISMATCH"
+    assert sentinel not in rendered
+    assert sentinel not in "".join(__import__("traceback").format_exception(exc))
+
+    monkeypatch.setattr(evq, "_read_evaluator_quality_package_json", original)
+    evq._load_evaluator_quality_document.cache_clear()
+    assert isinstance(evq._load_evaluator_quality_document(stem), dict)
+
+
+def test_p3v2_private_guard_rejection_codes_are_reachable() -> None:
+    exact = {key: 0 for key in evq._EVALUATOR_BUNDLE_MEMBERS}
+    cases = [
+        ("EVALUATOR_BUNDLE_SHAPE", lambda: evq._check_bundle_shape({})),
+        (
+            "EVALUATOR_STRICT_INTEGER",
+            lambda: evq._check_bundle_shape({**exact, "schema_version": 1.0}),
+        ),
+        ("EVALUATOR_SCHEMA", lambda: evq._check_schema({})),
+        (
+            "MEASUREMENT_ROLE_DUPLICATE",
+            lambda: evq._check_semantic_uniqueness(
+                build_bundle(
+                    declared_plan={
+                        "planned_measurements": [
+                            {"measurement_role": "duplicate"},
+                            {"measurement_role": "duplicate"},
+                        ]
+                    }
+                )
+            ),
+        ),
+        (
+            "SCOPE_BINDING_MISMATCH",
+            lambda: evq._check_scope_binding(
+                build_bundle(), SimpleNamespace(expected_project_ref="wrong")
+            ),
+        ),
+        (
+            "EVALUATOR_ARTIFACT_DIGEST_MISMATCH",
+            lambda: evq._check_artifact_digests(
+                (lambda b: (b["descriptor"].update(evaluator_version="changed"), b)[1])(
+                    build_bundle()
+                )
+            ),
+        ),
+        (
+            "REGISTRY_DIGEST_MISMATCH",
+            lambda: evq._check_registry_digests(
+                (lambda b: (b["unsigned_manifest"].update(measurement_registry_digest=SHA), b)[1])(
+                    build_bundle()
+                )
+            ),
+        ),
+        (
+            "EVALUATOR_UNSIGNED_MANIFEST_MISMATCH",
+            lambda: evq._check_manifest_signature(
+                (lambda b: (b["unsigned_manifest"].update(coverage=[]), b)[1])(build_bundle())
+            ),
+        ),
+        (
+            "EVALUATOR_MANIFEST_DIGEST_MISMATCH",
+            lambda: evq._check_manifest_signature(
+                (lambda b: (b["signature"].update(unsigned_manifest_digest=SHA), b)[1])(
+                    build_bundle()
+                )
+            ),
+        ),
+        (
+            "EVALUATOR_KEY_RING_MISMATCH",
+            lambda: evq._check_manifest_signature(
+                (lambda b: (b["signature"].update(issuer_key_ref="issuerkey:bbbbbbbb"), b)[1])(
+                    build_bundle()
+                )
+            ),
+        ),
+        (
+            "EVALUATOR_ISSUER_SIGNATURE_INVALID",
+            lambda: evq._check_manifest_signature(build_bundle()),
+        ),
+        (
+            "EVALUATOR_COMMITMENT_MISMATCH",
+            lambda: evq._check_commitment(
+                build_bundle(),
+                SimpleNamespace(expected_evaluator_commitment_ref="sha256:" + "b" * 64),
+            ),
+        ),
+        ("EVALUATOR_CANONICALIZATION", lambda: evq._role_digest("test", float("nan"))),
+    ]
+    for code, action in cases:
+        with pytest.raises(evq.EvaluatorQualityVerificationError, match=code):
+            action()

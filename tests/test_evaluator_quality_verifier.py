@@ -1465,7 +1465,17 @@ def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate() -> 
     owned by S12) had zero coverage -- the existing #458-regression test
     duplicates a role in declared_plan.planned_measurements, which is S3,
     not this. Here the DUPLICATE is on the measurement side: two probe
-    results carry the same measurement.measurement_role."""
+    results carry the same measurement.measurement_role.
+
+    _axis_point_value (packet 4) now also routes through
+    _measurement_role_rows, so build_bundle's own digest-closing pass would
+    hit the same MEASUREMENT_ROLE_DUPLICATE while just computing
+    overall_quality_ppm for the fixture -- before the pipeline under test
+    ever runs. The aggregation arithmetic's correctness is not this test's
+    concern (MEASUREMENT_ROLE_DUPLICATE fires in S12/_check_plan_containment,
+    strictly before _check_aggregation_derivation in the pipeline), so
+    _axis_point_value is stubbed out only while closing this one fixture.
+    """
     probes = [
         {
             "probe_id": p,
@@ -1479,7 +1489,12 @@ def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate() -> 
         }
         for p in ("constant_output", "verbosity", "position", "self_preference", "one_token_fool")
     ]
-    bundle = build_bundle(measurements={"reliability": {"probe_results": probes}})
+    real_axis_point_value = evq._axis_point_value
+    evq._axis_point_value = lambda *_a, **_kw: 0  # type: ignore[assignment]
+    try:
+        bundle = build_bundle(measurements={"reliability": {"probe_results": probes}})
+    finally:
+        evq._axis_point_value = real_axis_point_value
     _expect(bundle, "MEASUREMENT_ROLE_DUPLICATE")
 
 
@@ -2160,3 +2175,205 @@ def test_p3v4_verdict_capping_guard_rejection_codes_are_reachable() -> None:
     for code, action in cases:
         with pytest.raises(evq.EvaluatorQualityVerificationError, match=code):
             action()
+
+
+# --- P3-tl-review P4 P1-1/P1-2/P2-3/P2-4 closures --------------------------
+
+
+def _close_without_aggregation(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Close digests/signature the normal way, but with _axis_point_value
+    stubbed to 0 while the overall_quality_ppm placeholder is computed.
+
+    Required for fixtures that drop a whole measurement block: the real
+    _axis_point_value now fails closed on that same missing block (P2-4), so
+    routing through it while just building a schema-valid, digest-consistent
+    fixture would raise before the pipeline stage under test ever runs. The
+    placeholder value only has to be internally digest/signature-consistent,
+    not arithmetically correct -- MEASUREMENT_ROLE_DUPLICATE-style checks and
+    _check_required_axis_measurement_block run in the pipeline strictly
+    before _check_aggregation_derivation, so the placeholder is never
+    inspected by the stage under test.
+    """
+    real_axis_point_value = evq._axis_point_value
+    evq._axis_point_value = lambda *_a, **_kw: 0  # type: ignore[assignment]
+    try:
+        return _close(bundle)
+    finally:
+        evq._axis_point_value = real_axis_point_value
+
+
+def test_axis_point_value_role_pins_the_four_axis_conventions() -> None:
+    """P2-4: the per-axis point-value mapping is an invention, not a
+    contract derivation (no schema artifact names which role is 'the axis's
+    point value' for an axis that owns several). CTO ruling: pin it as an
+    explicit module constant. This test pins the four entries so a future
+    edit to the convention is a visible, reviewed diff, not a silent drift."""
+    assert evq.AXIS_POINT_VALUE_ROLE == {
+        "calibration": "calibration_slope",
+        "agreement": "agreement_primary",
+        "sensitivity": "sensitivity_discriminating_power",
+        "reliability": "_reliability_mean_of_measured_probes",
+    }
+
+
+def test_axis_point_value_fails_closed_on_unrecognised_axis() -> None:
+    """P2-4: never a silent 0 for an axis AXIS_POINT_VALUE_ROLE does not
+    cover (e.g. 'efficiency', which every real caller filters out before
+    calling _axis_point_value, but the function itself must not trust that)."""
+    with pytest.raises(
+        evq.EvaluatorQualityVerificationError, match="AGGREGATION_DERIVATION_MISMATCH"
+    ):
+        evq._axis_point_value(build_bundle(), "efficiency")
+
+
+def test_axis_point_value_fails_closed_on_missing_role() -> None:
+    """P2-4: AXIS_POINT_VALUE_ROLE names a role that _measurement_role_rows
+    does not resolve (here: the whole agreement block is absent, so
+    'agreement_primary' resolves to no row at all) must not silently
+    contribute 0 to the weighted sum. Every calibration/agreement/sensitivity
+    block's internal fields are schema-required once the block itself is
+    present, so 'role missing' at the unit level is exercised the same way
+    P1-1's whole-block-absent scenario is, just via a direct call rather
+    than through the full pipeline."""
+    bundle = build_bundle()
+    del bundle["measurements"]["agreement"]
+    with pytest.raises(
+        evq.EvaluatorQualityVerificationError, match="AGGREGATION_DERIVATION_MISMATCH"
+    ):
+        evq._axis_point_value(bundle, "agreement")
+
+
+def test_axis_point_value_fails_closed_on_empty_reliability_probe_list() -> None:
+    """P2-4: an empty measured-probe list must fail closed, not return the
+    silent 0 the pre-fix implementation returned."""
+    bundle = build_bundle()
+    for probe in bundle["measurements"]["reliability"]["probe_results"]:
+        probe["status"] = "not_measured"
+        probe["measurement"] = None
+    with pytest.raises(
+        evq.EvaluatorQualityVerificationError, match="AGGREGATION_DERIVATION_MISMATCH"
+    ):
+        evq._axis_point_value(bundle, "reliability")
+
+
+def test_declared_plan_scope_violation_required_axis_block_absent() -> None:
+    """P1-1 / probe P-A: a schema-VALID bundle (EvaluatorMeasurementSetV1's
+    anyOf permits omitting any one of the four blocks) that drops a
+    REQUIRED axis's whole measurement block must reject with a vocabulary
+    code, not crash with a raw KeyError. The dropped axis's own claim row is
+    marked abstain (coherent story an issuer might actually submit) to prove
+    this guard fires independently of whatever the claim rows or overall
+    verdict happen to say."""
+    base = _base_bundle()
+    del base["measurements"]["calibration"]
+    base["declared_plan"]["planned_measurements"] = [
+        p
+        for p in base["declared_plan"]["planned_measurements"]
+        if not p["measurement_role"].startswith("calibration_")
+    ]
+    base["claim_support_rows"][2] = _abstained_row("EVQ3", "required_axis_missing")
+    bundle = _close_without_aggregation(base)
+    bundle["unsigned_manifest"]["overall"] = {
+        "verdict": "abstain",
+        "instrument_adequacy_verdict": "abstain",
+        "aggregation_policy_digest": bundle["unsigned_manifest"]["overall"][
+            "aggregation_policy_digest"
+        ],
+    }
+    _resign(bundle)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == [], (
+        "fixture must be schema-VALID for this to test the verifier, not the schema"
+    )
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_declared_plan_scope_violation_skips_absent_non_required_axis() -> None:
+    """P1-1: an axis marked required_axis=False that is entirely absent is
+    not this guard's concern -- it is skipped, per the CTO ruling that only
+    a REQUIRED axis's absence is rejected at this stage. Reliability is
+    turned non-required and dropped; the abstain/abstain overall keeps
+    _check_aggregation_derivation from ever calling _axis_point_value on the
+    now-missing axis, isolating this test to
+    _check_required_axis_measurement_block."""
+    base = _base_bundle()
+    del base["measurements"]["reliability"]
+    base["declared_plan"]["planned_measurements"] = [
+        p
+        for p in base["declared_plan"]["planned_measurements"]
+        if not p["measurement_role"].startswith("reliability_")
+    ]
+    base["declared_plan"]["aggregation_policy"]["weights"] = [
+        {**w, "required_axis": False} if w["axis"] == "reliability" else w
+        for w in base["declared_plan"]["aggregation_policy"]["weights"]
+    ]
+    base["claim_support_rows"][4] = _abstained_row("EVQ5", "required_axis_missing")
+    bundle = _close_without_aggregation(base)
+    bundle["unsigned_manifest"]["overall"] = {
+        "verdict": "abstain",
+        "instrument_adequacy_verdict": "abstain",
+        "aggregation_policy_digest": bundle["unsigned_manifest"]["overall"][
+            "aggregation_policy_digest"
+        ],
+    }
+    _resign(bundle)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    assert evq._verify_evaluator_quality_private(bundle, context=DEFAULT_CONTEXT) is None
+
+
+def test_reference_ceiling_exceeded_discriminating_power_symmetric_with_agreement() -> None:
+    """P1-2 / probe P-E: ReferenceStandardV1's own description scopes
+    agreement_ceiling_ppm to EVERY higher_is_better estimate, not
+    agreement_primary alone. sensitivity_discriminating_power is
+    higher_is_better / ppm_unsigned and was previously unguarded."""
+    bundle = build_bundle(
+        measurements={
+            "sensitivity": {
+                "discriminating_power": {
+                    "point_value": 995000,
+                    "interval_low_value": 990000,
+                    "interval_high_value": 1000000,
+                }
+            }
+        }
+    )
+    _expect(bundle, "REFERENCE_CEILING_EXCEEDED")
+
+
+def test_reference_ceiling_does_not_apply_to_reliability() -> None:
+    """P1-2 scope decision, pinned: ReferenceStandardV1's own description
+    limits the reference to 'calibration, agreement, or sensitivity' claims
+    -- reliability measures self-consistency under perturbation, never
+    agreement with the reference, so it is deliberately excluded from both
+    directional limits. A reliability probe's interval_high above the
+    ceiling (already true of the base fixture's probes at 970000 > 950000)
+    must still be accepted."""
+    base = _base_bundle()
+    assert (
+        base["measurements"]["reliability"]["probe_results"][0]["measurement"][
+            "interval_high_value"
+        ]
+        > base["reference_standard"]["agreement_ceiling_ppm"]
+    )
+    bundle = build_bundle()
+    assert evq._verify_evaluator_quality_private(bundle, context=DEFAULT_CONTEXT) is None
+
+
+def test_aggregation_renormalized_required_axis_failed_not_abstain() -> None:
+    """P2-3 / probe P-F: AggregationPolicyV1's own text says overall MUST be
+    abstain if any required_axis 'lacks a passed/directional claim' -- a
+    required axis reading 'failed' lacks one exactly as much as 'abstain'
+    does. The pre-fix guard tested only verdict == 'abstain' and let a
+    failed required axis through under a non-abstain overall verdict."""
+    base = _base_bundle()
+    base["claim_support_rows"][4] = _abstained_row("EVQ5", "probe_coverage_incomplete")
+    base["claim_support_rows"][4]["verdict"] = "failed"
+    bundle = _close(base)
+    bundle["unsigned_manifest"]["overall"] = {
+        "verdict": "failed",
+        "instrument_adequacy_verdict": "failed",
+        "aggregation_policy_digest": bundle["unsigned_manifest"]["overall"][
+            "aggregation_policy_digest"
+        ],
+    }
+    _resign(bundle)
+    _expect(bundle, "AGGREGATION_RENORMALIZED")

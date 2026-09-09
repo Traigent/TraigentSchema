@@ -423,19 +423,34 @@ def _estimator_registry_index() -> dict[str, dict[str, Any]]:
 
 
 def _measurement_role_rows(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """The measurement-side role sweep S3 does not cover (see its docstring)."""
+    """The measurement-side role sweep S3 does not cover (see its docstring).
+
+    Every one of the four measurement blocks is schema-optional
+    (EvaluatorMeasurementSetV1's anyOf demands only one of
+    calibration/agreement/sensitivity/reliability) -- a schema-VALID bundle
+    may omit any of them, so each block is resolved defensively here rather
+    than dereferenced unconditionally. An absent block simply contributes no
+    rows; callers that need a required axis's evidence to be present enforce
+    that themselves (see _check_required_axis_measurement_block).
+    """
     measurements = bundle["measurements"]
-    ordered = [
-        measurements["calibration"]["expected_calibration_error"],
-        measurements["calibration"]["calibration_slope"],
-        measurements["agreement"]["agreement"],
-        measurements["sensitivity"]["discriminating_power"],
-        measurements["sensitivity"]["false_difference_rate"],
-    ] + [
-        probe["measurement"]
-        for probe in measurements["reliability"]["probe_results"]
-        if probe["status"] == "measured"
-    ]
+    calibration = measurements.get("calibration")
+    agreement = measurements.get("agreement")
+    sensitivity = measurements.get("sensitivity")
+    reliability = measurements.get("reliability")
+    ordered: list[dict[str, Any]] = []
+    if calibration is not None:
+        ordered += [calibration["expected_calibration_error"], calibration["calibration_slope"]]
+    if agreement is not None:
+        ordered.append(agreement["agreement"])
+    if sensitivity is not None:
+        ordered += [sensitivity["discriminating_power"], sensitivity["false_difference_rate"]]
+    if reliability is not None:
+        ordered += [
+            probe["measurement"]
+            for probe in reliability["probe_results"]
+            if probe["status"] == "measured"
+        ]
     rows: dict[str, dict[str, Any]] = {}
     for row in ordered:
         role = row["measurement_role"]
@@ -569,6 +584,39 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
             _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
 
 
+_AXIS_MEASUREMENT_BLOCK = frozenset({"calibration", "agreement", "sensitivity", "reliability"})
+
+
+def _check_required_axis_measurement_block(bundle: dict[str, Any]) -> None:
+    """A required axis's measurement block must be present.
+
+    AggregationPolicyV1 pins exactly one weight entry per AggregationAxisV1
+    member and forbids renormalizing over the axes that happen to have
+    evidence: 'if any required_axis lacks a passed/directional claim the
+    overall verdict MUST be abstain'. But EvaluatorMeasurementSetV1's own
+    anyOf makes all four measurement blocks schema-optional -- nothing in
+    the bundle schema forces a required axis's block to actually exist. A
+    bundle that omits a required axis's block entirely is out of scope for
+    this verifier the same way a level-shopped estimator is: reject it here
+    with the same DECLARED_PLAN_SCOPE_VIOLATION family used elsewhere in
+    this stage, rather than let it reach the aggregation layer as a
+    quietly-missing axis. A NON-required axis that is absent is not this
+    check's concern -- it is skipped here, and the aggregation weights
+    themselves fail closed on it (see _axis_point_value) because
+    AggregationPolicyV1's text is silent on what a missing non-required axis
+    contributes to the weighted sum.
+    """
+    weights = {
+        weight["axis"]: weight
+        for weight in bundle["declared_plan"]["aggregation_policy"]["weights"]
+    }
+    measurements = bundle["measurements"]
+    for axis in _AXIS_MEASUREMENT_BLOCK:
+        weight = weights.get(axis)
+        if weight is not None and weight["required_axis"] and axis not in measurements:
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.aggregation_policy")
+
+
 _AXIS_INSTRUMENT_CLAIM = {
     "calibration": "EVQ3",
     "agreement": "EVQ2",
@@ -597,25 +645,55 @@ _RATER_COUPLING_RULES: dict[str, Any] = {
 }
 
 
+_REFERENCE_STANDARD_SCOPED_ROLES = frozenset(
+    {
+        "calibration_ece",
+        "calibration_slope",
+        "agreement_primary",
+        "sensitivity_discriminating_power",
+        "sensitivity_false_difference_rate",
+    }
+)
+"""ReferenceStandardV1's own description: 'No calibration, agreement, or
+sensitivity claim exists without one.' Reliability measures self-consistency
+under perturbation, never agreement with the reference, so reliability roles
+(all higher_is_better) are deliberately outside both directional limits
+below -- including them would make agreement_ceiling_ppm reject a routine
+high-agreement repeat/position/self-preference probe result that has nothing
+to do with the reference standard's resolution.
+"""
+
+
 def _check_reference_ceiling(bundle: dict[str, Any]) -> None:
-    """EVQ2's own reference limit: the agreement measurement's conservative
-    (high) bound must not exceed the reference standard's agreement ceiling.
+    """ReferenceStandardV1's own limit, high side: agreement_ceiling_ppm caps
+    how high EVERY higher_is_better reference-scoped estimate may claim
+    (calibration_slope, agreement_primary, sensitivity_discriminating_power),
+    not agreement_primary alone -- symmetric with _check_reference_floor's
+    lower_is_better sweep below.
     """
-    row = _measurement_role_rows(bundle).get("agreement_primary")
-    if row is None:
-        return
-    if row["interval_high_value"] > bundle["reference_standard"]["agreement_ceiling_ppm"]:
-        _fail("REFERENCE_CEILING_EXCEEDED", "reference_standard.ceiling")
+    ceiling = bundle["reference_standard"]["agreement_ceiling_ppm"]
+    for role, row in _measurement_role_rows(bundle).items():
+        if role not in _REFERENCE_STANDARD_SCOPED_ROLES:
+            continue
+        if row["value_unit"] not in ("ppm_unsigned", "ppm_signed"):
+            continue
+        if row["estimator_parameters"]["direction"] != "higher_is_better":
+            continue
+        if row["interval_high_value"] > ceiling:
+            _fail("REFERENCE_CEILING_EXCEEDED", "reference_standard.ceiling")
 
 
 def _check_reference_floor(bundle: dict[str, Any]) -> None:
-    """EVQ3's distinguishing stage: every lower_is_better ppm role (an error
-    rate) is bounded below by the reference standard's own noise floor -- a
-    single ceiling on both directions would let a perfect-calibration claim
-    of zero through, below what the reference itself can resolve.
+    """EVQ3's distinguishing stage: every lower_is_better reference-scoped
+    ppm role (an error rate) is bounded below by the reference standard's own
+    noise floor -- a single ceiling on both directions would let a
+    perfect-calibration claim of zero through, below what the reference
+    itself can resolve.
     """
     floor = bundle["reference_standard"]["error_floor_ppm"]
-    for row in _measurement_role_rows(bundle).values():
+    for role, row in _measurement_role_rows(bundle).items():
+        if role not in _REFERENCE_STANDARD_SCOPED_ROLES:
+            continue
         if row["value_unit"] not in ("ppm_unsigned", "ppm_signed"):
             continue
         if row["estimator_parameters"]["direction"] != "lower_is_better":
@@ -711,6 +789,19 @@ def _check_claim_material_row_digests(bundle: dict[str, Any]) -> None:
     claim_material_digest, and it must equal the manifest's -- S5 only
     checks the manifest's own field against the recomputed claim_material
     digest, never each row's copy of it.
+
+    Binding this verifier actually enforces: every row's claim_material_digest
+    equals the single digest computed over the manifest's claim_material_digest
+    field, i.e. the ARRAY-level digest over the whole claim_material list (S5's
+    own binding), not a per-claim digest over just that row's one projection.
+    EvaluatorQualityClaimMaterialV1's own description defines its digest over
+    'this projection' (one item), so a row-level reading is also textually
+    available; both readings reject the same negative (a row's digest copied
+    from a different claim's material, which cannot equal either the
+    array-level digest or that other claim's own item-level digest), so
+    nothing observable breaks under either reading today. Which binding a
+    relying party may rely on -- array-level (what this code checks) or
+    row-level -- is a contract clarification this module does not resolve.
     """
     expected = bundle["unsigned_manifest"]["claim_material_digest"]
     for row in bundle["claim_support_rows"]:
@@ -755,8 +846,13 @@ def _check_instrument_adequacy(bundle: dict[str, Any]) -> None:
 
 def _check_required_axis_completeness(bundle: dict[str, Any]) -> None:
     """A2: weights are never renormalized over the axes that happen to have
-    evidence -- a required axis that abstains forces the overall verdict to
-    abstain too, never a narrower silent recomputation."""
+    evidence -- if any required_axis lacks a passed/directional claim the
+    overall verdict MUST be abstain (AggregationPolicyV1's own text). A
+    required axis's claim reading 'failed' lacks a passed/directional
+    verdict exactly as much as one reading 'abstain' does, so both trigger
+    this guard -- checking only for 'abstain' would let a required axis that
+    outright failed silently ride along under a non-abstain overall verdict.
+    """
     rows = _instrument_adequacy_rows(bundle)
     overall = bundle["unsigned_manifest"]["overall"]
     for weight in bundle["declared_plan"]["aggregation_policy"]["weights"]:
@@ -766,7 +862,11 @@ def _check_required_axis_completeness(bundle: dict[str, Any]) -> None:
         if claim_id is None:
             continue
         row = rows.get(claim_id)
-        if row is not None and row["verdict"] == "abstain" and overall["verdict"] != "abstain":
+        if (
+            row is not None
+            and row["verdict"] not in ("passed", "directional")
+            and overall["verdict"] != "abstain"
+        ):
             _fail("AGGREGATION_RENORMALIZED", "overall")
 
 
@@ -792,27 +892,59 @@ def _round_half_even(numerator: int, denominator: int) -> int:
     return quotient if quotient % 2 == 0 else quotient + 1
 
 
+AXIS_POINT_VALUE_ROLE: dict[str, str] = {
+    "calibration": "calibration_slope",
+    "agreement": "agreement_primary",
+    "sensitivity": "sensitivity_discriminating_power",
+    "reliability": "_reliability_mean_of_measured_probes",
+}
+"""Which measurement role is 'the axis's point value' for the A5 weighted
+sum, per axis. THIS IS A VERIFIER CONVENTION, NOT A CONTRACT DERIVATION:
+AggregationPolicyV1 and MeasurementV1 say overall_quality_ppm is the
+weighted sum of 'each axis's point value', but no schema artifact says
+which role that is for an axis that owns several (three of four do --
+calibration also has expected_calibration_error, sensitivity also has
+false_difference_rate). This pin is pending a contract amendment (Schema
+follow-up: a point_value_role per axis on AggregationWeightV1); until then,
+this constant IS the definition, and _axis_point_value below fails closed
+rather than silently substituting 0 for anything not covered by it. The
+reliability entry is a sentinel, not a real MeasurementRoleV1 value --
+reliability's point value is the round-half-even mean of its measured
+probes, not a single role's point_value.
+"""
+
+
 def _axis_point_value(bundle: dict[str, Any], axis: str) -> int:
     """The per-axis point value the A5 weighted sum is over. These values
     are themselves issuer-attested, never recomputed by this verifier
     (NC_EVQ_INTERVALS_NOT_RECOMPUTED) -- only the arithmetic over them is
-    checked.
+    checked. Fails closed (AGGREGATION_DERIVATION_MISMATCH) rather than
+    returning a silent 0 on an axis AXIS_POINT_VALUE_ROLE does not
+    recognise, a role whose measurement is absent, or an empty reliability
+    probe list -- a silent 0 would let a missing axis quietly zero out its
+    own weighted contribution instead of rejecting the bundle.
     """
-    measurements = bundle["measurements"]
-    if axis == "calibration":
-        return cast(int, measurements["calibration"]["calibration_slope"]["point_value"])
-    if axis == "agreement":
-        return cast(int, measurements["agreement"]["agreement"]["point_value"])
-    if axis == "sensitivity":
-        return cast(int, measurements["sensitivity"]["discriminating_power"]["point_value"])
+    role = AXIS_POINT_VALUE_ROLE.get(axis)
+    if role is None:
+        _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
     if axis == "reliability":
-        probes = [
-            probe["measurement"]["point_value"]
-            for probe in measurements["reliability"]["probe_results"]
-            if probe["status"] == "measured"
-        ]
-        return _round_half_even(sum(probes), len(probes)) if probes else 0
-    return 0
+        reliability = bundle["measurements"].get("reliability")
+        probes = (
+            [
+                probe["measurement"]["point_value"]
+                for probe in reliability["probe_results"]
+                if probe["status"] == "measured"
+            ]
+            if reliability is not None
+            else []
+        )
+        if not probes:
+            _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
+        return _round_half_even(sum(probes), len(probes))
+    row = _measurement_role_rows(bundle).get(role)
+    if row is None:
+        _fail("AGGREGATION_DERIVATION_MISMATCH", "overall")
+    return cast(int, row["point_value"])
 
 
 def _check_aggregation_derivation(bundle: dict[str, Any]) -> None:
@@ -847,6 +979,7 @@ def _verify_evaluator_quality_private(bundle: object, *, context: object) -> Non
     _check_manifest_signature(shaped)
     _check_commitment(shaped, context)
     _check_plan_containment(shaped)
+    _check_required_axis_measurement_block(shaped)
     _check_reference_ceiling(shaped)
     _check_reference_floor(shaped)
     _check_reference_rater_coupling(shaped)

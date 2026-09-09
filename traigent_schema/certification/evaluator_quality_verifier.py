@@ -192,28 +192,60 @@ def _read_evaluator_quality_package_json(filename: str) -> Any:
     return json.loads(node.read_text(encoding="utf-8"))
 
 
-def _walk_strict_values(value: Any) -> None:
-    """Reject values fp2 must never be asked to canonicalize."""
-    if isinstance(value, bool):
-        return
-    if isinstance(value, int) and not -(2**53 - 1) <= value <= 2**53 - 1:
-        _fail("EVALUATOR_STRICT_INTEGER", "bundle")
-    if isinstance(value, float):
-        _fail("EVALUATOR_STRICT_INTEGER", "bundle")
-    if isinstance(value, str):
-        try:
-            value.encode("utf-8", "strict")
-        except UnicodeEncodeError:
+_WALK_VALUE = 0
+_WALK_CLOSE = 1
+
+
+def _walk_strict_values(root: Any) -> None:
+    """Reject values fp2 must never be asked to canonicalize.
+
+    Uses an explicit work stack rather than recursion, and tracks open
+    containers by identity, for the same reason fp2's own ``_encode`` does:
+    recursion depth is a property of the caller's remaining interpreter
+    stack, not of the data, so identical input could canonicalize from one
+    call site and crash with ``RecursionError`` from a deeper one. A
+    self-referential structure built in Python (never JSON-parsed, so never
+    seen by ``json.loads``) reaches this walk before schema validation and
+    must fail with a vocabulary code here, not a bare Python exception.
+    isinstance() stays deliberately loose here -- str/int/dict/list
+    SUBCLASSES are meant to survive this walk unrejected and reach the S11
+    fp2.canonicalize() tail, which dispatches on exact type instead.
+    """
+    open_containers: set[int] = set()
+    work: list[tuple[int, Any, int]] = [(_WALK_VALUE, root, 1)]
+    while work:
+        kind, value, depth = work.pop()
+        if kind == _WALK_CLOSE:
+            open_containers.discard(value)
+            continue
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int) and not -(2**53 - 1) <= value <= 2**53 - 1:
             _fail("EVALUATOR_STRICT_INTEGER", "bundle")
-    elif isinstance(value, dict):
-        for key, child in value.items():
-            if not isinstance(key, str):
+        if isinstance(value, float):
+            _fail("EVALUATOR_STRICT_INTEGER", "bundle")
+        if isinstance(value, str):
+            try:
+                value.encode("utf-8", "strict")
+            except UnicodeEncodeError:
                 _fail("EVALUATOR_STRICT_INTEGER", "bundle")
-            _walk_strict_values(key)
-            _walk_strict_values(child)
-    elif isinstance(value, list):
-        for child in value:
-            _walk_strict_values(child)
+        elif isinstance(value, (dict, list)):
+            if depth > fp2.MAX_DEPTH:
+                _fail("EVALUATOR_CANONICALIZATION", "bundle")
+            identity = id(value)
+            if identity in open_containers:
+                _fail("EVALUATOR_CANONICALIZATION", "bundle")
+            open_containers.add(identity)
+            work.append((_WALK_CLOSE, identity, 0))
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    if not isinstance(key, str):
+                        _fail("EVALUATOR_STRICT_INTEGER", "bundle")
+                    work.append((_WALK_VALUE, key, depth + 1))
+                    work.append((_WALK_VALUE, child, depth + 1))
+            else:
+                for child in value:
+                    work.append((_WALK_VALUE, child, depth + 1))
 
 
 @lru_cache(maxsize=1)
@@ -322,6 +354,19 @@ def _check_registry_digests(bundle: dict[str, Any]) -> None:
 
 
 def _check_manifest_signature(bundle: dict[str, Any]) -> None:
+    """S7: signature verification.
+
+    EVALUATOR_KEY_RING_MISMATCH is one internal code covering three distinct
+    conditions, kept as one name deliberately (see the module's P3-tl-review
+    disposition): the signature's own issuer_key_ref/trust_ring_ref
+    disagreeing with the manifest's; the issuer's key material in
+    verification_materials_v0 failing to parse or reconcile with its own
+    declared digest (_material_public_key's MATERIALS_KEY); and the issuer's
+    declared key_ref/trust_ring_ref disagreeing with the manifest's. All
+    three are key-resolution failures, never a forged-signature finding
+    (EVALUATOR_ISSUER_SIGNATURE_INVALID) -- do not rename this code to
+    describe only the first condition.
+    """
     manifest = bundle["unsigned_manifest"]
     signature = bundle["signature"]
     if tuple(manifest["coverage"]) != _EVALUATOR_COVERAGE:
@@ -408,6 +453,11 @@ def _check_measurement_registry_admissibility(row: dict[str, Any]) -> None:
         _fail("UNIT_NOT_ADMISSIBLE", "measurements")
     if row["interval_params"]["interval_kind"] not in entry["interval_kinds"]:
         _fail("INTERVAL_MALFORMED", "measurements.interval_params")
+    # The registry's measurement_roles column is authority for which roles an
+    # estimator may be used for (EstimatorIdV1's description says so); a role
+    # not in that list is the same shopping hole as an inadmissible unit.
+    if row.get("measurement_role") not in entry["measurement_roles"]:
+        _fail("ESTIMATOR_PARAMS_NOT_ADMISSIBLE", "measurements")
 
 
 def _check_interval_well_formed(row: dict[str, Any]) -> None:
@@ -420,6 +470,20 @@ def _check_interval_well_formed(row: dict[str, Any]) -> None:
             _fail("INTERVAL_MALFORMED", "measurements.interval")
 
 
+def _check_interval_width(row: dict[str, Any], planned: dict[str, Any]) -> None:
+    """maximum_interval_width_ppm is denominated in ppm of a [0, 1000000]
+    scale; comparing it against a raw microusd/microsecond width would be a
+    unit conflation (latent today because every plannable role in
+    PLANNED_ROLE_ORDER happens to be ppm_unsigned), so non-ppm value units
+    are rejected here rather than silently compared on the wrong scale.
+    """
+    if row["value_unit"] not in ("ppm_unsigned", "ppm_signed"):
+        _fail("UNIT_NOT_ADMISSIBLE", "measurements.interval")
+    width = row["interval_high_value"] - row["interval_low_value"]
+    if width > planned["maximum_interval_width_ppm"]:
+        _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")
+
+
 def _check_resample_unit(row: dict[str, Any]) -> None:
     params = row["interval_params"]
     if (
@@ -429,15 +493,49 @@ def _check_resample_unit(row: dict[str, Any]) -> None:
         _fail("RESAMPLE_UNIT_MISMATCH", "measurements.interval_params")
 
 
+_THRESHOLD_COMPARISON_FOR_DIRECTION = {
+    "higher_is_better": "interval_low_ge",
+    "lower_is_better": "interval_high_le",
+}
+
+
+def _check_plan_direction_coupling(bundle: dict[str, Any]) -> None:
+    """The plan's own threshold_comparison must match its own direction.
+
+    PlannedMeasurementV1 pins the coupling (interval_low_ge for
+    higher_is_better, interval_high_le for lower_is_better) in prose only --
+    the schema cannot express a cross-field constraint at draft-07. Without
+    this check a lower_is_better role (an error rate) could declare
+    interval_low_ge with a negative threshold and pass on a 99%
+    false-difference rate: shopping the DIRECTION, not just the estimator.
+    This is plan-only self-consistency, so it runs over every planned entry
+    regardless of whether the role was ever measured.
+    """
+    for planned in bundle["declared_plan"]["planned_measurements"]:
+        direction = planned["estimator_parameters"]["direction"]
+        expected = _THRESHOLD_COMPARISON_FOR_DIRECTION[direction]
+        if planned["threshold_comparison"] != expected:
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
+
+
 def _check_plan_containment(bundle: dict[str, Any]) -> None:
     """S12: per-role plan containment -- the post-hoc estimator/level-shopping guard.
 
-    Only roles the plan declares AND the measurement set actually reports are
-    checked here; a role the plan requires but the bundle never measured is a
-    coverage concern the per-claim rejection stages (EVQ4/EVQ5) own, not this
-    stage.
+    Every role the measurement set reports must have a matching plan entry:
+    a measured-but-unplanned role receives none of this stage's checks (no
+    plan row to check it against), so it is rejected outright rather than
+    silently skipped -- the converse case (a role the plan requires but the
+    bundle never measured) remains a coverage concern the per-claim
+    rejection stages (EVQ4/EVQ5) own, not this stage.
     """
+    _check_plan_direction_coupling(bundle)
     rows = _measurement_role_rows(bundle)
+    planned_roles = {
+        planned["measurement_role"] for planned in bundle["declared_plan"]["planned_measurements"]
+    }
+    for role in rows:
+        if role not in planned_roles:
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
     for planned in bundle["declared_plan"]["planned_measurements"]:
         row = rows.get(planned["measurement_role"])
         if row is None:
@@ -449,6 +547,7 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
             or row["nominal_coverage_ppm"] != planned["nominal_coverage_ppm"]
             or row["sample_unit"] != planned["sample_unit"]
             or row["value_unit"] != planned["value_unit"]
+            or row["estimator_parameters"] != planned["estimator_parameters"]
         ):
             _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
         _check_measurement_registry_admissibility(row)
@@ -456,14 +555,18 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
         _check_resample_unit(row)
         if row["sample_size_n"] < planned["minimum_sample_size_n"]:
             _fail("SAMPLE_SIZE_INSUFFICIENT", "measurements.sample_size")
-        width = row["interval_high_value"] - row["interval_low_value"]
-        if width > planned["maximum_interval_width_ppm"]:
-            _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")
+        _check_interval_width(row, planned)
         if planned["threshold_comparison"] == "interval_low_ge":
             if row["interval_low_value"] < planned["threshold_value"]:
                 _fail("THRESHOLD_NOT_MET", "measurements.interval")
-        elif row["interval_high_value"] > planned["threshold_value"]:
-            _fail("THRESHOLD_NOT_MET", "measurements.interval")
+        elif planned["threshold_comparison"] == "interval_high_le":
+            if row["interval_high_value"] > planned["threshold_value"]:
+                _fail("THRESHOLD_NOT_MET", "measurements.interval")
+        else:
+            # Unreachable while the schema enum has exactly two members --
+            # kept explicit so a future third member fails closed instead of
+            # silently routing into the high-side branch.
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
 
 
 def _verify_evaluator_quality_private(bundle: object, *, context: object) -> None:

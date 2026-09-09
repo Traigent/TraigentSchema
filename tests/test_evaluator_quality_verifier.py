@@ -930,18 +930,37 @@ def test_malformed_issuer_key_material_is_key_ring_mismatch_not_signature_invali
     _expect(bundle, "EVALUATOR_KEY_RING_MISMATCH")
 
 
-def test_delete_signature_verification_guard_leaves_forged_signature_rejected() -> None:
-    """Mutate-the-guard probe for S7-sigverify (packet-2 review probe, template G)."""
+def test_delete_signature_verification_guard_lets_forged_signature_through() -> None:
+    """Mutate-the-guard probe for S7-sigverify (packet-2 review probe, template G).
+
+    P3-tl-review-1 P1-3: the previous version of this test exec'd the
+    mutated module into a namespace with no ``__file__``, so
+    ``_evaluator_quality_validator()``'s ``Path(__file__)`` raised
+    ``NameError`` on ANY input and the test's ``pytest.raises`` passed
+    vacuously regardless of what the mutation did (probe V1). Passing
+    ``__file__`` here (probe V2) exposes the true property: with
+    ``_verify_signature`` deleted, nothing else in the pipeline rejects a
+    forged signature, so the mutated verifier ACCEPTS both a valid bundle
+    (the mutation is targeted, not a general break) and a forged one (the
+    guard was the only thing standing between a forged signature and
+    acceptance -- this is exactly why it is load-bearing). The converse --
+    that a forged signature IS rejected with the guard present -- is
+    covered separately by ``test_forged_signature_is_rejected_full_pipeline``
+    against the real, unmutated module.
+    """
     source = Path(evq.__file__).read_text()
     target = '        _verify_signature(key, issuer["algorithm"], material, signature["signature"])'
     assert target in source
     mutated = source.replace(target, "        pass", 1)
-    namespace: dict[str, Any] = {"__name__": "evq_mutated"}
-    exec(compile(mutated, "<mutated evq>", "exec"), namespace)
+    namespace: dict[str, Any] = {"__name__": "evq_mutated", "__file__": evq.__file__}
+    exec(compile(mutated, evq.__file__, "exec"), namespace)
+
+    valid = build_bundle()
+    assert namespace["_verify_evaluator_quality_private"](valid, context=DEFAULT_CONTEXT) is None
+
     forged = build_bundle()
     forged["signature"]["signature"] = base64.b64encode(b"\x00" * 64).decode("ascii")
-    with pytest.raises(namespace["EvaluatorQualityVerificationError"]):
-        namespace["_verify_evaluator_quality_private"](forged, context=DEFAULT_CONTEXT)
+    assert namespace["_verify_evaluator_quality_private"](forged, context=DEFAULT_CONTEXT) is None
 
 
 # --- Step-0 P1-2: S5's manifest-side digests are covered, one per artifact -
@@ -959,10 +978,14 @@ def test_claim_support_rows_manifest_side_digest_mismatch() -> None:
     _expect(bundle, "EVALUATOR_ARTIFACT_DIGEST_MISMATCH")
 
 
-# non_claims is a fixed, positionally-const-pinned 18-tuple (S8); any content
-# mutation that keeps the bundle schema-valid is not constructible, so its
-# manifest-side digest check is a tripwire, not a reachable runtime negative --
-# see P3-2 disposition for the same class of unconstructible path.
+def test_non_claims_manifest_side_digest_mismatch() -> None:
+    """P3-tl-review-1 P2-4: no content mutation of non_claims is schema-valid
+    (all 18 items are const-pinned), but the MANIFEST's own
+    non_claims_digest field is an unconstrained digest string, so corrupting
+    it needs no content mutation and models a tampered manifest directly."""
+    bundle = build_bundle()
+    bundle["unsigned_manifest"]["non_claims_digest"] = SHA
+    _expect(bundle, "EVALUATOR_ARTIFACT_DIGEST_MISMATCH")
 
 
 # --- Step-0 item 4: ordering, not just reachability ------------------------
@@ -1016,6 +1039,38 @@ def test_ordering_s9_commitment_before_plan_containment() -> None:
             expected_project_ref=PROJECT_REF, expected_evaluator_commitment_ref="sha256:" + "b" * 64
         ),
     )
+
+
+# --- P3-tl-review-1 answer (c): the load-bearing missing ordering pairs ----
+
+
+def test_ordering_s1_bundle_shape_before_s2_schema() -> None:
+    """A dict missing the fixed top-level member set must fail EVALUATOR_BUNDLE_SHAPE
+    at S1, never fall through to the schema validator (or worse, to S3's
+    unguarded bundle["declared_plan"]["planned_measurements"] indexing)."""
+    _expect({"schema_version": 1}, "EVALUATOR_BUNDLE_SHAPE")
+
+
+def test_ordering_s2_schema_before_s3_semantic_uniqueness() -> None:
+    """A schema-invalid declared_plan.planned_measurements (None, not a list)
+    must be rejected at S2; S3 indexes that field unguarded and would raise
+    TypeError -- outside the closed vocabulary -- if it ran first."""
+    bundle = build_bundle(declared_plan={"planned_measurements": None})
+    _expect(bundle, "EVALUATOR_SCHEMA")
+
+
+def test_ordering_s5_artifact_digest_before_s6_registry_digest() -> None:
+    bundle = build_bundle()
+    bundle["descriptor"]["evaluator_version"] = "9.9.9"
+    bundle["unsigned_manifest"]["measurement_registry_digest"] = SHA
+    _expect(bundle, "EVALUATOR_ARTIFACT_DIGEST_MISMATCH")
+
+
+def test_ordering_s6_registry_digest_before_s7_manifest_signature() -> None:
+    bundle = build_bundle()
+    bundle["unsigned_manifest"]["measurement_registry_digest"] = SHA
+    bundle["signature"]["unsigned_manifest_digest"] = SHA
+    _expect(bundle, "REGISTRY_DIGEST_MISMATCH")
 
 
 # --- Step-0 item 5: MEASUREMENT_ROLE_DUPLICATE through the full pipeline ---
@@ -1098,6 +1153,122 @@ def test_declared_plan_scope_violation_coverage_level_shopping() -> None:
     _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
 
 
+def test_declared_plan_scope_violation_estimator_parameters_diverge() -> None:
+    """P3-tl-review-1 P2-1 / probe D2: estimator_parameters (direction,
+    interval_side, score_scale, label_kind) was outside the containment
+    tuple -- a measurement could flip direction against the plan and pass."""
+    bundle = build_bundle(
+        measurements={
+            "calibration": {
+                "calibration_slope": {
+                    "estimator_parameters": {
+                        "interval_side": "upper_one_sided",
+                        "direction": "lower_is_better",
+                        "score_scale": "binary",
+                        "label_kind": "binary",
+                    }
+                }
+            }
+        }
+    )
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_declared_plan_direction_threshold_comparison_coupling() -> None:
+    """P3-tl-review-1 P1-1 / probe E4: a lower_is_better role declaring
+    interval_low_ge (with a floor threshold) is direction-shopping -- the
+    schema pins the coupling in prose only, so the verifier must enforce it."""
+    shopped_plan = [
+        {
+            **_planned(r),
+            **(
+                {"threshold_comparison": "interval_low_ge", "threshold_value": -1000000}
+                if r == "sensitivity_false_difference_rate"
+                else {}
+            ),
+        }
+        for r in PLANNED_ROLE_ORDER
+    ]
+    bundle = build_bundle(
+        declared_plan={"planned_measurements": shopped_plan},
+        measurements={
+            "sensitivity": {
+                "false_difference_rate": {
+                    "point_value": 990000,
+                    "interval_low_value": 980000,
+                    "interval_high_value": 1000000,
+                }
+            }
+        },
+    )
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_registry_measurement_role_not_admissible_for_estimator() -> None:
+    """P3-tl-review-1 P1-4 / probe D1: cohens_kappa is registry-admissible
+    only for agreement_primary; using it for calibration_slope must be
+    rejected even though estimator_id, unit and interval_kind all pass."""
+    shopped_plan = [
+        {
+            **_planned(r),
+            **(
+                {
+                    "estimator_id": "cohens_kappa",
+                    "interval_params": _analytic_params("wilson_score"),
+                }
+                if r == "calibration_slope"
+                else {}
+            ),
+        }
+        for r in PLANNED_ROLE_ORDER
+    ]
+    bundle = build_bundle(
+        declared_plan={"planned_measurements": shopped_plan},
+        measurements={
+            "calibration": {
+                "calibration_slope": {
+                    "estimator_id": "cohens_kappa",
+                    "interval_params": _analytic_params("wilson_score"),
+                }
+            }
+        },
+    )
+    _expect(bundle, "ESTIMATOR_PARAMS_NOT_ADMISSIBLE")
+
+
+def test_measured_role_absent_from_plan_is_scope_violation() -> None:
+    """P3-tl-review-1 P2-2 / probe F1: a measured-but-unplanned role received
+    zero validation before (registry admissibility, interval well-formedness,
+    threshold -- all skipped). Decision: it is a DECLARED_PLAN_SCOPE_VIOLATION,
+    the converse of the plan-requires-but-never-measured case EVQ4/EVQ5 own."""
+    bundle = build_bundle(
+        declared_plan={
+            "planned_measurements": [
+                _planned(r) for r in PLANNED_ROLE_ORDER if r != "agreement_primary"
+            ]
+        }
+    )
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_str_subclass_in_verification_materials_reaches_canonicalization_guard() -> None:
+    """P3-tl-review-1 P2-3 / probe A1: S1's _walk_strict_values uses
+    isinstance() (subclasses pass); fp2._encode dispatches on exact type by
+    design. A str subclass placed in verification_materials_v0 -- a region
+    no EARLIER stage canonicalizes -- survives S1 and jsonschema (both
+    isinstance-based) and must still be rejected by the S11 canonicalization
+    tail. Proves the tail is load-bearing, not dead code."""
+
+    class SubStr(str):
+        pass
+
+    bundle = build_bundle()
+    bundle["verification_materials_v0"]["issuer"]["algorithm"] = SubStr(
+        bundle["verification_materials_v0"]["issuer"]["algorithm"]
+    )
+    _expect(bundle, "EVALUATOR_CANONICALIZATION")
+
+
 def test_sample_size_insufficient_below_declared_plan_minimum() -> None:
     bundle = build_bundle(measurements={"agreement": {"agreement": {"sample_size_n": 2}}})
     _expect(bundle, "SAMPLE_SIZE_INSUFFICIENT")
@@ -1113,14 +1284,18 @@ def test_interval_width_exceeded_over_declared_plan_maximum() -> None:
 
 
 def test_threshold_not_met_at_the_conservative_bound() -> None:
-    """Point above threshold, conservative (low) bound below it -- never the point."""
+    """Point PASSES the threshold (505000 >= 500000); only the conservative
+    (low) bound fails (495000 < 500000). P3-tl-review-1 P1-2: the previous
+    fixture (point 400000, low 300000, thr 500000) failed the point too, so
+    mutation S12-thr-USE-POINT-low (compare point_value instead of
+    interval_low_value) was GREEN -- this fixture isolates the bound."""
     bundle = build_bundle(
         measurements={
             "agreement": {
                 "agreement": {
-                    "point_value": 400000,
-                    "interval_low_value": 300000,
-                    "interval_high_value": 500000,
+                    "point_value": 505000,
+                    "interval_low_value": 495000,
+                    "interval_high_value": 515000,
                 }
             }
         }
@@ -1156,14 +1331,198 @@ def test_resample_unit_mismatch_pseudo_replication() -> None:
     _expect(bundle, "RESAMPLE_UNIT_MISMATCH")
 
 
+# --- P3-tl-review-1 P3: every S12 boundary comparison pinned off-by-one ----
+
+
+def test_sample_size_boundary_29_rejected_30_accepted() -> None:
+    minimum_sample_size_n = _planned("agreement_primary")["minimum_sample_size_n"]
+    assert minimum_sample_size_n == 30
+    rejected = build_bundle(measurements={"agreement": {"agreement": {"sample_size_n": 29}}})
+    _expect(rejected, "SAMPLE_SIZE_INSUFFICIENT")
+    accepted = build_bundle(measurements={"agreement": {"agreement": {"sample_size_n": 30}}})
+    assert evq._verify_evaluator_quality_private(accepted, context=DEFAULT_CONTEXT) is None
+
+
+def test_interval_width_boundary_200000_accepted_200001_rejected() -> None:
+    maximum_interval_width_ppm = _planned("agreement_primary")["maximum_interval_width_ppm"]
+    assert maximum_interval_width_ppm == 200000
+    accepted = build_bundle(
+        measurements={
+            "agreement": {
+                "agreement": {"interval_low_value": 800000, "interval_high_value": 1000000}
+            }
+        }
+    )
+    assert evq._verify_evaluator_quality_private(accepted, context=DEFAULT_CONTEXT) is None
+    rejected = build_bundle(
+        measurements={
+            "agreement": {
+                "agreement": {"interval_low_value": 799999, "interval_high_value": 1000000}
+            }
+        }
+    )
+    _expect(rejected, "INTERVAL_WIDTH_EXCEEDED")
+
+
+def test_threshold_low_boundary_exact_500000_accepted_499999_rejected() -> None:
+    threshold_value = _planned("agreement_primary")["threshold_value"]
+    assert threshold_value == 500000
+    accepted = build_bundle(
+        measurements={
+            "agreement": {
+                "agreement": {
+                    "point_value": 525000,
+                    "interval_low_value": 500000,
+                    "interval_high_value": 550000,
+                }
+            }
+        }
+    )
+    assert evq._verify_evaluator_quality_private(accepted, context=DEFAULT_CONTEXT) is None
+    rejected = build_bundle(
+        measurements={
+            "agreement": {
+                "agreement": {
+                    "point_value": 524999,
+                    "interval_low_value": 499999,
+                    "interval_high_value": 549999,
+                }
+            }
+        }
+    )
+    _expect(rejected, "THRESHOLD_NOT_MET")
+
+
+def test_threshold_high_boundary_exact_500000_accepted_500001_rejected() -> None:
+    threshold_value = _planned("sensitivity_false_difference_rate")["threshold_value"]
+    assert threshold_value == 500000
+    accepted = build_bundle(
+        measurements={
+            "sensitivity": {
+                "false_difference_rate": {
+                    "point_value": 475000,
+                    "interval_low_value": 450000,
+                    "interval_high_value": 500000,
+                }
+            }
+        }
+    )
+    assert evq._verify_evaluator_quality_private(accepted, context=DEFAULT_CONTEXT) is None
+    rejected = build_bundle(
+        measurements={
+            "sensitivity": {
+                "false_difference_rate": {
+                    "point_value": 475001,
+                    "interval_low_value": 450001,
+                    "interval_high_value": 500001,
+                }
+            }
+        }
+    )
+    _expect(rejected, "THRESHOLD_NOT_MET")
+
+
+def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate() -> None:
+    """P3-tl-review-1 P3: the measurement-side sweep (_measurement_role_rows,
+    owned by S12) had zero coverage -- the existing #458-regression test
+    duplicates a role in declared_plan.planned_measurements, which is S3,
+    not this. Here the DUPLICATE is on the measurement side: two probe
+    results carry the same measurement.measurement_role."""
+    probes = [
+        {
+            "probe_id": p,
+            "status": "measured",
+            "measurement": _measurement(
+                "reliability_probe_constant_output"
+                if p == "verbosity"
+                else "reliability_probe_" + p,
+                point=960000,
+            ),
+        }
+        for p in ("constant_output", "verbosity", "position", "self_preference", "one_token_fool")
+    ]
+    bundle = build_bundle(measurements={"reliability": {"probe_results": probes}})
+    _expect(bundle, "MEASUREMENT_ROLE_DUPLICATE")
+
+
+def test_circular_reference_yields_vocabulary_code_not_recursion_error() -> None:
+    """P3-tl-review-1 P3 / probe A4: _walk_strict_values had no cycle guard,
+    so a self-referential value built in Python (never JSON-parsed) escaped
+    the closed vocabulary as a bare RecursionError."""
+    bundle = build_bundle()
+    cycle: dict[str, Any] = {}
+    cycle["self"] = cycle
+    bundle["verification_materials_v0"]["issuer"]["algorithm"] = cycle
+    _expect(bundle, "EVALUATOR_CANONICALIZATION")
+
+
+def test_overdeep_nesting_yields_vocabulary_code() -> None:
+    """P3-tl-review-1 P3 / probe A3: mirrors fp2's own MAX_DEPTH rejection
+    rather than relying on the interpreter's own recursion limit."""
+    bundle = build_bundle()
+    deep: Any = "x"
+    for _ in range(fp2.MAX_DEPTH + 40):
+        deep = [deep]
+    bundle["verification_materials_v0"]["issuer"]["algorithm"] = deep
+    _expect(bundle, "EVALUATOR_CANONICALIZATION")
+
+
+def test_non_ppm_value_unit_rejected_at_width_guard_not_conflated() -> None:
+    """P3-tl-review-1 P3: maximum_interval_width_ppm is ppm-of-[0,1000000];
+    comparing a raw microusd/microsecond width against it would be a unit
+    conflation. Latent in the fixtures (every planned role is ppm_unsigned),
+    so this drives the extracted guard directly rather than through
+    build_bundle (a non-ppm role cannot reach it through the full pipeline:
+    the fixed AgreementBlockV1/etc. structural slots each const-pin their
+    measurement_role, and every registry-admissible role reachable from
+    PLANNED_ROLE_ORDER is ppm_unsigned)."""
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._check_interval_width(
+            {"value_unit": "microusd", "interval_low_value": 0, "interval_high_value": 100},
+            {"maximum_interval_width_ppm": 200000},
+        )
+    assert caught.value.code == "UNIT_NOT_ADMISSIBLE"
+
+
+def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
+    with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
+        evq._check_interval_width(
+            {"value_unit": "ppm_unsigned", "interval_low_value": 0, "interval_high_value": 200001},
+            {"maximum_interval_width_ppm": 200000},
+        )
+    assert caught.value.code == "INTERVAL_WIDTH_EXCEEDED"
+
+
 @pytest.mark.parametrize(
     ("guard_name", "target", "replacement", "expect_code"),
     [
         (
-            "plan-containment-scope",
+            # NOTE: "DECLARED_PLAN_SCOPE_VIOLATION" is _fail()'d from four
+            # call sites now (direction coupling, unplanned-role, the
+            # containment tuple, and the unreachable dispatch fallback), all
+            # byte-identical -- str.replace(..., 1) hits whichever occurs
+            # FIRST in the file, so each target below includes the
+            # preceding, guard-specific condition line to stay unique.
+            "plan-direction-coupling",
+            '        if planned["threshold_comparison"] != expected:\n'
             '            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
             '"declared_plan.planned_measurements")',
-            "            pass",
+            '        if planned["threshold_comparison"] != expected:\n            pass',
+            None,
+        ),
+        (
+            "plan-unplanned-role-rejected",
+            "        if role not in planned_roles:\n"
+            '            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
+            '"declared_plan.planned_measurements")',
+            "        if role not in planned_roles:\n            pass",
+            None,
+        ),
+        (
+            "plan-containment-scope",
+            '        ):\n            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
+            '"declared_plan.planned_measurements")',
+            "        ):\n            pass",
             None,
         ),
         (
@@ -1174,8 +1533,8 @@ def test_resample_unit_mismatch_pseudo_replication() -> None:
         ),
         (
             "interval-width-exceeded",
-            '            _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")',
-            "            pass",
+            '        _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")',
+            "        pass",
             None,
         ),
     ],
@@ -1186,10 +1545,42 @@ def test_mutate_the_plan_containment_guard_is_caught(
     """Delete only the named guard; the matching negative must go RED."""
     source = Path(evq.__file__).read_text()
     assert target in source, guard_name
+    assert source.count(target) == 1, guard_name
     mutated = source.replace(target, replacement, 1)
     namespace: dict[str, Any] = {"__name__": "evq_mutated_plan"}
     exec(compile(mutated, "<mutated evq>", "exec"), namespace)
     negatives = {
+        "plan-direction-coupling": build_bundle(
+            declared_plan={
+                "planned_measurements": [
+                    {
+                        **_planned(r),
+                        **(
+                            {"threshold_comparison": "interval_low_ge", "threshold_value": -1000000}
+                            if r == "sensitivity_false_difference_rate"
+                            else {}
+                        ),
+                    }
+                    for r in PLANNED_ROLE_ORDER
+                ]
+            },
+            measurements={
+                "sensitivity": {
+                    "false_difference_rate": {
+                        "point_value": 990000,
+                        "interval_low_value": 980000,
+                        "interval_high_value": 1000000,
+                    }
+                }
+            },
+        ),
+        "plan-unplanned-role-rejected": build_bundle(
+            declared_plan={
+                "planned_measurements": [
+                    _planned(r) for r in PLANNED_ROLE_ORDER if r != "agreement_primary"
+                ]
+            }
+        ),
         "plan-containment-scope": build_bundle(
             measurements={"agreement": {"agreement": {"estimator_id": "fleiss_kappa"}}}
         ),

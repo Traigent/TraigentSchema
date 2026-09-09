@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from functools import lru_cache
 from importlib import resources
 from typing import Any, NoReturn, cast
 
@@ -46,6 +47,12 @@ EVALUATOR_QUALITY_FIELD_LOCATIONS = frozenset(
 )
 _DIGEST_DOMAINS = _const_registry("EvaluatorQualityDigestDomainRegistryV1")
 
+_EVALUATOR_QUALITY_REGISTRY_DOMAINS = {
+    "measurement_registry": _DIGEST_DOMAINS["measurement_registry"],
+    "perturbation_set": _DIGEST_DOMAINS["perturbation_set"],
+    "assertion_templates": _DIGEST_DOMAINS["assertion_templates"],
+}
+
 # This is the module-owned vocabulary reserved by the complete guard sequence.
 # The public entry point and its reachable guards land in later packets; this
 # packet deliberately exposes only the shared vocabulary and primitives.
@@ -57,6 +64,8 @@ EVALUATOR_QUALITY_ERROR_CODES = frozenset(
         "EVALUATOR_SCHEMA_DEPENDENCY",
         "EVALUATOR_STRICT_INTEGER",
         "EVALUATOR_CANONICALIZATION",
+        "INSTRUMENT_ADEQUACY_MISMATCH",
+        "OVERALL_VERDICT_UNSUPPORTED",
         "EVALUATOR_COMMITMENT_MISMATCH",
         "SCOPE_BINDING_MISMATCH",
         "DESCRIPTOR_DIGEST_MISMATCH",
@@ -87,15 +96,9 @@ EVALUATOR_QUALITY_ERROR_CODES = frozenset(
         "PROBE_COVERAGE_INSUFFICIENT",
         "RELIABILITY_DETERMINISM_CONTRADICTION",
         "RELIABILITY_AXIS_MISSING",
-        "EFFICIENCY_DERIVATION_MISMATCH",
-        "RATIO_INTERVAL_NOT_PAIRED",
-        "FRONTIER_ORDER",
-        "FRONTIER_REFERENCE_MISMATCH",
-        "FRONTIER_SAMPLE_SET_MISMATCH",
         "AGGREGATION_POLICY_MISMATCH",
         "AGGREGATION_RENORMALIZED",
         "AGGREGATION_DERIVATION_MISMATCH",
-        "EFFICIENCY_OFFSET_FORBIDDEN",
         "MEASUREMENT_BASIS_INSUFFICIENT",
         "TRANSCRIPT_DIGEST_MISSING",
         "VERDICT_NOT_SUPPORTED",
@@ -156,6 +159,44 @@ def _domain(role: str) -> str:
     return _DIGEST_DOMAINS[role]
 
 
+def _read_evaluator_quality_package_json(filename: str) -> Any:
+    package = resources.files("traigent_schema")
+    node = package.joinpath("data").joinpath("certification").joinpath(filename)
+    return json.loads(node.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=3)
+def _load_evaluator_quality_document(stem: str) -> dict[str, Any]:
+    """Load one registry and verify its content-free, role-separated pin."""
+    field = stem if stem in _EVALUATOR_QUALITY_REGISTRY_DOMAINS else "bundle"
+    loaded: dict[str, Any] | None
+    try:
+        domain = _EVALUATOR_QUALITY_REGISTRY_DOMAINS[stem]
+        document = _read_evaluator_quality_package_json(f"evaluator_{stem}.json")
+        sidecar = _read_evaluator_quality_package_json(f"evaluator_{stem}.digest.json")
+        if not isinstance(document, dict) or not isinstance(sidecar, dict):
+            raise ValueError("invalid registry")
+        digest = sidecar.get("digest")
+        if type(digest) is not str or _role_digest(domain, document) != digest:
+            raise ValueError("registry digest mismatch")
+        loaded = document
+    except Exception:
+        loaded = None
+    if loaded is None:
+        failure = EvaluatorQualityVerificationError("REGISTRY_DIGEST_MISMATCH", field)
+        try:
+            raise failure from None
+        except EvaluatorQualityVerificationError:
+            failure.__context__ = None
+            raise
+    return loaded
+
+
+for _registry_stem in _EVALUATOR_QUALITY_REGISTRY_DOMAINS:
+    _load_evaluator_quality_document(_registry_stem)
+del _registry_stem
+
+
 __all__ = [
     "EVALUATOR_QUALITY_ERROR_CODES",
     "EVALUATOR_QUALITY_FIELD_LOCATIONS",
@@ -164,6 +205,8 @@ __all__ = [
     "_domain",
     "_fail",
     "_load_registry_constant",
+    "_load_evaluator_quality_document",
+    "_EVALUATOR_QUALITY_REGISTRY_DOMAINS",
     "_material_public_key",
     "_role_digest",
     "_strip_self_digest",

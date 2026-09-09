@@ -1,0 +1,1 @@
+{"document":"evaluator_assertion_templates.json","construction":"sha256 over UTF8(domain) || 0x00 || jcs_v1(document) -- domain = EvaluatorQualityDigestDomainRegistryV1.assertion_templates","digest":"sha256:e21c0266aca15a57ebfd9ccbc03ece5a347d65506c4d8214bdde2c4c374b5091"}

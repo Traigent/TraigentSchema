@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import copy
-import hashlib
 import json
 from importlib import resources
 from typing import Any
@@ -36,12 +35,15 @@ PUBLIC_B64 = base64.b64encode(PUBLIC_DER).decode("ascii")
 
 
 def _digest(role: str, projection: Any) -> str:
-    return (
-        "sha256:"
-        + hashlib.sha256(
-            role.encode() + b"\0" + fp2.canonicalize(projection).encode("utf-8")
-        ).hexdigest()
-    )
+    return evq._role_digest(role, projection)
+
+
+def test_role_digest_known_answer_includes_domain_and_nul() -> None:
+    projection = {"b": 2, "a": 1}
+    # This vector is calculated independently from the implementation under
+    # test, so either framing byte is load-bearing.
+    expected = "sha256:d031fd8d7058aecf5a9c6aa2ce92b3dddd821055d8d8b5bfc2dc53e6c0f0a814"
+    assert evq._role_digest("traigent.test.role.v1", projection) == expected
 
 
 def _merge(value: Any, override: Any) -> Any:
@@ -520,6 +522,30 @@ def test_field_locations_are_schema_derived() -> None:
     assert evq.EVALUATOR_QUALITY_FIELD_LOCATIONS == frozenset(
         SCHEMA["definitions"]["EvaluatorQualityFieldLocationV1"]["enum"]
     )
+
+
+def test_measurement_registry_matches_schema_enum_and_order() -> None:
+    document = evq._load_evaluator_quality_document("measurement_registry")
+    actual = [entry["estimator_id"] for entry in document["estimators"]]
+    expected = SCHEMA["definitions"]["EstimatorIdV1"]["enum"]
+    assert actual == expected
+
+
+def test_perturbation_registry_matches_schema_enum_and_order() -> None:
+    document = evq._load_evaluator_quality_document("perturbation_set")
+    actual = [entry["probe_id"] for entry in document["probes"]]
+    expected = SCHEMA["definitions"]["PerturbationProbeIdV1"]["enum"]
+    assert actual == expected
+    assert all(type(entry["required"]) is bool for entry in document["probes"])
+    assert all(entry["skip_reasons"] for entry in document["probes"])
+
+
+def test_assertion_template_registry_matches_schema_enum_and_emission() -> None:
+    document = evq._load_evaluator_quality_document("assertion_templates")
+    actual = [entry["template_id"] for entry in document["templates"]]
+    expected = SCHEMA["definitions"]["EvaluatorAssertionTemplateIdV1"]["enum"]
+    assert actual == expected
+    assert [entry["emittable"] for entry in document["templates"][-2:]] == [False, False]
 
 
 def test_patched_digest_without_closure_is_rejected() -> None:

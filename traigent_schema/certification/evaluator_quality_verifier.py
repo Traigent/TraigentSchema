@@ -432,6 +432,15 @@ def _measurement_role_rows(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
     than dereferenced unconditionally. An absent block simply contributes no
     rows; callers that need a required axis's evidence to be present enforce
     that themselves (see _check_required_axis_measurement_block).
+
+    ``reliability.repeat_stability`` and ``reliability.position_stability``
+    are each full MeasurementV1 objects with a registered MeasurementRoleV1
+    (``reliability_repeat`` / ``reliability_position``), same as every probe
+    result -- they are included here, when present, for exactly the same
+    reason the probe measurements are: so plan containment, registry
+    admissibility, interval well-formedness, resample unit, minimum sample
+    size, threshold, basis and transcript-digest checks all apply to them
+    instead of silently skipping two of the twelve reachable roles.
     """
     measurements = bundle["measurements"]
     calibration = measurements.get("calibration")
@@ -451,6 +460,10 @@ def _measurement_role_rows(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
             for probe in reliability["probe_results"]
             if probe["status"] == "measured"
         ]
+        if reliability.get("repeat_stability") is not None:
+            ordered.append(reliability["repeat_stability"])
+        if reliability.get("position_stability") is not None:
+            ordered.append(reliability["position_stability"])
     rows: dict[str, dict[str, Any]] = {}
     for row in ordered:
         role = row["measurement_role"]
@@ -533,6 +546,26 @@ def _check_plan_direction_coupling(bundle: dict[str, Any]) -> None:
             _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
 
 
+def _check_sensitivity_pair_set_binding(bundle: dict[str, Any]) -> None:
+    """Plan section 6's own EVQ4 row: 'pair-set digest != the plan's ->
+    DECLARED_PLAN_SCOPE_VIOLATION'. EvaluatorDeclaredPlanV1 requires
+    ``sensitivity_pair_set`` and SensitivityBlockV1 requires ``pair_set``,
+    but nothing at the schema layer compares them -- a measured pair set
+    chosen AFTER seeing the results could otherwise validate against a
+    preregistered plan that never actually constrained it, on the one axis
+    whose entire permitted conclusion is two-sidedness. Compared as a whole
+    object (digest, and -- since SensitivityPairSetV1 also carries them --
+    known_different_pair_count, known_equivalent_pair_count and
+    equivalence_basis), not the digest alone, so a divergence in the counts
+    without a matching digest change is caught too.
+    """
+    sensitivity = bundle["measurements"].get("sensitivity")
+    if sensitivity is None:
+        return
+    if sensitivity["pair_set"] != bundle["declared_plan"]["sensitivity_pair_set"]:
+        _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
+
+
 def _check_plan_containment(bundle: dict[str, Any]) -> None:
     """S12: per-role plan containment -- the post-hoc estimator/level-shopping guard.
 
@@ -541,9 +574,13 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
     plan row to check it against), so it is rejected outright rather than
     silently skipped -- the converse case (a role the plan requires but the
     bundle never measured) remains a coverage concern the per-claim
-    rejection stages (EVQ4/EVQ5) own, not this stage.
+    rejection stages (EVQ4/EVQ5) own, not this stage. ``reliability_repeat``
+    and ``reliability_position`` are ordinary rows here too (see
+    _measurement_role_rows), so 'every role the measurement set reports'
+    is now literally true, not a rule with two silent exceptions.
     """
     _check_plan_direction_coupling(bundle)
+    _check_sensitivity_pair_set_binding(bundle)
     rows = _measurement_role_rows(bundle)
     planned_roles = {
         planned["measurement_role"] for planned in bundle["declared_plan"]["planned_measurements"]
@@ -668,17 +705,43 @@ def _check_perturbation_set_registry_binding(bundle: dict[str, Any]) -> None:
             _fail("PERTURBATION_SET_MISMATCH", "measurements.reliability")
 
 
+def _check_perturbation_set_digest_bindings(bundle: dict[str, Any]) -> None:
+    """`measurements.reliability.perturbation_set_digest` and
+    `declared_plan.perturbation_set_digest` are each schema-required
+    perturbation-set claims in their own right, distinct from
+    `_check_registry_digests`'s manifest-level binding (the manifest's own
+    `perturbation_set_digest` field): both are required by their respective
+    definitions (ReliabilityBlockV1, EvaluatorDeclaredPlanV1) but nothing
+    binds either COPY to the shipped registry the manifest is checked
+    against. Owned by PERTURBATION_SET_MISMATCH alongside the skip-reason
+    guard above: both are "which perturbation set is this bundle actually
+    about" claims. Probe-array reordering is already schema-unconstructible
+    (see the guard above), so an unbound digest is the live remainder for
+    both copies.
+    """
+    digest = _role_digest(
+        _domain("perturbation_set"), _load_evaluator_quality_document("perturbation_set")
+    )
+    reliability = bundle["measurements"].get("reliability")
+    if reliability is not None and reliability["perturbation_set_digest"] != digest:
+        _fail("PERTURBATION_SET_MISMATCH", "measurements.reliability")
+    if bundle["declared_plan"]["perturbation_set_digest"] != digest:
+        _fail("PERTURBATION_SET_MISMATCH", "declared_plan")
+
+
 def _check_reliability_determinism(bundle: dict[str, Any]) -> None:
     """ReliabilityBlockV1's own description: 'repeat_stability and
     repeat_count are present iff the descriptor's determinism is not
     deterministic. Both are verifier obligations across artifacts.' The
     schema's own `dependencies` clause only couples `repeat_stability` and
     `repeat_count` to EACH OTHER (both or neither); it cannot reach across
-    to `descriptor.determinism` at draft-07. Two live contradictions: a
-    `deterministic` descriptor whose reported repeat measurement is not
-    perfect self-agreement (`point_value != 1000000` on this
-    higher_is_better ppm role), and a non-`deterministic` descriptor that
-    omits `repeat_stability` altogether.
+    to `descriptor.determinism` at draft-07. The `iff` has two directions,
+    not one: a `deterministic` descriptor must not CARRY `repeat_stability`
+    AT ALL -- not "carry one whose value disagrees with perfect
+    self-agreement", which would miss a deterministic descriptor reporting a
+    simulated-perfect (`point_value == 1000000`) repeat measurement it
+    should never have reported in the first place -- and a non-deterministic
+    descriptor must not OMIT `repeat_stability`.
     """
     reliability = bundle["measurements"].get("reliability")
     if reliability is None:
@@ -686,7 +749,7 @@ def _check_reliability_determinism(bundle: dict[str, Any]) -> None:
     determinism = bundle["descriptor"]["determinism"]
     repeat_stability = reliability.get("repeat_stability")
     if determinism == "deterministic":
-        if repeat_stability is not None and repeat_stability["point_value"] != 1000000:
+        if repeat_stability is not None:
             _fail("RELIABILITY_DETERMINISM_CONTRADICTION", "measurements.reliability")
     elif repeat_stability is None:
         _fail("RELIABILITY_DETERMINISM_CONTRADICTION", "measurements.reliability")
@@ -828,13 +891,33 @@ _REFERENCE_STANDARD_SCOPED_ROLES = frozenset(
         "sensitivity_false_difference_rate",
     }
 )
-"""ReferenceStandardV1's own description: 'No calibration, agreement, or
-sensitivity claim exists without one.' Reliability measures self-consistency
-under perturbation, never agreement with the reference, so reliability roles
-(all higher_is_better) are deliberately outside both directional limits
-below -- including them would make agreement_ceiling_ppm reject a routine
-high-agreement repeat/position/self-preference probe result that has nothing
-to do with the reference standard's resolution.
+"""The decisive argument for this exclusion is internal, not textual:
+ReferenceStandardV1's own description ('No calibration, agreement, or
+sensitivity claim exists without one') is about the EXISTENCE of a
+reference, not the SCOPE of the two directional limits below, which is
+unrestricted on its face ('caps how high a higher_is_better estimate may
+claim'). What actually forces the exclusion is
+_check_reliability_determinism, which REQUIRES point_value == 1000000 for a
+deterministic evaluator's repeat measurement, while every reliability probe
+routinely sits near-but-not-at that ceiling -- a literal sweep of
+agreement_ceiling_ppm (golden value 950000) over reliability roles would
+make that guard and this one contradict each other on the same bundle.
+Reliability roles (all higher_is_better) are therefore deliberately outside
+both directional limits below.
+
+Consequence recorded here because it is otherwise invisible in any artifact:
+this ceiling now also sweeps calibration_slope, so a near-perfectly
+calibrated evaluator (calibration_slope's interval climbing toward
+1000000, above agreement_ceiling_ppm) is REJECTED as
+REFERENCE_CEILING_EXCEEDED -- a rejection of a GOOD evaluator, defensible on
+the schema's text but new, and undocumented anywhere a relying party would
+see it.
+
+This exclusion and AXIS_POINT_VALUE_ROLE below are the module's two verifier
+conventions pending the Schema follow-up amendment (a point_value_role per
+axis on AggregationWeightV1, and an explicit reliability/reference-limit
+scoping rule) -- see AXIS_POINT_VALUE_ROLE's own docstring for the pending
+ticket.
 """
 
 
@@ -1157,6 +1240,7 @@ def _verify_evaluator_quality_private(bundle: object, *, context: object) -> Non
     _check_sensitivity_claim_evidence(shaped)
     _check_probe_coverage(shaped)
     _check_perturbation_set_registry_binding(shaped)
+    _check_perturbation_set_digest_bindings(shaped)
     _check_reliability_determinism(shaped)
     _check_reliability_axis_required(shaped)
     _check_selection_set_overlap(shaped)

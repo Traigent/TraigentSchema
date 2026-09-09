@@ -45,6 +45,15 @@ PUBLIC_KEY_DIGEST = (
 )
 PROJECT_REF = "demo_project"
 COMMITMENT_REF = "sha256:" + "c" * 64
+# The real shipped-registry digest, not a sentinel: measurements.reliability
+# .perturbation_set_digest and declared_plan.perturbation_set_digest are
+# each their own perturbation-set claim (_check_perturbation_set_digest_
+# bindings), so the golden vector must actually carry the registry's real
+# digest -- a sentinel there made GV1 assert acceptance of a bundle bound to
+# a perturbation set that does not exist (P3-tl-review-1 P4cd P2-3).
+PERTURBATION_SET_DIGEST = evq._role_digest(
+    evq._domain("perturbation_set"), evq._load_evaluator_quality_document("perturbation_set")
+)
 DEFAULT_CONTEXT = SimpleNamespace(
     expected_project_ref=PROJECT_REF, expected_evaluator_commitment_ref=COMMITMENT_REF
 )
@@ -116,6 +125,23 @@ for _probe in ("constant_output", "verbosity", "position", "self_preference", "o
         "direction": "higher_is_better",
     }
 del _probe
+# registry-admissible per evaluator_measurement_registry.json: neither role
+# accepts perturbation_agreement_rate (that estimator's measurement_roles
+# lists only the five reliability_probe_* roles above).
+ROLE_SPECS["reliability_repeat"] = {
+    "estimator_id": "test_retest_agreement_rate",
+    "sample_unit": "repeat_pair",
+    "value_unit": "ppm_unsigned",
+    "interval_params": _analytic_params("wilson_score"),
+    "direction": "higher_is_better",
+}
+ROLE_SPECS["reliability_position"] = {
+    "estimator_id": "position_swap_agreement_rate",
+    "sample_unit": "evaluator_pair",
+    "value_unit": "ppm_unsigned",
+    "interval_params": _analytic_params("wilson_score"),
+    "direction": "higher_is_better",
+}
 
 PLANNED_ROLE_ORDER = (
     "calibration_ece",
@@ -313,8 +339,14 @@ def _base_bundle() -> dict[str, Any]:
         "reference_standard_digest": SHA,
         "evaluation_scope_digest": SHA,
         "planned_measurements": [_planned(r) for r in PLANNED_ROLE_ORDER],
-        "sensitivity_pair_set": pair_set,
-        "perturbation_set_digest": SHA,
+        # A copy, not the same object as measurements.sensitivity.pair_set
+        # below: dict-aliasing the two would make an in-place mutation of
+        # one silently mutate the other, masking
+        # _check_sensitivity_pair_set_binding's divergence guard from any
+        # probe that mutates an already-built bundle rather than going
+        # through build_bundle()'s override path.
+        "sensitivity_pair_set": dict(pair_set),
+        "perturbation_set_digest": PERTURBATION_SET_DIGEST,
         "measurement_registry_digest": SHA,
         "binning_policy": "equal_width",
         "bin_count": 10,
@@ -354,7 +386,7 @@ def _base_bundle() -> dict[str, Any]:
                     "one_token_fool",
                 )
             ],
-            "perturbation_set_digest": SHA,
+            "perturbation_set_digest": PERTURBATION_SET_DIGEST,
         },
     }
     claim_material = [
@@ -1565,12 +1597,22 @@ def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
     ("guard_name", "target", "replacement", "expect_code"),
     [
         (
-            # NOTE: "DECLARED_PLAN_SCOPE_VIOLATION" is _fail()'d from four
-            # call sites now (direction coupling, unplanned-role, the
-            # containment tuple, and the unreachable dispatch fallback), all
-            # byte-identical -- str.replace(..., 1) hits whichever occurs
-            # FIRST in the file, so each target below includes the
-            # preceding, guard-specific condition line to stay unique.
+            # NOTE: "DECLARED_PLAN_SCOPE_VIOLATION" is _fail()'d from five
+            # call sites now (sensitivity pair-set binding, direction
+            # coupling, unplanned-role, the containment tuple, and the
+            # unreachable dispatch fallback), all byte-identical --
+            # str.replace(..., 1) hits whichever occurs FIRST in the file,
+            # so each target below includes the preceding, guard-specific
+            # condition line to stay unique.
+            "plan-sensitivity-pair-set-binding",
+            '    if sensitivity["pair_set"] != bundle["declared_plan"]["sensitivity_pair_set"]:\n'
+            '        _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
+            '"declared_plan.planned_measurements")',
+            '    if sensitivity["pair_set"] != bundle["declared_plan"]["sensitivity_pair_set"]:\n'
+            "        pass",
+            None,
+        ),
+        (
             "plan-direction-coupling",
             '        if planned["threshold_comparison"] != expected:\n'
             '            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
@@ -1618,6 +1660,9 @@ def test_mutate_the_plan_containment_guard_is_caught(
     namespace: dict[str, Any] = {"__name__": "evq_mutated_plan"}
     exec(compile(mutated, "<mutated evq>", "exec"), namespace)
     negatives = {
+        "plan-sensitivity-pair-set-binding": build_bundle(
+            measurements={"sensitivity": {"pair_set": {"pair_set_digest": "sha256:" + "d" * 64}}}
+        ),
         "plan-direction-coupling": build_bundle(
             declared_plan={
                 "planned_measurements": [
@@ -1662,6 +1707,66 @@ def test_mutate_the_plan_containment_guard_is_caught(
                 }
             }
         ),
+    }
+    bundle = negatives[guard_name]
+    with pytest.raises(namespace["EvaluatorQualityVerificationError"]):
+        namespace["_verify_evaluator_quality_private"](bundle, context=DEFAULT_CONTEXT)
+
+
+@pytest.mark.parametrize(
+    ("guard_name", "target", "replacement"),
+    [
+        (
+            "perturbation-digest-reliability",
+            '    if reliability is not None and reliability["perturbation_set_digest"] != digest:\n'
+            '        _fail("PERTURBATION_SET_MISMATCH", "measurements.reliability")',
+            '    if reliability is not None and reliability["perturbation_set_digest"] != digest:\n'
+            "        pass",
+        ),
+        (
+            "perturbation-digest-declared-plan",
+            '    if bundle["declared_plan"]["perturbation_set_digest"] != digest:\n'
+            '        _fail("PERTURBATION_SET_MISMATCH", "declared_plan")',
+            '    if bundle["declared_plan"]["perturbation_set_digest"] != digest:\n        pass',
+        ),
+        (
+            "reliability-determinism-presence",
+            '    if determinism == "deterministic":\n'
+            "        if repeat_stability is not None:\n"
+            '            _fail("RELIABILITY_DETERMINISM_CONTRADICTION", '
+            '"measurements.reliability")',
+            '    if determinism == "deterministic":\n        if repeat_stability is not None:\n'
+            "            pass",
+        ),
+    ],
+)
+def test_mutate_the_p4e_guards_are_caught(guard_name: str, target: str, replacement: str) -> None:
+    """P3-tl-review-1 P4cd packet 4e: delete only the named guard (the
+    perturbation-set digest bindings, or the deterministic-presence
+    direction of the reliability determinism contradiction); the matching
+    negative must go RED."""
+    source = Path(evq.__file__).read_text()
+    assert target in source, guard_name
+    assert source.count(target) == 1, guard_name
+    mutated = source.replace(target, replacement, 1)
+    namespace: dict[str, Any] = {"__name__": "evq_mutated_p4e"}
+    exec(compile(mutated, "<mutated evq>", "exec"), namespace)
+
+    def _presence_negative() -> dict[str, Any]:
+        base = _base_bundle()
+        base["declared_plan"]["planned_measurements"].append(_planned("reliability_repeat"))
+        base["measurements"]["reliability"]["repeat_stability"] = _repeat_measurement(1000000)
+        base["measurements"]["reliability"]["repeat_count"] = 4
+        return _close(base)
+
+    negatives = {
+        "perturbation-digest-reliability": build_bundle(
+            measurements={"reliability": {"perturbation_set_digest": "sha256:" + "b" * 64}}
+        ),
+        "perturbation-digest-declared-plan": build_bundle(
+            declared_plan={"perturbation_set_digest": "sha256:" + "c" * 64}
+        ),
+        "reliability-determinism-presence": _presence_negative(),
     }
     bundle = negatives[guard_name]
     with pytest.raises(namespace["EvaluatorQualityVerificationError"]):
@@ -2398,31 +2503,12 @@ def test_aggregation_renormalized_required_axis_failed_not_abstain() -> None:
 
 
 def _repeat_measurement(point: int) -> dict[str, Any]:
-    """A MeasurementV1 for the reliability_repeat role. Not in ROLE_SPECS:
-    _measurement_role_rows never sources repeat_stability/position_stability
-    (see _check_reliability_determinism/_check_reliability_axis_required's
-    docstrings), so no plan-containment registry admissibility check ever
-    inspects this row -- only MeasurementV1's own schema shape applies."""
-    return {
-        "measurement_role": "reliability_repeat",
-        "estimator_id": "perturbation_agreement_rate",
-        "estimator_parameters": {
-            "interval_side": "two_sided",
-            "direction": "higher_is_better",
-            "score_scale": "binary",
-            "label_kind": "binary",
-        },
-        "value_unit": "ppm_unsigned",
-        "point_value": point,
-        "interval_low_value": max(0, point - 10000),
-        "interval_high_value": min(1000000, point + 10000),
-        "interval_params": _analytic_params("wilson_score"),
-        "nominal_coverage_ppm": 950000,
-        "sample_size_n": 100,
-        "sample_unit": "perturbation_pair",
-        "basis": "issuer_attested_v1",
-        "computation_transcript_digest": None,
-    }
+    """A MeasurementV1 for the reliability_repeat role, registry-admissible
+    (test_retest_agreement_rate/repeat_pair/wilson_score, per ROLE_SPECS):
+    P1-2 fixed _measurement_role_rows to source repeat_stability/
+    position_stability, so any fixture carrying one now needs a matching
+    declared_plan entry to clear S12 before reaching the guard under test."""
+    return _measurement("reliability_repeat", point=point)
 
 
 def test_sensitivity_pair_set_incomplete_block_absent_while_claim_non_abstained() -> None:
@@ -2510,9 +2596,31 @@ def test_reliability_determinism_contradiction_deterministic_reports_disagreemen
     deterministic; adding a repeat_stability measurement whose point_value
     is not perfect self-agreement (1000000 on this higher_is_better ppm
     role) is the live contradiction the schema's own `dependencies` clause
-    (repeat_stability<->repeat_count only) cannot reach."""
+    (repeat_stability<->repeat_count only) cannot reach. A matching
+    declared_plan entry is required now that reliability_repeat is an
+    ordinary S12 row (P1-2) -- otherwise plan containment, not this guard,
+    would be the first stage to reject."""
     base = _base_bundle()
+    base["declared_plan"]["planned_measurements"].append(_planned("reliability_repeat"))
     base["measurements"]["reliability"]["repeat_stability"] = _repeat_measurement(900000)
+    base["measurements"]["reliability"]["repeat_count"] = 4
+    bundle = _close(base)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    _expect(bundle, "RELIABILITY_DETERMINISM_CONTRADICTION")
+
+
+def test_reliability_determinism_contradiction_deterministic_carries_repeat_stability_at_all() -> (
+    None
+):
+    """P3-tl-review-1 P4cd P2-4 / probe P-3: the schema's `iff` has a THIRD
+    live direction a value-only guard misses -- a deterministic descriptor
+    must not CARRY repeat_stability at all, even one simulating perfect
+    self-agreement (point_value == 1000000, the one value the old
+    value-only guard would have accepted). Plan-contained identically to
+    the disagreement case above, so this isolates the presence check."""
+    base = _base_bundle()
+    base["declared_plan"]["planned_measurements"].append(_planned("reliability_repeat"))
+    base["measurements"]["reliability"]["repeat_stability"] = _repeat_measurement(1000000)
     base["measurements"]["reliability"]["repeat_count"] = 4
     bundle = _close(base)
     assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
@@ -2534,6 +2642,97 @@ def test_reliability_axis_missing_llm_judge_pairwise_without_position_stability(
     to descriptor.evaluator_kind to enforce it."""
     bundle = build_bundle(descriptor={"evaluator_kind": "llm_judge_pairwise"})
     _expect(bundle, "RELIABILITY_AXIS_MISSING")
+
+
+def test_declared_plan_scope_violation_repeat_stability_measured_but_unplanned() -> None:
+    """P3-tl-review-1 P4cd P1-2: reliability_repeat now flows through S12
+    plan containment like every other measured role (_measurement_role_rows).
+    A repeat_stability measurement with no matching declared_plan entry is
+    rejected at the same first-applicable stage as any other unplanned
+    role, not silently ignored."""
+    base = _base_bundle()
+    base["measurements"]["reliability"]["repeat_stability"] = _repeat_measurement(900000)
+    base["measurements"]["reliability"]["repeat_count"] = 4
+    bundle = _close(base)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_declared_plan_scope_violation_position_stability_measured_but_unplanned() -> None:
+    """P3-tl-review-1 P4cd P1-2 / probe P-4, verbatim: an inverted-interval,
+    unregistered-estimator position_stability measurement with no plan
+    entry is rejected at the first applicable stage (the unplanned-role
+    branch of S12) -- previously ACCEPTed outright because
+    _measurement_role_rows never sourced position_stability at all."""
+    base = _base_bundle()
+    m = _measurement("reliability_position", point=900000)
+    m["interval_low_value"] = 990000
+    m["interval_high_value"] = 10000
+    m["estimator_id"] = "cohens_kappa"
+    m["sample_unit"] = "rater_pair"
+    base["measurements"]["reliability"]["position_stability"] = m
+    bundle = _close(base)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_declared_plan_scope_violation_position_stability_plan_contained_but_malformed() -> None:
+    """Distinct from the probe-P-4 case above: WITH a matching declared_plan
+    entry (so the unplanned-role branch does not fire first), an inverted
+    interval on position_stability is still caught -- proving
+    _check_interval_well_formed genuinely applies to this role now, not
+    just the unplanned-role shortcut."""
+    base = _base_bundle()
+    base["declared_plan"]["planned_measurements"].append(_planned("reliability_position"))
+    m = _measurement("reliability_position", point=900000)
+    m["interval_low_value"] = 990000
+    m["interval_high_value"] = 10000
+    base["measurements"]["reliability"]["position_stability"] = m
+    bundle = _close(base)
+    assert list(evq._evaluator_quality_validator().iter_errors(bundle)) == []
+    _expect(bundle, "INTERVAL_MALFORMED")
+
+
+def test_sensitivity_pair_set_binding_digest_diverges_from_plan() -> None:
+    """P3-tl-review-1 P4cd P1-1 / probe P-2, plan section 6's own EVQ4 row:
+    'pair-set digest != the plan's -> DECLARED_PLAN_SCOPE_VIOLATION.'
+    Nothing at the schema layer compared measurements.sensitivity.pair_set
+    to declared_plan.sensitivity_pair_set before this guard."""
+    bundle = build_bundle(
+        measurements={"sensitivity": {"pair_set": {"pair_set_digest": "sha256:" + "d" * 64}}}
+    )
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_sensitivity_pair_set_binding_counts_diverge_from_plan() -> None:
+    """P3-tl-review-1 P4cd P1-1 / probe P-2b: the measured pair set's
+    CONTENT (known_equivalent_pair_count), not just its digest, diverging
+    from the plan's preregistered pair set is the same preregistration
+    escape -- caught because the binding compares the whole pair_set
+    object, not the digest field alone."""
+    bundle = build_bundle(
+        measurements={"sensitivity": {"pair_set": {"known_equivalent_pair_count": 999}}}
+    )
+    _expect(bundle, "DECLARED_PLAN_SCOPE_VIOLATION")
+
+
+def test_perturbation_set_mismatch_reliability_digest_unbound_to_registry() -> None:
+    """P3-tl-review-1 P4cd P2-3 / probe P-1: measurements.reliability
+    .perturbation_set_digest is its own schema-required perturbation-set
+    claim, distinct from the manifest-level binding _check_registry_digests
+    already owns -- previously unbound to anything."""
+    bundle = build_bundle(
+        measurements={"reliability": {"perturbation_set_digest": "sha256:" + "b" * 64}}
+    )
+    _expect(bundle, "PERTURBATION_SET_MISMATCH")
+
+
+def test_perturbation_set_mismatch_declared_plan_digest_unbound_to_registry() -> None:
+    """P3-tl-review-1 P4cd P2-3 / probe P-1b: declared_plan
+    .perturbation_set_digest is likewise its own claim, previously unbound
+    to the shipped registry."""
+    bundle = build_bundle(declared_plan={"perturbation_set_digest": "sha256:" + "c" * 64})
+    _expect(bundle, "PERTURBATION_SET_MISMATCH")
 
 
 def test_selection_set_overlap_held_out_disjoint_with_equal_digests() -> None:

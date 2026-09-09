@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/certification/agent_quality_v1_schema.json",
   "title": "Traigent Agent Quality Certificate v1",
-  "description": "Closed, content-free measured-agent-quality contract (pillar 1). A separate contract family: it adds no identifier, template, tier, or claim id to the frozen Agent Certificate v0 vocabulary and modifies no v0 file. Every certified value is an INTERVAL on a HELD-OUT split, and every interval carries the bounded sufficient statistics its endpoints are recomputed from, so a well-formed but arithmetically wrong interval is rejected rather than merely shaped. VERIFICATION LEVELS ARE EXPLICIT AND PER QUANTITY: interval CONSTRUCTION is recomputed offline (construction_recomputed_v1); the sufficient statistics, the quantile endpoint values, and split membership are ISSUER ATTESTATIONS, and each carries a matching printed non-claim. No sum or sum-of-squares crosses the wire: jcs_v1 (traigent_schema/fp2.py) rejects integers above 2**53-1, so every statistic is a bounded aggregate in the objective's own unit. The verifier MUST reject decoded booleans and floating-point values for every integer-valued field even where a Draft-07 implementation accepts 1.0 as integer-compatible. Pre-registration is not verified by this certificate; ordering evidence is out of scope for v1.",
+  "description": "Closed, content-free measured-agent-quality contract (pillar 1). A separate contract family: it adds no identifier, template, tier, or claim id to the frozen Agent Certificate v0 vocabulary and modifies no v0 file. Every certified value is an INTERVAL on a HELD-OUT split, and every interval carries the bounded sufficient statistics its endpoints are recomputed from, so a well-formed but arithmetically wrong interval is rejected rather than merely shaped. VERIFICATION LEVELS ARE EXPLICIT AND PER QUANTITY: interval CONSTRUCTION is recomputed offline (construction_recomputed_v1); the sufficient statistics, the quantile endpoint values, and split membership are ISSUER ATTESTATIONS, and each carries a matching printed non-claim. No sum or sum-of-squares crosses the wire: jcs_v1 (traigent_schema/fp2.py) rejects integers above 2**53-1, so every statistic is a bounded aggregate in the objective's own unit. The verifier MUST reject decoded booleans and floating-point values for every integer-valued field even where a Draft-07 implementation accepts 1.0 as integer-compatible. Ordering evidence — that the declared plan was authored before the results — is out of scope for v1 and is not verified by this certificate.",
   "definitions": {
     "AgentQualityDigestDomainRegistryV1": {
       "description": "Normative fixed role domains for this family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its own self-digest and any stated outer signature excluded). V1-family domains only; the frozen DigestRoleDomainTagV0 enum is not touched.",
@@ -723,6 +723,7 @@
       }
     },
     "NonCertifiedSelectionEstimatesV1": {
+      "description": "The uncertified selection-set estimates, if any are printed. At most one record per objective_id is a verifier obligation (SELECTION_ESTIMATE_DUPLICATE); uniqueItems cannot express it because two records may differ only in point_estimate or sample_size.",
       "type": "array",
       "minItems": 0,
       "maxItems": 8,
@@ -2182,7 +2183,7 @@
       ]
     },
     "AgentQualityDeclaredPlanV1": {
-      "description": "The plan declared before results were observed, and separately issuer-signed. Every field must equal the certificate's own copy, so a post-hoc reweight (which changes aggregation_policy.policy_digest) or a re-drawn split (which changes split_derivation_digest) cannot validate. holdout_scored_arm_count is const 1: scoring N arms on the holdout and certifying the best is unrepresentable. This record is bound by digest only -- it carries no timestamp and supports no ordering check; NCQ_PLAN_ORDERING_OUT_OF_SCOPE is printed because ordering evidence is out of scope for v1.",
+      "description": "The issuer-attested plan, separately issuer-signed: the reported metrics were computed against the declared plan whose digest is bound in this bundle. Every field must equal the certificate's own copy, so a post-hoc reweight (which changes aggregation_policy.policy_digest) or a re-drawn split (which changes split_derivation_digest) cannot validate. holdout_scored_arm_count is const 1: scoring N arms on the holdout and certifying the best is unrepresentable. This record is bound by digest only -- it carries no timestamp; NCQ_PLAN_ORDERING_OUT_OF_SCOPE is printed because ordering evidence — that the declared plan was authored before the results — is out of scope for v1 and is not verified by this certificate.",
       "type": "object",
       "additionalProperties": false,
       "required": [

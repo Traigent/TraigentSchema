@@ -6,142 +6,142 @@
   "entries": [
     {
       "non_claim_id": "NCQ_NO_GENERALIZATION",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_generalization.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_generalization.v1",
       "rendered_text": "This certificate does not establish that the measured result generalizes to inputs, workloads, or deployments beyond the declared holdout evaluation."
     },
     {
       "non_claim_id": "NCQ_NO_EXPANDED_EVALUATION",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_expanded_evaluation.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_expanded_evaluation.v1",
       "rendered_text": "Passing this certificate's evaluation does not establish that the agent would pass a materially different or expanded evaluation."
     },
     {
       "non_claim_id": "NCQ_NO_PRODUCTION_TRAFFIC",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_production_traffic.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_production_traffic.v1",
       "rendered_text": "This certificate does not establish that the certified configuration is the best configuration for production traffic, because production traffic was not the evaluated population."
     },
     {
       "non_claim_id": "NCQ_NO_GENERAL_CORRECTNESS",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_general_correctness.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_general_correctness.v1",
       "rendered_text": "This certificate does not establish that the certified agent behaves correctly, or as intended, in general; only the declared objectives on the declared holdout were measured."
     },
     {
       "non_claim_id": "NCQ_NO_STATISTICAL_SUPERIORITY",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_statistical_superiority.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_statistical_superiority.v1",
       "rendered_text": "This certificate does not establish that the certified configuration is statistically better than the alternatives it was evaluated against."
     },
     {
       "non_claim_id": "NCQ_NO_WINNER_REPRODUCIBILITY",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_winner_reproducibility.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_winner_reproducibility.v1",
       "rendered_text": "This certificate does not establish that the certified configuration would win again if the evaluation were re-run."
     },
     {
       "non_claim_id": "NCQ_NO_MARGIN_MEANING",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_margin_meaning.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_margin_meaning.v1",
       "rendered_text": "This certificate does not establish that any margin between the certified configuration and a runner-up is meaningful or reliable."
     },
     {
       "non_claim_id": "NCQ_NO_CRITERIA_CHANGE_VALIDITY",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_criteria_change_validity.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_criteria_change_validity.v1",
       "rendered_text": "This certificate's statistical language is not established to remain valid if the selection criteria change; a criteria change requires a new certificate."
     },
     {
       "non_claim_id": "NCQ_DATASET_VALIDITY_UNASSESSED",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_dataset_validity_unassessed.v1",
+      "reason_template_id": "tmpl.aq.noncert.dataset_validity_unassessed.v1",
       "rendered_text": "This certificate does not assess whether the evaluation dataset correctly measures the target task; dataset validity is out of scope for v1."
     },
     {
       "non_claim_id": "NCQ_EVALUATOR_VALIDITY_UNASSESSED",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_evaluator_validity_unassessed.v1",
+      "reason_template_id": "tmpl.aq.noncert.evaluator_validity_unassessed.v1",
       "rendered_text": "This certificate does not assess whether the evaluator (judge or scorer) used is a correct or unbiased measure of the metric it reports."
     },
     {
       "non_claim_id": "NCQ_NO_SAFETY_OR_HARM",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_safety_or_harm.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_safety_or_harm.v1",
       "rendered_text": "This certificate makes no assertion about safety or harm; only the declared quality objectives were measured."
     },
     {
       "non_claim_id": "NCQ_NO_DISTRIBUTION_SHIFT",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_distribution_shift.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_distribution_shift.v1",
       "rendered_text": "This certificate does not establish that the holdout population matches, or will continue to match, any other population the agent may encounter."
     },
     {
       "non_claim_id": "NCQ_NO_FITNESS_FOR_PURPOSE",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_fitness_for_purpose.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_fitness_for_purpose.v1",
       "rendered_text": "This certificate does not establish that the certified agent is fit for any particular customer purpose beyond the declared objectives and holdout."
     },
     {
       "non_claim_id": "NCQ_NO_UNCERTIFIED_COMPARISON",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_uncertified_comparison.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_uncertified_comparison.v1",
       "rendered_text": "This certificate does not establish a comparison against any configuration that was not itself certified under the same protocol."
     },
     {
       "non_claim_id": "NCQ_NOMINAL_COVERAGE_ONLY",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_nominal_coverage_only.v1",
+      "reason_template_id": "tmpl.aq.noncert.nominal_coverage_only.v1",
       "rendered_text": "The stated interval coverage is nominal, not measured; this certificate does not establish that the true coverage of any interval equals its nominal value."
     },
     {
       "non_claim_id": "NCQ_PLAN_ORDERING_OUT_OF_SCOPE",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_plan_ordering_out_of_scope.v1",
-      "rendered_text": "Pre-registration is not verified by this certificate; ordering evidence is out of scope for v1."
+      "reason_template_id": "tmpl.aq.noncert.plan_ordering_out_of_scope.v1",
+      "rendered_text": "Ordering evidence — that the declared plan was authored before the results — is out of scope for v1 and is not verified by this certificate."
     },
     {
       "non_claim_id": "NCQ_SELECTION_ESTIMATE_NOT_CERTIFIED",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_selection_estimate_not_certified.v1",
+      "reason_template_id": "tmpl.aq.noncert.selection_estimate_not_certified.v1",
       "rendered_text": "Estimates computed on the selection set are not certified by this document; only the holdout-evaluated objective is certified."
     },
     {
       "non_claim_id": "NCQ_NO_COST_LATENCY_SLA",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_cost_latency_sla.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_cost_latency_sla.v1",
       "rendered_text": "This certificate does not establish, and does not constitute, a cost or latency service-level agreement."
     },
     {
       "non_claim_id": "NCQ_NO_LONGITUDINAL_STABILITY",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_no_longitudinal_stability.v1",
+      "reason_template_id": "tmpl.aq.noncert.no_longitudinal_stability.v1",
       "rendered_text": "This certificate does not establish that the measured objectives remain stable over time; it reflects a single evaluation at a single point in time."
     },
     {
       "non_claim_id": "NCQ_HOLDOUT_ONE_SHOT_SCOPE",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_holdout_one_shot_scope.v1",
+      "reason_template_id": "tmpl.aq.noncert.holdout_one_shot_scope.v1",
       "rendered_text": "This certificate covers a single, one-shot use of the holdout split; it does not establish anything about repeated or iterative use of the same holdout."
     },
     {
       "non_claim_id": "NCQ_SUFFICIENT_STATISTICS_ATTESTED",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_sufficient_statistics_attested.v1",
+      "reason_template_id": "tmpl.aq.noncert.sufficient_statistics_attested.v1",
       "rendered_text": "The verifier recomputes each interval's endpoints from the printed sufficient statistics; that those statistics correctly summarise the underlying observations is the issuer's attestation, not a fact independently verified here."
     },
     {
       "non_claim_id": "NCQ_SPLIT_MEMBERSHIP_NOT_OPENED",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_split_membership_not_opened.v1",
+      "reason_template_id": "tmpl.aq.noncert.split_membership_not_opened.v1",
       "rendered_text": "The committed selection and holdout sets were not opened by this certificate; that they are the declared rule's partition is the issuer's attestation, not a verified fact."
     },
     {
       "non_claim_id": "NCQ_QUANTILE_ENDPOINTS_ATTESTED",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_quantile_endpoints_attested.v1",
+      "reason_template_id": "tmpl.aq.noncert.quantile_endpoints_attested.v1",
       "rendered_text": "The interval endpoints for quantile objectives are attested from the printed order-statistic record, not independently recomputed from the underlying observations by this certificate."
     },
     {
       "non_claim_id": "NCQ_SPLIT_KEY_TIMING_NOT_PROVEN",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_split_key_timing_not_proven.v1",
+      "reason_template_id": "tmpl.aq.noncert.split_key_timing_not_proven.v1",
       "rendered_text": "This certificate does not prove when the split key was fixed relative to any other event; timing of split-key derivation is not established."
     },
     {
       "non_claim_id": "NCQ_REFS_ARE_A_LINKABILITY_CHANNEL",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_refs_are_a_linkability_channel.v1",
+      "reason_template_id": "tmpl.aq.noncert.refs_are_a_linkability_channel.v1",
       "rendered_text": "Stable references printed on this certificate can correlate certificates that share them, even though the references themselves carry no content; this is disclosed, not concealed."
     },
     {
       "non_claim_id": "NCQ_HOLDOUT_NONUSE_NOT_PROVEN",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_holdout_nonuse_not_proven.v1",
+      "reason_template_id": "tmpl.aq.noncert.holdout_nonuse_not_proven.v1",
       "rendered_text": "That no holdout item informed the choice of certified configuration is the issuer's attestation; this certificate does not independently prove holdout non-use."
     },
     {
       "non_claim_id": "NCQ_REF_MINTING_IS_AN_ISSUER_OBLIGATION",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_ref_minting_is_an_issuer_obligation.v1",
+      "reason_template_id": "tmpl.aq.noncert.ref_minting_is_an_issuer_obligation.v1",
       "rendered_text": "That each reference on this certificate was server- or issuer-minted, rather than a passthrough of a caller-supplied name, is an issuer obligation this certificate's pattern does not itself enforce or verify."
     },
     {
       "non_claim_id": "NCQ_SCORE_SCALE_IS_THE_EVALUATORS",
-      "reason_template_id": "traigent.agent_quality.non_claim_reason.ncq_score_scale_is_the_evaluators.v1",
+      "reason_template_id": "tmpl.aq.noncert.score_scale_is_the_evaluators.v1",
       "rendered_text": "For the evaluator-score objective, the reported scale is the evaluator's own scale; this certificate does not assess or establish the validity of that evaluator."
     }
   ]

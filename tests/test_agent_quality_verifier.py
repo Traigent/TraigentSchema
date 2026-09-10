@@ -1750,3 +1750,284 @@ def test_golden_builders_are_deterministic() -> None:
     first = fp2.canonicalize(build_agent_quality_bundle())
     second = fp2.canonicalize(build_agent_quality_bundle())
     assert first == second
+
+
+def build_abstained_agent_quality_bundle(**overrides: object) -> dict:
+    """The abstained counterpart: ``claim_support_rows[0].evidence_basis`` is
+    the abstained value with its required abstention code,
+    ``measured_claims`` and ``non_certified_selection_estimates`` are EMPTY
+    (the schema's ``else`` branch -- see
+    ``test_abstained_bundle_carries_claims_is_schema_preempted``), and every
+    digest is still recomputed and signed."""
+    base_overrides: dict[str, object] = {
+        "measured_claims": [],
+        "non_certified_selection_estimates": [],
+        "claim_support_rows": [
+            {
+                "claim_id": "AQ1",
+                "evidence_basis": "abstained",
+                "abstention_code": "verifier_not_run_or_not_pass",
+            }
+        ],
+    }
+    base_overrides.update(overrides)
+    return build_agent_quality_bundle(**base_overrides)
+
+
+def resign_declared_plan(bundle: dict, *, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY) -> dict:
+    """Recompute the declared plan's own digest and re-sign it, in place on
+    a deep copy, WITHOUT touching anything else (the caller is responsible
+    for calling :func:`resign_agent_quality_bundle` afterward if the
+    declared-plan digest feeding the top-level manifest must also move)."""
+    b = _gv_copy.deepcopy(bundle)
+    declared_plan = b["declared_plan_envelope"]["declared_plan"]
+    declared_plan["declared_plan_digest"] = _gv_digest(
+        "declared_plan", v._strip_self_digest(declared_plan, "declared_plan_digest")
+    )
+    signature = b["declared_plan_envelope"]["signature"]
+    signature["declared_plan_digest"] = declared_plan["declared_plan_digest"]
+    signature["signature"] = _gv_sign("declared_plan_signature", declared_plan, private_key)
+    return b
+
+
+def resign_agent_quality_bundle(
+    bundle: dict, *, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY
+) -> dict:
+    """Recompute EVERY manifest digest from ``bundle``'s own arrays, then
+    the manifest digest, then the issuer signature -- restoring full
+    consistency after ANY direct mutation to a signed array or projection.
+    Implemented as ``_gv_close`` re-run over the bundle's current content
+    (rather than a smaller patch), so it is correct regardless of WHICH of
+    the seven signed arrays/projections was mutated."""
+    return _gv_close(resign_declared_plan(bundle, private_key=private_key), private_key=private_key)
+
+
+def resign_with_foreign_key(bundle: dict, key: Ed25519PrivateKey) -> dict:
+    """Produce a structurally valid bundle whose top-level issuer signature
+    verifies under ``key``'s public key and NOT under the golden
+    :data:`_GV_PUBLIC_KEY` -- the fixture packets .2/.3 use to separate
+    ``KEY_RING_MISMATCH`` (issuer_key_ref/trust_ring_ref/algorithm mismatch)
+    from ``ISSUER_SIGNATURE_INVALID`` (right identity, wrong key). The
+    declared-plan signature is left signed by the golden key -- only the
+    TOP-LEVEL issuer signature is re-signed under the foreign key, since
+    that is the one binding this fixture exercises."""
+    return resign_agent_quality_bundle(bundle, private_key=key)
+
+
+# --------------------------------------------------------------------------
+# Checkpoint (b) -- mutation-plus-re-sign harness, abstained counterpart,
+# foreign-key signer.
+# --------------------------------------------------------------------------
+
+
+def _gv_mutate_last_hex_char(value: str) -> str:
+    last = value[-1]
+    replacement = "0" if last != "0" else "1"
+    return value[:-1] + replacement
+
+
+def _gv_mutate_assertion(bundle: dict) -> dict:
+    bundle["assertion"]["aggregation_policy"]["policy_digest"] = _gv_mutate_last_hex_char(
+        bundle["assertion"]["aggregation_policy"]["policy_digest"]
+    )
+    return bundle
+
+
+def _gv_mutate_split_derivation(bundle: dict) -> dict:
+    bundle["split_derivation"]["dataset_commitment_ref"] = _gv_mutate_last_hex_char(
+        bundle["split_derivation"]["dataset_commitment_ref"]
+    )
+    return bundle
+
+
+def _gv_mutate_evaluation_splits(bundle: dict) -> dict:
+    bundle["evaluation_splits"][0]["split_commitment_digest"] = _gv_mutate_last_hex_char(
+        bundle["evaluation_splits"][0]["split_commitment_digest"]
+    )
+    return bundle
+
+
+def _gv_mutate_measured_claims(bundle: dict) -> dict:
+    bundle["measured_claims"][0]["measurement_contract_record_digest"] = _gv_mutate_last_hex_char(
+        bundle["measured_claims"][0]["measurement_contract_record_digest"]
+    )
+    return bundle
+
+
+def _gv_mutate_selection_estimates(bundle: dict) -> dict:
+    bundle["non_certified_selection_estimates"][0]["point_estimate"] += 1
+    return bundle
+
+
+def _gv_mutate_non_claims(bundle: dict) -> dict:
+    # AgentQualityNonClaimV1 is entirely const (record_type, non_claim_id,
+    # reason_template_id are all consts pinned per array index by
+    # AgentQualityNonClaimsFixedTupleV1), so there is no freely-valued byte
+    # to flip while staying schema-valid -- this mutation, unlike the other
+    # six, is EXPECTED to leave the bundle schema-invalid even after
+    # resigning. See test_resign_restores_consistency_after_each_signed_array_mutation's
+    # per-case ``expect_schema_valid_after_resign=False`` for this array.
+    bundle["non_claims"][0]["non_claim_id"] = "NCQ_NOT_A_REAL_ID"
+    return bundle
+
+
+def _gv_mutate_claim_support_rows(bundle: dict) -> dict:
+    bundle["claim_support_rows"][0]["verifier_result"] = "fail"
+    return bundle
+
+
+_GV_MUTATION_CASES = [
+    ("assertion", "assertion_digest", "assertion", _gv_mutate_assertion, True, {}),
+    (
+        "split_derivation",
+        "split_derivation_digest",
+        "split_derivation",
+        _gv_mutate_split_derivation,
+        True,
+        {},
+    ),
+    (
+        "evaluation_splits",
+        "evaluation_splits_digest",
+        "evaluation_splits",
+        _gv_mutate_evaluation_splits,
+        True,
+        {},
+    ),
+    (
+        "measured_claims",
+        "measured_claims_digest",
+        "measured_claims",
+        _gv_mutate_measured_claims,
+        True,
+        {},
+    ),
+    (
+        "non_certified_selection_estimates",
+        "non_certified_selection_estimates_digest",
+        "selection_estimates",
+        _gv_mutate_selection_estimates,
+        True,
+        {"non_certified_selection_estimates": [_schema_fixtures._selection_estimate()]},
+    ),
+    ("non_claims", "non_claims_digest", "non_claims", _gv_mutate_non_claims, False, {}),
+    (
+        "claim_support_rows",
+        "agent_quality_claim_support_rows_digest",
+        "claim_support_rows",
+        _gv_mutate_claim_support_rows,
+        True,
+        {},
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "array_name,manifest_field,domain_role,mutate,expect_schema_valid_after_resign,overrides",
+    _GV_MUTATION_CASES,
+    ids=[c[0] for c in _GV_MUTATION_CASES],
+)
+def test_resign_restores_consistency_after_each_signed_array_mutation(
+    array_name: str,
+    manifest_field: str,
+    domain_role: str,
+    mutate,
+    expect_schema_valid_after_resign: bool,
+    overrides: dict,
+) -> None:
+    """checkpoint (b).1 -- the harness every later negative test depends on.
+    For EACH of the seven signed arrays/projections separately: mutate one
+    byte, assert (i) the corresponding digest no longer recomputes, (ii) the
+    signature no longer verifies against the mutated manifest, (iii) after
+    :func:`resign_agent_quality_bundle` both hold again, (iv) the bundle is
+    still schema-valid (except ``non_claims``, whose every field is const --
+    see :func:`_gv_mutate_non_claims`)."""
+    bundle = build_agent_quality_bundle(**overrides)
+    mutated = mutate(_gv_copy.deepcopy(bundle))
+
+    recomputed = (
+        v._strip_self_digest(mutated[array_name], manifest_field)
+        if array_name in ("assertion", "split_derivation")
+        else mutated[array_name]
+    )
+    assert mutated["unsigned_manifest"][manifest_field] != v._role_digest(
+        _GV_DOMAINS[domain_role], recomputed
+    ), "(i) the digest must no longer recompute after the mutation"
+
+    patched_manifest = dict(mutated["unsigned_manifest"])
+    patched_manifest[manifest_field] = v._role_digest(_GV_DOMAINS[domain_role], recomputed)
+    material = (
+        _GV_DOMAINS["issuer_signature"].encode("utf-8")
+        + b"\x00"
+        + fp2.canonicalize(patched_manifest).encode("utf-8")
+    )
+    with pytest.raises(InvalidSignature):
+        _GV_PUBLIC_KEY.verify(base64.b64decode(mutated["signature"]["signature"]), material)
+
+    resigned = resign_agent_quality_bundle(mutated)
+    assert resigned["unsigned_manifest"][manifest_field] == v._role_digest(
+        _GV_DOMAINS[domain_role],
+        v._strip_self_digest(resigned[array_name], manifest_field)
+        if array_name in ("assertion", "split_derivation")
+        else resigned[array_name],
+    ), "(iii) the digest must recompute again after resigning"
+    assert _gv_signature_verifies(resigned), "(iii) the signature must verify again after resigning"
+
+    errors = list(_gv_bundle_validator().iter_errors(resigned))
+    if expect_schema_valid_after_resign:
+        assert errors == [], [(list(e.absolute_path), e.message) for e in errors]
+    else:
+        assert errors != []
+
+
+def test_abstained_golden_bundle_is_schema_valid_and_signed() -> None:
+    bundle = build_abstained_agent_quality_bundle()
+    errors = list(_gv_bundle_validator().iter_errors(bundle))
+    assert errors == [], [(list(e.absolute_path), e.message) for e in errors]
+    assert _gv_signature_verifies(bundle)
+    row = bundle["claim_support_rows"][0]
+    assert row["evidence_basis"] == "abstained"
+    assert row["abstention_code"] == "verifier_not_run_or_not_pass"
+    assert bundle["measured_claims"] == []
+    assert bundle["non_certified_selection_estimates"] == []
+
+
+def test_abstained_golden_bundle_coupling_control() -> None:
+    """The SAME abstained bundle, with one measured claim added, is
+    schema-INVALID with the error path naming the coupling -- proving the
+    abstained vector sits exactly on the ``if/then/else`` boundary (mirrors
+    ``test_abstained_bundle_carries_claims_is_schema_preempted``'s
+    control)."""
+    coupled = build_abstained_agent_quality_bundle(
+        measured_claims=[_schema_fixtures._wilson_claim()]
+    )
+    errors = list(_gv_bundle_validator().iter_errors(coupled))
+    assert len(errors) == 1
+    assert list(errors[0].absolute_schema_path)[-4:] == [
+        "else",
+        "properties",
+        "measured_claims",
+        "maxItems",
+    ]
+
+
+def test_abstained_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
+    bundle = build_abstained_agent_quality_bundle()
+    context = build_agent_quality_context(accept_abstained_bundle=True)
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(bundle, context)
+    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+    assert caught.value.field == "bundle"
+
+
+def test_resign_with_foreign_key_produces_a_mismatched_but_valid_signature() -> None:
+    """checkpoint (b).3 -- a structurally valid signature by a key NOT in
+    the key ring: verifies under the foreign public key, fails under the
+    golden one. Packets .2/.3 use this to separate ``KEY_RING_MISMATCH``
+    from ``ISSUER_SIGNATURE_INVALID``."""
+    bundle = build_agent_quality_bundle()
+    foreign = resign_with_foreign_key(bundle, _GV_FOREIGN_PRIVATE_KEY)
+    assert _gv_signature_verifies(foreign, public_key=_GV_FOREIGN_PRIVATE_KEY.public_key())
+    assert not _gv_signature_verifies(foreign, public_key=_GV_PUBLIC_KEY)
+    errors = list(_gv_bundle_validator().iter_errors(foreign))
+    assert errors == []

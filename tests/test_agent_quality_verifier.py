@@ -755,20 +755,50 @@ def test_no_public_entry_point_exists_yet() -> None:
     assert not any("agent_quality" in name.lower() for name in module.__all__)
 
 
-def test_run_agent_quality_checks_rejects_every_bundle() -> None:
-    """S5-S7 are still unconditional refusals, so the private runner
-    rejects a bundle that reaches that far with the catch-all code --
-    proving the runner wraps the stage sequence rather than merely
-    defining stages nobody calls. Uses the real, golden-bound context and
-    process record so the bundle genuinely reaches S5 rather than being
-    refused earlier by one of S1-S4's now-real checks."""
+def test_run_agent_quality_checks_returns_the_golden_verified_result() -> None:
+    """P1-V2.4 commit 2 retarget (sanctioned by the packet brief): every
+    stage is now real, so the golden bundle -- schema-valid,
+    digest-consistent, genuinely signed, and internally consistent across
+    all eight stages -- makes the private runner genuinely RETURN a
+    :class:`v.AgentQualityVerificationResult` instead of raising. This is
+    the converted form of the retired
+    ``test_run_agent_quality_checks_rejects_every_bundle`` (P1-V2.0-.4:
+    "S5-S7 are still unconditional refusals... rejects a bundle that
+    reaches that far with the catch-all code"), which asserted the OPPOSITE
+    of what a fully-wired verifier must do on a genuinely valid bundle --
+    retained in spirit only by
+    :func:`test_run_agent_quality_checks_propagates_process_record_error_unchanged`
+    below, which still proves the runner wraps the stage sequence via a
+    DIFFERENT (still-genuine) failure path."""
     context = build_agent_quality_context()
     bundle = build_agent_quality_bundle()
-    with pytest.raises(v.AgentQualityVerificationError) as caught:
-        v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
-        )
-    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+    result = v._run_agent_quality_checks(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    assert result.code == "AGENT_QUALITY_VERIFIED"
+    assert result.evidence_basis == "issuer_verified"
+    assert result.claim_id == "AQ1"
+    assert result.primary_objective_id == "obj.accuracy.exact_match.v1"
+    assert result.nominal_coverage_ppm == 950000
+    assert result.holdout_item_count == 200
+    assert result.interval_verification_level == "construction_recomputed_v1"
+    assert result.split_verification_level == "issuer_attested_v1"
+    assert result.dataset_condition_code == "dataset_certificate_not_verified"
+    assert result.evaluator_condition_code == "evaluator_certificate_not_verified"
+
+
+def test_run_agent_quality_checks_golden_path_is_deterministic() -> None:
+    """Running the golden end-to-end path twice produces two EQUAL results
+    -- the runner has no hidden state or nondeterminism."""
+    context = build_agent_quality_context()
+    bundle = build_agent_quality_bundle()
+    first = v._run_agent_quality_checks(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    second = v._run_agent_quality_checks(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    assert first == second
 
 
 def test_run_agent_quality_checks_propagates_process_record_error_unchanged() -> None:
@@ -786,18 +816,16 @@ def test_run_agent_quality_checks_propagates_process_record_error_unchanged() ->
     assert caught.value.code != "AGENT_QUALITY_VERIFICATION_FAILED"
 
 
-# S1, S2, S3, S4, S5, S6 and S8 are no longer unconditional refusals, so
-# none of them can share the uniform "any schema-valid bundle is refused
-# with the catch-all" assertion below -- a schema-valid, digest-consistent,
-# signed bundle genuinely bound to the golden process record is exactly
-# what their real checks are supposed to PASS. S2 and S4 also no longer
-# share the uniform ``(bundle, context)`` two-argument shape every other
-# stage still has (each additionally needs ``process_record_bundle``, like
-# S8), so none of the four can be driven by this parametrized test's
-# uniform call shape either. S7 remains a placeholder in this packet and
-# keeps the uniform assertion; S1, S2, S3, S4, S5, S6 and S8 each get their
-# own dedicated fail-closed coverage
-# (test_stage_s{1,2,3,4,5,6,8}_..._is_a_real_fail_closed_function).
+# P1-V2.4 commit 2: every stage is now a real check -- NONE are
+# unconditional refusals any longer, so none of them can share the uniform
+# "any schema-valid bundle is refused with the catch-all" assertion below.
+# S2, S4 and S8 also don't share the uniform ``(bundle, context)``
+# two-argument shape every other stage has (each additionally needs
+# ``process_record_bundle``). Every stage now gets its own dedicated
+# fail-closed coverage (test_stage_s{1..8}_..._is_a_real_fail_closed_function)
+# instead. This parametrization is kept (empty) rather than deleted, so a
+# FUTURE placeholder stage (packet .6's own future work, if any) has
+# somewhere to land without re-inventing this scaffold.
 _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES = tuple(
     name
     for name in _STAGE_FUNCTION_NAMES
@@ -809,6 +837,7 @@ _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES = tuple(
         "_stage_s4_declared_plan_signatures",
         "_stage_s5_objective_measurement",
         "_stage_s6_splits_held_out",
+        "_stage_s7_composition_abstention",
         "_stage_s8_manifest_digests_signature",
     )
 )
@@ -909,6 +938,36 @@ def test_stage_s6_splits_held_out_is_a_real_fail_closed_function() -> None:
         v._stage_s6_splits_held_out(bundle, context)
     assert caught.value.code == "SPLIT_COMMITMENT_COLLISION"
     assert caught.value.field == "evaluation_splits"
+
+
+def test_stage_s7_composition_abstention_is_a_real_fail_closed_function() -> None:
+    """S7's real-check counterpart to
+    :func:`test_each_stage_is_a_real_fail_closed_function`: S7 PASSES the
+    golden bundle, so its "still fail-closed when called directly" proof
+    mutates the assertion's own digest instead."""
+    bundle = build_agent_quality_bundle()
+    bundle["assertion"]["assertion_digest"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s7_composition_abstention(bundle, context)
+    assert caught.value.code == "ASSERTION_DIGEST_MISMATCH"
+    assert caught.value.field == "assertion"
+
+
+def test_rendered_text_carries_no_preregistration_timing_claim_wording() -> None:
+    """Extends design test 35 (the literal-stem tripwire,
+    :func:`test_literal_zero_preregistration_stem_hits`, which already
+    scans the WHOLE schema/module/catalog text) with a targeted assertion
+    on the ONE string S7 actually compares claims against: the shipped
+    ``AgentQualityAssertionV1.rendered_text`` const must not merely be
+    absent from a broad scan -- it must specifically carry no
+    "pre-registered" (or any stem variant) timing-claim wording, since S7
+    now mechanically pins every certified claim's rendered_text to exactly
+    this string."""
+    rendered_text = SCHEMA["definitions"]["AgentQualityAssertionV1"]["properties"]["rendered_text"][
+        "const"
+    ]
+    assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", rendered_text, re.I) is None
 
 
 # ==========================================================================
@@ -1169,16 +1228,42 @@ def test_selection_estimate_duplicate_is_not_schema_preempted() -> None:
     )
 
 
-def test_schema_preempted_dead_codes_are_exactly_two_and_registered() -> None:
-    """The two ORIGINAL schema-preempted codes have no guard anywhere in the
-    module (dead vocabulary) -- see
+def test_schema_preempted_dead_codes_are_exactly_three_and_registered() -> None:
+    """These schema-preempted codes have no guard anywhere in the module
+    (dead vocabulary) -- see
     :func:`test_schema_preempted_backstop_codes_have_a_live_guard_each` for
-    the other half of :data:`v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES`."""
+    the other half of :data:`v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES`.
+    PILLAR_BINDING_MISMATCH (P1-V2.4 commit 2, design row 55) joins the
+    original two: ``EmittablePillarStatusV1`` excludes ``assessed_supported``
+    entirely, so no schema-valid ``pillar_support`` entry can ever carry
+    the sibling-verification binding this code would check, and v1 defines
+    no sibling-bundle input mechanism to check one against."""
     assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES == {
         "ABSTAINED_BUNDLE_CARRIES_CLAIMS",
         "SELECTION_ESTIMATE_IN_CERTIFIED_SET",
+        "PILLAR_BINDING_MISMATCH",
     }
     assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES <= v.AGENT_QUALITY_ERROR_CODES
+
+
+def test_pillar_binding_mismatch_is_schema_preempted() -> None:
+    """Validator proof: a ``pillar_support`` entry claiming
+    ``assessed_supported`` fails SCHEMA validation at
+    ``pillar_support[0].status`` (or whichever index/path the mutated entry
+    occupies); the same entry with ``condition_declared_unverified`` (the
+    control) validates fine."""
+    bundle = _schema_fixtures._bundle()
+    bundle["unsigned_manifest"]["pillar_support"][0]["status"] = "assessed_supported"
+    errors = _schema_fixtures._errors(bundle)
+    assert len(errors) >= 1, "assessed_supported must be schema-invalid"
+    assert any(
+        "status" in list(e.absolute_path) and "pillar_support" in str(list(e.absolute_path))
+        for e in errors
+    ), [(list(e.absolute_path), e.message) for e in errors]
+
+    control = _schema_fixtures._bundle()
+    control["unsigned_manifest"]["pillar_support"][0]["status"] = "condition_declared_unverified"
+    assert _schema_fixtures._errors(control) == []
 
 
 def test_schema_preempted_backstop_codes_have_a_live_guard_each() -> None:
@@ -1493,6 +1578,16 @@ def test_four_way_code_vocabulary_partition_is_disjoint_and_covers_all() -> None
     assert dead | preempted_with_backstop | pending | reachable == v.AGENT_QUALITY_ERROR_CODES, (
         "the four buckets must exactly cover the closed code vocabulary"
     )
+
+
+def test_agent_quality_pending_codes_is_now_empty() -> None:
+    """P1-V2.4 commit 2: every stage (S1-S8) now runs a real check, so
+    :data:`v.AGENT_QUALITY_PENDING_CODES` -- which the module's own
+    long-lived comment has tracked shrinking release over release, and
+    which was explicitly expected to hold only a future packet's own codes
+    if any remained -- is exactly empty. No later packet owns any
+    leftover code in this pillar's vocabulary."""
+    assert v.AGENT_QUALITY_PENDING_CODES == frozenset()
 
 
 def test_pending_codes_are_not_yet_emitted() -> None:
@@ -2114,7 +2209,20 @@ def _gv_close(bundle: dict, *, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY)
         "primary_objective_id": declared_plan["primary_objective_id"],
         "selection_arm_count": declared_plan["selection_arm_count"],
         "holdout_scored_arm_count": declared_plan["holdout_scored_arm_count"],
-        "pillar_support": _schema_fixtures._pillar_support(),
+        # P1-V2.4 commit 2 (S7, row 54): PILLAR_SUPPORT_SHAPE checks
+        # bound_commitment_ref against the manifest's OWN real
+        # dataset/evaluator commitment refs -- the schema fixture's generic
+        # placeholder SHA would fail that real cross-field check, so the
+        # golden manifest builds its own pillar_support with the real refs
+        # instead of reusing _schema_fixtures._pillar_support() verbatim.
+        "pillar_support": [
+            dict(entry, bound_commitment_ref=ref)
+            for entry, ref in zip(
+                _schema_fixtures._pillar_support(),
+                (_GV_DATASET_COMMITMENT_REF, _GV_EVALUATOR_COMMITMENT_REF),
+                strict=True,
+            )
+        ],
         "assertion_digest": assertion["assertion_digest"],
         "non_claims_digest": non_claims_digest,
         "agent_quality_claim_support_rows_digest": claim_support_rows_digest,
@@ -2448,29 +2556,25 @@ def test_golden_registry_identities_match_package_data() -> None:
     assert bundle["non_claims"] == _schema_fixtures._non_claims()
 
 
-def test_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
-    """P1-V2.4 commit 1 retarget (sanctioned by the packet brief): S1-S6 now
-    all run real checks and PASS the golden bundle -- it is schema-valid,
-    digest-consistent, genuinely bound to
-    :data:`_GV_PROCESS_RECORD_BUNDLE`'s scope/commitments, its declared-plan
-    digest/signature both verify, its two certified claims are registered,
-    admissible, and recompute exactly, and its evaluation-splits shape,
-    holdout usage, split derivation, and arm counts are all internally
-    consistent -- so the runner advances past all six and is rejected at
-    S7's still-unconditional-refusal placeholder instead. Proves S1-S6 do
-    not silently swallow a bundle they should pass, without yet asserting
-    anything about S7 (still a placeholder) or S8 (real, but never reached
-    from this boundary)."""
+def test_golden_bundle_passes_every_stage_directly() -> None:
+    """P1-V2.4 commit 2 retarget (sanctioned by the packet brief) of the
+    former ``test_golden_bundle_reaches_private_runner_fail_closed_boundary``:
+    every stage is now real, so there is no placeholder boundary left for
+    the golden bundle to "reach" -- it passes every one of the eight
+    stages. This calls each stage directly, in order, so a failure here
+    pinpoints exactly WHICH stage rejected the golden bundle, complementing
+    :func:`test_run_agent_quality_checks_returns_the_golden_verified_result`'s
+    single full-runner assertion."""
     bundle = build_agent_quality_bundle()
     context = build_agent_quality_context()
-    with pytest.raises(v.AgentQualityVerificationError) as caught:
-        # process_record_bundle IS reached now: S2 verifies it in full
-        # before S7's still-unconditional refusal fires.
-        v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
-        )
-    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "claim_support_rows"
+    v._stage_s1_structural(bundle, context)
+    v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    v._stage_s3_registry_identity(bundle, context)
+    v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    v._stage_s5_objective_measurement(bundle, context)
+    v._stage_s6_splits_held_out(bundle, context)
+    v._stage_s7_composition_abstention(bundle, context)
+    v._stage_s8_manifest_digests_signature(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
 
 
 def test_golden_builders_are_deterministic() -> None:
@@ -2825,23 +2929,42 @@ def test_abstained_golden_bundle_coupling_control() -> None:
     ]
 
 
-def test_abstained_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
-    """P1-V2.4 commit 1 retarget (sanctioned by the packet brief), same
-    shape as :func:`test_golden_bundle_reaches_private_runner_fail_closed_boundary`:
-    the abstained golden bundle is also schema-valid and genuinely bound to
-    the real process record, so it now passes S1-S4, vacuously passes S5
-    (its ``measured_claims`` is empty, exactly as an ``abstained`` support
-    row requires, so there is nothing for S5 to recompute), vacuously
-    passes S6's per-claim/per-estimate loops for the same reason (its
-    ``non_certified_selection_estimates`` is also forced empty), and is
-    refused at S7's placeholder."""
+def test_abstained_golden_bundle_returns_the_abstained_result_when_accepted() -> None:
+    """P1-V2.4 commit 2 retarget (sanctioned by the packet brief) of the
+    former ``test_abstained_golden_bundle_reaches_private_runner_fail_closed_boundary``:
+    the abstained golden bundle is schema-valid and genuinely bound to the
+    real process record, passes S1-S4, vacuously passes S5/S6 (its
+    ``measured_claims``/``non_certified_selection_estimates`` are both
+    forced empty by the abstention coupling), and now S7 accepts it (row
+    53: the caller's ``accept_abstained_bundle=True`` permits a non-
+    ``issuer_verified`` row) -- so the runner returns a genuine ABSTAINED
+    :class:`v.AgentQualityVerificationResult`, per row 53's second half."""
     bundle = build_abstained_agent_quality_bundle()
     context = build_agent_quality_context(accept_abstained_bundle=True)
+    result = v._run_agent_quality_checks(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    assert result.code == "AGENT_QUALITY_CLAIM_ABSTAINED"
+    assert result.evidence_basis == "abstained"
+    assert result.claim_id == "AQ1"
+    assert result.interval_verification_level == "issuer_attested_v1"
+    assert result.split_verification_level == "issuer_attested_v1"
+    assert result.holdout_item_count == 200
+    assert result.dataset_condition_code == "dataset_certificate_not_verified"
+    assert result.evaluator_condition_code == "evaluator_certificate_not_verified"
+
+
+def test_abstained_golden_bundle_claim_not_verified_when_not_accepted() -> None:
+    """Row 53's first half: the SAME abstained bundle, with a caller that
+    does NOT set ``accept_abstained_bundle`` -- S7 refuses it outright,
+    never reaching a result at all."""
+    bundle = build_abstained_agent_quality_bundle()
+    context = build_agent_quality_context(accept_abstained_bundle=False)
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
             bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
-    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+    assert caught.value.code == "CLAIM_NOT_VERIFIED"
     assert caught.value.field == "claim_support_rows"
 
 
@@ -2919,20 +3042,29 @@ def test_stage_s8_manifest_digests_signature_is_a_real_fail_closed_function() ->
     assert caught.value.field == "unsigned_manifest"
 
 
-def test_family_b_golden_bundle_reaches_s7_not_s8_through_full_runner() -> None:
-    """One test runs the WHOLE runner on a family-B bundle to prove it is
-    refused at S7 (still a placeholder), never reaching S8 at all --
-    complementary to the direct-call tests above, which prove S8 itself is
-    real. P1-V2.4 commit 1 retarget (sanctioned by the packet brief): S6 is
-    now real too, so the boundary moves from S6 to S7."""
-    bundle = build_agent_quality_bundle()
+def test_family_b_golden_bundle_result_is_independent_across_separately_built_bundles() -> None:
+    """P1-V2.4 commit 2 retarget (sanctioned by the packet brief) of the
+    former ``test_family_b_golden_bundle_reaches_s7_not_s8_through_full_runner``:
+    there is no S7/S8 boundary left to reach -- every stage is real, and
+    the family-B golden bundle now verifies end to end. Converted into a
+    stronger determinism proof than
+    :func:`test_run_agent_quality_checks_golden_path_is_deterministic`
+    (which re-runs the SAME bundle object): two INDEPENDENTLY built golden
+    bundles -- fresh dict trees from separate
+    :func:`build_agent_quality_bundle` calls -- must verify to an EQUAL
+    result, proving the runner carries no hidden shared mutable state
+    across calls."""
     context = build_agent_quality_context()
-    with pytest.raises(v.AgentQualityVerificationError) as caught:
-        v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
-        )
-    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "claim_support_rows"
+    first_bundle = build_agent_quality_bundle()
+    second_bundle = build_agent_quality_bundle()
+    assert first_bundle is not second_bundle
+    first_result = v._run_agent_quality_checks(
+        first_bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    second_result = v._run_agent_quality_checks(
+        second_bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    assert first_result == second_result
 
 
 # Rows 57-62 -- one parametrized case per signed array/projection: mutate
@@ -4500,18 +4632,18 @@ def test_s6_selection_estimate_duplicate_full_runner() -> None:
 
 def test_split_opening_none_is_the_only_accepted_value_golden_path_still_passes() -> None:
     """Passing ``split_opening=None`` explicitly must behave identically to
-    omitting it -- the golden bundle still reaches S7's placeholder."""
+    omitting it -- the golden bundle still verifies end to end (P1-V2.4
+    commit 2 retarget, sanctioned by the packet brief: every stage is now
+    real, so there is no placeholder boundary left to "reach")."""
     bundle = build_agent_quality_bundle()
     context = build_agent_quality_context()
-    with pytest.raises(v.AgentQualityVerificationError) as caught:
-        v._run_agent_quality_checks(
-            bundle,
-            context=context,
-            process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
-            split_opening=None,
-        )
-    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "claim_support_rows"
+    result = v._run_agent_quality_checks(
+        bundle,
+        context=context,
+        process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
+        split_opening=None,
+    )
+    assert result.code == "AGENT_QUALITY_VERIFIED"
 
 
 def test_split_opening_non_none_is_refused_fail_closed() -> None:
@@ -4555,6 +4687,106 @@ def test_split_opening_input_preempted_codes_are_never_emitted() -> None:
 
 
 # ==========================================================================
+# P1-V2.4 commit 2 -- S7 real checks (design rows 53-56): claim-support
+# composition and abstention, pillar-support shape, and the assertion
+# digest.
+# ==========================================================================
+
+
+def test_s7_passes_the_golden_bundle() -> None:
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    v._stage_s7_composition_abstention(bundle, context)
+
+
+def test_s7_passes_the_abstained_golden_bundle_when_accepted() -> None:
+    bundle = build_abstained_agent_quality_bundle()
+    context = build_agent_quality_context(accept_abstained_bundle=True)
+    v._stage_s7_composition_abstention(bundle, context)
+
+
+def test_s7_pillar_support_shape_wrong_subject_order_full_runner() -> None:
+    """Row 54: the two entries are swapped -- ``dataset`` shows up at index
+    1 and ``evaluator`` at index 0. ``PillarSupportV1``'s own per-position
+    ``support_subject``/``condition_code`` consts already make this
+    schema-invalid, so this is a direct-stage-call proof of S7's own
+    defensive check (mirroring how S5's tests distinguish schema-enforced
+    shape from this stage's own guard)."""
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["pillar_support"] = list(
+        reversed(bundle["unsigned_manifest"]["pillar_support"])
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s7_composition_abstention(bundle, context)
+    assert caught.value.code == "PILLAR_SUPPORT_SHAPE"
+    assert caught.value.field == "pillar_support.dataset"
+
+
+def test_s7_pillar_support_shape_wrong_dataset_commitment_ref_full_runner() -> None:
+    """Row 54's real (non-schema-fixed) work: ``bound_commitment_ref`` must
+    equal the manifest's OWN real ``dataset_commitment_ref`` -- a
+    self-consistent but FOREIGN ref is schema-valid (both are just
+    Sha256Digest-shaped strings) yet wrong. Not re-signed: ``_gv_close``
+    (what :func:`resign_agent_quality_bundle` re-runs) unconditionally
+    rebuilds ``pillar_support`` from the golden refs, which would silently
+    repair exactly the defect this test targets."""
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["pillar_support"][0]["bound_commitment_ref"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "PILLAR_SUPPORT_SHAPE"
+    assert caught.value.field == "pillar_support.dataset"
+
+
+def test_s7_pillar_support_shape_wrong_evaluator_commitment_ref_full_runner() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["pillar_support"][1]["bound_commitment_ref"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "PILLAR_SUPPORT_SHAPE"
+    assert caught.value.field == "pillar_support.evaluator"
+
+
+def test_s7_assertion_digest_mismatch_manifest_copy_full_runner() -> None:
+    """Row 56: the MANIFEST's own copy of ``assertion_digest`` disagrees,
+    even though the assertion's own field is internally consistent with
+    its content."""
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["assertion_digest"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "ASSERTION_DIGEST_MISMATCH"
+    assert caught.value.field == "assertion"
+
+
+def test_s7_assertion_digest_mismatch_wrong_rendered_text_direct_call() -> None:
+    """Row 56's mechanical-rendering half: ``rendered_text`` no longer
+    equals the schema's own fixed ``const``.
+    ``AgentQualityAssertionV1.rendered_text`` is itself a hard schema
+    ``const``, so no schema-valid bundle can carry any other string --
+    this is a direct-stage-call proof of S7's own defensive check
+    (the same backstop pattern as several S5/S6 codes), not a
+    full-runner one."""
+    bundle = build_agent_quality_bundle()
+    bundle["assertion"]["rendered_text"] = "A materially different certified sentence."
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s7_composition_abstention(bundle, context)
+    assert caught.value.code == "ASSERTION_DIGEST_MISMATCH"
+    assert caught.value.field == "assertion"
+
+
+# ==========================================================================
 # P1-V2.3 -- mutate-the-guard: S2, S3, S4 negatives fail ONLY when that
 # stage's own body is gutted, with zero leakage across stage boundaries.
 # ==========================================================================
@@ -4567,13 +4799,17 @@ def test_split_opening_input_preempted_codes_are_never_emitted() -> None:
 # gutted simultaneously (a tautology, not a mutation-detection test). This
 # version is REAL: per stage, a representative negative bundle (i) raises
 # THAT STAGE's own owned code with the stage intact, and (ii) raises a
-# DIFFERENT, LATER code -- S7's still-unconditional placeholder as of
-# commit 1 (moved from S6's, now that S6 is real too) -- once the stage is
-# gutted, proving the gutted stage no longer catches the violation it owns.
-# Each mutation is chosen to be inert to every OTHER real stage (S1's
-# schema, and whichever of S2-S6 is not under test), so the "later code" is
-# deterministically S7's placeholder, never a coincidental catch by a
-# neighboring stage.
+# DIFFERENT code once the stage is gutted, proving the gutted stage no
+# longer catches the violation it owns. P1-V2.4 commit 2: every stage is
+# now real, so there is no shared "later placeholder" left -- the code each
+# gutted case (ii) actually produces is whichever real, later check
+# happens to ALSO notice the same underlying inconsistency (typically one
+# of S8's digest-mismatch codes, since these mutations are never
+# re-signed); see :func:`test_gutting_s7_lets_a_wrong_assertion_digest_through`
+# below for S7's OWN case, which is qualitatively different: NOTHING
+# downstream catches it, so gutting S7 lets a genuinely bad bundle verify
+# successfully -- proof that S7 is uniquely load-bearing for
+# ASSERTION_DIGEST_MISMATCH, not merely first.
 _GUTTING_REPRESENTATIVE_CASES: dict[str, tuple[Callable[[dict], None], str]] = {
     "_stage_s2_context_binding": (
         lambda bundle: bundle["unsigned_manifest"].__setitem__(
@@ -4643,6 +4879,52 @@ def test_gutting_one_stage_body_fails_only_its_own_negatives(stage_name: str) ->
             v._run_agent_quality_checks(
                 gutted_bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
             )
-    assert caught_gutted.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught_gutted.value.field == "claim_support_rows"
+    # P1-V2.4 commit 2: every stage is now real, so there is no shared
+    # "later placeholder" left to catch a gutted stage's own violation --
+    # whichever LATER real check happens to also notice the same
+    # underlying inconsistency (typically one of S8's digest-mismatch
+    # codes, since none of these mutations are re-signed) fires instead,
+    # and it varies by which stage/mutation this is. The invariant that
+    # generalizes is simply: it is NOT the gutted stage's own code.
     assert caught_gutted.value.code != owned_code
+
+
+def test_gutting_s7_lets_a_wrong_assertion_digest_through() -> None:
+    """S7's own mutate-the-guard case, kept separate from
+    :func:`test_gutting_one_stage_body_fails_only_its_own_negatives`'s
+    uniform table because the shape of the proof is different: mutating
+    ONLY ``assertion.assertion_digest`` (leaving the assertion's other
+    content, the manifest's own ``assertion_digest`` copy, and
+    ``claim_support_rows[0].assertion_digest`` all at their ORIGINAL
+    correct values) is caught by S7 alone -- S8 never reads
+    ``assertion["assertion_digest"]`` at all; it recomputes its own fresh
+    digest from the assertion's OTHER content for the claim-material/
+    claim-support-row checks, so a wrong value in that ONE field is
+    invisible to S8's own guards.
+
+    With S7 intact: ASSERTION_DIGEST_MISMATCH, as usual. With S7 gutted: NO
+    exception at all -- the runner returns a "successful"
+    :class:`v.AgentQualityVerificationResult` despite the bundle's own
+    ``assertion.assertion_digest`` field being wrong. This is the
+    documented asymmetry the packet brief calls out: a gutted real-check
+    stage can let a genuinely bad bundle verify, which is a STRONGER
+    failure mode than "a different code fires instead."""
+    bundle = build_agent_quality_bundle()
+    bundle["assertion"]["assertion_digest"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "ASSERTION_DIGEST_MISMATCH"
+
+    def _gutted(*args: object, **kwargs: object) -> None:
+        return None
+
+    _gutted.owns = v._stage_s7_composition_abstention.owns  # type: ignore[attr-defined]
+    with patch.object(v, "_stage_s7_composition_abstention", _gutted):
+        result = v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert result.code == "AGENT_QUALITY_VERIFIED"

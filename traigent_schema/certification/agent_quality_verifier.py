@@ -249,12 +249,22 @@ AGENT_QUALITY_ERROR_CODES = frozenset(
 # point_estimate or sample_size" -- so it stays in
 # AGENT_QUALITY_PENDING_CODES instead.
 #
-# These two codes have NO guard anywhere in this module -- genuinely dead
+# .4 commit 2 (S7) adds a third: PILLAR_BINDING_MISMATCH (design row 55).
+# ``EmittablePillarStatusV1`` excludes ``assessed_supported`` entirely --
+# only ``condition_declared_unverified`` is emittable in v1 -- so no
+# schema-valid ``pillar_support`` entry can ever carry the
+# ``bound_manifest_digest``/sibling-verification binding this code would
+# check. v1 defines no sibling-bundle input mechanism to check one against,
+# so unlike the seven S5/S6 backstop codes, there is no guard for this one
+# anywhere in the module at all.
+#
+# These three codes have NO guard anywhere in this module -- genuinely dead
 # vocabulary, registered so the string exists but never a call-site target.
 AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES: frozenset[str] = frozenset(
     {
         "ABSTAINED_BUNDLE_CARRIES_CLAIMS",
         "SELECTION_ESTIMATE_IN_CERTIFIED_SET",
+        "PILLAR_BINDING_MISMATCH",
     }
 )
 
@@ -447,9 +457,12 @@ AGENT_QUALITY_INPUT_PREEMPTED_CODES: frozenset[str] = frozenset(
 # (SPLIT_OPENING_MISMATCH, SPLIT_OPENING_RULE_VIOLATION) are excluded via
 # the ``AGENT_QUALITY_SCHEMA_PREEMPTED_CODES`` /
 # ``AGENT_QUALITY_INPUT_PREEMPTED_CODES`` subtractions instead, the same
-# pattern as .4's seven. This set MUST shrink to empty by packet .6, as
-# each later packet wires its stage's real checks and moves that stage's
-# codes out of here; only S7 remains after this packet.
+# pattern as .4's seven. .4 commit 2 wires S7's three reachable codes
+# (CLAIM_NOT_VERIFIED, PILLAR_SUPPORT_SHAPE, ASSERTION_DIGEST_MISMATCH);
+# its fourth owned-by-design code, PILLAR_BINDING_MISMATCH, is dead
+# vocabulary (see :data:`AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES`) with
+# no guard anywhere, excluded via that subtraction instead. This set MUST
+# be empty after this packet -- every stage now runs real checks.
 AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
     AGENT_QUALITY_ERROR_CODES
     - AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
@@ -509,6 +522,9 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
             "SPLIT_SIZE_IMPLAUSIBLE",
             "ARM_COUNT_MISMATCH",
             "SELECTION_ESTIMATE_DUPLICATE",
+            "CLAIM_NOT_VERIFIED",
+            "PILLAR_SUPPORT_SHAPE",
+            "ASSERTION_DIGEST_MISMATCH",
         }
     )
 )
@@ -1026,6 +1042,19 @@ def _nominal_coverage_values() -> frozenset[int]:
 @lru_cache(maxsize=1)
 def _distribution_assumption_values() -> frozenset[str]:
     return frozenset(_schema_definition("DistributionAssumptionV1")["enum"])
+
+
+@lru_cache(maxsize=1)
+def _emittable_pillar_statuses() -> frozenset[str]:
+    """``PillarStatusV1`` minus ``EmittablePillarStatusV1``'s own exclusion
+    (a single excluded const, unlike :func:`_emittable_interval_methods`'s
+    excluded enum list) -- derived from the shipped schema so S7's shape
+    check cannot drift from it. v1 excludes only ``assessed_supported``
+    (see :data:`AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES`'s
+    PILLAR_BINDING_MISMATCH entry for why)."""
+    all_statuses = frozenset(_schema_definition("PillarStatusV1")["enum"])
+    excluded = _schema_definition("EmittablePillarStatusV1")["allOf"][1]["not"]["const"]
+    return all_statuses - {excluded}
 
 
 def _holdout_item_count(evaluation_splits: object) -> object:
@@ -2194,18 +2223,16 @@ def _stage_s6_splits_held_out(
 @_owns(
     "CLAIM_NOT_VERIFIED",
     "PILLAR_SUPPORT_SHAPE",
-    "PILLAR_BINDING_MISMATCH",
     "ASSERTION_DIGEST_MISMATCH",
 )
 def _stage_s7_composition_abstention(
     bundle: Mapping[str, Any], context: AgentQualityVerificationContext
 ) -> None:
     """S7 -- claim-support composition and abstention (design rows 52-56,
-    minus the schema-preempted ABSTAINED_BUNDLE_CARRIES_CLAIMS and
-    SELECTION_ESTIMATE_IN_CERTIFIED_SET).
+    minus the schema-preempted ABSTAINED_BUNDLE_CARRIES_CLAIMS,
+    SELECTION_ESTIMATE_IN_CERTIFIED_SET, and PILLAR_BINDING_MISMATCH).
 
-    Owns: CLAIM_NOT_VERIFIED, PILLAR_SUPPORT_SHAPE, PILLAR_BINDING_MISMATCH,
-    ASSERTION_DIGEST_MISMATCH.
+    Owns: CLAIM_NOT_VERIFIED, PILLAR_SUPPORT_SHAPE, ASSERTION_DIGEST_MISMATCH.
 
     ABSTAINED_BUNDLE_CARRIES_CLAIMS (design row 52) is NOT carried into this
     stage's owned set: ``AgentQualityCertificateBundleV1``'s own ``allOf``
@@ -2214,9 +2241,84 @@ def _stage_s7_composition_abstention(
     ``issuer_verified`` support row, so no schema-valid bundle can ever reach
     this condition -- see AGENT_QUALITY_SCHEMA_PREEMPTED_CODES.
 
-    Unconditional refusal in this packet -- see :func:`_stage_s1_structural`.
+    PILLAR_BINDING_MISMATCH (design row 55) is likewise NOT owned: the
+    shipped schema's ``EmittablePillarStatusV1`` excludes ``assessed_supported``
+    entirely (only ``condition_declared_unverified`` is emittable in v1), so
+    no schema-valid ``pillar_support`` entry can ever carry the
+    ``bound_manifest_digest``/sibling-verification binding this code would
+    check -- there is no guard for it anywhere in this module, matching
+    :data:`AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES`'s other two members.
+    v1 defines no sibling-bundle input mechanism to check one against, and
+    this packet does not invent one.
+
+    In order: (row 53) the single claim-support row must be
+    ``issuer_verified`` UNLESS the caller's ``context.accept_abstained_bundle``
+    permits an ``abstained`` one -- the runner (not this stage) is what
+    actually constructs an ABSTAINED :class:`AgentQualityVerificationResult`
+    when this check passes on an abstained row; (row 54) ``pillar_support``
+    is exactly the two-member ``[dataset, evaluator]`` tuple the schema
+    fixes in order and per-position ``condition_code``, but the schema
+    cannot tie ``bound_commitment_ref`` to any OTHER field, so this stage
+    checks it against the manifest's own real commitment refs, and
+    ``status`` against the emittable vocabulary; (row 56) the assertion's
+    own role digest is recomputed and compared to both its own
+    ``assertion_digest`` field and the manifest's copy, and its
+    ``rendered_text`` is compared to the schema's own fixed ``const`` --
+    v1 ships no separate ``assertion_templates`` document for this pillar
+    (unlike evaluator_quality's), so the schema's ``const`` IS the
+    mechanical rendering to compare against.
     """
-    _fail("AGENT_QUALITY_VERIFICATION_FAILED", "claim_support_rows")
+    manifest = bundle["unsigned_manifest"]
+    row = bundle["claim_support_rows"][0]
+
+    evidence_basis = row.get("evidence_basis")
+    if evidence_basis != "issuer_verified" and not context.accept_abstained_bundle:
+        _fail("CLAIM_NOT_VERIFIED", "claim_support_rows")
+
+    pillar_support = manifest.get("pillar_support")
+    if not isinstance(pillar_support, (list, tuple)) or len(pillar_support) != 2:
+        _fail("PILLAR_SUPPORT_SHAPE", "pillar_support")
+    emittable_statuses = _emittable_pillar_statuses()
+    for entry, subject, condition_code, expected_ref, field in (
+        (
+            pillar_support[0],
+            "dataset",
+            "dataset_certificate_not_verified",
+            manifest.get("dataset_commitment_ref"),
+            "pillar_support.dataset",
+        ),
+        (
+            pillar_support[1],
+            "evaluator",
+            "evaluator_certificate_not_verified",
+            manifest.get("evaluator_commitment_ref"),
+            "pillar_support.evaluator",
+        ),
+    ):
+        if not isinstance(entry, Mapping):
+            _fail("PILLAR_SUPPORT_SHAPE", field)
+        if (
+            entry.get("support_subject") != subject
+            or entry.get("status") not in emittable_statuses
+            or entry.get("condition_code") != condition_code
+            or entry.get("bound_commitment_ref") != expected_ref
+        ):
+            _fail("PILLAR_SUPPORT_SHAPE", field)
+
+    assertion = bundle["assertion"]
+    recomputed_assertion_digest = _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["assertion"],
+        _strip_self_digest(assertion, "assertion_digest"),
+    )
+    if recomputed_assertion_digest != assertion.get(
+        "assertion_digest"
+    ) or recomputed_assertion_digest != manifest.get("assertion_digest"):
+        _fail("ASSERTION_DIGEST_MISMATCH", "assertion")
+    expected_rendered_text = _schema_definition("AgentQualityAssertionV1")["properties"][
+        "rendered_text"
+    ]["const"]
+    if assertion.get("rendered_text") != expected_rendered_text:
+        _fail("ASSERTION_DIGEST_MISMATCH", "assertion")
 
 
 @_owns(
@@ -2461,17 +2563,18 @@ def _run_agent_quality_checks(
     only accepted value being ``None``.
 
     No public entry point calls this yet (see the module docstring and
-    ``test_no_public_entry_point_exists_yet``). S1-S6 and S8 now run real
-    checks; S7 is still an unconditional refusal, so this function
-    currently rejects every bundle it is given, and never returns a
-    :class:`AgentQualityVerificationResult` in practice -- the return type
-    is the one the complete check sequence will actually produce once S7's
-    real checks replace today's placeholder.
+    ``test_no_public_entry_point_exists_yet``). Every stage now runs real
+    checks, so this function genuinely returns a
+    :class:`AgentQualityVerificationResult` for a bundle that passes all
+    eight -- built from what THIS function computed (the single support
+    row's own ``evidence_basis``, which S7 already proved is either
+    ``issuer_verified`` or an accepted ``abstained``), never copied from
+    the bundle unexamined beyond that.
 
     Mirrors ``evaluator_quality_verifier``'s content-free catch-all: any
     exception escaping the stage sequence that is not already an
-    :class:`AgentQualityVerificationError` -- including one raised by a
-    stage's own placeholder body -- is caught and re-raised as
+    :class:`AgentQualityVerificationError` -- including one raised while
+    building the result below -- is caught and re-raised as
     ``AGENT_QUALITY_VERIFICATION_FAILED`` with no bundle content attached.
     The ONE exception to that catch-all is
     :class:`ProcessRecordVerificationError`: per the design, a failure
@@ -2490,20 +2593,51 @@ def _run_agent_quality_checks(
         _stage_s6_splits_held_out(bundle, context)
         _stage_s7_composition_abstention(bundle, context)
         _stage_s8_manifest_digests_signature(bundle, context, process_record_bundle)
+
+        manifest = bundle["unsigned_manifest"]
+        row = bundle["claim_support_rows"][0]
+        pillar_support = manifest["pillar_support"]
+        dataset_condition_code = pillar_support[0]["condition_code"]
+        evaluator_condition_code = pillar_support[1]["condition_code"]
+        holdout_item_count = bundle["evaluation_splits"][1]["item_count"]
+
+        if row.get("evidence_basis") == "issuer_verified":
+            claim = bundle["measured_claims"][0]
+            return AgentQualityVerificationResult(
+                code="AGENT_QUALITY_VERIFIED",
+                claim_id=row["claim_id"],
+                evidence_basis="issuer_verified",
+                primary_objective_id=manifest["primary_objective_id"],
+                nominal_coverage_ppm=claim["nominal_coverage_ppm"],
+                holdout_item_count=holdout_item_count,
+                interval_verification_level="construction_recomputed_v1",
+                split_verification_level="issuer_attested_v1",
+                dataset_condition_code=dataset_condition_code,
+                evaluator_condition_code=evaluator_condition_code,
+            )
+        # S7 already refused (CLAIM_NOT_VERIFIED) any non-issuer_verified
+        # row the caller's context.accept_abstained_bundle does not permit,
+        # so reaching here means an abstained row the caller explicitly
+        # accepted. An abstained bundle asserts no measured claim, so no
+        # recomputation ran and no certified nominal coverage exists to
+        # report; 0 is a fixed sentinel for "not applicable", never a
+        # value read from the bundle.
+        declared_plan = bundle["declared_plan_envelope"]["declared_plan"]
+        return AgentQualityVerificationResult(
+            code="AGENT_QUALITY_CLAIM_ABSTAINED",
+            claim_id=row["claim_id"],
+            evidence_basis="abstained",
+            primary_objective_id=declared_plan["primary_objective_id"],
+            nominal_coverage_ppm=0,
+            holdout_item_count=holdout_item_count,
+            interval_verification_level="issuer_attested_v1",
+            split_verification_level="issuer_attested_v1",
+            dataset_condition_code=dataset_condition_code,
+            evaluator_condition_code=evaluator_condition_code,
+        )
     except AgentQualityVerificationError:
         raise
     except ProcessRecordVerificationError:
         raise
     except Exception:
         _fail("AGENT_QUALITY_VERIFICATION_FAILED", "bundle")
-    # Unreachable while every stage above is an unconditional refusal. This
-    # `raise` sits OUTSIDE the try/except above on purpose for this packet,
-    # so it is untouched by the content-free catch-all: packet .6, which
-    # wires the real public entry point, MUST replace it with
-    # `_fail("AGENT_QUALITY_VERIFICATION_FAILED", "bundle")` placed INSIDE
-    # the guarded region (or otherwise move this refusal into the try),
-    # since a stage wiring bug that returns None must surface a registered
-    # AgentQualityVerificationError to the public caller, not a bare
-    # AssertionError outside this module's closed vocabulary (P1-V2.0
-    # review finding P3-12).
-    raise AssertionError("unreachable: every stage above always raises")

@@ -24,21 +24,25 @@ fail-closed check are all private building blocks of the public entry
 point, :func:`verify_agent_quality_certificate`.
 
 A ``VERIFIED`` result from that entry point entitles a relying party to
-conclude ONLY: every certified objective claim's declared interval is the
-exact recomputation of its own printed sufficient statistics under its own
-declared construction method; every digest-bound array and the issuer
-signature are internally consistent; and the bundle's declared plan,
-evaluation splits, and holdout usage satisfy this module's structural and
-plausibility checks. It does NOT establish that the printed sufficient
-statistics themselves are correct (they remain issuer attestations); it
-does NOT establish which items belong to the selection split versus the
-holdout split (split membership is also an issuer attestation in v1, since
-v1 defines no opening path); it does NOT establish that the dataset or
-evaluator this certificate depends on are themselves valid (see
-``pillar_support``'s own ``condition_declared_unverified`` disposition); and
-it makes no claim about ordering evidence -- that the declared plan was
-authored before the results -- which is issuer-asserted and out of scope
-for this certificate family in v1.
+conclude ONLY: an issuer whose key is in the pinned trust ring signed a
+manifest binding THIS process record, THESE commitment refs and THIS scope
+binding built from the relying party's own pins; the interval endpoints are
+exactly recomputable from the declared sufficient statistics under
+``exact_integer_rational_v1`` and the pinned quantile table; and the claim
+was scored on the split the issuer labelled ``holdout``, with plausible
+split arithmetic.
+
+It does NOT establish that the sufficient statistics summarise the holdout
+observations (the statistics remain issuer attestations); that the committed
+splits are the rule's partition (v1 defines no opening witness, so split
+membership is an issuer attestation); that the declared plan was authored
+before the results were computed (ordering evidence is issuer-asserted and
+out of scope in v1); that the split key predates knowledge of the item ids;
+or that the estimator implementation is correct. It also does NOT establish
+that the dataset or evaluator this certificate depends on are themselves
+valid (see ``pillar_support``'s ``condition_declared_unverified``
+disposition). This paragraph is the canonical ceiling; the public entry
+point's docstring repeats it verbatim.
 """
 
 from __future__ import annotations
@@ -2899,9 +2903,14 @@ def verify_agent_quality_certificate(
     was scored on the split the issuer labelled ``holdout``, and the split
     arithmetic is plausible.
 
-    See this module's own docstring for the definitive "does NOT establish"
-    ceiling -- ONE list, not repeated here with different wording, so the
-    two can never silently drift apart.
+    It does NOT establish that the sufficient statistics summarise the
+    holdout observations; that the committed splits are the rule's partition
+    (v1 ships no opening witness); that the declared plan was authored before
+    the results were computed (ordering evidence is issuer-asserted); that
+    the split key predates knowledge of the item ids; or that the estimator
+    implementation is correct. It also does NOT establish that the dataset or
+    evaluator this certificate depends on are themselves valid. This is the
+    module docstring's canonical ceiling, repeated verbatim.
 
     ``process_record_bundle`` must verify in full through
     :func:`verify_process_record_certificate` before anything else runs; a

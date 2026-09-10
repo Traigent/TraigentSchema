@@ -14,19 +14,31 @@ opening path), and makes no claim about ordering evidence -- that the
 declared plan was authored before the results -- which is out of scope for
 this certificate family in v1.
 
-This packet ships the module's private building blocks only: the closed
-error and field-location vocabularies, the caller-facing context and result
-shapes, the content-free package-data loading boundary for this pillar's
-four registries (objective registry, aggregation policy, non-claim catalog,
-quantile table), the role-digest helper, the exact-integer estimator
-recomputation (Wilson score bounds and Student-t half-widths), and a private,
-eight-stage bundle runner in which every stage is fail-closed by
-construction -- each stage today ends in an unconditional refusal, so the
-runner rejects every bundle it is given. It defines no public entry point:
-``verify_agent_quality_certificate`` does not exist yet, because a verifier
-that only half-checks a bundle and reports success is worse than one that
-does not exist at all. It is deferred to the packet that finishes wiring the
-real per-stage checks in place of today's unconditional refusals.
+The closed error and field-location vocabularies, the caller-facing context
+and result shapes, the content-free package-data loading boundary for this
+pillar's four registries (objective registry, aggregation policy, non-claim
+catalog, quantile table), the role-digest helper, the exact-integer
+estimator recomputation (Wilson score bounds and Student-t half-widths), and
+a private, eight-stage bundle runner in which every stage now runs a real,
+fail-closed check are all private building blocks of the public entry
+point, :func:`verify_agent_quality_certificate`.
+
+A ``VERIFIED`` result from that entry point entitles a relying party to
+conclude ONLY: every certified objective claim's declared interval is the
+exact recomputation of its own printed sufficient statistics under its own
+declared construction method; every digest-bound array and the issuer
+signature are internally consistent; and the bundle's declared plan,
+evaluation splits, and holdout usage satisfy this module's structural and
+plausibility checks. It does NOT establish that the printed sufficient
+statistics themselves are correct (they remain issuer attestations); it
+does NOT establish which items belong to the selection split versus the
+holdout split (split membership is also an issuer attestation in v1, since
+v1 defines no opening path); it does NOT establish that the dataset or
+evaluator this certificate depends on are themselves valid (see
+``pillar_support``'s own ``condition_declared_unverified`` disposition); and
+it makes no claim about ordering evidence -- that the declared plan was
+authored before the results -- which is issuer-asserted and out of scope
+for this certificate family in v1.
 """
 
 from __future__ import annotations
@@ -255,8 +267,9 @@ AGENT_QUALITY_ERROR_CODES = frozenset(
 # schema-valid ``pillar_support`` entry can ever carry the
 # ``bound_manifest_digest``/sibling-verification binding this code would
 # check. v1 defines no sibling-bundle input mechanism to check one against,
-# so unlike the seven S5/S6 backstop codes, there is no guard for this one
-# anywhere in the module at all.
+# so unlike the eleven S5/S6 backstop codes (seven from S5, four from S6 --
+# see :data:`AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES` below), there is
+# no guard for this one anywhere in the module at all.
 #
 # These three codes have NO guard anywhere in this module -- genuinely dead
 # vocabulary, registered so the string exists but never a call-site target.
@@ -417,11 +430,12 @@ AGENT_QUALITY_INPUT_PREEMPTED_CODES: frozenset[str] = frozenset(
     }
 )
 
-# Codes that are reachable by design (not schema-preempted) but that no
-# guard in this module raises yet. This packet's stage functions S5-S7 are
-# still unconditional refusals, so every one of their codes is genuinely
-# unraised today, not merely "not covered by a test" -- see
-# test_agent_quality_verifier.py::test_pending_codes_are_not_yet_emitted.
+# Codes that would be reachable by design (not schema-preempted) but that no
+# guard in this module raises -- empty as of P1-V2.5 commit 2: every stage
+# S1-S8 now runs a real check, so this set is the closed vocabulary minus
+# every preempted/emitted code (see :data:`AGENT_QUALITY_PENDING_CODES`'s
+# assignment below, and
+# test_agent_quality_verifier.py::test_agent_quality_pending_codes_is_now_empty).
 # S1's six real-check codes (BUNDLE_SHAPE, STRICT_INTEGER, UNSAFE_INTEGER,
 # SCHEMA, SCHEMA_DEPENDENCY, CANONICALIZATION) and S8's eleven
 # (SPLIT_DERIVATION_DIGEST_MISMATCH, EVALUATION_SPLITS_DIGEST_MISMATCH,
@@ -554,16 +568,20 @@ AGENT_QUALITY_PREEMPTED_TOTAL: int = (
     + len(AGENT_QUALITY_INPUT_PREEMPTED_CODES)
 )
 
-# Which of the eight private stages owns each non-preempted code, i.e. which
-# stage's real (future) guard is the one that would raise it. Ownership is a
-# DESIGN mapping, re-checked against the shipped schema's field names, not a
-# claim about today's call sites -- every stage in this packet raises only
-# the catch-all. CONTEXT, PACKAGE_DATA_INVALID and QUANTILE_TABLE_LOOKUP_FAILED
-# are raised outside the eight-stage runner (by
-# AgentQualityVerificationContext.__post_init__, the package-data loading
-# boundary, and :func:`_lookup_t_scaled` respectively) but are assigned here
-# to the stage whose design concern they belong to, so the coverage test
-# below has one owner for every non-preempted code.
+# Which of the eight private stages owns each code this table assigns an
+# owner to (every code except the two input-preempted ones, which no stage
+# owns). Ownership is a DESIGN mapping, re-checked against the shipped
+# schema's field names, reflecting each stage's real, wired call sites.
+# CONTEXT and PACKAGE_DATA_INVALID are raised outside the eight-stage runner
+# (by AgentQualityVerificationContext.__post_init__ and the package-data
+# loading boundary respectively) but are assigned here to the stage whose
+# design concern they belong to. QUANTILE_TABLE_LOOKUP_FAILED is likewise
+# raised outside its owning stage's own body -- by :func:`_lookup_t_scaled`,
+# a helper S5 calls -- AND it is schema-preempted-backstop (see
+# :data:`AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES` above): the helper's
+# guard is real and live, but no schema-valid bundle can ever trip it. Its
+# entry here records ownership (which stage's concern it is), not
+# reachability (see the four-bucket partition tests for that).
 #
 # This table is POPULATED, not hand-written: each stage function below is
 # decorated with ``@_owns(...)``, which is the one and only place that lists

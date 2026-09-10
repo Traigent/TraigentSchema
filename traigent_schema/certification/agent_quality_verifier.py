@@ -1318,6 +1318,19 @@ def _stage_s8_manifest_digests_signature(
     manifest = bundle["unsigned_manifest"]
     signature = bundle["signature"]
 
+    # P1-V2.2 review P2-1 closure: guard the row-64 read of
+    # ``process_record_bundle["unsigned_manifest"]`` the same way row 66's
+    # read of ``verification_materials_v0`` is already guarded below -- a
+    # ``None``/``{}`` process_record_bundle must fail closed with an owned
+    # code, never escape as a raw TypeError/KeyError. Today the runner masks
+    # this because S2 (packet .3) refuses first on the same malformed
+    # bundle, but S8 must not depend on that ordering to stay fail-closed
+    # when called directly, as every stage in this module must be.
+    if not isinstance(process_record_bundle, Mapping) or "unsigned_manifest" not in (
+        process_record_bundle
+    ):
+        _fail("UNSIGNED_MANIFEST_MISMATCH", "unsigned_manifest")
+
     # Rows 57-62: one literal `_fail(...)` per signed array/projection --
     # deliberately NOT a data-driven loop over a (code, ...) table, so every
     # emission site here stays a string-literal `_fail` call that

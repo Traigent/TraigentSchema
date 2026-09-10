@@ -1886,6 +1886,20 @@ def test_golden_bundle_scope_binding_and_process_record_digests_recompute() -> N
     )
 
 
+def test_process_record_unsigned_manifest_domain_pinned_to_sibling_authority() -> None:
+    """P1-V2.2 review P2-3 closure: the `.2` review found this constant a
+    closed loop -- the module's own copy and this test file's mirror of it
+    agreed with each other by construction, with nothing tying either to the
+    actual authority. This is the missing tie: if
+    ``process_record_verifier._UNSIGNED_MANIFEST_DOMAIN`` is ever renamed or
+    re-versioned, this fails loudly instead of both sides silently drifting
+    onto a stale preimage domain that still agrees with itself."""
+    assert (
+        v._PROCESS_RECORD_UNSIGNED_MANIFEST_DOMAIN
+        == _prv.pr_impl._UNSIGNED_MANIFEST_DOMAIN.decode()
+    )
+
+
 def test_golden_bundle_issuer_signature_verifies() -> None:
     bundle = build_agent_quality_bundle()
     assert _gv_signature_verifies(bundle)
@@ -2691,30 +2705,42 @@ def test_s8_key_ring_mismatch_malformed_issuer_key_material() -> None:
     assert caught.value.field == "signature"
 
 
-def test_wrong_key_valid_signature_shape_is_key_ring_mismatch_not_signature_invalid() -> None:
+@pytest.mark.parametrize("degenerate_process_record", [None, {}])
+def test_s8_fails_closed_on_degenerate_process_record_bundle(degenerate_process_record) -> None:
+    """P1-V2.2 review P2-1 closure: ``None``/``{}`` used to escape S8's
+    row-64 read as a raw ``TypeError``/``KeyError`` instead of an owned
+    code, because only the row-66 read was guarded (see
+    :func:`test_s8_key_ring_mismatch_malformed_issuer_key_material`). Both
+    degenerate shapes must now fail closed with S8's own
+    UNSIGNED_MANIFEST_MISMATCH, not escape uncaught."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s8_manifest_digests_signature(bundle, context, degenerate_process_record)
+    assert caught.value.code == "UNSIGNED_MANIFEST_MISMATCH"
+    assert caught.value.field == "unsigned_manifest"
+
+
+def test_wrong_key_valid_signature_shape_is_signature_invalid_not_key_ring_mismatch() -> None:
     """checkpoint (b).3's foreign-key harness, driven through S8 directly.
 
-    NOTE on this test's outcome -- read before changing the assertion below:
-    the brief for this packet names this test and asks it to assert
-    ``KEY_RING_MISMATCH``. Verified against this stage's actual
-    implementation (and against both sibling verifiers,
-    ``process_record_verifier``'s own row-66-shaped check at
-    :func:`v._stage_s8_manifest_digests_signature`'s docstring-cited lines
-    and ``evaluator_quality_verifier._check_manifest_signature``): a
-    signature produced by a key NOT in the key ring, with every declared
-    ref (``issuer_key_ref``/``trust_ring_ref``/``algorithm``) UNCHANGED and
-    matching both the manifest and ``process_record_bundle``'s pinned
-    issuer materials, is cryptographically INDISTINGUISHABLE, from the
-    verifier's side, from a signature whose bytes were simply corrupted --
-    Ed25519 verification has no side channel that reveals "the wrong key
-    signed this" versus "this signature is garbage" once the declared
-    identity and the resolved public key both check out. Neither sibling
-    verifier in this repository draws a KEY_RING_MISMATCH/ISSUER_SIGNATURE_INVALID
-    line on that axis; both route every post-ref-check verification failure
-    to their *_ISSUER_SIGNATURE_INVALID code. This test therefore asserts
-    the actual, defensible outcome (ISSUER_SIGNATURE_INVALID) rather than
-    the brief's literal ask, and the divergence is called out explicitly in
-    this packet's report rather than silently coded around."""
+    Per CTO decision A: a signature produced by a key NOT in the key ring,
+    with every declared ref (``issuer_key_ref``/``trust_ring_ref``/
+    ``algorithm``) UNCHANGED and matching both the manifest and
+    ``process_record_bundle``'s pinned issuer materials, is cryptographically
+    INDISTINGUISHABLE, from the verifier's side, from a signature whose bytes
+    were simply corrupted -- Ed25519 verification has no side channel that
+    reveals "the wrong key signed this" versus "this signature is garbage"
+    once the declared identity and the resolved public key both check out.
+    Neither sibling verifier in this repository
+    (``process_record_verifier``, ``evaluator_quality_verifier``) draws a
+    KEY_RING_MISMATCH/ISSUER_SIGNATURE_INVALID line on that axis; both route
+    every post-ref-check verification failure to their
+    *_ISSUER_SIGNATURE_INVALID code, which is the ruling this test pins:
+    case (a) of CTO decision A is ISSUER_SIGNATURE_INVALID, distinct from
+    case (b)'s KEY_RING_MISMATCH (see
+    :func:`test_s8_key_ring_mismatch_manifest_refs_vs_v0_issuer_materials`
+    and :func:`test_s8_key_ring_mismatch_malformed_issuer_key_material`)."""
     bundle = build_agent_quality_bundle()
     foreign = resign_with_foreign_key(bundle, _GV_FOREIGN_PRIVATE_KEY)
     context = build_agent_quality_context()

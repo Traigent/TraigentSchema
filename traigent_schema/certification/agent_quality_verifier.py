@@ -48,6 +48,11 @@ from referencing import Registry, Resource
 from referencing.exceptions import Unresolvable
 
 import traigent_schema.fp2 as fp2
+from traigent_schema.certification.relying_party_verifier import (
+    _ISSUER_SPKI_DOMAIN,
+    _material_public_key,
+    _verify_signature,
+)
 
 _SCHEMA_RESOURCE = (
     resources.files("traigent_schema")
@@ -74,6 +79,32 @@ _AGENT_QUALITY_REGISTRY_DOMAINS: dict[str, str] = {
     "aggregation_policy": "traigent.agent_quality.aggregation_policy.v1",
     "non_claim_catalog": "traigent.agent_quality.non_claim_catalog.v1",
     "quantile_table": "traigent.agent_quality.quantile_table.v1",
+}
+
+# base_process_record_unsigned_manifest_digest's domain (design row 64):
+# the PROCESS RECORD family's own unsigned-manifest domain, not one of this
+# schema's own AgentQualityDigestDomainRegistryV1 entries -- copied verbatim
+# from process_record_verifier's private ``_UNSIGNED_MANIFEST_DOMAIN``
+# (decoded to str; that module's constant is bytes) rather than imported, to
+# keep this module's digest construction self-contained the same way
+# _role_digest's own docstring explains for the sibling verifiers.
+_PROCESS_RECORD_UNSIGNED_MANIFEST_DOMAIN = "traigent.process_record.unsigned_manifest.v1"
+
+
+def _schema_definition(name: str) -> dict[str, Any]:
+    document = json.loads(_SCHEMA_RESOURCE.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], document["definitions"][name])
+
+
+# AgentQualityDigestDomainRegistryV1's full const-value map, read from the
+# shipped schema by comprehension rather than retyped -- the same pattern
+# ``evaluator_quality_verifier._const_registry`` uses for its own digest
+# domain registry. S8 (design rows 57-67) is this module's first caller of
+# roles other than the four package-data registries already named in
+# :data:`_AGENT_QUALITY_REGISTRY_DOMAINS`.
+_AGENT_QUALITY_DIGEST_DOMAINS: dict[str, str] = {
+    key: cast(str, value["const"])
+    for key, value in _schema_definition("AgentQualityDigestDomainRegistryV1")["properties"].items()
 }
 
 # ppm / fixed-point scale shared by NominalCoveragePpmV1, the point-estimate
@@ -225,11 +256,17 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: frozenset[str] = frozenset(
 # genuinely unraised today, not merely "not covered by a test" -- see
 # test_agent_quality_verifier.py::test_pending_codes_are_not_yet_emitted.
 # S1's six real-check codes (BUNDLE_SHAPE, STRICT_INTEGER, UNSAFE_INTEGER,
-# SCHEMA, SCHEMA_DEPENDENCY, CANONICALIZATION) are wired as of P1-V2.2 and
-# are excluded here alongside CONTEXT/PACKAGE_DATA_INVALID/
-# QUANTILE_TABLE_LOOKUP_FAILED, which are raised outside the eight-stage
-# runner. This set MUST shrink to empty by packet .6, as each later packet
-# wires its stage's real checks and moves that stage's codes out of here.
+# SCHEMA, SCHEMA_DEPENDENCY, CANONICALIZATION) are wired as of P1-V2.2,
+# alongside S8's eleven (SPLIT_DERIVATION_DIGEST_MISMATCH,
+# EVALUATION_SPLITS_DIGEST_MISMATCH, MEASURED_CLAIMS_DIGEST_MISMATCH,
+# SELECTION_ESTIMATES_DIGEST_MISMATCH, NON_CLAIMS_DIGEST_MISMATCH,
+# CLAIM_SUPPORT_ROWS_DIGEST_MISMATCH, CLAIM_SUPPORT_ROW_MISMATCH,
+# UNSIGNED_MANIFEST_MISMATCH, UNSIGNED_MANIFEST_DIGEST_MISMATCH,
+# KEY_RING_MISMATCH, ISSUER_SIGNATURE_INVALID) -- both are excluded here
+# alongside CONTEXT/PACKAGE_DATA_INVALID/QUANTILE_TABLE_LOOKUP_FAILED, which
+# are raised outside the eight-stage runner. This set MUST shrink to empty by
+# packet .6, as each later packet wires its stage's real checks and moves
+# that stage's codes out of here.
 AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
     AGENT_QUALITY_ERROR_CODES
     - AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
@@ -245,6 +282,17 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
             "SCHEMA",
             "SCHEMA_DEPENDENCY",
             "CANONICALIZATION",
+            "SPLIT_DERIVATION_DIGEST_MISMATCH",
+            "EVALUATION_SPLITS_DIGEST_MISMATCH",
+            "MEASURED_CLAIMS_DIGEST_MISMATCH",
+            "SELECTION_ESTIMATES_DIGEST_MISMATCH",
+            "NON_CLAIMS_DIGEST_MISMATCH",
+            "CLAIM_SUPPORT_ROWS_DIGEST_MISMATCH",
+            "CLAIM_SUPPORT_ROW_MISMATCH",
+            "UNSIGNED_MANIFEST_MISMATCH",
+            "UNSIGNED_MANIFEST_DIGEST_MISMATCH",
+            "KEY_RING_MISMATCH",
+            "ISSUER_SIGNATURE_INVALID",
         }
     )
 )
@@ -1224,7 +1272,9 @@ def _stage_s7_composition_abstention(
     "ISSUER_SIGNATURE_INVALID",
 )
 def _stage_s8_manifest_digests_signature(
-    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+    bundle: Mapping[str, Any],
+    context: AgentQualityVerificationContext,
+    process_record_bundle: Mapping[str, Any],
 ) -> None:
     """S8 -- manifest-bound artifact digests and the issuer signature
     (design rows 57-67).
@@ -1236,20 +1286,207 @@ def _stage_s8_manifest_digests_signature(
     UNSIGNED_MANIFEST_DIGEST_MISMATCH, KEY_RING_MISMATCH,
     ISSUER_SIGNATURE_INVALID.
 
-    Unconditional refusal in this packet -- see :func:`_stage_s1_structural`.
+    In order: (rows 57-62) each of the six signed arrays/projections' own
+    manifest digest is recomputed under its own
+    :data:`_AGENT_QUALITY_DIGEST_DOMAINS` role and compared -- one dedicated
+    code per array, so a single mismatched field cannot hide behind five
+    others that still match; (row 63) the single claim-support row's digest
+    bindings are internally consistent with its own ``evidence_basis``: an
+    ``issuer_verified`` row's five digest fields and ``verifier_result``
+    must equal the values this stage independently recomputed, an
+    ``abstained`` row must carry none of them; (row 64) every manifest field
+    this stage can reconstruct from the bundle and the supplied
+    ``process_record_bundle`` ALONE -- ``coverage`` (the schema's own fixed
+    tuple), ``base_process_record_unsigned_manifest_digest``,
+    ``declared_plan_digest``, ``declared_plan_signature_digest``,
+    ``primary_objective_id``, ``selection_arm_count``,
+    ``holdout_scored_arm_count`` -- equals the manifest's own value; fields
+    that need a caller-supplied pin to reconstruct (the scope-binding
+    digest, the four commitment refs, the measurement-contract ref/digest,
+    the registry identities, ``pillar_support``, and ``assertion_digest``,
+    which S7 owns) are reconstructed in S2/S3/S7 instead, never here; (row
+    65) the manifest's own digest matches ``signature.unsigned_manifest_digest``;
+    (row 66) the signature's issuer_key_ref/trust_ring_ref agree with the
+    manifest's, the manifest's agree with ``process_record_bundle``'s own
+    verified issuer materials (``verification_materials_v0.issuer``), and
+    that projection's key material parses -- ALL key-resolution failures,
+    never a forged-signature finding, mirroring
+    ``process_record_verifier``'s own KEY_RING_MISMATCH/ISSUER_SIGNATURE_INVALID
+    split for exactly this reason; (row 67) the issuer signature itself
+    verifies against the reconstructed manifest under that resolved key.
     """
-    _fail("AGENT_QUALITY_VERIFICATION_FAILED", "unsigned_manifest")
+    manifest = bundle["unsigned_manifest"]
+    signature = bundle["signature"]
+
+    # Rows 57-62: one literal `_fail(...)` per signed array/projection --
+    # deliberately NOT a data-driven loop over a (code, ...) table, so every
+    # emission site here stays a string-literal `_fail` call that
+    # test_emission_audit_scans_only_literal_codes and
+    # test_stage_only_emits_codes_it_owns can verify statically.
+    split_derivation_projection = _strip_self_digest(
+        bundle["split_derivation"], "split_derivation_digest"
+    )
+    if manifest.get("split_derivation_digest") != _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["split_derivation"], split_derivation_projection
+    ):
+        _fail("SPLIT_DERIVATION_DIGEST_MISMATCH", "unsigned_manifest")
+    if manifest.get("evaluation_splits_digest") != _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["evaluation_splits"], bundle["evaluation_splits"]
+    ):
+        _fail("EVALUATION_SPLITS_DIGEST_MISMATCH", "unsigned_manifest")
+    if manifest.get("measured_claims_digest") != _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["measured_claims"], bundle["measured_claims"]
+    ):
+        _fail("MEASURED_CLAIMS_DIGEST_MISMATCH", "unsigned_manifest")
+    if manifest.get("non_certified_selection_estimates_digest") != _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["selection_estimates"],
+        bundle["non_certified_selection_estimates"],
+    ):
+        _fail("SELECTION_ESTIMATES_DIGEST_MISMATCH", "unsigned_manifest")
+    if manifest.get("non_claims_digest") != _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["non_claims"], bundle["non_claims"]
+    ):
+        _fail("NON_CLAIMS_DIGEST_MISMATCH", "unsigned_manifest")
+    if manifest.get("agent_quality_claim_support_rows_digest") != _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["claim_support_rows"], bundle["claim_support_rows"]
+    ):
+        _fail("CLAIM_SUPPORT_ROWS_DIGEST_MISMATCH", "unsigned_manifest")
+
+    assertion = bundle["assertion"]
+    assertion_digest = _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["assertion"],
+        _strip_self_digest(assertion, "assertion_digest"),
+    )
+    claim_material = {
+        "claim_id": assertion["claim_id"],
+        "tier": 3,
+        "assertion_template_id": assertion["assertion_template_id"],
+        "rendered_text": assertion["rendered_text"],
+        "assertion_digest": assertion_digest,
+    }
+    claim_material_digest = _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["claim_material"], claim_material
+    )
+    declared_plan = bundle["declared_plan_envelope"]["declared_plan"]
+    row = bundle["claim_support_rows"][0]
+    if row.get("evidence_basis") == "issuer_verified":
+        if (
+            row.get("assertion_digest") != assertion_digest
+            or row.get("measured_claims_digest") != manifest.get("measured_claims_digest")
+            or row.get("evaluation_splits_digest") != manifest.get("evaluation_splits_digest")
+            or row.get("declared_plan_digest") != declared_plan.get("declared_plan_digest")
+            or row.get("claim_material_digest") != claim_material_digest
+            or row.get("verifier_result") != "pass"
+        ):
+            _fail("CLAIM_SUPPORT_ROW_MISMATCH", "claim_support_rows")
+    elif row.get("evidence_basis") == "abstained":
+        if any(
+            key in row
+            for key in (
+                "assertion_digest",
+                "measured_claims_digest",
+                "evaluation_splits_digest",
+                "declared_plan_digest",
+                "verifier_result",
+                "claim_material_digest",
+            )
+        ):
+            _fail("CLAIM_SUPPORT_ROW_MISMATCH", "claim_support_rows")
+    else:
+        _fail("CLAIM_SUPPORT_ROW_MISMATCH", "claim_support_rows")
+
+    process_record_digest = _role_digest(
+        _PROCESS_RECORD_UNSIGNED_MANIFEST_DOMAIN, process_record_bundle["unsigned_manifest"]
+    )
+    expected_coverage = tuple(
+        _schema_definition("AgentQualityUnsignedManifestV1")["properties"]["coverage"]["const"]
+    )
+    expected_declared_plan_signature_digest = _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["declared_plan_signature"],
+        bundle["declared_plan_envelope"]["signature"],
+    )
+    if (
+        tuple(manifest.get("coverage", ())) != expected_coverage
+        or manifest.get("base_process_record_unsigned_manifest_digest") != process_record_digest
+        or manifest.get("declared_plan_digest") != declared_plan.get("declared_plan_digest")
+        or manifest.get("declared_plan_signature_digest") != expected_declared_plan_signature_digest
+        or manifest.get("primary_objective_id") != declared_plan.get("primary_objective_id")
+        or manifest.get("selection_arm_count") != declared_plan.get("selection_arm_count")
+        or manifest.get("holdout_scored_arm_count") != declared_plan.get("holdout_scored_arm_count")
+    ):
+        _fail("UNSIGNED_MANIFEST_MISMATCH", "unsigned_manifest")
+
+    if signature.get("unsigned_manifest_digest") != _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["unsigned_manifest"], manifest
+    ):
+        _fail("UNSIGNED_MANIFEST_DIGEST_MISMATCH", "signature")
+
+    if signature.get("issuer_key_ref") != manifest.get("issuer_key_ref") or signature.get(
+        "trust_ring_ref"
+    ) != manifest.get("trust_ring_ref"):
+        _fail("KEY_RING_MISMATCH", "signature")
+
+    try:
+        v0_issuer = process_record_bundle["verification_materials_v0"]["issuer"]
+    except Exception:
+        _fail("KEY_RING_MISMATCH", "signature")
+    if not isinstance(v0_issuer, Mapping):
+        _fail("KEY_RING_MISMATCH", "signature")
+    if (
+        manifest.get("issuer_key_ref") != v0_issuer.get("key_ref")
+        or manifest.get("trust_ring_ref") != v0_issuer.get("trust_ring_ref")
+        or manifest.get("issuer_signature_algorithm") != v0_issuer.get("algorithm")
+        or signature.get("algorithm") != v0_issuer.get("algorithm")
+    ):
+        _fail("KEY_RING_MISMATCH", "signature")
+    try:
+        issuer_public_key = _material_public_key(dict(v0_issuer), _ISSUER_SPKI_DOMAIN)
+    except Exception:
+        # Malformed/unparseable issuer key material is a key-resolution
+        # failure, not a forged-signature finding -- keep it distinguishable
+        # from ISSUER_SIGNATURE_INVALID (design row 66's own disposition).
+        _fail("KEY_RING_MISMATCH", "signature")
+
+    # fp2.canonicalize(manifest) cannot fail here: S1 already canonicalized
+    # this same bundle, of which `manifest` is a member, before this stage
+    # ever runs (see :func:`_stage_s1_structural`).
+    canonical_manifest = cast(str, fp2.canonicalize(manifest)).encode("utf-8")
+    material = (
+        _AGENT_QUALITY_DIGEST_DOMAINS["issuer_signature"].encode("utf-8")
+        + b"\x00"
+        + canonical_manifest
+    )
+    try:
+        _verify_signature(
+            issuer_public_key, signature.get("algorithm"), material, signature.get("signature")
+        )
+    except Exception:
+        _fail("ISSUER_SIGNATURE_INVALID", "signature")
 
 
 def _run_agent_quality_checks(
-    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+    bundle: Mapping[str, Any],
+    *,
+    context: AgentQualityVerificationContext,
+    process_record_bundle: Mapping[str, Any],
+    split_opening: object | None = None,
 ) -> AgentQualityVerificationResult:
     """Run the eight private stages, in order, over ``bundle``.
 
+    ``process_record_bundle`` is forwarded to S8 for its row-66 key-ring
+    binding (see :func:`_stage_s8_manifest_digests_signature`); packet .3
+    additionally verifies it, in full, through the shipped public entry
+    point (``verify_process_record_certificate``) before S2 runs. ``split_opening``
+    is accepted now, unused, for the same reason every stage already shares
+    the uniform ``context`` parameter (P1-V2.0 review finding P3-11): v1
+    defines no opening path, so no stage in this packet or packet .3 reads
+    it, but widening this signature later would ripple through every
+    caller again.
+
     No public entry point calls this yet (see the module docstring and
-    ``test_no_public_entry_point_exists_yet``). Every stage in this packet is
-    an unconditional refusal, so this function currently rejects every
-    bundle it is given, and never returns a
+    ``test_no_public_entry_point_exists_yet``). S1 and S8 now run real
+    checks; S2-S7 are still unconditional refusals, so this function
+    currently rejects every bundle it is given, and never returns a
     :class:`AgentQualityVerificationResult` in practice -- the return type is
     the one the complete check sequence will actually produce once each
     stage's real checks replace today's placeholders.
@@ -1268,7 +1505,7 @@ def _run_agent_quality_checks(
         _stage_s5_objective_measurement(bundle, context)
         _stage_s6_splits_held_out(bundle, context)
         _stage_s7_composition_abstention(bundle, context)
-        _stage_s8_manifest_digests_signature(bundle, context)
+        _stage_s8_manifest_digests_signature(bundle, context, process_record_bundle)
     except AgentQualityVerificationError:
         raise
     except Exception:

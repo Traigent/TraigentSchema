@@ -733,35 +733,58 @@ def test_no_public_entry_point_exists_yet() -> None:
 
 
 def test_run_agent_quality_checks_rejects_every_bundle() -> None:
-    """Every stage in this packet is an unconditional refusal, so the
-    private runner rejects any bundle, valid or not, with the catch-all
-    code -- proving the runner wraps the stage sequence rather than merely
-    defining stages nobody calls."""
-    context = _context()
-    bundle = _schema_fixtures._bundle()
+    """S5-S7 are still unconditional refusals, so the private runner
+    rejects a bundle that reaches that far with the catch-all code --
+    proving the runner wraps the stage sequence rather than merely
+    defining stages nobody calls. Uses the real, golden-bound context and
+    process record so the bundle genuinely reaches S5 rather than being
+    refused earlier by one of S1-S4's now-real checks."""
+    context = build_agent_quality_context()
+    bundle = build_agent_quality_bundle()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
-        # process_record_bundle is never reached: S2's still-unconditional
-        # refusal fires first.
-        v._run_agent_quality_checks(bundle, context=context, process_record_bundle={})
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
 
 
-# S1 and S8 are no longer unconditional refusals, so neither can share the
-# uniform "any schema-valid bundle is refused with the catch-all" assertion
-# below -- a schema-valid, digest-consistent, signed bundle is exactly what
-# S1's and S8's real checks are supposed to PASS. S8 also no longer shares
-# the uniform ``(bundle, context)`` two-argument shape every other stage
-# still has (it additionally needs ``process_record_bundle``), so it cannot
-# be driven by this parametrized test's uniform call shape either. S2-S7
-# remain placeholders in this packet and keep the uniform assertion; S1 and
-# S8 each get their own dedicated fail-closed coverage in
-# test_stage_s1_structural_is_a_real_fail_closed_function and
-# test_stage_s8_manifest_digests_signature_is_a_real_fail_closed_function
-# below.
+def test_run_agent_quality_checks_propagates_process_record_error_unchanged() -> None:
+    """P1-V2.3 (design Sec 3): S2 verifies ``process_record_bundle`` FIRST,
+    in full, through the shipped public entry point
+    (``verify_process_record_certificate``). A malformed process record
+    must reach the caller as the process record's OWN
+    ``ProcessRecordVerificationError`` -- never relabeled into this
+    module's content-free ``AGENT_QUALITY_VERIFICATION_FAILED`` catch-all,
+    which would hide the real reason from the caller."""
+    context = build_agent_quality_context()
+    bundle = _schema_fixtures._bundle()
+    with pytest.raises(v.ProcessRecordVerificationError) as caught:
+        v._run_agent_quality_checks(bundle, context=context, process_record_bundle={})
+    assert caught.value.code != "AGENT_QUALITY_VERIFICATION_FAILED"
+
+
+# S1, S2, S3, S4 and S8 are no longer unconditional refusals, so none of
+# them can share the uniform "any schema-valid bundle is refused with the
+# catch-all" assertion below -- a schema-valid, digest-consistent, signed
+# bundle genuinely bound to the golden process record is exactly what their
+# real checks are supposed to PASS. S2 and S4 also no longer share the
+# uniform ``(bundle, context)`` two-argument shape every other stage still
+# has (each additionally needs ``process_record_bundle``, like S8), so none
+# of the four can be driven by this parametrized test's uniform call shape
+# either. S5-S7 remain placeholders in this packet and keep the uniform
+# assertion; S1, S2, S3, S4 and S8 each get their own dedicated fail-closed
+# coverage (test_stage_s{1,2,3,4,8}_..._is_a_real_fail_closed_function).
 _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES = tuple(
     name
     for name in _STAGE_FUNCTION_NAMES
-    if name not in ("_stage_s1_structural", "_stage_s8_manifest_digests_signature")
+    if name
+    not in (
+        "_stage_s1_structural",
+        "_stage_s2_context_binding",
+        "_stage_s3_registry_identity",
+        "_stage_s4_declared_plan_signatures",
+        "_stage_s8_manifest_digests_signature",
+    )
 )
 
 
@@ -796,6 +819,54 @@ def test_stage_s1_structural_is_a_real_fail_closed_function() -> None:
         v._stage_s1_structural({"schema_version": "wrong"}, context)
     assert caught.value.code == "BUNDLE_SHAPE"
     assert caught.value.field == "bundle"
+
+
+def test_stage_s2_context_binding_is_a_real_fail_closed_function() -> None:
+    """S2's real-check counterpart to
+    :func:`test_each_stage_is_a_real_fail_closed_function`: S2 now takes a
+    third ``process_record_bundle`` argument and PASSES the golden bundle
+    (see :func:`test_golden_bundle_reaches_private_runner_fail_closed_boundary`),
+    so its "still fail-closed when called directly" proof uses a bundle
+    whose commitment refs disagree with the context/process-record pins."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context(expected_agent_commitment_ref="sha256:" + "9" * 64)
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "COMMITMENT_REF_MISMATCH"
+    assert caught.value.field == "commitment_refs"
+
+
+def test_stage_s3_registry_identity_is_a_real_fail_closed_function() -> None:
+    """S3's real-check counterpart to
+    :func:`test_each_stage_is_a_real_fail_closed_function`: S3 PASSES the
+    golden bundle, so its "still fail-closed when called directly" proof
+    mutates the manifest's aggregation-policy identity instead."""
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["aggregation_policy"] = dict(
+        bundle["unsigned_manifest"]["aggregation_policy"], policy_id="wrong"
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s3_registry_identity(bundle, context)
+    assert caught.value.code == "AGGREGATION_POLICY_MISMATCH"
+    assert caught.value.field == "aggregation_policy"
+
+
+def test_stage_s4_declared_plan_signatures_is_a_real_fail_closed_function() -> None:
+    """S4's real-check counterpart to
+    :func:`test_each_stage_is_a_real_fail_closed_function`: S4 now takes a
+    third ``process_record_bundle`` argument and PASSES the golden bundle,
+    so its "still fail-closed when called directly" proof mutates the
+    declared plan's own digest field instead."""
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["declared_plan"]["primary_objective_id"] = (
+        "obj.accuracy.evaluator_score_mean.v1"
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "DECLARED_PLAN_DIGEST_MISMATCH"
+    assert caught.value.field == "declared_plan"
 
 
 # ==========================================================================
@@ -1328,17 +1399,28 @@ _GV_FOREIGN_PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(1, 33
 _GV_PROCESS_RECORD_ISSUER = _GV_PROCESS_RECORD_BUNDLE["verification_materials_v0"]["issuer"]
 _GV_ISSUER_KEY_REF = _GV_PROCESS_RECORD_ISSUER["key_ref"]
 _GV_TRUST_RING_REF = _GV_PROCESS_RECORD_ISSUER["trust_ring_ref"]
-_GV_PROJECT_REF = "proj-1"
-_GV_BUILD_SESSION_REF = "build_session:ssssssss"
+# P1-V2.3: project_ref/build_session_ref and the four commitment refs are
+# now ALSO checked, by S2, against the verified process record's own
+# result -- so they can no longer be independent sentinels chosen only for
+# this file's own convenience. They are the SAME values
+# tests.test_process_record_verifier's own golden builder pins
+# (``_prv.PROJECT``/``_prv.BUILD``/``_prv.AGENT_COMMITMENT_REF`` etc.), so
+# the golden agent-quality bundle's context genuinely agrees with
+# :data:`_GV_PROCESS_RECORD_BUNDLE` about what project/build/commitments
+# this verification is for -- not two independently-typed strings that
+# happen to look alike.
+_GV_PROJECT_REF = _prv.PROJECT
+_GV_BUILD_SESSION_REF = _prv.BUILD
 _GV_SHA = "sha256:" + "a" * 64
 
-# Five independently-bound commitment/digest refs in the unsigned manifest's
+# Four independently-bound commitment refs in the unsigned manifest's
 # `coverage`-const field set (review P2-3): each must be a DISTINCT sentinel
-# so a golden-vector mutation/swap between any two of them is not a no-op.
-_GV_AGENT_COMMITMENT_REF = "sha256:" + "a1" * 32
-_GV_DATASET_COMMITMENT_REF = "sha256:" + "a2" * 32
-_GV_EVALUATOR_COMMITMENT_REF = "sha256:" + "a3" * 32
-_GV_BUILD_DEFINITION_COMMITMENT_REF = "sha256:" + "a4" * 32
+# so a golden-vector mutation/swap between any two of them is not a no-op --
+# already true of the process-record suite's own four constants.
+_GV_AGENT_COMMITMENT_REF = _prv.AGENT_COMMITMENT_REF
+_GV_DATASET_COMMITMENT_REF = _prv.DATASET_COMMITMENT_REF
+_GV_EVALUATOR_COMMITMENT_REF = _prv.EVALUATOR_COMMITMENT_REF
+_GV_BUILD_DEFINITION_COMMITMENT_REF = _prv.BUILD_DEFINITION_COMMITMENT_REF
 _GV_MEASUREMENT_CONTRACT_RECORD_DIGEST = "sha256:" + "a5" * 32
 _GV_MEASUREMENT_CONTRACT_REF = "measurement:mmmmmmmm"
 
@@ -1346,8 +1428,29 @@ _GV_MEASUREMENT_CONTRACT_REF = "measurement:mmmmmmmm"
 def build_agent_quality_context(**overrides: object) -> v.AgentQualityVerificationContext:
     """The context the golden bundle is bound to. A thin wrapper over
     :func:`_context` under the name this packet's brief specifies -- both
-    names stay available and can never drift apart."""
-    return _context(**overrides)
+    names stay available and can never drift apart.
+
+    P1-V2.3: pins ``process_record_context`` to
+    :data:`_GV_PROCESS_RECORD_CONTEXT` (the SAME context
+    :data:`_GV_PROCESS_RECORD_BUNDLE` verifies under) and the four
+    commitment refs / project / build-session refs to the values that
+    process record actually carries, so S2's real cross-artifact checks
+    (COMMITMENT_REF_MISMATCH, SCOPE_MISMATCH) pass on the golden bundle by
+    construction rather than by two independently-typed literals that
+    happen to agree."""
+    kwargs: dict = dict(
+        process_record_context=_GV_PROCESS_RECORD_CONTEXT,
+        expected_project_ref=_GV_PROJECT_REF,
+        expected_build_session_ref=_GV_BUILD_SESSION_REF,
+        expected_agent_commitment_ref=_GV_AGENT_COMMITMENT_REF,
+        expected_dataset_commitment_ref=_GV_DATASET_COMMITMENT_REF,
+        expected_evaluator_commitment_ref=_GV_EVALUATOR_COMMITMENT_REF,
+        expected_build_definition_commitment_ref=_GV_BUILD_DEFINITION_COMMITMENT_REF,
+        expected_measurement_contract_ref=_GV_MEASUREMENT_CONTRACT_REF,
+        expected_measurement_contract_record_digest=_GV_MEASUREMENT_CONTRACT_RECORD_DIGEST,
+    )
+    kwargs.update(overrides)
+    return _context(**kwargs)
 
 
 def _gv_digest(role: str, payload: object) -> str:
@@ -1464,7 +1567,7 @@ def _gv_measured_claims_raw() -> list[dict]:
         interval_low=wilson_low,
         interval_high=wilson_high,
         measurement_contract_ref=_GV_MEASUREMENT_CONTRACT_REF,
-        measurement_contract_record_digest=_GV_SHA,
+        measurement_contract_record_digest=_GV_MEASUREMENT_CONTRACT_RECORD_DIGEST,
     )
     mean_fixed, sample_stddev_fixed, sample_count, t_coverage_ppm = 800000, 50000, 200, 950000
     half_width = v._student_t_half_width(
@@ -1485,7 +1588,7 @@ def _gv_measured_claims_raw() -> list[dict]:
             "recomputation_profile": "exact_integer_rational_v1",
         },
         measurement_contract_ref=_GV_MEASUREMENT_CONTRACT_REF,
-        measurement_contract_record_digest=_GV_SHA,
+        measurement_contract_record_digest=_GV_MEASUREMENT_CONTRACT_RECORD_DIGEST,
     )
     return [wilson_claim, student_t_claim]
 
@@ -2009,21 +2112,25 @@ def test_golden_registry_identities_match_package_data() -> None:
 
 
 def test_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
-    """P1-V2.2 retarget (sanctioned by the packet brief): S1's real
-    structural checks now PASS the golden bundle -- it is schema-valid,
-    digest-consistent, and canonicalizable by construction -- so the runner
-    advances past S1 and is rejected at S2's still-unconditional-refusal
-    placeholder instead. Proves S1 does not silently swallow a bundle it
-    should pass, without yet asserting anything about S2-S7 (still
+    """P1-V2.3 retarget (sanctioned by the packet brief): S1, S2, S3 and S4
+    now all run real checks and PASS the golden bundle -- it is
+    schema-valid, digest-consistent, genuinely bound to
+    :data:`_GV_PROCESS_RECORD_BUNDLE`'s scope/commitments, and its
+    declared-plan digest/signature both verify -- so the runner advances
+    past all four and is rejected at S5's still-unconditional-refusal
+    placeholder instead. Proves S1-S4 do not silently swallow a bundle they
+    should pass, without yet asserting anything about S5-S7 (still
     placeholders) or S8 (real, but never reached from this boundary)."""
     bundle = build_agent_quality_bundle()
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
-        # process_record_bundle is never reached: S2's still-unconditional
-        # refusal fires first.
-        v._run_agent_quality_checks(bundle, context=context, process_record_bundle={})
+        # process_record_bundle IS reached now: S2 verifies it in full
+        # before S5's still-unconditional refusal fires.
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "scope_binding"
+    assert caught.value.field == "measured_claims.objective"
 
 
 def test_golden_builders_are_deterministic() -> None:
@@ -2379,16 +2486,19 @@ def test_abstained_golden_bundle_coupling_control() -> None:
 
 
 def test_abstained_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
-    """P1-V2.2 retarget (sanctioned by the packet brief), same shape as
+    """P1-V2.3 retarget (sanctioned by the packet brief), same shape as
     :func:`test_golden_bundle_reaches_private_runner_fail_closed_boundary`:
-    the abstained golden bundle is also schema-valid, so it now passes S1
-    and is refused at S2's placeholder."""
+    the abstained golden bundle is also schema-valid and genuinely bound to
+    the real process record, so it now passes S1-S4 and is refused at S5's
+    placeholder."""
     bundle = build_abstained_agent_quality_bundle()
     context = build_agent_quality_context(accept_abstained_bundle=True)
     with pytest.raises(v.AgentQualityVerificationError) as caught:
-        v._run_agent_quality_checks(bundle, context=context, process_record_bundle={})
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "scope_binding"
+    assert caught.value.field == "measured_claims.objective"
 
 
 def test_resign_with_foreign_key_produces_a_mismatched_but_valid_signature() -> None:
@@ -2465,11 +2575,12 @@ def test_stage_s8_manifest_digests_signature_is_a_real_fail_closed_function() ->
     assert caught.value.field == "unsigned_manifest"
 
 
-def test_family_b_golden_bundle_reaches_s2_not_s8_through_full_runner() -> None:
+def test_family_b_golden_bundle_reaches_s5_not_s8_through_full_runner() -> None:
     """One test runs the WHOLE runner on a family-B bundle to prove it is
-    refused at S2 (still a placeholder), never reaching S8 at all --
+    refused at S5 (still a placeholder), never reaching S8 at all --
     complementary to the direct-call tests above, which prove S8 itself is
-    real."""
+    real. P1-V2.3 retarget (sanctioned by the packet brief): S2-S4 are now
+    real too, so the boundary moves from S2 to S5."""
     bundle = build_agent_quality_bundle()
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
@@ -2477,7 +2588,7 @@ def test_family_b_golden_bundle_reaches_s2_not_s8_through_full_runner() -> None:
             bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "scope_binding"
+    assert caught.value.field == "measured_claims.objective"
 
 
 # Rows 57-62 -- one parametrized case per signed array/projection: mutate
@@ -2782,3 +2893,395 @@ def test_s8_issuer_signature_invalid_wrong_preimage_domain() -> None:
         v._stage_s8_manifest_digests_signature(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
     assert caught.value.code == "ISSUER_SIGNATURE_INVALID"
     assert caught.value.field == "signature"
+
+
+# ==========================================================================
+# P1-V2.3 -- S2 real checks (design rows 8-12): context and scope binding.
+# ==========================================================================
+
+
+def test_s2_passes_the_golden_bundle() -> None:
+    """The golden bundle is exactly what S2's real checks are supposed to
+    PASS -- called directly (bypassing S1, S3-S8) with the real
+    :data:`_GV_PROCESS_RECORD_BUNDLE` and the context it is genuinely bound
+    to."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+
+
+def test_s2_process_record_binding_mismatch() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["base_process_record_unsigned_manifest_digest"] = (
+        "sha256:" + "9" * 64
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "PROCESS_RECORD_BINDING_MISMATCH"
+    assert caught.value.field == "process_record_binding"
+
+
+@pytest.mark.parametrize(
+    "manifest_field,context_field",
+    [
+        ("agent_commitment_ref", "expected_agent_commitment_ref"),
+        ("dataset_commitment_ref", "expected_dataset_commitment_ref"),
+        ("evaluator_commitment_ref", "expected_evaluator_commitment_ref"),
+        ("build_definition_commitment_ref", "expected_build_definition_commitment_ref"),
+    ],
+)
+def test_s2_commitment_ref_mismatch_manifest_disagrees(
+    manifest_field: str, context_field: str
+) -> None:
+    """The manifest's own commitment ref disagreeing with BOTH the verified
+    process record's and the context's (which still agree with each other)
+    is a mismatch."""
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"][manifest_field] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "COMMITMENT_REF_MISMATCH"
+    assert caught.value.field == "commitment_refs"
+
+
+@pytest.mark.parametrize(
+    "manifest_field,context_field",
+    [
+        ("agent_commitment_ref", "expected_agent_commitment_ref"),
+        ("dataset_commitment_ref", "expected_dataset_commitment_ref"),
+        ("evaluator_commitment_ref", "expected_evaluator_commitment_ref"),
+        ("build_definition_commitment_ref", "expected_build_definition_commitment_ref"),
+    ],
+)
+def test_s2_commitment_ref_mismatch_context_disagrees_with_process_record(
+    manifest_field: str, context_field: str
+) -> None:
+    """The manifest and the caller's context pin agree with EACH OTHER but
+    disagree with what the verified process record actually proved -- a
+    caller cannot simply assert its own pin and the manifest's matching
+    value without the process record independently confirming it."""
+    bundle = build_agent_quality_bundle()
+    foreign_ref = "sha256:" + "8" * 64
+    bundle["unsigned_manifest"][manifest_field] = foreign_ref
+    context = build_agent_quality_context(**{context_field: foreign_ref})
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "COMMITMENT_REF_MISMATCH"
+    assert caught.value.field == "commitment_refs"
+
+
+def test_s2_scope_mismatch_manifest_scope_binding_digest() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["scope_binding_digest"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "SCOPE_MISMATCH"
+    assert caught.value.field == "scope_binding"
+
+
+def test_s2_scope_mismatch_declared_plan_scope_binding_digest() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["declared_plan"]["scope_binding_digest"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "SCOPE_MISMATCH"
+    assert caught.value.field == "scope_binding"
+
+
+def test_s2_scope_mismatch_foreign_but_self_consistent_scope_digest() -> None:
+    """Design test 81: a bundle whose manifest AND declared plan agree with
+    EACH OTHER on a foreign scope-binding digest (i.e. self-consistent, but
+    not derived from the caller's own pins) must still be rejected -- the
+    projection is derived from ``context.expected_project_ref``/
+    ``expected_build_session_ref`` alone, never copied from the bundle."""
+    bundle = build_agent_quality_bundle()
+    foreign_digest = v._role_digest(
+        _GV_DOMAINS["scope_binding"],
+        {
+            "schema_version": _GV_DOMAINS["scope_binding"],
+            "project_ref": "some-other-project",
+            "build_session_ref": "build_session:zzzzzzzz",
+        },
+    )
+    bundle["unsigned_manifest"]["scope_binding_digest"] = foreign_digest
+    bundle["declared_plan_envelope"]["declared_plan"]["scope_binding_digest"] = foreign_digest
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "SCOPE_MISMATCH"
+    assert caught.value.field == "scope_binding"
+
+
+def test_s2_scope_mismatch_context_disagrees_with_verified_process_record() -> None:
+    """The caller's project/build-session pins disagree with what the
+    process record actually proved, even though the manifest's own scope
+    digest happens to be self-consistent under those (wrong) pins."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context(
+        expected_project_ref="a-different-project",
+        expected_build_session_ref="build_session:zzzzzzzz",
+    )
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "SCOPE_MISMATCH"
+    assert caught.value.field == "scope_binding"
+
+
+def test_s2_measurement_contract_not_pinned() -> None:
+    """A context bypassing ``__post_init__``'s own validation (frozen
+    dataclass, via ``object.__setattr__``) to carry a missing measurement-
+    contract pin must still fail closed, defensively, inside S2 itself."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    object.__setattr__(context, "expected_measurement_contract_ref", None)
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "MEASUREMENT_CONTRACT_NOT_PINNED"
+    assert caught.value.field == "context"
+
+
+def test_s2_measurement_contract_mismatch_manifest() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["measurement_contract_ref"] = "measurement:zzzzzzzz"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "MEASUREMENT_CONTRACT_MISMATCH"
+    assert caught.value.field == "measurement_contract"
+
+
+def test_s2_measurement_contract_mismatch_per_claim() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["measurement_contract_ref"] = "measurement:zzzzzzzz"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "MEASUREMENT_CONTRACT_MISMATCH"
+    assert caught.value.field == "measurement_contract"
+
+
+# ==========================================================================
+# P1-V2.3 -- S3 real checks (design rows 13-16): the four shipped
+# registries' identity.
+# ==========================================================================
+
+
+def test_s3_passes_the_golden_bundle() -> None:
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    v._stage_s3_registry_identity(bundle, context)
+
+
+def test_s3_aggregation_policy_mismatch_declared_plan() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["declared_plan"]["aggregation_policy"] = dict(
+        bundle["declared_plan_envelope"]["declared_plan"]["aggregation_policy"], policy_id="wrong"
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s3_registry_identity(bundle, context)
+    assert caught.value.code == "AGGREGATION_POLICY_MISMATCH"
+    assert caught.value.field == "aggregation_policy"
+
+
+def test_s3_objective_registry_mismatch_manifest() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["objective_registry"] = dict(
+        bundle["unsigned_manifest"]["objective_registry"], registry_digest="sha256:" + "9" * 64
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s3_registry_identity(bundle, context)
+    assert caught.value.code == "OBJECTIVE_REGISTRY_MISMATCH"
+    assert caught.value.field == "objective_registry"
+
+
+def test_s3_objective_registry_mismatch_declared_plan() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["declared_plan"]["objective_registry"] = dict(
+        bundle["declared_plan_envelope"]["declared_plan"]["objective_registry"],
+        registry_version="v9",
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s3_registry_identity(bundle, context)
+    assert caught.value.code == "OBJECTIVE_REGISTRY_MISMATCH"
+    assert caught.value.field == "objective_registry"
+
+
+def test_s3_non_claim_set_mismatch_identity() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["non_claim_catalog"] = dict(
+        bundle["unsigned_manifest"]["non_claim_catalog"], catalog_digest="sha256:" + "9" * 64
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s3_registry_identity(bundle, context)
+    assert caught.value.code == "NON_CLAIM_SET_MISMATCH"
+    assert caught.value.field == "non_claims"
+
+
+def test_s3_non_claim_set_mismatch_swapped_order() -> None:
+    """The identity digest is untouched, but the printed tuple's order no
+    longer names the catalog's own order -- called directly (bypassing S1's
+    schema check, which pins this tuple's order on a schema-valid bundle),
+    so this stage's own order guard, not the schema, is what this test
+    proves."""
+    bundle = build_agent_quality_bundle()
+    non_claims = bundle["non_claims"]
+    non_claims[0], non_claims[1] = non_claims[1], non_claims[0]
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s3_registry_identity(bundle, context)
+    assert caught.value.code == "NON_CLAIM_SET_MISMATCH"
+    assert caught.value.field == "non_claims"
+
+
+def test_s3_quantile_table_mismatch() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["quantile_table"] = dict(
+        bundle["unsigned_manifest"]["quantile_table"], table_digest="sha256:" + "9" * 64
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s3_registry_identity(bundle, context)
+    assert caught.value.code == "QUANTILE_TABLE_MISMATCH"
+    assert caught.value.field == "quantile_table"
+
+
+# ==========================================================================
+# P1-V2.3 -- S4 real checks (design rows 17-19, 21): declared-plan digest
+# and signature.
+# ==========================================================================
+
+
+def test_s4_passes_the_golden_bundle() -> None:
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+
+
+def test_s4_declared_plan_digest_mismatch_manifest_only() -> None:
+    """The declared plan's own digest is internally consistent with itself,
+    but the manifest's copy of it disagrees."""
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["declared_plan_digest"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "DECLARED_PLAN_DIGEST_MISMATCH"
+    assert caught.value.field == "declared_plan"
+
+
+def test_s4_declared_plan_signature_digest_mismatch() -> None:
+    """The declared plan's own digest is genuinely correct (row 17 passes),
+    but the signature block's copy of it -- what the issuer actually
+    signed over, per its own assertion -- disagrees."""
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["signature"]["declared_plan_digest"] = "sha256:" + "9" * 64
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH"
+    assert caught.value.field == "declared_plan_signature"
+
+
+def test_s4_declared_plan_signature_invalid_foreign_key() -> None:
+    """A structurally valid signature by a key NOT in the key ring: this
+    stage owns no KEY_RING_MISMATCH code of its own, so -- consistent with
+    CTO decision A's case (a) -- the outcome is DECLARED_PLAN_SIGNATURE_INVALID."""
+    bundle = build_agent_quality_bundle()
+    declared_plan = bundle["declared_plan_envelope"]["declared_plan"]
+    material = (
+        _GV_DOMAINS["declared_plan_signature"].encode("utf-8")
+        + b"\x00"
+        + fp2.canonicalize(declared_plan).encode("utf-8")
+    )
+    bundle["declared_plan_envelope"]["signature"]["signature"] = base64.b64encode(
+        _GV_FOREIGN_PRIVATE_KEY.sign(material)
+    ).decode("ascii")
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "DECLARED_PLAN_SIGNATURE_INVALID"
+    assert caught.value.field == "declared_plan_signature"
+
+
+def test_s4_declared_plan_signature_invalid_malformed_process_record_key() -> None:
+    """A malformed ``process_record_bundle`` key material: S4 owns no
+    KEY_RING_MISMATCH, so a key-resolution failure also folds into
+    DECLARED_PLAN_SIGNATURE_INVALID."""
+    bundle = build_agent_quality_bundle()
+    broken_process_record = _gv_copy.deepcopy(_GV_PROCESS_RECORD_BUNDLE)
+    broken_process_record["verification_materials_v0"]["issuer"]["public_key_der_b64"] = "not-b64!!"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s4_declared_plan_signatures(bundle, context, broken_process_record)
+    assert caught.value.code == "DECLARED_PLAN_SIGNATURE_INVALID"
+    assert caught.value.field == "declared_plan_signature"
+
+
+def test_s4_declared_plan_pin_mismatch() -> None:
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context(expected_declared_plan_digest="sha256:" + "9" * 64)
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "DECLARED_PLAN_PIN_MISMATCH"
+    assert caught.value.field == "declared_plan"
+
+
+def test_s4_declared_plan_pin_matches_when_supplied() -> None:
+    bundle = build_agent_quality_bundle()
+    declared_plan_digest = bundle["declared_plan_envelope"]["declared_plan"]["declared_plan_digest"]
+    context = build_agent_quality_context(expected_declared_plan_digest=declared_plan_digest)
+    v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+
+
+def test_s4_declared_plan_pin_skipped_when_none() -> None:
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context(expected_declared_plan_digest=None)
+    v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+
+
+# ==========================================================================
+# P1-V2.3 -- mutate-the-guard: S2, S3, S4 negatives fail ONLY when that
+# stage's own body is gutted, with zero leakage across stage boundaries.
+# ==========================================================================
+
+
+@pytest.mark.parametrize(
+    "stage_name",
+    [
+        "_stage_s2_context_binding",
+        "_stage_s3_registry_identity",
+        "_stage_s4_declared_plan_signatures",
+    ],
+)
+def test_gutting_one_stage_body_fails_only_its_own_negatives(stage_name: str) -> None:
+    """Mutate-the-guard: replacing one stage's body with ``return None``
+    must make ONLY that stage's own tests fail -- proving each of S2, S3,
+    and S4 is independently load-bearing, with no cross-stage leakage. This
+    complements the P1-V2.2 review's own S1/S8 probes (reported by a human
+    reviewer, not automated here) with an in-suite mechanical check for the
+    three stages this packet adds."""
+    stage = getattr(v, stage_name)
+    owned = stage.owns
+
+    def _gutted(*args: object, **kwargs: object) -> None:
+        return None
+
+    _gutted.owns = owned  # type: ignore[attr-defined]
+    with patch.object(v, stage_name, _gutted):
+        bundle = build_agent_quality_bundle()
+        context = build_agent_quality_context()
+        # The gutted stage now passes silently; the runner must still reach
+        # a real refusal further down the pipeline (S5's placeholder, or a
+        # later stage's real check) -- never a silent overall PASS.
+        with pytest.raises(v.AgentQualityVerificationError):
+            v._run_agent_quality_checks(
+                bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            )

@@ -306,6 +306,28 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES: frozenset[str] = frozenset(
 # the per-code validator proof (a re-signed mutation that hits SCHEMA first,
 # or a direct schema/registry equality assertion where the guard concerns
 # package data rather than the bundle).
+#
+# .5 (S6) adds four more of the same shape, found by the SAME audit applied
+# to S6's own owned codes before wiring them, rather than after a review
+# caught it a second time:
+#   - HOLDOUT_NOT_USED: MeasuredObjectiveClaimV1.evaluated_split_id is a
+#     hard schema ``const: "holdout"`` -- no certified claim can ever name
+#     any other split.
+#   - HOLDOUT_MISSING: EvaluationSplitSetV1 is a fixed 2-tuple whose second
+#     member's ``split_id`` is a hard schema ``const: "holdout"`` -- a
+#     schema-valid bundle always carries one.
+#   - HOLDOUT_TOO_SMALL: EvaluationSplitSetV1's holdout member already
+#     carries ``item_count.minimum: 30`` (the base floor), and whenever a
+#     certified claim exists, S5's SAMPLE_SIZE_MISMATCH -- which runs
+#     first -- already forces ``holdout.item_count == claim.sample_size``,
+#     and MeasuredObjectiveClaimV1's own per-kind ``if``/``then`` branches
+#     already set that claim's ``sample_size`` schema minimum to its
+#     objective's registered floor (see OBJECTIVE_MINIMUM_SAMPLE_NOT_MET
+#     above) -- so the holdout size a schema-valid, S5-passing bundle can
+#     ever carry already meets both halves of this check.
+#   - HOLDOUT_REUSED: ``holdout_scored_arm_count`` is a hard schema
+#     ``const: 1`` on BOTH AgentQualityUnsignedManifestV1 and
+#     AgentQualityDeclaredPlanV1.
 AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES: frozenset[str] = frozenset(
     {
         "OBJECTIVE_NOT_REGISTERED",
@@ -315,6 +337,10 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES: frozenset[str] = frozenset(
         "INTERVAL_OUT_OF_UNIT_BOUNDS",
         "VERIFICATION_LEVEL_MISMATCH",
         "QUANTILE_TABLE_LOOKUP_FAILED",
+        "HOLDOUT_NOT_USED",
+        "HOLDOUT_MISSING",
+        "HOLDOUT_TOO_SMALL",
+        "HOLDOUT_REUSED",
     }
 )
 
@@ -347,6 +373,30 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: frozenset[str] = frozenset(
 AGENT_QUALITY_CONTEXT_PREEMPTED_CODES: frozenset[str] = frozenset(
     {
         "MEASUREMENT_CONTRACT_NOT_PINNED",
+    }
+)
+
+# Design row 48's two codes: reachable only through an input v1 does not
+# define. AgentQualityCertificateBundleV1 ships NO ``SplitOpeningWitnessV1``
+# and NO ``split_opening_witness`` bundle field -- there is no opening path
+# in v1 at all (see the module docstring and
+# AgentQualityCertificateBundleV1's own description). ``split_opening`` is
+# accepted on :func:`_run_agent_quality_checks`'s call signature only for
+# forward compatibility (P1-V2.0 review finding P3-11: widening the shared
+# stage signature later would ripple through every caller again), and the
+# runner REFUSES it outright -- with the existing CONTEXT code, at the
+# existing ``split_opening_witness`` field location -- whenever it is not
+# ``None``, before any stage runs. Unlike the schema-preempted-backstop
+# codes, these two have NO guard anywhere (there is nothing to check a
+# witness against), so they are dead vocabulary exactly like
+# :data:`AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES` -- just preempted by a
+# DIFFERENT authority (the caller's own input, not the schema). Proven by
+# test_agent_quality_verifier.py::
+# test_split_opening_input_preempted_codes_are_never_emitted.
+AGENT_QUALITY_INPUT_PREEMPTED_CODES: frozenset[str] = frozenset(
+    {
+        "SPLIT_OPENING_MISMATCH",
+        "SPLIT_OPENING_RULE_VIOLATION",
     }
 )
 
@@ -388,12 +438,22 @@ AGENT_QUALITY_CONTEXT_PREEMPTED_CODES: frozenset[str] = frozenset(
 # closure (P2-2): each has a live guard, but no schema-valid bundle can ever
 # trip it, so it is excluded from this set via the
 # ``AGENT_QUALITY_SCHEMA_PREEMPTED_CODES`` subtraction below rather than by
-# also naming it in this literal. This set MUST shrink to empty by packet
-# .6, as each later packet wires its stage's real checks and moves that
-# stage's codes out of here; only S6 and S7 remain after this packet.
+# also naming it in this literal. .5 (commit 1) wires S6's reachable codes
+# (SPLIT_SET_SHAPE, SPLIT_DERIVATION_MISMATCH, SPLIT_PARTITION_INCOMPLETE,
+# SPLIT_COMMITMENT_COLLISION, SPLIT_SIZE_IMPLAUSIBLE, ARM_COUNT_MISMATCH,
+# SELECTION_ESTIMATE_DUPLICATE); S6's four schema-preempted-with-backstop
+# codes (HOLDOUT_NOT_USED, HOLDOUT_MISSING, HOLDOUT_TOO_SMALL,
+# HOLDOUT_REUSED) and its two input-preempted codes
+# (SPLIT_OPENING_MISMATCH, SPLIT_OPENING_RULE_VIOLATION) are excluded via
+# the ``AGENT_QUALITY_SCHEMA_PREEMPTED_CODES`` /
+# ``AGENT_QUALITY_INPUT_PREEMPTED_CODES`` subtractions instead, the same
+# pattern as .4's seven. This set MUST shrink to empty by packet .6, as
+# each later packet wires its stage's real checks and moves that stage's
+# codes out of here; only S7 remains after this packet.
 AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
     AGENT_QUALITY_ERROR_CODES
     - AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
+    - AGENT_QUALITY_INPUT_PREEMPTED_CODES
     - frozenset(
         {
             "CONTEXT",
@@ -442,6 +502,13 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
             "UNSIGNED_MANIFEST_DIGEST_MISMATCH",
             "KEY_RING_MISMATCH",
             "ISSUER_SIGNATURE_INVALID",
+            "SPLIT_SET_SHAPE",
+            "SPLIT_DERIVATION_MISMATCH",
+            "SPLIT_PARTITION_INCOMPLETE",
+            "SPLIT_COMMITMENT_COLLISION",
+            "SPLIT_SIZE_IMPLAUSIBLE",
+            "ARM_COUNT_MISMATCH",
+            "SELECTION_ESTIMATE_DUPLICATE",
         }
     )
 )
@@ -1920,6 +1987,46 @@ def _stage_s5_objective_measurement(
         _fail("NOMINAL_COVERAGE_MISMATCH", "measured_claims")
 
 
+def _split_size_bound(universe_count: int, holdout_fraction_ppm: int) -> tuple[int, int]:
+    """The exact-integer form of design row 47's plausibility bound.
+
+    The design states the check as ``|holdout - round(N*p)| <= 6*isqrt(N*p*
+    (1-p)) + 1`` with ``p = holdout_fraction_ppm / 10**6``. Both ``round``
+    and ``isqrt`` need a fixed-point reformulation to stay exact-integer:
+
+    ``round(N*p)`` uses the same half-up integer identity as
+    :func:`_wilson_point`: ``round_val = (2*N*ppm + scale) // (2*scale)``
+    (``scale`` = :data:`_T_SCALE`, ``ppm`` = ``holdout_fraction_ppm``).
+
+    ``N*p*(1-p)`` scaled by ``scale**2`` is the EXACT integer ``N * ppm *
+    (scale - ppm)`` (no division at all). Call this ``variance_scaled_sq``;
+    it equals ``(scale * sqrt(N*p*(1-p)))**2``, so ``isqrt(variance_scaled_sq)``
+    is ``floor(scale * sqrt(N*p*(1-p)))``. A FLOORED square root would
+    UNDERESTIMATE the tolerance term and narrow the passing band -- the
+    wrong direction for a plausibility check that must never reject a
+    genuinely valid split -- so this rounds the integer square root UP
+    instead (``r`` if ``r*r`` is already exact, else ``r+1``), the standard
+    integer-ceiling-of-a-square-root identity.
+
+    Multiplying the whole inequality by ``scale`` turns every remaining
+    division into a single final integer comparison, done by the caller:
+    ``abs(holdout_count - round_val) * scale <= 6*ceil_sqrt_scaled + scale``
+    (the ``+1`` item-count unit becomes ``+scale`` once both sides are
+    scaled by ``scale``). Returns ``(round_val, rhs)`` -- the caller
+    computes the left side itself from the bundle's own
+    ``holdout_count`` and compares against ``rhs`` at the SAME ``scale``.
+    """
+    scale = _T_SCALE
+    numerator = universe_count * holdout_fraction_ppm
+    round_val = (2 * numerator + scale) // (2 * scale)
+    variance_scaled_sq = universe_count * holdout_fraction_ppm * (scale - holdout_fraction_ppm)
+    floor_sqrt = math.isqrt(variance_scaled_sq)
+    is_exact = floor_sqrt * floor_sqrt == variance_scaled_sq
+    ceil_sqrt_scaled = floor_sqrt if is_exact else floor_sqrt + 1
+    rhs = 6 * ceil_sqrt_scaled + scale
+    return round_val, rhs
+
+
 @_owns(
     "SELECTION_ESTIMATE_DUPLICATE",
     "SPLIT_SET_SHAPE",
@@ -1930,8 +2037,6 @@ def _stage_s5_objective_measurement(
     "SPLIT_PARTITION_INCOMPLETE",
     "SPLIT_COMMITMENT_COLLISION",
     "SPLIT_SIZE_IMPLAUSIBLE",
-    "SPLIT_OPENING_MISMATCH",
-    "SPLIT_OPENING_RULE_VIOLATION",
     "HOLDOUT_REUSED",
     "ARM_COUNT_MISMATCH",
 )
@@ -1939,18 +2044,151 @@ def _stage_s6_splits_held_out(
     bundle: Mapping[str, Any], context: AgentQualityVerificationContext
 ) -> None:
     """S6 -- evaluation splits and holdout usage (design rows 40-51, minus
-    the schema-preempted SELECTION_ESTIMATE_IN_CERTIFIED_SET).
+    the schema-preempted SELECTION_ESTIMATE_IN_CERTIFIED_SET and the
+    input-preempted SPLIT_OPENING_MISMATCH/SPLIT_OPENING_RULE_VIOLATION --
+    see :data:`AGENT_QUALITY_INPUT_PREEMPTED_CODES`; the runner itself
+    refuses a caller-supplied ``split_opening`` before any stage runs, since
+    v1 defines no witness schema for this stage to check one against).
 
-    Owns: SELECTION_ESTIMATE_DUPLICATE (design row's own vocabulary; the
-    guard is deferred, see :data:`AGENT_QUALITY_PENDING_CODES`),
-    SPLIT_SET_SHAPE, HOLDOUT_NOT_USED, HOLDOUT_MISSING, HOLDOUT_TOO_SMALL,
-    SPLIT_DERIVATION_MISMATCH, SPLIT_PARTITION_INCOMPLETE,
-    SPLIT_COMMITMENT_COLLISION, SPLIT_SIZE_IMPLAUSIBLE, SPLIT_OPENING_MISMATCH,
-    SPLIT_OPENING_RULE_VIOLATION, HOLDOUT_REUSED, ARM_COUNT_MISMATCH.
+    Owns: SELECTION_ESTIMATE_DUPLICATE, SPLIT_SET_SHAPE, HOLDOUT_NOT_USED,
+    HOLDOUT_MISSING, HOLDOUT_TOO_SMALL, SPLIT_DERIVATION_MISMATCH,
+    SPLIT_PARTITION_INCOMPLETE, SPLIT_COMMITMENT_COLLISION,
+    SPLIT_SIZE_IMPLAUSIBLE, HOLDOUT_REUSED, ARM_COUNT_MISMATCH.
 
-    Unconditional refusal in this packet -- see :func:`_stage_s1_structural`.
+    Four of these codes are schema-preempted-with-backstop, the same P2-2
+    pattern as .4's seven S5 codes (see
+    :data:`AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES`): HOLDOUT_NOT_USED
+    (``MeasuredObjectiveClaimV1.evaluated_split_id`` is a hard schema
+    ``const: "holdout"``), HOLDOUT_MISSING (``EvaluationSplitSetV1`` is a
+    fixed 2-tuple whose second member is ALWAYS ``split_id: "holdout"``),
+    HOLDOUT_TOO_SMALL (the tuple's own ``item_count.minimum: 30`` already
+    enforces the base floor, and whenever a certified claim exists, S5's
+    SAMPLE_SIZE_MISMATCH -- which runs first -- already forces
+    ``holdout.item_count == claim.sample_size``, and that claim's own
+    schema-enforced minimum already meets its objective's registered
+    floor), and HOLDOUT_REUSED (``holdout_scored_arm_count`` is a hard
+    schema ``const: 1`` on BOTH the manifest and the declared plan). Each
+    guard below is kept as a defensive backstop regardless.
+
+    In order: (row 40) the two-record shape schema already fixes order and
+    ``split_id``; what remains is checking, for a bundle that reaches this
+    stage, that ``commitment_scheme``/``canonicalization_profile`` agree
+    between the two records and that both cite the SAME
+    ``split_derivation_digest`` (defensive shape guards also cover a
+    direct-call malformed bundle, whose two-record shape is not
+    schema-guaranteed); (row 41) every certified claim's
+    ``evaluated_split_id`` is ``"holdout"``; (row 42) the holdout record
+    exists; (row 43) the holdout's ``item_count`` meets both the schema
+    floor and every certified objective's registered minimum; (row 44) all
+    four ``split_derivation_digest`` copies (both records, the top-level
+    declaration, and the declared plan's own copy) are identical; (row 45)
+    the two split sizes sum to the declared universe size; (row 46) the two
+    ``split_commitment_digest`` values differ; (row 47)
+    :func:`_split_size_bound`'s plausibility bound; (row 49)
+    ``holdout_scored_arm_count`` is 1 in both the manifest and the declared
+    plan; (row 50) ``selection_arm_count`` agrees between them; finally, the
+    second G6 wiring: no two ``non_certified_selection_estimates`` records
+    share an ``objective_id`` (:func:`_unique_by`).
     """
-    _fail("AGENT_QUALITY_VERIFICATION_FAILED", "evaluation_splits")
+    manifest = bundle["unsigned_manifest"]
+    declared_plan = bundle["declared_plan_envelope"]["declared_plan"]
+    split_derivation = bundle["split_derivation"]
+    splits = bundle.get("evaluation_splits")
+
+    # Row 40 (SPLIT_SET_SHAPE) and row 42 (HOLDOUT_MISSING) both concern the
+    # same two-record tuple's shape, so this stage separates them by WHICH
+    # slot is wrong: a bad "selection" slot (missing/wrong split_id) or a
+    # scheme/profile/derivation-digest disagreement between the two records
+    # is SPLIT_SET_SHAPE; a "holdout" slot that is missing or names a
+    # different split_id is HOLDOUT_MISSING alone -- otherwise, on a
+    # schema-valid bundle where EvaluationSplitSetV1's own tuple shape
+    # already guarantees both slots, the second check would be dead code
+    # subsumed entirely by the first.
+    if (
+        not isinstance(splits, (list, tuple))
+        or len(splits) != 2
+        or not isinstance(splits[0], Mapping)
+        or splits[0].get("split_id") != "selection"
+    ):
+        _fail("SPLIT_SET_SHAPE", "evaluation_splits")
+    selection = splits[0]
+    holdout_candidate = splits[1]
+    if not isinstance(holdout_candidate, Mapping) or holdout_candidate.get("split_id") != "holdout":
+        _fail("HOLDOUT_MISSING", "evaluation_splits.holdout")
+    holdout = holdout_candidate
+    if selection.get("commitment_scheme") != holdout.get("commitment_scheme") or selection.get(
+        "canonicalization_profile"
+    ) != holdout.get("canonicalization_profile"):
+        _fail("SPLIT_SET_SHAPE", "evaluation_splits")
+    if selection.get("split_derivation_digest") != holdout.get("split_derivation_digest"):
+        _fail("SPLIT_SET_SHAPE", "evaluation_splits")
+
+    for claim in bundle.get("measured_claims", ()):
+        if not isinstance(claim, Mapping) or claim.get("evaluated_split_id") != "holdout":
+            _fail("HOLDOUT_NOT_USED", "measured_claims")
+
+    holdout_count = holdout.get("item_count")
+    registry_by_id = _objective_registry_entries_by_id()
+    minimum_required = 30
+    for claim in bundle.get("measured_claims", ()):
+        if not isinstance(claim, Mapping):
+            continue
+        objective_id = claim.get("objective_id")
+        entry = registry_by_id.get(objective_id) if isinstance(objective_id, str) else None
+        if entry is not None:
+            minimum_required = max(minimum_required, entry["minimum_sample_size"])
+    if not isinstance(holdout_count, int) or holdout_count < minimum_required:
+        _fail("HOLDOUT_TOO_SMALL", "evaluation_splits.holdout")
+
+    split_derivation_digest = split_derivation.get("split_derivation_digest")
+    declared_split_derivation = declared_plan.get("split_derivation")
+    declared_digest = (
+        declared_split_derivation.get("split_derivation_digest")
+        if isinstance(declared_split_derivation, Mapping)
+        else None
+    )
+    if (
+        selection.get("split_derivation_digest") != split_derivation_digest
+        or holdout.get("split_derivation_digest") != split_derivation_digest
+        or declared_digest != split_derivation_digest
+    ):
+        _fail("SPLIT_DERIVATION_MISMATCH", "split_derivation")
+
+    selection_count = selection.get("item_count")
+    universe_count = split_derivation.get("evaluated_universe_item_count")
+    if (
+        not isinstance(selection_count, int)
+        or not isinstance(holdout_count, int)
+        or not isinstance(universe_count, int)
+        or selection_count + holdout_count != universe_count
+    ):
+        _fail("SPLIT_PARTITION_INCOMPLETE", "evaluation_splits")
+
+    if selection.get("split_commitment_digest") == holdout.get("split_commitment_digest"):
+        _fail("SPLIT_COMMITMENT_COLLISION", "evaluation_splits")
+
+    holdout_fraction_ppm = split_derivation.get("holdout_fraction_ppm")
+    if not isinstance(holdout_fraction_ppm, int) or not isinstance(universe_count, int):
+        _fail("SPLIT_SIZE_IMPLAUSIBLE", "evaluation_splits.holdout")
+    round_val, rhs = _split_size_bound(universe_count, holdout_fraction_ppm)
+    if abs(holdout_count - round_val) * _T_SCALE > rhs:
+        _fail("SPLIT_SIZE_IMPLAUSIBLE", "evaluation_splits.holdout")
+
+    if (
+        manifest.get("holdout_scored_arm_count") != 1
+        or declared_plan.get("holdout_scored_arm_count") != 1
+    ):
+        _fail("HOLDOUT_REUSED", "unsigned_manifest")
+
+    if manifest.get("selection_arm_count") != declared_plan.get("selection_arm_count"):
+        _fail("ARM_COUNT_MISMATCH", "unsigned_manifest")
+
+    _unique_by(
+        list(bundle.get("non_certified_selection_estimates", ())),
+        lambda estimate: estimate.get("objective_id") if isinstance(estimate, Mapping) else None,
+        "SELECTION_ESTIMATE_DUPLICATE",
+        "non_certified_selection_estimates",
+    )
 
 
 @_owns(
@@ -2214,19 +2452,21 @@ def _run_agent_quality_checks(
     (``verify_process_record_certificate``) before anything else in this
     packet's real stages runs (design Sec 3); S4 and S8 each resolve the
     issuer's key material from its verified ``verification_materials_v0``
-    for their own signature checks. ``split_opening`` is accepted now,
-    unused, for the same reason every stage already shares the uniform
-    ``context`` parameter (P1-V2.0 review finding P3-11): v1 defines no
-    opening path, so no stage in this packet or packet .3 reads it, but
-    widening this signature later would ripple through every caller again.
+    for their own signature checks. ``split_opening`` is accepted on this
+    signature for forward compatibility only (P1-V2.0 review finding
+    P3-11): v1 defines NO opening path and NO witness schema at all (see
+    :data:`AGENT_QUALITY_INPUT_PREEMPTED_CODES`), so this function REFUSES
+    outright -- with ``CONTEXT`` at the ``split_opening_witness`` field
+    location, before any stage runs -- whenever a caller supplies one, the
+    only accepted value being ``None``.
 
     No public entry point calls this yet (see the module docstring and
-    ``test_no_public_entry_point_exists_yet``). S1, S2, S3, S4 and S8 now
-    run real checks; S5-S7 are still unconditional refusals, so this
-    function currently rejects every bundle it is given, and never returns
-    a :class:`AgentQualityVerificationResult` in practice -- the return
-    type is the one the complete check sequence will actually produce once
-    each stage's real checks replace today's placeholders.
+    ``test_no_public_entry_point_exists_yet``). S1-S6 and S8 now run real
+    checks; S7 is still an unconditional refusal, so this function
+    currently rejects every bundle it is given, and never returns a
+    :class:`AgentQualityVerificationResult` in practice -- the return type
+    is the one the complete check sequence will actually produce once S7's
+    real checks replace today's placeholder.
 
     Mirrors ``evaluator_quality_verifier``'s content-free catch-all: any
     exception escaping the stage sequence that is not already an
@@ -2239,6 +2479,8 @@ def _run_agent_quality_checks(
     the process record's OWN code, not be relabeled into this module's
     vocabulary -- see :func:`_stage_s2_context_binding`.
     """
+    if split_opening is not None:
+        _fail("CONTEXT", "split_opening_witness")
     try:
         _stage_s1_structural(bundle, context)
         _stage_s2_context_binding(bundle, context, process_record_bundle)

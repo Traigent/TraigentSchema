@@ -304,6 +304,28 @@ def test_selection_estimate_duplicate_is_registered_and_field_located() -> None:
     assert excinfo.value.field == "non_certified_selection_estimates"
 
 
+def test_lookup_t_scaled_unregistered_coverage_fails_closed() -> None:
+    """P1-V2.4 review P2-2: no test anywhere exercised
+    ``QUANTILE_TABLE_LOOKUP_FAILED`` directly, even though the brief
+    required one. An unregistered ``coverage_ppm`` has no bucket list at
+    all."""
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._lookup_t_scaled(123456, 199)
+    assert caught.value.code == "QUANTILE_TABLE_LOOKUP_FAILED"
+    assert caught.value.field == "quantile_table"
+
+
+def test_lookup_t_scaled_df_below_smallest_bucket_fails_closed() -> None:
+    """A registered coverage with a ``df`` below the table's smallest
+    ``df_bucket`` for that coverage -- unreachable for a schema-valid claim
+    (``sample_count``'s schema minimum keeps ``df >= 1``), but this helper
+    must still fail closed rather than assume that invariant."""
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._lookup_t_scaled(950000, 0)
+    assert caught.value.code == "QUANTILE_TABLE_LOOKUP_FAILED"
+    assert caught.value.field == "quantile_table"
+
+
 def test_wilson_bounds_rounds_outward_for_a_sub_unit_interval() -> None:
     """Finding 6: Wilson bracketing uses the parabola's exact rational
     vertex, not the rounded point estimate, so outward rounding can only
@@ -1129,12 +1151,144 @@ def test_selection_estimate_duplicate_is_not_schema_preempted() -> None:
     )
 
 
-def test_schema_preempted_codes_are_exactly_two_and_registered() -> None:
-    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES == {
+def test_schema_preempted_dead_codes_are_exactly_two_and_registered() -> None:
+    """The two ORIGINAL schema-preempted codes have no guard anywhere in the
+    module (dead vocabulary) -- see
+    :func:`test_schema_preempted_backstop_codes_have_a_live_guard_each` for
+    the other half of :data:`v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES`."""
+    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES == {
         "ABSTAINED_BUNDLE_CARRIES_CLAIMS",
         "SELECTION_ESTIMATE_IN_CERTIFIED_SET",
     }
+    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES <= v.AGENT_QUALITY_ERROR_CODES
+
+
+def test_schema_preempted_backstop_codes_have_a_live_guard_each() -> None:
+    """P1-V2.4 review P2-2: unlike the two dead codes above, each of these
+    seven codes DOES have a real ``_fail(...)`` call site in
+    :func:`v._stage_s5_objective_measurement` -- kept as a defensive
+    backstop -- even though no schema-valid bundle can ever reach it (see
+    :data:`v.AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES`'s docstring for
+    the per-code reachability argument, and
+    :func:`test_schema_preempted_backstop_codes_are_proven_unreachable_by_schema`
+    below for the empirical proof of each)."""
+    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES == {
+        "OBJECTIVE_NOT_REGISTERED",
+        "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET",
+        "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED",
+        "INTERVAL_METHOD_NOT_EMITTABLE",
+        "INTERVAL_OUT_OF_UNIT_BOUNDS",
+        "VERIFICATION_LEVEL_MISMATCH",
+        "QUANTILE_TABLE_LOOKUP_FAILED",
+    }
+    source = Path(v.__file__).read_text()
+    tree = ast.parse(source, filename=v.__file__)
+    emitted = frozenset(code for (_fn, code, _line) in _emission_sites(tree))
+    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES <= emitted, (
+        "every backstop code must have a real emission site -- "
+        f"missing: {v.AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES - emitted}"
+    )
+    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES.isdisjoint(emitted), (
+        "a dead code must have NO emission site -- "
+        f"unexpectedly emitted: {v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES & emitted}"
+    )
+    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES == (
+        v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES
+        | v.AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES
+    )
     assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES <= v.AGENT_QUALITY_ERROR_CODES
+
+
+def test_schema_preempted_backstop_codes_are_proven_unreachable_by_schema() -> None:
+    """The per-code reachability proof for each of the seven backstop codes:
+    either a re-signed mutation that a schema-valid bundle cannot represent
+    (SCHEMA rejects it at S1, before S5's guard would ever run), or --
+    where the guard concerns PACKAGE DATA rather than any bundle field
+    (DISTRIBUTION_ASSUMPTION_NOT_REGISTERED, QUANTILE_TABLE_LOOKUP_FAILED)
+    -- a direct assertion that the shipped package data always satisfies
+    the guard, so no bundle content could ever make it fail."""
+    # OBJECTIVE_NOT_REGISTERED: EmittableObjectiveIdV1 (what a schema-valid
+    # claim's objective_id is restricted to) is a SUBSET of the shipped
+    # objective registry's own ids.
+    emittable_ids = set(SCHEMA["definitions"]["EmittableObjectiveIdV1"]["allOf"][1]["enum"])
+    registered_ids = set(v._objective_registry_entries_by_id())
+    assert emittable_ids <= registered_ids
+
+    # OBJECTIVE_MINIMUM_SAMPLE_NOT_MET / INTERVAL_OUT_OF_UNIT_BOUNDS:
+    # MeasuredObjectiveClaimV1's own per-objective_kind if/then branches
+    # already enforce the SAME sample_size floor / value bounds as the
+    # shipped registry entry for every emittable objective_kind.
+    kind_branches = {
+        branch["if"]["properties"]["objective_kind"]["const"]: branch["then"]
+        for branch in SCHEMA["definitions"]["MeasuredObjectiveClaimV1"]["allOf"]
+    }
+    for objective_id, entry in v._objective_registry_entries_by_id().items():
+        if objective_id not in emittable_ids:
+            continue
+        branch = kind_branches[entry["objective_kind"]]
+        schema_sample_min = (
+            branch.get("properties", {})
+            .get("sample_size", {})
+            .get(
+                "minimum",
+                SCHEMA["definitions"]["MeasuredObjectiveClaimV1"]["properties"]["sample_size"][
+                    "minimum"
+                ],
+            )
+        )
+        assert schema_sample_min == entry["minimum_sample_size"]
+        schema_max = (
+            branch.get("properties", {})
+            .get("interval_high", {})
+            .get(
+                "maximum",
+                SCHEMA["definitions"]["MeasuredObjectiveClaimV1"]["properties"]["interval_high"][
+                    "maximum"
+                ],
+            )
+        )
+        assert schema_max == entry["maximum"]
+
+    # DISTRIBUTION_ASSUMPTION_NOT_REGISTERED: every nonnegative_mean entry in
+    # the shipped registry carries a registered distribution_assumption.
+    for entry in v._objective_registry_entries_by_id().values():
+        if entry["objective_kind"] == "nonnegative_mean":
+            assert entry.get("distribution_assumption") in v._distribution_assumption_values()
+
+    # INTERVAL_METHOD_NOT_EMITTABLE: EmittableObjectiveKindV1 excludes
+    # nonnegative_quantile entirely (the only kind whose admissible method
+    # is not emittable), and IntervalParamsV1 has no oneOf branch at all for
+    # bootstrap_percentile_v1.
+    emittable_kind_excludes = SCHEMA["definitions"]["EmittableObjectiveKindV1"]["allOf"][1]["not"][
+        "const"
+    ]
+    assert emittable_kind_excludes == "nonnegative_quantile"
+    interval_params_branches = {
+        ref["$ref"].rsplit("/", 1)[-1] for ref in SCHEMA["definitions"]["IntervalParamsV1"]["oneOf"]
+    }
+    assert "IntervalParamsBootstrapV1" not in interval_params_branches
+
+    # VERIFICATION_LEVEL_MISMATCH: EmittableVerificationLevelV1 is
+    # VerificationLevelV1 minus its own excluded enum -- already narrowed to
+    # the single member this stage would otherwise check for.
+    all_levels = set(v._schema_definition("VerificationLevelV1")["enum"])
+    excluded_levels = set(
+        v._schema_definition("EmittableVerificationLevelV1")["allOf"][1]["not"]["enum"]
+    )
+    assert all_levels - excluded_levels == {"construction_recomputed_v1"}
+
+    # QUANTILE_TABLE_LOOKUP_FAILED: NominalCoveragePpmV1's enum is exactly
+    # the pinned table's coverage columns, and sample_count's schema minimum
+    # keeps df >= the table's smallest bucket.
+    table_coverages = set(v._quantile_buckets_by_coverage())
+    assert set(SCHEMA["definitions"]["NominalCoveragePpmV1"]["enum"]) == table_coverages
+    smallest_df_bucket = min(
+        df for buckets in v._quantile_buckets_by_coverage().values() for df, _ in buckets
+    )
+    schema_min_sample_count = SCHEMA["definitions"]["SufficientStatisticsMeanVarianceV1"][
+        "properties"
+    ]["sample_count"]["minimum"]
+    assert schema_min_sample_count - 1 >= smallest_df_bucket
 
 
 def test_pending_and_preempted_and_emitted_partition_is_disjoint_and_covers_all() -> None:
@@ -1159,19 +1313,73 @@ def test_pending_and_preempted_and_emitted_partition_is_disjoint_and_covers_all(
     emitted_today = frozenset(code for (_fn, code, _line) in _emission_sites(tree))
 
     preempted = v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
+    backstop = v.AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES
+    dead = v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES
     pending = v.AGENT_QUALITY_PENDING_CODES
+    # P1-V2.4 review P2-2: backstop codes are a NEW third case the original
+    # two-way "preempted (no guard) xor emitted (real code)" split could not
+    # express -- a backstop code is BOTH preempted (unreachable via any
+    # schema-valid bundle) AND emitted (a real, defensive `_fail(...)` call
+    # site still exists). `emitted_today` therefore legitimately overlaps
+    # `preempted` on exactly the backstop subset, so the identity below
+    # excludes that subset from `emitted_today` before comparing, and a
+    # separate assertion pins the overlap to be EXACTLY that subset -- no
+    # more, no less.
     module_subtraction_set = v.AGENT_QUALITY_ERROR_CODES - preempted - pending
 
-    assert emitted_today == module_subtraction_set, (
+    assert emitted_today - backstop == module_subtraction_set, (
         "a code started or stopped being emitted without "
         "AGENT_QUALITY_PENDING_CODES's subtraction being updated to match: "
-        f"AST-derived={sorted(emitted_today)} "
+        f"AST-derived={sorted(emitted_today - backstop)} "
         f"module-subtraction={sorted(module_subtraction_set)}"
     )
+    assert preempted & emitted_today == backstop, (
+        "the only preempted codes with a live emission site must be exactly "
+        f"the backstop set: overlap={sorted(preempted & emitted_today)} "
+        f"backstop={sorted(backstop)}"
+    )
+    assert dead.isdisjoint(emitted_today)
     assert preempted.isdisjoint(pending)
-    assert preempted.isdisjoint(emitted_today)
     assert pending.isdisjoint(emitted_today)
     assert preempted | pending | emitted_today == v.AGENT_QUALITY_ERROR_CODES
+
+
+def test_four_way_code_vocabulary_partition_is_disjoint_and_covers_all() -> None:
+    """P1-V2.4 review P2-2: ``AGENT_QUALITY_CONTEXT_PREEMPTED_CODES`` was
+    never folded into any partition arithmetic -- this test is the fold.
+    Every code in the closed vocabulary falls into EXACTLY one of four
+    buckets: dead (no guard anywhere), preempted-with-a-live-backstop-guard
+    (schema OR context preemption -- the guard exists but no valid input/
+    context can ever reach it), pending (no guard yet, packet .6's S6/S7),
+    or reachable (a real guard that a schema-valid, correctly-constructed
+    caller CAN trigger)."""
+    source = Path(v.__file__).read_text()
+    tree = ast.parse(source, filename=v.__file__)
+    emitted_today = frozenset(code for (_fn, code, _line) in _emission_sites(tree))
+
+    dead = v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES
+    preempted_with_backstop = (
+        v.AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES | v.AGENT_QUALITY_CONTEXT_PREEMPTED_CODES
+    )
+    pending = v.AGENT_QUALITY_PENDING_CODES
+    reachable = emitted_today - preempted_with_backstop
+
+    assert dead.isdisjoint(preempted_with_backstop)
+    assert dead.isdisjoint(pending)
+    assert dead.isdisjoint(reachable)
+    assert preempted_with_backstop.isdisjoint(pending)
+    assert preempted_with_backstop.isdisjoint(reachable)
+    assert pending.isdisjoint(reachable)
+    assert preempted_with_backstop <= emitted_today, (
+        "every preempted-with-backstop code must still have a live emission site: "
+        f"missing={preempted_with_backstop - emitted_today}"
+    )
+    assert dead.isdisjoint(emitted_today), (
+        f"a dead code must have NO emission site: unexpected={dead & emitted_today}"
+    )
+    assert dead | preempted_with_backstop | pending | reachable == v.AGENT_QUALITY_ERROR_CODES, (
+        "the four buckets must exactly cover the closed code vocabulary"
+    )
 
 
 def test_pending_codes_are_not_yet_emitted() -> None:
@@ -1283,7 +1491,11 @@ def test_stage_codes_are_pairwise_disjoint_and_cover_all_non_preempted_codes() -
         union |= codes
         total += len(codes)
     assert total == len(union), "two stages claim overlapping codes"
-    assert union == v.AGENT_QUALITY_ERROR_CODES - v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
+    # Backstop codes (P1-V2.4 review P2-2) are schema-preempted but still
+    # OWNED by S5 -- its guard is what raises them, even though no
+    # schema-valid bundle can trigger it. Only the two DEAD codes (no guard
+    # anywhere) are excluded from every stage's owned set.
+    assert union == v.AGENT_QUALITY_ERROR_CODES - v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES
     assert set(v._STAGE_CODES) == set(_STAGE_FUNCTION_NAMES)
 
 
@@ -3164,6 +3376,43 @@ def test_s3_quantile_table_mismatch() -> None:
     assert caught.value.field == "quantile_table"
 
 
+def test_s3_quantile_table_mismatch_per_claim_direct() -> None:
+    """P1-V2.4 review P2-1: row 16 only ever compared the MANIFEST's own
+    quantile-table identity -- a Student-t claim's OWN
+    ``interval_params.quantile_table`` copy went unchecked. Direct-call
+    counterpart of :func:`test_s3_quantile_table_mismatch_per_claim_full_runner`
+    below, isolating S3's own guard."""
+    bundle = build_agent_quality_bundle()
+    student_t_claim = bundle["measured_claims"][1]
+    student_t_claim["interval_params"]["quantile_table"] = dict(
+        student_t_claim["interval_params"]["quantile_table"], table_digest="sha256:" + "9" * 64
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s3_registry_identity(bundle, context)
+    assert caught.value.code == "QUANTILE_TABLE_MISMATCH"
+    assert caught.value.field == "quantile_table"
+
+
+def test_s3_quantile_table_mismatch_per_claim_full_runner() -> None:
+    """The re-signed, full-runner counterpart the P1-V2.4 review required:
+    a Student-t claim citing a foreign quantile-table identity is rejected
+    by the COMPLETE check sequence, not merely by calling S3 directly."""
+    bundle = build_agent_quality_bundle()
+    student_t_claim = bundle["measured_claims"][1]
+    student_t_claim["interval_params"]["quantile_table"] = dict(
+        student_t_claim["interval_params"]["quantile_table"], table_digest="sha256:" + "9" * 64
+    )
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "QUANTILE_TABLE_MISMATCH"
+    assert caught.value.field == "quantile_table"
+
+
 # ==========================================================================
 # P1-V2.3 -- S4 real checks (design rows 17-19, 21): declared-plan digest
 # and signature.
@@ -3730,6 +3979,188 @@ def test_sum_of_squares_statistic_would_exceed_the_fp2_safe_integer_cap() -> Non
     assert sum_of_squares > 2**53 - 1
     with pytest.raises(v.fp2.Fp2UnsupportedValue):
         v.fp2.canonicalize({"sum_of_squares": sum_of_squares})
+
+
+# ==========================================================================
+# P1-V2.4 review P2-1 closure -- four self-declared construction parameters
+# S5 never checked: a Wilson claim's continuity_correction, a Student-t
+# claim's degrees_of_freedom and unit_scale, and (see
+# test_s3_quantile_table_mismatch_per_claim_full_runner above) each claim's
+# own quantile_table identity. Each negative below mutates the GOLDEN
+# bundle, re-signs it (:func:`resign_agent_quality_bundle`), and runs it
+# through the COMPLETE check sequence -- not a direct stage call -- per the
+# review's explicit requirement.
+# ==========================================================================
+
+
+def test_p2_1_wilson_continuity_correction_yates_is_not_admissible_full_runner() -> None:
+    """The review's headline P2-1 case: a claim LABELLED Yates
+    (``continuity_correction: "yates_v1"``) while still carrying the plain
+    Wilson endpoints used to PASS -- this stage's recomputation never reads
+    the field. Only ``"none"`` is an admissible construction until a
+    Yates-corrected recomputation exists."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["interval_params"]["continuity_correction"] = "yates_v1"
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "INTERVAL_METHOD_NOT_ADMISSIBLE"
+    assert caught.value.field == "measured_claims.interval_params"
+
+
+def test_p2_1_student_t_degrees_of_freedom_mismatch_full_runner() -> None:
+    """A Student-t claim's ``interval_params.degrees_of_freedom`` must equal
+    ``sufficient_statistics.sample_count - 1`` -- the golden claim's
+    sample_count is 200, so 199 is correct and 1 is not."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][1]["interval_params"]["degrees_of_freedom"] = 1
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SUFFICIENT_STATISTICS_SHAPE"
+    assert caught.value.field == "measured_claims.sufficient_statistics"
+
+
+def test_p2_1_student_t_degrees_of_freedom_far_mismatch_full_runner() -> None:
+    """The same guard at the review's other probed value (10**9)."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][1]["interval_params"]["degrees_of_freedom"] = 10**9
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SUFFICIENT_STATISTICS_SHAPE"
+    assert caught.value.field == "measured_claims.sufficient_statistics"
+
+
+def test_p2_1_student_t_unit_scale_mismatch_full_runner() -> None:
+    """A Student-t claim's ``sufficient_statistics.unit_scale`` must equal
+    its own top-level ``unit`` -- both are ``"ppm"`` on the golden claim; a
+    foreign ``unit_scale`` (``"microsecond"``) must be rejected even though
+    every OTHER field of the claim stays internally consistent."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][1]["sufficient_statistics"]["unit_scale"] = "microsecond"
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SUFFICIENT_STATISTICS_SHAPE"
+    assert caught.value.field == "measured_claims.sufficient_statistics"
+
+
+# ==========================================================================
+# P1-V2.4 review P2-3 closure -- rows 34/35 (INTERVAL_ORDER,
+# INTERVAL_DEGENERATE) were entirely untested. Re-signed, full-runner
+# negatives below, plus a guard-ORDER regression proof: temporarily running
+# these two checks AFTER recomputation (rows 32-33) instead of before must
+# be caught by dedicated tests, per the review's explicit requirement.
+# ==========================================================================
+
+
+@pytest.mark.parametrize(
+    "claim_index,swap",
+    [(0, True), (1, True)],
+    ids=["wilson_swap", "student_t_swap"],
+)
+def test_p2_3_interval_order_swapped_endpoints_full_runner(claim_index: int, swap: bool) -> None:
+    """Swapping a claim's ``interval_low``/``interval_high`` must be named
+    INTERVAL_ORDER, checked on the DECLARED endpoints before any
+    recomputation -- for both the Wilson and the Student-t claim."""
+    bundle = build_agent_quality_bundle()
+    claim = bundle["measured_claims"][claim_index]
+    claim["interval_low"], claim["interval_high"] = claim["interval_high"], claim["interval_low"]
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "INTERVAL_ORDER"
+    assert caught.value.field == "measured_claims.interval"
+
+
+def test_p2_3_interval_order_point_below_low_full_runner() -> None:
+    """``point_estimate`` set below ``interval_low`` -- a different way to
+    violate ``interval_low <= point_estimate <= interval_high`` than
+    swapping the two endpoints."""
+    bundle = build_agent_quality_bundle()
+    claim = bundle["measured_claims"][0]
+    claim["point_estimate"] = claim["interval_low"] - 1
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "INTERVAL_ORDER"
+    assert caught.value.field == "measured_claims.interval"
+
+
+@pytest.mark.parametrize("claim_index", [0, 1], ids=["wilson", "student_t"])
+def test_p2_3_interval_degenerate_full_runner(claim_index: int) -> None:
+    """``interval_low == interval_high == point_estimate`` -- schema-valid
+    (all three are independently bounded, ordinary integers) but a
+    degenerate, zero-width interval, for both Wilson and Student-t."""
+    bundle = build_agent_quality_bundle()
+    claim = bundle["measured_claims"][claim_index]
+    claim["interval_low"] = claim["point_estimate"]
+    claim["interval_high"] = claim["point_estimate"]
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "INTERVAL_DEGENERATE"
+    assert caught.value.field == "measured_claims.interval"
+
+
+def test_p2_3_guard_order_regression_is_caught() -> None:
+    """The review's own probe, turned into a permanent regression test:
+    moving rows 34-35's order/degeneracy guards to run AFTER rows 32-33's
+    recomputation (instead of before) must be caught -- because the two
+    checks would then report a DIFFERENT code
+    (INTERVAL_RECOMPUTATION_MISMATCH) for the same swapped/degenerate
+    input, not INTERVAL_ORDER/INTERVAL_DEGENERATE. This test reimplements
+    S5's guard sequencing against a source-level assertion: the module
+    source must contain the INTERVAL_ORDER check strictly BEFORE the
+    POINT_ESTIMATE_RECOMPUTATION_MISMATCH check, and INTERVAL_DEGENERATE
+    strictly before it too -- verified by line number, not just by the
+    modules's prose -- so a future edit that reorders them breaks this test
+    instead of silently changing which code a caller sees."""
+    source = Path(v.__file__).read_text()
+    order_line = source.index('_fail("INTERVAL_ORDER"')
+    degenerate_line = source.index('_fail("INTERVAL_DEGENERATE"')
+    point_recomputation_line = source.index('_fail("POINT_ESTIMATE_RECOMPUTATION_MISMATCH"')
+    interval_recomputation_line = source.index('_fail("INTERVAL_RECOMPUTATION_MISMATCH"')
+    assert order_line < point_recomputation_line < interval_recomputation_line
+    assert degenerate_line < point_recomputation_line < interval_recomputation_line
+
+    # Behavioral half of the same proof: on the CURRENT (correctly-ordered)
+    # source, a swapped-endpoint claim is named INTERVAL_ORDER, never
+    # INTERVAL_RECOMPUTATION_MISMATCH -- the two codes a guard-order
+    # regression would conflate.
+    bundle = build_agent_quality_bundle()
+    claim = bundle["measured_claims"][0]
+    claim["interval_low"], claim["interval_high"] = claim["interval_high"], claim["interval_low"]
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "INTERVAL_ORDER"
+    assert caught.value.code != "INTERVAL_RECOMPUTATION_MISMATCH"
 
 
 # ==========================================================================

@@ -248,11 +248,87 @@ AGENT_QUALITY_ERROR_CODES = frozenset(
 # says "uniqueItems cannot express it because two records may differ only in
 # point_estimate or sample_size" -- so it stays in
 # AGENT_QUALITY_PENDING_CODES instead.
-AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: frozenset[str] = frozenset(
+#
+# These two codes have NO guard anywhere in this module -- genuinely dead
+# vocabulary, registered so the string exists but never a call-site target.
+AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES: frozenset[str] = frozenset(
     {
         "ABSTAINED_BUNDLE_CARRIES_CLAIMS",
         "SELECTION_ESTIMATE_IN_CERTIFIED_SET",
     }
+)
+
+# P1-V2.4 review finding P2-2: a SECOND, different preemption mechanism.
+# These seven codes DO have a live guard in :func:`_stage_s5_objective_measurement`
+# (unlike the dead codes above) -- but no AgentQualityCertificateBundleV1
+# instance that is itself schema-valid can ever trip one, because the
+# shipped schema and the shipped package-data registries already agree,
+# row for row, on every fact these guards would otherwise catch:
+#   - OBJECTIVE_NOT_REGISTERED: EmittableObjectiveIdV1 is exactly the three
+#     objective ids that ARE also entries in the shipped objective registry.
+#   - OBJECTIVE_MINIMUM_SAMPLE_NOT_MET: MeasuredObjectiveClaimV1's own
+#     per-objective_kind ``if``/``then`` branches set ``sample_size``'s
+#     schema minimum to the SAME value as that objective's registry entry
+#     (30 for binary_rate/bounded_mean, 200 for nonnegative_mean).
+#   - DISTRIBUTION_ASSUMPTION_NOT_REGISTERED: the shipped registry's own two
+#     nonnegative_mean entries both carry a registered distribution_assumption
+#     unconditionally -- this is a PACKAGE-DATA invariant, not a bundle-shaped
+#     one, so no bundle field can ever make it fail (only monkeypatching the
+#     cached registry lookup can, as the direct-call unit test does).
+#   - INTERVAL_METHOD_NOT_EMITTABLE: EmittableObjectiveKindV1 excludes
+#     nonnegative_quantile entirely (the only kind whose admissible method,
+#     order_statistic_quantile_v1, is not emittable), and IntervalParamsV1's
+#     oneOf has no branch at all for bootstrap_percentile_v1 -- so a claim
+#     naming either excluded method cannot be schema-valid in the first
+#     place.
+#   - INTERVAL_OUT_OF_UNIT_BOUNDS: MeasuredObjectiveClaimV1's own per-kind
+#     ``if``/``then`` branches already cap point_estimate/interval_low/
+#     interval_high at the SAME bound as that objective's registry entry
+#     (1000000 for the two ppm-bound kinds; the registry's own 10**15 unit
+#     maximum for nonnegative_mean, which the base schema already carries).
+#   - VERIFICATION_LEVEL_MISMATCH: EmittableVerificationLevelV1 (the schema
+#     type MeasuredObjectiveClaimV1.verification_level actually uses) is
+#     ALREADY narrowed to the single member "construction_recomputed_v1" --
+#     see :data:`_EMITTABLE_VERIFICATION_LEVELS`'s docstring for the same
+#     narrowing on this module's own result type.
+#   - QUANTILE_TABLE_LOOKUP_FAILED: NominalCoveragePpmV1's enum is exactly
+#     the pinned table's three coverage columns, and
+#     SufficientStatisticsMeanVarianceV1.sample_count has schema minimum 2
+#     (df = sample_count - 1 >= 1, the table's own smallest df_bucket) -- so
+#     :func:`_lookup_t_scaled` can never miss a bucket for a schema-valid
+#     claim.
+# Each guard is KEPT as a defensive backstop -- belt-and-braces for a caller
+# that bypasses schema validation, or a stage called directly, as every
+# per-stage unit test in this module does -- but is not, and cannot be,
+# exercised by any schema-valid, re-signed bundle through the full pipeline.
+# See test_agent_quality_verifier.py::
+# test_schema_preempted_backstop_codes_are_proven_unreachable_by_schema for
+# the per-code validator proof (a re-signed mutation that hits SCHEMA first,
+# or a direct schema/registry equality assertion where the guard concerns
+# package data rather than the bundle).
+AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES: frozenset[str] = frozenset(
+    {
+        "OBJECTIVE_NOT_REGISTERED",
+        "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET",
+        "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED",
+        "INTERVAL_METHOD_NOT_EMITTABLE",
+        "INTERVAL_OUT_OF_UNIT_BOUNDS",
+        "VERIFICATION_LEVEL_MISMATCH",
+        "QUANTILE_TABLE_LOOKUP_FAILED",
+    }
+)
+
+# The full schema-preempted vocabulary: dead codes (no guard at all) union
+# backstop codes (a live guard that a schema-valid bundle can never trip).
+# INTERVAL_METHOD_NOT_ADMISSIBLE is deliberately NOT a member of either
+# sub-bucket: P1-V2.4 review P2-1 gave it a SECOND, genuinely reachable path
+# (a Wilson claim's own ``continuity_correction`` set to ``yates_v1``, fully
+# schema-valid), even though its ORIGINAL path (interval_method mismatched
+# with objective_kind) remains schema-preempted the same way the seven
+# backstop codes above are -- one reachable path is enough to keep a code
+# out of this bucket.
+AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: frozenset[str] = frozenset(
+    AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES | AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES
 )
 
 # P1-V2.3 review finding P2-3: MEASUREMENT_CONTRACT_NOT_PINNED (design row
@@ -296,19 +372,25 @@ AGENT_QUALITY_CONTEXT_PREEMPTED_CODES: frozenset[str] = frozenset(
 # likewise raised outside the stage runner), S4's four
 # (DECLARED_PLAN_DIGEST_MISMATCH, DECLARED_PLAN_SIGNATURE_INVALID,
 # DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH, DECLARED_PLAN_PIN_MISMATCH), and
-# P1-V2.4 wires all 19 of S5's reachable codes (OBJECTIVE_NOT_IN_DECLARED_PLAN,
-# PRIMARY_OBJECTIVE_MISSING, OBJECTIVE_NOT_REGISTERED,
-# OBJECTIVE_KIND_MISMATCH, OBJECTIVE_UNIT_MISMATCH,
-# OBJECTIVE_MINIMUM_SAMPLE_NOT_MET, DISTRIBUTION_ASSUMPTION_NOT_REGISTERED,
-# OBJECTIVE_DUPLICATE, INTERVAL_METHOD_NOT_EMITTABLE,
-# INTERVAL_METHOD_NOT_ADMISSIBLE, SUFFICIENT_STATISTICS_SHAPE,
-# INTERVAL_OUT_OF_UNIT_BOUNDS, NOMINAL_COVERAGE_MISMATCH,
-# SAMPLE_SIZE_MISMATCH, VERIFICATION_LEVEL_MISMATCH -- commit 1 --, and
+# P1-V2.4 wires all of S5's reachable codes (OBJECTIVE_NOT_IN_DECLARED_PLAN,
+# PRIMARY_OBJECTIVE_MISSING, OBJECTIVE_KIND_MISMATCH, OBJECTIVE_UNIT_MISMATCH,
+# OBJECTIVE_DUPLICATE, INTERVAL_METHOD_NOT_ADMISSIBLE,
+# SUFFICIENT_STATISTICS_SHAPE, NOMINAL_COVERAGE_MISMATCH,
+# SAMPLE_SIZE_MISMATCH -- commit 1 --, and
 # POINT_ESTIMATE_RECOMPUTATION_MISMATCH, INTERVAL_RECOMPUTATION_MISMATCH,
 # INTERVAL_ORDER, INTERVAL_DEGENERATE -- commit 2, the exact-integer
-# arithmetic rows). This set MUST shrink to empty by packet .6, as each
-# later packet wires its stage's real checks and moves that stage's codes
-# out of here; only S6 and S7 remain after this packet.
+# arithmetic rows). Seven further S5 codes that were briefly treated as
+# "live" in .4 commit 1 (OBJECTIVE_NOT_REGISTERED,
+# OBJECTIVE_MINIMUM_SAMPLE_NOT_MET, DISTRIBUTION_ASSUMPTION_NOT_REGISTERED,
+# INTERVAL_METHOD_NOT_EMITTABLE, INTERVAL_OUT_OF_UNIT_BOUNDS,
+# VERIFICATION_LEVEL_MISMATCH, QUANTILE_TABLE_LOOKUP_FAILED) moved to
+# :data:`AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES` in the .4 review
+# closure (P2-2): each has a live guard, but no schema-valid bundle can ever
+# trip it, so it is excluded from this set via the
+# ``AGENT_QUALITY_SCHEMA_PREEMPTED_CODES`` subtraction below rather than by
+# also naming it in this literal. This set MUST shrink to empty by packet
+# .6, as each later packet wires its stage's real checks and moves that
+# stage's codes out of here; only S6 and S7 remain after this packet.
 AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
     AGENT_QUALITY_ERROR_CODES
     - AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
@@ -316,7 +398,6 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
         {
             "CONTEXT",
             "PACKAGE_DATA_INVALID",
-            "QUANTILE_TABLE_LOOKUP_FAILED",
             "AGENT_QUALITY_VERIFICATION_FAILED",
             "BUNDLE_SHAPE",
             "STRICT_INTEGER",
@@ -339,23 +420,17 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
             "DECLARED_PLAN_PIN_MISMATCH",
             "OBJECTIVE_NOT_IN_DECLARED_PLAN",
             "PRIMARY_OBJECTIVE_MISSING",
-            "OBJECTIVE_NOT_REGISTERED",
             "OBJECTIVE_KIND_MISMATCH",
             "OBJECTIVE_UNIT_MISMATCH",
-            "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET",
-            "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED",
             "OBJECTIVE_DUPLICATE",
-            "INTERVAL_METHOD_NOT_EMITTABLE",
             "INTERVAL_METHOD_NOT_ADMISSIBLE",
             "SUFFICIENT_STATISTICS_SHAPE",
             "POINT_ESTIMATE_RECOMPUTATION_MISMATCH",
             "INTERVAL_RECOMPUTATION_MISMATCH",
             "INTERVAL_ORDER",
             "INTERVAL_DEGENERATE",
-            "INTERVAL_OUT_OF_UNIT_BOUNDS",
             "NOMINAL_COVERAGE_MISMATCH",
             "SAMPLE_SIZE_MISMATCH",
-            "VERIFICATION_LEVEL_MISMATCH",
             "SPLIT_DERIVATION_DIGEST_MISMATCH",
             "EVALUATION_SPLITS_DIGEST_MISMATCH",
             "MEASURED_CLAIMS_DIGEST_MISMATCH",
@@ -1441,6 +1516,26 @@ def _stage_s3_registry_identity(
     if manifest.get("quantile_table") != _expected_registry_identity("quantile_table"):
         _fail("QUANTILE_TABLE_MISMATCH", "quantile_table")
 
+    # P1-V2.4 review P2-1: row 16 only ever compared the MANIFEST's own
+    # quantile-table identity. A Student-t claim carries its OWN copy in
+    # ``interval_params.quantile_table`` (``IntervalParamsStudentTV1``,
+    # required whenever this method is used) and nothing compared THAT copy
+    # to the shipped table -- a claim could cite a foreign table identity
+    # while the manifest's own copy still matched. A Wilson claim's
+    # ``IntervalParamsWilsonV1`` carries no such field at all, so this loop
+    # is a no-op for every Wilson claim by construction.
+    for claim in bundle.get("measured_claims", ()):
+        if not isinstance(claim, Mapping):
+            continue
+        interval_params = claim.get("interval_params")
+        if not isinstance(interval_params, Mapping):
+            continue
+        quantile_table = interval_params.get("quantile_table")
+        if quantile_table is not None and quantile_table != _expected_registry_identity(
+            "quantile_table"
+        ):
+            _fail("QUANTILE_TABLE_MISMATCH", "quantile_table")
+
 
 @_owns(
     "DECLARED_PLAN_DIGEST_MISMATCH",
@@ -1716,8 +1811,33 @@ def _stage_s5_objective_measurement(
             ):
                 _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
             stat_own_count = trial_count
+            # P1-V2.4 review P2-1: a Wilson claim's own declared
+            # ``continuity_correction`` must be ``none`` -- the only value
+            # this stage's recomputation (:func:`_wilson_bounds`) actually
+            # implements. A claim labelled ``yates_v1`` while carrying plain
+            # Wilson endpoints used to PASS (the field was never read); an
+            # honestly Yates-widened interval was REJECTED as a
+            # recomputation mismatch -- backwards. Until a Yates-corrected
+            # recomputation exists, ``yates_v1`` is not an admissible
+            # construction for this verifier to certify.
+            if interval_params.get("continuity_correction") != "none":
+                _fail("INTERVAL_METHOD_NOT_ADMISSIBLE", "measured_claims.interval_params")
         else:
             stat_own_count = stats.get("sample_count")
+            # P1-V2.4 review P2-1: a Student-t claim's own declared
+            # ``degrees_of_freedom`` (in ``interval_params``, independent of
+            # ``sufficient_statistics.sample_count``) and ``unit_scale``
+            # (in ``sufficient_statistics``, independent of the claim's own
+            # top-level ``unit``) were both accepted unchecked -- a claim
+            # could assert a foreign df or a foreign unit_scale while its
+            # printed interval was recomputed under DIFFERENT inputs.
+            if (
+                not isinstance(stat_own_count, int)
+                or interval_params.get("degrees_of_freedom") != stat_own_count - 1
+            ):
+                _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
+            if stats.get("unit_scale") != claim.get("unit"):
+                _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
 
         coverage_ppm = claim.get("nominal_coverage_ppm")
         if coverage_ppm not in _nominal_coverage_values():

@@ -296,18 +296,19 @@ AGENT_QUALITY_CONTEXT_PREEMPTED_CODES: frozenset[str] = frozenset(
 # likewise raised outside the stage runner), S4's four
 # (DECLARED_PLAN_DIGEST_MISMATCH, DECLARED_PLAN_SIGNATURE_INVALID,
 # DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH, DECLARED_PLAN_PIN_MISMATCH), and
-# (commit 1 of) P1-V2.4 wires 15 of S5's 19 (OBJECTIVE_NOT_IN_DECLARED_PLAN,
+# P1-V2.4 wires all 19 of S5's reachable codes (OBJECTIVE_NOT_IN_DECLARED_PLAN,
 # PRIMARY_OBJECTIVE_MISSING, OBJECTIVE_NOT_REGISTERED,
 # OBJECTIVE_KIND_MISMATCH, OBJECTIVE_UNIT_MISMATCH,
 # OBJECTIVE_MINIMUM_SAMPLE_NOT_MET, DISTRIBUTION_ASSUMPTION_NOT_REGISTERED,
 # OBJECTIVE_DUPLICATE, INTERVAL_METHOD_NOT_EMITTABLE,
 # INTERVAL_METHOD_NOT_ADMISSIBLE, SUFFICIENT_STATISTICS_SHAPE,
 # INTERVAL_OUT_OF_UNIT_BOUNDS, NOMINAL_COVERAGE_MISMATCH,
-# SAMPLE_SIZE_MISMATCH, VERIFICATION_LEVEL_MISMATCH); the remaining four
-# (POINT_ESTIMATE_RECOMPUTATION_MISMATCH, INTERVAL_RECOMPUTATION_MISMATCH,
-# INTERVAL_ORDER, INTERVAL_DEGENERATE) are wired in this same packet's
-# commit 2. This set MUST shrink to empty by packet .6, as each later packet
-# wires its stage's real checks and moves that stage's codes out of here.
+# SAMPLE_SIZE_MISMATCH, VERIFICATION_LEVEL_MISMATCH -- commit 1 --, and
+# POINT_ESTIMATE_RECOMPUTATION_MISMATCH, INTERVAL_RECOMPUTATION_MISMATCH,
+# INTERVAL_ORDER, INTERVAL_DEGENERATE -- commit 2, the exact-integer
+# arithmetic rows). This set MUST shrink to empty by packet .6, as each
+# later packet wires its stage's real checks and moves that stage's codes
+# out of here; only S6 and S7 remain after this packet.
 AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
     AGENT_QUALITY_ERROR_CODES
     - AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
@@ -347,6 +348,10 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
             "INTERVAL_METHOD_NOT_EMITTABLE",
             "INTERVAL_METHOD_NOT_ADMISSIBLE",
             "SUFFICIENT_STATISTICS_SHAPE",
+            "POINT_ESTIMATE_RECOMPUTATION_MISMATCH",
+            "INTERVAL_RECOMPUTATION_MISMATCH",
+            "INTERVAL_ORDER",
+            "INTERVAL_DEGENERATE",
             "INTERVAL_OUT_OF_UNIT_BOUNDS",
             "NOMINAL_COVERAGE_MISMATCH",
             "SAMPLE_SIZE_MISMATCH",
@@ -1118,21 +1123,19 @@ def _unique_by(
 # in-module call sites as of this packet -- verified by
 # test_agent_quality_verifier.py::test_unwired_helpers_inventory_is_exact,
 # which computes the set by AST rather than trusting this comment to stay
-# accurate. Listed here, with the packet expected to wire each one, so an
-# unwired helper reads as "not yet reached" rather than "forgotten":
-#   _wilson_point        -- wired in .4 commit 2 (S5's point-estimate
-#                            recomputation)
-#   _student_t_half_width -- wired in .4 commit 2 (S5's interval
-#                            recomputation)
-#   _wilson_bounds        -- wired in .4 commit 2 (S5's interval
-#                            recomputation)
-# _unique_by is wired as of .4 commit 1 (S5's one-claim-per-objective guard);
-# it is also used by the deferred selection-estimate de-duplication
-# (SELECTION_ESTIMATE_DUPLICATE), which has no call site yet.
-# _run_agent_quality_checks itself is ALSO unwired in-module (no public entry
-# point calls it yet) -- wired in .6, when verify_agent_quality_certificate
-# ships and calls it. _strip_self_digest is wired as of P1-V2.2 (S8's
-# unsigned-manifest reconstruction, design row 64).
+# accurate. _wilson_point, _wilson_bounds and _student_t_half_width were
+# wired in .4 commit 2 (S5's point-estimate and interval RECOMPUTATION,
+# design rows 32-33) and are no longer in this inventory. _unique_by is
+# wired as of .4 commit 1 (S5's one-claim-per-objective guard); it is also
+# used by the deferred selection-estimate de-duplication
+# (SELECTION_ESTIMATE_DUPLICATE), which has no call site yet. The one
+# remaining entry:
+#   _run_agent_quality_checks -- unwired in-module (no public entry point
+#                                 calls it yet) -- wired in .6, when
+#                                 verify_agent_quality_certificate ships and
+#                                 calls it.
+# _strip_self_digest is wired as of P1-V2.2 (S8's unsigned-manifest
+# reconstruction, design row 64).
 
 
 _WALK_VALUE = 0
@@ -1623,10 +1626,20 @@ def _stage_s5_objective_measurement(
     recomputation actually establishes. Finally (row 37, once, over the
     whole certified set) every claim must share the SAME nominal coverage.
 
-    This packet (P1-V2.4 commit 1) wires rows 22-31 and 36-39. Rows 32-35 --
-    the exact-integer point-estimate and interval RECOMPUTATION, and the
-    order/degeneracy checks on the declared endpoints that must run before
-    it -- are wired in commit 2, immediately below in this same function.
+    Rows 34-35 (per claim, immediately after row 36's unit-bounds check):
+    the DECLARED ``interval_low <= point_estimate <= interval_high`` and
+    ``interval_high > interval_low`` -- checked before any recomputation, so
+    a nonsense declared interval is named INTERVAL_ORDER/INTERVAL_DEGENERATE
+    rather than surfacing as a recomputation mismatch. Rows 32-33 (per
+    claim, immediately after): the point estimate and both interval
+    endpoints are recomputed in exact integer arithmetic from the
+    sufficient statistics alone -- Wilson via :func:`_wilson_point` and
+    :func:`_wilson_bounds` from ``success_count``/``trial_count``; Student-t
+    via the claim's ``mean_fixed`` and :func:`_student_t_half_width` from
+    ``sample_stddev_fixed``/``sample_count``/``unit_scale`` -- and compared
+    to the declared values. A quantile point-estimate branch is unreachable
+    by construction: row 29 already refuses INTERVAL_METHOD_NOT_EMITTABLE
+    for every ``IntervalMethodV1`` member except the two handled here.
     """
     claims = list(bundle.get("measured_claims", ()))
     if not claims:
@@ -1721,6 +1734,61 @@ def _stage_s5_objective_measurement(
                 or endpoint > entry["maximum"]
             ):
                 _fail("INTERVAL_OUT_OF_UNIT_BOUNDS", "measured_claims.interval")
+
+        # Rows 34-35 run BEFORE rows 32-33's recomputation, on the DECLARED
+        # endpoints alone: a declared interval that is out of order or
+        # degenerate is named as such, never mistaken for a recomputation
+        # disagreement.
+        if not (low <= point <= high):
+            _fail("INTERVAL_ORDER", "measured_claims.interval")
+        if not (high > low):
+            _fail("INTERVAL_DEGENERATE", "measured_claims.interval")
+
+        # Rows 32-33: exact-integer recomputation of the point estimate and
+        # both interval endpoints under `exact_integer_rational_v1`, from the
+        # sufficient statistics alone -- never from the declared low/point/
+        # high above. `interval_method` is guaranteed to be one of the two
+        # emittable methods here: row 29 already refused
+        # INTERVAL_METHOD_NOT_EMITTABLE for `order_statistic_quantile_v1` and
+        # `bootstrap_percentile_v1`, and `IntervalMethodV1` has no other
+        # member, so a quantile point-estimate branch is unreachable by
+        # construction and is not implemented here.
+        if interval_method == "wilson_score_v1":
+            # success_count/trial_count were already narrowed to int by the
+            # SUFFICIENT_STATISTICS_SHAPE guard above, in the same loop
+            # iteration -- the cast documents that, since the narrowing does
+            # not survive across the two separate `if` statements.
+            wilson_successes = cast(int, success_count)
+            wilson_trials = cast(int, trial_count)
+            expected_point = _wilson_point(wilson_successes, wilson_trials)
+            if point != expected_point:
+                _fail("POINT_ESTIMATE_RECOMPUTATION_MISMATCH", "measured_claims.interval")
+            expected_low, expected_high = _wilson_bounds(
+                wilson_successes, wilson_trials, coverage_ppm
+            )
+        else:
+            # mean_fixed/sample_stddev_fixed/unit_scale/sample_count are all
+            # schema-required, schema-typed fields of
+            # SufficientStatisticsMeanVarianceV1 -- guaranteed present and
+            # correctly typed by S1's schema validation before S5 ever runs.
+            mean_fixed = cast(int, stats.get("mean_fixed"))
+            sample_stddev_fixed = cast(int, stats.get("sample_stddev_fixed"))
+            unit_scale = cast(str, stats.get("unit_scale"))
+            sample_count = cast(int, stat_own_count)
+            if point != mean_fixed:
+                _fail("POINT_ESTIMATE_RECOMPUTATION_MISMATCH", "measured_claims.interval")
+            half_width = _student_t_half_width(
+                mean_fixed=mean_fixed,
+                sample_stddev_fixed=sample_stddev_fixed,
+                sample_count=sample_count,
+                coverage_ppm=coverage_ppm,
+                unit_scale=unit_scale,
+            )
+            expected_low = mean_fixed - half_width
+            expected_high = mean_fixed + half_width
+
+        if low != expected_low or high != expected_high:
+            _fail("INTERVAL_RECOMPUTATION_MISMATCH", "measured_claims.interval")
 
         if sample_size != holdout_item_count or sample_size != stat_own_count:
             _fail("SAMPLE_SIZE_MISMATCH", "measured_claims.sample_size")

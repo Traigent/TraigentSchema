@@ -1289,15 +1289,13 @@ def test_stage_codes_are_pairwise_disjoint_and_cover_all_non_preempted_codes() -
 
 _UNWIRED_HELPER_NAMES = frozenset(
     {
-        # Pre-existing at base (#459/#461); packet .4 commit 2 wires the
-        # three arithmetic helpers below (_unique_by was wired in commit 1's
-        # OBJECTIVE_DUPLICATE guard). _strip_self_digest is wired as of
-        # P1-V2.2 (S8's unsigned-manifest reconstruction, design row 64).
-        "_wilson_point",
-        "_student_t_half_width",
-        "_wilson_bounds",
         # New in P1-V2.0: the private runner has no in-module caller until
-        # the public entry point exists (packet .6).
+        # the public entry point exists (packet .6). _wilson_point,
+        # _wilson_bounds and _student_t_half_width were wired in .4 commit 2
+        # (S5's point-estimate and interval recomputation); _unique_by was
+        # wired in commit 1's OBJECTIVE_DUPLICATE guard. _strip_self_digest
+        # is wired as of P1-V2.2 (S8's unsigned-manifest reconstruction,
+        # design row 64).
         "_run_agent_quality_checks",
     }
 )
@@ -3560,9 +3558,27 @@ def test_s5_nominal_coverage_mismatch_unregistered_value() -> None:
 def test_s5_nominal_coverage_mismatch_not_uniform_across_claims() -> None:
     """Both coverages are individually registered members of
     ``NominalCoveragePpmV1`` -- the violation is that the two certified
-    claims disagree with EACH OTHER."""
+    claims disagree with EACH OTHER.
+
+    The student-t claim's own interval is re-recomputed at the new coverage
+    (990000) so its OWN row 32-33 recomputation still passes -- otherwise
+    changing a claim's ``nominal_coverage_ppm`` alone would trip
+    INTERVAL_RECOMPUTATION_MISMATCH before the per-set uniformity check
+    (row 37) is ever reached, which would test the wrong guard."""
     bundle = build_agent_quality_bundle()
-    bundle["measured_claims"][1]["nominal_coverage_ppm"] = 990000
+    student_t_claim = bundle["measured_claims"][1]
+    student_t_claim["nominal_coverage_ppm"] = 990000
+    stats = student_t_claim["sufficient_statistics"]
+    mean_fixed = stats["mean_fixed"]
+    half_width = v._student_t_half_width(
+        mean_fixed=mean_fixed,
+        sample_stddev_fixed=stats["sample_stddev_fixed"],
+        sample_count=stats["sample_count"],
+        coverage_ppm=990000,
+        unit_scale=stats["unit_scale"],
+    )
+    student_t_claim["interval_low"] = mean_fixed - half_width
+    student_t_claim["interval_high"] = mean_fixed + half_width
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._stage_s5_objective_measurement(bundle, context)
@@ -3591,6 +3607,129 @@ def test_s5_verification_level_mismatch() -> None:
         v._stage_s5_objective_measurement(bundle, context)
     assert caught.value.code == "VERIFICATION_LEVEL_MISMATCH"
     assert caught.value.field == "measured_claims.verification_level"
+
+
+# ==========================================================================
+# P1-V2.4 commit 2 -- S5 arithmetic (design rows 32-35): exact-integer
+# point-estimate and interval RECOMPUTATION, wired via the shipped
+# _wilson_point/_wilson_bounds/_student_t_half_width helpers.
+# ==========================================================================
+
+
+@pytest.mark.parametrize(
+    "endpoint,delta",
+    [("interval_low", -1), ("interval_low", 1), ("interval_high", -1), ("interval_high", 1)],
+)
+def test_wrong_wilson_interval_is_rejected(endpoint: str, delta: int) -> None:
+    """The headline P1-c negative: a Wilson claim's declared endpoint off by
+    exactly ONE ppm from what :func:`v._wilson_bounds` recomputes from
+    ``success_count``/``trial_count`` alone is rejected -- in EITHER
+    direction, on EITHER endpoint -- with INTERVAL_RECOMPUTATION_MISMATCH,
+    not merely a bounds or ordering complaint. This is the test rev 0 could
+    not have written."""
+    bundle = build_agent_quality_bundle()
+    wilson_claim = bundle["measured_claims"][0]
+    wilson_claim[endpoint] = wilson_claim[endpoint] + delta
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "INTERVAL_RECOMPUTATION_MISMATCH"
+    assert caught.value.field == "measured_claims.interval"
+
+
+def test_wrong_point_estimate_for_declared_counts_is_rejected() -> None:
+    """A Wilson claim's declared ``point_estimate`` disagreeing with
+    ``round(success_count * 1e6 / trial_count)`` (:func:`v._wilson_point`)
+    is rejected by row 32 BEFORE row 33's interval recomputation ever runs
+    -- the declared endpoints are left untouched and still bracket the
+    mutated point, so only POINT_ESTIMATE_RECOMPUTATION_MISMATCH can catch
+    this."""
+    bundle = build_agent_quality_bundle()
+    wilson_claim = bundle["measured_claims"][0]
+    wilson_claim["point_estimate"] = wilson_claim["point_estimate"] + 1
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "POINT_ESTIMATE_RECOMPUTATION_MISMATCH"
+    assert caught.value.field == "measured_claims.interval"
+
+
+def test_wrong_student_t_half_width_is_rejected() -> None:
+    """A student-t claim's declared ``interval_high`` disagreeing with
+    ``mean_fixed + _student_t_half_width(...)`` is rejected by row 33 --
+    the Student-t branch of the same recomputation that
+    ``test_wrong_wilson_interval_is_rejected`` exercises for the Wilson
+    branch."""
+    bundle = build_agent_quality_bundle()
+    student_t_claim = bundle["measured_claims"][1]
+    student_t_claim["interval_high"] = student_t_claim["interval_high"] + 1
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "INTERVAL_RECOMPUTATION_MISMATCH"
+    assert caught.value.field == "measured_claims.interval"
+
+
+def test_wilson_recomputation_uses_no_floating_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S5's arithmetic profile is ``exact_integer_rational_v1``: no square
+    root, no float, anywhere in verification. Patch ``math.sqrt`` and the
+    module's own ``float`` name to raise on any call -- the golden bundle
+    (both its Wilson and its Student-t claim) must still verify through S5
+    without either ever being invoked."""
+
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("floating-point path used in S5 recomputation")
+
+    monkeypatch.setattr(v.math, "sqrt", _boom)
+    monkeypatch.setattr(v, "float", _boom, raising=False)
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    v._stage_s5_objective_measurement(bundle, context)
+
+
+def test_outward_rounding_never_narrows_an_interval() -> None:
+    """Design test 42, at the stage's own registry-admissible grid: over
+    every registered ``nominal_coverage_ppm`` and a grid of ``(k, n)``
+    pairs, :func:`v._wilson_bounds`'s outward-rounded integer endpoints
+    never sit inside the true rational Wilson interval, computed by an
+    independent :class:`fractions.Fraction` oracle
+    (:func:`_exact_wilson_endpoints_ppm`) that shares only the pinned
+    quantile table with the module under test, never its bisection."""
+    grid = [
+        (0, 30),
+        (1, 30),
+        (15, 30),
+        (30, 30),
+        (1, 10**6),
+        (870, 1000),
+        (999999, 10**6),
+        (1, 100),
+        (99, 100),
+        (50, 201),
+    ]
+    for coverage_ppm in sorted(v._nominal_coverage_values()):
+        for k, n in grid:
+            low, high = v._wilson_bounds(k, n, coverage_ppm)
+            exact_low, exact_high = _exact_wilson_endpoints_ppm(k, n, coverage_ppm)
+            assert Fraction(low) <= exact_low, (coverage_ppm, k, n, low, exact_low)
+            assert Fraction(high) >= exact_high, (coverage_ppm, k, n, high, exact_high)
+
+
+def test_sum_of_squares_statistic_would_exceed_the_fp2_safe_integer_cap() -> None:
+    """Documents why ``SufficientStatisticsMeanVarianceV1`` carries
+    ``mean_fixed``/``sample_stddev_fixed`` -- each independently bounded by
+    the objective's own unit maximum -- rather than a raw sum and
+    sum-of-squares: a sum of squares of microsecond latencies (up to
+    ``10**9`` microseconds each) over a million items is ``~10**24``, far
+    past fp2's IEEE-754-safe-integer cap (``2**53 - 1``), so a certificate
+    carrying that alternative statistic could not be canonicalized -- let
+    alone signed -- at all."""
+    per_item_max = 10**9
+    item_count = 10**6
+    sum_of_squares = item_count * per_item_max**2
+    assert sum_of_squares > 2**53 - 1
+    with pytest.raises(v.fp2.Fp2UnsupportedValue):
+        v.fp2.canonicalize({"sum_of_squares": sum_of_squares})
 
 
 # ==========================================================================

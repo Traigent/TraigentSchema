@@ -356,6 +356,13 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES: frozenset[str] = frozenset(
 
 # The full schema-preempted vocabulary: dead codes (no guard at all) union
 # backstop codes (a live guard that a schema-valid bundle can never trip).
+# P1-V2.5 review P2-3: these two sub-buckets are kept distinct rather than
+# merged, because they have a one-sentence distinct definition -- a dead
+# code has NO ``_fail(...)`` call site anywhere in this module, while a
+# backstop code has a REAL, defensive ``_fail(...)`` call site that no
+# schema-valid bundle can ever reach -- and the module's own emission-audit
+# tests (test_schema_preempted_backstop_codes_have_a_live_guard_each) rely
+# on that distinction to verify each half independently.
 # INTERVAL_METHOD_NOT_ADMISSIBLE is deliberately NOT a member of either
 # sub-bucket: P1-V2.4 review P2-1 gave it a SECOND, genuinely reachable path
 # (a Wilson claim's own ``continuity_correction`` set to ``yates_v1``, fully
@@ -527,6 +534,24 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
             "ASSERTION_DIGEST_MISMATCH",
         }
     )
+)
+
+# P1-V2.5 review P2-3: the disclosed total of codes excluded from reachable
+# coverage by ANY of the four preemption buckets -- schema-preempted dead
+# (no guard anywhere), schema-preempted backstop (a live guard a
+# schema-valid bundle can never trip), context-preempted (a live guard a
+# real ``AgentQualityVerificationContext`` can never trip), and
+# input-preempted (no guard anywhere, refused by the runner's own input
+# check before any stage runs). The four buckets are pairwise disjoint (see
+# test_four_way_code_vocabulary_partition_is_disjoint_and_covers_all), so
+# this is a plain sum, not a union count -- test_agent_quality_preempted_total_matches_bucket_sum
+# pins it to that sum, and .6's PR body must cite this constant rather than
+# re-deriving the count by hand.
+AGENT_QUALITY_PREEMPTED_TOTAL: int = (
+    len(AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES)
+    + len(AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES)
+    + len(AGENT_QUALITY_CONTEXT_PREEMPTED_CODES)
+    + len(AGENT_QUALITY_INPUT_PREEMPTED_CODES)
 )
 
 # Which of the eight private stages owns each non-preempted code, i.e. which
@@ -2017,43 +2042,33 @@ def _stage_s5_objective_measurement(
 
 
 def _split_size_bound(universe_count: int, holdout_fraction_ppm: int) -> tuple[int, int]:
-    """The exact-integer form of design row 47's plausibility bound.
+    """The exact-integer form of design row 47's plausibility bound,
+    LITERALLY: ``|holdout - round(N*p)| <= 6*isqrt(N*p*(1-p)) + 1``, with
+    ``p = holdout_fraction_ppm / 10**6`` (CTO decision, P1-V2.5 review
+    P3-6: the design's literal is normative -- ``isqrt`` here means the
+    FLOORED integer square root, not a ceiling, even though that makes the
+    bound up to 6 items stricter than a rounded-up reading).
 
-    The design states the check as ``|holdout - round(N*p)| <= 6*isqrt(N*p*
-    (1-p)) + 1`` with ``p = holdout_fraction_ppm / 10**6``. Both ``round``
-    and ``isqrt`` need a fixed-point reformulation to stay exact-integer:
+    ``round(N*p)`` is computed half-up in item-count units directly:
+    ``round_val = (N*ppm + scale//2) // scale`` (``scale`` =
+    :data:`_T_SCALE`, ``ppm`` = ``holdout_fraction_ppm``).
 
-    ``round(N*p)`` uses the same half-up integer identity as
-    :func:`_wilson_point`: ``round_val = (2*N*ppm + scale) // (2*scale)``
-    (``scale`` = :data:`_T_SCALE`, ``ppm`` = ``holdout_fraction_ppm``).
+    ``N*p*(1-p)`` is computed as the exact integer product ``N * ppm *
+    (scale - ppm)``, floor-divided by ``scale**2`` -- ``npq`` -- then
+    ``math.isqrt(npq)`` gives the design's own ``isqrt(N*p*(1-p))`` in
+    item-count units, no separate scaling step needed since both ``round_val``
+    and this square root are already unscaled integers.
 
-    ``N*p*(1-p)`` scaled by ``scale**2`` is the EXACT integer ``N * ppm *
-    (scale - ppm)`` (no division at all). Call this ``variance_scaled_sq``;
-    it equals ``(scale * sqrt(N*p*(1-p)))**2``, so ``isqrt(variance_scaled_sq)``
-    is ``floor(scale * sqrt(N*p*(1-p)))``. A FLOORED square root would
-    UNDERESTIMATE the tolerance term and narrow the passing band -- the
-    wrong direction for a plausibility check that must never reject a
-    genuinely valid split -- so this rounds the integer square root UP
-    instead (``r`` if ``r*r`` is already exact, else ``r+1``), the standard
-    integer-ceiling-of-a-square-root identity.
-
-    Multiplying the whole inequality by ``scale`` turns every remaining
-    division into a single final integer comparison, done by the caller:
-    ``abs(holdout_count - round_val) * scale <= 6*ceil_sqrt_scaled + scale``
-    (the ``+1`` item-count unit becomes ``+scale`` once both sides are
-    scaled by ``scale``). Returns ``(round_val, rhs)`` -- the caller
-    computes the left side itself from the bundle's own
-    ``holdout_count`` and compares against ``rhs`` at the SAME ``scale``.
+    Returns ``(round_val, tolerance)`` in item-count units; the caller
+    compares ``abs(holdout_count - round_val) <= tolerance`` directly.
     """
     scale = _T_SCALE
-    numerator = universe_count * holdout_fraction_ppm
-    round_val = (2 * numerator + scale) // (2 * scale)
-    variance_scaled_sq = universe_count * holdout_fraction_ppm * (scale - holdout_fraction_ppm)
-    floor_sqrt = math.isqrt(variance_scaled_sq)
-    is_exact = floor_sqrt * floor_sqrt == variance_scaled_sq
-    ceil_sqrt_scaled = floor_sqrt if is_exact else floor_sqrt + 1
-    rhs = 6 * ceil_sqrt_scaled + scale
-    return round_val, rhs
+    round_val = (universe_count * holdout_fraction_ppm + scale // 2) // scale
+    npq = (universe_count * holdout_fraction_ppm * (scale - holdout_fraction_ppm)) // (
+        scale * scale
+    )
+    tolerance = 6 * math.isqrt(npq) + 1
+    return round_val, tolerance
 
 
 @_owns(
@@ -2108,9 +2123,15 @@ def _stage_s6_splits_held_out(
     schema-guaranteed); (row 41) every certified claim's
     ``evaluated_split_id`` is ``"holdout"``; (row 42) the holdout record
     exists; (row 43) the holdout's ``item_count`` meets both the schema
-    floor and every certified objective's registered minimum; (row 44) all
-    four ``split_derivation_digest`` copies (both records, the top-level
-    declaration, and the declared plan's own copy) are identical; (row 45)
+    floor and every certified objective's registered minimum; (row 44) the
+    top-level declaration's own role digest is recomputed under its
+    ``AgentQualityDigestDomainRegistryV1`` domain, all four self-reported
+    ``split_derivation_digest`` copies (both records, the declaration's own
+    field, and the declared plan's embedded copy) must equal that
+    recomputation, and the declared plan's embedded ``split_derivation`` must
+    equal the shipped one as CONTENT -- a validly signed bundle cannot ship a
+    split derivation different from the one its declared plan already fixed,
+    even if every self-reported digest field agrees with every other; (row 45)
     the two split sizes sum to the declared universe size; (row 46) the two
     ``split_commitment_digest`` values differ; (row 47)
     :func:`_split_size_bound`'s plausibility bound; (row 49)
@@ -2169,7 +2190,10 @@ def _stage_s6_splits_held_out(
     if not isinstance(holdout_count, int) or holdout_count < minimum_required:
         _fail("HOLDOUT_TOO_SMALL", "evaluation_splits.holdout")
 
-    split_derivation_digest = split_derivation.get("split_derivation_digest")
+    recomputed_split_derivation_digest = _role_digest(
+        _AGENT_QUALITY_DIGEST_DOMAINS["split_derivation"],
+        _strip_self_digest(split_derivation, "split_derivation_digest"),
+    )
     declared_split_derivation = declared_plan.get("split_derivation")
     declared_digest = (
         declared_split_derivation.get("split_derivation_digest")
@@ -2177,9 +2201,11 @@ def _stage_s6_splits_held_out(
         else None
     )
     if (
-        selection.get("split_derivation_digest") != split_derivation_digest
-        or holdout.get("split_derivation_digest") != split_derivation_digest
-        or declared_digest != split_derivation_digest
+        split_derivation.get("split_derivation_digest") != recomputed_split_derivation_digest
+        or selection.get("split_derivation_digest") != recomputed_split_derivation_digest
+        or holdout.get("split_derivation_digest") != recomputed_split_derivation_digest
+        or declared_digest != recomputed_split_derivation_digest
+        or declared_split_derivation != split_derivation
     ):
         _fail("SPLIT_DERIVATION_MISMATCH", "split_derivation")
 
@@ -2199,8 +2225,8 @@ def _stage_s6_splits_held_out(
     holdout_fraction_ppm = split_derivation.get("holdout_fraction_ppm")
     if not isinstance(holdout_fraction_ppm, int) or not isinstance(universe_count, int):
         _fail("SPLIT_SIZE_IMPLAUSIBLE", "evaluation_splits.holdout")
-    round_val, rhs = _split_size_bound(universe_count, holdout_fraction_ppm)
-    if abs(holdout_count - round_val) * _T_SCALE > rhs:
+    round_val, tolerance = _split_size_bound(universe_count, holdout_fraction_ppm)
+    if abs(holdout_count - round_val) > tolerance:
         _fail("SPLIT_SIZE_IMPLAUSIBLE", "evaluation_splits.holdout")
 
     if (
@@ -2259,8 +2285,14 @@ def _stage_s7_composition_abstention(
     is exactly the two-member ``[dataset, evaluator]`` tuple the schema
     fixes in order and per-position ``condition_code``, but the schema
     cannot tie ``bound_commitment_ref`` to any OTHER field, so this stage
-    checks it against the manifest's own real commitment refs, and
-    ``status`` against the emittable vocabulary; (row 56) the assertion's
+    checks it against the manifest's own real commitment refs, ``status``
+    against the emittable vocabulary, and -- since the schema also cannot
+    tie an entry's optional refs to its OWN status -- that a
+    ``condition_declared_unverified`` entry carries none of
+    ``bound_manifest_digest``, ``evidence_ref``, or ``trust_anchor_ref``
+    (an unverified condition asserts nothing bound, so a signed entry
+    carrying one of these binding-shaped fields anyway is a shape
+    violation even though nothing downstream reads it); (row 56) the assertion's
     own role digest is recomputed and compared to both its own
     ``assertion_digest`` field and the manifest's copy, and its
     ``rendered_text`` is compared to the schema's own fixed ``const`` --
@@ -2302,6 +2334,12 @@ def _stage_s7_composition_abstention(
             or entry.get("status") not in emittable_statuses
             or entry.get("condition_code") != condition_code
             or entry.get("bound_commitment_ref") != expected_ref
+        ):
+            _fail("PILLAR_SUPPORT_SHAPE", field)
+        if entry.get("status") == "condition_declared_unverified" and (
+            "bound_manifest_digest" in entry
+            or "evidence_ref" in entry
+            or "trust_anchor_ref" in entry
         ):
             _fail("PILLAR_SUPPORT_SHAPE", field)
 
@@ -2622,12 +2660,21 @@ def _run_agent_quality_checks(
         # recomputation ran and no certified nominal coverage exists to
         # report; 0 is a fixed sentinel for "not applicable", never a
         # value read from the bundle.
-        declared_plan = bundle["declared_plan_envelope"]["declared_plan"]
+        #
+        # P1-V2.5 review P3-10: primary_objective_id is read from the
+        # MANIFEST here, the SAME source the verified branch above uses --
+        # not from declared_plan, even though S8's row-64 check (and S5's
+        # own OBJECTIVE_NOT_IN_DECLARED_PLAN binding) already forces
+        # manifest["primary_objective_id"] == declared_plan["primary_objective_id"]
+        # by the time either branch runs. A single source of truth for a
+        # result field this module has already proven equal is simpler to
+        # reason about than two branches quietly reading two different
+        # (provably-equal) bundle locations.
         return AgentQualityVerificationResult(
             code="AGENT_QUALITY_CLAIM_ABSTAINED",
             claim_id=row["claim_id"],
             evidence_basis="abstained",
-            primary_objective_id=declared_plan["primary_objective_id"],
+            primary_objective_id=manifest["primary_objective_id"],
             nominal_coverage_ppm=0,
             holdout_item_count=holdout_item_count,
             interval_verification_level="issuer_attested_v1",

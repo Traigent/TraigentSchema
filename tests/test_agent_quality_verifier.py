@@ -816,16 +816,14 @@ def test_run_agent_quality_checks_propagates_process_record_error_unchanged() ->
     assert caught.value.code != "AGENT_QUALITY_VERIFICATION_FAILED"
 
 
-# P1-V2.4 commit 2: every stage is now a real check -- NONE are
+# P1-V2.5 commit 2: every stage is now a real check -- NONE are
 # unconditional refusals any longer, so none of them can share the uniform
 # "any schema-valid bundle is refused with the catch-all" assertion below.
 # S2, S4 and S8 also don't share the uniform ``(bundle, context)``
 # two-argument shape every other stage has (each additionally needs
 # ``process_record_bundle``). Every stage now gets its own dedicated
 # fail-closed coverage (test_stage_s{1..8}_..._is_a_real_fail_closed_function)
-# instead. This parametrization is kept (empty) rather than deleted, so a
-# FUTURE placeholder stage (packet .6's own future work, if any) has
-# somewhere to land without re-inventing this scaffold.
+# instead.
 _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES = tuple(
     name
     for name in _STAGE_FUNCTION_NAMES
@@ -843,32 +841,25 @@ _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES = tuple(
 )
 
 
-@pytest.mark.parametrize("stage_name", _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES)
-def test_each_stage_is_a_real_fail_closed_function(stage_name: str) -> None:
-    """Every named stage exists, is independently callable with the uniform
-    ``(bundle, context)`` signature all eight stages now share (P1-V2.0
-    review finding P3-11: S4's own docstring already needs
-    ``context.expected_declared_plan_digest`` and S3's registry pins are the
-    same shape, so giving every stage the context now is cheaper than
-    packets .2-.5 each having to widen a stage's signature later), and
-    refuses (rather than silently passing) when called directly."""
-    stage = getattr(v, stage_name)
-    assert callable(stage)
-    context = _context()
-    bundle = _schema_fixtures._bundle()
-    with pytest.raises(v.AgentQualityVerificationError) as caught:
-        stage(bundle, context)
-    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+def test_no_placeholder_stage_remains() -> None:
+    """P1-V2.5 review P3-5: the old version of this test parametrized over
+    :data:`_STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES` -- always empty since
+    P1-V2.5 commit 2 made every stage real -- so it always collected zero
+    cases and silently reported ``1 skipped`` forever, a permanent green
+    that asserted nothing. This is the positive statement it should have
+    been: all eight named stages are real, so the placeholder tuple is
+    empty."""
+    assert _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES == ()
 
 
 def test_stage_s1_structural_is_a_real_fail_closed_function() -> None:
     """S1's real-check counterpart to
-    :func:`test_each_stage_is_a_real_fail_closed_function`: unlike S2-S7, S1
-    now PASSES a schema-valid bundle (see
-    :func:`test_golden_bundle_reaches_private_runner_fail_closed_boundary`),
-    so its "still fail-closed when called directly" proof uses a
-    structurally-invalid bundle instead, and checks S1's own real code
-    rather than the catch-all."""
+    :func:`test_no_placeholder_stage_remains`: unlike S2-S7, S1
+    now PASSES a schema-valid bundle (the golden bundle passes every real
+    stage, per each stage's own ``test_s{N}_passes_the_golden_bundle`` case
+    elsewhere in this module), so its "still fail-closed when called
+    directly" proof uses a structurally-invalid bundle instead, and checks
+    S1's own real code rather than the catch-all."""
     context = _context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._stage_s1_structural({"schema_version": "wrong"}, context)
@@ -878,9 +869,10 @@ def test_stage_s1_structural_is_a_real_fail_closed_function() -> None:
 
 def test_stage_s2_context_binding_is_a_real_fail_closed_function() -> None:
     """S2's real-check counterpart to
-    :func:`test_each_stage_is_a_real_fail_closed_function`: S2 now takes a
+    :func:`test_no_placeholder_stage_remains`: S2 now takes a
     third ``process_record_bundle`` argument and PASSES the golden bundle
-    (see :func:`test_golden_bundle_reaches_private_runner_fail_closed_boundary`),
+    (the golden bundle passes every real stage, per each stage's own
+    ``test_s{N}_passes_the_golden_bundle`` case elsewhere in this module),
     so its "still fail-closed when called directly" proof uses a bundle
     whose commitment refs disagree with the context/process-record pins."""
     bundle = build_agent_quality_bundle()
@@ -893,7 +885,7 @@ def test_stage_s2_context_binding_is_a_real_fail_closed_function() -> None:
 
 def test_stage_s3_registry_identity_is_a_real_fail_closed_function() -> None:
     """S3's real-check counterpart to
-    :func:`test_each_stage_is_a_real_fail_closed_function`: S3 PASSES the
+    :func:`test_no_placeholder_stage_remains`: S3 PASSES the
     golden bundle, so its "still fail-closed when called directly" proof
     mutates the manifest's aggregation-policy identity instead."""
     bundle = build_agent_quality_bundle()
@@ -909,7 +901,7 @@ def test_stage_s3_registry_identity_is_a_real_fail_closed_function() -> None:
 
 def test_stage_s4_declared_plan_signatures_is_a_real_fail_closed_function() -> None:
     """S4's real-check counterpart to
-    :func:`test_each_stage_is_a_real_fail_closed_function`: S4 now takes a
+    :func:`test_no_placeholder_stage_remains`: S4 now takes a
     third ``process_record_bundle`` argument and PASSES the golden bundle,
     so its "still fail-closed when called directly" proof mutates the
     declared plan's own digest field instead."""
@@ -926,7 +918,7 @@ def test_stage_s4_declared_plan_signatures_is_a_real_fail_closed_function() -> N
 
 def test_stage_s6_splits_held_out_is_a_real_fail_closed_function() -> None:
     """S6's real-check counterpart to
-    :func:`test_each_stage_is_a_real_fail_closed_function`: S6 PASSES the
+    :func:`test_no_placeholder_stage_remains`: S6 PASSES the
     golden bundle, so its "still fail-closed when called directly" proof
     mutates the two split records' commitment digests to collide instead."""
     bundle = build_agent_quality_bundle()
@@ -942,7 +934,7 @@ def test_stage_s6_splits_held_out_is_a_real_fail_closed_function() -> None:
 
 def test_stage_s7_composition_abstention_is_a_real_fail_closed_function() -> None:
     """S7's real-check counterpart to
-    :func:`test_each_stage_is_a_real_fail_closed_function`: S7 PASSES the
+    :func:`test_no_placeholder_stage_remains`: S7 PASSES the
     golden bundle, so its "still fail-closed when called directly" proof
     mutates the assertion's own digest instead."""
     bundle = build_agent_quality_bundle()
@@ -1146,6 +1138,26 @@ def test_abstained_bundle_carries_claims_is_schema_preempted() -> None:
         "must validate clean -- confirms the coupling, not the claim array "
         "itself, is what rejects the abstained bundle above"
     )
+    # P1-V2.5 review P2-3 (astra's phase-gate constraint): agreement between
+    # the schema and the module's own bucket alone is not proof -- push the
+    # SAME mutated bundle through the REAL path
+    # (:func:`v._run_agent_quality_checks`) and confirm it stops at SCHEMA,
+    # at S1, before S7 (the stage that owns ABSTAINED_BUNDLE_CARRIES_CLAIMS
+    # by design) ever runs. Named against the shipped schema's own version
+    # const, not a hard-coded literal.
+    assert (
+        bundle["schema_version"]
+        == SCHEMA["definitions"]["AgentQualityCertificateBundleV1"]["properties"]["schema_version"][
+            "const"
+        ]
+    )
+    context = _context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SCHEMA"
+    assert caught.value.field == "bundle"
 
 
 def test_selection_estimate_in_certified_set_is_schema_preempted() -> None:
@@ -1197,6 +1209,23 @@ def test_selection_estimate_in_certified_set_is_schema_preempted() -> None:
         "row must validate clean -- confirms the coupling, not the array "
         "itself, is what rejects the abstained bundle above"
     )
+    # P1-V2.5 review P2-3: same real-path proof as
+    # test_abstained_bundle_carries_claims_is_schema_preempted -- the
+    # mutated bundle must stop at SCHEMA through the actual runner, before
+    # S7 (this code's owning stage by design) ever runs.
+    assert (
+        bundle["schema_version"]
+        == SCHEMA["definitions"]["AgentQualityCertificateBundleV1"]["properties"]["schema_version"][
+            "const"
+        ]
+    )
+    context = _context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SCHEMA"
+    assert caught.value.field == "bundle"
 
 
 def test_selection_estimate_duplicate_is_not_schema_preempted() -> None:
@@ -1233,7 +1262,7 @@ def test_schema_preempted_dead_codes_are_exactly_three_and_registered() -> None:
     (dead vocabulary) -- see
     :func:`test_schema_preempted_backstop_codes_have_a_live_guard_each` for
     the other half of :data:`v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES`.
-    PILLAR_BINDING_MISMATCH (P1-V2.4 commit 2, design row 55) joins the
+    PILLAR_BINDING_MISMATCH (P1-V2.5 commit 2, design row 55) joins the
     original two: ``EmittablePillarStatusV1`` excludes ``assessed_supported``
     entirely, so no schema-valid ``pillar_support`` entry can ever carry
     the sibling-verification binding this code would check, and v1 defines
@@ -1264,6 +1293,23 @@ def test_pillar_binding_mismatch_is_schema_preempted() -> None:
     control = _schema_fixtures._bundle()
     control["unsigned_manifest"]["pillar_support"][0]["status"] = "condition_declared_unverified"
     assert _schema_fixtures._errors(control) == []
+
+    # P1-V2.5 review P2-3: real-path proof through the runner, not just
+    # schema/registry agreement -- the mutated bundle stops at SCHEMA, at
+    # S1, before S7 (this code's owning stage by design) ever runs.
+    assert (
+        bundle["schema_version"]
+        == SCHEMA["definitions"]["AgentQualityCertificateBundleV1"]["properties"]["schema_version"][
+            "const"
+        ]
+    )
+    context = _context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SCHEMA"
+    assert caught.value.field == "bundle"
 
 
 def test_schema_preempted_backstop_codes_have_a_live_guard_each() -> None:
@@ -1308,13 +1354,30 @@ def test_schema_preempted_backstop_codes_have_a_live_guard_each() -> None:
 
 
 def test_schema_preempted_backstop_codes_are_proven_unreachable_by_schema() -> None:
-    """The per-code reachability proof for each of the seven backstop codes:
+    """The per-code reachability proof for each of the eleven backstop codes
+    (P1-V2.5 review P3-8: seven from S5, plus S6's own four -- HOLDOUT_NOT_USED,
+    HOLDOUT_MISSING, HOLDOUT_TOO_SMALL, HOLDOUT_REUSED -- proven below):
     either a re-signed mutation that a schema-valid bundle cannot represent
     (SCHEMA rejects it at S1, before S5's guard would ever run), or --
     where the guard concerns PACKAGE DATA rather than any bundle field
     (DISTRIBUTION_ASSUMPTION_NOT_REGISTERED, QUANTILE_TABLE_LOOKUP_FAILED)
     -- a direct assertion that the shipped package data always satisfies
-    the guard, so no bundle content could ever make it fail."""
+    the guard, so no bundle content could ever make it fail.
+
+    P1-V2.5 review P2-3 (astra's phase-gate constraint): equality between
+    the schema and the registry alone is not proof by itself -- every
+    equality assertion below is bound to the SHIPPED schema/registry
+    document version it depends on, and the four S6 codes additionally get
+    a re-signed mutation pushed through the REAL path
+    (:func:`v._run_agent_quality_checks`), stopping at SCHEMA before S6 (the
+    owning stage) ever runs."""
+    assert (
+        SCHEMA["definitions"]["AgentQualityCertificateBundleV1"]["properties"]["schema_version"][
+            "const"
+        ]
+        == "traigent.agent_quality.certificate_bundle.v1"
+    )
+    assert v._expected_registry_identity("objective_registry")["registry_version"] == "1.0.0"
     # OBJECTIVE_NOT_REGISTERED: EmittableObjectiveIdV1 (what a schema-valid
     # claim's objective_id is restricted to) is a SUBSET of the shipped
     # objective registry's own ids.
@@ -1429,6 +1492,53 @@ def test_schema_preempted_backstop_codes_are_proven_unreachable_by_schema() -> N
         "holdout_scored_arm_count"
     ] == {"const": 1}
 
+    # Real-path proofs (P1-V2.5 review P2-3): a mutation that violates each
+    # hard schema const above, fed through :func:`v._run_agent_quality_checks`
+    # (not re-signed -- S1's schema check runs before S8's signature check,
+    # so an otherwise-valid signature is irrelevant to whether SCHEMA fires
+    # first), stops at SCHEMA before S6 -- the owning stage by design --
+    # ever runs.
+    context = build_agent_quality_context()
+    holdout_not_used_bundle = build_agent_quality_bundle()
+    holdout_not_used_bundle["measured_claims"][0]["evaluated_split_id"] = "selection"
+    with pytest.raises(v.AgentQualityVerificationError) as caught_not_used:
+        v._run_agent_quality_checks(
+            holdout_not_used_bundle,
+            context=context,
+            process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
+        )
+    assert caught_not_used.value.code == "SCHEMA"
+
+    holdout_missing_bundle = build_agent_quality_bundle()
+    holdout_missing_bundle["evaluation_splits"][1]["split_id"] = "selection"
+    with pytest.raises(v.AgentQualityVerificationError) as caught_missing:
+        v._run_agent_quality_checks(
+            holdout_missing_bundle,
+            context=context,
+            process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
+        )
+    assert caught_missing.value.code == "SCHEMA"
+
+    holdout_reused_bundle = build_agent_quality_bundle()
+    holdout_reused_bundle["unsigned_manifest"]["holdout_scored_arm_count"] = 2
+    with pytest.raises(v.AgentQualityVerificationError) as caught_reused:
+        v._run_agent_quality_checks(
+            holdout_reused_bundle,
+            context=context,
+            process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
+        )
+    assert caught_reused.value.code == "SCHEMA"
+
+    verification_level_bundle = build_agent_quality_bundle()
+    verification_level_bundle["measured_claims"][0]["verification_level"] = "self_reported_v1"
+    with pytest.raises(v.AgentQualityVerificationError) as caught_level:
+        v._run_agent_quality_checks(
+            verification_level_bundle,
+            context=context,
+            process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
+        )
+    assert caught_level.value.code == "SCHEMA"
+
 
 def test_holdout_too_small_direct_call_guard_still_fires() -> None:
     """Behavioral half of the HOLDOUT_TOO_SMALL backstop proof: even though
@@ -1537,7 +1647,17 @@ def test_pending_and_preempted_and_emitted_partition_is_disjoint_and_covers_all(
         f"backstop={sorted(backstop)}"
     )
     assert dead.isdisjoint(emitted_today)
-    assert preempted.isdisjoint(pending)
+    # P1-V2.5 review P3-8: ``preempted.isdisjoint(pending)`` was a pure
+    # algebraic tautology -- ``pending`` is DEFINED as ``ERROR_CODES -
+    # preempted - <literal>``, so it is disjoint from ``preempted`` for ANY
+    # content of ``ERROR_CODES``/the literal, proving nothing about the
+    # actual code. Replaced with the genuine, code-derived check: every
+    # code the AST scan finds actually preempted-and-still-emitted (the
+    # backstop set, by construction) is disjoint from pending -- a real
+    # assertion about the relationship between two INDEPENDENTLY-derived
+    # sets (backstop from the module's public constants, pending from the
+    # module's own subtraction), not a restatement of one definition.
+    assert backstop.isdisjoint(pending)
     assert pending.isdisjoint(emitted_today)
     assert preempted | pending | emitted_today == v.AGENT_QUALITY_ERROR_CODES
 
@@ -1548,9 +1668,11 @@ def test_four_way_code_vocabulary_partition_is_disjoint_and_covers_all() -> None
     Every code in the closed vocabulary falls into EXACTLY one of four
     buckets: dead (no guard anywhere), preempted-with-a-live-backstop-guard
     (schema OR context preemption -- the guard exists but no valid input/
-    context can ever reach it), pending (no guard yet, packet .6's S6/S7),
-    or reachable (a real guard that a schema-valid, correctly-constructed
-    caller CAN trigger)."""
+    context can ever reach it), pending (no guard yet -- empty as of
+    P1-V2.5 commit 2, since every stage S1-S8 now runs a real check; see
+    :func:`test_agent_quality_pending_codes_is_now_empty`), or reachable (a
+    real guard that a schema-valid, correctly-constructed caller CAN
+    trigger)."""
     source = Path(v.__file__).read_text()
     tree = ast.parse(source, filename=v.__file__)
     emitted_today = frozenset(code for (_fn, code, _line) in _emission_sites(tree))
@@ -1563,7 +1685,14 @@ def test_four_way_code_vocabulary_partition_is_disjoint_and_covers_all() -> None
     reachable = emitted_today - preempted_with_backstop
 
     assert dead.isdisjoint(preempted_with_backstop)
-    assert dead.isdisjoint(pending)
+    # P1-V2.5 review P3-8: ``dead.isdisjoint(pending)`` was a pure algebraic
+    # tautology -- ``pending`` is DEFINED as ``ERROR_CODES -
+    # AGENT_QUALITY_SCHEMA_PREEMPTED_CODES - AGENT_QUALITY_INPUT_PREEMPTED_CODES
+    # - <literal>``, and ``dead`` is a SUBSET of exactly those two subtracted
+    # sets, so the disjointness holds for ANY module content, proving
+    # nothing about the actual code. Replaced with the genuine, code-derived
+    # check: no dead code has a live emission site (asserted below, with a
+    # failure message), which is what "dead" is actually supposed to mean.
     assert dead.isdisjoint(reachable)
     assert preempted_with_backstop.isdisjoint(pending)
     assert preempted_with_backstop.isdisjoint(reachable)
@@ -1580,8 +1709,23 @@ def test_four_way_code_vocabulary_partition_is_disjoint_and_covers_all() -> None
     )
 
 
+def test_agent_quality_preempted_total_matches_bucket_sum() -> None:
+    """P1-V2.5 review P2-3: :data:`v.AGENT_QUALITY_PREEMPTED_TOTAL` must
+    equal the sum of the four preemption buckets -- schema-preempted dead
+    (3), schema-preempted backstop (11), context-preempted (1), and
+    input-preempted (2) -- 17 codes total, none of which count toward
+    reachable coverage. .6's PR body must cite this constant."""
+    assert v.AGENT_QUALITY_PREEMPTED_TOTAL == (
+        len(v.AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES)
+        + len(v.AGENT_QUALITY_SCHEMA_PREEMPTED_BACKSTOP_CODES)
+        + len(v.AGENT_QUALITY_CONTEXT_PREEMPTED_CODES)
+        + len(v.AGENT_QUALITY_INPUT_PREEMPTED_CODES)
+    )
+    assert v.AGENT_QUALITY_PREEMPTED_TOTAL == 17
+
+
 def test_agent_quality_pending_codes_is_now_empty() -> None:
-    """P1-V2.4 commit 2: every stage (S1-S8) now runs a real check, so
+    """P1-V2.5 commit 2: every stage (S1-S8) now runs a real check, so
     :data:`v.AGENT_QUALITY_PENDING_CODES` -- which the module's own
     long-lived comment has tracked shrinking release over release, and
     which was explicitly expected to hold only a future packet's own codes
@@ -1699,7 +1843,7 @@ def test_stage_codes_are_pairwise_disjoint_and_cover_all_non_preempted_codes() -
         union |= codes
         total += len(codes)
     assert total == len(union), "two stages claim overlapping codes"
-    # Backstop codes (P1-V2.4 review P2-2, extended to S6 in commit 1) are
+    # Backstop codes (P1-V2.4 review P2-2, extended to S6 in P1-V2.5 commit 1) are
     # schema-preempted but still OWNED by S5/S6 -- their guard is what
     # raises them, even though no schema-valid bundle can trigger it. The
     # two DEAD schema-preempted codes and the two DEAD input-preempted
@@ -1973,7 +2117,7 @@ def _gv_split_derivation_raw() -> dict:
 
 
 def _gv_evaluation_split_record_raw(split_id: str, item_count: int) -> dict:
-    # P1-V2.4 commit 1 (S6, row 46 SPLIT_COMMITMENT_COLLISION): the two
+    # P1-V2.5 commit 1 (S6, row 46 SPLIT_COMMITMENT_COLLISION): the two
     # split records' own split_commitment_digest values must be DISTINCT --
     # a placeholder shared between selection and holdout would make the
     # golden bundle itself collide. split_derivation_digest, by contrast,
@@ -2209,7 +2353,7 @@ def _gv_close(bundle: dict, *, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY)
         "primary_objective_id": declared_plan["primary_objective_id"],
         "selection_arm_count": declared_plan["selection_arm_count"],
         "holdout_scored_arm_count": declared_plan["holdout_scored_arm_count"],
-        # P1-V2.4 commit 2 (S7, row 54): PILLAR_SUPPORT_SHAPE checks
+        # P1-V2.5 commit 2 (S7, row 54): PILLAR_SUPPORT_SHAPE checks
         # bound_commitment_ref against the manifest's OWN real
         # dataset/evaluator commitment refs -- the schema fixture's generic
         # placeholder SHA would fail that real cross-field check, so the
@@ -2643,6 +2787,143 @@ def resign_with_foreign_key(bundle: dict, key: Ed25519PrivateKey) -> dict:
     TOP-LEVEL issuer signature is re-signed under the foreign key, since
     that is the one binding this fixture exercises."""
     return resign_agent_quality_bundle(bundle, private_key=key)
+
+
+_GV_ALL_SPLIT_DERIVATION_SELF_DIGEST_TARGETS = frozenset(
+    {"split_derivation", "selection", "holdout", "declared_plan"}
+)
+
+
+def _gv_reclose_after_free_split_derivation_self_digest(
+    bundle: dict,
+    foreign_digest: str,
+    *,
+    targets: frozenset[str] = _GV_ALL_SPLIT_DERIVATION_SELF_DIGEST_TARGETS,
+) -> dict:
+    """P1-V2.5 review P1-1: produce a fully re-signed, schema-valid bundle
+    whose self-reported ``split_derivation_digest`` copies named in
+    ``targets`` (any of ``"split_derivation"`` -- the top-level
+    declaration's own field --, ``"selection"``/``"holdout"`` -- the two
+    ``evaluation_splits`` records --, and ``"declared_plan"`` -- the
+    declared plan's embedded copy) all report ``foreign_digest`` -- a value
+    that does NOT match the role-digest recomputation over the split
+    derivation's own (unchanged) content -- while every other manifest-bound
+    digest and the issuer signature stay genuinely consistent. Unlike
+    :func:`resign_agent_quality_bundle` (whose ``_gv_close`` unconditionally
+    re-syncs every copy to the correct recomputation, which would silently
+    repair exactly the defect this builds), this recomputes only the
+    digests that depend on the mutated content -- ``evaluation_splits_digest``,
+    the declared plan's own digest/signature, and everything chained from
+    those -- leaving ``unsigned_manifest.split_derivation_digest`` at its
+    correct value (computed over the split derivation's STRIPPED content,
+    which a self-field mutation never touches)."""
+    b = _gv_copy.deepcopy(resign_agent_quality_bundle(bundle))
+    split_derivation = b["split_derivation"]
+    correct_digest = split_derivation["split_derivation_digest"]
+    if "split_derivation" in targets:
+        split_derivation["split_derivation_digest"] = foreign_digest
+    b["evaluation_splits"][0]["split_derivation_digest"] = (
+        foreign_digest if "selection" in targets else correct_digest
+    )
+    b["evaluation_splits"][1]["split_derivation_digest"] = (
+        foreign_digest if "holdout" in targets else correct_digest
+    )
+    declared_plan = b["declared_plan_envelope"]["declared_plan"]
+    declared_plan["split_derivation"] = dict(
+        v._strip_self_digest(bundle["split_derivation"], "split_derivation_digest"),
+        split_derivation_digest=(foreign_digest if "declared_plan" in targets else correct_digest),
+    )
+
+    evaluation_splits_digest = _gv_digest("evaluation_splits", b["evaluation_splits"])
+    declared_plan["declared_plan_digest"] = _gv_digest(
+        "declared_plan", v._strip_self_digest(declared_plan, "declared_plan_digest")
+    )
+    plan_signature = b["declared_plan_envelope"]["signature"]
+    plan_signature["declared_plan_digest"] = declared_plan["declared_plan_digest"]
+    plan_signature["signature"] = _gv_sign(
+        "declared_plan_signature", declared_plan, _GV_PRIVATE_KEY
+    )
+    declared_plan_signature_digest = _gv_digest("declared_plan_signature", plan_signature)
+
+    manifest = b["unsigned_manifest"]
+    manifest["evaluation_splits_digest"] = evaluation_splits_digest
+    manifest["declared_plan_digest"] = declared_plan["declared_plan_digest"]
+    manifest["declared_plan_signature_digest"] = declared_plan_signature_digest
+    for row in b["claim_support_rows"]:
+        if row.get("evidence_basis") == "abstained":
+            continue
+        row["evaluation_splits_digest"] = evaluation_splits_digest
+        row["declared_plan_digest"] = declared_plan["declared_plan_digest"]
+    manifest["agent_quality_claim_support_rows_digest"] = _gv_digest(
+        "claim_support_rows", b["claim_support_rows"]
+    )
+    b["signature"]["unsigned_manifest_digest"] = _gv_digest("unsigned_manifest", manifest)
+    b["signature"]["signature"] = _gv_sign("issuer_signature", manifest, _GV_PRIVATE_KEY)
+    return b
+
+
+def _gv_reclose_declared_plan_split_derivation(
+    bundle: dict, foreign_split_derivation: dict
+) -> dict:
+    """P1-V2.5 review P1-1's second probe: re-close a bundle whose declared
+    plan pre-registers a DIFFERENT, internally-consistent split derivation
+    (its own digest field is a genuine recomputation over its own content)
+    from the one the bundle actually ships -- the shipped
+    ``split_derivation``/``evaluation_splits`` are left untouched, so
+    ``unsigned_manifest.split_derivation_digest`` and everything chained
+    from the SHIPPED derivation stay correct; only the declared plan's own
+    digest/signature and the manifest fields chained from THAT are
+    recomputed."""
+    b = _gv_copy.deepcopy(resign_agent_quality_bundle(bundle))
+    declared_plan = b["declared_plan_envelope"]["declared_plan"]
+    new_split_derivation = dict(foreign_split_derivation)
+    new_split_derivation["split_derivation_digest"] = _gv_digest(
+        "split_derivation", v._strip_self_digest(new_split_derivation, "split_derivation_digest")
+    )
+    declared_plan["split_derivation"] = new_split_derivation
+    declared_plan["declared_plan_digest"] = _gv_digest(
+        "declared_plan", v._strip_self_digest(declared_plan, "declared_plan_digest")
+    )
+    plan_signature = b["declared_plan_envelope"]["signature"]
+    plan_signature["declared_plan_digest"] = declared_plan["declared_plan_digest"]
+    plan_signature["signature"] = _gv_sign(
+        "declared_plan_signature", declared_plan, _GV_PRIVATE_KEY
+    )
+    declared_plan_signature_digest = _gv_digest("declared_plan_signature", plan_signature)
+
+    manifest = b["unsigned_manifest"]
+    manifest["declared_plan_digest"] = declared_plan["declared_plan_digest"]
+    manifest["declared_plan_signature_digest"] = declared_plan_signature_digest
+    for row in b["claim_support_rows"]:
+        if row.get("evidence_basis") == "abstained":
+            continue
+        row["declared_plan_digest"] = declared_plan["declared_plan_digest"]
+    manifest["agent_quality_claim_support_rows_digest"] = _gv_digest(
+        "claim_support_rows", b["claim_support_rows"]
+    )
+    b["signature"]["unsigned_manifest_digest"] = _gv_digest("unsigned_manifest", manifest)
+    b["signature"]["signature"] = _gv_sign("issuer_signature", manifest, _GV_PRIVATE_KEY)
+    return b
+
+
+def _gv_reclose_after_manifest_field_mutation(
+    bundle: dict, mutate_manifest: Callable[[dict], None]
+) -> dict:
+    """P1-V2.5 review P2-4: mutate a field that lives directly on
+    ``unsigned_manifest`` (``pillar_support``, ``assertion_digest``, and
+    similar top-level manifest fields that are not one of S8's six
+    separately-digested arrays) and re-sign the ISSUER signature over the
+    mutated manifest, so the resulting bundle is genuinely, validly signed
+    -- unlike overwriting the field post-``build_agent_quality_bundle``
+    with no re-sign at all, which leaves the top-level signature broken and
+    only proves the target stage runs before S8, not that it catches a
+    truly well-formed negative."""
+    b = _gv_copy.deepcopy(resign_agent_quality_bundle(bundle))
+    manifest = b["unsigned_manifest"]
+    mutate_manifest(manifest)
+    b["signature"]["unsigned_manifest_digest"] = _gv_digest("unsigned_manifest", manifest)
+    b["signature"]["signature"] = _gv_sign("issuer_signature", manifest, _GV_PRIVATE_KEY)
+    return b
 
 
 # --------------------------------------------------------------------------
@@ -4425,7 +4706,7 @@ def test_p2_3_guard_order_regression_is_caught() -> None:
 
 
 # ==========================================================================
-# P1-V2.4 commit 1 -- S6 real checks (design rows 40-51): evaluation
+# P1-V2.5 commit 1 -- S6 real checks (design rows 40-51): evaluation
 # splits, holdout usage, split derivation, arm counts, and the second G6
 # wiring (SELECTION_ESTIMATE_DUPLICATE). Genuinely reachable codes get
 # re-signed, full-runner negative tests; the four schema-preempted-backstop
@@ -4449,24 +4730,23 @@ def test_s6_passes_the_abstained_golden_bundle() -> None:
 def test_s6_split_derivation_mismatch_holdout_record_full_runner() -> None:
     """Row 44: BOTH split records agree with EACH OTHER (so row 40's
     SPLIT_SET_SHAPE does not fire first) but disagree with the top-level
-    declaration's own ``split_derivation_digest``.
-
-    Deliberately NOT re-signed after the mutation: :func:`_gv_close` (what
-    :func:`resign_agent_quality_bundle` re-runs) unconditionally re-syncs
-    every ``evaluation_splits`` record's ``split_derivation_digest`` from
-    the shared ``split_derivation``, which would silently repair exactly
-    the defect this test targets. The mutated field is not one of S8's six
-    digested arrays' OWN content in a way S1's schema would reject (still a
-    well-shaped sha256 string), so the bundle remains schema-valid and
-    reaches S6 unchanged."""
+    declaration's own ``split_derivation_digest`` AND with the role-digest
+    recomputation (P1-V2.5 review P2-4: re-signed, not merely a bundle
+    whose signature happens to be broken -- built with
+    :func:`_gv_reclose_after_free_split_derivation_self_digest`, targeting
+    only the two ``evaluation_splits`` records so the top-level declaration
+    and the declared plan's own copy stay at the correct recomputation)."""
     bundle = build_agent_quality_bundle()
     foreign_digest = "sha256:" + "9" * 64
-    bundle["evaluation_splits"][0]["split_derivation_digest"] = foreign_digest
-    bundle["evaluation_splits"][1]["split_derivation_digest"] = foreign_digest
+    closed = _gv_reclose_after_free_split_derivation_self_digest(
+        bundle, foreign_digest, targets=frozenset({"selection", "holdout"})
+    )
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "SPLIT_DERIVATION_MISMATCH"
     assert caught.value.field == "split_derivation"
@@ -4474,33 +4754,155 @@ def test_s6_split_derivation_mismatch_holdout_record_full_runner() -> None:
 
 def test_s6_split_derivation_mismatch_declared_plan_copy_full_runner() -> None:
     """Row 44's other locus: the declared plan's OWN copy of
-    ``split_derivation`` disagrees with the top-level declaration, even
-    though both split records still agree with each other and with the
-    top-level declaration.
-
-    Re-signs ONLY the declared plan (:func:`resign_declared_plan`, not the
-    full :func:`resign_agent_quality_bundle`, which would force the
-    declared plan's ``split_derivation`` back to the SAME object as the
-    top-level one) so S4's own digest-binding check (which runs first)
-    still passes on the MUTATED content -- and patches the manifest's copy
-    of ``declared_plan_digest`` to match, the one manifest field S4 also
-    checks against the declared plan's own digest."""
+    ``split_derivation`` disagrees with the top-level declaration in
+    CONTENT (a different ``split_key_commitment``, its own digest a
+    genuine recomputation over that different content), even though both
+    split records still agree with each other and with the top-level
+    declaration. Re-signed end to end with
+    :func:`_gv_reclose_declared_plan_split_derivation` (P1-V2.5 review
+    P2-4), not merely the declared plan in isolation, so S4's own
+    digest-binding check and the issuer signature both stay genuinely
+    valid."""
     bundle = build_agent_quality_bundle()
     foreign_split_derivation = dict(
-        bundle["split_derivation"], split_derivation_digest="sha256:" + "9" * 64
+        v._strip_self_digest(bundle["split_derivation"], "split_derivation_digest"),
+        split_key_commitment="sha256:" + "7" * 64,
     )
-    bundle["declared_plan_envelope"]["declared_plan"]["split_derivation"] = foreign_split_derivation
-    resigned_plan_only = resign_declared_plan(bundle)
-    resigned_plan_only["unsigned_manifest"]["declared_plan_digest"] = resigned_plan_only[
-        "declared_plan_envelope"
-    ]["declared_plan"]["declared_plan_digest"]
+    closed = _gv_reclose_declared_plan_split_derivation(bundle, foreign_split_derivation)
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
+    assert (
+        closed["declared_plan_envelope"]["declared_plan"]["split_derivation"][
+            "split_key_commitment"
+        ]
+        != closed["split_derivation"]["split_key_commitment"]
+    )
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
-            resigned_plan_only, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "SPLIT_DERIVATION_MISMATCH"
     assert caught.value.field == "split_derivation"
+
+
+def test_s6_split_derivation_mismatch_all_copies_agree_but_not_recomputed_full_runner() -> None:
+    """P1-V2.5 review P1-1: row 44's original check only compared the four
+    self-reported ``split_derivation_digest`` copies to EACH OTHER, never to
+    a recomputation -- so a validly signed, schema-valid bundle whose four
+    copies all agree on a FOREIGN value (never the digest of the split
+    derivation's own content) verified. Built with
+    :func:`_gv_reclose_after_free_split_derivation_self_digest`, which keeps
+    the bundle genuinely schema-valid and ed25519-signed."""
+    bundle = build_agent_quality_bundle()
+    foreign_digest = "sha256:" + "9" * 64
+    closed = _gv_reclose_after_free_split_derivation_self_digest(bundle, foreign_digest)
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
+    assert closed["split_derivation"]["split_derivation_digest"] == foreign_digest
+    assert closed["evaluation_splits"][0]["split_derivation_digest"] == foreign_digest
+    assert closed["evaluation_splits"][1]["split_derivation_digest"] == foreign_digest
+    assert (
+        closed["declared_plan_envelope"]["declared_plan"]["split_derivation"][
+            "split_derivation_digest"
+        ]
+        == foreign_digest
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SPLIT_DERIVATION_MISMATCH"
+    assert caught.value.field == "split_derivation"
+
+
+def test_s6_split_derivation_mismatch_declared_plan_pins_different_holdout_full_runner() -> None:
+    """P1-V2.5 review P1-1's second probe -- design row 44 ("one
+    derivation") exists to refuse exactly this: a signed declared plan that
+    pre-registers a 10% holdout under a DIFFERENT ``split_key_commitment``
+    while the bundle ships a 20% holdout. Both derivations are internally
+    self-consistent (each one's own digest field is a genuine recomputation
+    over its own content), so only the content-equality half of the row-44
+    fix -- ``declared_plan["split_derivation"] == bundle["split_derivation"]``
+    -- catches it."""
+    bundle = build_agent_quality_bundle()
+    foreign_split_derivation = dict(
+        v._strip_self_digest(bundle["split_derivation"], "split_derivation_digest"),
+        holdout_fraction_ppm=100000,
+        split_key_commitment="sha256:" + "8" * 64,
+    )
+    closed = _gv_reclose_declared_plan_split_derivation(bundle, foreign_split_derivation)
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
+    assert (
+        closed["declared_plan_envelope"]["declared_plan"]["split_derivation"][
+            "holdout_fraction_ppm"
+        ]
+        == 100000
+    )
+    assert closed["split_derivation"]["holdout_fraction_ppm"] == 200000
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SPLIT_DERIVATION_MISMATCH"
+    assert caught.value.field == "split_derivation"
+
+
+def test_s6_split_set_shape_digest_disagreement_full_runner() -> None:
+    """Row 40: SPLIT_SET_SHAPE, re-signed. Direct-call coverage already
+    exists (:func:`test_split_set_shape_direct_call_guard_still_fires`,
+    reversed record order), but P1-V2.5 review P2-4 asks for a re-signed
+    full-runner negative too. ``commitment_scheme``/``canonicalization_profile``
+    and each record's own ``split_id`` are all schema-fixed single-enum
+    consts, so the only branch a schema-valid bundle can still trip is the
+    two records' ``split_derivation_digest`` disagreeing with EACH OTHER --
+    built with :func:`_gv_reclose_after_free_split_derivation_self_digest`,
+    targeting only the ``selection`` record so it alone carries a foreign
+    value while the holdout record, the top-level declaration, and the
+    declared plan's copy all stay at the correct recomputation (row 40 runs
+    before row 44, so SPLIT_SET_SHAPE fires first)."""
+    bundle = build_agent_quality_bundle()
+    foreign_digest = "sha256:" + "9" * 64
+    closed = _gv_reclose_after_free_split_derivation_self_digest(
+        bundle, foreign_digest, targets=frozenset({"selection"})
+    )
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SPLIT_SET_SHAPE"
+    assert caught.value.field == "evaluation_splits"
+
+
+def test_s6_split_commitment_collision_full_runner() -> None:
+    """Row 46: SPLIT_COMMITMENT_COLLISION, re-signed. Direct-call coverage
+    already exists (the mutate-the-guard representative case at
+    ``_GUTTING_REPRESENTATIVE_CASES``), but P1-V2.5 review P2-4 asks for a
+    dedicated re-signed full-runner negative: both split records'
+    ``split_commitment_digest`` set to the SAME value before resigning --
+    ``_gv_close`` never touches this field, so a plain
+    :func:`resign_agent_quality_bundle` call (no free-close needed) produces
+    a genuinely, validly signed collision."""
+    bundle = build_agent_quality_bundle()
+    bundle["evaluation_splits"][1]["split_commitment_digest"] = bundle["evaluation_splits"][0][
+        "split_commitment_digest"
+    ]
+    closed = resign_agent_quality_bundle(bundle)
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SPLIT_COMMITMENT_COLLISION"
+    assert caught.value.field == "evaluation_splits"
 
 
 def test_s6_split_partition_incomplete_full_runner() -> None:
@@ -4546,19 +4948,26 @@ def test_s6_split_size_implausible_declared_50_percent_actual_20_percent_full_ru
     assert caught.value.field == "evaluation_splits.holdout"
 
 
+def test_split_size_bound_matches_hand_computed_literal() -> None:
+    """P1-V2.5 review P3-6: :func:`v._split_size_bound` must match the
+    design's LITERAL ``|h - round(N*p)| <= 6*isqrt(N*p*(1-p)) + 1``, pinned
+    to values computed BY HAND (not derived from the function under test):
+    N=1000, p=20% -> round(N*p)=200, N*p*(1-p)=1000*0.2*0.8=160,
+    isqrt(160)=12 (12**2=144 <= 160 < 169=13**2), tolerance=6*12+1=73."""
+    round_val, tolerance = v._split_size_bound(1000, 200000)
+    assert round_val == 200
+    assert tolerance == 73
+
+
 def test_s6_split_size_bound_boundary_value_passes_direct_call() -> None:
-    """The plausibility bound's own boundary: a holdout size exactly at the
-    computed limit must PASS, not merely "not obviously wrong" -- computed
-    from :func:`v._split_size_bound` itself, the same arithmetic S6 uses,
-    so this test is pinned to the real bound rather than a hand-guessed
-    number. Direct-call (bypassing S1/S5, whose own item_count/sample_size
+    """The plausibility bound's own boundary, pinned to a LITERAL computed
+    by hand (P1-V2.5 review P3-6: the design's own N=1000, p=20% example --
+    round(N*p)=200, tolerance=73 -- so h=273 is the exact boundary and must
+    PASS). Direct-call (bypassing S1/S5, whose own item_count/sample_size
     couplings are orthogonal to this arithmetic) so the boundary is tested
     in isolation."""
     universe_count = 1000
-    holdout_fraction_ppm = 200000
-    round_val, rhs = v._split_size_bound(universe_count, holdout_fraction_ppm)
-    max_delta = rhs // v._T_SCALE
-    boundary_holdout = round_val + max_delta
+    boundary_holdout = 273
     bundle = build_agent_quality_bundle()
     bundle["evaluation_splits"][1]["item_count"] = boundary_holdout
     bundle["evaluation_splits"][0]["item_count"] = universe_count - boundary_holdout
@@ -4567,18 +4976,39 @@ def test_s6_split_size_bound_boundary_value_passes_direct_call() -> None:
 
 
 def test_s6_split_size_bound_one_past_boundary_fails_direct_call() -> None:
-    """One unit past the same boundary must FAIL."""
+    """One unit past the same LITERAL boundary (h=274) must FAIL."""
     universe_count = 1000
-    holdout_fraction_ppm = 200000
-    round_val, rhs = v._split_size_bound(universe_count, holdout_fraction_ppm)
-    max_delta = rhs // v._T_SCALE
-    past_boundary_holdout = round_val + max_delta + 1
+    past_boundary_holdout = 274
     bundle = build_agent_quality_bundle()
     bundle["evaluation_splits"][1]["item_count"] = past_boundary_holdout
     bundle["evaluation_splits"][0]["item_count"] = universe_count - past_boundary_holdout
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._stage_s6_splits_held_out(bundle, context)
+    assert caught.value.code == "SPLIT_SIZE_IMPLAUSIBLE"
+    assert caught.value.field == "evaluation_splits.holdout"
+
+
+def test_s6_split_size_implausible_declare_20_percent_ship_2_percent_full_runner() -> None:
+    """The design's own literal headline example (P1-V2.5 review P3-6): a
+    declared 20% holdout (``holdout_fraction_ppm=200000``) shipped as a 2%
+    holdout at N=10000 (h=200) -- round(N*p)=2000, tolerance is tiny next to
+    a delta of 1800, so this must be SPLIT_SIZE_IMPLAUSIBLE. Starts from the
+    golden bundle (universe 1000) and scales BOTH the universe and the
+    selection/holdout split by 10x, leaving holdout.item_count (and
+    therefore every S5 sample-size binding, which stays pinned to 200)
+    untouched, so only the plausibility bound itself is exercised."""
+    bundle = build_agent_quality_bundle()
+    bundle["split_derivation"]["evaluated_universe_item_count"] = 10000
+    bundle["split_derivation"]["holdout_fraction_ppm"] = 200000
+    bundle["evaluation_splits"][0]["item_count"] = 9800
+    bundle["evaluation_splits"][1]["item_count"] = 200
+    resigned = resign_agent_quality_bundle(bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
     assert caught.value.code == "SPLIT_SIZE_IMPLAUSIBLE"
     assert caught.value.field == "evaluation_splits.holdout"
 
@@ -4666,6 +5096,33 @@ def test_split_opening_non_none_is_refused_fail_closed() -> None:
     assert caught.value.field == "split_opening_witness"
 
 
+def test_split_opening_sentinel_never_leaks_through_the_refusal() -> None:
+    """P1-V2.5 review P3-7: a ``split_opening`` carrying a sentinel string
+    is refused the same as any other non-``None`` value, and the sentinel
+    itself never reaches the raised error's message, cause, context, or a
+    formatted traceback -- the runner's refusal is content-free the same
+    way :func:`test_import_time_package_data_validation` proves for
+    package-data corruption."""
+    sentinel = "SENTINEL_SPLIT_OPENING_" + "Q" * 32
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as excinfo:
+        v._run_agent_quality_checks(
+            bundle,
+            context=context,
+            process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
+            split_opening={"witness": sentinel},
+        )
+    exc = excinfo.value
+    assert exc.code == "CONTEXT"
+    assert exc.field == "split_opening_witness"
+    assert sentinel not in str(exc)
+    assert sentinel not in repr(exc.__cause__)
+    assert sentinel not in repr(exc.__context__)
+    formatted = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    assert sentinel not in formatted
+
+
 def test_split_opening_input_preempted_codes_are_never_emitted() -> None:
     """SPLIT_OPENING_MISMATCH/SPLIT_OPENING_RULE_VIOLATION have NO guard
     anywhere in the module -- there is nothing to check a witness against
@@ -4687,7 +5144,7 @@ def test_split_opening_input_preempted_codes_are_never_emitted() -> None:
 
 
 # ==========================================================================
-# P1-V2.4 commit 2 -- S7 real checks (design rows 53-56): claim-support
+# P1-V2.5 commit 2 -- S7 real checks (design rows 53-56): claim-support
 # composition and abstention, pillar-support shape, and the assertion
 # digest.
 # ==========================================================================
@@ -4705,13 +5162,15 @@ def test_s7_passes_the_abstained_golden_bundle_when_accepted() -> None:
     v._stage_s7_composition_abstention(bundle, context)
 
 
-def test_s7_pillar_support_shape_wrong_subject_order_full_runner() -> None:
+def test_s7_pillar_support_shape_wrong_subject_order_direct_call() -> None:
     """Row 54: the two entries are swapped -- ``dataset`` shows up at index
     1 and ``evaluator`` at index 0. ``PillarSupportV1``'s own per-position
     ``support_subject``/``condition_code`` consts already make this
     schema-invalid, so this is a direct-stage-call proof of S7's own
     defensive check (mirroring how S5's tests distinguish schema-enforced
-    shape from this stage's own guard)."""
+    shape from this stage's own guard). P1-V2.5 review P2-4: renamed from
+    ``..._full_runner`` -- it calls the stage directly, not the runner, and
+    the old name overclaimed."""
     bundle = build_agent_quality_bundle()
     bundle["unsigned_manifest"]["pillar_support"] = list(
         reversed(bundle["unsigned_manifest"]["pillar_support"])
@@ -4727,16 +5186,25 @@ def test_s7_pillar_support_shape_wrong_dataset_commitment_ref_full_runner() -> N
     """Row 54's real (non-schema-fixed) work: ``bound_commitment_ref`` must
     equal the manifest's OWN real ``dataset_commitment_ref`` -- a
     self-consistent but FOREIGN ref is schema-valid (both are just
-    Sha256Digest-shaped strings) yet wrong. Not re-signed: ``_gv_close``
-    (what :func:`resign_agent_quality_bundle` re-runs) unconditionally
-    rebuilds ``pillar_support`` from the golden refs, which would silently
-    repair exactly the defect this test targets."""
+    Sha256Digest-shaped strings) yet wrong. P1-V2.5 review P2-4: re-signed
+    with :func:`_gv_reclose_after_manifest_field_mutation` (``_gv_close``
+    itself would unconditionally rebuild ``pillar_support`` from the golden
+    refs, silently repairing the defect -- the mutation happens AFTER
+    closing, then only the issuer signature is redone over the mutated
+    manifest)."""
     bundle = build_agent_quality_bundle()
-    bundle["unsigned_manifest"]["pillar_support"][0]["bound_commitment_ref"] = "sha256:" + "9" * 64
+    closed = _gv_reclose_after_manifest_field_mutation(
+        bundle,
+        lambda manifest: manifest["pillar_support"][0].__setitem__(
+            "bound_commitment_ref", "sha256:" + "9" * 64
+        ),
+    )
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "PILLAR_SUPPORT_SHAPE"
     assert caught.value.field == "pillar_support.dataset"
@@ -4744,11 +5212,65 @@ def test_s7_pillar_support_shape_wrong_dataset_commitment_ref_full_runner() -> N
 
 def test_s7_pillar_support_shape_wrong_evaluator_commitment_ref_full_runner() -> None:
     bundle = build_agent_quality_bundle()
-    bundle["unsigned_manifest"]["pillar_support"][1]["bound_commitment_ref"] = "sha256:" + "9" * 64
+    closed = _gv_reclose_after_manifest_field_mutation(
+        bundle,
+        lambda manifest: manifest["pillar_support"][1].__setitem__(
+            "bound_commitment_ref", "sha256:" + "9" * 64
+        ),
+    )
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "PILLAR_SUPPORT_SHAPE"
+    assert caught.value.field == "pillar_support.evaluator"
+
+
+def test_s7_pillar_support_shape_ref_nullity_bound_manifest_digest_full_runner() -> None:
+    """P1-V2.5 review P2-2 (design row 54's ref-nullity clause): an entry
+    whose ``status`` is ``condition_declared_unverified`` must carry NONE of
+    ``bound_manifest_digest``/``evidence_ref``/``trust_anchor_ref`` -- a
+    signed, schema-valid bundle carrying ``bound_manifest_digest`` on the
+    ``pillar_support[0]`` (dataset) entry anyway must now be refused, not
+    verified with the result still (correctly) reporting
+    ``*_not_verified``."""
+    bundle = build_agent_quality_bundle()
+    closed = _gv_reclose_after_manifest_field_mutation(
+        bundle,
+        lambda manifest: manifest["pillar_support"][0].__setitem__(
+            "bound_manifest_digest", "sha256:" + "9" * 64
+        ),
+    )
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "PILLAR_SUPPORT_SHAPE"
+    assert caught.value.field == "pillar_support.dataset"
+
+
+def test_s7_pillar_support_shape_ref_nullity_trust_anchor_ref_full_runner() -> None:
+    """P1-V2.5 review P2-2's second case: ``trust_anchor_ref`` on the
+    ``pillar_support[1]`` (evaluator) entry."""
+    bundle = build_agent_quality_bundle()
+    closed = _gv_reclose_after_manifest_field_mutation(
+        bundle,
+        lambda manifest: manifest["pillar_support"][1].__setitem__(
+            "trust_anchor_ref", "trust-anchor:AAAAAAAA12345678"
+        ),
+    )
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "PILLAR_SUPPORT_SHAPE"
     assert caught.value.field == "pillar_support.evaluator"
@@ -4757,13 +5279,19 @@ def test_s7_pillar_support_shape_wrong_evaluator_commitment_ref_full_runner() ->
 def test_s7_assertion_digest_mismatch_manifest_copy_full_runner() -> None:
     """Row 56: the MANIFEST's own copy of ``assertion_digest`` disagrees,
     even though the assertion's own field is internally consistent with
-    its content."""
+    its content. P1-V2.5 review P2-4: re-signed with
+    :func:`_gv_reclose_after_manifest_field_mutation` instead of a bundle
+    whose top-level signature is left broken."""
     bundle = build_agent_quality_bundle()
-    bundle["unsigned_manifest"]["assertion_digest"] = "sha256:" + "9" * 64
+    closed = _gv_reclose_after_manifest_field_mutation(
+        bundle, lambda manifest: manifest.__setitem__("assertion_digest", "sha256:" + "9" * 64)
+    )
+    assert _gv_bundle_validator().is_valid(closed)
+    assert _gv_signature_verifies(closed)
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "ASSERTION_DIGEST_MISMATCH"
     assert caught.value.field == "assertion"
@@ -4800,7 +5328,7 @@ def test_s7_assertion_digest_mismatch_wrong_rendered_text_direct_call() -> None:
 # version is REAL: per stage, a representative negative bundle (i) raises
 # THAT STAGE's own owned code with the stage intact, and (ii) raises a
 # DIFFERENT code once the stage is gutted, proving the gutted stage no
-# longer catches the violation it owns. P1-V2.4 commit 2: every stage is
+# longer catches the violation it owns. P1-V2.5 commit 2: every stage is
 # now real, so there is no shared "later placeholder" left -- the code each
 # gutted case (ii) actually produces is whichever real, later check
 # happens to ALSO notice the same underlying inconsistency (typically one
@@ -4879,7 +5407,7 @@ def test_gutting_one_stage_body_fails_only_its_own_negatives(stage_name: str) ->
             v._run_agent_quality_checks(
                 gutted_bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
             )
-    # P1-V2.4 commit 2: every stage is now real, so there is no shared
+    # P1-V2.5 commit 2: every stage is now real, so there is no shared
     # "later placeholder" left to catch a gutted stage's own violation --
     # whichever LATER real check happens to also notice the same
     # underlying inconsistency (typically one of S8's digest-mismatch

@@ -2706,3 +2706,72 @@ def _run_agent_quality_checks(
         raise
     except Exception:
         _fail("AGENT_QUALITY_VERIFICATION_FAILED", "bundle")
+
+
+def verify_agent_quality_certificate(
+    bundle: object,
+    *,
+    context: AgentQualityVerificationContext,
+    process_record_bundle: object,
+    split_opening: object | None = None,
+) -> AgentQualityVerificationResult:
+    """Verify an AgentQualityCertificateBundleV1 entirely offline (pillar 1).
+
+    A ``VERIFIED`` result entitles a relying party to conclude: an issuer
+    whose key is in the pinned trust ring signed a manifest binding THIS
+    process record, THESE commitment refs and THIS scope binding built from
+    the relying party's own pins; the interval endpoints are exactly
+    recomputable from the declared sufficient statistics under
+    ``exact_integer_rational_v1`` and the pinned quantile table; the claim
+    was scored on the split the issuer labelled ``holdout``, and the split
+    arithmetic is plausible.
+
+    It does NOT establish that the statistics summarise the holdout
+    observations, that the committed splits are the rule's partition (v1
+    ships no opening witness), that the declared plan was authored before
+    the results were computed (ordering evidence is issuer-asserted), that
+    the split key predates knowledge of the item ids, or that the estimator
+    implementation is correct.
+
+    ``process_record_bundle`` must verify in full through
+    :func:`verify_process_record_certificate` before anything else runs; a
+    failure there reaches the caller as the process record's OWN code
+    (:class:`ProcessRecordVerificationError`), never relabeled into this
+    module's vocabulary. ``split_opening`` accepts only ``None`` in v1 (see
+    :data:`AGENT_QUALITY_INPUT_PREEMPTED_CODES`) -- forward-compatible
+    signature room only, not a supported opening path.
+
+    Raises :class:`AgentQualityVerificationError` on any failure, with a
+    closed, content-free ``code``/``field`` pair. Any exception escaping the
+    private eight-stage pipeline that is not already an
+    :class:`AgentQualityVerificationError` or a
+    :class:`ProcessRecordVerificationError` is caught and re-raised as
+    ``AGENT_QUALITY_VERIFICATION_FAILED`` with no bundle content attached --
+    the catch-all never leaks the original exception's text, type, or
+    traceback into the raised error.
+    """
+    try:
+        return _run_agent_quality_checks(
+            cast(Mapping[str, Any], bundle),
+            context=context,
+            process_record_bundle=cast(Mapping[str, Any], process_record_bundle),
+            split_opening=split_opening,
+        )
+    except AgentQualityVerificationError:
+        raise
+    except ProcessRecordVerificationError:
+        raise
+    except Exception:
+        failure = AgentQualityVerificationError("AGENT_QUALITY_VERIFICATION_FAILED", "bundle")
+        try:
+            raise failure from None
+        except AgentQualityVerificationError:
+            # ``from None`` clears __cause__ and suppresses display, but while
+            # still inside the ``except Exception`` block above the
+            # interpreter has already linked the original exception as
+            # __context__ -- and that object can carry caller content.
+            # Clearing it here, once this handler has genuinely exited, is
+            # what makes it disappear (mirrors
+            # evaluator_quality_verifier.verify_evaluator_quality_certificate).
+            failure.__context__ = None
+            raise

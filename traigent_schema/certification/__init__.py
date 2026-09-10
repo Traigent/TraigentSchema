@@ -8,6 +8,13 @@ fresh relying-party context, and an explicit pinned policy; it does not
 resolve keys, contact Traigent, access a database, or inspect private evidence.
 """
 
+from traigent_schema.certification.agent_quality_verifier import (
+    AGENT_QUALITY_ERROR_CODES,
+    AgentQualityVerificationContext,
+    AgentQualityVerificationError,
+    AgentQualityVerificationResult,
+    verify_agent_quality_certificate,
+)
 from traigent_schema.certification.dataset_record_verifier import (
     DATASET_RECORD_ERROR_CODES,
     DatasetRecordVerificationContext,
@@ -57,6 +64,11 @@ from traigent_schema.certification.relying_party_verifier import (
 )
 
 __all__ = [
+    "AGENT_QUALITY_ERROR_CODES",
+    "AgentQualityVerificationContext",
+    "AgentQualityVerificationError",
+    "AgentQualityVerificationResult",
+    "verify_agent_quality_certificate",
     "CLIENT_CO_ATTESTATION_ERROR_CODES",
     "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS",
     "ClientCertificateProjection",

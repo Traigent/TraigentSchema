@@ -705,41 +705,38 @@ def test_stage_only_emits_codes_it_owns() -> None:
     assert offenders == [], offenders
 
 
-# The module's public, module-owned callable surface as of origin/develop
-# 4b3373925cee6bd57071980285c58044165c90a4 (the base this packet built on) --
-# exactly the three dataclass/exception types that predate P1-V2.0, verified
-# by loading that ref's copy of the module and computing the same set the
-# test below computes. Frozen here so packet .6 (which ships the real
-# ``verify_agent_quality_certificate`` entry point) has a single, explicit
-# constant to update, rather than a test whose expectation is buried in
-# assertion logic.
-_AGENT_QUALITY_PUBLIC_SURFACE_AT_DEVELOP_BASE = frozenset(
+# The module's public, module-owned callable surface as of packet .6, the
+# packet that ships the real ``verify_agent_quality_certificate`` entry
+# point -- exactly the three dataclass/exception types that predate P1-V2.0,
+# plus the one new public function. Frozen here so any future packet that
+# adds another public name has a single, explicit constant to update, rather
+# than a test whose expectation is buried in assertion logic.
+_AGENT_QUALITY_PUBLIC_SURFACE = frozenset(
     {
         "AgentQualityVerificationContext",
         "AgentQualityVerificationError",
         "AgentQualityVerificationResult",
+        "verify_agent_quality_certificate",
     }
 )
 
 
-def test_no_public_entry_point_exists_yet() -> None:
-    """Sol B1: this packet ships no public entry point. A half-checking
-    verifier that reports success is worse than one that does not exist, so
-    no public function -- under ANY name -- may exist on this module until
-    the complete check sequence lands.
+def test_public_entry_point_is_exactly_verify_agent_quality_certificate() -> None:
+    """Sol B1: no public success path existed until the check sequence was
+    complete (packets .0-.5); this packet is the one that ships it. A
+    half-checking verifier that reports success is worse than one that does
+    not exist, so this test -- the converted form of
+    ``test_no_public_entry_point_exists_yet`` -- now pins the module's
+    entire module-owned callable surface to EXACTLY the frozen set above,
+    the one new name included, so any OTHER newly added public callable
+    still breaks it, named however.
 
-    P1-V2.0 review finding P1-3: the original version of this test only
-    asserted the ABSENCE of the one string
-    ``verify_agent_quality_certificate``, so a public entry point under any
-    other name (``verify_agent_quality_bundle``, ``verify``, ``check``)
-    shipped green. This version pins the module's entire module-owned
-    callable surface to a FROZEN set captured from origin/develop, not just
-    one forbidden name -- so ANY newly added public callable breaks it,
-    named however. The ``__module__`` filter excludes the re-exported
+    P1-V2.0 review finding P1-3: the predecessor of this test only asserted
+    the absence of one string, so a public entry point under any other name
+    (``verify_agent_quality_bundle``, ``verify``, ``check``) would have
+    shipped green. The ``__module__`` filter excludes the re-exported
     stdlib/typing names (``Any``, ``Callable``, ``dataclass``, ...) that are
-    imported into this module's namespace but not defined by it. This test
-    is deleted only in packet .6, once the real entry point ships and this
-    constant is updated to include it."""
+    imported into this module's namespace but not defined by it."""
     module_owned_callables = {
         name
         for name in vars(v)
@@ -747,12 +744,15 @@ def test_no_public_entry_point_exists_yet() -> None:
         and callable(getattr(v, name))
         and getattr(getattr(v, name), "__module__", None) == v.__name__
     }
-    assert module_owned_callables == _AGENT_QUALITY_PUBLIC_SURFACE_AT_DEVELOP_BASE, (
+    assert module_owned_callables == _AGENT_QUALITY_PUBLIC_SURFACE, (
         f"module-owned public callable surface drifted: {sorted(module_owned_callables)}"
     )
-    assert not hasattr(v, "verify_agent_quality_certificate")
+    assert hasattr(v, "verify_agent_quality_certificate")
     module = _importlib.import_module("traigent_schema.certification")
-    assert not any("agent_quality" in name.lower() for name in module.__all__)
+    assert "verify_agent_quality_certificate" in module.__all__
+    assert "AgentQualityVerificationContext" in module.__all__
+    assert "AgentQualityVerificationError" in module.__all__
+    assert "AgentQualityVerificationResult" in module.__all__
 
 
 def test_run_agent_quality_checks_returns_the_golden_verified_result() -> None:
@@ -785,6 +785,118 @@ def test_run_agent_quality_checks_returns_the_golden_verified_result() -> None:
     assert result.split_verification_level == "issuer_attested_v1"
     assert result.dataset_condition_code == "dataset_certificate_not_verified"
     assert result.evaluator_condition_code == "evaluator_certificate_not_verified"
+
+
+def test_verify_agent_quality_certificate_golden_path() -> None:
+    """The public entry point, on the golden bundle, returns exactly what
+    the private runner returns -- the wrapper adds no transformation on the
+    success path."""
+    context = build_agent_quality_context()
+    bundle = build_agent_quality_bundle()
+    direct = v._run_agent_quality_checks(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    public = v.verify_agent_quality_certificate(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    assert public == direct
+    assert public.code == "AGENT_QUALITY_VERIFIED"
+
+
+def test_verify_agent_quality_certificate_abstained_golden_path() -> None:
+    context = build_agent_quality_context(accept_abstained_bundle=True)
+    bundle = build_abstained_agent_quality_bundle()
+    result = v.verify_agent_quality_certificate(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    assert result.code == "AGENT_QUALITY_CLAIM_ABSTAINED"
+    assert result.evidence_basis == "abstained"
+
+
+def test_verify_agent_quality_certificate_propagates_known_errors() -> None:
+    """A genuine, closed-vocabulary failure (schema-invalid bundle) reaches
+    the caller unchanged through the public wrapper, not relabeled as the
+    catch-all."""
+    context = build_agent_quality_context()
+    bundle = {"schema_version": "wrong"}
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v.verify_agent_quality_certificate(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "BUNDLE_SHAPE"
+
+
+def test_verify_agent_quality_certificate_split_opening_still_refused() -> None:
+    context = build_agent_quality_context()
+    bundle = build_agent_quality_bundle()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v.verify_agent_quality_certificate(
+            bundle,
+            context=context,
+            process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
+            split_opening={"anything": "at all"},
+        )
+    assert caught.value.code == "CONTEXT"
+    assert caught.value.field == "split_opening_witness"
+
+
+def test_verify_agent_quality_certificate_catches_stray_exceptions() -> None:
+    """Content-free catch-all: any non-AgentQualityVerificationError,
+    non-ProcessRecordVerificationError exception escaping the pipeline
+    becomes AGENT_QUALITY_VERIFICATION_FAILED at field ``bundle``, with the
+    original exception's identity scrubbed from ``__context__``."""
+    context = build_agent_quality_context()
+    bundle = build_agent_quality_bundle()
+
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("CANARY_STRAY_EXCEPTION_TEXT")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(v, "_stage_s1_structural", _boom)
+        with pytest.raises(v.AgentQualityVerificationError) as caught:
+            v.verify_agent_quality_certificate(
+                bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            )
+    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+    assert caught.value.field == "bundle"
+    assert caught.value.__context__ is None
+    assert caught.value.__cause__ is None
+
+
+def test_verify_agent_quality_certificate_propagates_process_record_error_unchanged() -> None:
+    """A failure verifying ``process_record_bundle`` itself reaches the
+    caller as the process record's OWN error type/code, never relabeled
+    into AgentQualityVerificationError -- through the PUBLIC wrapper, not
+    just the private runner."""
+    context = build_agent_quality_context()
+    bundle = build_agent_quality_bundle()
+    broken_process_record = _gv_copy.deepcopy(_GV_PROCESS_RECORD_BUNDLE)
+    broken_process_record["schema_version"] = "wrong"
+    with pytest.raises(v.ProcessRecordVerificationError):
+        v.verify_agent_quality_certificate(
+            bundle, context=context, process_record_bundle=broken_process_record
+        )
+
+
+def test_public_function_sentinel_never_leaks() -> None:
+    """Privacy canary at the public surface (mirrors
+    evaluator_quality_verifier's test of the same name): a sentinel planted
+    in the caller-controlled bundle must never appear in the raised error's
+    message, args, code/field, or exception chain."""
+    sentinel = "CANARY_PUBLIC_SURFACE_SENTINEL"
+    bundle = build_agent_quality_bundle()
+    bundle["assertion"]["rendered_text"] = sentinel
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v.verify_agent_quality_certificate(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    exc = caught.value
+    rendered = "\n".join(
+        (str(exc), repr(exc), repr(exc.args), repr(exc.__cause__), repr(exc.__context__))
+    )
+    assert sentinel not in rendered
+    assert sentinel not in "".join(traceback.format_exception(exc))
 
 
 def test_run_agent_quality_checks_golden_path_is_deterministic() -> None:
@@ -2037,18 +2149,14 @@ def test_stage_codes_are_pairwise_disjoint_and_cover_all_non_preempted_codes() -
     assert set(v._STAGE_CODES) == set(_STAGE_FUNCTION_NAMES)
 
 
-_UNWIRED_HELPER_NAMES = frozenset(
-    {
-        # New in P1-V2.0: the private runner has no in-module caller until
-        # the public entry point exists (packet .6). _wilson_point,
-        # _wilson_bounds and _student_t_half_width were wired in .4 commit 2
-        # (S5's point-estimate and interval recomputation); _unique_by was
-        # wired in commit 1's OBJECTIVE_DUPLICATE guard. _strip_self_digest
-        # is wired as of P1-V2.2 (S8's unsigned-manifest reconstruction,
-        # design row 64).
-        "_run_agent_quality_checks",
-    }
-)
+# P1-V2.6 commit 1 (G12): _run_agent_quality_checks -- the last remaining
+# unwired helper -- now has an in-module caller (the public entry point,
+# verify_agent_quality_certificate), so this inventory is empty. _wilson_point,
+# _wilson_bounds and _student_t_half_width were wired in .4 commit 2 (S5's
+# point-estimate and interval recomputation); _unique_by was wired in commit
+# 1's OBJECTIVE_DUPLICATE guard; _strip_self_digest is wired as of P1-V2.2
+# (S8's unsigned-manifest reconstruction, design row 64).
+_UNWIRED_HELPER_NAMES: frozenset[str] = frozenset()
 
 
 def test_unwired_helpers_inventory_is_exact() -> None:

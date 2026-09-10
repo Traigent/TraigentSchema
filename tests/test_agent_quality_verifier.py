@@ -1106,3 +1106,647 @@ def test_unwired_helpers_inventory_is_exact() -> None:
         f"unwired-helper inventory drifted: computed {sorted(unwired)}, "
         f"documented {sorted(_UNWIRED_HELPER_NAMES)}"
     )
+
+
+# ==========================================================================
+# P1-V2.1 -- golden vectors + re-signing harness. A test-side builder that
+# mints a digest-consistent, schema-valid, fully signed agent-quality
+# bundle; helpers that re-sign on demand after any mutation; the abstained
+# counterpart. No verifier guard logic, no public entry point, no export --
+# packets .2-.6 wire the guards these fixtures will exercise.
+# ==========================================================================
+
+import base64  # noqa: E402
+import copy as _gv_copy  # noqa: E402
+
+from cryptography.exceptions import InvalidSignature  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # noqa: E402
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
+
+from traigent_schema import fp2  # noqa: E402
+
+# The schema's own digest-domain registry (AgentQualityDigestDomainRegistryV1)
+# -- every domain string below is read from it, never retyped, so a domain
+# rename in the schema breaks this file loudly instead of silently signing
+# under a stale string.
+_GV_DOMAINS: dict[str, str] = {
+    role: spec["const"]
+    for role, spec in SCHEMA["definitions"]["AgentQualityDigestDomainRegistryV1"][
+        "properties"
+    ].items()
+}
+# base_process_record_unsigned_manifest_digest's domain belongs to the
+# PROCESS-RECORD family, not this schema's own digest-domain registry --
+# copied verbatim from AgentQualityUnsignedManifestV1's
+# base_process_record_unsigned_manifest_digest field description (ASSUMED:
+# no shipped process-record constant is imported here; ProcessRecordVerifier
+# is out of this packet's boundary).
+_GV_PROCESS_RECORD_UNSIGNED_MANIFEST_DOMAIN = "traigent.process_record.unsigned_manifest.v1"
+# A minimal stand-in for "a process record's unsigned manifest" -- this
+# schema only requires base_process_record_unsigned_manifest_digest to be A
+# Sha256Digest string; it does not validate the shape of the document that
+# digest is over, so any object serves as long as its digest is what is
+# declared here (ASSUMED, since real process-record construction is out of
+# this packet's boundary).
+_GV_PROCESS_RECORD_UNSIGNED_MANIFEST_STUB = {
+    "schema_version": _GV_PROCESS_RECORD_UNSIGNED_MANIFEST_DOMAIN,
+    "golden_vector_placeholder": True,
+}
+
+_GV_PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+_GV_PUBLIC_KEY = _GV_PRIVATE_KEY.public_key()
+# A second, independent key -- deliberately NOT in any key ring the private
+# runner will trust -- for the "wrong key, valid shape" fixture (checkpoint
+# b.3).
+_GV_FOREIGN_PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(1, 33)))
+
+_GV_ISSUER_KEY_REF = "issuerkey:aaaaaaaa"
+_GV_TRUST_RING_REF = "trustring:aaaaaaaa"
+_GV_PROJECT_REF = "proj-1"
+_GV_BUILD_SESSION_REF = "build_session:ssssssss"
+_GV_SHA = "sha256:" + "a" * 64
+_GV_MEASUREMENT_CONTRACT_REF = "measurement:mmmmmmmm"
+
+
+def build_agent_quality_context(**overrides: object) -> v.AgentQualityVerificationContext:
+    """The context the golden bundle is bound to. A thin wrapper over
+    :func:`_context` under the name this packet's brief specifies -- both
+    names stay available and can never drift apart."""
+    return _context(**overrides)
+
+
+def _gv_digest(role: str, payload: object) -> str:
+    return v._role_digest(_GV_DOMAINS[role], payload)
+
+
+def _gv_sign(role: str, payload: object, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY) -> str:
+    """Sign ``UTF8(domain) || 0x00 || fp2.canonicalize(payload)`` and return
+    base64 signature bytes -- the same construction
+    ``AgentQualitySignaturePreimageV1`` names for the top-level issuer
+    signature, reused here for the declared-plan signature under its own
+    domain (ASSUMED: the schema does not spell out the declared-plan
+    preimage explicitly; this mirrors the top-level signature's own
+    construction, the only one the schema does spell out)."""
+    material = (
+        _GV_DOMAINS[role].encode("utf-8") + b"\x00" + fp2.canonicalize(payload).encode("utf-8")
+    )
+    return base64.b64encode(private_key.sign(material)).decode("ascii")
+
+
+_GV_REGISTRY_IDENTITY_FIELDS = {
+    "aggregation_policy": (
+        "AggregationPolicyIdentityV1",
+        "policy_id",
+        "policy_version",
+        "policy_digest",
+    ),
+    "objective_registry": (
+        "ObjectiveRegistryIdentityV1",
+        "registry_id",
+        "registry_version",
+        "registry_digest",
+    ),
+    "non_claim_catalog": (
+        "NonClaimCatalogIdentityV1",
+        "catalog_id",
+        "catalog_version",
+        "catalog_digest",
+    ),
+    "quantile_table": ("QuantileTableIdentityV1", "table_id", "table_version", "table_digest"),
+}
+
+
+def _gv_registry_identity(stem: str) -> dict:
+    """A real registry-identity projection for one of the four shipped
+    documents: id/version consts read straight from the schema, digest
+    independently recomputed via the module's own
+    :func:`_load_agent_quality_document` + :func:`_role_digest` under
+    :data:`v._AGENT_QUALITY_REGISTRY_DOMAINS` -- never a sentinel (checkpoint
+    a.6)."""
+    definition_name, id_field, version_field, digest_field = _GV_REGISTRY_IDENTITY_FIELDS[stem]
+    props = SCHEMA["definitions"][definition_name]["properties"]
+    document = v._load_agent_quality_document(stem)
+    digest = v._role_digest(v._AGENT_QUALITY_REGISTRY_DOMAINS[stem], document)
+    return {
+        id_field: props[id_field]["const"],
+        version_field: props[version_field]["const"],
+        digest_field: digest,
+    }
+
+
+AGGREGATION_POLICY_IDENTITY = _gv_registry_identity("aggregation_policy")
+OBJECTIVE_REGISTRY_IDENTITY = _gv_registry_identity("objective_registry")
+NON_CLAIM_CATALOG_IDENTITY = _gv_registry_identity("non_claim_catalog")
+QUANTILE_TABLE_IDENTITY = _gv_registry_identity("quantile_table")
+
+
+def _gv_merge(value: object, override: object) -> object:
+    """Deep-merge ``override`` onto ``value``: dicts merge key-by-key
+    (recursively), anything else (including a whole list) is replaced
+    wholesale by the override. Mirrors
+    ``test_evaluator_quality_verifier.py::_merge``."""
+    if isinstance(value, dict) and isinstance(override, dict):
+        result = _gv_copy.deepcopy(value)
+        for key, child in override.items():
+            result[key] = (
+                _gv_merge(result[key], child) if key in result else _gv_copy.deepcopy(child)
+            )
+        return result
+    return _gv_copy.deepcopy(override)
+
+
+def _gv_split_derivation_raw() -> dict:
+    return {
+        "schema_version": _GV_DOMAINS["split_derivation"],
+        "split_rule_id": "hmac_sha256_prefix_threshold_v1",
+        "dataset_commitment_ref": _GV_SHA,
+        "evaluated_universe_item_count": 1000,
+        "holdout_fraction_ppm": 200000,
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "canonicalization_profile": "jcs_v1",
+        "split_key_commitment": _GV_SHA,
+        "split_derivation_digest": _GV_SHA,
+    }
+
+
+def _gv_evaluation_split_record_raw(split_id: str, item_count: int) -> dict:
+    return {
+        "schema_version": _GV_DOMAINS["evaluation_split"],
+        "split_id": split_id,
+        "item_count": item_count,
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "canonicalization_profile": "jcs_v1",
+        "split_commitment_digest": _GV_SHA,
+        "split_derivation_digest": _GV_SHA,
+    }
+
+
+def _gv_measured_claims_raw() -> list[dict]:
+    successes, trials, coverage_ppm = 190, 200, 950000
+    wilson_low, wilson_high = v._wilson_bounds(successes, trials, coverage_ppm)
+    wilson_claim = _schema_fixtures._wilson_claim(
+        point_estimate=v._wilson_point(successes, trials),
+        interval_low=wilson_low,
+        interval_high=wilson_high,
+        measurement_contract_ref=_GV_MEASUREMENT_CONTRACT_REF,
+        measurement_contract_record_digest=_GV_SHA,
+    )
+    mean_fixed, sample_stddev_fixed, sample_count, t_coverage_ppm = 800000, 50000, 200, 950000
+    half_width = v._student_t_half_width(
+        mean_fixed=mean_fixed,
+        sample_stddev_fixed=sample_stddev_fixed,
+        sample_count=sample_count,
+        coverage_ppm=t_coverage_ppm,
+        unit_scale="ppm",
+    )
+    student_t_claim = _schema_fixtures._student_t_claim(
+        point_estimate=mean_fixed,
+        interval_low=mean_fixed - half_width,
+        interval_high=mean_fixed + half_width,
+        interval_params={
+            "interval_method": "student_t_normal_approx_v1",
+            "degrees_of_freedom": sample_count - 1,
+            "quantile_table": QUANTILE_TABLE_IDENTITY,
+            "recomputation_profile": "exact_integer_rational_v1",
+        },
+        measurement_contract_ref=_GV_MEASUREMENT_CONTRACT_REF,
+        measurement_contract_record_digest=_GV_SHA,
+    )
+    return [wilson_claim, student_t_claim]
+
+
+def _gv_assertion_raw() -> dict:
+    definition = SCHEMA["definitions"]["AgentQualityAssertionV1"]
+    return {
+        "schema_version": definition["properties"]["schema_version"]["const"],
+        "claim_id": definition["properties"]["claim_id"]["const"],
+        "assertion_template_id": definition["properties"]["assertion_template_id"]["const"],
+        "aggregation_policy": AGGREGATION_POLICY_IDENTITY,
+        "objective_registry": OBJECTIVE_REGISTRY_IDENTITY,
+        "rendered_text": definition["properties"]["rendered_text"]["const"],
+        "assertion_digest": _GV_SHA,
+    }
+
+
+def _gv_declared_plan_raw(split_derivation_raw: dict) -> dict:
+    return {
+        "schema_version": _GV_DOMAINS["declared_plan"],
+        "scope_binding_digest": _GV_SHA,
+        "aggregation_policy": AGGREGATION_POLICY_IDENTITY,
+        "objective_registry": OBJECTIVE_REGISTRY_IDENTITY,
+        "objective_ids": ["obj.accuracy.exact_match.v1", "obj.accuracy.evaluator_score_mean.v1"],
+        "primary_objective_id": "obj.accuracy.exact_match.v1",
+        "split_derivation": split_derivation_raw,
+        "selection_arm_count": 4,
+        "holdout_scored_arm_count": 1,
+        "declared_plan_digest": _GV_SHA,
+    }
+
+
+def _gv_base_bundle() -> dict:
+    """The raw, un-closed skeleton: every digest/signature field present but
+    set to a placeholder, so :func:`_gv_close` always recomputes every one
+    of them fresh from the arrays actually present -- an override applied
+    before closing changes what gets signed, never leaves a stale digest
+    behind."""
+    split_derivation_raw = _gv_split_derivation_raw()
+    return {
+        "schema_version": "traigent.agent_quality.certificate_bundle.v1",
+        "split_derivation": split_derivation_raw,
+        "evaluation_splits": [
+            _gv_evaluation_split_record_raw("selection", 800),
+            _gv_evaluation_split_record_raw("holdout", 200),
+        ],
+        "measured_claims": _gv_measured_claims_raw(),
+        "non_certified_selection_estimates": [],
+        "non_claims": _schema_fixtures._non_claims(),
+        "assertion": _gv_assertion_raw(),
+        "declared_plan_envelope": {
+            "schema_version": "traigent.agent_quality.declared_plan_envelope.v1",
+            "declared_plan": _gv_declared_plan_raw(split_derivation_raw),
+            "signature": {
+                "schema_version": _GV_DOMAINS["declared_plan_signature"],
+                "algorithm": "ed25519",
+                "issuer_key_ref": _GV_ISSUER_KEY_REF,
+                "trust_ring_ref": _GV_TRUST_RING_REF,
+                "signed_payload": "agent_quality_declared_plan",
+                "declared_plan_digest": _GV_SHA,
+                "signature": "A" * 85 + "A==",
+            },
+        },
+        "claim_support_rows": [
+            {
+                "claim_id": "AQ1",
+                "evidence_basis": "issuer_verified",
+                "assertion_digest": _GV_SHA,
+                "measured_claims_digest": _GV_SHA,
+                "evaluation_splits_digest": _GV_SHA,
+                "verifier_result": "pass",
+                "claim_material_digest": _GV_SHA,
+                "declared_plan_digest": _GV_SHA,
+            }
+        ],
+        "unsigned_manifest": {"schema_version": "traigent.agent_quality.unsigned_manifest.v1"},
+        "signature": {
+            "schema_version": "traigent.agent_quality.signature.v1",
+            "algorithm": "ed25519",
+            "issuer_key_ref": _GV_ISSUER_KEY_REF,
+            "trust_ring_ref": _GV_TRUST_RING_REF,
+            "signed_payload": "unsigned_agent_quality_manifest",
+            "unsigned_manifest_digest": _GV_SHA,
+            "signature": "A" * 85 + "A==",
+        },
+    }
+
+
+def _gv_close(bundle: dict, *, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY) -> dict:
+    """Recompute EVERY digest and signature in ``bundle`` from its arrays,
+    bottom-up, and return a new, fully consistent bundle. The one function
+    every mutation-then-resign helper below is built from."""
+    b = _gv_copy.deepcopy(bundle)
+
+    split_derivation = b["split_derivation"]
+    split_derivation["split_derivation_digest"] = _gv_digest(
+        "split_derivation", v._strip_self_digest(split_derivation, "split_derivation_digest")
+    )
+    for record in b["evaluation_splits"]:
+        record["split_derivation_digest"] = split_derivation["split_derivation_digest"]
+    evaluation_splits_digest = _gv_digest("evaluation_splits", b["evaluation_splits"])
+    measured_claims_digest = _gv_digest("measured_claims", b["measured_claims"])
+    selection_estimates_digest = _gv_digest(
+        "selection_estimates", b["non_certified_selection_estimates"]
+    )
+    non_claims_digest = _gv_digest("non_claims", b["non_claims"])
+
+    assertion = b["assertion"]
+    assertion["assertion_digest"] = _gv_digest(
+        "assertion", v._strip_self_digest(assertion, "assertion_digest")
+    )
+
+    declared_plan = b["declared_plan_envelope"]["declared_plan"]
+    declared_plan["split_derivation"] = split_derivation
+    declared_plan["scope_binding_digest"] = _gv_digest(
+        "scope_binding",
+        {
+            "schema_version": _GV_DOMAINS["scope_binding"],
+            "project_ref": _GV_PROJECT_REF,
+            "build_session_ref": _GV_BUILD_SESSION_REF,
+        },
+    )
+    declared_plan["declared_plan_digest"] = _gv_digest(
+        "declared_plan", v._strip_self_digest(declared_plan, "declared_plan_digest")
+    )
+    declared_plan_signature = b["declared_plan_envelope"]["signature"]
+    declared_plan_signature["declared_plan_digest"] = declared_plan["declared_plan_digest"]
+    declared_plan_signature["signature"] = _gv_sign(
+        "declared_plan_signature", declared_plan, private_key
+    )
+    declared_plan_signature_digest = _gv_digest("declared_plan_signature", declared_plan_signature)
+
+    claim_material = {
+        "claim_id": assertion["claim_id"],
+        "tier": 3,
+        "assertion_template_id": assertion["assertion_template_id"],
+        "rendered_text": assertion["rendered_text"],
+        "assertion_digest": assertion["assertion_digest"],
+    }
+    claim_material_digest = _gv_digest("claim_material", claim_material)
+
+    for row in b["claim_support_rows"]:
+        if row.get("evidence_basis") == "abstained":
+            continue
+        row.update(
+            {
+                "assertion_digest": assertion["assertion_digest"],
+                "measured_claims_digest": measured_claims_digest,
+                "evaluation_splits_digest": evaluation_splits_digest,
+                "verifier_result": "pass",
+                "claim_material_digest": claim_material_digest,
+                "declared_plan_digest": declared_plan["declared_plan_digest"],
+            }
+        )
+    claim_support_rows_digest = _gv_digest("claim_support_rows", b["claim_support_rows"])
+
+    coverage = SCHEMA["definitions"]["AgentQualityUnsignedManifestV1"]["properties"]["coverage"][
+        "const"
+    ]
+    manifest = {
+        "schema_version": "traigent.agent_quality.unsigned_manifest.v1",
+        "base_process_record_unsigned_manifest_digest": v._role_digest(
+            _GV_PROCESS_RECORD_UNSIGNED_MANIFEST_DOMAIN, _GV_PROCESS_RECORD_UNSIGNED_MANIFEST_STUB
+        ),
+        "scope_binding_digest": declared_plan["scope_binding_digest"],
+        "agent_commitment_ref": _GV_SHA,
+        "dataset_commitment_ref": _GV_SHA,
+        "evaluator_commitment_ref": _GV_SHA,
+        "build_definition_commitment_ref": _GV_SHA,
+        "measurement_contract_ref": _GV_MEASUREMENT_CONTRACT_REF,
+        "measurement_contract_record_digest": _GV_SHA,
+        "aggregation_policy": AGGREGATION_POLICY_IDENTITY,
+        "objective_registry": OBJECTIVE_REGISTRY_IDENTITY,
+        "non_claim_catalog": NON_CLAIM_CATALOG_IDENTITY,
+        "quantile_table": QUANTILE_TABLE_IDENTITY,
+        "declared_plan_digest": declared_plan["declared_plan_digest"],
+        "declared_plan_signature_digest": declared_plan_signature_digest,
+        "split_derivation_digest": split_derivation["split_derivation_digest"],
+        "evaluation_splits_digest": evaluation_splits_digest,
+        "measured_claims_digest": measured_claims_digest,
+        "non_certified_selection_estimates_digest": selection_estimates_digest,
+        "primary_objective_id": declared_plan["primary_objective_id"],
+        "selection_arm_count": declared_plan["selection_arm_count"],
+        "holdout_scored_arm_count": declared_plan["holdout_scored_arm_count"],
+        "pillar_support": _schema_fixtures._pillar_support(),
+        "assertion_digest": assertion["assertion_digest"],
+        "non_claims_digest": non_claims_digest,
+        "agent_quality_claim_support_rows_digest": claim_support_rows_digest,
+        "trust_ring_ref": _GV_TRUST_RING_REF,
+        "issuer_key_ref": _GV_ISSUER_KEY_REF,
+        "issuer_signature_algorithm": "ed25519",
+        "coverage": coverage,
+    }
+    b["unsigned_manifest"] = manifest
+    b["signature"] = {
+        "schema_version": "traigent.agent_quality.signature.v1",
+        "algorithm": "ed25519",
+        "issuer_key_ref": _GV_ISSUER_KEY_REF,
+        "trust_ring_ref": _GV_TRUST_RING_REF,
+        "signed_payload": "unsigned_agent_quality_manifest",
+        "unsigned_manifest_digest": _gv_digest("unsigned_manifest", manifest),
+        "signature": _gv_sign("issuer_signature", manifest, private_key),
+    }
+    return b
+
+
+def build_agent_quality_bundle(**overrides: object) -> dict:
+    """Return a schema-valid, digest-consistent, genuinely ed25519-signed
+    agent-quality bundle. ``**overrides`` deep-merge onto the raw skeleton
+    BEFORE closing, so every digest/signature that depends on an overridden
+    value is recomputed, never stale."""
+    merged = _gv_merge(_gv_base_bundle(), overrides)
+    assert isinstance(merged, dict)
+    return _gv_close(merged)
+
+
+def _gv_bundle_validator() -> Draft7Validator:
+    return _schema_validator("AgentQualityCertificateBundleV1")
+
+
+def _gv_signature_verifies(bundle: dict, public_key: Ed25519PublicKey = _GV_PUBLIC_KEY) -> bool:
+    manifest = bundle["unsigned_manifest"]
+    if bundle["signature"]["unsigned_manifest_digest"] != _gv_digest("unsigned_manifest", manifest):
+        return False
+    material = (
+        _GV_DOMAINS["issuer_signature"].encode("utf-8")
+        + b"\x00"
+        + fp2.canonicalize(manifest).encode("utf-8")
+    )
+    try:
+        public_key.verify(base64.b64decode(bundle["signature"]["signature"]), material)
+    except InvalidSignature:
+        return False
+    return True
+
+
+# --------------------------------------------------------------------------
+# Checkpoint (a) -- one deterministic, canonical, digest-consistent, signed
+# bundle that reaches the private runner's fail-closed boundary.
+# --------------------------------------------------------------------------
+
+
+def test_golden_bundle_is_schema_valid() -> None:
+    bundle = build_agent_quality_bundle()
+    errors = list(_gv_bundle_validator().iter_errors(bundle))
+    assert errors == [], [(list(e.absolute_path), e.message) for e in errors]
+
+
+_GV_DIGEST_COVERAGE_CASES = [
+    ("assertion", "assertion_digest", "assertion"),
+    ("split_derivation", "split_derivation_digest", "split_derivation"),
+    ("evaluation_splits", "evaluation_splits_digest", "evaluation_splits"),
+    ("measured_claims", "measured_claims_digest", "measured_claims"),
+    (
+        "non_certified_selection_estimates",
+        "non_certified_selection_estimates_digest",
+        "selection_estimates",
+    ),
+    ("non_claims", "non_claims_digest", "non_claims"),
+    ("claim_support_rows", "agent_quality_claim_support_rows_digest", "claim_support_rows"),
+]
+
+
+@pytest.mark.parametrize(
+    "array_name,manifest_field,domain_role",
+    _GV_DIGEST_COVERAGE_CASES,
+    ids=[c[0] for c in _GV_DIGEST_COVERAGE_CASES],
+)
+def test_golden_bundle_digests_recompute(
+    array_name: str, manifest_field: str, domain_role: str
+) -> None:
+    """Every ``*_digest`` field in ``unsigned_manifest`` that covers one of
+    the seven signed arrays/projections (design rows 56-62) equals
+    :func:`v._role_digest` recomputed from the bundle's own array under the
+    domain the schema's own ``AgentQualityDigestDomainRegistryV1``
+    registers for it -- one parametrized case per field, so a single
+    mismatched field cannot hide behind seven others that still match."""
+    bundle = build_agent_quality_bundle()
+    projection = bundle[array_name]
+    if array_name in ("assertion", "split_derivation"):
+        self_field = manifest_field
+        projection = v._strip_self_digest(projection, self_field)
+    assert bundle["unsigned_manifest"][manifest_field] == v._role_digest(
+        _GV_DOMAINS[domain_role], projection
+    )
+
+
+def test_golden_bundle_scope_binding_and_process_record_digests_recompute() -> None:
+    """The two manifest digests that are NOT one of the seven signed
+    arrays/projections: ``base_process_record_unsigned_manifest_digest``
+    (over a minimal process-record-unsigned-manifest stand-in -- see
+    :data:`_GV_PROCESS_RECORD_UNSIGNED_MANIFEST_STUB`'s docstring for why
+    any object suffices) and ``scope_binding_digest`` (over
+    ``ScopeBindingProjectionV1`` built from the same project/build-session
+    refs :func:`build_agent_quality_context` uses)."""
+    bundle = build_agent_quality_bundle()
+    manifest = bundle["unsigned_manifest"]
+    assert manifest["base_process_record_unsigned_manifest_digest"] == v._role_digest(
+        _GV_PROCESS_RECORD_UNSIGNED_MANIFEST_DOMAIN, _GV_PROCESS_RECORD_UNSIGNED_MANIFEST_STUB
+    )
+    assert manifest["scope_binding_digest"] == _gv_digest(
+        "scope_binding",
+        {
+            "schema_version": _GV_DOMAINS["scope_binding"],
+            "project_ref": _GV_PROJECT_REF,
+            "build_session_ref": _GV_BUILD_SESSION_REF,
+        },
+    )
+
+
+def test_golden_bundle_issuer_signature_verifies() -> None:
+    bundle = build_agent_quality_bundle()
+    assert _gv_signature_verifies(bundle)
+
+
+def test_golden_bundle_issuer_signature_rejects_a_flipped_manifest_byte() -> None:
+    """Negative counterpart -- proves the positive verification above is not
+    vacuous: flipping one byte of the canonical manifest makes verification
+    fail."""
+    bundle = build_agent_quality_bundle()
+    manifest = bundle["unsigned_manifest"]
+    canonical = fp2.canonicalize(manifest)
+    flipped = (canonical[:-2] + ("0" if canonical[-2] != "0" else "1") + canonical[-1:]).encode(
+        "utf-8"
+    )
+    material = _GV_DOMAINS["issuer_signature"].encode("utf-8") + b"\x00" + flipped
+    with pytest.raises(InvalidSignature):
+        _GV_PUBLIC_KEY.verify(base64.b64decode(bundle["signature"]["signature"]), material)
+
+
+def test_golden_declared_plan_digests_and_signature() -> None:
+    bundle = build_agent_quality_bundle()
+    declared_plan = bundle["declared_plan_envelope"]["declared_plan"]
+    signature = bundle["declared_plan_envelope"]["signature"]
+    assert declared_plan["declared_plan_digest"] == _gv_digest(
+        "declared_plan", v._strip_self_digest(declared_plan, "declared_plan_digest")
+    )
+    assert signature["declared_plan_digest"] == declared_plan["declared_plan_digest"]
+    assert (
+        bundle["unsigned_manifest"]["declared_plan_digest"] == declared_plan["declared_plan_digest"]
+    )
+    assert bundle["unsigned_manifest"]["declared_plan_signature_digest"] == _gv_digest(
+        "declared_plan_signature", signature
+    )
+    material = (
+        _GV_DOMAINS["declared_plan_signature"].encode("utf-8")
+        + b"\x00"
+        + fp2.canonicalize(declared_plan).encode("utf-8")
+    )
+    _GV_PUBLIC_KEY.verify(base64.b64decode(signature["signature"]), material)
+
+
+def test_golden_measured_claim_recomputes() -> None:
+    """The golden ``measured_claims`` row's interval endpoints equal
+    :func:`v._wilson_bounds` from the printed sufficient statistics, and the
+    split arithmetic (holdout item count vs. the claim's own sample_size,
+    selection+holdout summing to the declared universe) is internally
+    consistent. A second, distinct interval-method vector
+    (``student_t_normal_approx_v1``) is included because
+    ``EmittableObjectiveIdV1``/the shipped ``ObjectiveRegistry`` package
+    document register ``obj.accuracy.evaluator_score_mean.v1`` as a
+    ``bounded_mean`` objective, a first-class vector distinct from the
+    binary-rate/Wilson one -- so a golden vector with only Wilson coverage
+    would never exercise :func:`v._student_t_half_width` at all."""
+    bundle = build_agent_quality_bundle()
+    wilson_claim, student_t_claim = bundle["measured_claims"]
+
+    stats = wilson_claim["sufficient_statistics"]
+    successes, trials = stats["success_count"], stats["trial_count"]
+    coverage_ppm = wilson_claim["nominal_coverage_ppm"]
+    assert wilson_claim["point_estimate"] == v._wilson_point(successes, trials)
+    low, high = v._wilson_bounds(successes, trials, coverage_ppm)
+    assert (wilson_claim["interval_low"], wilson_claim["interval_high"]) == (low, high)
+    assert wilson_claim["sample_size"] == trials
+
+    t_stats = student_t_claim["sufficient_statistics"]
+    half_width = v._student_t_half_width(
+        mean_fixed=t_stats["mean_fixed"],
+        sample_stddev_fixed=t_stats["sample_stddev_fixed"],
+        sample_count=t_stats["sample_count"],
+        coverage_ppm=student_t_claim["nominal_coverage_ppm"],
+        unit_scale=t_stats["unit_scale"],
+    )
+    assert student_t_claim["point_estimate"] == t_stats["mean_fixed"]
+    assert student_t_claim["interval_low"] == t_stats["mean_fixed"] - half_width
+    assert student_t_claim["interval_high"] == t_stats["mean_fixed"] + half_width
+    assert student_t_claim["sample_size"] == t_stats["sample_count"]
+
+    split_derivation = bundle["split_derivation"]
+    selection_count, holdout_count = (
+        record["item_count"] for record in bundle["evaluation_splits"]
+    )
+    assert selection_count + holdout_count == split_derivation["evaluated_universe_item_count"]
+    assert wilson_claim["evaluated_split_id"] == "holdout"
+    assert student_t_claim["evaluated_split_id"] == "holdout"
+    assert wilson_claim["sample_size"] == holdout_count
+
+
+def test_golden_registry_identities_match_package_data() -> None:
+    """``aggregation_policy``/``objective_registry``/``non_claim_catalog``/
+    ``quantile_table`` identities carry the SHIPPED package documents'
+    ids/versions/digests, and ``non_claims`` is the shipped catalogue's
+    fixed tuple in order."""
+    bundle = build_agent_quality_bundle()
+    manifest = bundle["unsigned_manifest"]
+    for stem, field, identity in (
+        ("aggregation_policy", "aggregation_policy", AGGREGATION_POLICY_IDENTITY),
+        ("objective_registry", "objective_registry", OBJECTIVE_REGISTRY_IDENTITY),
+        ("non_claim_catalog", "non_claim_catalog", NON_CLAIM_CATALOG_IDENTITY),
+        ("quantile_table", "quantile_table", QUANTILE_TABLE_IDENTITY),
+    ):
+        document = v._load_agent_quality_document(stem)
+        expected_digest = v._role_digest(v._AGENT_QUALITY_REGISTRY_DOMAINS[stem], document)
+        assert manifest[field] == identity
+        assert list(identity.values())[-1] == expected_digest
+    assert bundle["non_claims"] == _schema_fixtures._non_claims()
+
+
+def test_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
+    """The golden bundle reaches ``_run_agent_quality_checks`` and is
+    rejected at S1's placeholder catch-all -- the only failure this
+    packet's runner is capable of, since every stage is still an
+    unconditional refusal. Packet .2 retargets this test to a PASS through
+    S1 and S8 once S1's real structural checks and S8's real digest/
+    signature checks replace today's placeholders."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(bundle, context)
+    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+    assert caught.value.field == "bundle"
+
+
+def test_golden_builders_are_deterministic() -> None:
+    first = fp2.canonicalize(build_agent_quality_bundle())
+    second = fp2.canonicalize(build_agent_quality_bundle())
+    assert first == second

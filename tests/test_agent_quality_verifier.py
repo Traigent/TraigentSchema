@@ -15,6 +15,7 @@ import json
 import math
 import re
 import traceback
+from collections.abc import Callable
 from fractions import Fraction
 from pathlib import Path
 from unittest.mock import patch
@@ -763,7 +764,7 @@ def test_run_agent_quality_checks_propagates_process_record_error_unchanged() ->
     assert caught.value.code != "AGENT_QUALITY_VERIFICATION_FAILED"
 
 
-# S1, S2, S3, S4 and S8 are no longer unconditional refusals, so none of
+# S1, S2, S3, S4, S5 and S8 are no longer unconditional refusals, so none of
 # them can share the uniform "any schema-valid bundle is refused with the
 # catch-all" assertion below -- a schema-valid, digest-consistent, signed
 # bundle genuinely bound to the golden process record is exactly what their
@@ -771,9 +772,9 @@ def test_run_agent_quality_checks_propagates_process_record_error_unchanged() ->
 # uniform ``(bundle, context)`` two-argument shape every other stage still
 # has (each additionally needs ``process_record_bundle``, like S8), so none
 # of the four can be driven by this parametrized test's uniform call shape
-# either. S5-S7 remain placeholders in this packet and keep the uniform
-# assertion; S1, S2, S3, S4 and S8 each get their own dedicated fail-closed
-# coverage (test_stage_s{1,2,3,4,8}_..._is_a_real_fail_closed_function).
+# either. S6-S7 remain placeholders in this packet and keep the uniform
+# assertion; S1, S2, S3, S4, S5 and S8 each get their own dedicated
+# fail-closed coverage (test_stage_s{1,2,3,4,5,8}_..._is_a_real_fail_closed_function).
 _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES = tuple(
     name
     for name in _STAGE_FUNCTION_NAMES
@@ -783,6 +784,7 @@ _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES = tuple(
         "_stage_s2_context_binding",
         "_stage_s3_registry_identity",
         "_stage_s4_declared_plan_signatures",
+        "_stage_s5_objective_measurement",
         "_stage_s8_manifest_digests_signature",
     )
 )
@@ -1287,13 +1289,13 @@ def test_stage_codes_are_pairwise_disjoint_and_cover_all_non_preempted_codes() -
 
 _UNWIRED_HELPER_NAMES = frozenset(
     {
-        # Pre-existing at base (#459/#461); packet .4 wires the four
-        # arithmetic/dedup helpers below. _strip_self_digest is wired as of
+        # Pre-existing at base (#459/#461); packet .4 commit 2 wires the
+        # three arithmetic helpers below (_unique_by was wired in commit 1's
+        # OBJECTIVE_DUPLICATE guard). _strip_self_digest is wired as of
         # P1-V2.2 (S8's unsigned-manifest reconstruction, design row 64).
         "_wilson_point",
         "_student_t_half_width",
         "_wilson_bounds",
-        "_unique_by",
         # New in P1-V2.0: the private runner has no in-module caller until
         # the public entry point exists (packet .6).
         "_run_agent_quality_checks",
@@ -2112,25 +2114,26 @@ def test_golden_registry_identities_match_package_data() -> None:
 
 
 def test_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
-    """P1-V2.3 retarget (sanctioned by the packet brief): S1, S2, S3 and S4
-    now all run real checks and PASS the golden bundle -- it is
-    schema-valid, digest-consistent, genuinely bound to
-    :data:`_GV_PROCESS_RECORD_BUNDLE`'s scope/commitments, and its
-    declared-plan digest/signature both verify -- so the runner advances
-    past all four and is rejected at S5's still-unconditional-refusal
-    placeholder instead. Proves S1-S4 do not silently swallow a bundle they
-    should pass, without yet asserting anything about S5-S7 (still
+    """P1-V2.4 retarget (sanctioned by the packet brief): S1-S5 now all run
+    real checks and PASS the golden bundle -- it is schema-valid,
+    digest-consistent, genuinely bound to
+    :data:`_GV_PROCESS_RECORD_BUNDLE`'s scope/commitments, its declared-plan
+    digest/signature both verify, and its two certified claims are
+    registered, admissible, and recompute exactly -- so the runner advances
+    past all five and is rejected at S6's still-unconditional-refusal
+    placeholder instead. Proves S1-S5 do not silently swallow a bundle they
+    should pass, without yet asserting anything about S6-S7 (still
     placeholders) or S8 (real, but never reached from this boundary)."""
     bundle = build_agent_quality_bundle()
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         # process_record_bundle IS reached now: S2 verifies it in full
-        # before S5's still-unconditional refusal fires.
+        # before S6's still-unconditional refusal fires.
         v._run_agent_quality_checks(
             bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "measured_claims.objective"
+    assert caught.value.field == "evaluation_splits"
 
 
 def test_golden_builders_are_deterministic() -> None:
@@ -2486,11 +2489,13 @@ def test_abstained_golden_bundle_coupling_control() -> None:
 
 
 def test_abstained_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
-    """P1-V2.3 retarget (sanctioned by the packet brief), same shape as
+    """P1-V2.4 retarget (sanctioned by the packet brief), same shape as
     :func:`test_golden_bundle_reaches_private_runner_fail_closed_boundary`:
     the abstained golden bundle is also schema-valid and genuinely bound to
-    the real process record, so it now passes S1-S4 and is refused at S5's
-    placeholder."""
+    the real process record, so it now passes S1-S4 and vacuously passes S5
+    (its ``measured_claims`` is empty, exactly as an ``abstained`` support
+    row requires, so there is nothing for S5 to recompute), and is refused
+    at S6's placeholder."""
     bundle = build_abstained_agent_quality_bundle()
     context = build_agent_quality_context(accept_abstained_bundle=True)
     with pytest.raises(v.AgentQualityVerificationError) as caught:
@@ -2498,7 +2503,7 @@ def test_abstained_golden_bundle_reaches_private_runner_fail_closed_boundary() -
             bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "measured_claims.objective"
+    assert caught.value.field == "evaluation_splits"
 
 
 def test_resign_with_foreign_key_produces_a_mismatched_but_valid_signature() -> None:
@@ -2575,12 +2580,12 @@ def test_stage_s8_manifest_digests_signature_is_a_real_fail_closed_function() ->
     assert caught.value.field == "unsigned_manifest"
 
 
-def test_family_b_golden_bundle_reaches_s5_not_s8_through_full_runner() -> None:
+def test_family_b_golden_bundle_reaches_s6_not_s8_through_full_runner() -> None:
     """One test runs the WHOLE runner on a family-B bundle to prove it is
-    refused at S5 (still a placeholder), never reaching S8 at all --
+    refused at S6 (still a placeholder), never reaching S8 at all --
     complementary to the direct-call tests above, which prove S8 itself is
-    real. P1-V2.3 retarget (sanctioned by the packet brief): S2-S4 are now
-    real too, so the boundary moves from S2 to S5."""
+    real. P1-V2.4 retarget (sanctioned by the packet brief): S5 is now real
+    too, so the boundary moves from S5 to S6."""
     bundle = build_agent_quality_bundle()
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
@@ -2588,7 +2593,7 @@ def test_family_b_golden_bundle_reaches_s5_not_s8_through_full_runner() -> None:
             bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "measured_claims.objective"
+    assert caught.value.field == "evaluation_splits"
 
 
 # Rows 57-62 -- one parametrized case per signed array/projection: mutate
@@ -3031,17 +3036,25 @@ def test_s2_scope_mismatch_context_disagrees_with_verified_process_record() -> N
     assert caught.value.field == "scope_binding"
 
 
-def test_s2_measurement_contract_not_pinned() -> None:
-    """A context bypassing ``__post_init__``'s own validation (frozen
-    dataclass, via ``object.__setattr__``) to carry a missing measurement-
-    contract pin must still fail closed, defensively, inside S2 itself."""
-    bundle = build_agent_quality_bundle()
-    context = build_agent_quality_context()
-    object.__setattr__(context, "expected_measurement_contract_ref", None)
-    with pytest.raises(v.AgentQualityVerificationError) as caught:
-        v._stage_s2_context_binding(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
-    assert caught.value.code == "MEASUREMENT_CONTRACT_NOT_PINNED"
-    assert caught.value.field == "context"
+def test_measurement_contract_pin_none_is_preempted_by_context_construction() -> None:
+    """P1-V2.3 review finding P2-3: MEASUREMENT_CONTRACT_NOT_PINNED (design
+    row 11) is preempted by ``AgentQualityVerificationContext.__post_init__``
+    itself -- both measurement-contract pins are non-Optional ``str``
+    fields, so constructing the context with either as ``None`` already
+    raises CONTEXT before S2's stage body ever runs. See
+    :data:`v.AGENT_QUALITY_CONTEXT_PREEMPTED_CODES`. (The previous version of
+    this test forced the frozen dataclass open with ``object.__setattr__``
+    to manufacture the state and prove only that the ``_fail`` line exists,
+    which says nothing about whether it is ever reachable.)"""
+    with pytest.raises(v.AgentQualityVerificationError) as caught_ref:
+        build_agent_quality_context(expected_measurement_contract_ref=None)
+    assert caught_ref.value.code == "CONTEXT"
+    assert caught_ref.value.field == "context"
+
+    with pytest.raises(v.AgentQualityVerificationError) as caught_digest:
+        build_agent_quality_context(expected_measurement_contract_record_digest=None)
+    assert caught_digest.value.code == "CONTEXT"
+    assert caught_digest.value.field == "context"
 
 
 def test_s2_measurement_contract_mismatch_manifest() -> None:
@@ -3225,6 +3238,37 @@ def test_s4_declared_plan_signature_invalid_malformed_process_record_key() -> No
     assert caught.value.field == "declared_plan_signature"
 
 
+def test_s4_declared_plan_signature_invalid_foreign_but_self_consistent_key_ring() -> None:
+    """P1-V2.3 review finding P2-2 (T7h): the declared-plan signature block
+    asserts a FOREIGN issuer_key_ref/trust_ring_ref -- self-consistent with
+    nothing else in the bundle checking those two fields except this
+    stage -- while the manifest and every OTHER field stay genuinely signed
+    by the real issuer. Before this closure, S4 never read the envelope's
+    own key-ring fields at all (it resolved the verifying key straight from
+    ``process_record_bundle``), so this bundle passed every stage in the
+    packet. It must now fail DECLARED_PLAN_SIGNATURE_INVALID."""
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["signature"]["issuer_key_ref"] = "issuerkey:zzzzzzzz"
+    bundle["declared_plan_envelope"]["signature"]["trust_ring_ref"] = "trustring:zzzzzzzz"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "DECLARED_PLAN_SIGNATURE_INVALID"
+    assert caught.value.field == "declared_plan_signature"
+
+
+def test_s4_declared_plan_signature_invalid_wrong_algorithm_ref() -> None:
+    """The third field P2-2 requires checked: a declared algorithm
+    disagreement with the v0 issuer materials, everything else genuine."""
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["signature"]["algorithm"] = "ecdsa_p256_sha256"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+    assert caught.value.code == "DECLARED_PLAN_SIGNATURE_INVALID"
+    assert caught.value.field == "declared_plan_signature"
+
+
 def test_s4_declared_plan_pin_mismatch() -> None:
     bundle = build_agent_quality_bundle()
     context = build_agent_quality_context(expected_declared_plan_digest="sha256:" + "9" * 64)
@@ -3248,26 +3292,375 @@ def test_s4_declared_plan_pin_skipped_when_none() -> None:
 
 
 # ==========================================================================
+# P1-V2.4 commit 1 -- S5 real checks (design rows 22-31, 36-39): objective
+# registration and per-claim structural shape. Rows 32-35 (the exact-integer
+# recomputation and the order/degeneracy checks that must run before it) are
+# added in commit 2, further below.
+# ==========================================================================
+
+
+def test_s5_passes_the_golden_bundle() -> None:
+    """The golden bundle's two certified claims (Wilson for
+    ``obj.accuracy.exact_match.v1``, Student-t for
+    ``obj.accuracy.evaluator_score_mean.v1``) are exactly what S5's real
+    checks are supposed to PASS -- called directly (bypassing S1-S4, S6-S8)."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    v._stage_s5_objective_measurement(bundle, context)
+
+
+def test_s5_passes_the_abstained_golden_bundle() -> None:
+    """An abstained bundle's ``measured_claims`` is empty by schema
+    construction -- S5 has nothing to recompute and returns immediately,
+    rather than reporting PRIMARY_OBJECTIVE_MISSING against an empty set."""
+    bundle = build_abstained_agent_quality_bundle()
+    context = build_agent_quality_context(accept_abstained_bundle=True)
+    v._stage_s5_objective_measurement(bundle, context)
+
+
+def test_s5_objective_not_in_declared_plan() -> None:
+    """The claim's own ``objective_kind``/``unit``/statistics stay Wilson
+    binary-rate/ppm so this fails at row 22 alone, not at a downstream
+    kind/unit mismatch."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["objective_id"] = "obj.cost.mean_microusd_per_item.v1"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "OBJECTIVE_NOT_IN_DECLARED_PLAN"
+    assert caught.value.field == "measured_claims.objective"
+
+
+def test_s5_primary_objective_missing_manifest_disagrees_with_declared_plan() -> None:
+    """Both certified objective ids stay in the declared plan (row 22
+    passes for every claim); only the manifest's own copy of
+    ``primary_objective_id`` disagrees with the declared plan's."""
+    bundle = build_agent_quality_bundle()
+    bundle["unsigned_manifest"]["primary_objective_id"] = "obj.accuracy.evaluator_score_mean.v1"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "PRIMARY_OBJECTIVE_MISSING"
+    assert caught.value.field == "measured_claims.objective"
+
+
+def test_s5_primary_objective_missing_not_among_certified_claims() -> None:
+    """Manifest and declared plan agree on the primary, but no certified
+    claim actually names it."""
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["declared_plan"]["primary_objective_id"] = (
+        "obj.cost.mean_microusd_per_item.v1"
+    )
+    bundle["declared_plan_envelope"]["declared_plan"]["objective_ids"] = [
+        "obj.accuracy.exact_match.v1",
+        "obj.accuracy.evaluator_score_mean.v1",
+        "obj.cost.mean_microusd_per_item.v1",
+    ]
+    bundle["unsigned_manifest"]["primary_objective_id"] = "obj.cost.mean_microusd_per_item.v1"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "PRIMARY_OBJECTIVE_MISSING"
+    assert caught.value.field == "measured_claims.objective"
+
+
+def test_s5_objective_duplicate() -> None:
+    """Two certified claims naming the SAME objective -- row 28's
+    :func:`v._unique_by` guard, checked over the whole certified set before
+    any per-claim shape check runs."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"].append(dict(bundle["measured_claims"][0]))
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "OBJECTIVE_DUPLICATE"
+    assert caught.value.field == "measured_claims"
+
+
+def test_s5_objective_not_registered() -> None:
+    """An objective id outside the shipped registry entirely -- schema
+    would reject this (``ObjectiveIdV1``'s closed enum), so this stage's
+    own defensive registry lookup, not the schema, is what this test
+    proves, by calling S5 directly. Mutates the SECONDARY claim so the
+    primary-objective check (row 23) still passes on the untouched primary
+    claim."""
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["declared_plan"]["objective_ids"] = [
+        "obj.accuracy.exact_match.v1",
+        "obj.unregistered.made_up.v1",
+    ]
+    bundle["measured_claims"][1]["objective_id"] = "obj.unregistered.made_up.v1"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "OBJECTIVE_NOT_REGISTERED"
+    assert caught.value.field == "measured_claims.objective"
+
+
+def test_s5_objective_kind_mismatch() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["objective_kind"] = "bounded_mean"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "OBJECTIVE_KIND_MISMATCH"
+    assert caught.value.field == "measured_claims.objective"
+
+
+def test_s5_objective_kind_mismatch_direction() -> None:
+    """Direction folds into OBJECTIVE_KIND_MISMATCH (design row 25's own
+    field, split only into kind+direction versus unit)."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["direction"] = "minimize"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "OBJECTIVE_KIND_MISMATCH"
+    assert caught.value.field == "measured_claims.objective"
+
+
+def test_s5_objective_unit_mismatch() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["unit"] = "microusd"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "OBJECTIVE_UNIT_MISMATCH"
+    assert caught.value.field == "measured_claims.objective"
+
+
+def test_s5_objective_minimum_sample_not_met() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["sample_size"] = 5
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET"
+    assert caught.value.field == "measured_claims.sample_size"
+
+
+def test_s5_distribution_assumption_not_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ``nonnegative_mean`` objective whose SHIPPED registry entry lacks a
+    registered ``distribution_assumption`` -- the shipped registry always
+    carries one for its two ``nonnegative_mean`` entries, so this patches
+    the cached registry-by-id lookup rather than mutating package data."""
+    bundle = build_agent_quality_bundle()
+    bundle["declared_plan_envelope"]["declared_plan"]["objective_ids"] = [
+        "obj.accuracy.exact_match.v1",
+        "obj.cost.mean_microusd_per_item.v1",
+    ]
+    student_t_claim = bundle["measured_claims"][1]
+    student_t_claim.update(
+        {
+            "objective_id": "obj.cost.mean_microusd_per_item.v1",
+            "objective_kind": "nonnegative_mean",
+            "unit": "microusd",
+            "direction": "minimize",
+            "sample_size": 200,
+        }
+    )
+    student_t_claim["sufficient_statistics"]["unit_scale"] = "microusd"
+
+    real_entries = v._objective_registry_entries_by_id()
+    broken_entry = dict(real_entries["obj.cost.mean_microusd_per_item.v1"])
+    broken_entry.pop("distribution_assumption", None)
+    patched = dict(real_entries)
+    patched["obj.cost.mean_microusd_per_item.v1"] = broken_entry
+    monkeypatch.setattr(v, "_objective_registry_entries_by_id", lambda: patched)
+
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED"
+    assert caught.value.field == "objective_registry"
+
+
+def test_s5_interval_method_not_emittable() -> None:
+    """``bootstrap_percentile_v1`` is a registered ``IntervalMethodV1``
+    member but excluded from ``EmittableIntervalMethodV1`` -- schema would
+    already reject this shape, so this calls S5 directly to prove the
+    stage's own defensive check."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["interval_params"]["interval_method"] = "bootstrap_percentile_v1"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "INTERVAL_METHOD_NOT_EMITTABLE"
+    assert caught.value.field == "measured_claims.interval_params"
+
+
+def test_s5_interval_method_not_emittable_order_statistic() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["interval_params"]["interval_method"] = (
+        "order_statistic_quantile_v1"
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "INTERVAL_METHOD_NOT_EMITTABLE"
+    assert caught.value.field == "measured_claims.interval_params"
+
+
+def test_s5_interval_method_not_admissible() -> None:
+    """``student_t_normal_approx_v1`` IS emittable in v1, but it is not the
+    method admissible for a ``binary_rate`` objective (Wilson is)."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["interval_params"]["interval_method"] = (
+        "student_t_normal_approx_v1"
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "INTERVAL_METHOD_NOT_ADMISSIBLE"
+    assert caught.value.field == "measured_claims.interval_params"
+
+
+def test_s5_sufficient_statistics_shape_wrong_stat_kind() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["sufficient_statistics"]["stat_kind"] = "mean_variance_v1"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "SUFFICIENT_STATISTICS_SHAPE"
+    assert caught.value.field == "measured_claims.sufficient_statistics"
+
+
+def test_s5_sufficient_statistics_shape_successes_exceed_trials() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["sufficient_statistics"]["success_count"] = 999
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "SUFFICIENT_STATISTICS_SHAPE"
+    assert caught.value.field == "measured_claims.sufficient_statistics"
+
+
+def test_s5_interval_out_of_unit_bounds() -> None:
+    """``obj.accuracy.exact_match.v1``'s registry entry bounds ``ppm`` to
+    ``[0, 1000000]``; the declared high endpoint exceeds it."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["interval_high"] = 1_500_000
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "INTERVAL_OUT_OF_UNIT_BOUNDS"
+    assert caught.value.field == "measured_claims.interval"
+
+
+def test_s5_nominal_coverage_mismatch_unregistered_value() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["nominal_coverage_ppm"] = 123456
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "NOMINAL_COVERAGE_MISMATCH"
+    assert caught.value.field == "measured_claims"
+
+
+def test_s5_nominal_coverage_mismatch_not_uniform_across_claims() -> None:
+    """Both coverages are individually registered members of
+    ``NominalCoveragePpmV1`` -- the violation is that the two certified
+    claims disagree with EACH OTHER."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][1]["nominal_coverage_ppm"] = 990000
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "NOMINAL_COVERAGE_MISMATCH"
+    assert caught.value.field == "measured_claims"
+
+
+def test_s5_sample_size_mismatch() -> None:
+    """150 clears row 26's ``minimum_sample_size`` floor (30) but no longer
+    equals either the holdout split's ``item_count`` (200) or the
+    sufficient statistics' own ``trial_count`` (200)."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["sample_size"] = 150
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "SAMPLE_SIZE_MISMATCH"
+    assert caught.value.field == "measured_claims.sample_size"
+
+
+def test_s5_verification_level_mismatch() -> None:
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["verification_level"] = "issuer_attested_v1"
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s5_objective_measurement(bundle, context)
+    assert caught.value.code == "VERIFICATION_LEVEL_MISMATCH"
+    assert caught.value.field == "measured_claims.verification_level"
+
+
+# ==========================================================================
 # P1-V2.3 -- mutate-the-guard: S2, S3, S4 negatives fail ONLY when that
 # stage's own body is gutted, with zero leakage across stage boundaries.
 # ==========================================================================
 
 
-@pytest.mark.parametrize(
-    "stage_name",
-    [
-        "_stage_s2_context_binding",
-        "_stage_s3_registry_identity",
-        "_stage_s4_declared_plan_signatures",
-    ],
-)
+# P1-V2.3 review P2-1 closure: the previous version of this test asserted
+# only that a gutted-stage bundle still raised *some*
+# AgentQualityVerificationError -- true unconditionally while ANY later
+# stage is an unconditional refusal, so it passed even with all of S2/S3/S4
+# gutted simultaneously (a tautology, not a mutation-detection test). This
+# version is REAL: per stage, a representative negative bundle (i) raises
+# THAT STAGE's own owned code with the stage intact, and (ii) raises a
+# DIFFERENT, LATER code -- S6's still-unconditional placeholder -- once the
+# stage is gutted, proving the gutted stage no longer catches the violation
+# it owns. Each mutation is chosen to be inert to every OTHER real stage
+# (S1's schema, and whichever of S2-S5 is not under test), so the "later
+# code" is deterministically S6's placeholder, never a coincidental catch
+# by a neighboring stage.
+_GUTTING_REPRESENTATIVE_CASES: dict[str, tuple[Callable[[dict], None], str]] = {
+    "_stage_s2_context_binding": (
+        lambda bundle: bundle["unsigned_manifest"].__setitem__(
+            "agent_commitment_ref", "sha256:" + "9" * 64
+        ),
+        "COMMITMENT_REF_MISMATCH",
+    ),
+    "_stage_s3_registry_identity": (
+        lambda bundle: bundle["unsigned_manifest"].__setitem__(
+            "quantile_table",
+            dict(bundle["unsigned_manifest"]["quantile_table"], table_digest="sha256:" + "9" * 64),
+        ),
+        "QUANTILE_TABLE_MISMATCH",
+    ),
+    "_stage_s4_declared_plan_signatures": (
+        lambda bundle: bundle["unsigned_manifest"].__setitem__(
+            "declared_plan_digest", "sha256:" + "9" * 64
+        ),
+        "DECLARED_PLAN_DIGEST_MISMATCH",
+    ),
+    "_stage_s5_objective_measurement": (
+        lambda bundle: bundle["measured_claims"][0].__setitem__(
+            "objective_id", "obj.cost.mean_microusd_per_item.v1"
+        ),
+        "OBJECTIVE_NOT_IN_DECLARED_PLAN",
+    ),
+}
+
+
+@pytest.mark.parametrize("stage_name", sorted(_GUTTING_REPRESENTATIVE_CASES))
 def test_gutting_one_stage_body_fails_only_its_own_negatives(stage_name: str) -> None:
     """Mutate-the-guard: replacing one stage's body with ``return None``
-    must make ONLY that stage's own tests fail -- proving each of S2, S3,
-    and S4 is independently load-bearing, with no cross-stage leakage. This
-    complements the P1-V2.2 review's own S1/S8 probes (reported by a human
-    reviewer, not automated here) with an in-suite mechanical check for the
-    three stages this packet adds."""
+    must make ONLY that stage's own representative negative stop being
+    caught -- proving each of S2, S3, S4 and S5 is independently
+    load-bearing, with no cross-stage leakage. This complements the
+    P1-V2.2 review's own S1/S8 probes (reported by a human reviewer, not
+    automated here) with an in-suite mechanical check for the four stages
+    this thread has wired real checks for."""
+    mutate, owned_code = _GUTTING_REPRESENTATIVE_CASES[stage_name]
+
+    intact_bundle = build_agent_quality_bundle()
+    mutate(intact_bundle)
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            intact_bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == owned_code
+
     stage = getattr(v, stage_name)
     owned = stage.owns
 
@@ -3276,12 +3669,12 @@ def test_gutting_one_stage_body_fails_only_its_own_negatives(stage_name: str) ->
 
     _gutted.owns = owned  # type: ignore[attr-defined]
     with patch.object(v, stage_name, _gutted):
-        bundle = build_agent_quality_bundle()
-        context = build_agent_quality_context()
-        # The gutted stage now passes silently; the runner must still reach
-        # a real refusal further down the pipeline (S5's placeholder, or a
-        # later stage's real check) -- never a silent overall PASS.
-        with pytest.raises(v.AgentQualityVerificationError):
+        gutted_bundle = build_agent_quality_bundle()
+        mutate(gutted_bundle)
+        with pytest.raises(v.AgentQualityVerificationError) as caught_gutted:
             v._run_agent_quality_checks(
-                bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+                gutted_bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
             )
+    assert caught_gutted.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+    assert caught_gutted.value.field == "evaluation_splits"
+    assert caught_gutted.value.code != owned_code

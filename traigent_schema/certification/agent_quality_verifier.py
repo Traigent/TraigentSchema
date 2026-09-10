@@ -255,6 +255,25 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: frozenset[str] = frozenset(
     }
 )
 
+# P1-V2.3 review finding P2-3: MEASUREMENT_CONTRACT_NOT_PINNED (design row
+# 11) is structurally preempted the same way the two schema-preempted codes
+# above are, just by a DIFFERENT authority: AgentQualityVerificationContext
+# declares both measurement-contract pins as non-Optional ``str`` fields, so
+# ``__post_init__`` already rejects a ``None`` pin with CONTEXT before
+# _stage_s2_context_binding ever runs (see
+# test_agent_quality_verifier.py::
+# test_measurement_contract_pin_none_is_preempted_by_context_construction).
+# S2's own defensive ``_fail("MEASUREMENT_CONTRACT_NOT_PINNED", "context")``
+# stays -- belt-and-braces for a caller that bypasses the dataclass entirely
+# (e.g. a duck-typed context) -- but the code it guards is dead on every
+# path that goes through the real dataclass, so it is bucketed here rather
+# than counted as a live, reachable check.
+AGENT_QUALITY_CONTEXT_PREEMPTED_CODES: frozenset[str] = frozenset(
+    {
+        "MEASUREMENT_CONTRACT_NOT_PINNED",
+    }
+)
+
 # Codes that are reachable by design (not schema-preempted) but that no
 # guard in this module raises yet. This packet's stage functions S5-S7 are
 # still unconditional refusals, so every one of their codes is genuinely
@@ -274,11 +293,21 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: frozenset[str] = frozenset(
 # AgentQualityVerificationContext.__post_init__), S3's four
 # (AGGREGATION_POLICY_MISMATCH, OBJECTIVE_REGISTRY_MISMATCH,
 # NON_CLAIM_SET_MISMATCH, QUANTILE_TABLE_MISMATCH -- PACKAGE_DATA_INVALID is
-# likewise raised outside the stage runner), and S4's four
+# likewise raised outside the stage runner), S4's four
 # (DECLARED_PLAN_DIGEST_MISMATCH, DECLARED_PLAN_SIGNATURE_INVALID,
-# DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH, DECLARED_PLAN_PIN_MISMATCH). This
-# set MUST shrink to empty by packet .6, as each later packet wires its
-# stage's real checks and moves that stage's codes out of here.
+# DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH, DECLARED_PLAN_PIN_MISMATCH), and
+# (commit 1 of) P1-V2.4 wires 15 of S5's 19 (OBJECTIVE_NOT_IN_DECLARED_PLAN,
+# PRIMARY_OBJECTIVE_MISSING, OBJECTIVE_NOT_REGISTERED,
+# OBJECTIVE_KIND_MISMATCH, OBJECTIVE_UNIT_MISMATCH,
+# OBJECTIVE_MINIMUM_SAMPLE_NOT_MET, DISTRIBUTION_ASSUMPTION_NOT_REGISTERED,
+# OBJECTIVE_DUPLICATE, INTERVAL_METHOD_NOT_EMITTABLE,
+# INTERVAL_METHOD_NOT_ADMISSIBLE, SUFFICIENT_STATISTICS_SHAPE,
+# INTERVAL_OUT_OF_UNIT_BOUNDS, NOMINAL_COVERAGE_MISMATCH,
+# SAMPLE_SIZE_MISMATCH, VERIFICATION_LEVEL_MISMATCH); the remaining four
+# (POINT_ESTIMATE_RECOMPUTATION_MISMATCH, INTERVAL_RECOMPUTATION_MISMATCH,
+# INTERVAL_ORDER, INTERVAL_DEGENERATE) are wired in this same packet's
+# commit 2. This set MUST shrink to empty by packet .6, as each later packet
+# wires its stage's real checks and moves that stage's codes out of here.
 AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
     AGENT_QUALITY_ERROR_CODES
     - AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
@@ -307,6 +336,21 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
             "DECLARED_PLAN_SIGNATURE_INVALID",
             "DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH",
             "DECLARED_PLAN_PIN_MISMATCH",
+            "OBJECTIVE_NOT_IN_DECLARED_PLAN",
+            "PRIMARY_OBJECTIVE_MISSING",
+            "OBJECTIVE_NOT_REGISTERED",
+            "OBJECTIVE_KIND_MISMATCH",
+            "OBJECTIVE_UNIT_MISMATCH",
+            "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET",
+            "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED",
+            "OBJECTIVE_DUPLICATE",
+            "INTERVAL_METHOD_NOT_EMITTABLE",
+            "INTERVAL_METHOD_NOT_ADMISSIBLE",
+            "SUFFICIENT_STATISTICS_SHAPE",
+            "INTERVAL_OUT_OF_UNIT_BOUNDS",
+            "NOMINAL_COVERAGE_MISMATCH",
+            "SAMPLE_SIZE_MISMATCH",
+            "VERIFICATION_LEVEL_MISMATCH",
             "SPLIT_DERIVATION_DIGEST_MISMATCH",
             "EVALUATION_SPLITS_DIGEST_MISMATCH",
             "MEASURED_CLAIMS_DIGEST_MISMATCH",
@@ -808,6 +852,69 @@ def _quantile_buckets_by_coverage() -> dict[int, tuple[tuple[int, int], ...]]:
     return {coverage: tuple(sorted(rows)) for coverage, rows in grouped.items()}
 
 
+@lru_cache(maxsize=1)
+def _objective_registry_entries_by_id() -> dict[str, dict[str, Any]]:
+    """The shipped objective registry's entries, keyed by ``objective_id``,
+    read via :func:`_load_agent_quality_document` (cached, digest-checked) --
+    never a value trusted from the bundle being verified."""
+    document = _load_agent_quality_document("objective_registry")
+    return {entry["objective_id"]: entry for entry in document["entries"]}
+
+
+@lru_cache(maxsize=1)
+def _emittable_interval_methods() -> frozenset[str]:
+    """``IntervalMethodV1`` minus ``EmittableIntervalMethodV1``'s own
+    exclusion list, derived from the shipped schema rather than retyped, so
+    S5's admissibility check cannot drift from the schema's own vocabulary."""
+    all_methods = frozenset(_schema_definition("IntervalMethodV1")["enum"])
+    excluded = frozenset(_schema_definition("EmittableIntervalMethodV1")["allOf"][1]["not"]["enum"])
+    return all_methods - excluded
+
+
+@lru_cache(maxsize=1)
+def _nominal_coverage_values() -> frozenset[int]:
+    return frozenset(_schema_definition("NominalCoveragePpmV1")["enum"])
+
+
+@lru_cache(maxsize=1)
+def _distribution_assumption_values() -> frozenset[str]:
+    return frozenset(_schema_definition("DistributionAssumptionV1")["enum"])
+
+
+def _holdout_item_count(evaluation_splits: object) -> object:
+    """The ``item_count`` of the ``evaluation_splits`` entry whose
+    ``split_id`` is ``"holdout"``, or ``None`` if absent/malformed --
+    S5 fails closed on ``None`` (it can never equal a schema-valid
+    ``sample_size``, which is a positive integer)."""
+    if not isinstance(evaluation_splits, (list, tuple)):
+        return None
+    for record in evaluation_splits:
+        if isinstance(record, Mapping) and record.get("split_id") == "holdout":
+            return record.get("item_count")
+    return None
+
+
+# The one admissible interval-recomputation method per objective kind (design
+# row 30), re-derived from MeasuredObjectiveClaimV1's own if/then branches in
+# the shipped schema: binary_rate -> Wilson, bounded_mean/nonnegative_mean ->
+# Student-t, nonnegative_quantile -> order-statistic (registered but never
+# emittable in v1 -- see EmittableObjectiveKindV1 -- kept here only so the
+# mapping is total over every ObjectiveKindV1 member).
+_ADMISSIBLE_INTERVAL_METHOD_BY_OBJECTIVE_KIND: dict[str, str] = {
+    "binary_rate": "wilson_score_v1",
+    "bounded_mean": "student_t_normal_approx_v1",
+    "nonnegative_mean": "student_t_normal_approx_v1",
+    "nonnegative_quantile": "order_statistic_quantile_v1",
+}
+
+# The sufficient-statistics ``stat_kind`` each emittable interval method
+# requires (design row 31).
+_STAT_KIND_BY_INTERVAL_METHOD: dict[str, str] = {
+    "wilson_score_v1": "binomial_v1",
+    "student_t_normal_approx_v1": "mean_variance_v1",
+}
+
+
 def _lookup_t_scaled(coverage_ppm: int, df: int) -> int:
     """The pinned table's ``quantile_x1e6`` for ``coverage_ppm`` at ``df``,
     bucketed CONSERVATIVELY.
@@ -1013,12 +1120,15 @@ def _unique_by(
 # which computes the set by AST rather than trusting this comment to stay
 # accurate. Listed here, with the packet expected to wire each one, so an
 # unwired helper reads as "not yet reached" rather than "forgotten":
-#   _wilson_point        -- wired in .4 (S5's point-estimate recomputation)
-#   _student_t_half_width -- wired in .4 (S5's interval recomputation)
-#   _wilson_bounds        -- wired in .4 (S5's interval recomputation)
-#   _unique_by            -- wired in .4 (S5's one-claim-per-objective guard)
-#                             and in the deferred selection-estimate
-#                             de-duplication (SELECTION_ESTIMATE_DUPLICATE)
+#   _wilson_point        -- wired in .4 commit 2 (S5's point-estimate
+#                            recomputation)
+#   _student_t_half_width -- wired in .4 commit 2 (S5's interval
+#                            recomputation)
+#   _wilson_bounds        -- wired in .4 commit 2 (S5's interval
+#                            recomputation)
+# _unique_by is wired as of .4 commit 1 (S5's one-claim-per-objective guard);
+# it is also used by the deferred selection-estimate de-duplication
+# (SELECTION_ESTIMATE_DUPLICATE), which has no call site yet.
 # _run_agent_quality_checks itself is ALSO unwired in-module (no public entry
 # point calls it yet) -- wired in .6, when verify_agent_quality_certificate
 # ships and calls it. _strip_self_digest is wired as of P1-V2.2 (S8's
@@ -1235,7 +1345,9 @@ def _stage_s2_context_binding(
         _fail("SCOPE_MISMATCH", "scope_binding")
 
     scope_binding_projection = {
-        "schema_version": _AGENT_QUALITY_DIGEST_DOMAINS["scope_binding"],
+        "schema_version": _schema_definition("ScopeBindingProjectionV1")["properties"][
+            "schema_version"
+        ]["const"],
         "project_ref": context.expected_project_ref,
         "build_session_ref": context.expected_build_session_ref,
     }
@@ -1368,7 +1480,16 @@ def _stage_s4_declared_plan_signatures(
     for the top-level manifest signature (design row 66); this stage owns
     no KEY_RING_MISMATCH code, so ANY failure resolving or parsing that key
     material is folded into DECLARED_PLAN_SIGNATURE_INVALID rather than
-    left to escape unguarded.
+    left to escape unguarded. P1-V2.3 review finding P2-2: before verifying
+    the signature bytes, the envelope's OWN declared
+    ``issuer_key_ref``/``trust_ring_ref``/``algorithm`` must also agree with
+    ``process_record_bundle``'s verified issuer materials -- otherwise a
+    fully self-consistent bundle could assert a foreign signing key/ring in
+    its own signature block while still verifying under the authoritative
+    issuer key, since Ed25519 verification success says nothing about which
+    ref the caller printed. Any disagreement folds into the same
+    DECLARED_PLAN_SIGNATURE_INVALID code, for the same reason as the key
+    resolution failure above.
     """
     manifest = bundle["unsigned_manifest"]
     declared_plan = bundle["declared_plan_envelope"]["declared_plan"]
@@ -1392,6 +1513,15 @@ def _stage_s4_declared_plan_signatures(
         v0_issuer = process_record_bundle["verification_materials_v0"]["issuer"]
         issuer_public_key = _material_public_key(dict(v0_issuer), _ISSUER_SPKI_DOMAIN)
     except Exception:
+        _fail("DECLARED_PLAN_SIGNATURE_INVALID", "declared_plan_signature")
+
+    if not isinstance(v0_issuer, Mapping):
+        _fail("DECLARED_PLAN_SIGNATURE_INVALID", "declared_plan_signature")
+    if (
+        declared_plan_signature.get("issuer_key_ref") != v0_issuer.get("key_ref")
+        or declared_plan_signature.get("trust_ring_ref") != v0_issuer.get("trust_ring_ref")
+        or declared_plan_signature.get("algorithm") != v0_issuer.get("algorithm")
+    ):
         _fail("DECLARED_PLAN_SIGNATURE_INVALID", "declared_plan_signature")
 
     canonical_declared_plan = cast(str, fp2.canonicalize(declared_plan)).encode("utf-8")
@@ -1446,7 +1576,8 @@ def _stage_s5_objective_measurement(
     22-27, 29-39).
 
     Owns: QUANTILE_TABLE_LOOKUP_FAILED (raised outside this stage, by
-    :func:`_lookup_t_scaled`), OBJECTIVE_DUPLICATE,
+    :func:`_lookup_t_scaled`, itself reached from :func:`_wilson_bounds`/
+    :func:`_student_t_half_width` below), OBJECTIVE_DUPLICATE,
     OBJECTIVE_NOT_IN_DECLARED_PLAN, PRIMARY_OBJECTIVE_MISSING,
     OBJECTIVE_NOT_REGISTERED, OBJECTIVE_KIND_MISMATCH, OBJECTIVE_UNIT_MISMATCH,
     OBJECTIVE_MINIMUM_SAMPLE_NOT_MET, DISTRIBUTION_ASSUMPTION_NOT_REGISTERED,
@@ -1456,9 +1587,149 @@ def _stage_s5_objective_measurement(
     INTERVAL_OUT_OF_UNIT_BOUNDS, NOMINAL_COVERAGE_MISMATCH,
     SAMPLE_SIZE_MISMATCH, VERIFICATION_LEVEL_MISMATCH.
 
-    Unconditional refusal in this packet -- see :func:`_stage_s1_structural`.
+    A schema-valid bundle's ``measured_claims`` is empty if and only if its
+    single claim-support row is ``abstained``
+    (``AgentQualityCertificateBundleV1``'s own abstention coupling: an
+    ``issuer_verified`` row requires ``minItems: 1``, an ``abstained`` row
+    forces ``maxItems: 0``) -- with nothing certified, this stage has nothing
+    to recompute, so it returns immediately rather than reporting
+    PRIMARY_OBJECTIVE_MISSING against an empty set.
+
+    Per certified claim, in order: (row 22) its ``objective_id`` must be one
+    of the declared plan's own ``objective_ids``; (row 23, once, over the
+    whole certified set) the manifest's ``primary_objective_id`` must equal
+    the declared plan's, and that id must actually be among the certified
+    claims; (row 28, once, over the whole certified set) no two claims may
+    certify the same objective (:func:`_unique_by`); then per claim again:
+    (row 24) the objective must be a member of the SHIPPED objective
+    registry; (row 25) its ``objective_kind``/``direction`` and ``unit`` must
+    equal that registry entry's (kind+direction fold into
+    OBJECTIVE_KIND_MISMATCH, unit into its own OBJECTIVE_UNIT_MISMATCH); (row
+    26) ``sample_size`` must meet the registry entry's
+    ``minimum_sample_size``; (row 27) a ``nonnegative_mean`` objective's
+    registry entry must carry a registered ``distribution_assumption``; (row
+    29) the claim's ``interval_method`` must be emittable in v1; (row 30) it
+    must be the one method admissible for the objective's kind
+    (:data:`_ADMISSIBLE_INTERVAL_METHOD_BY_OBJECTIVE_KIND`); (row 31) the
+    sufficient statistics' ``stat_kind`` must match that method, and a
+    Wilson claim's ``success_count`` must not exceed its ``trial_count``;
+    (row 37, per claim) ``nominal_coverage_ppm`` must be a member of the
+    closed coverage vocabulary; (row 36) the declared point estimate and
+    both endpoints must lie within the registry entry's own
+    ``[minimum, maximum]``; (row 38) ``sample_size`` must equal both the
+    holdout split's ``item_count`` and the sufficient statistics' own count
+    (``trial_count``/``sample_count``); (row 39) ``verification_level`` must
+    be ``construction_recomputed_v1``, the only level this stage's
+    recomputation actually establishes. Finally (row 37, once, over the
+    whole certified set) every claim must share the SAME nominal coverage.
+
+    This packet (P1-V2.4 commit 1) wires rows 22-31 and 36-39. Rows 32-35 --
+    the exact-integer point-estimate and interval RECOMPUTATION, and the
+    order/degeneracy checks on the declared endpoints that must run before
+    it -- are wired in commit 2, immediately below in this same function.
     """
-    _fail("AGENT_QUALITY_VERIFICATION_FAILED", "measured_claims.objective")
+    claims = list(bundle.get("measured_claims", ()))
+    if not claims:
+        return
+
+    declared_plan = bundle["declared_plan_envelope"]["declared_plan"]
+    manifest = bundle["unsigned_manifest"]
+    registry_by_id = _objective_registry_entries_by_id()
+
+    declared_objective_ids = set(declared_plan.get("objective_ids", ()))
+    for claim in claims:
+        if claim.get("objective_id") not in declared_objective_ids:
+            _fail("OBJECTIVE_NOT_IN_DECLARED_PLAN", "measured_claims.objective")
+
+    claim_objective_ids = {claim.get("objective_id") for claim in claims}
+    if (
+        manifest.get("primary_objective_id") != declared_plan.get("primary_objective_id")
+        or declared_plan.get("primary_objective_id") not in claim_objective_ids
+    ):
+        _fail("PRIMARY_OBJECTIVE_MISSING", "measured_claims.objective")
+
+    _unique_by(
+        claims, lambda claim: claim.get("objective_id"), "OBJECTIVE_DUPLICATE", "measured_claims"
+    )
+
+    holdout_item_count = _holdout_item_count(bundle.get("evaluation_splits"))
+    coverages: set[object] = set()
+
+    for claim in claims:
+        entry = registry_by_id.get(claim.get("objective_id"))
+        if entry is None:
+            _fail("OBJECTIVE_NOT_REGISTERED", "measured_claims.objective")
+
+        if (
+            claim.get("objective_kind") != entry["objective_kind"]
+            or claim.get("direction") != entry["direction"]
+        ):
+            _fail("OBJECTIVE_KIND_MISMATCH", "measured_claims.objective")
+        if claim.get("unit") != entry["unit"]:
+            _fail("OBJECTIVE_UNIT_MISMATCH", "measured_claims.objective")
+
+        sample_size = claim.get("sample_size")
+        if not isinstance(sample_size, int) or sample_size < entry["minimum_sample_size"]:
+            _fail("OBJECTIVE_MINIMUM_SAMPLE_NOT_MET", "measured_claims.sample_size")
+
+        if entry["objective_kind"] == "nonnegative_mean" and (
+            entry.get("distribution_assumption") not in _distribution_assumption_values()
+        ):
+            _fail("DISTRIBUTION_ASSUMPTION_NOT_REGISTERED", "objective_registry")
+
+        interval_params = claim.get("interval_params")
+        interval_method = (
+            interval_params.get("interval_method") if isinstance(interval_params, Mapping) else None
+        )
+        if interval_method not in _emittable_interval_methods():
+            _fail("INTERVAL_METHOD_NOT_EMITTABLE", "measured_claims.interval_params")
+        if interval_method != _ADMISSIBLE_INTERVAL_METHOD_BY_OBJECTIVE_KIND.get(
+            entry["objective_kind"]
+        ):
+            _fail("INTERVAL_METHOD_NOT_ADMISSIBLE", "measured_claims.interval_params")
+
+        stats = claim.get("sufficient_statistics")
+        stats = stats if isinstance(stats, Mapping) else {}
+        if stats.get("stat_kind") != _STAT_KIND_BY_INTERVAL_METHOD.get(interval_method):
+            _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
+        stat_own_count: object
+        if interval_method == "wilson_score_v1":
+            success_count = stats.get("success_count")
+            trial_count = stats.get("trial_count")
+            if (
+                not isinstance(success_count, int)
+                or not isinstance(trial_count, int)
+                or success_count > trial_count
+            ):
+                _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
+            stat_own_count = trial_count
+        else:
+            stat_own_count = stats.get("sample_count")
+
+        coverage_ppm = claim.get("nominal_coverage_ppm")
+        if coverage_ppm not in _nominal_coverage_values():
+            _fail("NOMINAL_COVERAGE_MISMATCH", "measured_claims")
+        coverages.add(coverage_ppm)
+
+        low = claim.get("interval_low")
+        point = claim.get("point_estimate")
+        high = claim.get("interval_high")
+        for endpoint in (low, point, high):
+            if (
+                not isinstance(endpoint, int)
+                or endpoint < entry["minimum"]
+                or endpoint > entry["maximum"]
+            ):
+                _fail("INTERVAL_OUT_OF_UNIT_BOUNDS", "measured_claims.interval")
+
+        if sample_size != holdout_item_count or sample_size != stat_own_count:
+            _fail("SAMPLE_SIZE_MISMATCH", "measured_claims.sample_size")
+
+        if claim.get("verification_level") != "construction_recomputed_v1":
+            _fail("VERIFICATION_LEVEL_MISMATCH", "measured_claims.verification_level")
+
+    if len(coverages) > 1:
+        _fail("NOMINAL_COVERAGE_MISMATCH", "measured_claims")
 
 
 @_owns(

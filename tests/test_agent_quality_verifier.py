@@ -117,17 +117,13 @@ def test_catalog_reason_template_ids_match_the_wire() -> None:
     """
     catalog = v._read_agent_quality_package_json("agent_quality_non_claim_catalog.json")
     items = SCHEMA["definitions"]["AgentQualityNonClaimsFixedTupleV1"]["items"]
-    wire_ids = [
-        item["allOf"][1]["properties"]["reason_template_id"]["const"] for item in items
-    ]
+    wire_ids = [item["allOf"][1]["properties"]["reason_template_id"]["const"] for item in items]
     assert [entry["reason_template_id"] for entry in catalog["entries"]] == wire_ids
 
 
 _AGENT_QUALITY_CORRUPTIBLE_FILES = [
     f"agent_quality_{stem}.json" for stem in v._AGENT_QUALITY_REGISTRY_DOMAINS
-] + [
-    f"agent_quality_{stem}.digest.json" for stem in v._AGENT_QUALITY_REGISTRY_DOMAINS
-]
+] + [f"agent_quality_{stem}.digest.json" for stem in v._AGENT_QUALITY_REGISTRY_DOMAINS]
 
 
 class _CorruptingTraversable:
@@ -141,9 +137,11 @@ class _CorruptingTraversable:
         self._target_filename = target_filename
         self._corrupt_text = corrupt_text
 
-    def joinpath(self, name: str) -> "_CorruptingTraversable":
+    def joinpath(self, name: str) -> _CorruptingTraversable:
         return _CorruptingTraversable(
-            self._real.joinpath(name), self._target_filename, self._corrupt_text  # type: ignore[attr-defined]
+            self._real.joinpath(name),
+            self._target_filename,
+            self._corrupt_text,  # type: ignore[attr-defined]
         )
 
     def read_text(self, encoding: str = "utf-8") -> str:
@@ -279,9 +277,7 @@ def test_objective_duplicate_code_is_registered_and_field_located() -> None:
         {"objective_id": "obj.accuracy.exact_match.v1"},
     ]
     with pytest.raises(v.AgentQualityVerificationError) as excinfo:
-        v._unique_by(
-            rows, lambda r: r["objective_id"], "OBJECTIVE_DUPLICATE", "measured_claims"
-        )
+        v._unique_by(rows, lambda r: r["objective_id"], "OBJECTIVE_DUPLICATE", "measured_claims")
     assert excinfo.value.field == "measured_claims"
 
 
@@ -500,4 +496,309 @@ def test_agent_quality_field_locations_match_schema_contract() -> None:
     assert v.AGENT_QUALITY_FIELD_LOCATIONS == schema_locations, (
         f"AGENT_QUALITY_FIELD_LOCATIONS and AgentQualityFieldLocationV1 have "
         f"drifted apart; symmetric difference: {sorted(symmetric_difference)}"
+    )
+
+
+# --------------------------------------------------------------------------
+# P1-V2.0 -- private stage runner, error-code partition, dead-helper
+# inventory, no-public-entry-point sentinel.
+# --------------------------------------------------------------------------
+
+import ast  # noqa: E402
+import importlib as _importlib  # noqa: E402
+
+import tests.test_agent_quality_v1_schema as _schema_fixtures  # noqa: E402
+
+
+def _context(**overrides: object) -> v.AgentQualityVerificationContext:
+    sha = "sha256:" + "a" * 64
+    kwargs: dict = dict(
+        process_record_context=object(),
+        expected_project_ref="proj-1",
+        expected_build_session_ref="build_session:ssssssss",
+        expected_agent_commitment_ref=sha,
+        expected_dataset_commitment_ref=sha,
+        expected_evaluator_commitment_ref=sha,
+        expected_build_definition_commitment_ref=sha,
+        expected_measurement_contract_ref="measurement:mmmmmmmm",
+        expected_measurement_contract_record_digest=sha,
+        accept_abstained_bundle=False,
+    )
+    kwargs.update(overrides)
+    return v.AgentQualityVerificationContext(**kwargs)
+
+
+_STAGE_FUNCTION_NAMES = (
+    "_stage_s1_structural",
+    "_stage_s2_context_binding",
+    "_stage_s3_registry_identity",
+    "_stage_s4_declared_plan_signatures",
+    "_stage_s5_objective_measurement",
+    "_stage_s6_splits_held_out",
+    "_stage_s7_composition_abstention",
+    "_stage_s8_manifest_digests_signature",
+)
+
+
+def test_no_public_entry_point_exists_yet() -> None:
+    """Sol B1: this packet ships no public entry point. A half-checking
+    verifier that reports success is worse than one that does not exist, so
+    ``verify_agent_quality_certificate`` must be absent from both the module
+    and its public surface until the complete check sequence lands. This
+    test is deleted only in packet .6, once the real entry point ships."""
+    assert not hasattr(v, "verify_agent_quality_certificate")
+    module = _importlib.import_module("traigent_schema.certification")
+    assert not any("agent_quality" in name.lower() for name in module.__all__)
+
+
+def test_run_agent_quality_checks_rejects_every_bundle() -> None:
+    """Every stage in this packet is an unconditional refusal, so the
+    private runner rejects any bundle, valid or not, with the catch-all
+    code -- proving the runner wraps the stage sequence rather than merely
+    defining stages nobody calls."""
+    context = _context()
+    bundle = _schema_fixtures._bundle()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(bundle, context)
+    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+
+
+@pytest.mark.parametrize("stage_name", _STAGE_FUNCTION_NAMES)
+def test_each_stage_is_a_real_fail_closed_function(stage_name: str) -> None:
+    """Every named stage exists, is independently callable, and refuses
+    (rather than silently passing) when called directly."""
+    stage = getattr(v, stage_name)
+    assert callable(stage)
+    context = _context()
+    bundle = _schema_fixtures._bundle()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        if stage_name == "_stage_s2_context_binding":
+            stage(bundle, context)
+        else:
+            stage(bundle)
+    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+
+
+def test_abstained_bundle_carries_claims_is_schema_preempted() -> None:
+    """ABSTAINED_BUNDLE_CARRIES_CLAIMS is in
+    AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: AgentQualityCertificateBundleV1's
+    own ``allOf`` if/then/else abstention coupling already rejects a
+    non-issuer_verified support row paired with a nonempty measured_claims
+    array, before S1's schema check (design row 5) ever hands this module a
+    schema-valid bundle to check."""
+    bundle = _schema_fixtures._bundle(
+        support_row=_schema_fixtures._support_row_abstained(),
+        measured_claims=[_schema_fixtures._wilson_claim()],
+        selection_estimates=[],
+    )
+    errors = _schema_fixtures._errors(bundle)
+    assert errors, (
+        "an abstained support row with a nonempty measured_claims array must "
+        "be rejected by the schema itself (S1) -- ABSTAINED_BUNDLE_CARRIES_CLAIMS "
+        "is unreachable through any schema-valid bundle"
+    )
+
+
+def test_selection_estimate_in_certified_set_is_schema_preempted() -> None:
+    """SELECTION_ESTIMATE_IN_CERTIFIED_SET is in
+    AGENT_QUALITY_SCHEMA_PREEMPTED_CODES for the same reason: the abstention
+    coupling's ``else`` branch also caps
+    non_certified_selection_estimates to maxItems 0 on a non-issuer_verified
+    support row, so a schema-valid abstained bundle can never carry a
+    selection estimate either -- rejected by S1's schema check before any
+    per-claim guard would run."""
+    bundle = _schema_fixtures._bundle(
+        support_row=_schema_fixtures._support_row_abstained(),
+        measured_claims=[],
+        selection_estimates=[_schema_fixtures._selection_estimate()],
+    )
+    errors = _schema_fixtures._errors(bundle)
+    assert errors, (
+        "an abstained support row with a nonempty non_certified_selection_estimates "
+        "array must be rejected by the schema itself (S1) -- "
+        "SELECTION_ESTIMATE_IN_CERTIFIED_SET is unreachable through any "
+        "schema-valid bundle"
+    )
+
+
+def test_selection_estimate_duplicate_is_not_schema_preempted() -> None:
+    """Counter-proof for sol N6's widened check: SELECTION_ESTIMATE_DUPLICATE
+    was checked against the same preemption hypothesis and found NOT
+    preempted -- NonCertifiedSelectionEstimatesV1's own description says
+    uniqueItems cannot express "same objective_id, different point_estimate
+    or sample_size", so two selection estimates for the same objective_id
+    but different payloads must remain schema-valid, and the module's own
+    guard (SELECTION_ESTIMATE_DUPLICATE, deferred to .4/.6) is the only thing
+    that can ever reject it."""
+    definition = SCHEMA["definitions"]["NonCertifiedSelectionEstimatesV1"]
+    assert "SELECTION_ESTIMATE_DUPLICATE" in definition["description"]
+    duplicate_estimates = [
+        _schema_fixtures._selection_estimate(point_estimate=970000),
+        _schema_fixtures._selection_estimate(point_estimate=960000),
+    ]
+    bundle = _schema_fixtures._bundle(
+        support_row=_schema_fixtures._support_row_issuer_verified(),
+        measured_claims=[_schema_fixtures._wilson_claim()],
+        selection_estimates=duplicate_estimates,
+    )
+    errors = _schema_fixtures._errors(bundle)
+    assert errors == [], (
+        "two selection-estimate records sharing an objective_id but "
+        "differing in point_estimate must be schema-VALID -- "
+        "SELECTION_ESTIMATE_DUPLICATE stays a verifier-owned guard, not a "
+        "schema-preempted one"
+    )
+
+
+def test_schema_preempted_codes_are_exactly_two_and_registered() -> None:
+    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES == {
+        "ABSTAINED_BUNDLE_CARRIES_CLAIMS",
+        "SELECTION_ESTIMATE_IN_CERTIFIED_SET",
+    }
+    assert v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES <= v.AGENT_QUALITY_ERROR_CODES
+
+
+def test_pending_and_preempted_and_emitted_partition_is_disjoint_and_covers_all() -> None:
+    """N6 widened: the three buckets -- schema-preempted, pending, and
+    emitted-today -- are pairwise disjoint and their union is exactly
+    AGENT_QUALITY_ERROR_CODES."""
+    emitted_today = frozenset(
+        {
+            "CONTEXT",
+            "PACKAGE_DATA_INVALID",
+            "QUANTILE_TABLE_LOOKUP_FAILED",
+            "AGENT_QUALITY_VERIFICATION_FAILED",
+        }
+    )
+    preempted = v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
+    pending = v.AGENT_QUALITY_PENDING_CODES
+
+    assert preempted.isdisjoint(pending)
+    assert preempted.isdisjoint(emitted_today)
+    assert pending.isdisjoint(emitted_today)
+    assert preempted | pending | emitted_today == v.AGENT_QUALITY_ERROR_CODES
+
+
+def test_pending_codes_are_not_yet_emitted() -> None:
+    """No pending code has a literal call site in the module today, and
+    every literal code actually raised is NOT pending -- source-scanned so a
+    stage that starts emitting a pending code (or one that silently stops
+    emitting a non-pending code) breaks this test instead of drifting past
+    it. ``_unique_by`` is a second sanctioned pass-through, alongside
+    ``_fail`` itself: it forwards a CALLER-supplied ``duplicate_code``
+    parameter to ``_fail`` by design (see its docstring), so its own
+    ``_fail(duplicate_code, field)`` call site is not a literal-code
+    emission of anything and is excluded from the scan the same way ``_fail``
+    excludes its own body."""
+    source = Path(v.__file__).read_text()
+    emitted = set(re.findall(r'_fail\(\s*"([A-Z_]+)"', source))
+    emitted |= set(re.findall(r"AgentQualityVerificationError\(\s*\"([A-Z_]+)\"", source))
+    assert emitted <= v.AGENT_QUALITY_ERROR_CODES, emitted - v.AGENT_QUALITY_ERROR_CODES
+    assert emitted.isdisjoint(v.AGENT_QUALITY_PENDING_CODES), (
+        emitted & v.AGENT_QUALITY_PENDING_CODES
+    )
+    assert v.AGENT_QUALITY_PENDING_CODES.isdisjoint(emitted)
+
+
+def test_emission_audit_scans_only_literal_codes() -> None:
+    """AST companion to the regex audit above: every ``_fail(...)`` /
+    ``AgentQualityVerificationError(...)`` call site in the module must pass
+    a string-literal first argument, except ``_fail``'s own body (which
+    constructs the error from its parameters) and ``_unique_by`` (the one
+    sanctioned pass-through of a caller-supplied code -- see its
+    docstring)."""
+    source = Path(v.__file__).read_text()
+    tree = ast.parse(source, filename=v.__file__)
+    offenders: list[str] = []
+
+    class _Visitor(ast.NodeVisitor):
+        function_stack: list[str] = []
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.function_stack.append(node.name)
+            self.generic_visit(node)
+            self.function_stack.pop()
+
+        def visit_Call(self, node: ast.Call) -> None:
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else None
+            if name in ("_fail", "AgentQualityVerificationError") and self.function_stack[
+                -1:
+            ] not in (["_fail"], ["_unique_by"]):
+                if not node.args:
+                    offenders.append(f"{name}() with no positional args at line {node.lineno}")
+                else:
+                    first = node.args[0]
+                    if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+                        offenders.append(
+                            f"{name}(...) with a non-literal code at line {node.lineno}"
+                        )
+            self.generic_visit(node)
+
+    _Visitor().visit(tree)
+    assert offenders == []
+    assert v._run_agent_quality_checks.__module__ == v.__name__
+
+
+def test_stage_codes_are_pairwise_disjoint_and_cover_all_non_preempted_codes() -> None:
+    stage_sets = list(v._STAGE_CODES.values())
+    union: set[str] = set()
+    total = 0
+    for codes in stage_sets:
+        union |= codes
+        total += len(codes)
+    assert total == len(union), "two stages claim overlapping codes"
+    assert union == v.AGENT_QUALITY_ERROR_CODES - v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
+    assert set(v._STAGE_CODES) == set(_STAGE_FUNCTION_NAMES)
+
+
+_UNWIRED_HELPER_NAMES = frozenset(
+    {
+        # Pre-existing at base (#459/#461); packet .4 wires all four
+        # arithmetic/dedup helpers, .2/.3 wires _strip_self_digest.
+        "_strip_self_digest",
+        "_wilson_point",
+        "_student_t_half_width",
+        "_wilson_bounds",
+        "_unique_by",
+        # New in P1-V2.0: the private runner has no in-module caller until
+        # the public entry point exists (packet .6).
+        "_run_agent_quality_checks",
+    }
+)
+
+
+def test_unwired_helpers_inventory_is_exact() -> None:
+    """The dead-helper comment block above ``_stage_s1_structural`` names
+    exactly the MODULE-LEVEL (not class-method) private functions with zero
+    in-module references today. Computed by AST rather than trusted by
+    inspection, so a helper that becomes wired (or a previously-wired one
+    that goes dead) breaks this test instead of letting the comment silently
+    drift. Restricted to ``tree.body`` (top-level statements) so dataclass
+    dunders (``__init__``, ``__post_init__``) -- which are never
+    module-level defs and are always "referenced" by the language itself,
+    not by any name lookup this scan could see -- never appear as false
+    positives."""
+    source = Path(v.__file__).read_text()
+    tree = ast.parse(source, filename=v.__file__)
+
+    top_level_private_functions = {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("_")
+    }
+    all_name_loads: list[str] = [
+        node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    ]
+
+    reference_counts: dict[str, int] = {}
+    for name in all_name_loads:
+        reference_counts[name] = reference_counts.get(name, 0) + 1
+
+    unwired = {name for name in top_level_private_functions if reference_counts.get(name, 0) == 0}
+    assert unwired == _UNWIRED_HELPER_NAMES, (
+        f"unwired-helper inventory drifted: computed {sorted(unwired)}, "
+        f"documented {sorted(_UNWIRED_HELPER_NAMES)}"
     )

@@ -899,6 +899,196 @@ def test_public_function_sentinel_never_leaks() -> None:
     assert sentinel not in "".join(traceback.format_exception(exc))
 
 
+# ==========================================================================
+# P1-V2.6 commit 2 (G11) -- privacy canaries (design tests 74-79) and the
+# non-vacuity meta-test that proves the canaries themselves would catch a
+# genuinely leaking implementation, not merely pass vacuously on a
+# content-free one.
+# ==========================================================================
+
+
+def _assert_no_leak(exc: BaseException, sentinel: str) -> None:
+    """Shared canary body: ``sentinel`` must appear nowhere an exception
+    could carry caller content -- message, repr, args, cause, context, or a
+    fully formatted traceback."""
+    rendered = "\n".join(
+        (str(exc), repr(exc), repr(exc.args), repr(exc.__cause__), repr(exc.__context__))
+    )
+    assert sentinel not in rendered, f"sentinel leaked into exception rendering: {rendered!r}"
+    formatted = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    assert sentinel not in formatted, f"sentinel leaked into formatted traceback: {formatted!r}"
+
+
+def test_privacy_canary_is_not_vacuous() -> None:
+    """P1-V2.6 commit 2 (G11): the non-vacuity meta-test. Hand
+    :func:`_assert_no_leak` a deliberately LEAKING stand-in -- a fake error
+    whose message embeds the sentinel -- and prove the canary's own
+    assertion FAILS on it. Without this, a canary that always passes
+    (e.g. one that got its sentinel variable wrong) would be silently
+    worthless."""
+    sentinel = "CANARY_NON_VACUITY_SENTINEL"
+    try:
+        raise ValueError(f"leaking bundle content: {sentinel}")
+    except ValueError as leaking_error:
+        with pytest.raises(AssertionError):
+            _assert_no_leak(leaking_error, sentinel)
+
+
+def test_privacy_canary_measured_claim_sentinel_never_leaks() -> None:
+    """Design test (P1-V2.6 commit 2, 74-79 series): a sentinel planted in
+    a measured claim's own content -- a field this module's checks compare
+    and can reject -- never reaches the raised error, through the PRIVATE
+    runner directly (not just the public wrapper's own boundary, already
+    covered by :func:`test_public_function_sentinel_never_leaks`)."""
+    sentinel = "CANARY_MEASURED_CLAIM_SENTINEL"
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["objective_id"] = sentinel
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    _assert_no_leak(caught.value, sentinel)
+
+
+def test_privacy_canary_project_ref_sentinel_never_reaches_signed_bundle() -> None:
+    """Design test: a sentinel in ``context.expected_project_ref`` --
+    caller-supplied, never copied into a bundle or a result (see
+    :class:`v.AgentQualityVerificationContext`'s own docstring) -- causes
+    SCOPE_MISMATCH (the golden bundle's own scope-binding digest was built
+    from the REAL project ref, not this one) without ever reaching the
+    raised error, and the golden bundle's own content is untouched."""
+    sentinel = "CANARY_PROJECT_REF_SENTINEL"
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context(expected_project_ref=sentinel)
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SCOPE_MISMATCH"
+    _assert_no_leak(caught.value, sentinel)
+    assert sentinel not in json.dumps(bundle)
+
+
+def test_privacy_canary_no_signed_bundle_field_is_caller_supplied() -> None:
+    """Design test: no field of :class:`v.AgentQualityVerificationResult`
+    is ever constructed from a ``context.`` attribute -- every result field
+    comes from the verified bundle/manifest/row content alone, so a
+    caller's context pins can never spoof what the result reports. Checked
+    by AST: every keyword argument's value at each
+    ``AgentQualityVerificationResult(...)`` call site inside
+    ``_run_agent_quality_checks`` must not be, or contain, an attribute
+    access on a name called ``context``."""
+    source = Path(v.__file__).read_text()
+    tree = ast.parse(source, filename=v.__file__)
+    runner = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_run_agent_quality_checks"
+    )
+    result_calls = [
+        node
+        for node in ast.walk(runner)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "AgentQualityVerificationResult"
+    ]
+    assert len(result_calls) >= 2, "expected a VERIFIED and an ABSTAINED construction site"
+    for call in result_calls:
+        for keyword in call.keywords:
+            for attr_node in ast.walk(keyword.value):
+                if (
+                    isinstance(attr_node, ast.Attribute)
+                    and isinstance(attr_node.value, ast.Name)
+                    and attr_node.value.id == "context"
+                ):
+                    raise AssertionError(
+                        f"AgentQualityVerificationResult field {keyword.arg!r} reads "
+                        f"context.{attr_node.attr} directly -- result fields must come "
+                        "from the verified bundle, never the caller's context"
+                    )
+
+
+def _literal_field_emission_sites(tree: ast.AST) -> list[tuple[str, str, int]]:
+    """Return ``(enclosing_function_name, field, lineno)`` for every
+    ``_fail(CODE, FIELD)`` / ``AgentQualityVerificationError(CODE, FIELD)``
+    call site whose FIELD argument is itself a string literal, and every
+    ``_unique_by(rows, key_fn, CODE, FIELD)`` call site whose 4th
+    positional (or ``field=``) argument is a string literal. Mirrors
+    :func:`_emission_sites`, scanning the FIELD position instead of the
+    CODE position."""
+    sites: list[tuple[str, str, int]] = []
+
+    class _Visitor(ast.NodeVisitor):
+        function_stack: list[str] = []
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.function_stack.append(node.name)
+            self.generic_visit(node)
+            self.function_stack.pop()
+
+        def visit_Call(self, node: ast.Call) -> None:
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else None
+            enclosing = self.function_stack[-1] if self.function_stack else "<module>"
+            if name in ("_fail", "AgentQualityVerificationError") and enclosing != "_fail":
+                if len(node.args) >= 2:
+                    second = node.args[1]
+                    if isinstance(second, ast.Constant) and isinstance(second.value, str):
+                        sites.append((enclosing, second.value, node.lineno))
+            elif name == "_unique_by" and enclosing != "_unique_by":
+                literal_field: str | None = None
+                if len(node.args) >= 4:
+                    candidate = node.args[3]
+                    if isinstance(candidate, ast.Constant) and isinstance(candidate.value, str):
+                        literal_field = candidate.value
+                for kw in node.keywords:
+                    if kw.arg == "field" and isinstance(kw.value, ast.Constant):
+                        if isinstance(kw.value.value, str):
+                            literal_field = kw.value.value
+                if literal_field is not None:
+                    sites.append((enclosing, literal_field, node.lineno))
+            self.generic_visit(node)
+
+    _Visitor().visit(tree)
+    return sites
+
+
+def test_every_literal_fail_site_field_is_a_registered_field_location() -> None:
+    """P1-V2.6 commit 2: an AST fuzz over every ``_fail(...)``/
+    ``_unique_by(...)`` call site whose field argument is a string literal
+    -- ``exc.field`` must always be a member of
+    :data:`v.AGENT_QUALITY_FIELD_LOCATIONS`, the closed vocabulary a caller
+    can pattern-match against. A typo'd or stray field string would
+    otherwise ship silently -- this makes it a collection-time failure
+    instead."""
+    source = Path(v.__file__).read_text()
+    tree = ast.parse(source, filename=v.__file__)
+    sites = _literal_field_emission_sites(tree)
+    assert len(sites) >= 60, f"expected the bulk of ~72 codes' call sites, got {len(sites)}"
+    offenders = [
+        (fn, field, line)
+        for (fn, field, line) in sites
+        if field not in v.AGENT_QUALITY_FIELD_LOCATIONS
+    ]
+    assert offenders == [], (
+        f"call sites with a field not in AGENT_QUALITY_FIELD_LOCATIONS: {offenders}"
+    )
+
+
+def test_non_literal_fail_site_fields_are_also_registered() -> None:
+    """The two remaining ``_fail`` call sites whose field argument is a
+    variable, not a literal (``_stage_s7_composition_abstention``'s
+    ``pillar_support`` loop, bound from the per-position tuple), checked
+    behaviorally instead of by AST: both loop values are registered field
+    locations, and BOTH are already independently reached by
+    ``test_s7_pillar_support_shape_wrong_dataset_commitment_ref_full_runner``
+    / ``..._wrong_evaluator_commitment_ref_full_runner`` above, which assert
+    the exact field string on the raised error."""
+    assert "pillar_support.dataset" in v.AGENT_QUALITY_FIELD_LOCATIONS
+    assert "pillar_support.evaluator" in v.AGENT_QUALITY_FIELD_LOCATIONS
+
+
 def test_run_agent_quality_checks_golden_path_is_deterministic() -> None:
     """Running the golden end-to-end path twice produces two EQUAL results
     -- the runner has no hidden state or nondeterminism."""
@@ -1072,6 +1262,32 @@ def test_rendered_text_carries_no_preregistration_timing_claim_wording() -> None
         "const"
     ]
     assert re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", rendered_text, re.I) is None
+
+
+def _all_string_leaves(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [leaf for v in value.values() for leaf in _all_string_leaves(v)]
+    if isinstance(value, (list, tuple)):
+        return [leaf for v in value for leaf in _all_string_leaves(v)]
+    return []
+
+
+def test_golden_fixture_text_fields_carry_no_preregistration_stem() -> None:
+    """P1-V2.6 commit 2: the literal-stem tripwire extended to every new
+    ARTIFACT this thread added -- not just the schema/module/catalog text
+    (:func:`test_literal_zero_preregistration_stem_hits`) but the golden
+    and abstained fixtures' own string content, recursively, since a hand-
+    typed fixture string is exactly the kind of place stray "pre-
+    registered" wording could reappear without any of the other three
+    scans ever seeing it."""
+    golden = build_agent_quality_bundle()
+    abstained = build_abstained_agent_quality_bundle()
+    for label, bundle in (("golden", golden), ("abstained", abstained)):
+        for leaf in _all_string_leaves(bundle):
+            hit = re.search(r"pre[-_ ]?regist|preregist|PREREGISTR", leaf, re.I)
+            assert hit is None, f"preregistration stem hit in {label} fixture: {leaf!r}"
 
 
 # ==========================================================================

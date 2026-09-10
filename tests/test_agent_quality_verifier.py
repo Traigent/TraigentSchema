@@ -4786,6 +4786,30 @@ def test_s4_declared_plan_pin_matches_when_supplied() -> None:
     v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
 
 
+def test_s4_pin_check_is_unconditional_even_when_the_context_pin_is_bypassed() -> None:
+    """P1-V2.7-fix P2: the public entry point must still reject a bundle
+    whose declared-plan digest disagrees with the caller's pin even if the
+    S4 comparison were ever weakened back to conditional (``is not None
+    and``) -- a regression a construction-time check alone cannot catch,
+    since ``AgentQualityVerificationContext.__post_init__`` already makes a
+    ``None`` pin unreachable through normal construction (see
+    :func:`test_context_rejects_none_or_malformed_declared_plan_pin`).
+    ``object.__setattr__`` bypasses the frozen dataclass to force
+    ``expected_declared_plan_digest`` to ``None`` on an otherwise-golden,
+    already-validated context -- this MODELS a regression of the S4 guard
+    losing its unconditional shape, not a supported caller path; no real
+    caller can construct a context with a ``None`` pin."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    object.__setattr__(context, "expected_declared_plan_digest", None)
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v.verify_agent_quality_certificate(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "DECLARED_PLAN_PIN_MISMATCH"
+    assert caught.value.field == "declared_plan"
+
+
 def test_context_requires_declared_plan_pin_argument() -> None:
     """P1-V2.7: the pin is a required dataclass field -- omitting it
     entirely is a ``TypeError`` from the dataclass constructor itself, not
@@ -4803,7 +4827,7 @@ def test_context_requires_declared_plan_pin_argument() -> None:
         expected_measurement_contract_record_digest="sha256:" + "a" * 64,
         accept_abstained_bundle=False,
     )
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="expected_declared_plan_digest"):
         v.AgentQualityVerificationContext(**kwargs)
 
 

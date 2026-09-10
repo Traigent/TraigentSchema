@@ -979,9 +979,9 @@ class AgentQualityVerificationContext:
             _fail("CONTEXT", "context")
         if type(self.accept_abstained_bundle) is not bool:
             _fail("CONTEXT", "context")
-        if type(
+        if type(self.expected_declared_plan_digest) is not str or not _SHA256_RE.fullmatch(
             self.expected_declared_plan_digest
-        ) is not str or not _SHA256_RE.fullmatch(self.expected_declared_plan_digest):
+        ):
             _fail("CONTEXT", "context")
 
 

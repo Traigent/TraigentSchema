@@ -233,114 +233,45 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
 # claim about today's call sites -- every stage in this packet raises only
 # the catch-all. CONTEXT, PACKAGE_DATA_INVALID and QUANTILE_TABLE_LOOKUP_FAILED
 # are raised outside the eight-stage runner (by
-# AgentQualityVerificationContext.__post_init__ and the package-data loading
-# boundary respectively) but are assigned here to the stage whose design
-# concern they belong to, so the coverage test below has one owner for every
-# non-preempted code.
-_STAGE_CODES: dict[str, frozenset[str]] = {
-    "_stage_s1_structural": frozenset(
-        {
-            "BUNDLE_SHAPE",
-            "STRICT_INTEGER",
-            "UNSAFE_INTEGER",
-            "SCHEMA",
-            "SCHEMA_DEPENDENCY",
-            "CANONICALIZATION",
-            "AGENT_QUALITY_VERIFICATION_FAILED",
-        }
-    ),
-    "_stage_s2_context_binding": frozenset(
-        {
-            "CONTEXT",
-            "PROCESS_RECORD_BINDING_MISMATCH",
-            "COMMITMENT_REF_MISMATCH",
-            "SCOPE_MISMATCH",
-            "MEASUREMENT_CONTRACT_NOT_PINNED",
-            "MEASUREMENT_CONTRACT_MISMATCH",
-        }
-    ),
-    "_stage_s3_registry_identity": frozenset(
-        {
-            "PACKAGE_DATA_INVALID",
-            "AGGREGATION_POLICY_MISMATCH",
-            "OBJECTIVE_REGISTRY_MISMATCH",
-            "NON_CLAIM_SET_MISMATCH",
-            "QUANTILE_TABLE_MISMATCH",
-        }
-    ),
-    "_stage_s4_declared_plan_signatures": frozenset(
-        {
-            "DECLARED_PLAN_DIGEST_MISMATCH",
-            "DECLARED_PLAN_SIGNATURE_INVALID",
-            "DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH",
-            "DECLARED_PLAN_PIN_MISMATCH",
-        }
-    ),
-    "_stage_s5_objective_measurement": frozenset(
-        {
-            "QUANTILE_TABLE_LOOKUP_FAILED",
-            "OBJECTIVE_DUPLICATE",
-            "OBJECTIVE_NOT_IN_DECLARED_PLAN",
-            "PRIMARY_OBJECTIVE_MISSING",
-            "OBJECTIVE_NOT_REGISTERED",
-            "OBJECTIVE_KIND_MISMATCH",
-            "OBJECTIVE_UNIT_MISMATCH",
-            "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET",
-            "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED",
-            "INTERVAL_METHOD_NOT_EMITTABLE",
-            "INTERVAL_METHOD_NOT_ADMISSIBLE",
-            "SUFFICIENT_STATISTICS_SHAPE",
-            "POINT_ESTIMATE_RECOMPUTATION_MISMATCH",
-            "INTERVAL_RECOMPUTATION_MISMATCH",
-            "INTERVAL_ORDER",
-            "INTERVAL_DEGENERATE",
-            "INTERVAL_OUT_OF_UNIT_BOUNDS",
-            "NOMINAL_COVERAGE_MISMATCH",
-            "SAMPLE_SIZE_MISMATCH",
-            "VERIFICATION_LEVEL_MISMATCH",
-        }
-    ),
-    "_stage_s6_splits_held_out": frozenset(
-        {
-            "SELECTION_ESTIMATE_DUPLICATE",
-            "SPLIT_SET_SHAPE",
-            "HOLDOUT_NOT_USED",
-            "HOLDOUT_MISSING",
-            "HOLDOUT_TOO_SMALL",
-            "SPLIT_DERIVATION_MISMATCH",
-            "SPLIT_PARTITION_INCOMPLETE",
-            "SPLIT_COMMITMENT_COLLISION",
-            "SPLIT_SIZE_IMPLAUSIBLE",
-            "SPLIT_OPENING_MISMATCH",
-            "SPLIT_OPENING_RULE_VIOLATION",
-            "HOLDOUT_REUSED",
-            "ARM_COUNT_MISMATCH",
-        }
-    ),
-    "_stage_s7_composition_abstention": frozenset(
-        {
-            "CLAIM_NOT_VERIFIED",
-            "PILLAR_SUPPORT_SHAPE",
-            "PILLAR_BINDING_MISMATCH",
-            "ASSERTION_DIGEST_MISMATCH",
-        }
-    ),
-    "_stage_s8_manifest_digests_signature": frozenset(
-        {
-            "SPLIT_DERIVATION_DIGEST_MISMATCH",
-            "EVALUATION_SPLITS_DIGEST_MISMATCH",
-            "MEASURED_CLAIMS_DIGEST_MISMATCH",
-            "SELECTION_ESTIMATES_DIGEST_MISMATCH",
-            "NON_CLAIMS_DIGEST_MISMATCH",
-            "CLAIM_SUPPORT_ROWS_DIGEST_MISMATCH",
-            "CLAIM_SUPPORT_ROW_MISMATCH",
-            "UNSIGNED_MANIFEST_MISMATCH",
-            "UNSIGNED_MANIFEST_DIGEST_MISMATCH",
-            "KEY_RING_MISMATCH",
-            "ISSUER_SIGNATURE_INVALID",
-        }
-    ),
-}
+# AgentQualityVerificationContext.__post_init__, the package-data loading
+# boundary, and :func:`_lookup_t_scaled` respectively) but are assigned here
+# to the stage whose design concern they belong to, so the coverage test
+# below has one owner for every non-preempted code.
+#
+# This table is POPULATED, not hand-written: each stage function below is
+# decorated with ``@_owns(...)``, which is the one and only place that lists
+# a stage's codes -- the decorator sets both the function's ``owns``
+# attribute and this dict's entry from the same literal call. There is no
+# second table to drift out of sync with the first (P1-V2.0 review finding
+# P1-1: a permutation of a code between two stages here used to be
+# invisible to every test because this dict was hand-written independently
+# of the stage docstrings). See
+# test_agent_quality_verifier.py::test_stage_ownership_is_derived_from_owns_attribute
+# and ::test_stage_docstrings_match_owns_attribute.
+_STAGE_CODES: dict[str, frozenset[str]] = {}
+
+_StageFn = TypeVar("_StageFn", bound=Callable[..., None])
+
+
+def _owns(*codes: str) -> Callable[[_StageFn], _StageFn]:
+    """Register the exact set of vocabulary codes a stage function owns.
+
+    Applied as ``@_owns("CODE_A", "CODE_B", ...)`` immediately above a
+    ``_stage_sN`` definition. Sets the decorated function's ``owns``
+    attribute AND inserts the same frozenset into module-level
+    ``_STAGE_CODES`` keyed by the function's name, so both views come from
+    this one literal call -- neither can be edited without the other
+    changing too.
+    """
+    owned = frozenset(codes)
+
+    def decorator(fn: _StageFn) -> _StageFn:
+        fn.owns = owned  # type: ignore[attr-defined]
+        _STAGE_CODES[fn.__name__] = owned
+        return fn
+
+    return decorator
+
 
 # NOT a copy of the schema's EmittableVerificationLevelV1. This is the union
 # of the level vocabularies of AgentQualityVerificationResult's two level
@@ -952,11 +883,23 @@ def _unique_by(
 # ships and calls it.
 
 
-def _stage_s1_structural(bundle: Mapping[str, Any]) -> None:
+@_owns(
+    "BUNDLE_SHAPE",
+    "STRICT_INTEGER",
+    "UNSAFE_INTEGER",
+    "SCHEMA",
+    "SCHEMA_DEPENDENCY",
+    "CANONICALIZATION",
+    "AGENT_QUALITY_VERIFICATION_FAILED",
+)
+def _stage_s1_structural(
+    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+) -> None:
     """S1 -- structural well-formedness (design rows 2-7, 10b).
 
     Owns: BUNDLE_SHAPE, STRICT_INTEGER, UNSAFE_INTEGER, SCHEMA,
-    SCHEMA_DEPENDENCY, CANONICALIZATION.
+    SCHEMA_DEPENDENCY, CANONICALIZATION, AGENT_QUALITY_VERIFICATION_FAILED
+    (this stage's own unconditional-refusal placeholder catch-all).
 
     This packet ships no real check: the stage unconditionally refuses, so
     that the runner rejects every bundle today rather than half-verifying
@@ -967,6 +910,14 @@ def _stage_s1_structural(bundle: Mapping[str, Any]) -> None:
     _fail("AGENT_QUALITY_VERIFICATION_FAILED", "bundle")
 
 
+@_owns(
+    "CONTEXT",
+    "PROCESS_RECORD_BINDING_MISMATCH",
+    "COMMITMENT_REF_MISMATCH",
+    "SCOPE_MISMATCH",
+    "MEASUREMENT_CONTRACT_NOT_PINNED",
+    "MEASUREMENT_CONTRACT_MISMATCH",
+)
 def _stage_s2_context_binding(
     bundle: Mapping[str, Any], context: AgentQualityVerificationContext
 ) -> None:
@@ -982,7 +933,16 @@ def _stage_s2_context_binding(
     _fail("AGENT_QUALITY_VERIFICATION_FAILED", "scope_binding")
 
 
-def _stage_s3_registry_identity(bundle: Mapping[str, Any]) -> None:
+@_owns(
+    "PACKAGE_DATA_INVALID",
+    "AGGREGATION_POLICY_MISMATCH",
+    "OBJECTIVE_REGISTRY_MISMATCH",
+    "NON_CLAIM_SET_MISMATCH",
+    "QUANTILE_TABLE_MISMATCH",
+)
+def _stage_s3_registry_identity(
+    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+) -> None:
     """S3 -- the four shipped registries' identity (design rows 13-16).
 
     Owns: PACKAGE_DATA_INVALID (raised outside this stage, by
@@ -995,7 +955,15 @@ def _stage_s3_registry_identity(bundle: Mapping[str, Any]) -> None:
     _fail("AGENT_QUALITY_VERIFICATION_FAILED", "objective_registry")
 
 
-def _stage_s4_declared_plan_signatures(bundle: Mapping[str, Any]) -> None:
+@_owns(
+    "DECLARED_PLAN_DIGEST_MISMATCH",
+    "DECLARED_PLAN_SIGNATURE_INVALID",
+    "DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH",
+    "DECLARED_PLAN_PIN_MISMATCH",
+)
+def _stage_s4_declared_plan_signatures(
+    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+) -> None:
     """S4 -- declared-plan digest and signature (design rows 17-19, 21).
 
     Owns: DECLARED_PLAN_DIGEST_MISMATCH, DECLARED_PLAN_SIGNATURE_INVALID,
@@ -1016,7 +984,31 @@ def _stage_s4_declared_plan_signatures(bundle: Mapping[str, Any]) -> None:
     _fail("AGENT_QUALITY_VERIFICATION_FAILED", "declared_plan")
 
 
-def _stage_s5_objective_measurement(bundle: Mapping[str, Any]) -> None:
+@_owns(
+    "QUANTILE_TABLE_LOOKUP_FAILED",
+    "OBJECTIVE_DUPLICATE",
+    "OBJECTIVE_NOT_IN_DECLARED_PLAN",
+    "PRIMARY_OBJECTIVE_MISSING",
+    "OBJECTIVE_NOT_REGISTERED",
+    "OBJECTIVE_KIND_MISMATCH",
+    "OBJECTIVE_UNIT_MISMATCH",
+    "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET",
+    "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED",
+    "INTERVAL_METHOD_NOT_EMITTABLE",
+    "INTERVAL_METHOD_NOT_ADMISSIBLE",
+    "SUFFICIENT_STATISTICS_SHAPE",
+    "POINT_ESTIMATE_RECOMPUTATION_MISMATCH",
+    "INTERVAL_RECOMPUTATION_MISMATCH",
+    "INTERVAL_ORDER",
+    "INTERVAL_DEGENERATE",
+    "INTERVAL_OUT_OF_UNIT_BOUNDS",
+    "NOMINAL_COVERAGE_MISMATCH",
+    "SAMPLE_SIZE_MISMATCH",
+    "VERIFICATION_LEVEL_MISMATCH",
+)
+def _stage_s5_objective_measurement(
+    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+) -> None:
     """S5 -- objective registration and interval recomputation (design rows
     22-27, 29-39).
 
@@ -1036,7 +1028,24 @@ def _stage_s5_objective_measurement(bundle: Mapping[str, Any]) -> None:
     _fail("AGENT_QUALITY_VERIFICATION_FAILED", "measured_claims.objective")
 
 
-def _stage_s6_splits_held_out(bundle: Mapping[str, Any]) -> None:
+@_owns(
+    "SELECTION_ESTIMATE_DUPLICATE",
+    "SPLIT_SET_SHAPE",
+    "HOLDOUT_NOT_USED",
+    "HOLDOUT_MISSING",
+    "HOLDOUT_TOO_SMALL",
+    "SPLIT_DERIVATION_MISMATCH",
+    "SPLIT_PARTITION_INCOMPLETE",
+    "SPLIT_COMMITMENT_COLLISION",
+    "SPLIT_SIZE_IMPLAUSIBLE",
+    "SPLIT_OPENING_MISMATCH",
+    "SPLIT_OPENING_RULE_VIOLATION",
+    "HOLDOUT_REUSED",
+    "ARM_COUNT_MISMATCH",
+)
+def _stage_s6_splits_held_out(
+    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+) -> None:
     """S6 -- evaluation splits and holdout usage (design rows 40-51, minus
     the schema-preempted SELECTION_ESTIMATE_IN_CERTIFIED_SET).
 
@@ -1052,7 +1061,15 @@ def _stage_s6_splits_held_out(bundle: Mapping[str, Any]) -> None:
     _fail("AGENT_QUALITY_VERIFICATION_FAILED", "evaluation_splits")
 
 
-def _stage_s7_composition_abstention(bundle: Mapping[str, Any]) -> None:
+@_owns(
+    "CLAIM_NOT_VERIFIED",
+    "PILLAR_SUPPORT_SHAPE",
+    "PILLAR_BINDING_MISMATCH",
+    "ASSERTION_DIGEST_MISMATCH",
+)
+def _stage_s7_composition_abstention(
+    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+) -> None:
     """S7 -- claim-support composition and abstention (design rows 52-56,
     minus the schema-preempted ABSTAINED_BUNDLE_CARRIES_CLAIMS and
     SELECTION_ESTIMATE_IN_CERTIFIED_SET).
@@ -1072,7 +1089,22 @@ def _stage_s7_composition_abstention(bundle: Mapping[str, Any]) -> None:
     _fail("AGENT_QUALITY_VERIFICATION_FAILED", "claim_support_rows")
 
 
-def _stage_s8_manifest_digests_signature(bundle: Mapping[str, Any]) -> None:
+@_owns(
+    "SPLIT_DERIVATION_DIGEST_MISMATCH",
+    "EVALUATION_SPLITS_DIGEST_MISMATCH",
+    "MEASURED_CLAIMS_DIGEST_MISMATCH",
+    "SELECTION_ESTIMATES_DIGEST_MISMATCH",
+    "NON_CLAIMS_DIGEST_MISMATCH",
+    "CLAIM_SUPPORT_ROWS_DIGEST_MISMATCH",
+    "CLAIM_SUPPORT_ROW_MISMATCH",
+    "UNSIGNED_MANIFEST_MISMATCH",
+    "UNSIGNED_MANIFEST_DIGEST_MISMATCH",
+    "KEY_RING_MISMATCH",
+    "ISSUER_SIGNATURE_INVALID",
+)
+def _stage_s8_manifest_digests_signature(
+    bundle: Mapping[str, Any], context: AgentQualityVerificationContext
+) -> None:
     """S8 -- manifest-bound artifact digests and the issuer signature
     (design rows 57-67).
 
@@ -1108,17 +1140,26 @@ def _run_agent_quality_checks(
     ``AGENT_QUALITY_VERIFICATION_FAILED`` with no bundle content attached.
     """
     try:
-        _stage_s1_structural(bundle)
+        _stage_s1_structural(bundle, context)
         _stage_s2_context_binding(bundle, context)
-        _stage_s3_registry_identity(bundle)
-        _stage_s4_declared_plan_signatures(bundle)
-        _stage_s5_objective_measurement(bundle)
-        _stage_s6_splits_held_out(bundle)
-        _stage_s7_composition_abstention(bundle)
-        _stage_s8_manifest_digests_signature(bundle)
+        _stage_s3_registry_identity(bundle, context)
+        _stage_s4_declared_plan_signatures(bundle, context)
+        _stage_s5_objective_measurement(bundle, context)
+        _stage_s6_splits_held_out(bundle, context)
+        _stage_s7_composition_abstention(bundle, context)
+        _stage_s8_manifest_digests_signature(bundle, context)
     except AgentQualityVerificationError:
         raise
     except Exception:
         _fail("AGENT_QUALITY_VERIFICATION_FAILED", "bundle")
-    # Unreachable while every stage above is an unconditional refusal.
+    # Unreachable while every stage above is an unconditional refusal. This
+    # `raise` sits OUTSIDE the try/except above on purpose for this packet,
+    # so it is untouched by the content-free catch-all: packet .6, which
+    # wires the real public entry point, MUST replace it with
+    # `_fail("AGENT_QUALITY_VERIFICATION_FAILED", "bundle")` placed INSIDE
+    # the guarded region (or otherwise move this refusal into the try),
+    # since a stage wiring bug that returns None must surface a registered
+    # AgentQualityVerificationError to the public caller, not a bare
+    # AssertionError outside this module's closed vocabulary (P1-V2.0
+    # review finding P3-12).
     raise AssertionError("unreachable: every stage above always raises")

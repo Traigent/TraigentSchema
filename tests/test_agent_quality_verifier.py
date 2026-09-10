@@ -139,9 +139,9 @@ class _CorruptingTraversable:
 
     def joinpath(self, name: str) -> _CorruptingTraversable:
         return _CorruptingTraversable(
-            self._real.joinpath(name),
+            self._real.joinpath(name),  # type: ignore[attr-defined]
             self._target_filename,
-            self._corrupt_text,  # type: ignore[attr-defined]
+            self._corrupt_text,
         )
 
     def read_text(self, encoding: str = "utf-8") -> str:
@@ -539,13 +539,194 @@ _STAGE_FUNCTION_NAMES = (
     "_stage_s8_manifest_digests_signature",
 )
 
+# The catch-all, cross-cutting placeholder code every stage's unconditional
+# refusal emits today (and that _run_agent_quality_checks' own wrapper also
+# emits) -- see the module's "new in P1-V2.0: catch-all, emitted by every
+# stage placeholder and by _run_agent_quality_checks' own wrapper" vocabulary
+# comment. It is assigned SOLE ownership to S1 in _STAGE_CODES for
+# partition-accounting purposes only; it is not subject to the
+# per-stage-owns-what-it-emits invariant the way every other code is,
+# because by design every stage's placeholder body emits it. Excluded, by
+# name, from test_stage_only_emits_codes_it_owns below.
+_UNIVERSAL_PLACEHOLDER_CODE = "AGENT_QUALITY_VERIFICATION_FAILED"
+
+
+def _emission_sites(tree: ast.AST) -> list[tuple[str, str, int]]:
+    """Return ``(enclosing_function_name, code, lineno)`` for every literal
+    vocabulary-code emission site anywhere in the module: a
+    ``_fail("CODE", ...)`` or ``AgentQualityVerificationError("CODE", ...)``
+    call (excluding ``_fail``'s own body, which constructs the error from
+    its parameters, not a literal), and a ``_unique_by(rows, key_fn,
+    "CODE", field)`` call whose third positional argument (or
+    ``duplicate_code=`` keyword) is a string literal -- ``_unique_by``
+    forwards that argument straight into its own internal ``_fail`` call
+    (see its docstring), so a CALL to ``_unique_by`` with a literal third
+    argument really does emit that code at the call site, even though the
+    emission is one level removed from a direct ``_fail(...)`` call
+    (P1-V2.0 review finding P1-2: the original audit excluded ``_unique_by``
+    call sites entirely as a "sanctioned pass-through", which let a stage
+    raise a PENDING code through it with every scan green)."""
+    sites: list[tuple[str, str, int]] = []
+
+    class _Visitor(ast.NodeVisitor):
+        function_stack: list[str] = []
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.function_stack.append(node.name)
+            self.generic_visit(node)
+            self.function_stack.pop()
+
+        def visit_Call(self, node: ast.Call) -> None:
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else None
+            enclosing = self.function_stack[-1] if self.function_stack else "<module>"
+            if name in ("_fail", "AgentQualityVerificationError") and enclosing != "_fail":
+                if node.args:
+                    first = node.args[0]
+                    if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                        sites.append((enclosing, first.value, node.lineno))
+            elif name == "_unique_by" and enclosing != "_unique_by":
+                literal_code: str | None = None
+                if len(node.args) >= 3:
+                    candidate = node.args[2]
+                    if isinstance(candidate, ast.Constant) and isinstance(candidate.value, str):
+                        literal_code = candidate.value
+                for kw in node.keywords:
+                    if (
+                        kw.arg == "duplicate_code"
+                        and isinstance(kw.value, ast.Constant)
+                        and isinstance(kw.value.value, str)
+                    ):
+                        literal_code = kw.value.value
+                if literal_code is not None:
+                    sites.append((enclosing, literal_code, node.lineno))
+            self.generic_visit(node)
+
+    _Visitor().visit(tree)
+    return sites
+
+
+def _parse_owns_docstring(doc: str) -> frozenset[str]:
+    """Extract the vocabulary-code set from a stage docstring's ``Owns:``
+    block: everything from ``Owns:`` up to the first blank line, with any
+    parenthetical asides and RST ``:func:``/``:data:`` markup stripped, split
+    on commas and periods."""
+    match = re.search(r"Owns:\s*(.*?)\n\s*\n", doc, flags=re.DOTALL)
+    assert match, f"docstring has no 'Owns:' block:\n{doc}"
+    block = match.group(1)
+    block = re.sub(r"\([^)]*\)", "", block)
+    block = re.sub(r"``([^`]*)``", r"\1", block)
+    codes = {token.strip().strip(".") for token in re.split(r"[,\n]", block)}
+    return frozenset(code for code in codes if code and re.fullmatch(r"[A-Z_]+", code))
+
+
+def test_stage_ownership_is_derived_from_owns_attribute() -> None:
+    """P1-V2.0 review finding P1-1: ``_STAGE_CODES`` used to be a
+    hand-written table independent of anything else in the module, so a
+    code could be silently moved from one stage's entry to another's with
+    every existing test still green (disjointness and total coverage are
+    both invariant under a same-size permutation). ``_STAGE_CODES`` is now
+    POPULATED by the ``@_owns(...)`` decorator on each stage function, from
+    the exact same literal call that sets the function's own ``owns``
+    attribute -- there is no second table left to drift out of sync. This
+    test pins that mechanism directly: each stage's ``_STAGE_CODES`` entry
+    must literally be the object referenced by ``fn.owns``, not merely an
+    equal-by-value set assembled independently."""
+    for stage_name in _STAGE_FUNCTION_NAMES:
+        stage = getattr(v, stage_name)
+        assert hasattr(stage, "owns"), f"{stage_name} has no .owns attribute"
+        assert v._STAGE_CODES[stage_name] is stage.owns
+
+
+def test_stage_docstrings_match_owns_attribute() -> None:
+    """The prose ``Owns:`` block in each stage's docstring must name exactly
+    the codes in its ``.owns`` attribute -- the mechanism (P1-1's fix) and
+    the human-readable design intent (what P3-10 found had already drifted:
+    S1's docstring omitted the catch-all its table entry carried) are two
+    independent expressions of the same fact, and this test is what keeps
+    them from drifting apart again."""
+    for stage_name in _STAGE_FUNCTION_NAMES:
+        stage = getattr(v, stage_name)
+        doc = stage.__doc__ or ""
+        documented = _parse_owns_docstring(doc)
+        assert documented == stage.owns, (
+            f"{stage_name}: docstring Owns: {sorted(documented)} != .owns {sorted(stage.owns)}"
+        )
+
+
+def test_stage_only_emits_codes_it_owns() -> None:
+    """Every literal vocabulary-code emission site (``_fail``,
+    ``AgentQualityVerificationError``, or a literal-forwarding
+    ``_unique_by`` call -- see :func:`_emission_sites`) found lexically
+    inside a ``_stage_sN`` function body must be a member of that stage's
+    ``.owns`` set, with the sole exception of the universal placeholder
+    catch-all (:data:`_UNIVERSAL_PLACEHOLDER_CODE`), which every stage's
+    unconditional-refusal body emits today by design and which is owned
+    only by S1 for partition-accounting purposes. This is the direct,
+    call-site-level counterpart to the ownership-permutation mutation P1-1
+    describes: even with ``_STAGE_CODES`` now derived from ``.owns``, a
+    stage's guard body could still raise a code some OTHER stage owns; this
+    test is what would catch that once real per-code guards land in
+    packets .2-.5."""
+    source = Path(v.__file__).read_text()
+    tree = ast.parse(source, filename=v.__file__)
+    sites = _emission_sites(tree)
+    owns_by_stage = {name: getattr(v, name).owns for name in _STAGE_FUNCTION_NAMES}
+    offenders = [
+        (fn, code, line)
+        for fn, code, line in sites
+        if fn in owns_by_stage
+        and code != _UNIVERSAL_PLACEHOLDER_CODE
+        and code not in owns_by_stage[fn]
+    ]
+    assert offenders == [], offenders
+
+
+# The module's public, module-owned callable surface as of origin/develop
+# 4b3373925cee6bd57071980285c58044165c90a4 (the base this packet built on) --
+# exactly the three dataclass/exception types that predate P1-V2.0, verified
+# by loading that ref's copy of the module and computing the same set the
+# test below computes. Frozen here so packet .6 (which ships the real
+# ``verify_agent_quality_certificate`` entry point) has a single, explicit
+# constant to update, rather than a test whose expectation is buried in
+# assertion logic.
+_AGENT_QUALITY_PUBLIC_SURFACE_AT_DEVELOP_BASE = frozenset(
+    {
+        "AgentQualityVerificationContext",
+        "AgentQualityVerificationError",
+        "AgentQualityVerificationResult",
+    }
+)
+
 
 def test_no_public_entry_point_exists_yet() -> None:
     """Sol B1: this packet ships no public entry point. A half-checking
     verifier that reports success is worse than one that does not exist, so
-    ``verify_agent_quality_certificate`` must be absent from both the module
-    and its public surface until the complete check sequence lands. This
-    test is deleted only in packet .6, once the real entry point ships."""
+    no public function -- under ANY name -- may exist on this module until
+    the complete check sequence lands.
+
+    P1-V2.0 review finding P1-3: the original version of this test only
+    asserted the ABSENCE of the one string
+    ``verify_agent_quality_certificate``, so a public entry point under any
+    other name (``verify_agent_quality_bundle``, ``verify``, ``check``)
+    shipped green. This version pins the module's entire module-owned
+    callable surface to a FROZEN set captured from origin/develop, not just
+    one forbidden name -- so ANY newly added public callable breaks it,
+    named however. The ``__module__`` filter excludes the re-exported
+    stdlib/typing names (``Any``, ``Callable``, ``dataclass``, ...) that are
+    imported into this module's namespace but not defined by it. This test
+    is deleted only in packet .6, once the real entry point ships and this
+    constant is updated to include it."""
+    module_owned_callables = {
+        name
+        for name in vars(v)
+        if not name.startswith("_")
+        and callable(getattr(v, name))
+        and getattr(getattr(v, name), "__module__", None) == v.__name__
+    }
+    assert module_owned_callables == _AGENT_QUALITY_PUBLIC_SURFACE_AT_DEVELOP_BASE, (
+        f"module-owned public callable surface drifted: {sorted(module_owned_callables)}"
+    )
     assert not hasattr(v, "verify_agent_quality_certificate")
     module = _importlib.import_module("traigent_schema.certification")
     assert not any("agent_quality" in name.lower() for name in module.__all__)
@@ -565,17 +746,19 @@ def test_run_agent_quality_checks_rejects_every_bundle() -> None:
 
 @pytest.mark.parametrize("stage_name", _STAGE_FUNCTION_NAMES)
 def test_each_stage_is_a_real_fail_closed_function(stage_name: str) -> None:
-    """Every named stage exists, is independently callable, and refuses
-    (rather than silently passing) when called directly."""
+    """Every named stage exists, is independently callable with the uniform
+    ``(bundle, context)`` signature all eight stages now share (P1-V2.0
+    review finding P3-11: S4's own docstring already needs
+    ``context.expected_declared_plan_digest`` and S3's registry pins are the
+    same shape, so giving every stage the context now is cheaper than
+    packets .2-.5 each having to widen a stage's signature later), and
+    refuses (rather than silently passing) when called directly."""
     stage = getattr(v, stage_name)
     assert callable(stage)
     context = _context()
     bundle = _schema_fixtures._bundle()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
-        if stage_name == "_stage_s2_context_binding":
-            stage(bundle, context)
-        else:
-            stage(bundle)
+        stage(bundle, context)
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
 
 
@@ -585,17 +768,53 @@ def test_abstained_bundle_carries_claims_is_schema_preempted() -> None:
     own ``allOf`` if/then/else abstention coupling already rejects a
     non-issuer_verified support row paired with a nonempty measured_claims
     array, before S1's schema check (design row 5) ever hands this module a
-    schema-valid bundle to check."""
+    schema-valid bundle to check.
+
+    P1-V2.0 review finding P2-4: ``assert errors`` alone is vacuous -- ANY
+    malformation anywhere in the bundle satisfies it, so this did not prove
+    the rejection came from the abstention coupling specifically. The
+    additional assertions below pin the rejection to exactly one error,
+    rooted at the coupling's own ``else`` branch, and the two controls prove
+    the SAME bundle validates clean the moment either half of the coupling
+    is satisfied (the array emptied, or the support row flipped to
+    issuer_verified) -- so the rejection is attributable to the coupling
+    alone, not to some other malformation."""
     bundle = _schema_fixtures._bundle(
         support_row=_schema_fixtures._support_row_abstained(),
         measured_claims=[_schema_fixtures._wilson_claim()],
         selection_estimates=[],
     )
     errors = _schema_fixtures._errors(bundle)
-    assert errors, (
+    assert len(errors) == 1, (
         "an abstained support row with a nonempty measured_claims array must "
-        "be rejected by the schema itself (S1) -- ABSTAINED_BUNDLE_CARRIES_CLAIMS "
-        "is unreachable through any schema-valid bundle"
+        "be rejected by the schema itself (S1) with exactly one error -- "
+        f"got {len(errors)}"
+    )
+    assert list(errors[0].absolute_schema_path)[-4:] == [
+        "else",
+        "properties",
+        "measured_claims",
+        "maxItems",
+    ]
+    control_emptied = _schema_fixtures._bundle(
+        support_row=_schema_fixtures._support_row_abstained(),
+        measured_claims=[],
+        selection_estimates=[],
+    )
+    assert _schema_fixtures._errors(control_emptied) == [], (
+        "emptying measured_claims on the same abstained support row must "
+        "validate clean -- the rejection above must be attributable to the "
+        "coupling alone"
+    )
+    control_issuer_verified = _schema_fixtures._bundle(
+        support_row=_schema_fixtures._support_row_issuer_verified(),
+        measured_claims=[_schema_fixtures._wilson_claim()],
+        selection_estimates=[],
+    )
+    assert _schema_fixtures._errors(control_issuer_verified) == [], (
+        "the same measured_claims array on an issuer_verified support row "
+        "must validate clean -- confirms the coupling, not the claim array "
+        "itself, is what rejects the abstained bundle above"
     )
 
 
@@ -606,18 +825,47 @@ def test_selection_estimate_in_certified_set_is_schema_preempted() -> None:
     non_certified_selection_estimates to maxItems 0 on a non-issuer_verified
     support row, so a schema-valid abstained bundle can never carry a
     selection estimate either -- rejected by S1's schema check before any
-    per-claim guard would run."""
+    per-claim guard would run.
+
+    Real controls per P1-V2.0 review finding P2-4 -- see
+    :func:`test_abstained_bundle_carries_claims_is_schema_preempted` for the
+    rationale."""
     bundle = _schema_fixtures._bundle(
         support_row=_schema_fixtures._support_row_abstained(),
         measured_claims=[],
         selection_estimates=[_schema_fixtures._selection_estimate()],
     )
     errors = _schema_fixtures._errors(bundle)
-    assert errors, (
-        "an abstained support row with a nonempty non_certified_selection_estimates "
-        "array must be rejected by the schema itself (S1) -- "
-        "SELECTION_ESTIMATE_IN_CERTIFIED_SET is unreachable through any "
-        "schema-valid bundle"
+    assert len(errors) == 1, (
+        "an abstained support row with a nonempty "
+        "non_certified_selection_estimates array must be rejected by the "
+        f"schema itself (S1) with exactly one error -- got {len(errors)}"
+    )
+    assert list(errors[0].absolute_schema_path)[-4:] == [
+        "else",
+        "properties",
+        "non_certified_selection_estimates",
+        "maxItems",
+    ]
+    control_emptied = _schema_fixtures._bundle(
+        support_row=_schema_fixtures._support_row_abstained(),
+        measured_claims=[],
+        selection_estimates=[],
+    )
+    assert _schema_fixtures._errors(control_emptied) == [], (
+        "emptying non_certified_selection_estimates on the same abstained "
+        "support row must validate clean -- the rejection above must be "
+        "attributable to the coupling alone"
+    )
+    control_issuer_verified = _schema_fixtures._bundle(
+        support_row=_schema_fixtures._support_row_issuer_verified(),
+        measured_claims=[_schema_fixtures._wilson_claim()],
+        selection_estimates=[_schema_fixtures._selection_estimate()],
+    )
+    assert _schema_fixtures._errors(control_issuer_verified) == [], (
+        "the same selection-estimate array on an issuer_verified support "
+        "row must validate clean -- confirms the coupling, not the array "
+        "itself, is what rejects the abstained bundle above"
     )
 
 
@@ -661,18 +909,34 @@ def test_schema_preempted_codes_are_exactly_two_and_registered() -> None:
 def test_pending_and_preempted_and_emitted_partition_is_disjoint_and_covers_all() -> None:
     """N6 widened: the three buckets -- schema-preempted, pending, and
     emitted-today -- are pairwise disjoint and their union is exactly
-    AGENT_QUALITY_ERROR_CODES."""
-    emitted_today = frozenset(
-        {
-            "CONTEXT",
-            "PACKAGE_DATA_INVALID",
-            "QUANTILE_TABLE_LOOKUP_FAILED",
-            "AGENT_QUALITY_VERIFICATION_FAILED",
-        }
-    )
+    AGENT_QUALITY_ERROR_CODES.
+
+    P1-V2.0 review finding P2-6: comparing ``preempted | pending |
+    emitted_today == AGENT_QUALITY_ERROR_CODES`` against a hand-typed
+    ``emitted_today`` literal is a tautology -- ``AGENT_QUALITY_PENDING_CODES``
+    is DEFINED in the module as ``ERROR_CODES - PREEMPTED -
+    <that same literal>``, so the identity holds for ANY content of
+    ``ERROR_CODES``/``PREEMPTED`` as long as the test's literal matches the
+    module's. This version derives ``emitted_today`` from the AST emission
+    scan instead (a property of the actual code, not a mirror of the
+    module's own subtraction), and separately recovers "the module's
+    subtraction set" algebraically from the three public constants, so the
+    two are compared rather than both being restated from the same
+    source."""
+    source = Path(v.__file__).read_text()
+    tree = ast.parse(source, filename=v.__file__)
+    emitted_today = frozenset(code for (_fn, code, _line) in _emission_sites(tree))
+
     preempted = v.AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
     pending = v.AGENT_QUALITY_PENDING_CODES
+    module_subtraction_set = v.AGENT_QUALITY_ERROR_CODES - preempted - pending
 
+    assert emitted_today == module_subtraction_set, (
+        "a code started or stopped being emitted without "
+        "AGENT_QUALITY_PENDING_CODES's subtraction being updated to match: "
+        f"AST-derived={sorted(emitted_today)} "
+        f"module-subtraction={sorted(module_subtraction_set)}"
+    )
     assert preempted.isdisjoint(pending)
     assert preempted.isdisjoint(emitted_today)
     assert pending.isdisjoint(emitted_today)
@@ -680,19 +944,26 @@ def test_pending_and_preempted_and_emitted_partition_is_disjoint_and_covers_all(
 
 
 def test_pending_codes_are_not_yet_emitted() -> None:
-    """No pending code has a literal call site in the module today, and
+    """No pending code has a literal emission site in the module today, and
     every literal code actually raised is NOT pending -- source-scanned so a
     stage that starts emitting a pending code (or one that silently stops
     emitting a non-pending code) breaks this test instead of drifting past
-    it. ``_unique_by`` is a second sanctioned pass-through, alongside
-    ``_fail`` itself: it forwards a CALLER-supplied ``duplicate_code``
-    parameter to ``_fail`` by design (see its docstring), so its own
-    ``_fail(duplicate_code, field)`` call site is not a literal-code
-    emission of anything and is excluded from the scan the same way ``_fail``
-    excludes its own body."""
+    it.
+
+    P1-V2.0 review finding P3-7: the regex half of the original audit
+    matched docstrings and comments (three of four hits on
+    ``AgentQualityVerificationError("PACKAGE_DATA_INVALID", ...)`` were
+    prose, not code), so this version uses :func:`_emission_sites` (an AST
+    walk, the same one :func:`test_stage_only_emits_codes_it_owns` and
+    :func:`test_pending_and_preempted_and_emitted_partition_is_disjoint_and_covers_all`
+    use) instead of a regex over the raw source. Finding P1-2: that scan
+    ALSO counts a ``_unique_by(rows, key_fn, "CODE", field)`` call site as
+    emitting ``"CODE"`` -- the previous version excluded ``_unique_by``
+    call sites from the scan entirely, which let a stage raise a PENDING
+    code (e.g. ``OBJECTIVE_DUPLICATE``) through it with the audit green."""
     source = Path(v.__file__).read_text()
-    emitted = set(re.findall(r'_fail\(\s*"([A-Z_]+)"', source))
-    emitted |= set(re.findall(r"AgentQualityVerificationError\(\s*\"([A-Z_]+)\"", source))
+    tree = ast.parse(source, filename=v.__file__)
+    emitted = frozenset(code for (_fn, code, _line) in _emission_sites(tree))
     assert emitted <= v.AGENT_QUALITY_ERROR_CODES, emitted - v.AGENT_QUALITY_ERROR_CODES
     assert emitted.isdisjoint(v.AGENT_QUALITY_PENDING_CODES), (
         emitted & v.AGENT_QUALITY_PENDING_CODES
@@ -701,12 +972,22 @@ def test_pending_codes_are_not_yet_emitted() -> None:
 
 
 def test_emission_audit_scans_only_literal_codes() -> None:
-    """AST companion to the regex audit above: every ``_fail(...)`` /
-    ``AgentQualityVerificationError(...)`` call site in the module must pass
-    a string-literal first argument, except ``_fail``'s own body (which
-    constructs the error from its parameters) and ``_unique_by`` (the one
-    sanctioned pass-through of a caller-supplied code -- see its
-    docstring)."""
+    """Every ``_fail(...)`` / ``AgentQualityVerificationError(...)`` call
+    site in the module must pass a string-literal first argument, and every
+    ``_unique_by(...)`` call site's ``duplicate_code`` argument (3rd
+    positional, or the ``duplicate_code=`` keyword) must also be a string
+    literal when present -- except ``_fail``'s own body (which constructs
+    the error from its parameters) and ``_unique_by``'s own body (which
+    forwards its CALLER-supplied ``duplicate_code`` parameter, a variable,
+    not a literal, by design -- see its docstring).
+
+    P1-V2.0 review finding P3-8 (low realism, cheap to close): also asserts
+    no module-level or nested ``Assign`` anywhere rebinds ``_fail`` or
+    ``AgentQualityVerificationError`` to another name -- an alias
+    (``_emit = _fail; _emit(...)``) would otherwise let a stage emit any
+    code with every scan above still green, since they only recognize the
+    literal names ``_fail`` / ``AgentQualityVerificationError`` /
+    ``_unique_by`` as call targets."""
     source = Path(v.__file__).read_text()
     tree = ast.parse(source, filename=v.__file__)
     offenders: list[str] = []
@@ -722,9 +1003,11 @@ def test_emission_audit_scans_only_literal_codes() -> None:
         def visit_Call(self, node: ast.Call) -> None:
             func = node.func
             name = func.id if isinstance(func, ast.Name) else None
-            if name in ("_fail", "AgentQualityVerificationError") and self.function_stack[
-                -1:
-            ] not in (["_fail"], ["_unique_by"]):
+            enclosing = self.function_stack[-1] if self.function_stack else None
+            if name in ("_fail", "AgentQualityVerificationError") and enclosing not in (
+                "_fail",
+                "_unique_by",
+            ):
                 if not node.args:
                     offenders.append(f"{name}() with no positional args at line {node.lineno}")
                 else:
@@ -733,6 +1016,27 @@ def test_emission_audit_scans_only_literal_codes() -> None:
                         offenders.append(
                             f"{name}(...) with a non-literal code at line {node.lineno}"
                         )
+            elif name == "_unique_by" and enclosing != "_unique_by":
+                candidate: ast.expr | None = None
+                if len(node.args) >= 3:
+                    candidate = node.args[2]
+                for kw in node.keywords:
+                    if kw.arg == "duplicate_code":
+                        candidate = kw.value
+                if candidate is not None and not (
+                    isinstance(candidate, ast.Constant) and isinstance(candidate.value, str)
+                ):
+                    offenders.append(
+                        f"_unique_by(...) with a non-literal duplicate_code at line {node.lineno}"
+                    )
+            self.generic_visit(node)
+
+        def visit_Assign(self, node: ast.Assign) -> None:
+            if isinstance(node.value, ast.Name) and node.value.id in (
+                "_fail",
+                "AgentQualityVerificationError",
+            ):
+                offenders.append(f"alias of {node.value.id!r} created at line {node.lineno}")
             self.generic_visit(node)
 
     _Visitor().visit(tree)

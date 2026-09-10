@@ -53,6 +53,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, NoReturn, TypeVar, cast
 
 from jsonschema import Draft7Validator  # type: ignore[import-untyped]
@@ -685,6 +686,94 @@ AGENT_QUALITY_FIELD_LOCATIONS = frozenset(
     }
 )
 
+# G9: the wire-error code each of the 72 verifier codes maps to on
+# AgentQualityErrorV1 (agent_quality_v1_schema.json). That schema's own
+# description is the authority for the rule this mapping implements: "The
+# code enum is deliberately coarser than the verifier's own [...]-code
+# vocabulary, and that coarseness is the privacy property -- adding a
+# verifier code must NOT widen this enum." The four buckets below are S5
+# (design rows 22-39, all measurement) plus HOLDOUT_NOT_USED (an S6 code
+# whose own check is on MeasuredObjectiveClaimV1.evaluated_split_id and
+# whose ``_fail`` field is "measured_claims", not a split field -- see the
+# _stage_s6_splits_holdout body) go to agent_quality_invalid_measurement;
+# the remaining S6 split/holdout-structure codes (SPLIT_* and the two
+# holdout-arm-count codes HOLDOUT_MISSING/_TOO_SMALL/_REUSED and
+# ARM_COUNT_MISMATCH) go to agent_quality_invalid_split; S4's declared-plan
+# codes (design rows 17-19, 21), including the declared-plan pin
+# (DECLARED_PLAN_PIN_MISMATCH), go to agent_quality_invalid_declared_plan;
+# everything else -- S1 structural, S2 context binding, S3 registry
+# identity, S7 composition/abstention, S8 manifest digests/signature, the
+# two schema-preempted codes, and the catch-all itself -- goes to
+# agent_quality_verification_failed, the coarsest bucket, matching a relying
+# party's inability to act differently on any of those distinctions anyway.
+_AGENT_QUALITY_WIRE_MEASUREMENT_CODES: frozenset[str] = frozenset(
+    {
+        "OBJECTIVE_NOT_IN_DECLARED_PLAN",
+        "PRIMARY_OBJECTIVE_MISSING",
+        "OBJECTIVE_NOT_REGISTERED",
+        "OBJECTIVE_KIND_MISMATCH",
+        "OBJECTIVE_UNIT_MISMATCH",
+        "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET",
+        "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED",
+        "INTERVAL_METHOD_NOT_EMITTABLE",
+        "INTERVAL_METHOD_NOT_ADMISSIBLE",
+        "SUFFICIENT_STATISTICS_SHAPE",
+        "POINT_ESTIMATE_RECOMPUTATION_MISMATCH",
+        "INTERVAL_RECOMPUTATION_MISMATCH",
+        "INTERVAL_ORDER",
+        "INTERVAL_DEGENERATE",
+        "INTERVAL_OUT_OF_UNIT_BOUNDS",
+        "NOMINAL_COVERAGE_MISMATCH",
+        "SAMPLE_SIZE_MISMATCH",
+        "VERIFICATION_LEVEL_MISMATCH",
+        "HOLDOUT_NOT_USED",
+    }
+)
+_AGENT_QUALITY_WIRE_SPLIT_CODES: frozenset[str] = frozenset(
+    {
+        "SPLIT_SET_SHAPE",
+        "HOLDOUT_MISSING",
+        "HOLDOUT_TOO_SMALL",
+        "SPLIT_DERIVATION_MISMATCH",
+        "SPLIT_PARTITION_INCOMPLETE",
+        "SPLIT_COMMITMENT_COLLISION",
+        "SPLIT_SIZE_IMPLAUSIBLE",
+        "SPLIT_OPENING_MISMATCH",
+        "SPLIT_OPENING_RULE_VIOLATION",
+        "HOLDOUT_REUSED",
+        "ARM_COUNT_MISMATCH",
+    }
+)
+_AGENT_QUALITY_WIRE_DECLARED_PLAN_CODES: frozenset[str] = frozenset(
+    {
+        "DECLARED_PLAN_DIGEST_MISMATCH",
+        "DECLARED_PLAN_SIGNATURE_INVALID",
+        "DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH",
+        "DECLARED_PLAN_PIN_MISMATCH",
+    }
+)
+
+# Built as a comprehension over AGENT_QUALITY_ERROR_CODES itself (not a
+# separately-typed-out dict) so that adding a verifier code without also
+# sorting it into one of the three named buckets above cannot silently drop
+# it from this mapping -- it lands in the catch-all bucket, which
+# test_agent_quality_wire_error_code_mapping_covers_every_verifier_code
+# below still catches by cross-checking key parity explicitly.
+AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE: Mapping[str, str] = MappingProxyType(
+    {
+        code: (
+            "agent_quality_invalid_measurement"
+            if code in _AGENT_QUALITY_WIRE_MEASUREMENT_CODES
+            else "agent_quality_invalid_split"
+            if code in _AGENT_QUALITY_WIRE_SPLIT_CODES
+            else "agent_quality_invalid_declared_plan"
+            if code in _AGENT_QUALITY_WIRE_DECLARED_PLAN_CODES
+            else "agent_quality_verification_failed"
+        )
+        for code in AGENT_QUALITY_ERROR_CODES
+    }
+)
+
 
 class AgentQualityVerificationError(ValueError):
     """A fixed-code, fixed-field verification failure that never includes
@@ -704,6 +793,15 @@ class AgentQualityVerificationError(ValueError):
         self.code = code
         self.field = field
         super().__init__(code)
+
+    @property
+    def wire_code(self) -> str:
+        """This error's ``AgentQualityErrorV1.code`` -- the coarse wire
+        bucket ``self.code`` maps to under
+        :data:`AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE`. Total lookup: every
+        member of ``AGENT_QUALITY_ERROR_CODES`` (which ``self.code`` is
+        already validated against in ``__init__``) is a key in that mapping."""
+        return AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE[self.code]
 
 
 def _fail(code: str, field: str) -> NoReturn:

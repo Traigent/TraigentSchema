@@ -6094,3 +6094,148 @@ def test_gutting_s7_lets_a_wrong_assertion_digest_through() -> None:
             bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
     assert result.code == "AGENT_QUALITY_VERIFIED"
+
+
+# --- G9: wire-error code mapping and tripwire ---
+
+
+def test_wire_error_code_mapping_covers_every_verifier_code() -> None:
+    """G9 tripwire (a): AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE's keys are
+    exactly AGENT_QUALITY_ERROR_CODES -- a verifier code added without also
+    being sorted into a wire bucket would otherwise disappear from the
+    mapping silently instead of raising here."""
+    assert set(v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE) == v.AGENT_QUALITY_ERROR_CODES
+
+
+def test_wire_error_code_mapping_values_are_schema_enum_members() -> None:
+    """G9 tripwire (b): every mapped wire code is a member of the SHIPPED
+    schema's AgentQualityErrorV1.code enum, read from the schema file
+    itself (``SCHEMA``), not a literal copy of the enum retyped here."""
+    schema_codes = set(SCHEMA["definitions"]["AgentQualityErrorV1"]["properties"]["code"]["enum"])
+    offenders = {
+        code: wire
+        for code, wire in v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE.items()
+        if wire not in schema_codes
+    }
+    assert offenders == {}
+
+
+def test_wire_error_code_mapping_uses_every_schema_enum_member() -> None:
+    """G9 tripwire (c): every one of the schema's wire codes is actually
+    used by at least one verifier code -- no dead wire bucket that the
+    schema advertises but this module never emits."""
+    schema_codes = set(SCHEMA["definitions"]["AgentQualityErrorV1"]["properties"]["code"]["enum"])
+    used = set(v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE.values())
+    assert schema_codes <= used
+
+
+def test_wire_error_code_mapping_missing_key_breaks_tripwire_a() -> None:
+    """G9 tripwire (d), mutation 1: a verifier code added to
+    AGENT_QUALITY_ERROR_CODES without a matching mapping entry breaks
+    tripwire (a) -- reproduces the failure a real omission would cause,
+    against a scratch copy so the real mapping is untouched."""
+    scratch_codes = v.AGENT_QUALITY_ERROR_CODES | {"CANARY_NEW_VERIFIER_CODE"}
+    assert set(v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE) != scratch_codes
+
+
+def test_wire_error_code_mapping_non_enum_value_breaks_tripwire_b() -> None:
+    """G9 tripwire (d), mutation 2: mapping a code to a string outside the
+    schema enum breaks tripwire (b), against a scratch copy of the mapping."""
+    schema_codes = set(SCHEMA["definitions"]["AgentQualityErrorV1"]["properties"]["code"]["enum"])
+    scratch = dict(v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE)
+    scratch["CONTEXT"] = "agent_quality_invalid_measurement_TYPO"
+    offenders = {code: wire for code, wire in scratch.items() if wire not in schema_codes}
+    assert offenders == {"CONTEXT": "agent_quality_invalid_measurement_TYPO"}
+
+
+def test_wire_error_code_mapping_dropped_wire_code_breaks_tripwire_c() -> None:
+    """G9 tripwire (d), mutation 3: remapping every verifier code that used
+    to point at one wire bucket (agent_quality_invalid_declared_plan) to a
+    different bucket leaves that wire code unused by any verifier code,
+    breaking tripwire (c) -- against a scratch copy of the mapping."""
+    schema_codes = set(SCHEMA["definitions"]["AgentQualityErrorV1"]["properties"]["code"]["enum"])
+    scratch = {
+        code: (
+            "agent_quality_verification_failed"
+            if wire == "agent_quality_invalid_declared_plan"
+            else wire
+        )
+        for code, wire in v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE.items()
+    }
+    used = set(scratch.values())
+    assert "agent_quality_invalid_declared_plan" not in used
+    assert not (schema_codes <= used)
+
+
+def test_wire_code_property_for_measurement_error_via_public_function() -> None:
+    """G9 tripwire (e), measurement bucket: 150 clears S5's own
+    ``minimum_sample_size`` floor but disagrees with both the holdout
+    split's ``item_count`` and the sufficient statistics' ``trial_count``
+    (mirrors test_s5_sample_size_mismatch, but through the public entry
+    point rather than the private stage function)."""
+    bundle = build_agent_quality_bundle()
+    bundle["measured_claims"][0]["sample_size"] = 150
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v.verify_agent_quality_certificate(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "SAMPLE_SIZE_MISMATCH"
+    assert caught.value.wire_code == "agent_quality_invalid_measurement"
+    assert caught.value.wire_code == v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE["SAMPLE_SIZE_MISMATCH"]
+
+
+def test_wire_code_property_for_split_error_via_public_function() -> None:
+    """G9 tripwire (e), split bucket: a re-signed manifest whose
+    ``selection_arm_count`` disagrees with the declared plan's (mirrors
+    the ARM_COUNT_MISMATCH full-runner test), through the public entry
+    point."""
+    bundle = build_agent_quality_bundle()
+    closed = _gv_reclose_after_manifest_field_mutation(
+        bundle, lambda manifest: manifest.__setitem__("selection_arm_count", 5)
+    )
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v.verify_agent_quality_certificate(
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "ARM_COUNT_MISMATCH"
+    assert caught.value.wire_code == "agent_quality_invalid_split"
+    assert caught.value.wire_code == v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE["ARM_COUNT_MISMATCH"]
+
+
+def test_wire_code_property_for_declared_plan_error_via_public_function() -> None:
+    """G9 tripwire (e), declared-plan bucket: the relying party's own pin
+    disagrees with the bundle's declared plan digest (mirrors
+    test_s4_declared_plan_pin_mismatch), through the public entry point."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context(expected_declared_plan_digest="sha256:" + "9" * 64)
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v.verify_agent_quality_certificate(
+            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "DECLARED_PLAN_PIN_MISMATCH"
+    assert caught.value.wire_code == "agent_quality_invalid_declared_plan"
+    assert (
+        caught.value.wire_code
+        == v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE["DECLARED_PLAN_PIN_MISMATCH"]
+    )
+
+
+def test_wire_code_property_for_catch_all_error_via_public_function() -> None:
+    """G9 tripwire (e), catch-all bucket: a non-``None`` ``split_opening``
+    is refused by CONTEXT itself (mirrors
+    test_verify_agent_quality_certificate_split_opening_still_refused),
+    through the public entry point."""
+    bundle = build_agent_quality_bundle()
+    context = build_agent_quality_context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v.verify_agent_quality_certificate(
+            bundle,
+            context=context,
+            process_record_bundle=_GV_PROCESS_RECORD_BUNDLE,
+            split_opening={"anything": "at all"},
+        )
+    assert caught.value.code == "CONTEXT"
+    assert caught.value.wire_code == "agent_quality_verification_failed"
+    assert caught.value.wire_code == v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE["CONTEXT"]

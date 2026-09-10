@@ -40,9 +40,21 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
+from pathlib import Path
 from typing import Any, NoReturn, TypeVar, cast
 
+from jsonschema import Draft7Validator  # type: ignore[import-untyped]
+from referencing import Registry, Resource
+from referencing.exceptions import Unresolvable
+
 import traigent_schema.fp2 as fp2
+
+_SCHEMA_RESOURCE = (
+    resources.files("traigent_schema")
+    .joinpath("schemas")
+    .joinpath("certification")
+    .joinpath("agent_quality_v1_schema.json")
+)
 
 _SHA256_PREFIX = "sha256:"
 _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
@@ -208,12 +220,16 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: frozenset[str] = frozenset(
 )
 
 # Codes that are reachable by design (not schema-preempted) but that no
-# guard in this module raises yet. This packet's stage functions are all
-# unconditional refusals, so every one of these is genuinely unraised today,
-# not merely "not covered by a test" -- see
+# guard in this module raises yet. Most of this packet's stage functions
+# (S2-S7) are still unconditional refusals, so every one of their codes is
+# genuinely unraised today, not merely "not covered by a test" -- see
 # test_agent_quality_verifier.py::test_pending_codes_are_not_yet_emitted.
-# This set MUST shrink to empty by packet .6, as each later packet wires its
-# stage's real checks and moves that stage's codes out of here.
+# S1's six real-check codes (BUNDLE_SHAPE, STRICT_INTEGER, UNSAFE_INTEGER,
+# SCHEMA, SCHEMA_DEPENDENCY, CANONICALIZATION) are wired as of P1-V2.2 and
+# are excluded here alongside CONTEXT/PACKAGE_DATA_INVALID/
+# QUANTILE_TABLE_LOOKUP_FAILED, which are raised outside the eight-stage
+# runner. This set MUST shrink to empty by packet .6, as each later packet
+# wires its stage's real checks and moves that stage's codes out of here.
 AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
     AGENT_QUALITY_ERROR_CODES
     - AGENT_QUALITY_SCHEMA_PREEMPTED_CODES
@@ -223,6 +239,12 @@ AGENT_QUALITY_PENDING_CODES: frozenset[str] = frozenset(
             "PACKAGE_DATA_INVALID",
             "QUANTILE_TABLE_LOOKUP_FAILED",
             "AGENT_QUALITY_VERIFICATION_FAILED",
+            "BUNDLE_SHAPE",
+            "STRICT_INTEGER",
+            "UNSAFE_INTEGER",
+            "SCHEMA",
+            "SCHEMA_DEPENDENCY",
+            "CANONICALIZATION",
         }
     )
 )
@@ -869,9 +891,6 @@ def _unique_by(
 # which computes the set by AST rather than trusting this comment to stay
 # accurate. Listed here, with the packet expected to wire each one, so an
 # unwired helper reads as "not yet reached" rather than "forgotten":
-#   _strip_self_digest  -- wired in .2/.3 (scope-binding and declared-plan/
-#                           manifest digest recomputation strip their own
-#                           digest member from the preimage)
 #   _wilson_point        -- wired in .4 (S5's point-estimate recomputation)
 #   _student_t_half_width -- wired in .4 (S5's interval recomputation)
 #   _wilson_bounds        -- wired in .4 (S5's interval recomputation)
@@ -880,7 +899,83 @@ def _unique_by(
 #                             de-duplication (SELECTION_ESTIMATE_DUPLICATE)
 # _run_agent_quality_checks itself is ALSO unwired in-module (no public entry
 # point calls it yet) -- wired in .6, when verify_agent_quality_certificate
-# ships and calls it.
+# ships and calls it. _strip_self_digest is wired as of P1-V2.2 (S8's
+# unsigned-manifest reconstruction, design row 64).
+
+
+_WALK_VALUE = 0
+_WALK_CLOSE = 1
+
+
+def _walk_strict_values(root: Any) -> None:
+    """Reject values ``fp2.canonicalize`` must never be asked to handle,
+    BEFORE canonicalization runs -- ported from
+    ``evaluator_quality_verifier._walk_strict_values`` (lines 264-313 there),
+    with this module's own two-way split of that sibling's single
+    ``EVALUATOR_STRICT_INTEGER`` code: a ``bool`` (unlike the sibling, which
+    explicitly lets booleans through) and any other non-``int``-safe scalar
+    (``float``, a non-``str`` dict key, a string that fails strict UTF-8
+    encoding) is :data:`STRICT_INTEGER`; an ``int`` whose magnitude exceeds
+    the IEEE-754-safe range (``+-(2**53 - 1)``) is :data:`UNSAFE_INTEGER`.
+    Uses an explicit work stack rather than recursion for the same reason the
+    sibling does: recursion depth is a property of the caller's remaining
+    interpreter stack, not of the data.
+    """
+    open_containers: set[int] = set()
+    work: list[tuple[int, Any, int]] = [(_WALK_VALUE, root, 1)]
+    while work:
+        kind, value, depth = work.pop()
+        if kind == _WALK_CLOSE:
+            open_containers.discard(value)
+            continue
+        if isinstance(value, bool):
+            _fail("STRICT_INTEGER", "bundle")
+        if isinstance(value, int) and not -(2**53 - 1) <= value <= 2**53 - 1:
+            _fail("UNSAFE_INTEGER", "bundle")
+        if isinstance(value, float):
+            _fail("STRICT_INTEGER", "bundle")
+        if isinstance(value, str):
+            try:
+                value.encode("utf-8", "strict")
+            except UnicodeEncodeError:
+                _fail("STRICT_INTEGER", "bundle")
+        elif isinstance(value, (dict, list)):
+            if depth > fp2.MAX_DEPTH:
+                _fail("CANONICALIZATION", "bundle")
+            identity = id(value)
+            if identity in open_containers:
+                _fail("CANONICALIZATION", "bundle")
+            open_containers.add(identity)
+            work.append((_WALK_CLOSE, identity, 0))
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    if not isinstance(key, str):
+                        _fail("STRICT_INTEGER", "bundle")
+                    work.append((_WALK_VALUE, key, depth + 1))
+                    work.append((_WALK_VALUE, child, depth + 1))
+            else:
+                for child in value:
+                    work.append((_WALK_VALUE, child, depth + 1))
+
+
+@lru_cache(maxsize=1)
+def _agent_quality_validator() -> Draft7Validator:
+    """Cached :class:`Draft7Validator` for ``AgentQualityCertificateBundleV1``,
+    built from the shipped ``agent_quality_v1_schema.json`` plus a
+    ``referencing.Registry`` populated from every ``$id``-bearing document
+    under ``traigent_schema/schemas`` -- mirrors
+    ``evaluator_quality_verifier._evaluator_quality_validator``."""
+    try:
+        registry = Registry()
+        schema_root = Path(__file__).resolve().parent.parent / "schemas"
+        for path in schema_root.rglob("*.json"):
+            document = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(document, dict) and isinstance(document.get("$id"), str):
+                registry = registry.with_resource(document["$id"], Resource.from_contents(document))
+        schema = json.loads(_SCHEMA_RESOURCE.read_text(encoding="utf-8"))
+        return Draft7Validator(schema, registry=registry)
+    except Exception:
+        _fail("SCHEMA_DEPENDENCY", "bundle")
 
 
 @_owns(
@@ -901,13 +996,39 @@ def _stage_s1_structural(
     SCHEMA_DEPENDENCY, CANONICALIZATION, AGENT_QUALITY_VERIFICATION_FAILED
     (this stage's own unconditional-refusal placeholder catch-all).
 
-    This packet ships no real check: the stage unconditionally refuses, so
-    that the runner rejects every bundle today rather than half-verifying
-    one. The complete-check-sequence packet replaces this body with the
-    bundle-type check, the pre-canonicalization strict/safe-integer walk,
-    schema validation, $ref-resolution, and the ``fp2.canonicalize`` tail.
+    In order: (1) ``bundle`` must be a ``Mapping`` whose ``schema_version``
+    is the one this module verifies, else BUNDLE_SHAPE; (2)
+    :func:`_walk_strict_values` rejects any bool/float/oversized-int/
+    non-str-key/non-UTF8-string/excessive-depth/self-referential value
+    BEFORE canonicalization ever sees it (STRICT_INTEGER, UNSAFE_INTEGER,
+    CANONICALIZATION); (3) :func:`_agent_quality_validator` runs
+    ``AgentQualityCertificateBundleV1`` (SCHEMA for any validation error,
+    SCHEMA_DEPENDENCY for an unresolvable ``$ref`` or any other validator
+    construction/execution failure); (4) the ``fp2.canonicalize`` tail
+    (CANONICALIZATION) -- belt-and-suspenders with step (2)'s depth/cycle
+    guard, since a value step (2) cannot see (e.g. one fp2 rejects for a
+    reason outside this walk's vocabulary) must still fail closed here
+    rather than escape as a bare exception.
     """
-    _fail("AGENT_QUALITY_VERIFICATION_FAILED", "bundle")
+    if not isinstance(bundle, Mapping) or bundle.get("schema_version") != (
+        "traigent.agent_quality.certificate_bundle.v1"
+    ):
+        _fail("BUNDLE_SHAPE", "bundle")
+    _walk_strict_values(bundle)
+    try:
+        errors = list(_agent_quality_validator().iter_errors(bundle))
+    except Unresolvable:
+        _fail("SCHEMA_DEPENDENCY", "bundle")
+    except AgentQualityVerificationError:
+        raise
+    except Exception:
+        _fail("SCHEMA_DEPENDENCY", "bundle")
+    if errors:
+        _fail("SCHEMA", "bundle")
+    try:
+        fp2.canonicalize(bundle)
+    except fp2.Fp2UnsupportedValue:
+        _fail("CANONICALIZATION", "bundle")
 
 
 @_owns(

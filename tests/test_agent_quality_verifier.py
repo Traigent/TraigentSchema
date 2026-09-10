@@ -744,7 +744,19 @@ def test_run_agent_quality_checks_rejects_every_bundle() -> None:
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
 
 
-@pytest.mark.parametrize("stage_name", _STAGE_FUNCTION_NAMES)
+# S1 (and, once P1-V2.2 wires it, S8) is no longer an unconditional
+# refusal, so it cannot share the uniform "any schema-valid bundle is
+# refused with the catch-all" assertion below -- a schema-valid bundle is
+# exactly what S1's real checks are supposed to PASS. S2-S7 remain
+# placeholders in this packet and keep the uniform assertion; S1 gets its
+# own dedicated fail-closed coverage in
+# test_stage_s1_structural_is_a_real_fail_closed_function below.
+_STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES = tuple(
+    name for name in _STAGE_FUNCTION_NAMES if name != "_stage_s1_structural"
+)
+
+
+@pytest.mark.parametrize("stage_name", _STILL_PLACEHOLDER_STAGE_FUNCTION_NAMES)
 def test_each_stage_is_a_real_fail_closed_function(stage_name: str) -> None:
     """Every named stage exists, is independently callable with the uniform
     ``(bundle, context)`` signature all eight stages now share (P1-V2.0
@@ -760,6 +772,139 @@ def test_each_stage_is_a_real_fail_closed_function(stage_name: str) -> None:
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         stage(bundle, context)
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+
+
+def test_stage_s1_structural_is_a_real_fail_closed_function() -> None:
+    """S1's real-check counterpart to
+    :func:`test_each_stage_is_a_real_fail_closed_function`: unlike S2-S7, S1
+    now PASSES a schema-valid bundle (see
+    :func:`test_golden_bundle_reaches_private_runner_fail_closed_boundary`),
+    so its "still fail-closed when called directly" proof uses a
+    structurally-invalid bundle instead, and checks S1's own real code
+    rather than the catch-all."""
+    context = _context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s1_structural({"schema_version": "wrong"}, context)
+    assert caught.value.code == "BUNDLE_SHAPE"
+    assert caught.value.field == "bundle"
+
+
+# ==========================================================================
+# P1-V2.2 -- S1 real checks, fixture family A: minimal/malformed/UNSIGNED
+# dicts. NONE of these are signed -- a test below proves S1 rejects every
+# one of them before any bundle could reach S8's signature check.
+# ==========================================================================
+
+
+def test_s1_rejects_non_mapping_bundle() -> None:
+    context = _context()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s1_structural(["not", "a", "mapping"], context)  # type: ignore[arg-type]
+    assert caught.value.code == "BUNDLE_SHAPE"
+    assert caught.value.field == "bundle"
+
+
+def test_s1_rejects_wrong_schema_version() -> None:
+    context = _context()
+    bundle = dict(_schema_fixtures._bundle())
+    bundle["schema_version"] = "traigent.agent_quality.certificate_bundle.v0"
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s1_structural(bundle, context)
+    assert caught.value.code == "BUNDLE_SHAPE"
+    assert caught.value.field == "bundle"
+
+
+def test_s1_rejects_bool_where_integer_required() -> None:
+    """A ``bool`` anywhere in the tree is STRICT_INTEGER -- this module,
+    unlike ``evaluator_quality_verifier``'s walk, does not let booleans
+    through (see :func:`v._walk_strict_values`)."""
+    context = _context()
+    bundle = _gv_copy.deepcopy(_schema_fixtures._bundle())
+    bundle["split_derivation"]["evaluated_universe_item_count"] = True
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s1_structural(bundle, context)
+    assert caught.value.code == "STRICT_INTEGER"
+    assert caught.value.field == "bundle"
+
+
+def test_s1_rejects_integer_outside_safe_range() -> None:
+    context = _context()
+    bundle = _gv_copy.deepcopy(_schema_fixtures._bundle())
+    bundle["split_derivation"]["evaluated_universe_item_count"] = 2**53
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s1_structural(bundle, context)
+    assert caught.value.code == "UNSAFE_INTEGER"
+    assert caught.value.field == "bundle"
+
+
+def test_s1_rejects_schema_invalid_bundle() -> None:
+    context = _context()
+    bundle = dict(_schema_fixtures._bundle())
+    del bundle["assertion"]
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s1_structural(bundle, context)
+    assert caught.value.code == "SCHEMA"
+    assert caught.value.field == "bundle"
+
+
+def test_s1_rejects_unresolvable_schema_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unresolvable ``$ref`` (simulated: the cached validator's
+    ``iter_errors`` raises ``referencing.exceptions.Unresolvable``) is
+    SCHEMA_DEPENDENCY, not SCHEMA -- a validator-construction/resolution
+    failure is a package defect, not a finding about the bundle's content."""
+    from referencing.exceptions import Unresolvable
+
+    class _BrokenValidator:
+        def iter_errors(self, _bundle: object) -> None:
+            raise Unresolvable(ref="#/definitions/DoesNotExist")
+
+    v._agent_quality_validator.cache_clear()
+    monkeypatch.setattr(v, "_agent_quality_validator", lambda: _BrokenValidator())
+    context = _context()
+    bundle = _schema_fixtures._bundle()
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s1_structural(bundle, context)
+    assert caught.value.code == "SCHEMA_DEPENDENCY"
+    assert caught.value.field == "bundle"
+
+
+def test_s1_rejects_canonicalization_failure_after_schema_valid() -> None:
+    """A value the schema itself cannot see through jsonschema's type
+    checking (a ``str`` SUBCLASS, deliberately let through
+    :func:`v._walk_strict_values` -- see that function's docstring) but that
+    ``fp2.canonicalize`` genuinely cannot represent is CANONICALIZATION,
+    the last of S1's checks."""
+
+    class _WeirdStr(str):
+        pass
+
+    context = _context()
+    bundle = _gv_copy.deepcopy(_schema_fixtures._bundle())
+    bundle["assertion"]["claim_id"] = _WeirdStr(bundle["assertion"]["claim_id"])
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._stage_s1_structural(bundle, context)
+    assert caught.value.code == "CANONICALIZATION"
+    assert caught.value.field == "bundle"
+
+
+def test_s1_family_a_fixtures_never_reach_s8() -> None:
+    """None of family A's fixtures are signed -- their ``signature.signature``
+    is the schema-fixture placeholder, not a real ed25519 signature (see
+    ``tests/test_agent_quality_v1_schema.py::_signature``). Proven directly
+    through the FULL runner: every one of them fails at S1 (BUNDLE_SHAPE),
+    which runs before S8, so no unsigned bundle can ever reach S8's
+    signature check -- if S1 did not stop it, S8 would be the first stage
+    capable of even attempting to verify a signature, and none of these
+    fixtures carries one that could pass."""
+    context = _context()
+    bad_bundle_a = ["not", "a", "mapping"]
+    bad_bundle_b = dict(_schema_fixtures._bundle())
+    bad_bundle_b["schema_version"] = "traigent.agent_quality.certificate_bundle.v0"
+    for bad_bundle in (bad_bundle_a, bad_bundle_b):
+        with pytest.raises(v.AgentQualityVerificationError) as caught:
+            v._run_agent_quality_checks(bad_bundle, context)  # type: ignore[arg-type]
+        assert caught.value.code == "BUNDLE_SHAPE"
+        assert caught.value.field == "bundle"
 
 
 def test_abstained_bundle_carries_claims_is_schema_preempted() -> None:
@@ -1167,6 +1312,15 @@ _GV_TRUST_RING_REF = "trustring:aaaaaaaa"
 _GV_PROJECT_REF = "proj-1"
 _GV_BUILD_SESSION_REF = "build_session:ssssssss"
 _GV_SHA = "sha256:" + "a" * 64
+
+# Five independently-bound commitment/digest refs in the unsigned manifest's
+# `coverage`-const field set (review P2-3): each must be a DISTINCT sentinel
+# so a golden-vector mutation/swap between any two of them is not a no-op.
+_GV_AGENT_COMMITMENT_REF = "sha256:" + "a1" * 32
+_GV_DATASET_COMMITMENT_REF = "sha256:" + "a2" * 32
+_GV_EVALUATOR_COMMITMENT_REF = "sha256:" + "a3" * 32
+_GV_BUILD_DEFINITION_COMMITMENT_REF = "sha256:" + "a4" * 32
+_GV_MEASUREMENT_CONTRACT_RECORD_DIGEST = "sha256:" + "a5" * 32
 _GV_MEASUREMENT_CONTRACT_REF = "measurement:mmmmmmmm"
 
 
@@ -1457,12 +1611,15 @@ def _gv_close(bundle: dict, *, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY)
     for row in b["claim_support_rows"]:
         if row.get("evidence_basis") == "abstained":
             continue
+        # verifier_result is CONTENT, not a derived digest -- _gv_close must
+        # never assign it (review P1-1): the initial skeleton already sets it
+        # to "pass", and a caller that mutated it (e.g. to "fail" for a
+        # mutate-then-resign negative) must see it survive re-closing.
         row.update(
             {
                 "assertion_digest": assertion["assertion_digest"],
                 "measured_claims_digest": measured_claims_digest,
                 "evaluation_splits_digest": evaluation_splits_digest,
-                "verifier_result": "pass",
                 "claim_material_digest": claim_material_digest,
                 "declared_plan_digest": declared_plan["declared_plan_digest"],
             }
@@ -1478,12 +1635,12 @@ def _gv_close(bundle: dict, *, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY)
             _GV_PROCESS_RECORD_UNSIGNED_MANIFEST_DOMAIN, _GV_PROCESS_RECORD_UNSIGNED_MANIFEST_STUB
         ),
         "scope_binding_digest": declared_plan["scope_binding_digest"],
-        "agent_commitment_ref": _GV_SHA,
-        "dataset_commitment_ref": _GV_SHA,
-        "evaluator_commitment_ref": _GV_SHA,
-        "build_definition_commitment_ref": _GV_SHA,
+        "agent_commitment_ref": _GV_AGENT_COMMITMENT_REF,
+        "dataset_commitment_ref": _GV_DATASET_COMMITMENT_REF,
+        "evaluator_commitment_ref": _GV_EVALUATOR_COMMITMENT_REF,
+        "build_definition_commitment_ref": _GV_BUILD_DEFINITION_COMMITMENT_REF,
         "measurement_contract_ref": _GV_MEASUREMENT_CONTRACT_REF,
-        "measurement_contract_record_digest": _GV_SHA,
+        "measurement_contract_record_digest": _GV_MEASUREMENT_CONTRACT_RECORD_DIGEST,
         "aggregation_policy": AGGREGATION_POLICY_IDENTITY,
         "objective_registry": OBJECTIVE_REGISTRY_IDENTITY,
         "non_claim_catalog": NON_CLAIM_CATALOG_IDENTITY,
@@ -1519,11 +1676,51 @@ def _gv_close(bundle: dict, *, private_key: Ed25519PrivateKey = _GV_PRIVATE_KEY)
     return b
 
 
+# Fields ``_gv_close`` regenerates wholesale from the bundle's OTHER content
+# (never from these fields' own prior value) -- an override aimed at one of
+# them would be silently discarded rather than taking effect (review P1-2).
+_GV_REGENERATED_TOP_LEVEL_FIELDS = frozenset({"unsigned_manifest", "signature"})
+_GV_REGENERATED_DECLARED_PLAN_FIELDS = frozenset(
+    {"split_derivation", "scope_binding_digest", "declared_plan_digest"}
+)
+
+
+def _gv_assert_no_override_on_regenerated_fields(overrides: dict) -> None:
+    for field in _GV_REGENERATED_TOP_LEVEL_FIELDS:
+        if field in overrides:
+            raise AssertionError(
+                f"build_agent_quality_bundle(**overrides): {field!r} is regenerated wholesale "
+                "by _gv_close and cannot be overridden"
+            )
+    envelope = overrides.get("declared_plan_envelope")
+    if isinstance(envelope, dict):
+        if "signature" in envelope:
+            raise AssertionError(
+                "build_agent_quality_bundle(**overrides): "
+                "'declared_plan_envelope.signature' is regenerated wholesale by _gv_close "
+                "and cannot be overridden"
+            )
+        declared_plan = envelope.get("declared_plan")
+        if isinstance(declared_plan, dict):
+            for field in _GV_REGENERATED_DECLARED_PLAN_FIELDS:
+                if field in declared_plan:
+                    raise AssertionError(
+                        "build_agent_quality_bundle(**overrides): "
+                        f"'declared_plan_envelope.declared_plan.{field}' is regenerated "
+                        "wholesale by _gv_close and cannot be overridden"
+                    )
+
+
 def build_agent_quality_bundle(**overrides: object) -> dict:
     """Return a schema-valid, digest-consistent, genuinely ed25519-signed
     agent-quality bundle. ``**overrides`` deep-merge onto the raw skeleton
     BEFORE closing, so every digest/signature that depends on an overridden
-    value is recomputed, never stale."""
+    value is recomputed, never stale. An override that names a field
+    ``_gv_close`` regenerates wholesale (``unsigned_manifest``, ``signature``,
+    or the declared plan's ``split_derivation``/``scope_binding_digest``/
+    ``declared_plan_digest``/``signature``) raises ``AssertionError`` naming
+    the field, instead of being silently discarded (review P1-2)."""
+    _gv_assert_no_override_on_regenerated_fields(overrides)
     merged = _gv_merge(_gv_base_bundle(), overrides)
     assert isinstance(merged, dict)
     return _gv_close(merged)
@@ -1559,6 +1756,53 @@ def test_golden_bundle_is_schema_valid() -> None:
     bundle = build_agent_quality_bundle()
     errors = list(_gv_bundle_validator().iter_errors(bundle))
     assert errors == [], [(list(e.absolute_path), e.message) for e in errors]
+
+
+def test_golden_bundle_independently_bound_commitment_refs_are_pairwise_distinct() -> None:
+    """review P2-3 -- the five independently-bound refs among the
+    ``coverage``-const manifest fields (``agent_commitment_ref``,
+    ``dataset_commitment_ref``, ``evaluator_commitment_ref``,
+    ``build_definition_commitment_ref``, ``measurement_contract_record_digest``)
+    must be pairwise distinct, so a verifier negative that swaps or binds two
+    of them together is not a no-op on the golden vector."""
+    manifest = build_agent_quality_bundle()["unsigned_manifest"]
+    fields = [
+        "agent_commitment_ref",
+        "dataset_commitment_ref",
+        "evaluator_commitment_ref",
+        "build_definition_commitment_ref",
+        "measurement_contract_record_digest",
+    ]
+    values = [manifest[f] for f in fields]
+    assert len(set(values)) == len(values), dict(zip(fields, values, strict=True))
+
+
+def test_build_agent_quality_bundle_rejects_overrides_on_regenerated_fields() -> None:
+    """review P1-2 closure -- an override aimed at a field ``_gv_close``
+    regenerates wholesale from the bundle's other content must fail loudly,
+    one probe per regenerated block, instead of being silently discarded."""
+    with pytest.raises(AssertionError, match="unsigned_manifest"):
+        build_agent_quality_bundle(unsigned_manifest={"issuer_key_ref": "issuerkey:bbbbbbbb"})
+    with pytest.raises(AssertionError, match="'signature'"):
+        build_agent_quality_bundle(signature={"algorithm": "ed25519ph"})
+    with pytest.raises(
+        AssertionError, match=r"declared_plan_envelope\.declared_plan\.split_derivation"
+    ):
+        build_agent_quality_bundle(
+            declared_plan_envelope={
+                "declared_plan": {"split_derivation": {"evaluated_universe_item_count": 999}}
+            }
+        )
+    with pytest.raises(
+        AssertionError, match=r"declared_plan_envelope\.declared_plan\.scope_binding_digest"
+    ):
+        build_agent_quality_bundle(
+            declared_plan_envelope={"declared_plan": {"scope_binding_digest": _GV_SHA}}
+        )
+    with pytest.raises(AssertionError, match=r"declared_plan_envelope\.signature"):
+        build_agent_quality_bundle(
+            declared_plan_envelope={"signature": {"signature": "A" * 85 + "A=="}}
+        )
 
 
 _GV_DIGEST_COVERAGE_CASES = [
@@ -1732,18 +1976,19 @@ def test_golden_registry_identities_match_package_data() -> None:
 
 
 def test_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
-    """The golden bundle reaches ``_run_agent_quality_checks`` and is
-    rejected at S1's placeholder catch-all -- the only failure this
-    packet's runner is capable of, since every stage is still an
-    unconditional refusal. Packet .2 retargets this test to a PASS through
-    S1 and S8 once S1's real structural checks and S8's real digest/
-    signature checks replace today's placeholders."""
+    """P1-V2.2 retarget (sanctioned by the packet brief): S1's real
+    structural checks now PASS the golden bundle -- it is schema-valid,
+    digest-consistent, and canonicalizable by construction -- so the runner
+    advances past S1 and is rejected at S2's still-unconditional-refusal
+    placeholder instead. Proves S1 does not silently swallow a bundle it
+    should pass, without yet asserting anything about S2-S7 (still
+    placeholders) or S8 (real, but never reached from this boundary)."""
     bundle = build_agent_quality_bundle()
     context = build_agent_quality_context()
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(bundle, context)
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "bundle"
+    assert caught.value.field == "scope_binding"
 
 
 def test_golden_builders_are_deterministic() -> None:
@@ -1867,7 +2112,12 @@ def _gv_mutate_non_claims(bundle: dict) -> dict:
     # six, is EXPECTED to leave the bundle schema-invalid even after
     # resigning. See test_resign_restores_consistency_after_each_signed_array_mutation's
     # per-case ``expect_schema_valid_after_resign=False`` for this array.
-    bundle["non_claims"][0]["non_claim_id"] = "NCQ_NOT_A_REAL_ID"
+    # The replacement value is index 1's OWN valid non_claim_id -- a real
+    # AgentQualityNonClaimV1.non_claim_id enum member -- so the mutation
+    # trips ONLY index 0's fixed-tuple ``const`` (review P2-4); an
+    # out-of-enum string would also trip the base definition's ``enum``
+    # check and the resulting two-error shape can't be pinned to one path.
+    bundle["non_claims"][0]["non_claim_id"] = "NCQ_NO_EXPANDED_EVALUATION"
     return bundle
 
 
@@ -1876,8 +2126,45 @@ def _gv_mutate_claim_support_rows(bundle: dict) -> dict:
     return bundle
 
 
+def _gv_mutated_field_assertion(b: dict) -> object:
+    return b["assertion"]["aggregation_policy"]["policy_digest"]
+
+
+def _gv_mutated_field_split_derivation(b: dict) -> object:
+    return b["split_derivation"]["dataset_commitment_ref"]
+
+
+def _gv_mutated_field_evaluation_splits(b: dict) -> object:
+    return b["evaluation_splits"][0]["split_commitment_digest"]
+
+
+def _gv_mutated_field_measured_claims(b: dict) -> object:
+    return b["measured_claims"][0]["measurement_contract_record_digest"]
+
+
+def _gv_mutated_field_selection_estimates(b: dict) -> object:
+    return b["non_certified_selection_estimates"][0]["point_estimate"]
+
+
+def _gv_mutated_field_non_claims(b: dict) -> object:
+    return b["non_claims"][0]["non_claim_id"]
+
+
+def _gv_mutated_field_claim_support_rows(b: dict) -> object:
+    return b["claim_support_rows"][0]["verifier_result"]
+
+
 _GV_MUTATION_CASES = [
-    ("assertion", "assertion_digest", "assertion", _gv_mutate_assertion, True, {}),
+    (
+        "assertion",
+        "assertion_digest",
+        "assertion",
+        _gv_mutate_assertion,
+        True,
+        {},
+        _gv_mutated_field_assertion,
+        None,
+    ),
     (
         "split_derivation",
         "split_derivation_digest",
@@ -1885,6 +2172,8 @@ _GV_MUTATION_CASES = [
         _gv_mutate_split_derivation,
         True,
         {},
+        _gv_mutated_field_split_derivation,
+        None,
     ),
     (
         "evaluation_splits",
@@ -1893,6 +2182,8 @@ _GV_MUTATION_CASES = [
         _gv_mutate_evaluation_splits,
         True,
         {},
+        _gv_mutated_field_evaluation_splits,
+        None,
     ),
     (
         "measured_claims",
@@ -1901,6 +2192,8 @@ _GV_MUTATION_CASES = [
         _gv_mutate_measured_claims,
         True,
         {},
+        _gv_mutated_field_measured_claims,
+        None,
     ),
     (
         "non_certified_selection_estimates",
@@ -1909,21 +2202,40 @@ _GV_MUTATION_CASES = [
         _gv_mutate_selection_estimates,
         True,
         {"non_certified_selection_estimates": [_schema_fixtures._selection_estimate()]},
+        _gv_mutated_field_selection_estimates,
+        None,
     ),
-    ("non_claims", "non_claims_digest", "non_claims", _gv_mutate_non_claims, False, {}),
+    (
+        "non_claims",
+        "non_claims_digest",
+        "non_claims",
+        _gv_mutate_non_claims,
+        False,
+        {},
+        _gv_mutated_field_non_claims,
+        [1, "properties", "non_claim_id", "const"],
+    ),
     (
         "claim_support_rows",
         "agent_quality_claim_support_rows_digest",
         "claim_support_rows",
         _gv_mutate_claim_support_rows,
-        True,
+        # verifier_result="fail" is itself schema-invalid (the schema pins
+        # a non-abstained row's verifier_result to the const "pass") -- now
+        # that resign preserves content instead of reverting it (review
+        # P1-1), the honest post-resign state for THIS mutation is invalid,
+        # same shape as non_claims.
+        False,
         {},
+        _gv_mutated_field_claim_support_rows,
+        ["properties", "verifier_result", "const"],
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    "array_name,manifest_field,domain_role,mutate,expect_schema_valid_after_resign,overrides",
+    "array_name,manifest_field,domain_role,mutate,expect_schema_valid_after_resign,overrides,"
+    "mutated_field,invalid_schema_path_suffix",
     _GV_MUTATION_CASES,
     ids=[c[0] for c in _GV_MUTATION_CASES],
 )
@@ -1934,16 +2246,23 @@ def test_resign_restores_consistency_after_each_signed_array_mutation(
     mutate,
     expect_schema_valid_after_resign: bool,
     overrides: dict,
+    mutated_field,
+    invalid_schema_path_suffix: list,
 ) -> None:
     """checkpoint (b).1 -- the harness every later negative test depends on.
     For EACH of the seven signed arrays/projections separately: mutate one
     byte, assert (i) the corresponding digest no longer recomputes, (ii) the
     signature no longer verifies against the mutated manifest, (iii) after
     :func:`resign_agent_quality_bundle` both hold again, (iv) the bundle is
-    still schema-valid (except ``non_claims``, whose every field is const --
-    see :func:`_gv_mutate_non_claims`)."""
+    still schema-valid (except ``non_claims`` and ``claim_support_rows``,
+    whose mutations are themselves schema-invalid regardless of resign --
+    see :func:`_gv_mutate_non_claims` / :func:`_gv_mutate_claim_support_rows`),
+    and (v) the resign is a genuine re-SIGN, not a re-CLOSE-by-reverting
+    (review P1-1): the mutated field still holds its mutated value, and the
+    resigned bundle is not byte-identical to the original golden bundle."""
     bundle = build_agent_quality_bundle(**overrides)
     mutated = mutate(_gv_copy.deepcopy(bundle))
+    mutated_value = mutated_field(mutated)
 
     recomputed = (
         v._strip_self_digest(mutated[array_name], manifest_field)
@@ -1973,11 +2292,24 @@ def test_resign_restores_consistency_after_each_signed_array_mutation(
     ), "(iii) the digest must recompute again after resigning"
     assert _gv_signature_verifies(resigned), "(iii) the signature must verify again after resigning"
 
+    assert mutated_field(resigned) == mutated_value, (
+        "(v) resign must recompute digests/signatures over the CURRENT content, "
+        "not revert the mutated field back to the golden bundle's value"
+    )
+    assert fp2.canonicalize(resigned) != fp2.canonicalize(bundle), (
+        "(v) a resigned, mutated bundle must not be byte-identical to the original golden bundle"
+    )
+
     errors = list(_gv_bundle_validator().iter_errors(resigned))
     if expect_schema_valid_after_resign:
         assert errors == [], [(list(e.absolute_path), e.message) for e in errors]
     else:
-        assert errors != []
+        assert len(errors) == 1, [(list(e.absolute_path), e.message) for e in errors]
+        suffix_len = len(invalid_schema_path_suffix)
+        assert list(errors[0].absolute_schema_path)[-suffix_len:] == invalid_schema_path_suffix, (
+            list(errors[0].absolute_schema_path)
+        )
+        assert errors[0].validator == "const"
 
 
 def test_abstained_golden_bundle_is_schema_valid_and_signed() -> None:
@@ -2012,12 +2344,16 @@ def test_abstained_golden_bundle_coupling_control() -> None:
 
 
 def test_abstained_golden_bundle_reaches_private_runner_fail_closed_boundary() -> None:
+    """P1-V2.2 retarget (sanctioned by the packet brief), same shape as
+    :func:`test_golden_bundle_reaches_private_runner_fail_closed_boundary`:
+    the abstained golden bundle is also schema-valid, so it now passes S1
+    and is refused at S2's placeholder."""
     bundle = build_abstained_agent_quality_bundle()
     context = build_agent_quality_context(accept_abstained_bundle=True)
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(bundle, context)
     assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
-    assert caught.value.field == "bundle"
+    assert caught.value.field == "scope_binding"
 
 
 def test_resign_with_foreign_key_produces_a_mismatched_but_valid_signature() -> None:

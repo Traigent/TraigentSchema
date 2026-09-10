@@ -262,12 +262,27 @@ def _agent_quality_test_module():
 def test_wheel_witness_verifies_golden_and_abstained_agent_quality_bundles(
     tmp_path: Path,
 ) -> None:
-    """Build the wheel, install it into a fresh venv under
-    ``/tmp/claude-1000/``, and -- in THAT interpreter, cwd outside the repo,
+    """Build the wheel, install it into a fresh venv under pytest's own
+    ``tmp_path`` (P1-V2.6 final-review closure P3-4: never a hard-coded
+    ``/tmp`` path), and -- in THAT interpreter, cwd outside the repo,
     ``PYTHONPATH`` unset -- verify the golden bundle to
     ``AGENT_QUALITY_VERIFIED`` and the abstained golden to
-    ``AGENT_QUALITY_CLAIM_ABSTAINED`` through the public entry point."""
-    pytest.importorskip("build", reason="the 'build' package is not installed")
+    ``AGENT_QUALITY_CLAIM_ABSTAINED`` through the public entry point.
+
+    CI gap (P3-4): CI's test job installs ``.[dev]`` without the ``build``
+    package (see ``ci.yml``'s test-job dependency install step), so this
+    test SKIPS unconditionally in CI and only runs where a developer or
+    agent has separately pip-installed ``build`` into the active
+    environment. Adding ``build`` to the CI test job's dependency set is a
+    follow-up outside this PR's admitted file paths."""
+    pytest.importorskip(
+        "build",
+        reason=(
+            "the 'build' package is not installed -- CI's test job installs "
+            "'.[dev]' without 'build' (see ci.yml), so this witness is CI-skipped "
+            "until 'build' is added to that job's dependencies"
+        ),
+    )
     import dataclasses
     import uuid
 
@@ -284,9 +299,7 @@ def test_wheel_witness_verifies_golden_and_abstained_agent_quality_bundles(
     assert len(wheels) == 1, wheels
     wheel_path = wheels[0]
 
-    claude_1000 = Path("/tmp/claude-1000")
-    claude_1000.mkdir(parents=True, exist_ok=True)
-    venv_dir = claude_1000 / f"pv6-wheel-witness-{uuid.uuid4().hex[:12]}"
+    venv_dir = tmp_path / f"pv6-wheel-witness-{uuid.uuid4().hex[:12]}"
     subprocess.run(
         [sys.executable, "-m", "venv", str(venv_dir)],
         check=True,
@@ -326,7 +339,7 @@ def test_wheel_witness_verifies_golden_and_abstained_agent_quality_bundles(
             ),
         }
 
-        work_dir = claude_1000 / f"pv6-wheel-witness-cwd-{uuid.uuid4().hex[:12]}"
+        work_dir = tmp_path / f"pv6-wheel-witness-cwd-{uuid.uuid4().hex[:12]}"
         work_dir.mkdir()
         (work_dir / "vectors.json").write_text(json.dumps(vectors), encoding="utf-8")
         (work_dir / "witness.py").write_text(_WHEEL_WITNESS_SCRIPT, encoding="utf-8")
@@ -343,6 +356,3 @@ def test_wheel_witness_verifies_golden_and_abstained_agent_quality_bundles(
         assert "WHEEL WITNESS OK" in result.stdout, (result.stdout, result.stderr)
     finally:
         shutil.rmtree(venv_dir, ignore_errors=True)
-        shutil.rmtree(claude_1000 / "pv6-wheel-witness-cwd", ignore_errors=True)
-        for stray in claude_1000.glob("pv6-wheel-witness-cwd-*"):
-            shutil.rmtree(stray, ignore_errors=True)

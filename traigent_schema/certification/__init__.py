@@ -9,7 +9,9 @@ resolve keys, contact Traigent, access a database, or inspect private evidence.
 """
 
 from traigent_schema.certification.agent_quality_verifier import (
+    AGENT_QUALITY_CLAIM_ABSTAINED,
     AGENT_QUALITY_ERROR_CODES,
+    AGENT_QUALITY_VERIFIED,
     AgentQualityVerificationContext,
     AgentQualityVerificationError,
     AgentQualityVerificationResult,
@@ -64,11 +66,12 @@ from traigent_schema.certification.relying_party_verifier import (
 )
 
 __all__ = [
+    "AGENT_QUALITY_CLAIM_ABSTAINED",
     "AGENT_QUALITY_ERROR_CODES",
+    "AGENT_QUALITY_VERIFIED",
     "AgentQualityVerificationContext",
     "AgentQualityVerificationError",
     "AgentQualityVerificationResult",
-    "verify_agent_quality_certificate",
     "CLIENT_CO_ATTESTATION_ERROR_CODES",
     "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS",
     "ClientCertificateProjection",
@@ -100,6 +103,7 @@ __all__ = [
     "VerificationResult",
     "verify_certificate",
     "verify_agent_certificate",
+    "verify_agent_quality_certificate",
     "verify",
     "verify_certificate_with_materials",
     "verify_dataset_record_certificate",

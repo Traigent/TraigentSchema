@@ -248,6 +248,14 @@ AGENT_QUALITY_ERROR_CODES = frozenset(
     }
 )
 
+# P1-V2.6 final-review closure P3-5: the two success codes
+# AgentQualityVerificationResult.code is validated against in
+# __post_init__ below -- exported (see __init__.py) the same way
+# evaluator_quality_verifier exports EVALUATOR_QUALITY_VERIFIED /
+# EVALUATOR_QUALITY_CLAIMS_PARTIAL, right after its own error-code set.
+AGENT_QUALITY_VERIFIED = "AGENT_QUALITY_VERIFIED"
+AGENT_QUALITY_CLAIM_ABSTAINED = "AGENT_QUALITY_CLAIM_ABSTAINED"
+
 # Codes a schema-valid AgentQualityCertificateBundleV1 can never reach,
 # because AgentQualityCertificateBundleV1's own ``allOf`` if/then/else
 # abstention coupling rejects the construction before this module's
@@ -389,8 +397,8 @@ AGENT_QUALITY_SCHEMA_PREEMPTED_CODES: frozenset[str] = frozenset(
 )
 
 # P1-V2.3 review finding P2-3: MEASUREMENT_CONTRACT_NOT_PINNED (design row
-# 11) is structurally preempted the same way the two schema-preempted codes
-# above are, just by a DIFFERENT authority: AgentQualityVerificationContext
+# 11) is structurally preempted the same way the three schema-preempted dead
+# codes above are, just by a DIFFERENT authority: AgentQualityVerificationContext
 # declares both measurement-contract pins as non-Optional ``str`` fields, so
 # ``__post_init__`` already rejects a ``None`` pin with CONTEXT before
 # _stage_s2_context_binding ever runs (see
@@ -691,23 +699,54 @@ AGENT_QUALITY_FIELD_LOCATIONS = frozenset(
 # description is the authority for the rule this mapping implements: "The
 # code enum is deliberately coarser than the verifier's own [...]-code
 # vocabulary, and that coarseness is the privacy property -- adding a
-# verifier code must NOT widen this enum." The four buckets below are S5
-# (design rows 22-39, all measurement) plus HOLDOUT_NOT_USED (an S6 code
-# whose own check is on MeasuredObjectiveClaimV1.evaluated_split_id and
-# whose ``_fail`` field is "measured_claims", not a split field -- see the
-# _stage_s6_splits_holdout body) go to agent_quality_invalid_measurement;
-# the remaining S6 split/holdout-structure codes (SPLIT_* and the two
-# holdout-arm-count codes HOLDOUT_MISSING/_TOO_SMALL/_REUSED and
-# ARM_COUNT_MISMATCH) go to agent_quality_invalid_split; S4's declared-plan
-# codes (design rows 17-19, 21), including the declared-plan pin
-# (DECLARED_PLAN_PIN_MISMATCH), go to agent_quality_invalid_declared_plan;
-# everything else -- S1 structural, S2 context binding, S3 registry
-# identity, S7 composition/abstention, S8 manifest digests/signature, the
-# two schema-preempted codes, and the catch-all itself -- goes to
-# agent_quality_verification_failed, the coarsest bucket, matching a relying
-# party's inability to act differently on any of those distinctions anyway.
+# verifier code must NOT widen this enum."
+#
+# P1-V2.6 final-review closure P2-1: this table is now an EXPLICIT, TOTAL
+# literal -- every one of the 72 codes in AGENT_QUALITY_ERROR_CODES is
+# listed by name below, with NO default/fall-through arm. The prior
+# comprehension-over-AGENT_QUALITY_ERROR_CODES form silently swept any code
+# not sorted into a named bucket into the catch-all, which let three S5
+# measurement codes -- OBJECTIVE_DUPLICATE, QUANTILE_TABLE_LOOKUP_FAILED,
+# SELECTION_ESTIMATE_DUPLICATE -- sit undocumented in
+# agent_quality_verification_failed even though the docstring's own rule
+# ("S5 ... all measurement") already covered them. CTO decision: all three
+# are measurement-RECORD rules (duplicate-detection and quantile-table
+# lookup over a measured claim), not split-topology rules, so all three
+# join the measurement bucket below.
+#
+# The four buckets:
+#   - agent_quality_invalid_measurement: S5 (design rows 22-39, all
+#     measurement) plus HOLDOUT_NOT_USED (an S6 code whose own check is on
+#     MeasuredObjectiveClaimV1.evaluated_split_id and whose ``_fail`` field
+#     is "measured_claims", not a split field -- see
+#     _stage_s6_splits_held_out) plus OBJECTIVE_DUPLICATE,
+#     QUANTILE_TABLE_LOOKUP_FAILED and SELECTION_ESTIMATE_DUPLICATE (all
+#     three per the CTO decision above).
+#   - agent_quality_invalid_split: the remaining S6 split/holdout-structure
+#     codes (SPLIT_* and the three holdout-arm codes
+#     HOLDOUT_MISSING/_TOO_SMALL/_REUSED, plus ARM_COUNT_MISMATCH).
+#   - agent_quality_invalid_declared_plan: S4's declared-plan codes (design
+#     rows 17-19, 21), including the declared-plan pin
+#     (DECLARED_PLAN_PIN_MISMATCH).
+#   - agent_quality_verification_failed: everything else -- S1 structural,
+#     S2 context binding, S3 registry identity, S7 composition/abstention,
+#     S8 manifest digests/signature, the three DEAD schema-preempted S7
+#     codes (:data:`AGENT_QUALITY_SCHEMA_PREEMPTED_DEAD_CODES`),
+#     MEASUREMENT_CONTRACT_NOT_PINNED (context-preempted -- see
+#     :data:`AGENT_QUALITY_CONTEXT_PREEMPTED_CODES`), and the catch-all
+#     code itself (AGENT_QUALITY_VERIFICATION_FAILED) -- the coarsest
+#     bucket, matching a relying party's inability to act differently on
+#     any of those distinctions anyway.
+#
+# Each bucket below is a plain frozenset, asserted disjoint from and unioned
+# with the others by
+# test_wire_error_code_mapping_buckets_partition_the_vocabulary; the table
+# after them lists every code exactly once, by name.
 _AGENT_QUALITY_WIRE_MEASUREMENT_CODES: frozenset[str] = frozenset(
     {
+        "OBJECTIVE_DUPLICATE",
+        "QUANTILE_TABLE_LOOKUP_FAILED",
+        "SELECTION_ESTIMATE_DUPLICATE",
         "OBJECTIVE_NOT_IN_DECLARED_PLAN",
         "PRIMARY_OBJECTIVE_MISSING",
         "OBJECTIVE_NOT_REGISTERED",
@@ -752,25 +791,63 @@ _AGENT_QUALITY_WIRE_DECLARED_PLAN_CODES: frozenset[str] = frozenset(
         "DECLARED_PLAN_PIN_MISMATCH",
     }
 )
+_AGENT_QUALITY_WIRE_VERIFICATION_FAILED_CODES: frozenset[str] = frozenset(
+    {
+        "CONTEXT",
+        "PACKAGE_DATA_INVALID",
+        "AGENT_QUALITY_VERIFICATION_FAILED",
+        "BUNDLE_SHAPE",
+        "STRICT_INTEGER",
+        "UNSAFE_INTEGER",
+        "SCHEMA",
+        "SCHEMA_DEPENDENCY",
+        "CANONICALIZATION",
+        "PROCESS_RECORD_BINDING_MISMATCH",
+        "COMMITMENT_REF_MISMATCH",
+        "SCOPE_MISMATCH",
+        "MEASUREMENT_CONTRACT_NOT_PINNED",
+        "MEASUREMENT_CONTRACT_MISMATCH",
+        "AGGREGATION_POLICY_MISMATCH",
+        "OBJECTIVE_REGISTRY_MISMATCH",
+        "NON_CLAIM_SET_MISMATCH",
+        "QUANTILE_TABLE_MISMATCH",
+        "CLAIM_NOT_VERIFIED",
+        "PILLAR_SUPPORT_SHAPE",
+        "PILLAR_BINDING_MISMATCH",
+        "ASSERTION_DIGEST_MISMATCH",
+        "SPLIT_DERIVATION_DIGEST_MISMATCH",
+        "EVALUATION_SPLITS_DIGEST_MISMATCH",
+        "MEASURED_CLAIMS_DIGEST_MISMATCH",
+        "SELECTION_ESTIMATES_DIGEST_MISMATCH",
+        "NON_CLAIMS_DIGEST_MISMATCH",
+        "CLAIM_SUPPORT_ROWS_DIGEST_MISMATCH",
+        "CLAIM_SUPPORT_ROW_MISMATCH",
+        "UNSIGNED_MANIFEST_MISMATCH",
+        "UNSIGNED_MANIFEST_DIGEST_MISMATCH",
+        "KEY_RING_MISMATCH",
+        "ISSUER_SIGNATURE_INVALID",
+        "ABSTAINED_BUNDLE_CARRIES_CLAIMS",
+        "SELECTION_ESTIMATE_IN_CERTIFIED_SET",
+    }
+)
 
-# Built as a comprehension over AGENT_QUALITY_ERROR_CODES itself (not a
-# separately-typed-out dict) so that adding a verifier code without also
-# sorting it into one of the three named buckets above cannot silently drop
-# it from this mapping -- it lands in the catch-all bucket, which
-# test_agent_quality_wire_error_code_mapping_covers_every_verifier_code
-# below still catches by cross-checking key parity explicitly.
+# The explicit, total mapping: every code in AGENT_QUALITY_ERROR_CODES is
+# named exactly once below -- NO comprehension, NO default arm. A verifier
+# code added to AGENT_QUALITY_ERROR_CODES without a matching literal entry
+# here raises KeyError at import time (the dict literal below has a fixed
+# key set; AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE's own key-parity assertion
+# in test_wire_error_code_mapping_covers_every_verifier_code is the second,
+# independent proof).
 AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE: Mapping[str, str] = MappingProxyType(
     {
-        code: (
-            "agent_quality_invalid_measurement"
-            if code in _AGENT_QUALITY_WIRE_MEASUREMENT_CODES
-            else "agent_quality_invalid_split"
-            if code in _AGENT_QUALITY_WIRE_SPLIT_CODES
-            else "agent_quality_invalid_declared_plan"
-            if code in _AGENT_QUALITY_WIRE_DECLARED_PLAN_CODES
-            else "agent_quality_verification_failed"
-        )
-        for code in AGENT_QUALITY_ERROR_CODES
+        **dict.fromkeys(_AGENT_QUALITY_WIRE_MEASUREMENT_CODES, "agent_quality_invalid_measurement"),
+        **dict.fromkeys(_AGENT_QUALITY_WIRE_SPLIT_CODES, "agent_quality_invalid_split"),
+        **dict.fromkeys(
+            _AGENT_QUALITY_WIRE_DECLARED_PLAN_CODES, "agent_quality_invalid_declared_plan"
+        ),
+        **dict.fromkeys(
+            _AGENT_QUALITY_WIRE_VERIFICATION_FAILED_CODES, "agent_quality_verification_failed"
+        ),
     }
 )
 
@@ -1431,23 +1508,20 @@ def _unique_by(
     return by_key
 
 
-# Dead-helper inventory. Each of these top-level private functions has ZERO
-# in-module call sites as of this packet -- verified by
+# Dead-helper inventory. As of P1-V2.6, this inventory is EMPTY -- every
+# top-level private function has an in-module call site -- verified by
 # test_agent_quality_verifier.py::test_unwired_helpers_inventory_is_exact,
 # which computes the set by AST rather than trusting this comment to stay
-# accurate. _wilson_point, _wilson_bounds and _student_t_half_width were
-# wired in .4 commit 2 (S5's point-estimate and interval RECOMPUTATION,
-# design rows 32-33) and are no longer in this inventory. _unique_by is
-# wired as of .4 commit 1 (S5's one-claim-per-objective guard); it is also
-# used by the deferred selection-estimate de-duplication
-# (SELECTION_ESTIMATE_DUPLICATE), which has no call site yet. The one
-# remaining entry:
-#   _run_agent_quality_checks -- unwired in-module (no public entry point
-#                                 calls it yet) -- wired in .6, when
-#                                 verify_agent_quality_certificate ships and
-#                                 calls it.
-# _strip_self_digest is wired as of P1-V2.2 (S8's unsigned-manifest
-# reconstruction, design row 64).
+# accurate (see :data:`_UNWIRED_HELPER_NAMES` there). _wilson_point,
+# _wilson_bounds and _student_t_half_width were wired in .4 commit 2 (S5's
+# point-estimate and interval RECOMPUTATION, design rows 32-33). _unique_by
+# is wired as of .4 commit 1 (S5's one-claim-per-objective guard) and again
+# for S6's non_certified_selection_estimates de-duplication
+# (SELECTION_ESTIMATE_DUPLICATE, design row 51's second G6 wiring --
+# call site in :func:`_stage_s6_splits_held_out`). _strip_self_digest is
+# wired as of P1-V2.2 (S8's unsigned-manifest reconstruction, design row
+# 64). _run_agent_quality_checks is wired as of .6 commit 1, called by the
+# public entry point, :func:`verify_agent_quality_certificate`.
 
 
 _WALK_VALUE = 0
@@ -2716,9 +2790,10 @@ def _run_agent_quality_checks(
     location, before any stage runs -- whenever a caller supplies one, the
     only accepted value being ``None``.
 
-    No public entry point calls this yet (see the module docstring and
-    ``test_no_public_entry_point_exists_yet``). Every stage now runs real
-    checks, so this function genuinely returns a
+    Called by the public entry point, :func:`verify_agent_quality_certificate`
+    (see ``test_public_entry_point_is_exactly_verify_agent_quality_certificate``
+    in the test module). Every stage now runs real checks, so this function
+    genuinely returns a
     :class:`AgentQualityVerificationResult` for a bundle that passes all
     eight -- built from what THIS function computed (the single support
     row's own ``evidence_basis``, which S7 already proved is either
@@ -2824,12 +2899,9 @@ def verify_agent_quality_certificate(
     was scored on the split the issuer labelled ``holdout``, and the split
     arithmetic is plausible.
 
-    It does NOT establish that the statistics summarise the holdout
-    observations, that the committed splits are the rule's partition (v1
-    ships no opening witness), that the declared plan was authored before
-    the results were computed (ordering evidence is issuer-asserted), that
-    the split key predates knowledge of the item ids, or that the estimator
-    implementation is correct.
+    See this module's own docstring for the definitive "does NOT establish"
+    ceiling -- ONE list, not repeated here with different wording, so the
+    two can never silently drift apart.
 
     ``process_record_bundle`` must verify in full through
     :func:`verify_process_record_certificate` before anything else runs; a

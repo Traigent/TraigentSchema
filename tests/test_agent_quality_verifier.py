@@ -14,7 +14,9 @@ import importlib.resources
 import json
 import math
 import re
+import sys
 import traceback
+import types as _gv_types
 from collections.abc import Callable
 from fractions import Fraction
 from pathlib import Path
@@ -863,6 +865,37 @@ def test_verify_agent_quality_certificate_catches_stray_exceptions() -> None:
     assert caught.value.__cause__ is None
 
 
+def test_verify_agent_quality_certificate_own_catch_all_is_exercised() -> None:
+    """P1-V2.6 final-review closure P3-1: the test above patches
+    ``_stage_s1_structural``, so ``_run_agent_quality_checks``'s OWN
+    try/except already converts the stray exception into a well-formed
+    :class:`v.AgentQualityVerificationError` -- the PUBLIC wrapper's own
+    ``except Exception`` branch (:func:`v.verify_agent_quality_certificate`,
+    which constructs the error directly rather than through :func:`_fail`)
+    never actually runs in that test. This test patches
+    ``_run_agent_quality_checks`` itself, so a stray exception escapes it
+    unconverted and only the wrapper's own catch-all is left to handle it.
+    The reviewer's probe: narrowing the wrapper's ``except Exception`` to
+    e.g. ``except ZeroDivisionError`` makes this test fail (the stray
+    ``RuntimeError`` propagates unconverted instead)."""
+    context = build_agent_quality_context()
+    bundle = build_agent_quality_bundle()
+
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("CANARY_STRAY_EXCEPTION_TEXT_WRAPPER")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(v, "_run_agent_quality_checks", _boom)
+        with pytest.raises(v.AgentQualityVerificationError) as caught:
+            v.verify_agent_quality_certificate(
+                bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            )
+    assert caught.value.code == "AGENT_QUALITY_VERIFICATION_FAILED"
+    assert caught.value.field == "bundle"
+    assert caught.value.__context__ is None
+    assert caught.value.__cause__ is None
+
+
 def test_verify_agent_quality_certificate_propagates_process_record_error_unchanged() -> None:
     """A failure verifying ``process_record_bundle`` itself reaches the
     caller as the process record's OWN error type/code, never relabeled
@@ -934,20 +967,67 @@ def test_privacy_canary_is_not_vacuous() -> None:
             _assert_no_leak(leaking_error, sentinel)
 
 
-def test_privacy_canary_measured_claim_sentinel_never_leaks() -> None:
-    """Design test (P1-V2.6 commit 2, 74-79 series): a sentinel planted in
-    a measured claim's own content -- a field this module's checks compare
-    and can reject -- never reaches the raised error, through the PRIVATE
-    runner directly (not just the public wrapper's own boundary, already
-    covered by :func:`test_public_function_sentinel_never_leaks`)."""
-    sentinel = "CANARY_MEASURED_CLAIM_SENTINEL"
+def _gv_bundle_with_measurement_contract_ref_sentinel(sentinel_ref: str) -> dict:
+    """A fully re-signed, schema-valid bundle carrying ``sentinel_ref`` as
+    EVERY claim's and the manifest's own ``measurement_contract_ref`` (an
+    OpaqueRef-shaped field -- ``measured_claims`` has no other free-text
+    field that a schema-valid claim can carry; every other field is
+    enum/const/integer). ``context.expected_measurement_contract_ref`` must
+    be set to the SAME value by the caller for S2 to accept it -- this
+    helper only builds the bundle side."""
     bundle = build_agent_quality_bundle()
-    bundle["measured_claims"][0]["objective_id"] = sentinel
-    context = build_agent_quality_context()
+    for claim in bundle["measured_claims"]:
+        claim["measurement_contract_ref"] = sentinel_ref
+    return _gv_reclose_after_manifest_field_mutation(
+        bundle, lambda manifest: manifest.__setitem__("measurement_contract_ref", sentinel_ref)
+    )
+
+
+def test_privacy_canary_measured_claim_sentinel_never_leaks_at_s5() -> None:
+    """Design test (P1-V2.6 commit 2, 74-79 series), P1-V2.6 final-review
+    closure P2-3(a): a sentinel planted in a measured claim's own content,
+    surviving S1-S4 in a genuinely re-signed, schema-valid bundle (the
+    prior version of this test set ``objective_id`` to the raw sentinel,
+    which is schema-invalid -- an enum member -- so the mutation never got
+    past S1's SCHEMA check; the reviewer's probe found this). Reaches S5's
+    own SAMPLE_SIZE_MISMATCH recomputation, through the PRIVATE runner
+    directly (not just the public wrapper's own boundary, already covered
+    by :func:`test_public_function_sentinel_never_leaks`), and the sentinel
+    still never reaches the raised error."""
+    sentinel = "CANARY_MEASURED_CLAIM_SENTINEL"
+    sentinel_ref = f"sentinel:{sentinel}"
+    closed = _gv_bundle_with_measurement_contract_ref_sentinel(sentinel_ref)
+    closed["measured_claims"][0]["sample_size"] += 1
+    context = build_agent_quality_context(expected_measurement_contract_ref=sentinel_ref)
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
         )
+    assert caught.value.code == "SAMPLE_SIZE_MISMATCH"
+    _assert_no_leak(caught.value, sentinel)
+
+
+def test_privacy_canary_measured_claim_sentinel_never_leaks_at_s8() -> None:
+    """P1-V2.6 final-review closure P2-3(a), second half: the SAME
+    sentinel-carrying, otherwise fully valid and consistently re-signed
+    bundle as the S5 canary above, but left content-correct all the way
+    through S1-S7 -- only the top-level issuer signature is byte-flipped
+    (one base64 character, not the padding, so the value stays schema-valid
+    base64) after closing, so the failure is genuinely S8's
+    ISSUER_SIGNATURE_INVALID, the LAST stage to run. Proves the sentinel
+    survives the entire eight-stage pipeline, not just as far as S5."""
+    sentinel = "CANARY_MEASURED_CLAIM_SENTINEL_S8"
+    sentinel_ref = f"sentinel:{sentinel}"
+    closed = _gv_copy.deepcopy(_gv_bundle_with_measurement_contract_ref_sentinel(sentinel_ref))
+    signature = closed["signature"]["signature"]
+    flipped_char = "A" if signature[10] != "A" else "B"
+    closed["signature"]["signature"] = signature[:10] + flipped_char + signature[11:]
+    context = build_agent_quality_context(expected_measurement_contract_ref=sentinel_ref)
+    with pytest.raises(v.AgentQualityVerificationError) as caught:
+        v._run_agent_quality_checks(
+            closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+        )
+    assert caught.value.code == "ISSUER_SIGNATURE_INVALID"
     _assert_no_leak(caught.value, sentinel)
 
 
@@ -957,9 +1037,26 @@ def test_privacy_canary_project_ref_sentinel_never_reaches_signed_bundle() -> No
     :class:`v.AgentQualityVerificationContext`'s own docstring) -- causes
     SCOPE_MISMATCH (the golden bundle's own scope-binding digest was built
     from the REAL project ref, not this one) without ever reaching the
-    raised error, and the golden bundle's own content is untouched."""
+    raised error, and the golden bundle's own content is untouched.
+
+    P1-V2.6 final-review closure P3-6: the OLD
+    ``sentinel not in json.dumps(bundle)`` assert was vacuous -- ``bundle``
+    is built by :func:`build_agent_quality_bundle`, which never reads
+    ``context`` at all, so the sentinel could not have reached it
+    regardless of build order or of whether this module leaks context
+    content anywhere. The non-vacuous replacement: snapshot the bundle
+    BEFORE verification and assert it is byte-for-byte unchanged AFTER --
+    proof that the signed bundle handed to this failing call was never
+    mutated in place, which is what would make a caller-context leak into
+    it possible in the first place. A verifier that copied
+    ``context.expected_project_ref`` onto the bundle before failing would
+    break this assertion; the JSON-membership check alone would not have
+    caught it, since the sentinel would still legitimately be a string
+    inside ``bundle`` at that point -- this snapshot-equality check is
+    strictly stronger."""
     sentinel = "CANARY_PROJECT_REF_SENTINEL"
     bundle = build_agent_quality_bundle()
+    bundle_snapshot = _gv_copy.deepcopy(bundle)
     context = build_agent_quality_context(expected_project_ref=sentinel)
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
@@ -968,6 +1065,71 @@ def test_privacy_canary_project_ref_sentinel_never_reaches_signed_bundle() -> No
     assert caught.value.code == "SCOPE_MISMATCH"
     _assert_no_leak(caught.value, sentinel)
     assert sentinel not in json.dumps(bundle)
+    assert bundle == bundle_snapshot
+
+
+def test_no_content_carrying_raises_outside_sanctioned_sites() -> None:
+    """P1-V2.6 final-review closure P2-3(b): an AST ban complementing the
+    S5/S8 re-signed sentinel canaries above. Two rules, checked over the
+    WHOLE module:
+
+    1. No ``raise ... from <non-None>`` anywhere -- only ``raise ... from
+       None`` is allowed. A real chained cause can carry caller content
+       through ``__cause__``/``__context__``; ``from None`` is the one form
+       that provably cannot.
+    2. No direct ``AgentQualityVerificationError(...)`` construction
+       outside three sanctioned sites: ``_fail`` (the sole constructor
+       every stage actually calls), ``_load_agent_quality_document`` (the
+       package-data loader's own fixed-vocabulary failure), and
+       ``verify_agent_quality_certificate`` (the public wrapper's own
+       catch-all, which immediately clears ``__context__`` -- see its
+       inline comment). ``_run_agent_quality_checks``'s own catch-all goes
+       through ``_fail`` and is not itself a construction site.
+
+    Reproduces the reviewer's L2 mutation (S5's SAMPLE_SIZE_MISMATCH
+    changed to raise ``from ValueError(repr(claim))``) as a collection-time
+    failure instead of the runtime leak the reviewer found -- 287 tests
+    passed with that mutation live and nothing caught it."""
+    source = Path(v.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(v.__file__))
+
+    sanctioned_construction_sites = frozenset(
+        {"_fail", "_load_agent_quality_document", "verify_agent_quality_certificate"}
+    )
+    raise_from_violations: list[int] = []
+    construction_violations: list[tuple[str, int]] = []
+
+    class _Visitor(ast.NodeVisitor):
+        function_stack: list[str] = []
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.function_stack.append(node.name)
+            self.generic_visit(node)
+            self.function_stack.pop()
+
+        def visit_Raise(self, node: ast.Raise) -> None:
+            cause = node.cause
+            cause_is_none = isinstance(cause, ast.Constant) and cause.value is None
+            if cause is not None and not cause_is_none:
+                raise_from_violations.append(node.lineno)
+            self.generic_visit(node)
+
+        def visit_Call(self, node: ast.Call) -> None:
+            if isinstance(node.func, ast.Name) and node.func.id == "AgentQualityVerificationError":
+                enclosing = self.function_stack[-1] if self.function_stack else "<module>"
+                if enclosing not in sanctioned_construction_sites:
+                    construction_violations.append((enclosing, node.lineno))
+            self.generic_visit(node)
+
+    _Visitor().visit(tree)
+    assert raise_from_violations == [], (
+        f"raise ... from <non-None> at line(s) {raise_from_violations} -- only "
+        "'raise ... from None' is allowed"
+    )
+    assert construction_violations == [], (
+        "AgentQualityVerificationError(...) constructed outside the sanctioned sites "
+        f"{sorted(sanctioned_construction_sites)}: {construction_violations}"
+    )
 
 
 def test_privacy_canary_no_signed_bundle_field_is_caller_supplied() -> None:
@@ -1705,7 +1867,7 @@ def test_schema_preempted_backstop_codes_are_proven_unreachable_by_schema() -> N
         ]
         == "traigent.agent_quality.certificate_bundle.v1"
     )
-    assert v._expected_registry_identity("objective_registry")["registry_version"] == "1.0.0"
+    _gv_assert_registry_versions_pinned_to_document()
     # OBJECTIVE_NOT_REGISTERED: EmittableObjectiveIdV1 (what a schema-valid
     # claim's objective_id is restricted to) is a SUBSET of the shipped
     # objective registry's own ids.
@@ -2018,8 +2180,7 @@ def test_p2_b_s5_backstop_codes_real_path_proofs() -> None:
 
     # DISTRIBUTION_ASSUMPTION_NOT_REGISTERED: package-data invariant, pinned
     # to the shipped registry's OWN identity, not the schema's.
-    registry_identity = v._expected_registry_identity("objective_registry")
-    assert registry_identity["registry_version"] == "1.0.0"
+    _gv_assert_registry_versions_pinned_to_document()
     for entry in v._objective_registry_entries_by_id().values():
         if entry["objective_kind"] == "nonnegative_mean":
             assert entry.get("distribution_assumption") in v._distribution_assumption_values()
@@ -2585,6 +2746,22 @@ def _gv_registry_identity(stem: str) -> dict:
         version_field: props[version_field]["const"],
         digest_field: digest,
     }
+
+
+def _gv_assert_registry_versions_pinned_to_document() -> None:
+    """P1-V2.6 final-review closure P2-2: pin each of the four registries'
+    version field to the SHIPPED DOCUMENT's own value, read via
+    :func:`v._load_agent_quality_document`, not
+    :func:`v._expected_registry_identity`'s schema-const copy -- the two
+    happen to agree today, but only the document read is proof of that
+    agreement rather than an assumption of it. The reviewer's probe (the
+    document's ``registry_version`` set to ``"9.9.9"`` with its sidecar
+    digest re-pinned to match) makes the document-side assertion below fail
+    where the old schema-const-only assertion could not."""
+    for stem, (_, _, version_field, _) in _GV_REGISTRY_IDENTITY_FIELDS.items():
+        document_version = v._load_agent_quality_document(stem)[version_field]
+        assert document_version == "1.0.0"
+        assert document_version == v._expected_registry_identity(stem)[version_field]
 
 
 AGGREGATION_POLICY_IDENTITY = _gv_registry_identity("aggregation_policy")
@@ -6129,42 +6306,260 @@ def test_wire_error_code_mapping_uses_every_schema_enum_member() -> None:
     assert schema_codes <= used
 
 
+# P1-V2.6 final-review closure P2-1: an explicit, per-code golden mapping,
+# typed out independently of the module's own bucket frozensets, so a bug
+# in the module's grouping (a bucket typo, or a code silently moved to the
+# wrong bucket) is caught by plain equality against THIS dict -- not by a
+# partition/coverage property that a wrong-but-still-total table can still
+# satisfy. Grouped the same way the module's own buckets are documented.
+_G9_EXPECTED_WIRE_BUCKET_BY_CODE: dict[str, str] = {
+    **dict.fromkeys(
+        (
+            "OBJECTIVE_DUPLICATE",
+            "QUANTILE_TABLE_LOOKUP_FAILED",
+            "SELECTION_ESTIMATE_DUPLICATE",
+            "OBJECTIVE_NOT_IN_DECLARED_PLAN",
+            "PRIMARY_OBJECTIVE_MISSING",
+            "OBJECTIVE_NOT_REGISTERED",
+            "OBJECTIVE_KIND_MISMATCH",
+            "OBJECTIVE_UNIT_MISMATCH",
+            "OBJECTIVE_MINIMUM_SAMPLE_NOT_MET",
+            "DISTRIBUTION_ASSUMPTION_NOT_REGISTERED",
+            "INTERVAL_METHOD_NOT_EMITTABLE",
+            "INTERVAL_METHOD_NOT_ADMISSIBLE",
+            "SUFFICIENT_STATISTICS_SHAPE",
+            "POINT_ESTIMATE_RECOMPUTATION_MISMATCH",
+            "INTERVAL_RECOMPUTATION_MISMATCH",
+            "INTERVAL_ORDER",
+            "INTERVAL_DEGENERATE",
+            "INTERVAL_OUT_OF_UNIT_BOUNDS",
+            "NOMINAL_COVERAGE_MISMATCH",
+            "SAMPLE_SIZE_MISMATCH",
+            "VERIFICATION_LEVEL_MISMATCH",
+            "HOLDOUT_NOT_USED",
+        ),
+        "agent_quality_invalid_measurement",
+    ),
+    **dict.fromkeys(
+        (
+            "SPLIT_SET_SHAPE",
+            "HOLDOUT_MISSING",
+            "HOLDOUT_TOO_SMALL",
+            "SPLIT_DERIVATION_MISMATCH",
+            "SPLIT_PARTITION_INCOMPLETE",
+            "SPLIT_COMMITMENT_COLLISION",
+            "SPLIT_SIZE_IMPLAUSIBLE",
+            "SPLIT_OPENING_MISMATCH",
+            "SPLIT_OPENING_RULE_VIOLATION",
+            "HOLDOUT_REUSED",
+            "ARM_COUNT_MISMATCH",
+        ),
+        "agent_quality_invalid_split",
+    ),
+    **dict.fromkeys(
+        (
+            "DECLARED_PLAN_DIGEST_MISMATCH",
+            "DECLARED_PLAN_SIGNATURE_INVALID",
+            "DECLARED_PLAN_SIGNATURE_DIGEST_MISMATCH",
+            "DECLARED_PLAN_PIN_MISMATCH",
+        ),
+        "agent_quality_invalid_declared_plan",
+    ),
+    **dict.fromkeys(
+        (
+            "CONTEXT",
+            "PACKAGE_DATA_INVALID",
+            "AGENT_QUALITY_VERIFICATION_FAILED",
+            "BUNDLE_SHAPE",
+            "STRICT_INTEGER",
+            "UNSAFE_INTEGER",
+            "SCHEMA",
+            "SCHEMA_DEPENDENCY",
+            "CANONICALIZATION",
+            "PROCESS_RECORD_BINDING_MISMATCH",
+            "COMMITMENT_REF_MISMATCH",
+            "SCOPE_MISMATCH",
+            "MEASUREMENT_CONTRACT_NOT_PINNED",
+            "MEASUREMENT_CONTRACT_MISMATCH",
+            "AGGREGATION_POLICY_MISMATCH",
+            "OBJECTIVE_REGISTRY_MISMATCH",
+            "NON_CLAIM_SET_MISMATCH",
+            "QUANTILE_TABLE_MISMATCH",
+            "CLAIM_NOT_VERIFIED",
+            "PILLAR_SUPPORT_SHAPE",
+            "PILLAR_BINDING_MISMATCH",
+            "ASSERTION_DIGEST_MISMATCH",
+            "SPLIT_DERIVATION_DIGEST_MISMATCH",
+            "EVALUATION_SPLITS_DIGEST_MISMATCH",
+            "MEASURED_CLAIMS_DIGEST_MISMATCH",
+            "SELECTION_ESTIMATES_DIGEST_MISMATCH",
+            "NON_CLAIMS_DIGEST_MISMATCH",
+            "CLAIM_SUPPORT_ROWS_DIGEST_MISMATCH",
+            "CLAIM_SUPPORT_ROW_MISMATCH",
+            "UNSIGNED_MANIFEST_MISMATCH",
+            "UNSIGNED_MANIFEST_DIGEST_MISMATCH",
+            "KEY_RING_MISMATCH",
+            "ISSUER_SIGNATURE_INVALID",
+            "ABSTAINED_BUNDLE_CARRIES_CLAIMS",
+            "SELECTION_ESTIMATE_IN_CERTIFIED_SET",
+        ),
+        "agent_quality_verification_failed",
+    ),
+}
+
+
+def test_wire_error_code_mapping_matches_golden_bucket_assignment() -> None:
+    """G9 tripwire (d): plain equality between the module's REAL
+    ``AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE`` and an independently
+    typed-out golden dict (:data:`_G9_EXPECTED_WIRE_BUCKET_BY_CODE`). Unlike
+    a partition/coverage property (which a total-but-wrong table can still
+    satisfy), this catches a single code silently sorted into the wrong
+    bucket, or a bucket-name typo -- both reproduced as real module
+    mutations below."""
+    assert dict(v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE) == _G9_EXPECTED_WIRE_BUCKET_BY_CODE
+    assert set(_G9_EXPECTED_WIRE_BUCKET_BY_CODE) == v.AGENT_QUALITY_ERROR_CODES
+
+
+def _gv_exec_mutated_agent_quality_module(mutate_source: Callable[[str], str]) -> dict:
+    """Exec a mutated copy of ``agent_quality_verifier.py``'s OWN source
+    text in a fresh namespace and return its globals. All of the module's
+    imports are absolute (none relative to its package location), so this
+    is safe outside the real package tree. Used so the G9 mutation tests
+    below exercise the REAL module-level bucket/table construction -- not a
+    scratch dict standing in for it, which is what made the prior version
+    of these tests tautological (P1-V2.6 final review P2-1)."""
+    source = Path(v.__file__).read_text(encoding="utf-8")
+    mutated_source = mutate_source(source)
+    assert mutated_source != source, "mutate_source must actually change the module text"
+    module_name = f"agent_quality_verifier_mutant_{id(mutate_source)}"
+    mutant_module = _gv_types.ModuleType(module_name)
+    mutant_module.__file__ = str(v.__file__)
+    sys.modules[module_name] = mutant_module
+    try:
+        exec(compile(mutated_source, str(v.__file__), "exec"), mutant_module.__dict__)
+    finally:
+        del sys.modules[module_name]
+    return mutant_module.__dict__
+
+
 def test_wire_error_code_mapping_missing_key_breaks_tripwire_a() -> None:
     """G9 tripwire (d), mutation 1: a verifier code added to
-    AGENT_QUALITY_ERROR_CODES without a matching mapping entry breaks
-    tripwire (a) -- reproduces the failure a real omission would cause,
-    against a scratch copy so the real mapping is untouched."""
-    scratch_codes = v.AGENT_QUALITY_ERROR_CODES | {"CANARY_NEW_VERIFIER_CODE"}
-    assert set(v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE) != scratch_codes
-
-
-def test_wire_error_code_mapping_non_enum_value_breaks_tripwire_b() -> None:
-    """G9 tripwire (d), mutation 2: mapping a code to a string outside the
-    schema enum breaks tripwire (b), against a scratch copy of the mapping."""
-    schema_codes = set(SCHEMA["definitions"]["AgentQualityErrorV1"]["properties"]["code"]["enum"])
-    scratch = dict(v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE)
-    scratch["CONTEXT"] = "agent_quality_invalid_measurement_TYPO"
-    offenders = {code: wire for code, wire in scratch.items() if wire not in schema_codes}
-    assert offenders == {"CONTEXT": "agent_quality_invalid_measurement_TYPO"}
-
-
-def test_wire_error_code_mapping_dropped_wire_code_breaks_tripwire_c() -> None:
-    """G9 tripwire (d), mutation 3: remapping every verifier code that used
-    to point at one wire bucket (agent_quality_invalid_declared_plan) to a
-    different bucket leaves that wire code unused by any verifier code,
-    breaking tripwire (c) -- against a scratch copy of the mapping."""
-    schema_codes = set(SCHEMA["definitions"]["AgentQualityErrorV1"]["properties"]["code"]["enum"])
-    scratch = {
-        code: (
-            "agent_quality_verification_failed"
-            if wire == "agent_quality_invalid_declared_plan"
-            else wire
+    AGENT_QUALITY_ERROR_CODES's own literal set without a matching entry in
+    any of the four wire buckets -- against the REAL module source, exec'd
+    fresh. The mutant's own AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE genuinely
+    omits the new code, breaking tripwire (a)."""
+    mutant = _gv_exec_mutated_agent_quality_module(
+        lambda source: source.replace(
+            '        "AGENT_QUALITY_VERIFICATION_FAILED",\n',
+            '        "AGENT_QUALITY_VERIFICATION_FAILED",\n        "CANARY_NEW_VERIFIER_CODE",\n',
+            1,
         )
-        for code, wire in v.AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE.items()
-    }
-    used = set(scratch.values())
-    assert "agent_quality_invalid_declared_plan" not in used
-    assert not (schema_codes <= used)
+    )
+    assert (
+        set(mutant["AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE"]) != mutant["AGENT_QUALITY_ERROR_CODES"]
+    )
+
+
+def test_wire_error_code_mapping_bucket_typo_breaks_a_named_test() -> None:
+    """G9 tripwire (d), mutation 2 -- the reviewer's G9d: a bucket-entry
+    typo (``"HOLDOUT_NOT_USEDX"`` instead of ``"HOLDOUT_NOT_USED"``) inside
+    the measurement bucket, against the REAL module source. The real code
+    HOLDOUT_NOT_USED is still in AGENT_QUALITY_ERROR_CODES but no longer in
+    any wire bucket -- tripwire (a) (key-set equality) catches it, and so
+    does the golden-dict equality in
+    :func:`test_wire_error_code_mapping_matches_golden_bucket_assignment`,
+    which the reviewer's probe found NOTHING caught against the old
+    comprehension-based table."""
+    mutant = _gv_exec_mutated_agent_quality_module(
+        lambda source: source.replace(
+            '        "VERIFICATION_LEVEL_MISMATCH",\n'
+            '        "HOLDOUT_NOT_USED",\n'
+            "    }\n"
+            ")\n"
+            "_AGENT_QUALITY_WIRE_SPLIT_CODES",
+            '        "VERIFICATION_LEVEL_MISMATCH",\n'
+            '        "HOLDOUT_NOT_USEDX",\n'
+            "    }\n"
+            ")\n"
+            "_AGENT_QUALITY_WIRE_SPLIT_CODES",
+            1,
+        )
+    )
+    mutant_table = mutant["AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE"]
+    assert set(mutant_table) != mutant["AGENT_QUALITY_ERROR_CODES"]
+    assert dict(mutant_table) != _G9_EXPECTED_WIRE_BUCKET_BY_CODE
+
+
+def test_wire_error_code_mapping_code_moved_between_buckets_breaks_a_named_test() -> None:
+    """G9 tripwire (d), mutation 3 -- the reviewer's G9e: a code moved
+    between buckets (INTERVAL_RECOMPUTATION_MISMATCH relocated from
+    measurement into split), against the REAL module source. Both buckets
+    stay internally well-formed (no typo, no dropped/duplicated key,
+    partition and coverage both still hold) -- the reviewer's probe found
+    NO test in the old suite caught this. The golden-dict equality in
+    :func:`test_wire_error_code_mapping_matches_golden_bucket_assignment`
+    does: it fails here because the mutant maps
+    INTERVAL_RECOMPUTATION_MISMATCH to a different wire code than the
+    golden dict does."""
+    mutant = _gv_exec_mutated_agent_quality_module(
+        lambda source: source.replace(
+            '        "POINT_ESTIMATE_RECOMPUTATION_MISMATCH",\n'
+            '        "INTERVAL_RECOMPUTATION_MISMATCH",\n'
+            '        "INTERVAL_ORDER",\n'
+            '        "INTERVAL_DEGENERATE",\n'
+            '        "INTERVAL_OUT_OF_UNIT_BOUNDS",\n'
+            '        "NOMINAL_COVERAGE_MISMATCH",\n'
+            '        "SAMPLE_SIZE_MISMATCH",\n'
+            '        "VERIFICATION_LEVEL_MISMATCH",\n'
+            '        "HOLDOUT_NOT_USED",\n'
+            "    }\n"
+            ")\n"
+            "_AGENT_QUALITY_WIRE_SPLIT_CODES: frozenset[str] = frozenset(\n"
+            "    {\n"
+            '        "SPLIT_SET_SHAPE",\n'
+            '        "HOLDOUT_MISSING",\n'
+            '        "HOLDOUT_TOO_SMALL",\n'
+            '        "SPLIT_DERIVATION_MISMATCH",\n'
+            '        "SPLIT_PARTITION_INCOMPLETE",\n'
+            '        "SPLIT_COMMITMENT_COLLISION",\n'
+            '        "SPLIT_SIZE_IMPLAUSIBLE",\n',
+            '        "POINT_ESTIMATE_RECOMPUTATION_MISMATCH",\n'
+            '        "INTERVAL_ORDER",\n'
+            '        "INTERVAL_DEGENERATE",\n'
+            '        "INTERVAL_OUT_OF_UNIT_BOUNDS",\n'
+            '        "NOMINAL_COVERAGE_MISMATCH",\n'
+            '        "SAMPLE_SIZE_MISMATCH",\n'
+            '        "VERIFICATION_LEVEL_MISMATCH",\n'
+            '        "HOLDOUT_NOT_USED",\n'
+            "    }\n"
+            ")\n"
+            "_AGENT_QUALITY_WIRE_SPLIT_CODES: frozenset[str] = frozenset(\n"
+            "    {\n"
+            '        "SPLIT_SET_SHAPE",\n'
+            '        "HOLDOUT_MISSING",\n'
+            '        "HOLDOUT_TOO_SMALL",\n'
+            '        "SPLIT_DERIVATION_MISMATCH",\n'
+            '        "SPLIT_PARTITION_INCOMPLETE",\n'
+            '        "SPLIT_COMMITMENT_COLLISION",\n'
+            '        "SPLIT_SIZE_IMPLAUSIBLE",\n'
+            '        "INTERVAL_RECOMPUTATION_MISMATCH",\n',
+            1,
+        )
+    )
+    mutant_table = mutant["AGENT_QUALITY_WIRE_ERROR_CODE_BY_CODE"]
+    # Still total and still a genuine partition -- the property-based
+    # tripwires (a)/(b)/(c) all still hold on the mutant.
+    assert set(mutant_table) == mutant["AGENT_QUALITY_ERROR_CODES"]
+    schema_codes = set(SCHEMA["definitions"]["AgentQualityErrorV1"]["properties"]["code"]["enum"])
+    assert set(mutant_table.values()) <= schema_codes
+    assert schema_codes <= set(mutant_table.values())
+    # ... yet the golden per-code assignment now disagrees for the moved
+    # code specifically.
+    assert (
+        mutant_table["INTERVAL_RECOMPUTATION_MISMATCH"]
+        != _G9_EXPECTED_WIRE_BUCKET_BY_CODE["INTERVAL_RECOMPUTATION_MISMATCH"]
+    )
+    assert dict(mutant_table) != _G9_EXPECTED_WIRE_BUCKET_BY_CODE
 
 
 def test_wire_code_property_for_measurement_error_via_public_function() -> None:

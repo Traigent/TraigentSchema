@@ -548,6 +548,7 @@ def _context(**overrides: object) -> v.AgentQualityVerificationContext:
         expected_measurement_contract_ref="measurement:mmmmmmmm",
         expected_measurement_contract_record_digest=sha,
         accept_abstained_bundle=False,
+        expected_declared_plan_digest=sha,
     )
     kwargs.update(overrides)
     return v.AgentQualityVerificationContext(**kwargs)
@@ -2661,6 +2662,15 @@ _GV_MEASUREMENT_CONTRACT_RECORD_DIGEST = "sha256:" + "a5" * 32
 _GV_MEASUREMENT_CONTRACT_REF = "measurement:mmmmmmmm"
 
 
+def _gv_golden_declared_plan_digest() -> str:
+    """The GOLDEN bundle's own ``declared_plan.declared_plan_digest`` --
+    deterministic (no randomness anywhere in :func:`_gv_close`'s digest
+    chain), so this is the one true pin every golden-vector test should
+    verify against by default."""
+    bundle = build_agent_quality_bundle()
+    return bundle["declared_plan_envelope"]["declared_plan"]["declared_plan_digest"]
+
+
 def build_agent_quality_context(**overrides: object) -> v.AgentQualityVerificationContext:
     """The context the golden bundle is bound to. A thin wrapper over
     :func:`_context` under the name this packet's brief specifies -- both
@@ -2673,7 +2683,12 @@ def build_agent_quality_context(**overrides: object) -> v.AgentQualityVerificati
     process record actually carries, so S2's real cross-artifact checks
     (COMMITMENT_REF_MISMATCH, SCOPE_MISMATCH) pass on the golden bundle by
     construction rather than by two independently-typed literals that
-    happen to agree."""
+    happen to agree.
+
+    P1-V2.7: also pins ``expected_declared_plan_digest`` to the GOLDEN
+    bundle's own declared-plan digest, since the field is now required --
+    every golden-vector test verifies against the true pin unless it
+    overrides it to prove a mismatch."""
     kwargs: dict = dict(
         process_record_context=_GV_PROCESS_RECORD_CONTEXT,
         expected_project_ref=_GV_PROJECT_REF,
@@ -2684,6 +2699,7 @@ def build_agent_quality_context(**overrides: object) -> v.AgentQualityVerificati
         expected_build_definition_commitment_ref=_GV_BUILD_DEFINITION_COMMITMENT_REF,
         expected_measurement_contract_ref=_GV_MEASUREMENT_CONTRACT_REF,
         expected_measurement_contract_record_digest=_GV_MEASUREMENT_CONTRACT_RECORD_DIGEST,
+        expected_declared_plan_digest=_gv_golden_declared_plan_digest(),
     )
     kwargs.update(overrides)
     return _context(**kwargs)
@@ -4770,10 +4786,40 @@ def test_s4_declared_plan_pin_matches_when_supplied() -> None:
     v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
 
 
-def test_s4_declared_plan_pin_skipped_when_none() -> None:
-    bundle = build_agent_quality_bundle()
-    context = build_agent_quality_context(expected_declared_plan_digest=None)
-    v._stage_s4_declared_plan_signatures(bundle, context, _GV_PROCESS_RECORD_BUNDLE)
+def test_context_requires_declared_plan_pin_argument() -> None:
+    """P1-V2.7: the pin is a required dataclass field -- omitting it
+    entirely is a ``TypeError`` from the dataclass constructor itself, not
+    a ``CONTEXT`` verification failure (that's what a supplied-but-invalid
+    value gets, see :func:`test_context_rejects_none_or_malformed_declared_plan_pin`)."""
+    kwargs = dict(
+        process_record_context=object(),
+        expected_project_ref="proj-1",
+        expected_build_session_ref="build_session:ssssssss",
+        expected_agent_commitment_ref="sha256:" + "a" * 64,
+        expected_dataset_commitment_ref="sha256:" + "a" * 64,
+        expected_evaluator_commitment_ref="sha256:" + "a" * 64,
+        expected_build_definition_commitment_ref="sha256:" + "a" * 64,
+        expected_measurement_contract_ref="measurement:mmmmmmmm",
+        expected_measurement_contract_record_digest="sha256:" + "a" * 64,
+        accept_abstained_bundle=False,
+    )
+    with pytest.raises(TypeError):
+        v.AgentQualityVerificationContext(**kwargs)
+
+
+def test_context_rejects_none_or_malformed_declared_plan_pin() -> None:
+    """A context CONSTRUCTED with the pin supplied as ``None``, or as a
+    non-sha256 string, fails CONTEXT -- the same treatment every other
+    digest pin on this dataclass already gets."""
+    with pytest.raises(v.AgentQualityVerificationError) as none_caught:
+        _context(expected_declared_plan_digest=None)
+    assert none_caught.value.code == "CONTEXT"
+    assert none_caught.value.field == "context"
+
+    with pytest.raises(v.AgentQualityVerificationError) as malformed_caught:
+        _context(expected_declared_plan_digest="not-a-digest")
+    assert malformed_caught.value.code == "CONTEXT"
+    assert malformed_caught.value.field == "context"
 
 
 # ==========================================================================
@@ -5473,7 +5519,11 @@ def test_s6_split_derivation_mismatch_declared_plan_copy_full_runner() -> None:
         ]
         != closed["split_derivation"]["split_key_commitment"]
     )
-    context = build_agent_quality_context()
+    context = build_agent_quality_context(
+        expected_declared_plan_digest=closed["declared_plan_envelope"]["declared_plan"][
+            "declared_plan_digest"
+        ]
+    )
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
             closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
@@ -5504,7 +5554,11 @@ def test_s6_split_derivation_mismatch_all_copies_agree_but_not_recomputed_full_r
         ]
         == foreign_digest
     )
-    context = build_agent_quality_context()
+    context = build_agent_quality_context(
+        expected_declared_plan_digest=closed["declared_plan_envelope"]["declared_plan"][
+            "declared_plan_digest"
+        ]
+    )
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
             closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
@@ -5553,7 +5607,15 @@ def test_s6_split_derivation_mismatch_declared_plan_pins_different_holdout_full_
         ]
         == shipped_digest
     )
-    context = build_agent_quality_context()
+    # The foreign split derivation changes the declared plan's own content,
+    # so its digest is recomputed by the re-close -- pin the context to
+    # THAT digest so S4's own pin check agrees and S6 is the stage that
+    # actually fires.
+    context = build_agent_quality_context(
+        expected_declared_plan_digest=closed["declared_plan_envelope"]["declared_plan"][
+            "declared_plan_digest"
+        ]
+    )
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
             closed, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
@@ -5650,7 +5712,11 @@ def test_s6_split_size_implausible_declared_50_percent_actual_20_percent_full_ru
     bundle = build_agent_quality_bundle()
     bundle["split_derivation"]["holdout_fraction_ppm"] = 500000
     resigned = resign_agent_quality_bundle(bundle)
-    context = build_agent_quality_context()
+    context = build_agent_quality_context(
+        expected_declared_plan_digest=resigned["declared_plan_envelope"]["declared_plan"][
+            "declared_plan_digest"
+        ]
+    )
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
             resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
@@ -5787,7 +5853,11 @@ def test_s6_split_size_implausible_declare_20_percent_ship_2_percent_full_runner
     bundle["evaluation_splits"][0]["item_count"] = 9800
     bundle["evaluation_splits"][1]["item_count"] = 200
     resigned = resign_agent_quality_bundle(bundle)
-    context = build_agent_quality_context()
+    context = build_agent_quality_context(
+        expected_declared_plan_digest=resigned["declared_plan_envelope"]["declared_plan"][
+            "declared_plan_digest"
+        ]
+    )
     with pytest.raises(v.AgentQualityVerificationError) as caught:
         v._run_agent_quality_checks(
             resigned, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE

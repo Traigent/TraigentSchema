@@ -932,11 +932,11 @@ class AgentQualityVerificationContext:
     this caller, as opposed to a hard failure, is a deliberate choice every
     caller must make rather than inherit silently.
 
-    ``expected_declared_plan_digest`` is a BINDING pin only: it establishes
-    WHICH declared plan this verification expects the bundle to cite -- not
-    ordering evidence that the plan was authored before the results, which
-    is out of scope for this certificate family in v1 (see the module
-    docstring).
+    ``expected_declared_plan_digest`` is required and is a BINDING pin only:
+    it establishes WHICH declared plan this verification expects the bundle
+    to cite -- not ordering evidence that the plan was authored before the
+    results, which is out of scope for this certificate family in v1 (see
+    the module docstring).
     """
 
     process_record_context: object
@@ -949,7 +949,7 @@ class AgentQualityVerificationContext:
     expected_measurement_contract_ref: str
     expected_measurement_contract_record_digest: str
     accept_abstained_bundle: bool
-    expected_declared_plan_digest: str | None = None
+    expected_declared_plan_digest: str
     trust_status: object | None = None
 
     def __post_init__(self) -> None:
@@ -979,10 +979,9 @@ class AgentQualityVerificationContext:
             _fail("CONTEXT", "context")
         if type(self.accept_abstained_bundle) is not bool:
             _fail("CONTEXT", "context")
-        if self.expected_declared_plan_digest is not None and (
-            type(self.expected_declared_plan_digest) is not str
-            or not _SHA256_RE.fullmatch(self.expected_declared_plan_digest)
-        ):
+        if type(
+            self.expected_declared_plan_digest
+        ) is not str or not _SHA256_RE.fullmatch(self.expected_declared_plan_digest):
             _fail("CONTEXT", "context")
 
 
@@ -1875,8 +1874,8 @@ def _stage_s4_declared_plan_signatures(
     ``test_declared_plan_only_claims_the_digest_binding``), so a stage that
     checked it would assert something this certificate family does not
     verify. ``DECLARED_PLAN_PIN_MISMATCH`` (design row 21) survives as the
-    one genuine binding check: whether ``context.expected_declared_plan_digest``,
-    when the caller supplied it, equals the bundle's.
+    one genuine binding check: whether ``context.expected_declared_plan_digest``
+    -- required on every context -- equals the bundle's.
 
     In order: (row 17) a fresh role digest over the declared plan (its own
     ``declared_plan_digest`` stripped from the preimage) must equal both
@@ -1953,10 +1952,7 @@ def _stage_s4_declared_plan_signatures(
     except Exception:
         _fail("DECLARED_PLAN_SIGNATURE_INVALID", "declared_plan_signature")
 
-    if (
-        context.expected_declared_plan_digest is not None
-        and context.expected_declared_plan_digest != declared_plan.get("declared_plan_digest")
-    ):
+    if context.expected_declared_plan_digest != declared_plan.get("declared_plan_digest"):
         _fail("DECLARED_PLAN_PIN_MISMATCH", "declared_plan")
 
 

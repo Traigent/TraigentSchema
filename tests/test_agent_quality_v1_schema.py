@@ -18,7 +18,7 @@ SCHEMA_PATH = CERTIFICATION / "agent_quality_v1_schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 SCHEMA_TEXT = SCHEMA_PATH.read_text(encoding="utf-8")
 
-MERGE_BASE = "3f0529c1ba94a21afbcee749d6543dd0c4778229"
+MERGE_BASE = "3ec6458348717a70e1b569af7191e8ba4eec1066"
 
 SHA = "sha256:" + "a" * 64
 OPAQUE_REF = "measurement:" + "m" * 8

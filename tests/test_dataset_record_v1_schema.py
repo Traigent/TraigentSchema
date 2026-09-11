@@ -20,7 +20,7 @@ SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 
 # The exact commit this design is anchored to (see the design document's
 # header); an ancestor of this branch's HEAD.
-_FROZEN_REF = "93030ccef7f50acbd205078b7da3e701f5b1dcf4"
+_FROZEN_REF = "3ec6458348717a70e1b569af7191e8ba4eec1066"
 #: SHA-256 of each frozen artifact AS IT STANDS AT ``_FROZEN_REF``, pinned as
 #: data rather than read out of git at test time.
 #:

@@ -12,6 +12,9 @@ import pytest
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
+from tests._frozen_signatures_exception import SIGNATURES_REL as _SIGNATURES_REL
+from tests._frozen_signatures_exception import assert_description_only_exception
+
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS = ROOT / "traigent_schema" / "schemas"
 CERT_DIR = SCHEMAS / "certification"
@@ -19,6 +22,7 @@ SCHEMA_PATH = CERT_DIR / "evaluator_quality_v1_schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 DEFS = SCHEMA["definitions"]
 MERGE_BASE = "3f0529c1ba94a21afbcee749d6543dd0c4778229"
+
 SHA = "sha256:" + "a" * 64
 NON_CLAIM_SENTENCE = (
     "Ordering evidence is out of scope for v1: nothing here establishes when the "
@@ -557,6 +561,8 @@ def test_frozen_v0_files_are_byte_identical_to_the_merge_base() -> None:
     assert v0_files
     for path in v0_files:
         rel = path.relative_to(ROOT).as_posix()
+        if rel == _SIGNATURES_REL:
+            continue
         base = subprocess.run(
             ["git", "show", f"{MERGE_BASE}:{rel}"],
             cwd=ROOT,
@@ -565,6 +571,15 @@ def test_frozen_v0_files_are_byte_identical_to_the_merge_base() -> None:
             text=True,
         ).stdout
         assert path.read_text(encoding="utf-8") == base, f"{rel} drifted from the merge base"
+
+
+def test_certificate_signatures_v0_disclosed_exception() -> None:
+    """The one file test_frozen_v0_files_are_byte_identical_to_the_merge_base
+    exempts, and only by its top-level ``description`` (D-T4.1 = A,
+    2026-09-11). See tests/_frozen_signatures_exception.py for the guard.
+    """
+
+    assert_description_only_exception(MERGE_BASE, ROOT)
 
 
 def test_shipped_v1_contracts_are_untouched() -> None:

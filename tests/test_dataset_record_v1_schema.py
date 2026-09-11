@@ -13,13 +13,22 @@ import pytest
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
+from tests._frozen_signatures_exception import (
+    assert_description_only_exception,
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS = ROOT / "traigent_schema" / "schemas"
 SCHEMA_PATH = SCHEMAS / "certification" / "dataset_record_v1_schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 
 # The exact commit this design is anchored to (see the design document's
-# header); an ancestor of this branch's HEAD.
+# header); an ancestor of this branch's HEAD. Every frozen file below must
+# stay byte-identical to this ref, with exactly one disclosed exception:
+# _SIGNATURES_PATH, which test_certificate_signatures_v0_disclosed_exception
+# allows to differ by its top-level "description" only (owner ruling
+# D-T4.1 = A, 2026-09-11). The ref itself is never moved for that edit --
+# only the signatures file's own pin below is.
 _FROZEN_REF = "93030ccef7f50acbd205078b7da3e701f5b1dcf4"
 #: SHA-256 of each frozen artifact AS IT STANDS AT ``_FROZEN_REF``, pinned as
 #: data rather than read out of git at test time.
@@ -66,9 +75,6 @@ _FROZEN_DIGESTS: dict[str, str] = {
     "traigent_schema/schemas/certification/certificate_unsigned_manifest_v0_schema.json": (
         "aaaa004541af79c9b5221f95dbdf15d9f5759edb78a9f0b53cd95e2f854bd9f8"
     ),
-    "traigent_schema/schemas/certification/certificate_signatures_v0_schema.json": (
-        "bf7d37ab402d509d7e8af087d0d12829b87b601808da9a7ec56ae13ba9df8b88"
-    ),
     "traigent_schema/schemas/certification/certificate_verification_materials_v0_schema.json": (
         "232911c85d697d5793d5dd2a7f9aefbba53e5544159408d60134f457679f3a8e"
     ),
@@ -76,6 +82,12 @@ _FROZEN_DIGESTS: dict[str, str] = {
         "da60d93ed3aa1c4a97f671972fecea967a756ffa15df1f884cb0105819a4542e"
     ),
 }
+# certificate_signatures_v0_schema.json is deliberately NOT in _FROZEN_DIGESTS:
+# it carries the one disclosed exception below (owner ruling D-T4.1 = A,
+# 2026-09-11) and gets its own, narrower guard instead of the blind
+# byte-for-byte pin every other frozen file gets -- see
+# tests/_frozen_signatures_exception.py for _SIGNATURES_PATH,
+# _SIGNATURES_SHA256, and the guard itself.
 
 _FROZEN_FILES = tuple(_FROZEN_DIGESTS)
 
@@ -385,6 +397,15 @@ def test_the_pinned_frozen_digests_match_the_anchor_ref(relative_path: str) -> N
     assert hashlib.sha256(frozen).hexdigest() == _FROZEN_DIGESTS[relative_path], (
         f"_FROZEN_DIGESTS[{relative_path!r}] has drifted from {_FROZEN_REF}"
     )
+
+
+def test_certificate_signatures_v0_disclosed_exception() -> None:
+    """The one disclosed, mechanical exception to the frozen-v0 guard above
+    (owner ruling D-T4.1 = A, 2026-09-11). See
+    tests/_frozen_signatures_exception.py for the guard.
+    """
+
+    assert_description_only_exception(_FROZEN_REF, ROOT)
 
 
 def test_the_attestation_basis_restriction_is_not_a_sibling_of_a_ref() -> None:

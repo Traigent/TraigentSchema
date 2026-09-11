@@ -19,7 +19,12 @@ SCHEMA_PATH = SCHEMAS / "certification" / "dataset_record_v1_schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 
 # The exact commit this design is anchored to (see the design document's
-# header); an ancestor of this branch's HEAD.
+# header); an ancestor of this branch's HEAD. Every frozen file below must
+# stay byte-identical to this ref, with exactly one disclosed exception:
+# _SIGNATURES_PATH, which test_certificate_signatures_v0_disclosed_exception
+# allows to differ by its top-level "description" only (owner ruling
+# D-T4.1 = A, 2026-09-11). The ref itself is never moved for that edit --
+# only the signatures file's own pin below is.
 _FROZEN_REF = "93030ccef7f50acbd205078b7da3e701f5b1dcf4"
 #: SHA-256 of each frozen artifact AS IT STANDS AT ``_FROZEN_REF``, pinned as
 #: data rather than read out of git at test time.
@@ -66,9 +71,6 @@ _FROZEN_DIGESTS: dict[str, str] = {
     "traigent_schema/schemas/certification/certificate_unsigned_manifest_v0_schema.json": (
         "aaaa004541af79c9b5221f95dbdf15d9f5759edb78a9f0b53cd95e2f854bd9f8"
     ),
-    "traigent_schema/schemas/certification/certificate_signatures_v0_schema.json": (
-        "683f378ffc36c6ff650a00426279a30726b43237a58ec0489b988bfba2657671"
-    ),
     "traigent_schema/schemas/certification/certificate_verification_materials_v0_schema.json": (
         "232911c85d697d5793d5dd2a7f9aefbba53e5544159408d60134f457679f3a8e"
     ),
@@ -76,6 +78,22 @@ _FROZEN_DIGESTS: dict[str, str] = {
         "da60d93ed3aa1c4a97f671972fecea967a756ffa15df1f884cb0105819a4542e"
     ),
 }
+# certificate_signatures_v0_schema.json is deliberately NOT in _FROZEN_DIGESTS:
+# it carries the one disclosed exception below and gets its own, narrower
+# guard instead of the blind byte-for-byte pin every other frozen file gets.
+_SIGNATURES_PATH = (
+    "traigent_schema/schemas/certification/certificate_signatures_v0_schema.json"
+)
+#: SHA-256 of _SIGNATURES_PATH after its sole disclosed edit (owner ruling
+#: D-T4.1 = A, 2026-09-11): the v0 issuer signing key's custody clause was
+#: reworded from GitHub-OIDC to AWS KMS non-exportable custody. C6 Ruling 4's
+#: invariant ("the general backend pod holds no certificate-signing
+#: authority") is restated verbatim. No keyword, pattern, required field, or
+#: shape changed. test_certificate_signatures_v0_disclosed_exception below
+#: proves mechanically that this pin differs from the anchor ONLY by the
+#: top-level "description" string; any other edit fails until this pin is
+#: deliberately moved again for a new disclosed ruling.
+_SIGNATURES_SHA256 = "683f378ffc36c6ff650a00426279a30726b43237a58ec0489b988bfba2657671"
 
 _FROZEN_FILES = tuple(_FROZEN_DIGESTS)
 
@@ -384,6 +402,33 @@ def test_the_pinned_frozen_digests_match_the_anchor_ref(relative_path: str) -> N
         pytest.skip(f"anchor {_FROZEN_REF} is not in this clone (shallow checkout)")
     assert hashlib.sha256(frozen).hexdigest() == _FROZEN_DIGESTS[relative_path], (
         f"_FROZEN_DIGESTS[{relative_path!r}] has drifted from {_FROZEN_REF}"
+    )
+
+
+def test_certificate_signatures_v0_disclosed_exception() -> None:
+    """The one disclosed, mechanical exception to the frozen-v0 guard above
+    (owner ruling D-T4.1 = A, 2026-09-11): _SIGNATURES_PATH may differ from
+    the anchor ONLY in its top-level ``description``. Pinned sha256 catches
+    ANY further edit, including another description change, until the pin is
+    deliberately moved again; the structural comparison catches an edit that
+    happens to preserve the old sha256's file size but changes a keyword,
+    required field, or shape.
+    """
+
+    current_bytes = (ROOT / _SIGNATURES_PATH).read_bytes()
+    assert hashlib.sha256(current_bytes).hexdigest() == _SIGNATURES_SHA256, (
+        f"{_SIGNATURES_PATH} no longer matches the disclosed exception's pin"
+    )
+
+    frozen = _git_show(_FROZEN_REF, _SIGNATURES_PATH)
+    if frozen is None:
+        pytest.skip(f"anchor {_FROZEN_REF} is not in this clone (shallow checkout)")
+    current = json.loads(current_bytes)
+    anchor = json.loads(frozen)
+    del current["description"]
+    del anchor["description"]
+    assert current == anchor, (
+        f"{_SIGNATURES_PATH} differs from the anchor by more than its description"
     )
 
 

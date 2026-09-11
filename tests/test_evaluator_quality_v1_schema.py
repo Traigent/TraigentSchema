@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import re
 import subprocess
@@ -19,6 +20,15 @@ SCHEMA_PATH = CERT_DIR / "evaluator_quality_v1_schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 DEFS = SCHEMA["definitions"]
 MERGE_BASE = "3f0529c1ba94a21afbcee749d6543dd0c4778229"
+
+# The one disclosed, mechanical exception to the frozen-v0 guard below (owner
+# ruling D-T4.1 = A, 2026-09-11): this file's top-level "description" was
+# reworded from GitHub-OIDC to AWS KMS non-exportable custody wording; C6
+# Ruling 4's invariant is restated verbatim. Every other frozen v0 file stays
+# byte-identical to MERGE_BASE.
+_SIGNATURES_REL = "traigent_schema/schemas/certification/certificate_signatures_v0_schema.json"
+_SIGNATURES_SHA256 = "683f378ffc36c6ff650a00426279a30726b43237a58ec0489b988bfba2657671"
+
 SHA = "sha256:" + "a" * 64
 NON_CLAIM_SENTENCE = (
     "Ordering evidence is out of scope for v1: nothing here establishes when the "
@@ -557,6 +567,8 @@ def test_frozen_v0_files_are_byte_identical_to_the_merge_base() -> None:
     assert v0_files
     for path in v0_files:
         rel = path.relative_to(ROOT).as_posix()
+        if rel == _SIGNATURES_REL:
+            continue
         base = subprocess.run(
             ["git", "show", f"{MERGE_BASE}:{rel}"],
             cwd=ROOT,
@@ -565,6 +577,35 @@ def test_frozen_v0_files_are_byte_identical_to_the_merge_base() -> None:
             text=True,
         ).stdout
         assert path.read_text(encoding="utf-8") == base, f"{rel} drifted from the merge base"
+
+
+def test_certificate_signatures_v0_disclosed_exception() -> None:
+    """The one file test_frozen_v0_files_are_byte_identical_to_the_merge_base
+    exempts, and only by its top-level ``description`` (D-T4.1 = A,
+    2026-09-11). The sha256 pin catches any further edit; the structural
+    comparison catches an edit that happens to preserve the pinned sha256's
+    length but changes a keyword, required field, or shape.
+    """
+
+    path = CERT_DIR / _SIGNATURES_REL.rsplit("/", 1)[-1]
+    current_bytes = path.read_bytes()
+    assert hashlib.sha256(current_bytes).hexdigest() == _SIGNATURES_SHA256, (
+        f"{_SIGNATURES_REL} no longer matches the disclosed exception's pin"
+    )
+
+    result = subprocess.run(
+        ["git", "show", f"{MERGE_BASE}:{_SIGNATURES_REL}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+    )
+    current = json.loads(current_bytes)
+    anchor = json.loads(result.stdout)
+    del current["description"]
+    del anchor["description"]
+    assert current == anchor, (
+        f"{_SIGNATURES_REL} differs from the merge base by more than its description"
+    )
 
 
 def test_shipped_v1_contracts_are_untouched() -> None:

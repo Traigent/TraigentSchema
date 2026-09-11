@@ -13,6 +13,10 @@ import pytest
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
+from tests._frozen_signatures_exception import (
+    assert_description_only_exception,
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS = ROOT / "traigent_schema" / "schemas"
 SCHEMA_PATH = SCHEMAS / "certification" / "dataset_record_v1_schema.json"
@@ -79,21 +83,11 @@ _FROZEN_DIGESTS: dict[str, str] = {
     ),
 }
 # certificate_signatures_v0_schema.json is deliberately NOT in _FROZEN_DIGESTS:
-# it carries the one disclosed exception below and gets its own, narrower
-# guard instead of the blind byte-for-byte pin every other frozen file gets.
-_SIGNATURES_PATH = (
-    "traigent_schema/schemas/certification/certificate_signatures_v0_schema.json"
-)
-#: SHA-256 of _SIGNATURES_PATH after its sole disclosed edit (owner ruling
-#: D-T4.1 = A, 2026-09-11): the v0 issuer signing key's custody clause was
-#: reworded from GitHub-OIDC to AWS KMS non-exportable custody. C6 Ruling 4's
-#: invariant ("the general backend pod holds no certificate-signing
-#: authority") is restated verbatim. No keyword, pattern, required field, or
-#: shape changed. test_certificate_signatures_v0_disclosed_exception below
-#: proves mechanically that this pin differs from the anchor ONLY by the
-#: top-level "description" string; any other edit fails until this pin is
-#: deliberately moved again for a new disclosed ruling.
-_SIGNATURES_SHA256 = "683f378ffc36c6ff650a00426279a30726b43237a58ec0489b988bfba2657671"
+# it carries the one disclosed exception below (owner ruling D-T4.1 = A,
+# 2026-09-11) and gets its own, narrower guard instead of the blind
+# byte-for-byte pin every other frozen file gets -- see
+# tests/_frozen_signatures_exception.py for _SIGNATURES_PATH,
+# _SIGNATURES_SHA256, and the guard itself.
 
 _FROZEN_FILES = tuple(_FROZEN_DIGESTS)
 
@@ -407,29 +401,11 @@ def test_the_pinned_frozen_digests_match_the_anchor_ref(relative_path: str) -> N
 
 def test_certificate_signatures_v0_disclosed_exception() -> None:
     """The one disclosed, mechanical exception to the frozen-v0 guard above
-    (owner ruling D-T4.1 = A, 2026-09-11): _SIGNATURES_PATH may differ from
-    the anchor ONLY in its top-level ``description``. Pinned sha256 catches
-    ANY further edit, including another description change, until the pin is
-    deliberately moved again; the structural comparison catches an edit that
-    happens to preserve the old sha256's file size but changes a keyword,
-    required field, or shape.
+    (owner ruling D-T4.1 = A, 2026-09-11). See
+    tests/_frozen_signatures_exception.py for the guard.
     """
 
-    current_bytes = (ROOT / _SIGNATURES_PATH).read_bytes()
-    assert hashlib.sha256(current_bytes).hexdigest() == _SIGNATURES_SHA256, (
-        f"{_SIGNATURES_PATH} no longer matches the disclosed exception's pin"
-    )
-
-    frozen = _git_show(_FROZEN_REF, _SIGNATURES_PATH)
-    if frozen is None:
-        pytest.skip(f"anchor {_FROZEN_REF} is not in this clone (shallow checkout)")
-    current = json.loads(current_bytes)
-    anchor = json.loads(frozen)
-    del current["description"]
-    del anchor["description"]
-    assert current == anchor, (
-        f"{_SIGNATURES_PATH} differs from the anchor by more than its description"
-    )
+    assert_description_only_exception(_FROZEN_REF, ROOT)
 
 
 def test_the_attestation_basis_restriction_is_not_a_sibling_of_a_ref() -> None:

@@ -18,7 +18,7 @@ CERT_DIR = SCHEMAS / "certification"
 SCHEMA_PATH = CERT_DIR / "evaluator_quality_v1_schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 DEFS = SCHEMA["definitions"]
-MERGE_BASE = "3ec6458348717a70e1b569af7191e8ba4eec1066"
+MERGE_BASE = "3f0529c1ba94a21afbcee749d6543dd0c4778229"
 SHA = "sha256:" + "a" * 64
 NON_CLAIM_SENTENCE = (
     "Ordering evidence is out of scope for v1: nothing here establishes when the "

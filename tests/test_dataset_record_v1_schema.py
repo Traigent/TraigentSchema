@@ -67,7 +67,7 @@ _FROZEN_DIGESTS: dict[str, str] = {
         "aaaa004541af79c9b5221f95dbdf15d9f5759edb78a9f0b53cd95e2f854bd9f8"
     ),
     "traigent_schema/schemas/certification/certificate_signatures_v0_schema.json": (
-        "bf7d37ab402d509d7e8af087d0d12829b87b601808da9a7ec56ae13ba9df8b88"
+        "683f378ffc36c6ff650a00426279a30726b43237a58ec0489b988bfba2657671"
     ),
     "traigent_schema/schemas/certification/certificate_verification_materials_v0_schema.json": (
         "232911c85d697d5793d5dd2a7f9aefbba53e5544159408d60134f457679f3a8e"

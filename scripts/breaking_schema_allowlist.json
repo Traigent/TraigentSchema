@@ -2065,7 +2065,7 @@
       "rule": "property_removed",
       "reason": "Reverts a same-release placement error: #468 (merged 2026-09-13T20:58Z at 335d8fc, version Unreleased) attached the evaluator version to the datasets evaluator_config resource, which is NOT the evaluator the build uses; the field moves to observability/evaluator_definition_schema.json (EvaluatorDefinition, whose persisted judge_config is the digest preimage). No producer has ever emitted it and no consumer reads it (both were merged minutes earlier, unreleased, and the Backend/SDK pins have not been bumped), so nothing observable changes; acknowledged rather than silenced so the removal is visible in the contract history.",
       "version": "Unreleased",
-      "pr": "<CORRECTIVE PR -- number unknown, the seat fills it>",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
       "findings": [
         {
           "pointer": "#/properties/evaluator_config/properties/current_version",
@@ -2082,7 +2082,7 @@
       "rule": "property_removed",
       "reason": "Reverts a same-release placement error: #468 (merged 2026-09-13T20:58Z at 335d8fc, version Unreleased) attached the evaluator version to the datasets evaluator_config resource, which is NOT the evaluator the build uses; the field moves to observability/evaluator_definition_schema.json (EvaluatorDefinition, whose persisted judge_config is the digest preimage). No producer has ever emitted it and no consumer reads it (both were merged minutes earlier, unreleased, and the Backend/SDK pins have not been bumped), so nothing observable changes; acknowledged rather than silenced so the removal is visible in the contract history.",
       "version": "Unreleased",
-      "pr": "<CORRECTIVE PR -- number unknown, the seat fills it>",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
       "findings": [
         {
           "pointer": "#/properties/current_version",
@@ -2099,7 +2099,7 @@
       "rule": "file_removed",
       "reason": "Same correction: the file moves to observability/evaluator_version_schema.json (git rename) next to the resource it versions; identical $id family change is intentional and no consumer resolves the old path (unreleased, no pins bumped).",
       "version": "Unreleased",
-      "pr": "<CORRECTIVE PR -- number unknown, the seat fills it>",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
       "findings": [
         {
           "pointer": "#",

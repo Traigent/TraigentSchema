@@ -107,6 +107,22 @@ def test_dataset_version_content_digest_duplicate_ids_are_preserved_not_collapse
     assert dup_digest != single_digest
 
 
+def test_dataset_version_content_digest_duplicate_id_tie_break_is_content_not_position():
+    """F1 regression: same example_id, different content, opposite input
+    order -> SAME digest. The tie-break for rows sharing an example_id is the
+    jcs_v1 bytes of each row's own projection, never producer enumeration
+    order -- a stable sort keyed on example_id alone (the pre-fix behaviour)
+    would make these two orderings hash differently."""
+    vectors = {v["name"]: v for v in VECTORS["dataset_version_content_digest_vectors"]}
+    forward = vectors["duplicate_example_ids"]
+    reversed_input = vectors["duplicate_ids_reversed_input_same_digest"]
+    assert forward["expected_digest"] == reversed_input["expected_digest"]
+    forward_digest = compute_dataset_version_content_digest(forward["preimage"])
+    reversed_digest = compute_dataset_version_content_digest(reversed_input["preimage"])
+    assert forward_digest == reversed_digest
+    assert forward_digest == forward["expected_digest"]
+
+
 def test_dataset_version_content_digest_sorts_by_utf16_code_unit_not_codepoint():
     """example_id order is UTF-16 code-unit ascending (spec, jcs_v1, JS
     default sort()), not Python's default code-point order -- the two
@@ -160,6 +176,34 @@ def test_dataset_version_content_digest_rejects_wrong_types(field, bad_value):
 def test_dataset_version_content_digest_rejects_missing_example_id():
     with pytest.raises(TypeError, match="example_id"):
         compute_dataset_version_content_digest([{"input_text": "hi"}])
+
+
+@pytest.mark.parametrize(
+    "bad_row",
+    ["bad", 5],
+    ids=["string_row", "int_row"],
+)
+def test_dataset_version_content_digest_rejects_non_mapping_row(bad_row):
+    """F2 regression: a non-mapping row must raise the documented TypeError,
+    not an AttributeError from calling .get() on a non-dict (e.g. 'bad'.get()
+    raised AttributeError on the pre-fix implementation)."""
+    with pytest.raises(TypeError, match="mapping"):
+        compute_dataset_version_content_digest([bad_row])  # type: ignore[list-item]
+
+
+def test_dataset_version_content_digest_rejects_bare_mapping_as_preimage():
+    """F2 regression: a bare dict passed as the whole preimage (instead of a
+    list of per-example mappings) must not silently iterate its keys as
+    example_ids -- it must raise TypeError."""
+    with pytest.raises(TypeError, match="sequence"):
+        compute_dataset_version_content_digest({"example_id": "ex-1"})  # type: ignore[arg-type]
+
+
+def test_dataset_version_content_digest_rejects_string_preimage():
+    """F2 regression: a string preimage is technically a Sequence[str] in
+    Python and must be rejected, not iterated character-by-character."""
+    with pytest.raises(TypeError, match="sequence"):
+        compute_dataset_version_content_digest("not-a-list")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("vector", VECTORS["judge_config_digest_vectors"], ids=lambda v: v["name"])

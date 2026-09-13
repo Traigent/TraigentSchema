@@ -2059,6 +2059,57 @@
           "fingerprint": "9068d1f9ba28a3df199ef85e09c75e2c592672f9320e41c76cbfb34966b8798c"
         }
       ]
+    },
+    {
+      "file": "datasets/dataset_schema.json",
+      "rule": "property_removed",
+      "reason": "Reverts a same-release placement error: #468 (merged 2026-09-13T20:58Z at 335d8fc, version Unreleased) attached the evaluator version to the datasets evaluator_config resource, which is NOT the evaluator the build uses; the field moves to observability/evaluator_definition_schema.json (EvaluatorDefinition, whose persisted judge_config is the digest preimage). No producer has ever emitted it and no consumer reads it (both were merged minutes earlier, unreleased, and the Backend/SDK pins have not been bumped), so nothing observable changes; acknowledged rather than silenced so the removal is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "<CORRECTIVE PR -- number unknown, the seat fills it>",
+      "findings": [
+        {
+          "pointer": "#/properties/evaluator_config/properties/current_version",
+          "role": "conservative",
+          "subject": "current_version",
+          "old": true,
+          "new": false,
+          "fingerprint": "33bd21b6ed42fe6235aa3bc353aa96aa456e664a4d298cfcfb8587eb01767983"
+        }
+      ]
+    },
+    {
+      "file": "datasets/evaluator_config_schema.json",
+      "rule": "property_removed",
+      "reason": "Reverts a same-release placement error: #468 (merged 2026-09-13T20:58Z at 335d8fc, version Unreleased) attached the evaluator version to the datasets evaluator_config resource, which is NOT the evaluator the build uses; the field moves to observability/evaluator_definition_schema.json (EvaluatorDefinition, whose persisted judge_config is the digest preimage). No producer has ever emitted it and no consumer reads it (both were merged minutes earlier, unreleased, and the Backend/SDK pins have not been bumped), so nothing observable changes; acknowledged rather than silenced so the removal is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "<CORRECTIVE PR -- number unknown, the seat fills it>",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version",
+          "role": "conservative",
+          "subject": "current_version",
+          "old": true,
+          "new": false,
+          "fingerprint": "11b3659afc1e4e702603c4c09291959cf5b315bc9a6887a03e0d6f5142db8eee"
+        }
+      ]
+    },
+    {
+      "file": "datasets/evaluator_version_schema.json",
+      "rule": "file_removed",
+      "reason": "Same correction: the file moves to observability/evaluator_version_schema.json (git rename) next to the resource it versions; identical $id family change is intentional and no consumer resolves the old path (unreleased, no pins bumped).",
+      "version": "Unreleased",
+      "pr": "<CORRECTIVE PR -- number unknown, the seat fills it>",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2a53674d8b8cb0c538ba12ecf377c7c0851eadd35deb0bfdeb10e9251a885577"
+        }
+      ]
     }
   ]
 }

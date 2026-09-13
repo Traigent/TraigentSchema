@@ -72,20 +72,26 @@ def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]
     """Return the DatasetVersionV1.content_digest for a version's examples.
 
     ``preimage`` is the version's examples, each a mapping supplying at least
-    ``example_id`` (str, the stable sort key) and ``input_text`` (str or
+    ``example_id`` (str, the primary sort key) and ``input_text`` (str or
     list[str]), plus an optional ``expected_output`` (str or None). This
     function performs the projection AND the ordering itself: it sorts by
-    ``example_id`` in UTF-16 code-unit order (not Python's default code-point
-    order -- see the sort key below) using a stable sort, so duplicate ids
-    keep their relative input order rather than being collapsed -- a
-    duplicated-row data-quality bug must stay visible to the digest, not be
-    silently absorbed by it -- and then hashes only the projected
-    ``{input_text, expected_output}`` pair per example. ``example_id`` itself
-    is NOT part of the hashed payload: it determines order, nothing else.
-    Consequently:
+    ``(example_id.encode("utf-16-be"), jcs_v1(projection).encode("utf-8"))``
+    -- UTF-16 code-unit order on the id, tied-broken by the canonical JCS
+    bytes of the row's own projected ``{input_text, expected_output}``
+    payload -- so the order is a pure function of content, never of input
+    position: two rows sharing an ``example_id`` sort identically regardless
+    of which one the producer enumerated first. Duplicate rows (same id,
+    same projection) are therefore adjacent and BOTH remain in the preimage
+    -- a duplicated-row data-quality bug must stay visible to the digest, not
+    be silently absorbed by it -- while distinct rows sharing an id sort by
+    their own content, not by producer enumeration order. Only the projected
+    ``{input_text, expected_output}`` pair per example is hashed.
+    ``example_id`` itself is NOT part of the hashed payload: it determines
+    order, nothing else. Consequently:
 
     * The same set of examples, supplied in any order, produces the same
-      digest -- reordering the ``preimage`` argument has no effect.
+      digest -- reordering the ``preimage`` argument has no effect, even
+      when ids collide.
     * Any change to an example's ``input_text`` or ``expected_output``
       changes the digest.
     * ``expected_output`` missing from an example is normalized to ``None``
@@ -93,24 +99,36 @@ def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]
       deterministic rather than caller-dependent.
 
     Raises:
-        TypeError: an example's ``example_id``, ``input_text``, or
-            ``expected_output`` is not the expected type, naming the field
+        TypeError: ``preimage`` is not a sequence (or is a ``str``/``bytes``/
+            ``Mapping`` masquerading as one), an entry is not a ``Mapping``,
+            or an example's ``example_id``, ``input_text``, or
+            ``expected_output`` is not the expected type -- naming the field
             and the offending index.
         traigent_schema.fp2.Fp2UnsupportedValue: a projected value cannot be
             canonicalized (e.g. non-finite float, unpaired surrogate).
     """
+    if isinstance(preimage, (str, bytes, Mapping)) or not isinstance(preimage, Sequence):
+        raise TypeError(f"preimage must be a sequence of mappings, got {type(preimage).__name__}")
     for index, example in enumerate(preimage):
+        if not isinstance(example, Mapping):
+            raise TypeError(f"preimage[{index}] must be a mapping, got {type(example).__name__}")
         _validate_example(index, example)
-    projected = [
+    projections = [
         {
             "input_text": example["input_text"],
             "expected_output": example.get("expected_output"),
         }
-        for example in sorted(
-            preimage, key=lambda example: example["example_id"].encode("utf-16-be")
-        )
+        for example in preimage
     ]
-    return _role_digest(DATASET_VERSION_CONTENT_DIGEST_DOMAIN, projected)
+    ordered = sorted(
+        zip((example["example_id"] for example in preimage), projections, strict=True),
+        key=lambda pair: (
+            pair[0].encode("utf-16-be"),
+            fp2.canonicalize(pair[1]).encode("utf-8"),
+        ),
+    )
+    ordered_projections = [projection for _, projection in ordered]
+    return _role_digest(DATASET_VERSION_CONTENT_DIGEST_DOMAIN, ordered_projections)
 
 
 def compute_judge_config_digest(judge_config: Mapping[str, Any]) -> str:

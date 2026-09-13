@@ -65,7 +65,7 @@
     },
     {
       "name": "duplicate_example_ids",
-      "description": "Two examples share the same example_id with different content. Both entries survive in the preimage (stable sort on the duplicate key), not collapsed into one -- a content digest that silently absorbed a duplicated-row bug would defeat its own purpose.",
+      "description": "Two examples share the same example_id with different content. Both entries survive in the preimage, not collapsed into one -- a content digest that silently absorbed a duplicated-row bug would defeat its own purpose. Ordering among same-id rows is a pure function of content (tie-break on the jcs_v1 bytes of each row's own projection), not of input position -- see duplicate_ids_reversed_input_same_digest.",
       "preimage": [
         {
           "example_id": "dup",
@@ -76,6 +76,23 @@
           "example_id": "dup",
           "input_text": "second copy",
           "expected_output": "b"
+        }
+      ],
+      "expected_digest": "sha256:65a7db74d49464e7673bdbcae6179e35e425455c87cf489dccbc886c14a3ff83"
+    },
+    {
+      "name": "duplicate_ids_reversed_input_same_digest",
+      "description": "Same two rows as duplicate_example_ids ('dup'/'first copy'/'a' and 'dup'/'second copy'/'b'), supplied in the OPPOSITE input order. Must equal duplicate_example_ids' digest: the tie-break for same-id rows is the jcs_v1 bytes of each row's own projection, not producer enumeration order, so f(x) == f(x[::-1]) even when ids collide. On the pre-fix implementation (stable sort keyed on example_id alone) this vector produces a DIFFERENT digest from duplicate_example_ids, since a stable sort preserves whichever order the caller supplied for tied keys -- that divergence was the F1 defect this vector pins.",
+      "preimage": [
+        {
+          "example_id": "dup",
+          "input_text": "second copy",
+          "expected_output": "b"
+        },
+        {
+          "example_id": "dup",
+          "input_text": "first copy",
+          "expected_output": "a"
         }
       ],
       "expected_digest": "sha256:65a7db74d49464e7673bdbcae6179e35e425455c87cf489dccbc886c14a3ff83"

@@ -107,6 +107,18 @@
         }
       },
       "additionalProperties": true
+    },
+    "current_version": {
+      "oneOf": [
+        {
+          "$ref": "./evaluator_version_schema.json#/definitions/EvaluatorVersionV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The current EvaluatorVersionV1 record for this evaluator (evaluator_version_schema.json), carrying the content-addressable judge_config_digest for the version currently in effect. OPTIONAL and ADDITIVE: absent or null means no versioned record has been created for this evaluator yet (e.g. a legacy evaluator_config predating this field). Old readers that do not know this property are unaffected; they continue to read model_parameters_id/instructions/context_type/context_source directly, which this field does not replace or deprecate."
     }
   },
   "required": [

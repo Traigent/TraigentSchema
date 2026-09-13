@@ -10,7 +10,7 @@ module is a standalone, dependency-free peer of that verifier package: it does
 not import from ``traigent_schema.certification`` and carries no verification
 logic of its own, only the two pure digest functions the contracts in
 ``schemas/datasets/dataset_version_schema.json`` and
-``schemas/datasets/evaluator_version_schema.json`` reference.
+``schemas/observability/evaluator_version_schema.json`` reference.
 
 Both functions are pure and offline: no network, no filesystem, no randomness.
 """
@@ -35,7 +35,7 @@ __all__ = [
 DATASET_VERSION_CONTENT_DIGEST_DOMAIN = "traigent.dataset_version.content.v1"
 
 # Must match EvaluatorJudgeConfigDigestDomainV1's "const" in
-# schemas/datasets/evaluator_version_schema.json.
+# schemas/observability/evaluator_version_schema.json.
 EVALUATOR_JUDGE_CONFIG_DIGEST_DOMAIN = "traigent.evaluator.judge_config.v1"
 
 
@@ -44,16 +44,42 @@ def _role_digest(domain: str, payload: Any) -> str:
     return "sha256:" + hashlib.sha256(domain.encode("utf-8") + b"\x00" + canonical).hexdigest()
 
 
+def _validate_example(index: int, example: Mapping[str, Any]) -> None:
+    example_id = example.get("example_id")
+    if not isinstance(example_id, str):
+        raise TypeError(
+            f"preimage[{index}].example_id must be str, got {type(example_id).__name__}"
+        )
+    input_text = example.get("input_text")
+    if not (
+        isinstance(input_text, str)
+        or (isinstance(input_text, list) and all(isinstance(item, str) for item in input_text))
+    ):
+        raise TypeError(
+            f"preimage[{index}].input_text must be str or list[str], "
+            f"got {type(input_text).__name__}"
+        )
+    if "expected_output" in example:
+        expected_output = example["expected_output"]
+        if expected_output is not None and not isinstance(expected_output, str):
+            raise TypeError(
+                f"preimage[{index}].expected_output must be str or None, "
+                f"got {type(expected_output).__name__}"
+            )
+
+
 def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]) -> str:
     """Return the DatasetVersionV1.content_digest for a version's examples.
 
     ``preimage`` is the version's examples, each a mapping supplying at least
-    ``example_id`` (str, the stable sort key) and ``input_text``, plus an
-    optional ``expected_output``. This function performs the projection AND
-    the ordering itself: it sorts by ``example_id`` (Python's stable sort, so
-    duplicate ids keep their relative input order rather than being collapsed
-    -- a duplicated-row data-quality bug must stay visible to the digest, not
-    be silently absorbed by it) and then hashes only the projected
+    ``example_id`` (str, the stable sort key) and ``input_text`` (str or
+    list[str]), plus an optional ``expected_output`` (str or None). This
+    function performs the projection AND the ordering itself: it sorts by
+    ``example_id`` in UTF-16 code-unit order (not Python's default code-point
+    order -- see the sort key below) using a stable sort, so duplicate ids
+    keep their relative input order rather than being collapsed -- a
+    duplicated-row data-quality bug must stay visible to the digest, not be
+    silently absorbed by it -- and then hashes only the projected
     ``{input_text, expected_output}`` pair per example. ``example_id`` itself
     is NOT part of the hashed payload: it determines order, nothing else.
     Consequently:
@@ -67,15 +93,22 @@ def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]
       deterministic rather than caller-dependent.
 
     Raises:
+        TypeError: an example's ``example_id``, ``input_text``, or
+            ``expected_output`` is not the expected type, naming the field
+            and the offending index.
         traigent_schema.fp2.Fp2UnsupportedValue: a projected value cannot be
             canonicalized (e.g. non-finite float, unpaired surrogate).
     """
+    for index, example in enumerate(preimage):
+        _validate_example(index, example)
     projected = [
         {
             "input_text": example["input_text"],
             "expected_output": example.get("expected_output"),
         }
-        for example in sorted(preimage, key=lambda example: example["example_id"])
+        for example in sorted(
+            preimage, key=lambda example: example["example_id"].encode("utf-16-be")
+        )
     ]
     return _role_digest(DATASET_VERSION_CONTENT_DIGEST_DOMAIN, projected)
 
@@ -83,13 +116,22 @@ def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]
 def compute_judge_config_digest(judge_config: Mapping[str, Any]) -> str:
     """Return the EvaluatorVersionV1.judge_config_digest for a judge configuration.
 
-    ``judge_config`` is hashed as-is under jcs_v1 canonicalization, which
-    sorts object keys before hashing -- so the digest is independent of the
-    key order in the mapping supplied by the caller. Any change to a value
-    changes the digest.
+    The preimage is the evaluator definition's persisted judge_config object
+    as returned by the evaluator response's judge_config field, hashed WHOLE
+    -- every key present, no filtering, no defaulting; a key that is absent
+    stays absent and a key present with null stays null (jcs_v1 distinguishes
+    them, so ``{"context_source": null}`` and ``{}`` differ); nested objects
+    (``parameters``, ``scoring_rubric``) are hashed as-is; no key outside
+    JudgeConfig (observability/evaluator_definition_schema.json#/definitions/JudgeConfig)
+    may be added by producers (the schema is closed). Key order in
+    judge_config is irrelevant: jcs_v1 canonicalization sorts object keys
+    before hashing. Any change to a value changes the digest.
 
     Raises:
+        TypeError: ``judge_config`` is not a ``Mapping``.
         traigent_schema.fp2.Fp2UnsupportedValue: ``judge_config`` cannot be
             canonicalized (e.g. non-finite float, unpaired surrogate).
     """
+    if not isinstance(judge_config, Mapping):
+        raise TypeError(f"judge_config must be a Mapping, got {type(judge_config).__name__}")
     return _role_digest(EVALUATOR_JUDGE_CONFIG_DIGEST_DOMAIN, judge_config)

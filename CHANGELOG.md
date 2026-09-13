@@ -13,18 +13,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an optional, nullable `content_digest` = `sha256:<hex>` over
   `UTF8("traigent.dataset_version.content.v1") || 0x00 || jcs_v1(preimage)`,
   where `preimage` is the version's examples projected to
-  `{input_text, expected_output}` and ordered by `example_id` (duplicates
-  preserved, not collapsed). New `EvaluatorVersionV1`
-  (`schemas/datasets/evaluator_version_schema.json`) carries an optional,
+  `{input_text, expected_output}` and ordered by `example_id` in UTF-16
+  code-unit ascending order (duplicates preserved, not collapsed; matches
+  jcs_v1's own key-ordering rule and JavaScript's default `sort()`, so the JS
+  SDK can reproduce the same digest). New `EvaluatorVersionV1`
+  (`schemas/observability/evaluator_version_schema.json`) carries an optional,
   nullable `judge_config_digest` under domain `traigent.evaluator.judge_config.v1`
-  over the evaluator's judge configuration (key order irrelevant). Both digests
-  reuse the certification family's existing fp2/JCS role-digest construction via
-  new pure, offline helpers `traigent_schema.compute_dataset_version_content_digest`
-  and `traigent_schema.compute_judge_config_digest`. `dataset_schema.json` and
-  `evaluator_config_schema.json` each gain an optional, nullable `current_version`
-  pointing at the corresponding version record. All four additions are optional
-  and default to `null`; old readers unaware of them are unaffected. The
-  certification family's `process_record_v1` digest-domain registry is unchanged.
+  over the exact persisted `judge_config` object of the observability
+  `EvaluatorDefinition` resource (`schemas/observability/evaluator_definition_schema.json#/definitions/JudgeConfig`,
+  the evaluator the Backend's `POST /api/v1beta/projects/<id>/evaluators`
+  actually persists) -- hashed whole, with no filtering or defaulting, so an
+  absent key and a key present with `null` produce different digests (key
+  order is irrelevant: jcs_v1 sorts object keys before hashing). This is the
+  observability evaluator, not the datasets-bucket `evaluator_config_schema.json`
+  resource, which is a different resource this contract does not touch. Both
+  digests reuse the certification family's existing fp2/JCS role-digest
+  construction via new pure, offline helpers
+  `traigent_schema.compute_dataset_version_content_digest` and
+  `traigent_schema.compute_judge_config_digest`, which now also validate their
+  inputs' types and raise `TypeError` naming the field and offending index/key
+  on a mismatch. `dataset_schema.json` gains an optional, nullable
+  `current_version` pointing at `DatasetVersionV1`;
+  `observability/evaluator_definition_schema.json` (already
+  `additionalProperties: true`, so this addition is non-breaking there) gains
+  an optional, nullable `current_version` pointing at `EvaluatorVersionV1`.
+  Both are optional and default to `null`; producers MUST OMIT the key --
+  never emit `null` -- for old readers that VALIDATE against the previous
+  schema (a closed `additionalProperties: false` object rejects an unknown
+  member); readers that ignore unknown keys are unaffected. Consumers in
+  release R3: Backend PR 2.1 (dataset version row + `content_digest`, returns
+  `current_version` on the dataset) and Backend PR 2.2a (evaluator version row
+  + `judge_config_digest`, returns `current_version` on the evaluator
+  definition); no run or certificate contract pins a version in this PR. The
+  content digest identifies the CONTENT of the examples a version contains;
+  membership is fixed by the producer at mint time, and `splits`
+  (train/selection/test policy + assignments) is a usage attribute of a run,
+  not content, and is deliberately excluded from this digest -- a later
+  receipt (R4 build-level receipts) pins the split assignment separately. The
+  certification family's `process_record_v1` digest-domain registry is
+  unchanged.
 
 ## [5.8.0] - 2026-09-05
 

@@ -2,13 +2,20 @@
 # Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
 """Contract tests for the R3 dataset-version content digest and evaluator
 judge-config digest: schemas/datasets/dataset_version_schema.json,
-schemas/datasets/evaluator_version_schema.json, and the additive
-`current_version` field on evaluator_config_schema.json.
+schemas/observability/evaluator_version_schema.json, and the additive
+`current_version` field on dataset_schema.json and
+observability/evaluator_definition_schema.json.
 
 Both contracts are additive and optional: old readers unaware of
 `content_digest` / `judge_config_digest` / `current_version` are unaffected,
 and every one of those fields accepts `null` for legacy records. Nothing in
 the certification family's process-record V1 digest-domain registry changes.
+
+The judge_config_digest preimage is pinned to the real persisted object: the
+observability EvaluatorDefinition's `judge_config` field
+(observability/evaluator_definition_schema.json#/definitions/JudgeConfig),
+NOT the datasets-bucket evaluator_config_schema.json resource, which is a
+different resource this contract does not touch.
 """
 
 from __future__ import annotations
@@ -25,12 +32,14 @@ from traigent_schema import (
     compute_dataset_version_content_digest,
     compute_judge_config_digest,
 )
+from traigent_schema.content_identity import _role_digest
 from traigent_schema.utils import get_schemas_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 _VECTORS_PATH = ROOT / "tests" / "data" / "content_identity_vectors.json"
 VECTORS = json.loads(_VECTORS_PATH.read_text(encoding="utf-8"))
 DATASETS_DIR = get_schemas_dir() / "datasets"
+OBSERVABILITY_DIR = get_schemas_dir() / "observability"
 CERTIFICATION_DIR = get_schemas_dir() / "certification"
 
 
@@ -51,7 +60,7 @@ def test_dataset_version_digest_domain_matches_schema_const():
 
 
 def test_evaluator_judge_config_digest_domain_matches_schema_const():
-    schema = _load(DATASETS_DIR, "evaluator_version_schema.json")
+    schema = _load(OBSERVABILITY_DIR, "evaluator_version_schema.json")
     domain_def = schema["definitions"]["EvaluatorJudgeConfigDigestDomainV1"]
     assert domain_def["const"] == EVALUATOR_JUDGE_CONFIG_DIGEST_DOMAIN
 
@@ -98,6 +107,61 @@ def test_dataset_version_content_digest_duplicate_ids_are_preserved_not_collapse
     assert dup_digest != single_digest
 
 
+def test_dataset_version_content_digest_sorts_by_utf16_code_unit_not_codepoint():
+    """example_id order is UTF-16 code-unit ascending (spec, jcs_v1, JS
+    default sort()), not Python's default code-point order -- the two
+    disagree on a surrogate-pair id vs a BMP id above U+D800."""
+    vectors = {v["name"]: v for v in VECTORS["dataset_version_content_digest_vectors"]}
+    vector = vectors["sort_order_utf16_vs_codepoint"]
+
+    # The public function always sorts internally, so argument order is a
+    # no-op and must match the frozen golden digest either way.
+    assert compute_dataset_version_content_digest(vector["preimage"]) == vector["expected_digest"]
+    assert (
+        compute_dataset_version_content_digest(list(reversed(vector["preimage"])))
+        == vector["expected_digest"]
+    )
+
+    # Bypass the function's own sort to prove which ordering the digest
+    # actually corresponds to: hash the two projected rows directly, once in
+    # UTF-16 code-unit order (U+1F600 first) and once in code-point order
+    # (U+FF21 first, since 0xFF21 < 0x1F600 as raw code points).
+    utf16_order_projected = [
+        {"input_text": "a", "expected_output": None},
+        {"input_text": "b", "expected_output": None},
+    ]
+    codepoint_order_projected = [
+        {"input_text": "b", "expected_output": None},
+        {"input_text": "a", "expected_output": None},
+    ]
+    utf16_order_digest = _role_digest(DATASET_VERSION_CONTENT_DIGEST_DOMAIN, utf16_order_projected)
+    codepoint_order_digest = _role_digest(
+        DATASET_VERSION_CONTENT_DIGEST_DOMAIN, codepoint_order_projected
+    )
+    assert utf16_order_digest == vector["expected_digest"]
+    assert codepoint_order_digest != vector["expected_digest"]
+
+
+@pytest.mark.parametrize(
+    "field,bad_value",
+    [
+        ("example_id", 123),
+        ("input_text", ["ok", 5]),
+        ("expected_output", 42),
+    ],
+)
+def test_dataset_version_content_digest_rejects_wrong_types(field, bad_value):
+    example = {"example_id": "ex-1", "input_text": "hi", "expected_output": "ok"}
+    example[field] = bad_value
+    with pytest.raises(TypeError, match=field):
+        compute_dataset_version_content_digest([example])
+
+
+def test_dataset_version_content_digest_rejects_missing_example_id():
+    with pytest.raises(TypeError, match="example_id"):
+        compute_dataset_version_content_digest([{"input_text": "hi"}])
+
+
 @pytest.mark.parametrize("vector", VECTORS["judge_config_digest_vectors"], ids=lambda v: v["name"])
 def test_judge_config_digest_golden_vectors(vector):
     assert compute_judge_config_digest(vector["judge_config"]) == vector["expected_digest"]
@@ -117,6 +181,19 @@ def test_judge_config_digest_value_change_differs():
     assert baseline["expected_digest"] != changed["expected_digest"]
 
 
+def test_judge_config_digest_absent_key_differs_from_null_value():
+    """{"context_source": null} must differ from {} -- absence != null."""
+    vectors = {v["name"]: v for v in VECTORS["judge_config_digest_vectors"]}
+    baseline = vectors["baseline_config"]
+    with_null = vectors["baseline_config_context_source_null_added"]
+    assert baseline["expected_digest"] != with_null["expected_digest"]
+
+
+def test_judge_config_digest_rejects_non_mapping():
+    with pytest.raises(TypeError, match="Mapping"):
+        compute_judge_config_digest(["not", "a", "mapping"])  # type: ignore[arg-type]
+
+
 # --------------------------------------------------------------------------
 # Schema shape: both fields are optional/additive; null is a valid legacy
 # marker; the digest pattern is a closed sha256:<hex> form.
@@ -134,7 +211,7 @@ def test_dataset_version_content_digest_field_is_optional_and_nullable():
 
 
 def test_evaluator_judge_config_digest_field_is_optional_and_nullable():
-    schema = _load(DATASETS_DIR, "evaluator_version_schema.json")
+    schema = _load(OBSERVABILITY_DIR, "evaluator_version_schema.json")
     version = schema["definitions"]["EvaluatorVersionV1"]
     assert "judge_config_digest" not in version["required"]
     field = version["properties"]["judge_config_digest"]
@@ -159,13 +236,13 @@ def test_dataset_current_version_is_optional_and_additive():
     ]
 
 
-def test_evaluator_config_current_version_is_optional_and_additive():
+def test_evaluator_config_schema_has_no_current_version():
+    """current_version was moved to observability/evaluator_definition_schema.json
+    (P1-1c): the datasets-bucket evaluator_config resource is a different
+    resource from the observability EvaluatorDefinition this contract pins,
+    so it does not carry this field."""
     schema = _load(DATASETS_DIR, "evaluator_config_schema.json")
-    assert "current_version" not in schema["required"]
-    field = schema["properties"]["current_version"]
-    assert {"null"} <= {branch.get("type") for branch in field["oneOf"] if "type" in branch}
-    assert field["default"] is None
-    # The pre-existing required/anyOf shape is untouched by this addition.
+    assert "current_version" not in schema["properties"]
     assert schema["required"] == [
         "id",
         "model_parameters_id",
@@ -173,6 +250,17 @@ def test_evaluator_config_current_version_is_optional_and_additive():
         "context_type",
         "context_source",
     ]
+
+
+def test_evaluator_definition_current_version_is_optional_and_additive():
+    schema = _load(OBSERVABILITY_DIR, "evaluator_definition_schema.json")
+    field = schema["properties"]["current_version"]
+    assert {"null"} <= {branch.get("type") for branch in field["oneOf"] if "type" in branch}
+    assert field["default"] is None
+    # additionalProperties: true means this addition cannot be BREAKING for
+    # old validating readers of this schema.
+    assert schema["additionalProperties"] is True
+    assert "current_version" not in schema["required"]
 
 
 def test_process_record_v1_digest_domain_registry_is_unchanged_by_this_change():
@@ -224,7 +312,7 @@ def test_dataset_version_instance_validates_without_content_digest_at_all(valida
 def test_evaluator_version_instance_validates_with_judge_config_digest(validator):
     instance = {
         "id": "ev_1",
-        "evaluator_id": "evaluator_config_1",
+        "evaluator_id": "evaluator_def_1",
         "version": 1,
         "judge_config_digest": compute_judge_config_digest(
             VECTORS["judge_config_digest_vectors"][0]["judge_config"]
@@ -237,57 +325,51 @@ def test_evaluator_version_instance_validates_with_judge_config_digest(validator
 def test_evaluator_version_instance_validates_with_null_judge_config_digest(validator):
     instance = {
         "id": "ev_legacy",
-        "evaluator_id": "evaluator_config_1",
+        "evaluator_id": "evaluator_def_1",
         "version": 1,
         "judge_config_digest": None,
     }
     assert validator.validate_json(instance, "evaluator_version_schema") == []
 
 
-def test_evaluator_config_with_current_version_null_still_validates(validator):
+def _evaluator_definition_instance(**overrides):
     instance = {
-        "id": "eval_cfg_1",
-        "dataset_id": "ds_1",
-        "model_parameters_id": "mp_1",
-        "instructions": "Score for accuracy.",
-        "context_type": "text",
-        "context_source": "dataset",
-        "current_version": None,
+        "name": "exact-match-judge",
+        "measure_id": "measure_1",
+        "target_type": "experiment_run",
+        "judge_config": {
+            "instructions": "Score for accuracy.",
+            "model_id": "gpt-4o-mini",
+            "context_type": "none",
+        },
     }
-    assert validator.validate_json(instance, "evaluator_config_schema") == []
+    instance.update(overrides)
+    return instance
 
 
-def test_evaluator_config_with_current_version_resolves_cross_file_ref(validator):
-    instance = {
-        "id": "eval_cfg_1",
-        "dataset_id": "ds_1",
-        "model_parameters_id": "mp_1",
-        "instructions": "Score for accuracy.",
-        "context_type": "text",
-        "context_source": "dataset",
-        "current_version": {
+def test_evaluator_definition_with_current_version_null_still_validates(validator):
+    instance = _evaluator_definition_instance(current_version=None)
+    assert validator.validate_json(instance, "evaluator_definition_schema") == []
+
+
+def test_evaluator_definition_with_current_version_resolves_cross_file_ref(validator):
+    instance = _evaluator_definition_instance(
+        current_version={
             "id": "ev_1",
-            "evaluator_id": "eval_cfg_1",
+            "evaluator_id": "eval_def_1",
             "version": 1,
             "judge_config_digest": compute_judge_config_digest(
                 VECTORS["judge_config_digest_vectors"][0]["judge_config"]
             ),
-        },
-    }
-    assert validator.validate_json(instance, "evaluator_config_schema") == []
+        }
+    )
+    assert validator.validate_json(instance, "evaluator_definition_schema") == []
 
 
-def test_evaluator_config_without_current_version_still_validates(validator):
-    """A pre-existing evaluator_config, unaware of current_version, remains valid."""
-    instance = {
-        "id": "eval_cfg_legacy",
-        "dataset_id": "ds_1",
-        "model_parameters_id": "mp_1",
-        "instructions": "Score for accuracy.",
-        "context_type": "text",
-        "context_source": "dataset",
-    }
-    assert validator.validate_json(instance, "evaluator_config_schema") == []
+def test_evaluator_definition_without_current_version_still_validates(validator):
+    """A pre-existing evaluator definition, unaware of current_version, remains valid."""
+    instance = _evaluator_definition_instance()
+    assert validator.validate_json(instance, "evaluator_definition_schema") == []
 
 
 def test_dataset_with_current_version_resolves_cross_file_ref(validator):

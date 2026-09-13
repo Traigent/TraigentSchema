@@ -172,7 +172,7 @@
         }
       ],
       "default": null,
-      "description": "The current DatasetVersionV1 record for this dataset (dataset_version_schema.json), carrying the content-addressable content_digest for this dataset's examples at `revision`. OPTIONAL and ADDITIVE: absent or null means no versioned snapshot has been created for this dataset yet (e.g. a legacy dataset predating this field). Old readers that do not know this property are unaffected; they continue to read `revision`/`parent_dataset_id`/`examples` directly, which this field does not replace or deprecate."
+      "description": "The current DatasetVersionV1 record for this dataset (dataset_version_schema.json), carrying the content-addressable content_digest for this dataset's examples at `revision`. OPTIONAL and ADDITIVE: absent or null means no versioned snapshot has been created for this dataset yet (e.g. a legacy dataset predating this field). Old readers that VALIDATE against the previous schema reject a payload carrying this key (closed object); producers MUST OMIT the key -- never emit null -- until every consumer has upgraded to a schema version that knows it; readers that ignore unknown keys are unaffected."
     }
   },
   "required": [

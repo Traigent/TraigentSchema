@@ -18,7 +18,8 @@ Both functions are pure and offline: no network, no filesystem, no randomness.
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from traigent_schema import fp2
 

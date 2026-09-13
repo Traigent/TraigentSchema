@@ -2042,6 +2042,48 @@
           "fingerprint": "a72ea730b1fe6489637dd86f3ff06e07bddf16d3d81736c589ec9e980f32b18c"
         }
       ]
+    },
+    {
+      "file": "datasets/dataset_schema.json",
+      "rule": "property_added",
+      "reason": "current_version is a new, optional, nullable property (default null) added under a closed additionalProperties:false object as part of the R3 dataset-version content-identity contract. It carries a DatasetVersionV1 record via cross-file $ref for callers that want a content-addressable snapshot of a dataset revision; old consumers that do not populate or read it are unaffected, and every producer emits null until a versioned snapshot exists.",
+      "version": "Unreleased",
+      "pr": "TBD (R3-1.1 contract PR, not yet opened)",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version",
+          "role": "conservative",
+          "subject": "current_version",
+          "old": false,
+          "new": true,
+          "fingerprint": "9068d1f9ba28a3df199ef85e09c75e2c592672f9320e41c76cbfb34966b8798c"
+        },
+        {
+          "pointer": "#/properties/evaluator_config/properties/current_version",
+          "role": "conservative",
+          "subject": "current_version",
+          "old": false,
+          "new": true,
+          "fingerprint": "b38e7a0f1b4877e50e20f19142d745cc23f89f522bd07ad3aea016989c4208b1"
+        }
+      ]
+    },
+    {
+      "file": "datasets/evaluator_config_schema.json",
+      "rule": "property_added",
+      "reason": "current_version is a new, optional, nullable property (default null) added under a closed additionalProperties:false object as part of the R3 evaluator-version content-identity contract. It carries an EvaluatorVersionV1 record via cross-file $ref for callers that want a content-addressable identity for the judge configuration in effect; old consumers that do not populate or read it are unaffected, and every producer emits null until a versioned record exists.",
+      "version": "Unreleased",
+      "pr": "TBD (R3-1.1 contract PR, not yet opened)",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version",
+          "role": "conservative",
+          "subject": "current_version",
+          "old": false,
+          "new": true,
+          "fingerprint": "96a6d17d76362fb8b0e8ce080adde8f4a6ef37868edab425309a1939972c0c42"
+        }
+      ]
     }
   ]
 }

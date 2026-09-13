@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes yet._
+### Added
+- **Dataset-version content digest and evaluator judge-config digest (R3-1.1).**
+  New `DatasetVersionV1` (`schemas/datasets/dataset_version_schema.json`) carries
+  an optional, nullable `content_digest` = `sha256:<hex>` over
+  `UTF8("traigent.dataset_version.content.v1") || 0x00 || jcs_v1(preimage)`,
+  where `preimage` is the version's examples projected to
+  `{input_text, expected_output}` and ordered by `example_id` (duplicates
+  preserved, not collapsed). New `EvaluatorVersionV1`
+  (`schemas/datasets/evaluator_version_schema.json`) carries an optional,
+  nullable `judge_config_digest` under domain `traigent.evaluator.judge_config.v1`
+  over the evaluator's judge configuration (key order irrelevant). Both digests
+  reuse the certification family's existing fp2/JCS role-digest construction via
+  new pure, offline helpers `traigent_schema.compute_dataset_version_content_digest`
+  and `traigent_schema.compute_judge_config_digest`. `dataset_schema.json` and
+  `evaluator_config_schema.json` each gain an optional, nullable `current_version`
+  pointing at the corresponding version record. All four additions are optional
+  and default to `null`; old readers unaware of them are unaffected. The
+  certification family's `process_record_v1` digest-domain registry is unchanged.
 
 ## [5.8.0] - 2026-09-05
 

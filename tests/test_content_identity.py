@@ -28,7 +28,8 @@ from traigent_schema import (
 from traigent_schema.utils import get_schemas_dir
 
 ROOT = Path(__file__).resolve().parents[1]
-VECTORS = json.loads((ROOT / "tests" / "data" / "content_identity_vectors.json").read_text(encoding="utf-8"))
+_VECTORS_PATH = ROOT / "tests" / "data" / "content_identity_vectors.json"
+VECTORS = json.loads(_VECTORS_PATH.read_text(encoding="utf-8"))
 DATASETS_DIR = get_schemas_dir() / "datasets"
 CERTIFICATION_DIR = get_schemas_dir() / "certification"
 
@@ -61,7 +62,10 @@ def test_evaluator_judge_config_digest_domain_matches_schema_const():
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("vector", VECTORS["dataset_version_content_digest_vectors"], ids=lambda v: v["name"])
+_DATASET_VERSION_VECTORS = VECTORS["dataset_version_content_digest_vectors"]
+
+
+@pytest.mark.parametrize("vector", _DATASET_VERSION_VECTORS, ids=lambda v: v["name"])
 def test_dataset_version_content_digest_golden_vectors(vector):
     assert compute_dataset_version_content_digest(vector["preimage"]) == vector["expected_digest"]
 
@@ -71,9 +75,9 @@ def test_dataset_version_content_digest_reordering_is_a_noop():
     baseline = vectors["two_example_set"]
     reordered = vectors["two_example_set_reordered"]
     assert baseline["expected_digest"] == reordered["expected_digest"]
-    assert compute_dataset_version_content_digest(baseline["preimage"]) == compute_dataset_version_content_digest(
-        reordered["preimage"]
-    )
+    baseline_digest = compute_dataset_version_content_digest(baseline["preimage"])
+    reordered_digest = compute_dataset_version_content_digest(reordered["preimage"])
+    assert baseline_digest == reordered_digest
 
 
 def test_dataset_version_content_digest_one_byte_change_differs():
@@ -89,7 +93,9 @@ def test_dataset_version_content_digest_duplicate_ids_are_preserved_not_collapse
     single = [dup["preimage"][0]]
     # The duplicate-id set's digest must differ from either half alone: both
     # rows survive into the hashed preimage.
-    assert compute_dataset_version_content_digest(dup["preimage"]) != compute_dataset_version_content_digest(single)
+    dup_digest = compute_dataset_version_content_digest(dup["preimage"])
+    single_digest = compute_dataset_version_content_digest(single)
+    assert dup_digest != single_digest
 
 
 @pytest.mark.parametrize("vector", VECTORS["judge_config_digest_vectors"], ids=lambda v: v["name"])
@@ -135,6 +141,22 @@ def test_evaluator_judge_config_digest_field_is_optional_and_nullable():
     kinds = {branch.get("type") for branch in field["oneOf"]}
     assert kinds == {"string", "null"}
     assert field["default"] is None
+
+
+def test_dataset_current_version_is_optional_and_additive():
+    schema = _load(DATASETS_DIR, "dataset_schema.json")
+    assert "current_version" not in schema["required"]
+    field = schema["properties"]["current_version"]
+    assert {"null"} <= {branch.get("type") for branch in field["oneOf"] if "type" in branch}
+    assert field["default"] is None
+    assert schema["required"] == [
+        "id",
+        "name",
+        "label",
+        "description",
+        "type",
+        "examples_count",
+    ]
 
 
 def test_evaluator_config_current_version_is_optional_and_additive():
@@ -213,7 +235,12 @@ def test_evaluator_version_instance_validates_with_judge_config_digest(validator
 
 
 def test_evaluator_version_instance_validates_with_null_judge_config_digest(validator):
-    instance = {"id": "ev_legacy", "evaluator_id": "evaluator_config_1", "version": 1, "judge_config_digest": None}
+    instance = {
+        "id": "ev_legacy",
+        "evaluator_id": "evaluator_config_1",
+        "version": 1,
+        "judge_config_digest": None,
+    }
     assert validator.validate_json(instance, "evaluator_version_schema") == []
 
 
@@ -261,3 +288,36 @@ def test_evaluator_config_without_current_version_still_validates(validator):
         "context_source": "dataset",
     }
     assert validator.validate_json(instance, "evaluator_config_schema") == []
+
+
+def test_dataset_with_current_version_resolves_cross_file_ref(validator):
+    instance = {
+        "id": "ds_1",
+        "name": "my_ds",
+        "label": "My Dataset",
+        "description": "d",
+        "type": "input-output",
+        "examples_count": 2,
+        "current_version": {
+            "id": "dsv_1",
+            "dataset_id": "ds_1",
+            "revision": 1,
+            "content_digest": compute_dataset_version_content_digest(
+                VECTORS["dataset_version_content_digest_vectors"][0]["preimage"]
+            ),
+        },
+    }
+    assert validator.validate_json(instance, "dataset_schema") == []
+
+
+def test_dataset_without_current_version_still_validates(validator):
+    """A pre-existing dataset, unaware of current_version, remains valid."""
+    instance = {
+        "id": "ds_legacy",
+        "name": "legacy_ds",
+        "label": "Legacy Dataset",
+        "description": "d",
+        "type": "input-output",
+        "examples_count": 0,
+    }
+    assert validator.validate_json(instance, "dataset_schema") == []

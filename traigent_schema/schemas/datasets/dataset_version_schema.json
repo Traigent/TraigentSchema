@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/dataset_version_schema.json",
+  "title": "Dataset Version V1",
+  "description": "An immutable, content-addressable snapshot of a dataset's examples. Introduced in R3 to give certification and evaluation-run contracts a stable identity for the specific example set a run consumed, independent of the mutable `dataset` resource's `revision` counter (dataset_schema.json). This is a new, additive contract: no existing schema references it yet, so there is no compatibility surface to preserve beyond the rules stated on `content_digest` below. Nothing in the certification family's process-record V1 digest-domain registry (traigent_schema/schemas/certification/process_record_v1_schema.json) changes as a result of this file.",
+  "version": "1.0.0",
+  "definitions": {
+    "DatasetVersionContentDigestDomainV1": {
+      "description": "Fixed domain-separation tag for the dataset-version content digest. The digest construction is sha256 over UTF8(domain) || 0x00 || jcs_v1(preimage) -- the same role-digest idiom the certification family uses (see traigent_schema.certification.evaluator_quality_verifier._role_digest and traigent_schema.fp2 for the jcs_v1 canonicalization).",
+      "type": "string",
+      "const": "traigent.dataset_version.content.v1"
+    },
+    "DatasetVersionExampleProjectionV1": {
+      "description": "One preimage entry: an example projected to its content fields only. Field names match EvaluationSetExample (datasets/evaluation_set_schema.json#/definitions/EvaluationSetExample): input_text and expected_output. Only these two fields are hashed -- example_id is used solely to order the preimage (see DatasetVersionV1.content_digest) and does not itself appear in the hashed payload, and annotation-only fields (tags, explanation, difficulty, confidence, status, score) are excluded so re-tagging an example never changes its dataset version's content digest.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_text"
+      ],
+      "properties": {
+        "input_text": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Mirrors EvaluationSetExample.input_text exactly: a single string or an ordered list of strings for multi-turn input."
+        },
+        "expected_output": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Mirrors EvaluationSetExample.expected_output. Absent on the source example is represented as null here, so the digest is defined even when some examples in the set have no expected_output."
+        }
+      }
+    },
+    "DatasetVersionV1": {
+      "description": "An immutable dataset version resource, keyed by `id`, referencing the mutable dataset it snapshots via `dataset_id` and `revision`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "dataset_id",
+        "revision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this dataset version.",
+          "x-identifier": true
+        },
+        "dataset_id": {
+          "type": "string",
+          "description": "Reference to the parent dataset resource (dataset_schema.json).",
+          "x-reference": true
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The parent dataset's revision number (dataset_schema.json#/properties/revision) that this version snapshots."
+        },
+        "content_digest": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256:<hex> over UTF8('traigent.dataset_version.content.v1') || 0x00 || jcs_v1(preimage). preimage is the ordered list of this version's examples, each projected per DatasetVersionExampleProjectionV1, ordered by the example's stable example_id (UTF-16 code-unit ascending, matching fp2's own key-ordering rule so the two orderings can never silently disagree). Duplicate example_id values are preserved in that order (a stable sort), never collapsed: collapsing would make the digest blind to a duplicated-row data-quality bug, which is exactly the class of defect a content identity exists to catch. This field is OPTIONAL and ADDITIVE: it is null for every dataset version created before this contract existed, and old readers that do not know this field ignore it entirely. New readers MUST treat null as \"no content identity available\" -- never as empty content or as equal to any other null. Computed offline by traigent_schema.content_identity.compute_dataset_version_content_digest; this schema does not require callers to populate it."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when this dataset version was created."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/DatasetVersionV1"
+    }
+  ]
+}

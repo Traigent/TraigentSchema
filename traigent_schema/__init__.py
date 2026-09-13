@@ -17,6 +17,12 @@ Example:
 import importlib
 
 from traigent_schema.analytics_validators import AnalyticsValidator
+from traigent_schema.content_identity import (
+    DATASET_VERSION_CONTENT_DIGEST_DOMAIN,
+    EVALUATOR_JUDGE_CONFIG_DIGEST_DOMAIN,
+    compute_dataset_version_content_digest,
+    compute_judge_config_digest,
+)
 from traigent_schema.invariants import (
     InvariantComparisonBoundError,
     InvariantDeclarationError,
@@ -86,6 +92,10 @@ def __getattr__(name: str) -> object:
 # of ``__all__`` to preserve the root package's lazy certification import boundary.
 __all__ = [
     "AnalyticsValidator",
+    "DATASET_VERSION_CONTENT_DIGEST_DOMAIN",
+    "EVALUATOR_JUDGE_CONFIG_DIGEST_DOMAIN",
+    "compute_dataset_version_content_digest",
+    "compute_judge_config_digest",
     "SchemaDependencyError",
     "InvariantComparisonBoundError",
     "InvariantDeclarationError",

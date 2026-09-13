@@ -117,6 +117,34 @@
         }
       ],
       "expected_digest": "sha256:1ff6ccf99e2e7af0a17bdfe2b16e49df6bc78603a0b7847b49a661648d92d735"
+    },
+    {
+      "name": "supplementary_plane_example_id",
+      "description": "F1: two example_ids each containing a supplementary-plane (astral) code point, encoded as a UTF-16 surrogate pair. Each id is encodable text (a complete surrogate pair, not a lone surrogate), so fp2's utf-16 sort-key check accepts both and the digest is computed normally -- this is the positive counterpart to lone_surrogate_example_id_rejected.",
+      "preimage": [
+        {
+          "example_id": "😀-a",
+          "input_text": "hello",
+          "expected_output": "world"
+        },
+        {
+          "example_id": "😁-b",
+          "input_text": "foo",
+          "expected_output": null
+        }
+      ],
+      "expected_digest": "sha256:73d532a19b19f4deb94f53326e54405df479630ff2035394a3073cbe1c0d6ae8"
+    },
+    {
+      "name": "lone_surrogate_example_id_rejected",
+      "description": "F1: an example_id containing a lone (unpaired) UTF-16 surrogate is not encodable text -- no two implementations could agree on its UTF-16-BE bytes, so it must never reach the sort key or the hash. This vector has no expected_digest; the corresponding test asserts compute_dataset_version_content_digest raises traigent_schema.fp2.Fp2UnsupportedValue, matching fp2's own rejection of the identical string via fp2.canonicalize.",
+      "preimage": [
+        {
+          "example_id": "a\ud800b",
+          "input_text": "x",
+          "expected_output": null
+        }
+      ]
     }
   ],
   "judge_config_digest_vectors": [

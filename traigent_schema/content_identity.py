@@ -87,7 +87,12 @@ def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]
     their own content, not by producer enumeration order. Only the projected
     ``{input_text, expected_output}`` pair per example is hashed.
     ``example_id`` itself is NOT part of the hashed payload: it determines
-    order, nothing else. Consequently:
+    order, nothing else. ``example_id`` MUST be encodable text (Unicode
+    scalar values only; a lone surrogate is rejected by every runtime with a
+    typed error, never hashed), so the UTF-16 code-unit order is defined for
+    every accepted id -- this function validates each id via
+    :func:`traigent_schema.fp2._utf16_sort_key` before sorting, letting
+    ``Fp2UnsupportedValue`` propagate unchanged. Consequently:
 
     * The same set of examples, supplied in any order, produces the same
       digest -- reordering the ``preimage`` argument has no effect, even
@@ -104,7 +109,8 @@ def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]
             or an example's ``example_id``, ``input_text``, or
             ``expected_output`` is not the expected type -- naming the field
             and the offending index.
-        traigent_schema.fp2.Fp2UnsupportedValue: a projected value cannot be
+        traigent_schema.fp2.Fp2UnsupportedValue: an ``example_id`` is not
+            encodable text (a lone surrogate), or a projected value cannot be
             canonicalized (e.g. non-finite float, unpaired surrogate).
     """
     if isinstance(preimage, (str, bytes, Mapping)) or not isinstance(preimage, Sequence):
@@ -123,7 +129,7 @@ def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]
     ordered = sorted(
         zip((example["example_id"] for example in preimage), projections, strict=True),
         key=lambda pair: (
-            pair[0].encode("utf-16-be"),
+            fp2._utf16_sort_key(pair[0]),
             fp2.canonicalize(pair[1]).encode("utf-8"),
         ),
     )

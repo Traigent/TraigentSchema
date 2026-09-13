@@ -6,10 +6,13 @@ schemas/observability/evaluator_version_schema.json, and the additive
 `current_version` field on dataset_schema.json and
 observability/evaluator_definition_schema.json.
 
-Both contracts are additive and optional: old readers unaware of
-`content_digest` / `judge_config_digest` / `current_version` are unaffected,
-and every one of those fields accepts `null` for legacy records. Nothing in
-the certification family's process-record V1 digest-domain registry changes.
+`content_digest` and `judge_config_digest` live in NEW schemas (no old
+readers); `current_version` on `dataset_schema.json` is a new key on a
+CLOSED object -- an old reader that validates rejects a payload carrying it,
+so producers MUST OMIT it until consumers upgrade; `current_version` on
+`evaluator_definition_schema.json` (open object) validates against develop.
+Nothing in the certification family's process-record V1 digest-domain
+registry changes.
 
 The judge_config_digest preimage is pinned to the real persisted object: the
 observability EvaluatorDefinition's `judge_config` field
@@ -33,6 +36,7 @@ from traigent_schema import (
     compute_judge_config_digest,
 )
 from traigent_schema.content_identity import _role_digest
+from traigent_schema.fp2 import Fp2UnsupportedValue
 from traigent_schema.utils import get_schemas_dir
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,7 +75,9 @@ def test_evaluator_judge_config_digest_domain_matches_schema_const():
 # --------------------------------------------------------------------------
 
 
-_DATASET_VERSION_VECTORS = VECTORS["dataset_version_content_digest_vectors"]
+_DATASET_VERSION_VECTORS = [
+    v for v in VECTORS["dataset_version_content_digest_vectors"] if "expected_digest" in v
+]
 
 
 @pytest.mark.parametrize("vector", _DATASET_VERSION_VECTORS, ids=lambda v: v["name"])
@@ -156,6 +162,25 @@ def test_dataset_version_content_digest_sorts_by_utf16_code_unit_not_codepoint()
     )
     assert utf16_order_digest == vector["expected_digest"]
     assert codepoint_order_digest != vector["expected_digest"]
+
+
+def test_dataset_version_content_digest_supplementary_plane_example_id():
+    """F1 positive: a complete UTF-16 surrogate pair (astral example_id) is
+    encodable text and hashes normally -- only a LONE surrogate is rejected."""
+    vectors = {v["name"]: v for v in VECTORS["dataset_version_content_digest_vectors"]}
+    vector = vectors["supplementary_plane_example_id"]
+    assert compute_dataset_version_content_digest(vector["preimage"]) == vector["expected_digest"]
+
+
+def test_dataset_version_content_digest_rejects_lone_surrogate_example_id():
+    """F1 regression: an example_id containing a lone UTF-16 surrogate must be
+    rejected by traigent_schema.fp2.Fp2UnsupportedValue -- the same typed
+    error fp2.canonicalize raises for the identical string -- BEFORE the
+    UTF-16 sort key is built, never a raw UnicodeEncodeError."""
+    vectors = {v["name"]: v for v in VECTORS["dataset_version_content_digest_vectors"]}
+    vector = vectors["lone_surrogate_example_id_rejected"]
+    with pytest.raises(Fp2UnsupportedValue, match="lone surrogate"):
+        compute_dataset_version_content_digest(vector["preimage"])
 
 
 @pytest.mark.parametrize(

@@ -98,6 +98,23 @@
       "expected_digest": "sha256:65a7db74d49464e7673bdbcae6179e35e425455c87cf489dccbc886c14a3ff83"
     },
     {
+      "name": "duplicate_ids_tie_break_by_utf8_bytes_not_utf16",
+      "description": "Two rows share example_id 'same' with input_text U+1F600 (😀, a UTF-16 surrogate pair) and U+FF21 (Ａ, a single BMP unit). The tie-break for same-id rows is the jcs_v1 UTF-8 BYTES of each row's own projection compared as unsigned bytes: U+FF21 encodes to UTF-8 EF BC A1 and U+1F600 encodes to UTF-8 F0 9F 98 80, so 0xEF < 0xF0 puts the U+FF21 row first. JS pitfall: a naive JavaScript string compare (`a < b` on UTF-16 code units) compares D83D DE00 (U+1F600's surrogate pair) against FF21 (U+FF21's single unit) and finds D83D < FF21, putting U+1F600 first instead -- a DIFFERENT order and therefore a DIFFERENT digest from the one this contract actually produces. This vector's expected_digest is frozen from the function's real output.",
+      "preimage": [
+        {
+          "example_id": "same",
+          "input_text": "Ａ",
+          "expected_output": null
+        },
+        {
+          "example_id": "same",
+          "input_text": "😀",
+          "expected_output": null
+        }
+      ],
+      "expected_digest": "sha256:74230f415aaba0c5241074d89afdf06b5248076eb88800678510c10bf195e416"
+    },
+    {
       "name": "empty_set",
       "description": "A dataset version with zero examples still has a well-defined content digest (of the empty array), distinct from every non-empty set above.",
       "preimage": [],

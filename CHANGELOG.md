@@ -25,8 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   placement and no consumer reads it -- both were merged minutes apart,
   unreleased, with no Backend/SDK pin bump in between -- so no producer emits
   the new fields yet and no consumer pin is bumped, meaning deployed
-  behaviour is unchanged; the offline digest helpers' behaviour changed (tie-break,
-  typed errors) and the evaluator-version schema path moved. The three findings
+  behaviour is unchanged; the offline digest helpers' behaviour changed (content
+  tie-break for duplicate ids, typed errors, lone-surrogate `example_id` rejection
+  through fp2's encodable-text check) and the evaluator-version schema path moved.
+  The three findings
   this correction produces
   (`datasets/dataset_schema.json` and `datasets/evaluator_config_schema.json`
   losing `current_version`, plus the `evaluator_version_schema.json` file

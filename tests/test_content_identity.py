@@ -129,6 +129,31 @@ def test_dataset_version_content_digest_duplicate_id_tie_break_is_content_not_po
     assert forward_digest == forward["expected_digest"]
 
 
+def test_dataset_version_content_digest_duplicate_id_tie_break_is_utf8_bytes_not_utf16():
+    """JS pitfall regression: the tie-break for rows sharing an example_id is
+    the jcs_v1 UTF-8 BYTES of each row's own projection compared as unsigned
+    bytes, never a UTF-16 code-unit string compare. U+FF21 (UTF-8 EF BC A1)
+    sorts BEFORE U+1F600 (UTF-8 F0 9F 98 80) since 0xEF < 0xF0, but a naive
+    JavaScript `a < b` string compare on UTF-16 code units (D83D DE00 vs
+    FF21) would put U+1F600 first instead -- a different order and thus a
+    different digest. This test pins the byte order explicitly, not just the
+    frozen digest."""
+    vectors = {v["name"]: v for v in VECTORS["dataset_version_content_digest_vectors"]}
+    vector = vectors["duplicate_ids_tie_break_by_utf8_bytes_not_utf16"]
+    assert compute_dataset_version_content_digest(vector["preimage"]) == vector["expected_digest"]
+
+    proj_ff21 = {"input_text": "Ａ", "expected_output": None}
+    proj_1f600 = {"input_text": "\U0001f600", "expected_output": None}
+    utf8_byte_order_digest = _role_digest(
+        DATASET_VERSION_CONTENT_DIGEST_DOMAIN, [proj_ff21, proj_1f600]
+    )
+    naive_utf16_order_digest = _role_digest(
+        DATASET_VERSION_CONTENT_DIGEST_DOMAIN, [proj_1f600, proj_ff21]
+    )
+    assert utf8_byte_order_digest == vector["expected_digest"]
+    assert naive_utf16_order_digest != utf8_byte_order_digest
+
+
 def test_dataset_version_content_digest_sorts_by_utf16_code_unit_not_codepoint():
     """example_id order is UTF-16 code-unit ascending (spec, jcs_v1, JS
     default sort()), not Python's default code-point order -- the two

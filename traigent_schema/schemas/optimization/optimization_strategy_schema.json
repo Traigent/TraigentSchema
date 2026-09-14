@@ -12,47 +12,45 @@
     "auto": {
       "canonical_algorithm": "auto",
       "implementation_status": "supported",
-      "execution_mode": "hybrid",
-      "description": "Cloud-first automatic strategy selection with local fallback. execution_mode is legacy capability metadata and is superseded by algorithm/offline."
+      "execution_mode": "cloud",
+      "description": "Cloud-first automatic strategy selection with local fallback. execution_mode is capability metadata; the public request selectors are algorithm/offline (and hybrid_api_options for an external evaluator)."
     },
     "grid": {
       "canonical_algorithm": "grid",
       "implementation_status": "supported",
       "execution_mode": "local",
-      "deprecated_execution_modes": ["edge_analytics"],
-      "description": "Client-side exhaustive grid search (local mode; edge_analytics remains a deprecated accepted alias)."
+      "description": "Client-side exhaustive grid search (local mode)."
     },
     "random": {
       "canonical_algorithm": "random",
       "implementation_status": "supported",
       "execution_mode": "local",
-      "deprecated_execution_modes": ["edge_analytics"],
-      "description": "Client-side random search (local mode; edge_analytics remains a deprecated accepted alias)."
+      "description": "Client-side random search (local mode)."
     },
     "bayesian": {
       "canonical_algorithm": "tpe",
       "implementation_status": "supported",
-      "execution_mode": "hybrid",
+      "execution_mode": "cloud",
       "alias_for": "tpe",
-      "description": "Smart Bayesian-style search using TPE (hybrid mode)."
+      "description": "Smart Bayesian-style search using TPE (cloud mode)."
     },
     "tpe": {
       "canonical_algorithm": "tpe",
       "implementation_status": "supported",
-      "execution_mode": "hybrid",
-      "description": "Smart TPE search (hybrid mode)."
+      "execution_mode": "cloud",
+      "description": "Smart TPE search (cloud mode)."
     },
     "hyperband": {
       "canonical_algorithm": "hyperband",
       "implementation_status": "supported",
-      "execution_mode": "hybrid",
-      "description": "Smart early-pruning search (hybrid mode)."
+      "execution_mode": "cloud",
+      "description": "Smart early-pruning search (cloud mode)."
     },
     "frontier_scout": {
       "canonical_algorithm": "frontier_scout",
       "implementation_status": "supported",
-      "execution_mode": "hybrid",
-      "description": "Smart Pareto-frontier exploration (hybrid mode)."
+      "execution_mode": "cloud",
+      "description": "Smart Pareto-frontier exploration (cloud mode)."
     }
   },
   "definitions": {
@@ -88,22 +86,12 @@
         "supported"
       ]
     },
-    "OptimizationExecutionMode": {
+    "OptimizationCapabilityExecutionMode": {
       "type": "string",
-      "deprecated": true,
-      "x-deprecated": "Use algorithm/offline and hybrid_api_options instead. execution_mode will be removed in a future major version.",
-      "x-preferred-values": {
-        "local": "Preferred name for client-side local orchestration (grid, random algorithms)."
-      },
-      "x-deprecated-values": {
-        "edge_analytics": "Deprecated alias for local. Keep accepting edge_analytics for deployed clients."
-      },
-      "description": "Deprecated legacy execution-mode capability metadata. Public clients should use algorithm/offline and hybrid_api_options. local is the preferred client-side mode name; edge_analytics remains accepted as a deprecated alias.",
+      "description": "Canonical execution-mode capability metadata for an algorithm (Traigent#2271: legacy execution_mode request selector and its edge_analytics/hybrid/hybrid_api values are removed). 'local' = client-side orchestration (grid, random algorithms) with no backend egress. 'cloud' = backend-driven trial suggestion (auto, bayesian/tpe, hyperband, frontier_scout). An external evaluator is a separate, orthogonal concern selected via hybrid_api_options, not an execution_mode value.",
       "enum": [
         "local",
-        "edge_analytics",
-        "hybrid",
-        "hybrid_api"
+        "cloud"
       ]
     },
     "OptimizationCapability": {
@@ -121,10 +109,8 @@
           "$ref": "#/definitions/OptimizationImplementationStatus"
         },
         "execution_mode": {
-          "$ref": "#/definitions/OptimizationExecutionMode",
-          "deprecated": true,
-          "x-deprecated": "Use algorithm/offline and hybrid_api_options instead. execution_mode will be removed in a future major version.",
-          "description": "Deprecated legacy execution-mode metadata for the algorithm capability."
+          "$ref": "#/definitions/OptimizationCapabilityExecutionMode",
+          "description": "Canonical execution-mode metadata for the algorithm capability (local or cloud)."
         },
         "alias_for": {
           "type": "string",
@@ -134,13 +120,6 @@
         },
         "deprecated": {
           "type": "boolean"
-        },
-        "deprecated_execution_modes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/OptimizationExecutionMode"
-          },
-          "description": "Deprecated execution-mode aliases still accepted for compatibility."
         },
         "description": {
           "type": "string"

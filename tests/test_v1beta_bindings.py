@@ -73,30 +73,29 @@ def test_evaluator_create_stays_201():
     assert "201" in cat["paths"]["/api/v1beta/evaluators"]["post"]["responses"]
 
 
-def test_execution_mode_hybrid_conditional_only_fires_when_present():
-    """#334: the hybrid_api binding requirement must not fire when execution_mode
-    is absent. The `if` uses `properties` alone, which does not require the key,
-    so a migrated client on canonical selectors (algorithm/offline) with no
-    execution_mode must validate — the `if.required` guard makes the `then`
-    conditional on execution_mode being present AND equal to hybrid_api."""
-    v = SchemaValidator()
-    # (a) canonical selectors, NO execution_mode key -> valid (regression: this
-    # was rejected before the `if.required` fix because the vacuous `if` fired).
-    assert v.validate_json(
-        {"experiment_id": "exp1", "algorithm": "grid", "offline": True},
-        "execution_mode_schema",
-    ) == []
-    # (b) execution_mode: hybrid_api WITHOUT a hybrid binding -> still rejected.
-    assert v.validate_json(
-        {"experiment_id": "exp1", "execution_mode": "hybrid_api"},
-        "execution_mode_schema",
+def test_execution_mode_selector_removed_canonical_selectors_still_validate():
+    """#334 established that canonical selectors (algorithm/offline) with no
+    execution_mode must validate. Traigent#2271 goes further and removes the
+    execution_mode selector entirely (schemas/execution/execution_mode_schema.json
+    deleted — it was never $ref'd from the reachable request-schema graph, only
+    exercised standalone by this file's now-removed conditional test). The
+    surviving regression: canonical selectors validate on the real, reachable
+    session-create endpoint, and execution_mode — in any value, including the
+    former hybrid_api case this test used to exercise via the if/then binding —
+    is now unconditionally rejected rather than conditionally accepted. See
+    tests/test_execution_contract_vnext.py for the full rejection matrix."""
+    v = SchemaValidator(contract="sdk_tuning")
+    payload = {
+        "function_name": "f",
+        "configuration_space": {"x": [0, 1]},
+        "objectives": ["accuracy"],
+        "algorithm": "grid",
+        "offline": True,
+    }
+    assert v.validate_request("/api/v1/sessions", "POST", payload) == []
+    assert (
+        v.validate_request(
+            "/api/v1/sessions", "POST", {**payload, "execution_mode": "hybrid_api"}
+        )
+        != []
     )
-    # (c) execution_mode: hybrid_api WITH the binding -> valid.
-    assert v.validate_json(
-        {
-            "experiment_id": "exp1",
-            "execution_mode": "hybrid_api",
-            "hybrid_api_config": {"endpoint": "https://eval.example.com/score"},
-        },
-        "execution_mode_schema",
-    ) == []

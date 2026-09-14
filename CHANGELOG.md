@@ -61,23 +61,101 @@ _No unreleased changes yet._
     removal is scoped to separate follow-up PRs per Traigent#2271.
 
 ### Added
-- **Dataset-version content digest and evaluator judge-config digest (R3-1.1).**
+- **Dataset-version content digest and evaluator judge-config digest (R3-1.1),
+  corrected.** `#468` (merged 2026-09-13T20:58Z at `335d8fc`, `Unreleased`) shipped
+  this contract but placed `current_version` on the datasets-bucket
+  `evaluator_config_schema.json` resource -- the wrong resource, since it is
+  not the evaluator the Backend actually builds against. This entry describes
+  the corrected, final shape develop carries once the fix-round PR (this one)
+  merges: `current_version` (and therefore `EvaluatorVersionV1`'s
+  `judge_config_digest`) is pinned exclusively to the observability
+  `EvaluatorDefinition` resource
+  (`schemas/observability/evaluator_definition_schema.json`, already
+  `additionalProperties: true`), not to `datasets/evaluator_config_schema.json`,
+  which never carries this field. `evaluator_version_schema.json` itself moves
+  (git rename) from `schemas/datasets/` to `schemas/observability/`, next to
+  the resource it versions. No producer ever emitted the datasets-bucket
+  placement and no consumer reads it -- both were merged minutes apart,
+  unreleased, with no Backend/SDK pin bump in between -- so no producer emits
+  the new fields yet and no consumer pin is bumped, meaning deployed
+  behaviour is unchanged; the offline digest helpers' behaviour changed (content
+  tie-break for duplicate ids, typed errors, lone-surrogate `example_id` rejection
+  through fp2's encodable-text check) and the evaluator-version schema path moved.
+  The three findings
+  this correction produces
+  (`datasets/dataset_schema.json` and `datasets/evaluator_config_schema.json`
+  losing `current_version`, plus the `evaluator_version_schema.json` file
+  move) are acknowledged in `scripts/breaking_schema_allowlist.json` rather
+  than silenced, so the correction stays visible in the contract history
+  alongside the original `#468` entry it supersedes.
+
   New `DatasetVersionV1` (`schemas/datasets/dataset_version_schema.json`) carries
   an optional, nullable `content_digest` = `sha256:<hex>` over
   `UTF8("traigent.dataset_version.content.v1") || 0x00 || jcs_v1(preimage)`,
   where `preimage` is the version's examples projected to
-  `{input_text, expected_output}` and ordered by `example_id` (duplicates
-  preserved, not collapsed). New `EvaluatorVersionV1`
-  (`schemas/datasets/evaluator_version_schema.json`) carries an optional,
+  `{input_text, expected_output}` and ordered by a sort key that is a pure
+  function of content: `(example_id.encode("utf-16-be"),
+  jcs_v1(projection).encode("utf-8"))`, each compared as unsigned bytes,
+  ascending. Same-`example_id` rows therefore always sort by their own
+  projected content, never by producer enumeration order -- a duplicated-row
+  data-quality bug stays visible (both rows remain in the preimage), while the
+  digest of a given logical example set no longer depends on how a producer
+  happened to iterate it (fixes an order-dependence bug in the `#468`
+  implementation, where two same-id rows supplied in opposite order hashed
+  differently). New `EvaluatorVersionV1`
+  (`schemas/observability/evaluator_version_schema.json`) carries an optional,
   nullable `judge_config_digest` under domain `traigent.evaluator.judge_config.v1`
-  over the evaluator's judge configuration (key order irrelevant). Both digests
-  reuse the certification family's existing fp2/JCS role-digest construction via
-  new pure, offline helpers `traigent_schema.compute_dataset_version_content_digest`
-  and `traigent_schema.compute_judge_config_digest`. `dataset_schema.json` and
-  `evaluator_config_schema.json` each gain an optional, nullable `current_version`
-  pointing at the corresponding version record. All four additions are optional
-  and default to `null`; old readers unaware of them are unaffected. The
-  certification family's `process_record_v1` digest-domain registry is unchanged.
+  over the exact persisted `judge_config` object of the observability
+  `EvaluatorDefinition` resource (`schemas/observability/evaluator_definition_schema.json#/definitions/JudgeConfig`,
+  the evaluator the Backend's `POST /api/v1beta/projects/<id>/evaluators`
+  actually persists) -- hashed whole, with no filtering or defaulting, so an
+  absent key and a key present with `null` produce different digests (key
+  order is irrelevant: jcs_v1 sorts object keys before hashing). Both
+  digests reuse the certification family's existing fp2/JCS role-digest
+  construction via new pure, offline helpers
+  `traigent_schema.compute_dataset_version_content_digest` and
+  `traigent_schema.compute_judge_config_digest`. Both now validate every input
+  strictly: a non-`Mapping` preimage row raises `TypeError` naming the
+  offending index (not the `AttributeError` a `#468` row like a bare string
+  produced by calling `.get()` on it), a `preimage` argument that is itself a
+  `str`/`bytes`/`Mapping` masquerading as a sequence is rejected before
+  iteration, and `compute_judge_config_digest` continues to require its
+  argument be a `Mapping`. `dataset_schema.json` gains an optional, nullable
+  `current_version` pointing at `DatasetVersionV1`, default `null`; producers
+  MUST OMIT the key -- never emit `null` -- for old readers that VALIDATE
+  against the previous schema (a closed `additionalProperties: false` object
+  rejects an unknown member). Consumers in release R3: Backend PR 2.1 (dataset
+  version row + `content_digest`, returns `current_version` on the dataset)
+  and Backend PR 2.2a (evaluator version row + `judge_config_digest`, returns
+  `current_version` on the evaluator definition); no run or certificate
+  contract pins a version in this PR. The content digest identifies the
+  CONTENT of the examples a version contains; membership is fixed by the
+  producer at mint time, and `splits` (train/selection/test policy +
+  assignments) is a usage attribute of a run, not content, and is deliberately
+  excluded from this digest -- a later receipt (R4 build-level receipts) pins
+  the split assignment separately. The certification family's
+  `process_record_v1` digest-domain registry is unchanged.
+- **`DatasetVersionV1` shape corrected to match the Backend's actual
+  dataset-version wire payload.** The Backend has returned dataset-version
+  payloads since #273 (`src/routes/dataset_version_routes.py`), stored in
+  dataset metadata and never validated against this schema; `#468` described
+  them with a guessed shape (`{id, dataset_id, revision(required)}`). This
+  correction makes the schema match that payload: it now requires
+  `version_label` (unique per `dataset_id`), `example_ids`, `example_count`,
+  and `created_at`, makes `revision` optional (row-stored versions only), and
+  adds the immutable `content_snapshot` plus `content_digest_domain` so
+  `content_digest` is recomputable offline -- acknowledged in
+  `scripts/breaking_schema_allowlist.json` rather than silenced. No producer
+  emits `dataset.current_version` or the new `content_digest` /
+  `content_digest_domain` / `content_snapshot` fields yet, and no consumer
+  reads them; `Unreleased`, so the correction changes no deployed behaviour.
+- **`compute_judge_config_digest` documents that the digest is a function of
+  the PERSISTED object, not the request body**: a producer that normalizes
+  `JudgeConfig` on write (nulls included) never stores the absent form of an
+  optional key, so an omitted request field and an explicit `null` request
+  field persist -- and therefore digest -- identically for that producer,
+  which is why cross-producer agreement on `judge_config_digest` requires
+  persisting the same fully-populated, null-filled shape.
 
 ## [5.8.0] - 2026-09-05
 

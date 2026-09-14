@@ -65,7 +65,7 @@
     },
     {
       "name": "duplicate_example_ids",
-      "description": "Two examples share the same example_id with different content. Both entries survive in the preimage (stable sort on the duplicate key), not collapsed into one -- a content digest that silently absorbed a duplicated-row bug would defeat its own purpose.",
+      "description": "Two examples share the same example_id with different content. Both entries survive in the preimage, not collapsed into one -- a content digest that silently absorbed a duplicated-row bug would defeat its own purpose. Ordering among same-id rows is a pure function of content (tie-break on the jcs_v1 bytes of each row's own projection), not of input position -- see duplicate_ids_reversed_input_same_digest.",
       "preimage": [
         {
           "example_id": "dup",
@@ -81,44 +81,177 @@
       "expected_digest": "sha256:65a7db74d49464e7673bdbcae6179e35e425455c87cf489dccbc886c14a3ff83"
     },
     {
+      "name": "duplicate_ids_reversed_input_same_digest",
+      "description": "Same two rows as duplicate_example_ids ('dup'/'first copy'/'a' and 'dup'/'second copy'/'b'), supplied in the OPPOSITE input order. Must equal duplicate_example_ids' digest: the tie-break for same-id rows is the jcs_v1 bytes of each row's own projection, not producer enumeration order, so f(x) == f(x[::-1]) even when ids collide. On the pre-fix implementation (stable sort keyed on example_id alone) this vector produces a DIFFERENT digest from duplicate_example_ids, since a stable sort preserves whichever order the caller supplied for tied keys -- that divergence was the F1 defect this vector pins.",
+      "preimage": [
+        {
+          "example_id": "dup",
+          "input_text": "second copy",
+          "expected_output": "b"
+        },
+        {
+          "example_id": "dup",
+          "input_text": "first copy",
+          "expected_output": "a"
+        }
+      ],
+      "expected_digest": "sha256:65a7db74d49464e7673bdbcae6179e35e425455c87cf489dccbc886c14a3ff83"
+    },
+    {
+      "name": "duplicate_ids_tie_break_by_utf8_bytes_not_utf16",
+      "description": "Two rows share example_id 'same' with input_text U+1F600 (😀, a UTF-16 surrogate pair) and U+FF21 (Ａ, a single BMP unit). The tie-break for same-id rows is the jcs_v1 UTF-8 BYTES of each row's own projection compared as unsigned bytes: U+FF21 encodes to UTF-8 EF BC A1 and U+1F600 encodes to UTF-8 F0 9F 98 80, so 0xEF < 0xF0 puts the U+FF21 row first. JS pitfall: a naive JavaScript string compare (`a < b` on UTF-16 code units) compares D83D DE00 (U+1F600's surrogate pair) against FF21 (U+FF21's single unit) and finds D83D < FF21, putting U+1F600 first instead -- a DIFFERENT order and therefore a DIFFERENT digest from the one this contract actually produces. This vector's expected_digest is frozen from the function's real output.",
+      "preimage": [
+        {
+          "example_id": "same",
+          "input_text": "Ａ",
+          "expected_output": null
+        },
+        {
+          "example_id": "same",
+          "input_text": "😀",
+          "expected_output": null
+        }
+      ],
+      "expected_digest": "sha256:74230f415aaba0c5241074d89afdf06b5248076eb88800678510c10bf195e416"
+    },
+    {
       "name": "empty_set",
       "description": "A dataset version with zero examples still has a well-defined content digest (of the empty array), distinct from every non-empty set above.",
       "preimage": [],
       "expected_digest": "sha256:20adae1a805bc95fc80974e1e5a35bc08482c9b41e995e14f204ca956f9236a5"
+    },
+    {
+      "name": "sort_order_utf16_vs_codepoint",
+      "description": "example_id sort order is UTF-16 code-unit ascending, not Python's default Unicode code-point order. U+1F600 (a surrogate pair D83D DE00 in UTF-16BE, first unit 0xD83D=55357) sorts BEFORE U+FF21 (single unit 0xFF21=65313) under code-unit order, even though by raw code point U+FF21 (65313) < U+1F600 (128512) and would sort first. This vector's expected_digest is the function's actual output (order of the preimage list below is irrelevant -- the function always sorts); the test computes the same projected pair hashed directly in UTF-16 order and in code-point order (bypassing the function's sort) to prove which ordering the const construction actually uses.",
+      "preimage": [
+        {
+          "example_id": "😀",
+          "input_text": "a"
+        },
+        {
+          "example_id": "Ａ",
+          "input_text": "b"
+        }
+      ],
+      "expected_digest": "sha256:1ff6ccf99e2e7af0a17bdfe2b16e49df6bc78603a0b7847b49a661648d92d735"
+    },
+    {
+      "name": "supplementary_plane_example_id",
+      "description": "F1: two example_ids each containing a supplementary-plane (astral) code point, encoded as a UTF-16 surrogate pair. Each id is encodable text (a complete surrogate pair, not a lone surrogate), so fp2's utf-16 sort-key check accepts both and the digest is computed normally -- this is the positive counterpart to lone_surrogate_example_id_rejected.",
+      "preimage": [
+        {
+          "example_id": "😀-a",
+          "input_text": "hello",
+          "expected_output": "world"
+        },
+        {
+          "example_id": "😁-b",
+          "input_text": "foo",
+          "expected_output": null
+        }
+      ],
+      "expected_digest": "sha256:73d532a19b19f4deb94f53326e54405df479630ff2035394a3073cbe1c0d6ae8"
+    },
+    {
+      "name": "lone_surrogate_example_id_rejected",
+      "description": "F1: an example_id containing a lone (unpaired) UTF-16 surrogate is not encodable text -- no two implementations could agree on its UTF-16-BE bytes, so it must never reach the sort key or the hash. This vector has no expected_digest; the corresponding test asserts compute_dataset_version_content_digest raises traigent_schema.fp2.Fp2UnsupportedValue, matching fp2's own rejection of the identical string via fp2.canonicalize.",
+      "preimage": [
+        {
+          "example_id": "a\ud800b",
+          "input_text": "x",
+          "expected_output": null
+        }
+      ]
     }
   ],
   "judge_config_digest_vectors": [
     {
       "name": "baseline_config",
+      "description": "The real R2 witness judge config as SUBMITTED in the request body (observability EvaluatorDefinition create/update request judge_config field), verbatim, from the certified-agent-r2 evidence bundle. NOTE (fix round 5, F2): this is the REQUEST shape, not what the Backend persists -- src/services/evaluation_ops_service.py stores payload.judge_config.model_dump(mode='json'), which is JudgeConfig with every optional field present (nulls included); see baseline_config_persisted_shape for the actual persisted/hashed object for this same logical config, and note its digest differs from this one.",
       "judge_config": {
-        "model": "gpt-4o-mini",
-        "temperature": 0.2,
-        "rubric": ["accuracy", "tone"]
+        "instructions": "Score the agent's answer for exact correctness against the expected output.",
+        "model_id": "gpt-4o-mini",
+        "context_type": "none"
       },
-      "expected_digest": "sha256:4fd284535daeaf6779b95f99b15e45889ccc0ba143f0a826428f07e755849a3f"
+      "expected_digest": "sha256:0d0dcb21eb8fa887c4c859dfb0749695001decf466c81b974ed3ef1e1dfb73d3"
+    },
+    {
+      "name": "baseline_config_persisted_shape",
+      "description": "The SAME logical config as baseline_config (the real R2 witness judge config), but in the shape the Backend actually PERSISTS and therefore actually HASHES: src/services/evaluation_ops_service.py stores payload.judge_config.model_dump(mode='json') of src/shared_infrastructure/schemas/evaluation_ops.py::JudgeConfig, which emits every field -- instructions, model_id, context_type, context_source, parameters, scoring_rubric, response_format_instructions, max_budget -- with unsupplied optionals written as null, not omitted. Seat-measured against the Backend's own model at develop 131af6668. Must differ from baseline_config's digest: the digest preimage is the persisted object, and this producer never stores the absent form of an optional key.",
+      "judge_config": {
+        "context_source": null,
+        "context_type": "none",
+        "instructions": "Score the agent's answer for exact correctness against the expected output.",
+        "max_budget": null,
+        "model_id": "gpt-4o-mini",
+        "parameters": null,
+        "response_format_instructions": null,
+        "scoring_rubric": null
+      },
+      "expected_digest": "sha256:da53f23fdb367c661b60dbccbdf710f3032b1635955e2e8f2258861096b5fc79"
     },
     {
       "name": "baseline_config_key_order_permuted",
       "description": "Same keys/values as baseline_config in a different insertion order. Must equal baseline_config's digest: jcs_v1 canonicalization sorts object keys before hashing.",
       "judge_config": {
-        "temperature": 0.2,
-        "rubric": ["accuracy", "tone"],
-        "model": "gpt-4o-mini"
+        "context_type": "none",
+        "model_id": "gpt-4o-mini",
+        "instructions": "Score the agent's answer for exact correctness against the expected output."
       },
-      "expected_digest": "sha256:4fd284535daeaf6779b95f99b15e45889ccc0ba143f0a826428f07e755849a3f"
+      "expected_digest": "sha256:0d0dcb21eb8fa887c4c859dfb0749695001decf466c81b974ed3ef1e1dfb73d3"
     },
     {
       "name": "baseline_config_value_changed",
-      "description": "Same as baseline_config with temperature changed from 0.2 to 0.3. Must differ from baseline_config's digest.",
+      "description": "Same as baseline_config with model_id changed from gpt-4o-mini to gpt-4o. Must differ from baseline_config's digest.",
       "judge_config": {
-        "model": "gpt-4o-mini",
-        "temperature": 0.3,
-        "rubric": ["accuracy", "tone"]
+        "instructions": "Score the agent's answer for exact correctness against the expected output.",
+        "model_id": "gpt-4o",
+        "context_type": "none"
       },
-      "expected_digest": "sha256:035de96ce9e9bf69a105c89fd4aaea7b9eac97973019266371e690df5a16ee0a"
+      "expected_digest": "sha256:c880d30f8056364884b1824bbcfdc5e2459e885cefd884abd34e9a5364590a8a"
+    },
+    {
+      "name": "baseline_config_context_source_null_added",
+      "description": "Same as baseline_config with context_source explicitly set to null. Must DIFFER from baseline_config's digest: jcs_v1 distinguishes a key absent (baseline_config) from a key present with null (this vector) -- absent != null.",
+      "judge_config": {
+        "instructions": "Score the agent's answer for exact correctness against the expected output.",
+        "model_id": "gpt-4o-mini",
+        "context_type": "none",
+        "context_source": null
+      },
+      "expected_digest": "sha256:88b6e6638148462789af666bdaa25dda7a097e487486715c7a78322879bd5dfd"
+    },
+    {
+      "name": "full_field_config",
+      "description": "Uses every JudgeConfig key (observability/evaluator_definition_schema.json#/definitions/JudgeConfig), including nested parameters and scoring_rubric, to prove the whole object -- not a filtered subset -- is hashed.",
+      "judge_config": {
+        "instructions": "Score the agent's answer for exact correctness against the expected output.",
+        "model_id": "gpt-4o-mini",
+        "context_type": "text",
+        "context_source": "dataset",
+        "parameters": {
+          "model_id": "gpt-4o-mini",
+          "temperature": 0.2,
+          "max_tokens": 512,
+          "top_p": 1.0,
+          "frequency_penalty": 0.0,
+          "presence_penalty": 0.0,
+          "top_k": 40,
+          "repetition_penalty": 1.0,
+          "stop_sequences": ["STOP"]
+        },
+        "scoring_rubric": {
+          "criteria": ["accuracy", "tone"],
+          "weights": {"accuracy": 0.7, "tone": 0.3}
+        },
+        "response_format_instructions": "Respond with a single float between 0 and 1.",
+        "max_budget": 0.05
+      },
+      "expected_digest": "sha256:b246d30374d8cc813297288c004f8d1861c46843de068627f053d8a3f0217166"
     },
     {
       "name": "empty_config",
+      "description": "{} is what the Backend's judge_config = db.Column(JSONType, nullable=False, default=dict) persists before an evaluator is configured; the digest must still be well-defined.",
       "judge_config": {},
       "expected_digest": "sha256:f9f9d00e2e2daf4cc0714df7051a3b55f8563206631242dbf9a4cc5f1b52df60"
     }

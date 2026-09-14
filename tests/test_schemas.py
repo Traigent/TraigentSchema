@@ -47,7 +47,6 @@ KNOWN_ORPHAN_ALLOWLIST: frozenset[str] = frozenset(
         # Execution sub-schemas for internal modes.
         "execution/best_config_response_schema.json",
         "execution/dataset_storage_schema.json",
-        "execution/execution_mode_schema.json",
         "execution/hybrid_session_schema.json",
         "execution/saas_execution_schema.json",
         "execution/service_registration_schema.json",

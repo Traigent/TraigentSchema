@@ -13,8 +13,8 @@
       "refOrEndpointGraph": 363
     },
     "reachableCount": 397,
-    "schemaFileCount": 441,
-    "unreachableCount": 44
+    "schemaFileCount": 440,
+    "unreachableCount": 43
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -42,7 +42,6 @@
     "evaluation/evaluation_results_schema.json",
     "evaluation/evaluation_schema.json",
     "execution/dataset_storage_schema.json",
-    "execution/execution_mode_schema.json",
     "execution/saas_execution_schema.json",
     "execution/service_registration_schema.json",
     "mep.json",

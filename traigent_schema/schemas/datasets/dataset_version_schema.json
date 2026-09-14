@@ -119,7 +119,7 @@
           "items": {
             "type": "string"
           },
-          "description": "The example ids that were members of the dataset at mint time, sorted. Membership only -- example content lives in content_snapshot when present."
+          "description": "Membership at mint time: the distinct example ids, sorted ascending by Unicode code point (duplicates collapsed). This ordering is for listing only; the content digest re-orders its preimage by its own rule (see content_digest)."
         },
         "example_count": {
           "type": "integer",
@@ -174,7 +174,7 @@
             }
           ],
           "default": null,
-          "description": "The complete immutable hash input persisted at mint time: one DatasetVersionSnapshotRowV1 per example listed in example_ids (same ids, content_digest is computed by calling compute_dataset_version_content_digest on exactly this list). OPTIONAL and ADDITIVE: null for legacy rows and for producers that never persisted the snapshot rows. Producers MAY omit content_snapshot from list responses (it can be large) and MUST return it from the version detail/snapshot endpoint whenever content_digest is non-null, so a reader can always recompute and re-verify the digest for a version it fetches individually."
+          "description": "The complete immutable hash input persisted at mint time: one row per persisted example row. When two example rows share an example_id, the snapshot carries both rows, so the row count can exceed len(example_ids); the digest keeps every row. Producers MAY omit it from list responses and MUST return it from the version detail/snapshot endpoint; null for legacy rows. content_digest is computed by calling compute_dataset_version_content_digest on exactly this list."
         },
         "created_at": {
           "type": "string",

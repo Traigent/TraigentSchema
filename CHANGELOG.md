@@ -136,15 +136,19 @@ _No unreleased changes yet._
   the split assignment separately. The certification family's
   `process_record_v1` digest-domain registry is unchanged.
 - **`DatasetVersionV1` shape corrected to match the Backend's actual
-  dataset-version wire payload.** `#468` guessed the shape (`{id, dataset_id,
-  revision(required)}`) before the Backend's dataset-version route existed;
-  it now requires `version_label` (unique per `dataset_id`), `example_ids`,
-  `example_count`, and `created_at`, makes `revision` optional (row-stored
-  versions only), and adds the immutable `content_snapshot` plus
-  `content_digest_domain` so `content_digest` is recomputable offline --
-  acknowledged in `scripts/breaking_schema_allowlist.json` rather than
-  silenced, since `Unreleased` with no producer/consumer yet (Backend pin
-  `747a9d3` predates it) means the correction changes no deployed behaviour.
+  dataset-version wire payload.** The Backend has returned dataset-version
+  payloads since #273 (`src/routes/dataset_version_routes.py`), stored in
+  dataset metadata and never validated against this schema; `#468` described
+  them with a guessed shape (`{id, dataset_id, revision(required)}`). This
+  correction makes the schema match that payload: it now requires
+  `version_label` (unique per `dataset_id`), `example_ids`, `example_count`,
+  and `created_at`, makes `revision` optional (row-stored versions only), and
+  adds the immutable `content_snapshot` plus `content_digest_domain` so
+  `content_digest` is recomputable offline -- acknowledged in
+  `scripts/breaking_schema_allowlist.json` rather than silenced. No producer
+  emits `dataset.current_version` or the new `content_digest` /
+  `content_digest_domain` / `content_snapshot` fields yet, and no consumer
+  reads them; `Unreleased`, so the correction changes no deployed behaviour.
 - **`compute_judge_config_digest` documents that the digest is a function of
   the PERSISTED object, not the request body**: a producer that normalizes
   `JudgeConfig` on write (nulls included) never stores the absent form of an

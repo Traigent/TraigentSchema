@@ -457,7 +457,7 @@ def test_dataset_version_instance_validates_without_content_digest_at_all(valida
 
 def test_dataset_version_legacy_backend_shaped_payload_validates(validator):
     """A real (pre-2.1) Backend dataset-version payload -- no revision, no
-    content_snapshot, content_digest null -- validates against the reconciled
+    content_snapshot, omits content_digest -- validates against the reconciled
     schema. Shape mirrors src/routes/dataset_version_routes.py:_build_version_payload
     on develop."""
     instance = {
@@ -505,6 +505,36 @@ def test_dataset_version_21_shaped_payload_validates_and_digest_recomputes(valid
         "created_at": "2026-09-13T00:00:00+00:00",
     }
     assert validator.validate_json(instance, "dataset_version_schema") == []
+    assert compute_dataset_version_content_digest(instance["content_snapshot"]) == digest
+
+
+def test_dataset_version_snapshot_row_count_can_exceed_example_ids(validator):
+    """example_ids collapses duplicates (membership only, F2); content_snapshot
+    keeps every persisted row, so a shared example_id can make the snapshot
+    longer than example_ids. A 2.1-shaped instance with example_ids ["a", "b"]
+    but three snapshot rows (two "a" rows with different input_text) still
+    validates, and the digest recomputed from content_snapshot reproduces the
+    instance's own content_digest."""
+    snapshot = [
+        {"example_id": "a", "input_text": "first a", "expected_output": "1"},
+        {"example_id": "a", "input_text": "second a", "expected_output": "2"},
+        {"example_id": "b", "input_text": "only b", "expected_output": "3"},
+    ]
+    digest = compute_dataset_version_content_digest(snapshot)
+    instance = {
+        "id": "660b3e2e-2222-4c3e-9a1e-000000000003",
+        "dataset_id": "ds_1",
+        "version_label": "v3",
+        "revision": 1,
+        "example_ids": ["a", "b"],
+        "example_count": 2,
+        "content_digest": digest,
+        "content_digest_domain": "traigent.dataset_version.content.v1",
+        "content_snapshot": snapshot,
+        "created_at": "2026-09-13T00:00:00+00:00",
+    }
+    assert validator.validate_json(instance, "dataset_version_schema") == []
+    assert len(instance["content_snapshot"]) > len(instance["example_ids"])
     assert compute_dataset_version_content_digest(instance["content_snapshot"]) == digest
 
 

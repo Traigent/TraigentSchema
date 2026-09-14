@@ -2114,7 +2114,7 @@
     {
       "file": "datasets/dataset_schema.json",
       "rule": "property_added",
-      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468, which was authored before the Backend's dataset-version payload was read: the real payload (src/routes/dataset_version_routes.py) carries version_label (required, unique per dataset), example_ids, example_count, description, metadata, created_by, created_at and no integer revision; revision becomes optional (row-stored versions only), and the immutable content_snapshot plus content_digest_domain are added so the digest is recomputable offline. Unreleased; no producer emits and no consumer reads this schema (Backend pin 747a9d3 predates it); acknowledged rather than silenced so the correction is visible in the contract history.",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468: the real payload (src/routes/dataset_version_routes.py) carries version_label (required, unique per dataset), example_ids, example_count, description, metadata, created_by, created_at and no integer revision; revision becomes optional (row-stored versions only), and the immutable content_snapshot plus content_digest_domain are added so the digest is recomputable offline. The Backend has returned dataset-version payloads since #273 (src/routes/dataset_version_routes.py), stored in dataset metadata and never validated against this schema; #468 described them with a guessed shape. This correction makes the schema match that payload. No producer emits dataset.current_version or the new content_digest / content_digest_domain / content_snapshot fields yet, and no consumer reads them; Unreleased. Acknowledged rather than silenced so the correction is visible in the contract history.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
       "findings": [
@@ -2187,7 +2187,7 @@
     {
       "file": "datasets/dataset_schema.json",
       "rule": "required",
-      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468, which was authored before the Backend's dataset-version payload was read: created_at, example_count, example_ids and version_label become required (matching what the Backend's dataset-version payload always carries), and the previously-required integer revision becomes optional (row-stored versions only). Unreleased; no producer emits and no consumer reads this schema (Backend pin 747a9d3 predates it); acknowledged rather than silenced so the correction is visible in the contract history.",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468: created_at, example_count, example_ids and version_label become required (matching what the Backend's dataset-version payload always carries), and the previously-required integer revision becomes optional (row-stored versions only). The Backend has returned dataset-version payloads since #273 (src/routes/dataset_version_routes.py), stored in dataset metadata and never validated against this schema; #468 described them with a guessed shape. This correction makes the schema match that payload. No producer emits dataset.current_version or the new content_digest / content_digest_domain / content_snapshot fields yet, and no consumer reads them; Unreleased. Acknowledged rather than silenced so the correction is visible in the contract history.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
       "findings": [
@@ -2236,7 +2236,7 @@
     {
       "file": "datasets/dataset_version_schema.json",
       "rule": "property_added",
-      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468, which was authored before the Backend's dataset-version payload was read: the real payload (src/routes/dataset_version_routes.py) carries version_label (required, unique per dataset), example_ids, example_count, description, metadata, created_by, created_at and no integer revision; revision becomes optional (row-stored versions only), and the immutable content_snapshot plus content_digest_domain are added so the digest is recomputable offline. Unreleased; no producer emits and no consumer reads this schema (Backend pin 747a9d3 predates it); acknowledged rather than silenced so the correction is visible in the contract history.",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468: the real payload (src/routes/dataset_version_routes.py) carries version_label (required, unique per dataset), example_ids, example_count, description, metadata, created_by, created_at and no integer revision; revision becomes optional (row-stored versions only), and the immutable content_snapshot plus content_digest_domain are added so the digest is recomputable offline. The Backend has returned dataset-version payloads since #273 (src/routes/dataset_version_routes.py), stored in dataset metadata and never validated against this schema; #468 described them with a guessed shape. This correction makes the schema match that payload. No producer emits dataset.current_version or the new content_digest / content_digest_domain / content_snapshot fields yet, and no consumer reads them; Unreleased. Acknowledged rather than silenced so the correction is visible in the contract history.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
       "findings": [
@@ -2309,7 +2309,7 @@
     {
       "file": "datasets/dataset_version_schema.json",
       "rule": "required",
-      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468, which was authored before the Backend's dataset-version payload was read: created_at, example_count, example_ids and version_label become required (matching what the Backend's dataset-version payload always carries), and the previously-required integer revision becomes optional (row-stored versions only). Unreleased; no producer emits and no consumer reads this schema (Backend pin 747a9d3 predates it); acknowledged rather than silenced so the correction is visible in the contract history.",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468: created_at, example_count, example_ids and version_label become required (matching what the Backend's dataset-version payload always carries), and the previously-required integer revision becomes optional (row-stored versions only). The Backend has returned dataset-version payloads since #273 (src/routes/dataset_version_routes.py), stored in dataset metadata and never validated against this schema; #468 described them with a guessed shape. This correction makes the schema match that payload. No producer emits dataset.current_version or the new content_digest / content_digest_domain / content_snapshot fields yet, and no consumer reads them; Unreleased. Acknowledged rather than silenced so the correction is visible in the contract history.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
       "findings": [

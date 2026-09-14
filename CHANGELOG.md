@@ -82,6 +82,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   excluded from this digest -- a later receipt (R4 build-level receipts) pins
   the split assignment separately. The certification family's
   `process_record_v1` digest-domain registry is unchanged.
+- **`DatasetVersionV1` shape corrected to match the Backend's actual
+  dataset-version wire payload.** `#468` guessed the shape (`{id, dataset_id,
+  revision(required)}`) before the Backend's dataset-version route existed;
+  it now requires `version_label` (unique per `dataset_id`), `example_ids`,
+  `example_count`, and `created_at`, makes `revision` optional (row-stored
+  versions only), and adds the immutable `content_snapshot` plus
+  `content_digest_domain` so `content_digest` is recomputable offline --
+  acknowledged in `scripts/breaking_schema_allowlist.json` rather than
+  silenced, since `Unreleased` with no producer/consumer yet (Backend pin
+  `747a9d3` predates it) means the correction changes no deployed behaviour.
+- **`compute_judge_config_digest` documents that the digest is a function of
+  the PERSISTED object, not the request body**: a producer that normalizes
+  `JudgeConfig` on write (nulls included) never stores the absent form of an
+  optional key, so an omitted request field and an explicit `null` request
+  field persist -- and therefore digest -- identically for that producer,
+  which is why cross-producer agreement on `judge_config_digest` requires
+  persisting the same fully-populated, null-filled shape.
 
 ## [5.8.0] - 2026-09-05
 

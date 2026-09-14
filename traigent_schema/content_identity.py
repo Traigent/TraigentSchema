@@ -152,6 +152,17 @@ def compute_judge_config_digest(judge_config: Mapping[str, Any]) -> str:
     judge_config is irrelevant: jcs_v1 canonicalization sorts object keys
     before hashing. Any change to a value changes the digest.
 
+    Because the preimage is the PERSISTED object, a producer that normalizes
+    JudgeConfig on write (e.g. a model_dump that emits every field, nulls
+    included) never stores the absent form of an optional key -- so for that
+    producer an omitted request field and an explicit null request field
+    persist identically and digest identically, even though this function
+    still distinguishes ``{"context_source": null}`` from ``{}`` when handed
+    two different stored objects directly. Producers on different runtimes
+    only agree on this digest for the same logical configuration if they
+    store the same normalized shape; this schema recommends persisting (and
+    therefore hashing) the fully-populated, null-filled form of JudgeConfig.
+
     Raises:
         TypeError: ``judge_config`` is not a ``Mapping``.
         traigent_schema.fp2.Fp2UnsupportedValue: ``judge_config`` cannot be

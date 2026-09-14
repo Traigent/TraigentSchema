@@ -167,13 +167,28 @@
   "judge_config_digest_vectors": [
     {
       "name": "baseline_config",
-      "description": "The real R2 witness judge config (observability EvaluatorDefinition.judge_config), verbatim, from the certified-agent-r2 evidence bundle.",
+      "description": "The real R2 witness judge config as SUBMITTED in the request body (observability EvaluatorDefinition create/update request judge_config field), verbatim, from the certified-agent-r2 evidence bundle. NOTE (fix round 5, F2): this is the REQUEST shape, not what the Backend persists -- src/services/evaluation_ops_service.py stores payload.judge_config.model_dump(mode='json'), which is JudgeConfig with every optional field present (nulls included); see baseline_config_persisted_shape for the actual persisted/hashed object for this same logical config, and note its digest differs from this one.",
       "judge_config": {
         "instructions": "Score the agent's answer for exact correctness against the expected output.",
         "model_id": "gpt-4o-mini",
         "context_type": "none"
       },
       "expected_digest": "sha256:0d0dcb21eb8fa887c4c859dfb0749695001decf466c81b974ed3ef1e1dfb73d3"
+    },
+    {
+      "name": "baseline_config_persisted_shape",
+      "description": "The SAME logical config as baseline_config (the real R2 witness judge config), but in the shape the Backend actually PERSISTS and therefore actually HASHES: src/services/evaluation_ops_service.py stores payload.judge_config.model_dump(mode='json') of src/shared_infrastructure/schemas/evaluation_ops.py::JudgeConfig, which emits every field -- instructions, model_id, context_type, context_source, parameters, scoring_rubric, response_format_instructions, max_budget -- with unsupplied optionals written as null, not omitted. Seat-measured against the Backend's own model at develop 131af6668. Must differ from baseline_config's digest: the digest preimage is the persisted object, and this producer never stores the absent form of an optional key.",
+      "judge_config": {
+        "context_source": null,
+        "context_type": "none",
+        "instructions": "Score the agent's answer for exact correctness against the expected output.",
+        "max_budget": null,
+        "model_id": "gpt-4o-mini",
+        "parameters": null,
+        "response_format_instructions": null,
+        "scoring_rubric": null
+      },
+      "expected_digest": "sha256:da53f23fdb367c661b60dbccbdf710f3032b1635955e2e8f2258861096b5fc79"
     },
     {
       "name": "baseline_config_key_order_permuted",

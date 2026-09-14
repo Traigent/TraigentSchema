@@ -288,6 +288,36 @@ def test_judge_config_digest_rejects_non_mapping():
         compute_judge_config_digest(["not", "a", "mapping"])  # type: ignore[arg-type]
 
 
+def test_judge_config_digest_persisted_shape_differs_from_request_shape():
+    """F2 (fix round 5): the same logical judge config differs in digest
+    between the REQUEST shape (baseline_config, the caller-supplied 3 keys)
+    and the PERSISTED shape (baseline_config_persisted_shape, the Backend's
+    model_dump(mode='json') of JudgeConfig -- every field present, unsupplied
+    optionals written as null). The preimage is the persisted object, and
+    this Backend normalizes on write, so it never stores the absent form of
+    an optional key -- the two shapes are genuinely different stored objects
+    and MUST digest differently."""
+    vectors = {v["name"]: v for v in VECTORS["judge_config_digest_vectors"]}
+    request_shape = vectors["baseline_config"]
+    persisted_shape = vectors["baseline_config_persisted_shape"]
+    assert request_shape["expected_digest"] != persisted_shape["expected_digest"]
+    assert (
+        compute_judge_config_digest(request_shape["judge_config"])
+        == request_shape["expected_digest"]
+    )
+    assert (
+        compute_judge_config_digest(persisted_shape["judge_config"])
+        == persisted_shape["expected_digest"]
+    )
+
+
+def test_judge_config_digest_persisted_shape_key_order_is_irrelevant():
+    vectors = {v["name"]: v for v in VECTORS["judge_config_digest_vectors"]}
+    persisted = vectors["baseline_config_persisted_shape"]["judge_config"]
+    reordered = dict(reversed(list(persisted.items())))
+    assert compute_judge_config_digest(persisted) == compute_judge_config_digest(reordered)
+
+
 # --------------------------------------------------------------------------
 # Schema shape: both fields are optional/additive; null is a valid legacy
 # marker; the digest pattern is a closed sha256:<hex> form.
@@ -384,7 +414,9 @@ def test_dataset_version_instance_validates_with_content_digest(validator):
     instance = {
         "id": "dsv_1",
         "dataset_id": "ds_1",
-        "revision": 1,
+        "version_label": "v1",
+        "example_ids": ["ex-1", "ex-2"],
+        "example_count": 2,
         "content_digest": compute_dataset_version_content_digest(
             VECTORS["dataset_version_content_digest_vectors"][0]["preimage"]
         ),
@@ -394,13 +426,99 @@ def test_dataset_version_instance_validates_with_content_digest(validator):
 
 
 def test_dataset_version_instance_validates_with_null_content_digest(validator):
-    instance = {"id": "dsv_legacy", "dataset_id": "ds_1", "revision": 1, "content_digest": None}
+    instance = {
+        "id": "dsv_legacy",
+        "dataset_id": "ds_1",
+        "version_label": "v1",
+        "example_ids": [],
+        "example_count": 0,
+        "created_at": "2026-09-13T00:00:00Z",
+        "content_digest": None,
+    }
     assert validator.validate_json(instance, "dataset_version_schema") == []
 
 
 def test_dataset_version_instance_validates_without_content_digest_at_all(validator):
-    instance = {"id": "dsv_legacy", "dataset_id": "ds_1", "revision": 1}
+    instance = {
+        "id": "dsv_legacy",
+        "dataset_id": "ds_1",
+        "version_label": "v1",
+        "example_ids": [],
+        "example_count": 0,
+        "created_at": "2026-09-13T00:00:00Z",
+    }
     assert validator.validate_json(instance, "dataset_version_schema") == []
+
+
+# --------------------------------------------------------------------------
+# F1 (fix round 5): DatasetVersionV1 matches the Backend wire shape.
+# --------------------------------------------------------------------------
+
+
+def test_dataset_version_legacy_backend_shaped_payload_validates(validator):
+    """A real (pre-2.1) Backend dataset-version payload -- no revision, no
+    content_snapshot, content_digest null -- validates against the reconciled
+    schema. Shape mirrors src/routes/dataset_version_routes.py:_build_version_payload
+    on develop."""
+    instance = {
+        "id": "660b3e2e-2222-4c3e-9a1e-000000000001",
+        "dataset_id": "ds_1",
+        "version_label": "v1",
+        "description": None,
+        "example_ids": ["ex-1", "ex-2"],
+        "example_count": 2,
+        "metadata": {},
+        "created_by": None,
+        "created_at": "2026-09-13T00:00:00+00:00",
+    }
+    assert validator.validate_json(instance, "dataset_version_schema") == []
+
+
+def test_dataset_version_21_shaped_payload_validates_and_digest_recomputes(validator):
+    """A Backend PR 2.1-shaped payload -- revision, content_snapshot, a real
+    content_digest -- validates, and recomputing the digest from
+    content_snapshot (passed to compute_dataset_version_content_digest
+    directly, WITH example_id -- the function strips it itself) reproduces
+    the instance's own content_digest."""
+    snapshot = [
+        {"example_id": "ex-1", "input_text": "What is 2+2?", "expected_output": "4"},
+        {
+            "example_id": "ex-2",
+            "input_text": ["turn one", "turn two"],
+            "expected_output": "ok",
+        },
+    ]
+    digest = compute_dataset_version_content_digest(snapshot)
+    instance = {
+        "id": "660b3e2e-2222-4c3e-9a1e-000000000002",
+        "dataset_id": "ds_1",
+        "version_label": "v2",
+        "revision": 1,
+        "description": "2.1-minted version",
+        "example_ids": ["ex-1", "ex-2"],
+        "example_count": 2,
+        "metadata": {"source": "2.1"},
+        "created_by": "user_1",
+        "content_digest": digest,
+        "content_digest_domain": "traigent.dataset_version.content.v1",
+        "content_snapshot": snapshot,
+        "created_at": "2026-09-13T00:00:00+00:00",
+    }
+    assert validator.validate_json(instance, "dataset_version_schema") == []
+    assert compute_dataset_version_content_digest(instance["content_snapshot"]) == digest
+
+
+def test_dataset_version_instance_with_unknown_key_is_rejected(validator):
+    instance = {
+        "id": "dsv_1",
+        "dataset_id": "ds_1",
+        "version_label": "v1",
+        "example_ids": [],
+        "example_count": 0,
+        "created_at": "2026-09-13T00:00:00Z",
+        "unexpected_extra_field": "nope",
+    }
+    assert validator.validate_json(instance, "dataset_version_schema") != []
 
 
 def test_evaluator_version_instance_validates_with_judge_config_digest(validator):
@@ -477,7 +595,10 @@ def test_dataset_with_current_version_resolves_cross_file_ref(validator):
         "current_version": {
             "id": "dsv_1",
             "dataset_id": "ds_1",
-            "revision": 1,
+            "version_label": "v1",
+            "example_ids": ["ex-1", "ex-2"],
+            "example_count": 2,
+            "created_at": "2026-09-13T00:00:00Z",
             "content_digest": compute_dataset_version_content_digest(
                 VECTORS["dataset_version_content_digest_vectors"][0]["preimage"]
             ),

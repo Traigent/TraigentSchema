@@ -2110,6 +2110,250 @@
           "fingerprint": "2a53674d8b8cb0c538ba12ecf377c7c0851eadd35deb0bfdeb10e9251a885577"
         }
       ]
+    },
+    {
+      "file": "datasets/dataset_schema.json",
+      "rule": "property_added",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468, which was authored before the Backend's dataset-version payload was read: the real payload (src/routes/dataset_version_routes.py) carries version_label (required, unique per dataset), example_ids, example_count, description, metadata, created_by, created_at and no integer revision; revision becomes optional (row-stored versions only), and the immutable content_snapshot plus content_digest_domain are added so the digest is recomputable offline. Unreleased; no producer emits and no consumer reads this schema (Backend pin 747a9d3 predates it); acknowledged rather than silenced so the correction is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/content_digest_domain",
+          "role": "conservative",
+          "subject": "content_digest_domain",
+          "old": false,
+          "new": true,
+          "fingerprint": "eb484a64cabf1b79d5e8ffee8effea998f53a6f9392688ccdca1e71ad5c84456"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/content_snapshot",
+          "role": "conservative",
+          "subject": "content_snapshot",
+          "old": false,
+          "new": true,
+          "fingerprint": "c0643a7b241bb636404ab2941d1cfd66cdf6efdf90b8487c3d46f37451b2e761"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/created_by",
+          "role": "conservative",
+          "subject": "created_by",
+          "old": false,
+          "new": true,
+          "fingerprint": "08b79ff1f12dfd4ec6ce23274f0b2d63012004dfd5b62650412a70ca60b4efef"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/description",
+          "role": "conservative",
+          "subject": "description",
+          "old": false,
+          "new": true,
+          "fingerprint": "253bcd945d862c4bf5094fc5250adb9b98bfb24eccaf1f36924d755ce03c2dfa"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/example_count",
+          "role": "conservative",
+          "subject": "example_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "5a5247a3921363744cec6b2b6f839edf281d49fe1debda0353f0496f3375b6a2"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/example_ids",
+          "role": "conservative",
+          "subject": "example_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "a37190faa125ec22d6aeb76bc713e23cf003bf00f14889133e4133018d011a2e"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/metadata",
+          "role": "conservative",
+          "subject": "metadata",
+          "old": false,
+          "new": true,
+          "fingerprint": "28eea09fd78051b542050ccb5d783291b293b1b01a472257876d78761a92163e"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/version_label",
+          "role": "conservative",
+          "subject": "version_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "f444526e529adfae3ea0316c5579b521a64b98ba6a2fec193d749f1dabb58ffd"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_schema.json",
+      "rule": "required",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468, which was authored before the Backend's dataset-version payload was read: created_at, example_count, example_ids and version_label become required (matching what the Backend's dataset-version payload always carries), and the previously-required integer revision becomes optional (row-stored versions only). Unreleased; no producer emits and no consumer reads this schema (Backend pin 747a9d3 predates it); acknowledged rather than silenced so the correction is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "created_at",
+          "old": false,
+          "new": true,
+          "fingerprint": "2cb3697639c829d27c19e8f1fb7c0ccef1f1978c4b67991fbc4996ae1980b970"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "example_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "5e9429cd0bdf568a8826015d9613bb72a5f6d30dbd6c9732ce929f26faf333dd"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "example_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "5e9d3c311f5cd046fc3111ffe36721e8b538347109cfae320504072b425a8413"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "version_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "a4a0dab3dfc718480784ae947f23b4a334333f153cd60ab6300b89c002c883fb"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "revision",
+          "old": true,
+          "new": false,
+          "fingerprint": "51fe3b72de81d6b24fcbc809e065145df38635d2c3849c49c2317033b186d902"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_version_schema.json",
+      "rule": "property_added",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468, which was authored before the Backend's dataset-version payload was read: the real payload (src/routes/dataset_version_routes.py) carries version_label (required, unique per dataset), example_ids, example_count, description, metadata, created_by, created_at and no integer revision; revision becomes optional (row-stored versions only), and the immutable content_snapshot plus content_digest_domain are added so the digest is recomputable offline. Unreleased; no producer emits and no consumer reads this schema (Backend pin 747a9d3 predates it); acknowledged rather than silenced so the correction is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/content_digest_domain",
+          "role": "conservative",
+          "subject": "content_digest_domain",
+          "old": false,
+          "new": true,
+          "fingerprint": "0bc6c753c392e8ee319736689c7ef058f3612e87c866961a462db6de6a948472"
+        },
+        {
+          "pointer": "#/allOf/0/properties/content_snapshot",
+          "role": "conservative",
+          "subject": "content_snapshot",
+          "old": false,
+          "new": true,
+          "fingerprint": "dc94487bf8320f3f204dd995b39611919a5422c3475be9e5706d35b2f0cc98cd"
+        },
+        {
+          "pointer": "#/allOf/0/properties/created_by",
+          "role": "conservative",
+          "subject": "created_by",
+          "old": false,
+          "new": true,
+          "fingerprint": "a550fe202d298534a48c614b574f7b9416063ddd565379e1a6c87960bce73719"
+        },
+        {
+          "pointer": "#/allOf/0/properties/description",
+          "role": "conservative",
+          "subject": "description",
+          "old": false,
+          "new": true,
+          "fingerprint": "1bf3d730a5418b10227bfcae09fd81ee6542b4922f6b10f9eeb6b6c85ff35d7a"
+        },
+        {
+          "pointer": "#/allOf/0/properties/example_count",
+          "role": "conservative",
+          "subject": "example_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "32bfc233417253a4d3955567ae56881975f91760c8469cf1af01e1c620084692"
+        },
+        {
+          "pointer": "#/allOf/0/properties/example_ids",
+          "role": "conservative",
+          "subject": "example_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "3726de18e3a03f233b747aa30c308810afa2accb63b753d5307cbf0965c67e7d"
+        },
+        {
+          "pointer": "#/allOf/0/properties/metadata",
+          "role": "conservative",
+          "subject": "metadata",
+          "old": false,
+          "new": true,
+          "fingerprint": "a9d2719e6d820d98b5984ce8d739ae8333cc868ebacd59b64bd26e1a30ce2d2a"
+        },
+        {
+          "pointer": "#/allOf/0/properties/version_label",
+          "role": "conservative",
+          "subject": "version_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "978e34afb9898fa89d4bed12c4f943890527cd2e906606bbae654c84af4de998"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_version_schema.json",
+      "rule": "required",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468, which was authored before the Backend's dataset-version payload was read: created_at, example_count, example_ids and version_label become required (matching what the Backend's dataset-version payload always carries), and the previously-required integer revision becomes optional (row-stored versions only). Unreleased; no producer emits and no consumer reads this schema (Backend pin 747a9d3 predates it); acknowledged rather than silenced so the correction is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "created_at",
+          "old": false,
+          "new": true,
+          "fingerprint": "d550a129c682e163ffcddea4639684f3dd043eadb247d53a4f85f4548f7cb61f"
+        },
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "example_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "68a6936dd1855a3c1983e2e4a9d3988d734258dd12c7a8144061f5a999bf27c1"
+        },
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "example_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "d490b60eab1d94a17ae9d62688d39f6a1feace549c4034200d1a75f8fd227b77"
+        },
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "version_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "e4c529f81cd25ba3df2f96add5270445e8dbf8f7d2604b24451d495d89d77adb"
+        },
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "revision",
+          "old": true,
+          "new": false,
+          "fingerprint": "e0ae21a6bcab9b580258db9ae65c70db5782981faeecf475e5ae8642ae0136a2"
+        }
+      ]
     }
   ]
 }

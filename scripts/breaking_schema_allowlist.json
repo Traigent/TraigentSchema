@@ -2354,6 +2354,99 @@
           "fingerprint": "e0ae21a6bcab9b580258db9ae65c70db5782981faeecf475e5ae8642ae0136a2"
         }
       ]
+    },
+    {
+      "file": "execution/execution_mode_schema.json",
+      "rule": "file_removed",
+      "reason": "Owner decision on Traigent#2271: no deployed clients exist for the legacy execution_mode selector, so it is REMOVED rather than deprecated. This standalone schema was never $ref'd from the reachable request/response graph (mep/sdk_tuning/planned_projects roots) or from any live endpoint -- it was allowlisted as a structural orphan in tests/test_schemas.py and exercised only by its own now-removed direct-load tests -- so deleting it drops no live contract path.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7db85db755207fc9e42e814f9daebeb5e692e7cb23e54f4c32c3e3b743db9c43"
+        }
+      ]
+    },
+    {
+      "file": "optimization/hybrid_session_create_request_schema.json",
+      "rule": "allOf_added",
+      "reason": "Owner decision on Traigent#2271: the flat legacy execution_mode selector and flat hybrid_api_* keys are removed, not deprecated, because no deployed client exists. additionalProperties stayed open on this request object, so removing the (never-declared-here) properties alone would not reject them; this allOf adds an explicit not/anyOf that fails closed on execution_mode or any flat hybrid_api_* key. algorithm/offline/hybrid_api_options (nested) are unaffected and keep validating.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "51273aca3602101dfa9a856301170851e1d7783cd28d29732438a9d5789c0422"
+        }
+      ]
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_added",
+      "reason": "Same Traigent#2271 rejection as the hybrid_session_create_request_schema.json entry above, applied to POST /api/v1/hybrid/sessions's inline request body copy: execution_mode and flat hybrid_api_* keys now fail closed via an added not/anyOf allOf branch instead of validating silently under additionalProperties:true.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "cc03ea3b65a56a86c1406f6d5a9930b379ebb78e285d37ae223cd08569749d61"
+        }
+      ]
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "POST /api/v1/sessions (SDK session create), Traigent#2271: the deprecated free-form execution_mode property is deleted and a new allOf branch is added that explicitly rejects execution_mode and every flat hybrid_api_* key (endpoint, transport, transport_type, batch_size, batch_parallelism, keep_alive, heartbeat_interval, timeout, auth_header, auto_discover_tvars, tunable_id). This is an intentional narrowing, not an accidental one: no deployed client sends these per the owner's Traigent#2271 decision, and algorithm/offline/hybrid_api_options remain the sole canonical selectors.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 9,
+          "new": 10,
+          "fingerprint": "745c9823007df02f4616733b0f27458bdac660046a0e1bd13aabb6b3447bb730"
+        }
+      ]
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_removed",
+      "reason": "Traigent#2271: x-preferred-values and x-deprecated-values were declared solely to document the now-removed OptimizationExecutionMode/ExecutionMode enums' local/edge_analytics migration notes. With those enums deleted, tests/test_x_extensions_governance.py's stale-registry-entry ratchet (test_meta_schema_has_no_stale_unused_entries) fails if the two keywords stay registered with zero remaining usage, so they are removed from the meta-schema together with their only callers.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#/properties/x-deprecated-values",
+          "role": "conservative",
+          "subject": "x-deprecated-values",
+          "old": true,
+          "new": false,
+          "fingerprint": "e947b0feb37f166df0312cfcd80632ea5ae56db2f7eb43f25e7c8da6e4d73cde"
+        },
+        {
+          "pointer": "#/properties/x-preferred-values",
+          "role": "conservative",
+          "subject": "x-preferred-values",
+          "old": true,
+          "new": false,
+          "fingerprint": "f29d854b9d88a91268f87fd416c1e66d27c8cabb52b9e4db9bea5bf1f143b80f"
+        }
+      ]
     }
   ]
 }

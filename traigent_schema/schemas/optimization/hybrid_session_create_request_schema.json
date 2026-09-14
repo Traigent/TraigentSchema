@@ -349,5 +349,26 @@
         "problem_statement"
       ]
     }
+  ],
+  "allOf": [
+    {
+      "description": "Legacy execution selectors removed (Traigent#2271): execution_mode and the flat hybrid_api_* keys are no longer accepted request selectors. Use algorithm/offline for execution behavior and the nested hybrid_api_options object for external evaluator configuration.",
+      "not": {
+        "anyOf": [
+          { "required": ["execution_mode"] },
+          { "required": ["hybrid_api_endpoint"] },
+          { "required": ["hybrid_api_transport"] },
+          { "required": ["hybrid_api_transport_type"] },
+          { "required": ["hybrid_api_batch_size"] },
+          { "required": ["hybrid_api_batch_parallelism"] },
+          { "required": ["hybrid_api_keep_alive"] },
+          { "required": ["hybrid_api_heartbeat_interval"] },
+          { "required": ["hybrid_api_timeout"] },
+          { "required": ["hybrid_api_auth_header"] },
+          { "required": ["hybrid_api_auto_discover_tvars"] },
+          { "required": ["hybrid_api_tunable_id"] }
+        ]
+      }
+    }
   ]
 }

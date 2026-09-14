@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No unreleased changes yet._
+
+## [6.0.0] - 2026-09-14
+
+### Breaking
+- **Legacy execution selectors removed, not deprecated (Traigent#2271, step 1 of 4 —
+  TraigentSchema only; SDK/JS SDK/Backend follow in separate PRs).** Owner decision:
+  no deployed clients exist for these selectors, so this is a removal rather than a
+  deprecation cycle.
+  - `execution_mode` is deleted from the SDK session-create request
+    (`optimization_endpoints.json` `POST /api/v1/sessions`) and is now explicitly
+    rejected — sending it (any value, including the two most commonly deployed
+    ones, `local` and `edge_analytics`) fails validation. It was previously a
+    free-form, non-enum-constrained string accepted for backward compatibility;
+    `additionalProperties: true` on that request object meant deleting the property
+    alone would not have rejected it, so an explicit `allOf`/`not`/`anyOf` branch was
+    added to fail closed.
+  - The same `execution_mode` + flat `hybrid_api_*` rejection (`hybrid_api_endpoint`,
+    `hybrid_api_transport`, `hybrid_api_transport_type`, `hybrid_api_batch_size`,
+    `hybrid_api_batch_parallelism`, `hybrid_api_keep_alive`,
+    `hybrid_api_heartbeat_interval`, `hybrid_api_timeout`, `hybrid_api_auth_header`,
+    `hybrid_api_auto_discover_tvars`, `hybrid_api_tunable_id`) is added to
+    `POST /api/v1/hybrid/sessions` (`optimization_endpoints.json` inline body and
+    `hybrid_session_create_request_schema.json`), which never declared these
+    properties but accepted them silently under `additionalProperties: true`.
+  - `algorithm`, `offline`, and the nested `hybrid_api_options` object (the
+    canonical replacements) are unchanged and continue to validate.
+  - `schemas/execution/execution_mode_schema.json` is deleted. It was never `$ref`'d
+    from the reachable request/response graph (the 3 canonical OpenAPI catalog
+    roots) or from any live endpoint — it was already allowlisted as a structural
+    orphan in `tests/test_schemas.py`'s `KNOWN_ORPHAN_ALLOWLIST` and exercised only
+    by its own now-removed direct-load tests. Deleting it drops no live contract
+    path.
+  - `optimization_strategy_schema.json`'s `x-traigent-optimization-capabilities`
+    `execution_mode` capability metadata is narrowed to canonical values only:
+    `local` (client-side grid/random, no backend egress) or `cloud` (backend-driven
+    trial suggestion — auto, bayesian/tpe, hyperband, frontier_scout; previously
+    `hybrid`). The `hybrid`/`hybrid_api`/`edge_analytics` values and the
+    `OptimizationExecutionMode` definition are deleted; a new
+    `OptimizationCapabilityExecutionMode` definition (enum `["local", "cloud"]`)
+    replaces it. `deprecated_execution_modes` (the `edge_analytics` alias list on
+    `grid`/`random`) is deleted with no replacement — an external evaluator is
+    configured via `hybrid_api_options`, orthogonal to `execution_mode`.
+  - Four breaking-schema-check findings acknowledged in
+    `scripts/breaking_schema_allowlist.json` (file_removed on
+    `execution_mode_schema.json`; `allOf_added` ×2 and `allOf_branch_count_changed`
+    ×1 on the two session-create request bodies).
+  - Consumers still reading these fields (Python SDK `traigent/api/decorators.py`,
+    TraigentBackend `src/shared_infrastructure/types/execution_mode.py` +
+    `src/services/traigent/{interactive_session_service,session_service_refactored}.py`
+    + `src/routes/traigent_session_routes.py`) are unaffected by this PR — their
+    removal is scoped to separate follow-up PRs per Traigent#2271.
+
 ### Added
 - **Dataset-version content digest and evaluator judge-config digest (R3-1.1),
   corrected.** `#468` (merged 2026-09-13T20:58Z at `335d8fc`, `Unreleased`) shipped

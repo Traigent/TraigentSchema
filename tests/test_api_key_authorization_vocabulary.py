@@ -27,6 +27,7 @@ EXPECTED_SCOPES = [
     "benchmarks:write",
     "datasets:read",
     "datasets:write",
+    "director_evidence:read",
     "experiments:read",
     "experiments:write",
     "measures:read",
@@ -61,6 +62,7 @@ EXPECTED_PERMISSIONS = [
     "dataset.read",
     "dataset.write",
     "delete",
+    "director_evidence.read",
     "experiment.read",
     "experiment.write",
     "measure.read",
@@ -81,6 +83,7 @@ EXPECTED_SCOPE_PERMISSION_MAP = {
     "benchmarks:write": ["benchmark.write", "benchmark.read"],
     "datasets:read": ["dataset.read"],
     "datasets:write": ["dataset.write", "dataset.read"],
+    "director_evidence:read": ["director_evidence.read"],
     "experiments:read": ["experiment.read"],
     "experiments:write": ["experiment.write", "experiment.read"],
     "measures:read": ["measure.read"],
@@ -149,6 +152,25 @@ def test_scope_permission_map_covers_every_scope_once() -> None:
             assert read_permission in metadata["permissions"], scope
 
     assert scope_map["admin:all"]["privileged"] is True
+
+
+def test_director_evidence_scope_map_entry_is_restricted() -> None:
+    schema = load_schema(VOCABULARY_SCHEMA)
+    scope_map = schema["x-scope-permission-map"]
+
+    assert scope_map["director_evidence:read"] == {
+        "permissions": ["director_evidence.read"],
+        "compatibility_aliases": [],
+        "restricted": True,
+    }
+
+
+def test_user_requestable_scope_list_excludes_admin_and_director_evidence() -> None:
+    schema = load_schema(VOCABULARY_SCHEMA)
+    excludes = schema["definitions"]["UserRequestableApiKeyScopeList"]["x-excludes"]
+
+    assert "admin:all" in excludes
+    assert "director_evidence:read" in excludes
 
 
 def test_scope_and_permission_conventions_are_documented_and_enforced() -> None:

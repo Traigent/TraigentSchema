@@ -226,6 +226,11 @@
         "type": "object"
       }
     },
+    "x-restricted-scopes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Scope tokens bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes. Placed on the authorization vocabulary schema alongside x-privileged-scopes and x-user-requestable-scopes."
+    },
     "x-scope-convention": {
       "type": "object",
       "description": "Documents the canonical format for API-key scope tokens: delimiter (':'), resource number (plural), and a regex pattern. Placed on the authorization vocabulary schema that defines scope tokens.",

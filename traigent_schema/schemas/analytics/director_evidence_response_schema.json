@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/director_evidence_response_schema.json",
+  "title": "Director Evidence Success Response",
+  "description": "Platform success envelope for GET .../runs/{run_id}/director-evidence. The backend route uses response_handler.success_response (same convention as decision_payload_response_schema.json), so the Director evidence DTO is nested under data. Optional meta/warnings mirror response_handler.success_response (G1 v0.6 F11).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "./director_evidence_schema.json"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "payload_version": "director_evidence.v2",
+  "evidence_available": false,
+  "abstain_reason": "too_few_trials",
+  "run_status": "completed",
+  "provenance": "unknown"
+}

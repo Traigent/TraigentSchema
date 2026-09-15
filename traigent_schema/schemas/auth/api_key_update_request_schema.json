@@ -16,5 +16,9 @@
     "rotation_interval_days": {"type": "integer", "minimum": 1, "maximum": 365},
     "auto_rotate": {"type": "boolean"},
     "metadata": {"type": "object"}
-  }
+  },
+  "x-backend-obligations": [
+    "For a key whose persisted key_type is director, the merged persisted state after the update must keep scopes exactly [\"director_evidence:read\"], empty broad permissions, at least one per-experiment read grant each expiring no later than 30 days, and no wildcard or admin grant; a violation returns 400 and nothing persists.",
+    "key_type cannot change on update."
+  ]
 }

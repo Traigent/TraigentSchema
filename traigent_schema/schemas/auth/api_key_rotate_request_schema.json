@@ -17,5 +17,8 @@
       "maxLength": 255,
       "description": "Optional client-supplied reason."
     }
-  }
+  },
+  "x-backend-obligations": [
+    "Rotating a key whose persisted key_type is director must produce a key whose persisted state satisfies the same director invariants (scopes exactly [\"director_evidence:read\"], empty broad permissions, at least one per-experiment read grant each expiring no later than 30 days, no wildcard or admin grant); otherwise 400 and nothing persists."
+  ]
 }

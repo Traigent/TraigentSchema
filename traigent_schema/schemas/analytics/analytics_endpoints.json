@@ -723,6 +723,95 @@
           }
         }
       }
+    },
+    "/api/v1/analytics/runs/{run_id}/director-evidence": {
+      "get": {
+        "summary": "Get content-free Director evidence for one exact run",
+        "description": "Returns the Director evidence DTO (G1 contracts §2) for one exact run in the caller's project, nested under the success envelope's data key.",
+        "x-asserted-against-backend": false,
+        "responses": {
+          "200": {
+            "description": "Director evidence returned (branch A, B or C)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./director_evidence_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks permission for this run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run not found or not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Evidence temporarily unavailable — dependency failure or timeout; never partial data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

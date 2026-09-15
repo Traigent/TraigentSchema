@@ -8,9 +8,12 @@
   "x-source-of-truth": "api_key_authorization_vocabulary",
   "x-scope-convention": {
     "description": "API-key scopes are resource:action tokens. User resource scopes use plural resources plus read/write actions; privileged platform scope is admin:all.",
-    "pattern": "^(?:[a-z][a-z0-9_]*s:(?:read|write)|admin:all)$",
+    "pattern": "^(?:[a-z][a-z0-9_]*s:(?:read|write)|admin:all|director_evidence:read)$",
     "resource_number": "plural",
-    "delimiter": ":"
+    "delimiter": ":",
+    "exceptions": {
+      "director_evidence:read": "Restricted Director evidence scope: singular by design, never user-requestable, implies no other permission."
+    }
   },
   "x-permission-convention": {
     "description": "Canonical backend permissions are either coarse API-key grants or singular resource.action tokens. Compatibility aliases such as read:experiment are documented in the scope map but are not the canonical permission vocabulary.",
@@ -88,6 +91,11 @@
     "traces:write": {
       "permissions": ["trace.write", "trace.read"],
       "compatibility_aliases": ["write:trace", "read:trace"]
+    },
+    "director_evidence:read": {
+      "permissions": ["director_evidence.read"],
+      "compatibility_aliases": [],
+      "restricted": true
     }
   },
   "properties": {},
@@ -103,6 +111,7 @@
         "benchmarks:write",
         "datasets:read",
         "datasets:write",
+        "director_evidence:read",
         "experiments:read",
         "experiments:write",
         "measures:read",
@@ -110,14 +119,14 @@
         "traces:read",
         "traces:write"
       ],
-      "pattern": "^(?:[a-z][a-z0-9_]*s:(?:read|write)|admin:all)$"
+      "pattern": "^(?:[a-z][a-z0-9_]*s:(?:read|write)|admin:all|director_evidence:read)$"
     },
     "ApiKeyScopeList": {
       "type": "string",
       "description": "Space-delimited API-key scope string. Each token MUST be a canonical ApiKeyScopeToken, including privileged platform scopes when used by trusted server-side contexts.",
       "minLength": 1,
       "maxLength": 512,
-      "pattern": "^(?:agents:read|agents:write|admin:all|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|admin:all|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write))*$",
+      "pattern": "^(?:agents:read|agents:write|admin:all|director_evidence:read|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|admin:all|director_evidence:read|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write))*$",
       "x-token-ref": "#/definitions/ApiKeyScopeToken"
     },
     "UserRequestableApiKeyScopeToken": {
@@ -146,7 +155,7 @@
       "maxLength": 512,
       "pattern": "^(?:agents:read|agents:write|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write))*$",
       "x-token-ref": "#/definitions/UserRequestableApiKeyScopeToken",
-      "x-excludes": ["admin:all"]
+      "x-excludes": ["admin:all", "director_evidence:read"]
     },
     "ApiKeyScopeArray": {
       "type": "array",
@@ -169,6 +178,7 @@
         "dataset.read",
         "dataset.write",
         "delete",
+        "director_evidence.read",
         "experiment.read",
         "experiment.write",
         "measure.read",
@@ -222,5 +232,6 @@
         }
       ]
     }
-  }
+  },
+  "x-restricted-scopes": ["director_evidence:read"]
 }

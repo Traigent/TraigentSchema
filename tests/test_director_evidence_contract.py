@@ -43,7 +43,22 @@ C = json.loads(
 )
 
 SUPPRESSED = ["completed_trials", "recorded_observations", "mean_quality", "nonzero_cost", "age"]
-ORDINARY_REASONS = DTO["definitions"]["ordinary_abstain_reason"]["enum"]
+
+# Pinned independently of the schema under test (G1 v1.0.1 §2.2 precedence order).
+# Do not derive this from DTO["definitions"]["ordinary_abstain_reason"]["enum"]: the
+# whole point is to catch a schema regression that silently drops or reorders a reason.
+ORDINARY_REASONS = [
+    "run_status_unknown",
+    "run_not_terminal",
+    "run_not_completed",
+    "no_completed_trials",
+    "too_few_trials",
+    "metric_not_declared",
+    "metric_ambiguous",
+    "metric_not_normalized",
+    "metric_incomplete_coverage",
+]
+PRIVACY_REASON = "privacy_mode"
 
 
 def dto_errors(payload: dict) -> list:
@@ -85,6 +100,10 @@ def test_item1_every_ordinary_reason_selects_branch_b_only(reason: str) -> None:
     assert matching_branches(payload) == ["branch_abstain"]
 
 
+def test_item1_schema_ordinary_abstain_reason_enum_matches_pinned_list() -> None:
+    assert DTO["definitions"]["ordinary_abstain_reason"]["enum"] == ORDINARY_REASONS
+
+
 # ---------------------------------------------------------------------------
 # Item 2 — suppressed-field rejection, null != absent, privacy forbids provenance
 # ---------------------------------------------------------------------------
@@ -123,7 +142,7 @@ def test_item2_available_rejects_abstain_reason() -> None:
 
 
 def test_item2_ordinary_abstain_rejects_privacy_mode_reason() -> None:
-    assert dto_errors({**B, "abstain_reason": "privacy_mode"})
+    assert dto_errors({**B, "abstain_reason": PRIVACY_REASON})
 
 
 # ---------------------------------------------------------------------------
@@ -253,17 +272,32 @@ ROTATE_SCHEMA_NAME = "api_key_rotate_request_schema"
 
 def create_errors(payload: dict) -> list:
     schema = load_schema(CREATE_SCHEMA_NAME)
-    return [str(e) for e in Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)]
+    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
 
 
 def update_errors(payload: dict) -> list:
     schema = load_schema(UPDATE_SCHEMA_NAME)
-    return [str(e) for e in Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)]
+    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
 
 
 def rotate_errors(payload: dict) -> list:
     schema = load_schema(ROTATE_SCHEMA_NAME)
-    return [str(e) for e in Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)]
+    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
+
+
+def _error_signal(errors: list) -> str:
+    """Join each error's instance path, keyword, and message for substring checks."""
+    parts = []
+    for e in errors:
+        path = ".".join(str(p) for p in e.absolute_path)
+        parts.append(f"{path} {e.validator} {e.message}")
+    return " | ".join(parts)
+
+
+def _assert_error_names(errors: list, token: str, case_id: str) -> None:
+    assert errors, case_id
+    signal = _error_signal(errors)
+    assert token in signal, f"{case_id}: expected {token!r} in error signal {signal!r}"
 
 
 def _valid_grant(**overrides) -> dict:
@@ -292,36 +326,52 @@ def test_item6_create_valid_director_request_validates() -> None:
 
 
 DIRECTOR_CREATE_MUTATIONS = [
-    ("scopes_missing", lambda p: p.pop("scopes")),
-    ("scopes_not_director_evidence_read", lambda p: p.__setitem__("scopes", ["experiments:read"])),
+    ("scopes_missing", lambda p: p.pop("scopes"), "scopes"),
+    ("scopes_not_director_evidence_read", lambda p: p.__setitem__("scopes", ["experiments:read"]), "scopes"),
     (
         "scopes_has_extra_token",
         lambda p: p.__setitem__("scopes", ["director_evidence:read", "experiments:read"]),
+        "scopes",
     ),
-    ("permissions_missing", lambda p: p.pop("permissions")),
-    ("permissions_nonempty", lambda p: p.__setitem__("permissions", ["read"])),
-    ("resource_grants_missing", lambda p: p.pop("resource_grants")),
-    ("resource_grants_empty", lambda p: p.__setitem__("resource_grants", [])),
-    ("grant_permission_write", lambda p: p["resource_grants"][0].__setitem__("permissions", ["write"])),
+    ("permissions_missing", lambda p: p.pop("permissions"), "permissions"),
+    ("permissions_nonempty", lambda p: p.__setitem__("permissions", ["read"]), "permissions"),
+    ("resource_grants_missing", lambda p: p.pop("resource_grants"), "resource_grants"),
+    ("resource_grants_empty", lambda p: p.__setitem__("resource_grants", []), "resource_grants"),
+    (
+        "grant_permission_write",
+        lambda p: p["resource_grants"][0].__setitem__("permissions", ["write"]),
+        "permissions",
+    ),
     (
         "grant_permission_duplicate_read",
         lambda p: p["resource_grants"][0].__setitem__("permissions", ["read", "read"]),
+        "permissions",
     ),
-    ("grant_resource_type_project", lambda p: p["resource_grants"][0].__setitem__("resource_type", "project")),
-    ("grant_missing_expires_at", lambda p: p["resource_grants"][0].pop("expires_at")),
-    ("grant_expires_at_not_a_date", lambda p: p["resource_grants"][0].__setitem__("expires_at", "not-a-date")),
-    ("grant_extra_property", lambda p: p["resource_grants"][0].__setitem__("extra", "x")),
-    ("scope_preset_present", lambda p: p.__setitem__("scope_preset", "minimal")),
+    (
+        "grant_resource_type_project",
+        lambda p: p["resource_grants"][0].__setitem__("resource_type", "project"),
+        "resource_type",
+    ),
+    ("grant_missing_expires_at", lambda p: p["resource_grants"][0].pop("expires_at"), "expires_at"),
+    (
+        "grant_expires_at_not_a_date",
+        lambda p: p["resource_grants"][0].__setitem__("expires_at", "not-a-date"),
+        "expires_at",
+    ),
+    ("grant_extra_property", lambda p: p["resource_grants"][0].__setitem__("extra", "x"), "extra"),
+    ("scope_preset_present", lambda p: p.__setitem__("scope_preset", "minimal"), "scope_preset"),
 ]
 
 
 @pytest.mark.parametrize(
-    "case_id,mutate", DIRECTOR_CREATE_MUTATIONS, ids=[c[0] for c in DIRECTOR_CREATE_MUTATIONS]
+    "case_id,mutate,expected_token",
+    DIRECTOR_CREATE_MUTATIONS,
+    ids=[c[0] for c in DIRECTOR_CREATE_MUTATIONS],
 )
-def test_item6_create_director_request_rejects(case_id: str, mutate) -> None:
+def test_item6_create_director_request_rejects(case_id: str, mutate, expected_token: str) -> None:
     payload = _base_director_create()
     mutate(payload)
-    assert create_errors(payload), case_id
+    _assert_error_names(create_errors(payload), expected_token, case_id)
 
 
 NON_DIRECTOR_KEY_TYPES = ["user", "service", "admin", "temporary", "readonly", "system", None]
@@ -332,7 +382,7 @@ def test_item6f4_non_director_empty_scopes_rejected(key_type) -> None:
     payload = {"key_name": "k", "scopes": []}
     if key_type is not None:
         payload["key_type"] = key_type
-    assert create_errors(payload)
+    _assert_error_names(create_errors(payload), "scopes", f"key_type={key_type}")
 
 
 @pytest.mark.parametrize("key_type", NON_DIRECTOR_KEY_TYPES, ids=lambda kt: kt or "omitted")
@@ -340,7 +390,7 @@ def test_item6f4_non_director_empty_permissions_rejected(key_type) -> None:
     payload = {"key_name": "k", "permissions": []}
     if key_type is not None:
         payload["key_type"] = key_type
-    assert create_errors(payload)
+    _assert_error_names(create_errors(payload), "permissions", f"key_type={key_type}")
 
 
 @pytest.mark.parametrize("key_type", NON_DIRECTOR_KEY_TYPES, ids=lambda kt: kt or "omitted")
@@ -364,7 +414,7 @@ def test_item6f4_non_director_resource_grants_rejected(key_type) -> None:
     payload = {"key_name": "k", "resource_grants": [_valid_grant()]}
     if key_type is not None:
         payload["key_type"] = key_type
-    assert create_errors(payload)
+    _assert_error_names(create_errors(payload), "resource_grants", f"key_type={key_type}")
 
 
 def test_item6_create_backend_obligations_mention_30_day_grant_bound() -> None:
@@ -377,11 +427,15 @@ def test_item6_update_key_name_only_validates() -> None:
 
 
 def test_item6_update_key_type_rejected() -> None:
-    assert update_errors({"key_type": "director"})
+    _assert_error_names(update_errors({"key_type": "director"}), "key_type", "update_key_type_rejected")
 
 
 def test_item6_update_resource_grants_rejected() -> None:
-    assert update_errors({"resource_grants": [_valid_grant()]})
+    _assert_error_names(
+        update_errors({"resource_grants": [_valid_grant()]}),
+        "resource_grants",
+        "update_resource_grants_rejected",
+    )
 
 
 def test_item6_update_has_backend_obligations() -> None:
@@ -394,7 +448,7 @@ def test_item6_rotate_strategy_immediate_validates() -> None:
 
 
 def test_item6_rotate_key_type_rejected() -> None:
-    assert rotate_errors({"key_type": "director"})
+    _assert_error_names(rotate_errors({"key_type": "director"}), "key_type", "rotate_key_type_rejected")
 
 
 def test_item6_rotate_has_backend_obligations() -> None:

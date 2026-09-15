@@ -212,6 +212,37 @@ def test_null_dataset_is_explicit_and_empty_dataset_is_rejected() -> None:
     assert _errors("ExperimentGroupOverview", empty_dataset)
 
 
+def test_dataset_label_is_optional_display_only_and_nullable() -> None:
+    with_label = _group(dataset_label="Support Tickets v2")
+    with_null_label = _group(dataset_label=None)
+    without_label = _group()
+    empty_label = _group(dataset_label="")
+
+    assert _errors("ExperimentGroupOverview", with_label) == []
+    assert _errors("ExperimentGroupOverview", with_null_label) == []
+    assert "dataset_label" not in without_label
+    assert _errors("ExperimentGroupOverview", without_label) == []
+    assert _errors("ExperimentGroupOverview", empty_label)
+
+
+def test_dataset_label_is_never_required_or_identity_constrained() -> None:
+    schema = _load_schema("execution/experiment_group_schema.json")
+    overview = schema["definitions"]["ExperimentGroupOverview"]
+
+    assert "dataset_label" not in overview["required"]
+
+    # dataset_label must not be pinned or referenced by the identity_state
+    # discriminator branches (identified / unidentified / absent-legacy):
+    # it is display-only and orthogonal to group identity.
+    for branch in overview["allOf"]:
+        for clause in ("if", "then"):
+            assert "dataset_label" not in branch.get(clause, {}).get("properties", {})
+
+    # Sort/tie-break vocabulary must never gain a dataset_label member either.
+    sort_field = schema["definitions"]["ExperimentGroupSortField"]
+    assert "dataset_label" not in sort_field["enum"]
+
+
 def test_group_id_is_opaque_url_safe_lookup_token_only() -> None:
     assert _errors("ExperimentGroupOverview", _group(group_id="group_AbC-123")) == []
     assert _errors("ExperimentGroupOverview", _group(group_id="../tenant-a"))

@@ -189,6 +189,15 @@
         "dataset_id": {
           "$ref": "#/definitions/CanonicalDatasetId"
         },
+        "dataset_label": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Human-readable display label of the canonical dataset (Benchmark.label) when the group has a linked dataset; null when the group has no linked dataset or no label is available. Display-only: never part of group identity, grouping, sorting or pagination."
+        },
         "identity_state": {
           "type": "string",
           "enum": [

@@ -1,5 +1,5 @@
 {
-  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
       "file": "certification/certification_endpoints_v0.json",
@@ -2544,6 +2544,23 @@
           "old": null,
           "new": null,
           "fingerprint": "82d8616101562b591201cf61775cd9dda1b6339fd0f6947ad6755d2ff4d4f9ba"
+        }
+      ]
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "property_added",
+      "reason": "dataset_label is a new optional, nullable member on ExperimentGroupOverview added to let the portal's agent+dataset history table show a human-readable dataset name (Benchmark.label) instead of an opaque canonical dataset_id or 'No dataset'. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key.",
+      "version": "Unreleased",
+      "pr": "#472",
+      "findings": [
+        {
+          "pointer": "#/properties/group/properties/dataset_label",
+          "role": "conservative",
+          "subject": "dataset_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "4d0ca33534b1f02e6905415f2f886d539ead08e8b5df24bac4b6d56aa87c2925"
         }
       ]
     }

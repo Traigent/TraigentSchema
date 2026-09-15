@@ -2453,7 +2453,7 @@
       "rule": "property_added",
       "reason": "dataset_label is a new optional, nullable member on ExperimentGroupOverview added to let the portal's agent+dataset history table show a human-readable dataset name (Benchmark.label) instead of an opaque canonical dataset_id or 'No dataset'. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key.",
       "version": "Unreleased",
-      "pr": "pending (branch fix/dataset-history-label)",
+      "pr": "#472",
       "findings": [
         {
           "pointer": "#/properties/group/properties/dataset_label",

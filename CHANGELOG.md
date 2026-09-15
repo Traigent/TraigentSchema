@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes yet._
+### Added
+- **`dataset_label` on `ExperimentGroupOverview` (agent+dataset history display label).**
+  New optional, nullable `dataset_label` (`schemas/execution/experiment_group_schema.json`)
+  carries the human-readable display label of the canonical dataset (`Benchmark.label`)
+  for an identified cohort's group-list and group-detail overview; `null` when the group
+  has no linked dataset or no label is available. Purely additive and display-only — it is
+  never part of group identity, `identity_state`, sort vocabulary, or pagination/cursor
+  keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
+  history table showing only an opaque `dataset_id` or "No dataset".
 
 ## [6.0.0] - 2026-09-14
 

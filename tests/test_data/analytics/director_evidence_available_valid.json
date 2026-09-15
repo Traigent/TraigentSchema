@@ -1,0 +1,16 @@
+{
+  "payload_version": "director_evidence.v2",
+  "evidence_available": true,
+  "run_status": "completed",
+  "provenance": "unknown",
+  "completed_trials": "3-9",
+  "recorded_observations": {
+    "bucket": "10-99",
+    "completeness": "complete"
+  },
+  "mean_quality": {
+    "pct_bucket": 85
+  },
+  "nonzero_cost": "most",
+  "age": "fresh"
+}

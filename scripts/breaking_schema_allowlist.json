@@ -2,6 +2,24 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "planned_projects_endpoints.json",
+      "rule": "endpoint_removed",
+      "pointer_prefix": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest",
+      "reason": "exportProjectFineTuningManifest was declared at a drifted path (/core-exports/fine-tuning.manifest) that no backend route has ever implemented -- the real, shipped route lives on the analytics blueprint and is mounted at /analytics/exports/fine-tuning.manifest by the v1beta project-scoped registrar. This is a same-operation path correction (operationId, parameters, and response schema are unchanged), not a removal of working functionality: the drifted path always 404'd, so no deployed client can be depending on it. The catalog carries x-asserted-against-backend:false and is pre-release, which is why this ships as a path fix rather than a major bump. TraigentSchema#272.",
+      "version": "Unreleased",
+      "pr": "#TBD (opened for TraigentSchema#272; update once assigned)",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e1a595ffbedfa68e6e4b0cf44aef23d1e9f3dd4f4ecd5a421d32a77feea63f40"
+        }
+      ]
+    },
+    {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
       "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced. This acknowledgement is scoped only to this exact pointer and fingerprint.",

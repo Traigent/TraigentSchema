@@ -7,7 +7,7 @@
       "pointer_prefix": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest",
       "reason": "exportProjectFineTuningManifest was declared at a drifted path (/core-exports/fine-tuning.manifest) that no backend route has ever implemented -- the real, shipped route lives on the analytics blueprint and is mounted at /analytics/exports/fine-tuning.manifest by the v1beta project-scoped registrar. This is a same-operation path correction (operationId, parameters, and response schema are unchanged), not a removal of working functionality: the drifted path always 404'd, so no deployed client can be depending on it. The catalog carries x-asserted-against-backend:false and is pre-release, which is why this ships as a path fix rather than a major bump. TraigentSchema#272.",
       "version": "Unreleased",
-      "pr": "#TBD (opened for TraigentSchema#272; update once assigned)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/483",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest/get",

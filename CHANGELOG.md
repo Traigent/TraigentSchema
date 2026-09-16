@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`exportProjectFineTuningManifest` path drift in `planned_projects_endpoints.json`
+  (#272).** The operation was declared at
+  `/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest`, but the real
+  backend route lives on the `analytics` blueprint and is mounted at
+  `/api/v1beta/projects/{project_id}/analytics/exports/fine-tuning.manifest` — a client
+  following the declared path would 404. Corrected to the real, shipped path; the sibling
+  `exportProjectFineTuningJsonl` operation already correctly used `core-exports` and is
+  unchanged. Non-breaking: the catalog carries `x-asserted-against-backend: false` and no
+  known client has a deployed integration against the drifted path. (The other item this
+  issue's title named, `lookupProjectMembershipCandidates`/`membership-candidates`, was
+  re-verified and is not a defect — it is an intentionally planned, not-yet-backend-built
+  contract per TraigentSchema#46, already excluded from the canonical backend surface by
+  its own dedicated test suite; no change needed.)
+
 ### Added
 - **`dataset_label` on `ExperimentGroupOverview` (agent+dataset history display label).**
   New optional, nullable `dataset_label` (`schemas/execution/experiment_group_schema.json`)

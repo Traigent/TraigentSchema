@@ -157,6 +157,26 @@ def test_span_type_is_free_string_and_status_is_enum_bound():
         assert v.validate_json(payload_ok, SCHEMA) == [], f"canonical span status {status!r} should be accepted"
 
 
+def test_span_payload_description_matches_status_enum_binding():
+    """SpanPayload's object-level description must not claim `status` is a free,
+    non-enum-enforced string (TraigentSchema#336): #175 bound it to
+    ObservabilitySpanStatus, but the object description was left stale after that
+    change. `span_type` is genuinely free-form and should still say so.
+    """
+    with open(
+        get_schemas_dir() / "execution" / "workflow_trace_schema.json",
+        encoding="utf-8",
+    ) as handle:
+        spec = json.load(handle)
+
+    description = spec["definitions"]["SpanPayload"]["description"]
+    assert "status" in description and "enum-enforced" in description
+    assert "not enum-enforced" not in description.split("`status`")[-1], (
+        "description must not claim status is not enum-enforced"
+    )
+    assert "span_type" in description and "free" in description
+
+
 def test_span_batch_requires_trace_and_config_run():
     v = SchemaValidator()
     for missing in ("trace_id", "configuration_run_id", "spans"):

@@ -85,7 +85,7 @@
     },
     "SpanPayload": {
       "type": "object",
-      "description": "A single workflow span. Mirrors SpanPayload.to_dict() (backed by the backend TraceSpan model). `span_type` and `status` are free strings on the wire — the SDK sources span_type from the OTel `span.type` attribute and accepts arbitrary status strings — so canonical values are documented but not enum-enforced.",
+      "description": "A single workflow span. Mirrors SpanPayload.to_dict() (backed by the backend TraceSpan model). `span_type` is a free string on the wire — the SDK sources it from the OTel `span.type` attribute — so canonical values are documented but not enum-enforced. `status` is enum-enforced to the canonical UPPER vocabulary (see TraigentSchema#175); it is not a free string.",
       "additionalProperties": false,
       "properties": {
         "span_id": { "type": "string", "minLength": 1 },

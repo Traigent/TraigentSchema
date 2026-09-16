@@ -2569,7 +2569,7 @@
       "rule": "allOf_removed",
       "reason": "objectives.items was allOf[objective_definition_schema (additionalProperties:false, name/orientation required per that $ref), {required:[name,orientation,weight]}]. It becomes oneOf[CanonicalTypedObjectiveDefinition, LegacyObjectObjectiveDefinition] to add a second acceptable objective object shape without narrowing the first: CanonicalTypedObjectiveDefinition is the byte-for-byte same allOf this replaces, so every payload the old allOf accepted still validates under the new oneOf's first branch. The mechanical allOf-branch-count-to-zero reading is the conservative bare-name heuristic (objective_schema.json has no _request_/_response_ suffix); no strict old consumer that validated the removed allOf directly exists in this workspace (TraigentBackend imports SchemaValidator against the current file, Frontend hand-ports types, no pinned copy of the removed allOf shape is validated elsewhere).",
       "version": "Unreleased",
-      "pr": "pending (branch issue/304-objective-schema-legacy-form, ChangeSession cs_efb3758add5f122f, Traigent/TraigentSchema#304)",
+      "pr": "#484",
       "findings": [
         {
           "pointer": "#/properties/objectives/items/allOf",
@@ -2586,7 +2586,7 @@
       "rule": "oneOf_added",
       "reason": "Issue #304: the legacy SDK/backend objective object form {metric, direction, weight} is already accepted and test-pinned at POST /api/v1/sessions and /api/v1/hybrid/sessions (hybrid_session_create_request_schema.json's LegacyObjectObjectiveDefinition), but objective_schema.json rejected the identical payload when the same objectives value is routed through experiment create/response (additionalProperties:false trips on metric, orientation is required not direction). The added oneOf branch (LegacyObjectObjectiveDefinition, mirrored field-for-field from the hybrid schema's existing definition) closes that cross-endpoint acceptance gap; it only widens what objectives.items accepts, it does not remove or narrow the pre-existing typed-objective branch.",
       "version": "Unreleased",
-      "pr": "pending (branch issue/304-objective-schema-legacy-form, ChangeSession cs_efb3758add5f122f, Traigent/TraigentSchema#304)",
+      "pr": "#484",
       "findings": [
         {
           "pointer": "#/properties/objectives/items/oneOf",

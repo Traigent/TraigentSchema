@@ -24,7 +24,7 @@
       ],
       "reason": "This meta-schema only enumerates the closed set of governed x-* vendor extension keywords used across traigent_schema/schemas/**; it is never used to validate a live request/response payload, so an old response consumer cannot receive or reject a newly-emitted member here. The two new keys register the x-known-resource-aliases and x-resource-alias-of extensions introduced by #266 (documenting that the dataset resource is a runtime alias of benchmark) so the governance test that requires every used x-* keyword to be declared here stays satisfied.",
       "version": "7.0.0",
-      "pr": "#266-followup"
+      "pr": "#478"
     },
     {
       "file": "certification/certification_endpoints_v0.json",

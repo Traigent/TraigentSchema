@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.0] - 2026-09-16
+
+### Breaking
+- **Minted a canonical `ExperimentStatus` enum and rebound the experiment
+  RESOURCE's `status` to it, correcting a mis-binding to `ExperimentRunStatus`
+  (#262).** The experiment resource is backed by a distinct, 8-member status
+  vocabulary (`{NOT_STARTED, PENDING, REGISTERED, RUNNING, FAILED, COMPLETED,
+  CANCELLED, UNKNOWN}`) that differs from the 9-member run-level
+  `ExperimentRunStatus` on three values: `REGISTERED` exists only at the
+  experiment level (with no run-level equivalent), while `PAUSED` and
+  `PARTIALLY_DELETED` are run-only states never reported for the experiment
+  resource. The Schema previously had no `ExperimentStatus` definition at
+  all — the experiment resource simply `$ref`'d the run enum.
+  - `status_schema.json#/definitions/ExperimentStatus` (new): the 8 canonical
+    UPPER members above.
+  - `evaluation/experiment_schema.json` top-level `status` (the experiment
+    resource itself): rebound from `ExperimentRunStatus` to `ExperimentStatus`.
+    The embedded `ExperimentListRunSummary.status` ("current status of the
+    latest experiment run") is unchanged — it is correctly a run status.
+  - `evaluation/experiment_create_request_schema.json` top-level `status`:
+    same rebinding, for the same reason. Its embedded
+    `ExperimentListRunSummary.status` is likewise unchanged.
+  - Breaking because a request or response `status` of `PAUSED` or
+    `PARTIALLY_DELETED` on the experiment resource, previously schema-valid,
+    is now rejected, and `REGISTERED`, previously schema-invalid, is now
+    accepted — a strict `validate_response` promotion of the experiment
+    resource's `status` (planned, not yet wired) would otherwise false-reject
+    real `REGISTERED` experiments.
+
 ### Added
 - **`dataset_label` on `ExperimentGroupOverview` (agent+dataset history display label).**
   New optional, nullable `dataset_label` (`schemas/execution/experiment_group_schema.json`)

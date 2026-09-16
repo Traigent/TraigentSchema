@@ -20,6 +20,20 @@
       ],
       "description": "Status of an experiment run. Canonical UPPER vocabulary aligned to the backend ExperimentRunStatus enum (native PG type experimentrunstatus); producers (backend, REST wire, SDK write path) emit UPPER."
     },
+    "ExperimentStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_STARTED",
+        "PENDING",
+        "REGISTERED",
+        "RUNNING",
+        "FAILED",
+        "COMPLETED",
+        "CANCELLED",
+        "UNKNOWN"
+      ],
+      "description": "Status of the experiment resource itself. Distinct from ExperimentRunStatus (the vocabulary of an individual run): the backend backs the experiment resource with its own ExperimentStatus enum, whose member set differs on three values — REGISTERED (experiment-level only, no run-level equivalent) is present, while PAUSED and PARTIALLY_DELETED (run-only states) are absent and never reported at the experiment level."
+    },
     "ConfigurationRunStatus": {
       "type": "string",
       "enum": [

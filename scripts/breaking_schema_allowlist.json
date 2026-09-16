@@ -2563,6 +2563,122 @@
           "fingerprint": "4d0ca33534b1f02e6905415f2f886d539ead08e8b5df24bac4b6d56aa87c2925"
         }
       ]
+    },
+    {
+      "file": "evaluation/experiment_create_request_schema.json",
+      "rule": "enum",
+      "reason": "The experiment resource's status was mis-bound to ExperimentRunStatus (the 9-member run-level vocabulary) when the backend actually backs the experiment resource with a distinct, separate 8-member ExperimentStatus enum (TraigentSchema#262). PAUSED and PARTIALLY_DELETED are run-only states the backend 422-rejects as an experiment-level status filter/value and never reports for the experiment resource (derive_reported_experiment_status bounds the reported experiment status to the 8-member set), so no real client can be relying on sending them here; REGISTERED is a real experiment-level state that was previously impossible to express. This is the evidence-backed default remedy the issue names: mint the canonical enum and rebind the resource + create-request status to it.",
+      "version": "7.0.0",
+      "pr": "TraigentSchema#262",
+      "findings": [
+        {
+          "pointer": "#/properties/status",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"PARTIALLY_DELETED\"",
+              "\"PAUSED\""
+            ]
+          },
+          "old": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PARTIALLY_DELETED\"",
+            "\"PAUSED\"",
+            "\"PENDING\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "new": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PENDING\"",
+            "\"REGISTERED\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "fingerprint": "801a7547f68991058328e2b616b7150752b1ba10277dffc997490bc00fe82326"
+        }
+      ]
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "enum",
+      "reason": "Same mis-binding fix as the create-request entry above (TraigentSchema#262): the experiment resource's top-level status is rebound from the run-level ExperimentRunStatus to the newly-minted, distinct 8-member ExperimentStatus enum matching the backend's actual experiment-level PG enum. PAUSED/PARTIALLY_DELETED are run-only states never reported for the experiment resource; REGISTERED is a real experiment-level state the schema previously could not express at all. Scoped only to this bare-named resource's top-level status -- the embedded ExperimentListRunSummary.status (the latest run's own status) is unchanged and correctly stays on ExperimentRunStatus.",
+      "version": "7.0.0",
+      "pr": "TraigentSchema#262",
+      "findings": [
+        {
+          "pointer": "#/properties/status",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"PARTIALLY_DELETED\"",
+              "\"PAUSED\""
+            ]
+          },
+          "old": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PARTIALLY_DELETED\"",
+            "\"PAUSED\"",
+            "\"PENDING\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "new": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PENDING\"",
+            "\"REGISTERED\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "fingerprint": "c0d65450746ea2f6a53431db8f1e0619b14a32d30c8d64b36112726417cf457c"
+        },
+        {
+          "pointer": "#/properties/status",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"REGISTERED\""
+            ]
+          },
+          "old": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PARTIALLY_DELETED\"",
+            "\"PAUSED\"",
+            "\"PENDING\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "new": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PENDING\"",
+            "\"REGISTERED\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "fingerprint": "be802649d34cfdcba035a7e86e3b2b440c712d233090c2582f509b810c041ddb"
+        }
+      ]
     }
   ]
 }

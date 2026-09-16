@@ -1091,6 +1091,118 @@ class TestDatasetContracts:
         assert errors == []
 
 
+class TestExperimentStatusEnumBinding:
+    """#262: the experiment RESOURCE's status must bind to the canonical
+    ExperimentStatus enum (the backend's distinct 8-member PG enum), not to
+    ExperimentRunStatus (the 9-member run-level vocabulary it was
+    previously mis-bound to). The embedded latest-run summary
+    (`ExperimentListRunSummary.status`) is correctly a *run* status and must
+    stay bound to ExperimentRunStatus."""
+
+    @staticmethod
+    def _status_definitions() -> dict[str, object]:
+        with open(get_schemas_dir() / "status_schema.json", encoding="utf-8") as fh:
+            return json.load(fh)["definitions"]
+
+    @staticmethod
+    def _base_experiment_payload(status: str | None = None) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "id": "experiment_123",
+            "name": "support-qa-experiment",
+            "description": "Compares prompt variants on the support QA dataset",
+            "configurations": {
+                "infrastructure": {
+                    "infrastructure_id": "infra_123",
+                    "compute": "cpu",
+                    "memory": "8GB",
+                    "timeout": 300,
+                }
+            },
+            "agent_id": "agent_123",
+            "model_parameters_id": "model_parameters_123",
+            "dataset_id": "dataset_123",
+            "measures": ["measure_123"],
+        }
+        if status is not None:
+            payload["status"] = status
+        return payload
+
+    def test_experiment_status_enum_exists_and_matches_backend_member_set(self):
+        definitions = self._status_definitions()
+        assert "ExperimentStatus" in definitions
+        experiment_status = set(definitions["ExperimentStatus"]["enum"])
+        run_status = set(definitions["ExperimentRunStatus"]["enum"])
+        # Backend's distinct experiment-level PG enum (status_enums.py:97-107).
+        assert experiment_status == {
+            "NOT_STARTED",
+            "PENDING",
+            "REGISTERED",
+            "RUNNING",
+            "FAILED",
+            "COMPLETED",
+            "CANCELLED",
+            "UNKNOWN",
+        }
+        # REGISTERED exists only at the experiment level.
+        assert "REGISTERED" in experiment_status
+        assert "REGISTERED" not in run_status
+        # PAUSED / PARTIALLY_DELETED are run-only states, never reported at
+        # the experiment level (derive_reported_experiment_status bounds the
+        # reported experiment status to the 8-member set).
+        assert experiment_status.isdisjoint({"PAUSED", "PARTIALLY_DELETED"})
+        assert {"PAUSED", "PARTIALLY_DELETED"} <= run_status
+
+    def test_experiment_resource_status_binds_to_experiment_status(self):
+        with open(
+            get_schemas_dir() / "evaluation" / "experiment_schema.json", encoding="utf-8"
+        ) as fh:
+            schema = json.load(fh)
+        assert schema["properties"]["status"]["$ref"].endswith(
+            "status_schema.json#/definitions/ExperimentStatus"
+        )
+        # The embedded latest-run summary is a *run* status and stays as-is.
+        run_summary_status = schema["definitions"]["ExperimentListRunSummary"]["properties"][
+            "status"
+        ]
+        assert run_summary_status["$ref"].endswith(
+            "status_schema.json#/definitions/ExperimentRunStatus"
+        )
+
+    def test_experiment_create_request_status_binds_to_experiment_status(self):
+        with open(
+            get_schemas_dir() / "evaluation" / "experiment_create_request_schema.json",
+            encoding="utf-8",
+        ) as fh:
+            schema = json.load(fh)
+        assert schema["properties"]["status"]["$ref"].endswith(
+            "status_schema.json#/definitions/ExperimentStatus"
+        )
+        run_summary_status = schema["definitions"]["ExperimentListRunSummary"]["properties"][
+            "status"
+        ]
+        assert run_summary_status["$ref"].endswith(
+            "status_schema.json#/definitions/ExperimentRunStatus"
+        )
+
+    def test_experiment_schema_accepts_registered_status(self):
+        validator = SchemaValidator()
+        errors = validator.validate_json(
+            self._base_experiment_payload(status="REGISTERED"), "experiment_schema"
+        )
+        assert errors == []
+
+    def test_experiment_schema_rejects_run_only_paused_status(self):
+        # PAUSED is a valid ExperimentRunStatus member but not a valid
+        # ExperimentStatus member; the backend never reports it for the
+        # experiment resource, so the schema must reject it now.
+        validator = SchemaValidator()
+        errors = validator.validate_json(
+            self._base_experiment_payload(status="PAUSED"), "experiment_schema"
+        )
+        assert errors
+        assert any("status" in error for error in errors)
+
+
 class TestObjectiveSchemaContracts:
     def test_objective_schema_accepts_sdk_defined_objectives(self):
         validator = SchemaValidator()

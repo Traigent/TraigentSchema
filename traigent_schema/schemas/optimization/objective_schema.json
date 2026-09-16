@@ -5,6 +5,87 @@
   "title": "Objective Schema",
   "description": "Wire-format container for SDK-defined optimization objectives. Carries objective names, orientations, weights, and normalization defaults so backend and frontend consumers do not have to infer them from metrics.",
   "version": "1.0.0",
+  "definitions": {
+    "CanonicalTypedObjectiveDefinition": {
+      "allOf": [
+        {
+          "$ref": "./objective_definition_schema.json#"
+        },
+        {
+          "type": "object",
+          "required": ["name", "orientation", "weight"]
+        }
+      ]
+    },
+    "LegacyObjectObjectiveDefinition": {
+      "type": "object",
+      "description": "Legacy SDK/backend objective object accepted by TraigentBackend interactive_session_service._normalize_objectives at POST /api/v1/sessions and /api/v1/hybrid/sessions; kept in parity here so experiment create/response do not reject the same wire form.",
+      "required": ["metric"],
+      "anyOf": [
+        {
+          "required": ["direction"]
+        },
+        {
+          "required": ["band"]
+        }
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["maximize", "minimize"]
+        },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "band": {
+          "$ref": "#/definitions/LegacyObjectiveBand"
+        },
+        "test": {
+          "type": "string",
+          "enum": ["TOST"]
+        },
+        "alpha": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        }
+      }
+    },
+    "LegacyObjectiveBand": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["low", "high"]
+        },
+        {
+          "required": ["center", "tol"]
+        }
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "low": {
+          "type": "number"
+        },
+        "high": {
+          "type": "number"
+        },
+        "center": {
+          "type": "number"
+        },
+        "tol": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    }
+  },
   "properties": {
     "schema_version": {
       "type": "string",
@@ -13,15 +94,14 @@
     },
     "objectives": {
       "type": "array",
-      "description": "Ordered objective definitions used by the optimization run",
+      "description": "Ordered objective definitions used by the optimization run. Accepts canonical typed objective definitions and the legacy SDK/backend objective object form ({metric, direction, weight}) already accepted at POST /api/v1/sessions and /api/v1/hybrid/sessions.",
       "items": {
-        "allOf": [
+        "oneOf": [
           {
-            "$ref": "./objective_definition_schema.json#"
+            "$ref": "#/definitions/CanonicalTypedObjectiveDefinition"
           },
           {
-            "type": "object",
-            "required": ["name", "orientation", "weight"]
+            "$ref": "#/definitions/LegacyObjectObjectiveDefinition"
           }
         ]
       },

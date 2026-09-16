@@ -1111,9 +1111,68 @@ class TestObjectiveSchemaContracts:
 
         errors = validator.validate_json(payload, "objective_schema")
 
+        # #304: the items schema became oneOf[typed, legacy-object] so the
+        # objective object form ({metric,direction,weight}) already accepted at
+        # /sessions and /hybrid/sessions is also accepted here. A typed object
+        # missing orientation/weight still fails, but a oneOf reports one
+        # consolidated message rather than the allOf's per-branch field errors.
         assert errors
-        assert any("orientation" in error for error in errors)
-        assert any("weight" in error for error in errors)
+        assert any("not valid under any of the given schemas" in error for error in errors)
+
+    def test_objective_schema_accepts_legacy_object_form(self):
+        """Issue #304: the legacy {metric,direction,weight} objective object is
+        already accepted at POST /api/v1/sessions and /api/v1/hybrid/sessions
+        (see tests/test_session_create_objectives_schema.py). objective_schema.json
+        must accept the identical wire form so experiment create/response do not
+        reject a payload the session endpoints accept."""
+        validator = SchemaValidator()
+        payload = {
+            "objectives": [
+                {"metric": "accuracy", "direction": "maximize", "weight": 0.7},
+                {"metric": "latency", "direction": "minimize", "weight": 0.3},
+            ]
+        }
+
+        errors = validator.validate_json(payload, "objective_schema")
+
+        assert errors == []
+
+    def test_objective_schema_rejects_legacy_object_missing_direction_and_band(self):
+        validator = SchemaValidator()
+        payload = {"objectives": [{"metric": "accuracy", "weight": 0.7}]}
+
+        errors = validator.validate_json(payload, "objective_schema")
+
+        assert errors
+
+    def test_experiment_create_request_accepts_legacy_objective_objects(self):
+        """Issue #304: experiment create must accept the legacy objective object
+        form routed through objective_schema.json, matching /sessions acceptance."""
+        validator = SchemaValidator()
+        errors = validator.validate_request(
+            "/api/v1/experiments",
+            "POST",
+            {
+                "id": "experiment_123",
+                "name": "support-qa-experiment",
+                "description": "Compares prompt variants on the support QA dataset",
+                "configurations": {
+                    "infrastructure": _infrastructure_payload(),
+                },
+                "agent_id": "agent_123",
+                "model_parameters_id": "model_parameters_123",
+                "dataset_id": "dataset_123",
+                "measures": ["measure_123"],
+                "objectives": {
+                    "objectives": [
+                        {"metric": "accuracy", "direction": "maximize", "weight": 0.7},
+                        {"metric": "latency", "direction": "minimize", "weight": 0.3},
+                    ]
+                },
+            },
+        )
+
+        assert errors == []
 
     def test_experiment_schema_accepts_objectives_contract(self):
         validator = SchemaValidator()

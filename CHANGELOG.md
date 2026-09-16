@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`objective_schema.json` now accepts the legacy `{metric, direction, weight}` objective
+  object form (#304).** `objectives.items` was `allOf[objective_definition_schema (name/
+  orientation required, additionalProperties:false), {required: name/orientation/weight}]`,
+  so a legacy objective object — the exact wire form already accepted and test-pinned at
+  `POST /api/v1/sessions` and `POST /api/v1/hybrid/sessions` — failed twice here (unknown
+  `metric` property, missing `orientation`). `objectives.items` is now
+  `oneOf[CanonicalTypedObjectiveDefinition, LegacyObjectObjectiveDefinition]`, mirroring the
+  legacy branch already defined in `hybrid_session_create_request_schema.json`, so the same
+  objective payload validates identically whether it arrives via `/sessions`,
+  `/hybrid/sessions`, or an `objectives` field routed through `objective_schema.json`
+  (experiment create/response). Purely additive — no previously-accepted typed payload is
+  rejected.
+
 ### Added
 - **`dataset_label` on `ExperimentGroupOverview` (agent+dataset history display label).**
   New optional, nullable `dataset_label` (`schemas/execution/experiment_group_schema.json`)

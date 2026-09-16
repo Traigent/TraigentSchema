@@ -73,6 +73,35 @@ def test_submit_results_rejects_unknown_top_level_field():
     assert validator.validate_json(_request(raw_prompt="should not be echoed"), SCHEMA)
 
 
+def test_submit_results_accepts_backend_supported_extra_fields():
+    """#454: the backend accepts summary_stats/execution_mode/execution_environment on
+    POST /api/v1/sessions/{session_id}/results (src/routes/traigent_session_routes.py::
+    _validate_results_payload validates each as an optional object, or an optional string
+    capped at 64 chars for execution_mode), but the schema's additionalProperties:false
+    previously rejected all three, closing off valid backend-accepted submissions."""
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    assert (
+        validator.validate_json(
+            _request(
+                summary_stats={"examples_scored": 10},
+                execution_mode="local",
+                execution_environment={"python": "3.11", "sdk_version": "2.0.0"},
+            ),
+            SCHEMA,
+        )
+        == []
+    )
+
+
+def test_submit_results_rejects_execution_mode_over_backend_length_cap():
+    """execution_mode inherits the backend's 64-char cap for this field."""
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    assert validator.validate_json(_request(execution_mode="x" * 65), SCHEMA)
+    assert validator.validate_json(_request(execution_mode="x" * 64), SCHEMA) == []
+
+
 def test_submit_results_endpoint_wires_named_request_schema():
     with open(
         get_schemas_dir() / "optimization" / "optimization_endpoints.json",

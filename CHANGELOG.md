@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
 
+### Fixed
+- **`session_submit_results_request_schema.json` now declares `summary_stats`,
+  `execution_mode`, and `execution_environment` (part 1 of the #454 contract audit).**
+  `POST /api/v1/sessions/{session_id}/results` already accepted all three
+  (`TraigentBackend`'s `_validate_results_payload`: `summary_stats`/`execution_environment`
+  as optional objects, `execution_mode` as an optional string capped at 64 chars), but the
+  schema's `additionalProperties: false` rejected them, so validating a real backend-accepted
+  submission against this schema failed closed on valid traffic. All three are optional and
+  additive — no existing required field, enum, or type changes; not a breaking change (see
+  `scripts/breaking_schema_check.py` output in the PR). The remaining #454 scope (auditing all
+  x-content/x-privacy-classification annotations across `schemas/optimization/`) is deferred to
+  a follow-up PR pending a per-field classification decision.
+
 ## [6.0.0] - 2026-09-14
 
 ### Breaking

@@ -17,6 +17,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
 
+## [7.0.0] - 2026-09-16
+
+### Breaking
+- **Reconciled the `datasets:*` auth-vocab scope mapping with the runtime bridge; removed
+  the orphaned `dataset.*` permission family (#266).** `api_key_authorization_vocabulary_schema.json`
+  declared `datasets:read`/`datasets:write` mapping to a `dataset.read`/`dataset.write`
+  permission family with `read:dataset`/`write:dataset` compatibility aliases that the
+  backend never produced or consumed in either direction (the backend bridges
+  `datasets`/`dataset` to the `benchmark` resource; there is no `ResourceType.DATASET`).
+  - `x-scope-permission-map`: `datasets:read`/`datasets:write` now map to `benchmark.*`
+    permissions and `benchmark` compatibility aliases, mirroring `benchmarks:*` exactly
+    (both scopes are runtime aliases of the same `benchmark` resource).
+  - `ApiKeyPermissionToken` enum: removed `dataset.read` and `dataset.write` — no producer
+    or consumer exists. `AuditPermissionValue`'s comma-separated pattern is updated to match.
+    Breaking because a consumer that generated or validated against the old enum could
+    previously mint/accept `dataset.read`/`dataset.write`, which are no longer valid tokens.
+  - Added `x-known-resource-aliases` (new governed `x-*` extension, registered in
+    `x_extensions_meta_schema.json`) documenting that `dataset` is an alias of `benchmark`
+    pending a full backend rename (tracked separately as BE#1267), so the alias is explicit
+    rather than silently orphaned again.
+  - The matching `tests/data/auth_taxonomy_known_drift.yaml` allowlist rows
+    (`be-scope-perm-datasets-read`, `be-scope-perm-datasets-write`) are removed: the
+    Schema/backend drift they named has converged.
+  - Out of scope for this change: the `billing_limits_schema.json` /
+    `project_scoped_analytics_summary_schema.json` `benchmarks` counters. The backend billing
+    and analytics surfaces still emit only `benchmarks` (no `datasets` key exists anywhere in
+    those code paths), so migrating those contract fields now would recreate the same
+    orphaned-token pattern this change fixes; that migration needs a coordinated backend
+    change first.
+
 ## [6.0.0] - 2026-09-14
 
 ### Breaking

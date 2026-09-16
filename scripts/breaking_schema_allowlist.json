@@ -2,6 +2,31 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-known-resource-aliases",
+          "role": "conservative",
+          "subject": "x-known-resource-aliases",
+          "old": false,
+          "new": true,
+          "fingerprint": "782924add0e6227ae1c09f8c0aa48b5e2f71b35a37a3432df8fbdd9d32ceafcd"
+        },
+        {
+          "pointer": "#/properties/x-resource-alias-of",
+          "role": "conservative",
+          "subject": "x-resource-alias-of",
+          "old": false,
+          "new": true,
+          "fingerprint": "2380af457244b260a15ac1d578956172e57b6037e72bd1c53daa873c46f119c1"
+        }
+      ],
+      "reason": "This meta-schema only enumerates the closed set of governed x-* vendor extension keywords used across traigent_schema/schemas/**; it is never used to validate a live request/response payload, so an old response consumer cannot receive or reject a newly-emitted member here. The two new keys register the x-known-resource-aliases and x-resource-alias-of extensions introduced by #266 (documenting that the dataset resource is a runtime alias of benchmark) so the governance test that requires every used x-* keyword to be declared here stays satisfied.",
+      "version": "7.0.0",
+      "pr": "#266-followup"
+    },
+    {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
       "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced. This acknowledgement is scoped only to this exact pointer and fingerprint.",

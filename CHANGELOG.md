@@ -168,7 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Test-only. The `expected_project_ref`/`expected_build_session_ref` privacy canary in
   `tests/test_agent_quality_verifier.py` previously exercised only the SCOPE_MISMATCH
   failure path (a caller-supplied sentinel that never matched the bundle, proven not to
-  mutate the bundle by snapshot equality). Replaced with two canaries that traverse the
+  mutate the bundle by snapshot equality). That failure-path canary stays -- it is the only
+  test asserting the ref is absent from the raised error -- and is joined by two canaries that traverse the
   public entry point's real success and abstain outcomes
   (`AGENT_QUALITY_VERIFIED`/`AGENT_QUALITY_CLAIM_ABSTAINED`) and prove the caller's own
   scope-ref pins never surface in the exported `AgentQualityVerificationResult`, plus a

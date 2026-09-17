@@ -59,8 +59,6 @@ EXPECTED_PERMISSIONS = [
     "audit.read",
     "benchmark.read",
     "benchmark.write",
-    "dataset.read",
-    "dataset.write",
     "delete",
     "director_evidence.read",
     "experiment.read",
@@ -81,8 +79,8 @@ EXPECTED_SCOPE_PERMISSION_MAP = {
     "admin:all": ["admin"],
     "benchmarks:read": ["benchmark.read"],
     "benchmarks:write": ["benchmark.write", "benchmark.read"],
-    "datasets:read": ["dataset.read"],
-    "datasets:write": ["dataset.write", "dataset.read"],
+    "datasets:read": ["benchmark.read"],
+    "datasets:write": ["benchmark.write", "benchmark.read"],
     "director_evidence:read": ["director_evidence.read"],
     "experiments:read": ["experiment.read"],
     "experiments:write": ["experiment.write", "experiment.read"],
@@ -250,6 +248,101 @@ def test_audit_permission_accepts_canonical_tokens_and_rejects_scope_tokens() ->
         AUDIT_LOG_ENTRY_RESPONSE,
     )
     assert errors
+
+
+def test_audit_permission_still_decodes_retired_dataset_tokens() -> None:
+    """Audit rows are immutable history: rows written while dataset.* was grantable
+    must keep validating after the vocabulary folds dataset into benchmark."""
+    validator = SchemaValidator()
+
+    for permission in (
+        "dataset.read",
+        "dataset.write",
+        "dataset.write,dataset.read",
+        "benchmark.read,dataset.read",
+    ):
+        assert (
+            validator.validate_json(
+                _audit_log_entry(permission),
+                AUDIT_LOG_ENTRY_RESPONSE,
+            )
+            == []
+        ), permission
+
+
+def test_audit_permission_list_pattern_is_generated_from_the_token_enums() -> None:
+    """The comma-list branch must accept exactly the canonical + legacy tokens. It is
+    regenerated here so adding a permission token without widening the audit pattern
+    (as happened with director_evidence.read) fails loudly."""
+    import re
+
+    definitions = load_schema(VOCABULARY_SCHEMA)["definitions"]
+    tokens = sorted(
+        set(definitions["ApiKeyPermissionToken"]["enum"])
+        | set(definitions["LegacyAuditPermissionToken"]["enum"])
+    )
+    alternation = "|".join(re.escape(token) for token in tokens)
+    list_branch = [
+        branch
+        for branch in definitions["AuditPermissionValue"]["anyOf"]
+        if "pattern" in branch
+    ]
+
+    assert len(list_branch) == 1
+    assert (
+        list_branch[0]["pattern"]
+        == f"^(?:{alternation})(?:,(?:{alternation}))*(?!\\n)$"
+    )
+
+
+def test_audit_permission_accepts_every_canonical_and_legacy_mixture() -> None:
+    validator = SchemaValidator()
+    definitions = load_schema(VOCABULARY_SCHEMA)["definitions"]
+    everything = ",".join(
+        definitions["ApiKeyPermissionToken"]["enum"]
+        + definitions["LegacyAuditPermissionToken"]["enum"]
+    )
+
+    for permission in ("director_evidence.read,dataset.read", everything):
+        assert (
+            validator.validate_json(
+                _audit_log_entry(permission), AUDIT_LOG_ENTRY_RESPONSE
+            )
+            == []
+        ), permission
+
+
+def test_audit_permission_rejects_trailing_newline_and_padding() -> None:
+    """Python's ``re`` lets a bare ``$`` match before a trailing newline."""
+    validator = SchemaValidator()
+
+    for permission in (
+        "dataset.read\n",
+        "read,write\n",
+        "read\n,write",
+        "read, write",
+        "read,",
+        ",read",
+        "",
+    ):
+        assert validator.validate_json(
+            _audit_log_entry(permission), AUDIT_LOG_ENTRY_RESPONSE
+        ), repr(permission)
+
+
+def test_retired_dataset_tokens_are_audit_only_not_grantable() -> None:
+    schema = load_schema(VOCABULARY_SCHEMA)
+    definitions = schema["definitions"]
+    legacy = set(definitions["LegacyAuditPermissionToken"]["enum"])
+
+    assert legacy == {"dataset.read", "dataset.write"}
+    assert legacy.isdisjoint(definitions["ApiKeyPermissionToken"]["enum"])
+    granted = {
+        permission
+        for entry in schema["x-scope-permission-map"].values()
+        for permission in entry["permissions"]
+    }
+    assert legacy.isdisjoint(granted)
 
 
 def test_project_permission_required_refs_canonical_project_permission() -> None:

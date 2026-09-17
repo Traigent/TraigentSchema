@@ -38,6 +38,12 @@
   "x-privileged-scopes": [
     "admin:all"
   ],
+  "x-known-resource-aliases": {
+    "dataset": {
+      "alias_of": "benchmark",
+      "note": "datasets:read/datasets:write are user-facing plural-resource scopes that normalize to the canonical benchmark resource at runtime (backend bridge, BE#1268/BE#1370): they resolve to benchmark.* permissions only. No ResourceType.DATASET and no dataset.* permission exist at runtime. This is intentional pending a full benchmark->dataset backend rename (tracked separately as BE#1267); do not reintroduce a dataset.* permission token without landing that rename first."
+    }
+  },
   "x-scope-permission-map": {
     "agents:read": {
       "permissions": ["agent.read"],
@@ -61,12 +67,14 @@
       "compatibility_aliases": ["write:benchmark", "read:benchmark"]
     },
     "datasets:read": {
-      "permissions": ["dataset.read"],
-      "compatibility_aliases": ["read:dataset"]
+      "permissions": ["benchmark.read"],
+      "compatibility_aliases": ["read:benchmark"],
+      "x-resource-alias-of": "benchmark"
     },
     "datasets:write": {
-      "permissions": ["dataset.write", "dataset.read"],
-      "compatibility_aliases": ["write:dataset", "read:dataset"]
+      "permissions": ["benchmark.write", "benchmark.read"],
+      "compatibility_aliases": ["write:benchmark", "read:benchmark"],
+      "x-resource-alias-of": "benchmark"
     },
     "experiments:read": {
       "permissions": ["experiment.read"],
@@ -175,8 +183,6 @@
         "audit.read",
         "benchmark.read",
         "benchmark.write",
-        "dataset.read",
-        "dataset.write",
         "delete",
         "director_evidence.read",
         "experiment.read",
@@ -199,8 +205,14 @@
       },
       "uniqueItems": true
     },
+    "LegacyAuditPermissionToken": {
+      "type": "string",
+      "description": "Retired permission tokens that were grantable before the dataset resource was folded into benchmark. They are NOT grantable, requestable, or part of ApiKeyPermissionToken; they exist only so audit rows written under the old vocabulary still validate when read back. Read dataset.* as the matching benchmark.* permission.",
+      "enum": ["dataset.read", "dataset.write"],
+      "x-resource-alias-of": "benchmark"
+    },
     "AuditPermissionValue": {
-      "description": "Nullable audit-log permission field. API-key permission values must be canonical tokens; comma-separated values are allowed because API-key lifecycle audit rows can record several granted permissions in one field.",
+      "description": "Nullable audit-log permission field. Newly written values are canonical ApiKeyPermissionToken tokens; comma-separated values are allowed because API-key lifecycle audit rows can record several granted permissions in one field. Audit rows are immutable history, so the retired LegacyAuditPermissionToken values stay decodable here and nowhere else. The comma-separated pattern is the union of every ApiKeyPermissionToken and LegacyAuditPermissionToken value (a test regenerates it, so it cannot drift) and is end-anchored with (?!\\n)$ because some regex engines let a bare $ match before a trailing newline.",
       "anyOf": [
         {
           "type": "null"
@@ -209,8 +221,11 @@
           "$ref": "#/definitions/ApiKeyPermissionToken"
         },
         {
+          "$ref": "#/definitions/LegacyAuditPermissionToken"
+        },
+        {
           "type": "string",
-          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*$",
+          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|director_evidence\\.read|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|director_evidence\\.read|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*(?!\\n)$",
           "x-token-ref": "#/definitions/ApiKeyPermissionToken"
         }
       ]

@@ -66,5 +66,6 @@
       "maxLength": 128
     }
   },
+  "required": ["model_id", "instructions"],
   "additionalProperties": true
 }

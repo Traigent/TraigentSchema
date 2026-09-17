@@ -66,6 +66,7 @@ def test_resource_shaped_dataset_create_configs_still_validate():
             "id": "generator_123",
             "model_parameters_id": "model_parameters_123",
             "dataset_id": "dataset_123",
+            "model_id": "gpt-4o-mini",
             "instructions": "Generate realistic customer support questions.",
             "context_type": "text",
             "context_source": "dataset",
@@ -74,6 +75,7 @@ def test_resource_shaped_dataset_create_configs_still_validate():
             "id": "evaluator_123",
             "model_parameters_id": "model_parameters_123",
             "dataset_id": "dataset_123",
+            "model_id": "gpt-4o",
             "instructions": "Evaluate answer quality.",
             "context_type": "text",
             "context_source": "dataset",
@@ -81,6 +83,41 @@ def test_resource_shaped_dataset_create_configs_still_validate():
     }
 
     assert validator.validate_request("/api/v1/datasets", "POST", payload) == []
+
+
+def test_generator_and_evaluator_config_require_model_id_and_instructions():
+    """#267: BenchmarkCreator hard-subscripts model_id/instructions off both
+
+    inner config objects (src/dal/benchmark_creator.py), so a schema-valid
+    config missing either field previously 500'd instead of failing a clean
+    422. Both fields must now be declared required on the create-request
+    contracts whenever the config object itself is supplied.
+    """
+    validator = SchemaValidator(contract="backend")
+    base_payload = _base_dataset_payload()
+
+    missing_model_id = {
+        **base_payload,
+        "generator_config": {"instructions": "Generate support examples."},
+    }
+    errors = validator.validate_request("/api/v1/datasets", "POST", missing_model_id)
+    assert errors, "expected a validation error when generator_config omits model_id"
+    assert any("model_id" in str(e) for e in errors)
+
+    missing_instructions = {
+        **base_payload,
+        "evaluator_config": {"model_id": "gpt-4o"},
+    }
+    errors = validator.validate_request("/api/v1/datasets", "POST", missing_instructions)
+    assert errors, "expected a validation error when evaluator_config omits instructions"
+    assert any("instructions" in str(e) for e in errors)
+
+    for schema_name in (
+        "generator_config_create_request_schema.json",
+        "evaluator_config_create_request_schema.json",
+    ):
+        schema = _load(schema_name)
+        assert set(schema["required"]) == {"model_id", "instructions"}
 
 
 def test_dataset_create_uses_request_scoped_config_refs():

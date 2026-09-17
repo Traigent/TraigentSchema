@@ -422,6 +422,15 @@
                     "default": false,
                     "description": "force fully-local execution with no backend egress."
                   },
+                  "trial_sequencing": {
+                    "type": "string",
+                    "enum": [
+                      "client",
+                      "backend"
+                    ],
+                    "default": "backend",
+                    "description": "Who decides which configuration each trial runs. 'backend' (default, fully backward-compatible): the server allocates trial ids from its own optimizer budget and may end the session early once it decides no further trials are useful. 'client': the caller (e.g. a locally-sequenced exhaustive grid or random search) decides trial order and count; the server allocates trial ids on demand and must not early-stop the session from its own budget accounting, which becomes informational only."
+                  },
                   "hybrid_api_options": {
                     "$ref": "https://schemas.traigent.ai/optimization/hybrid_api_options_schema.json",
                     "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."

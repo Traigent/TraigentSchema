@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/marketplace_events_request_schema.json",
+  "title": "AWS Marketplace EventBridge Notification",
+  "description": "Inbound AWS EventBridge event forwarded from the AWS Marketplace product's event bus. Authenticated out-of-band by the X-Traigent-Marketplace-Secret shared-secret header, not by anything in this body. The handler (src/services/billing/aws_marketplace/events.py:handle_marketplace_event) reads only `id`, `detail-type`, and `detail.CustomerAWSAccountId`; the rest of AWS's standard EventBridge envelope (version, source, account, time, region, resources, ...) may be present and is intentionally left unconstrained here, since AWS -- not Traigent -- owns that envelope shape.",
+  "type": "object",
+  "additionalProperties": true,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "AWS EventBridge event id. Used as the idempotency key (BillingEvent.event_id is unique); a missing/empty id is rejected as a malformed event (400)."
+    },
+    "detail-type": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "AWS EventBridge detail-type, e.g. \"License Updated\". Event types outside the resync set (RESYNC_EVENTS) are recorded and acknowledged (result=\"ignored\") without triggering an entitlement resync."
+    },
+    "detail": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "AWS Marketplace event detail payload.",
+      "properties": {
+        "CustomerAWSAccountId": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "AWS account id the event's customer/license is scoped to."
+        }
+      }
+    }
+  },
+  "required": ["id"]
+}

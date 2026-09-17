@@ -2661,7 +2661,7 @@
     {
       "file": "evaluation/experiment_schema.json",
       "rule": "enum",
-      "reason": "Same mis-binding fix as the create-request entry above (TraigentSchema#262): the experiment resource's top-level status is rebound from the run-level ExperimentRunStatus to the newly-minted, distinct 8-member ExperimentStatus enum matching the backend's actual experiment-level PG enum. PAUSED/PARTIALLY_DELETED are not members of the Backend's experiment persistence enum (see the create-request entry for the pinned evidence); REGISTERED is a real experiment-level state the schema previously could not express at all. Scoped only to this bare-named resource's top-level status -- the embedded ExperimentListRunSummary.status (the latest run's own status) is unchanged and correctly stays on ExperimentRunStatus.",
+      "reason": "Same mis-binding fix as the create-request entry above (TraigentSchema#262): the experiment resource's top-level status is rebound from the run-level ExperimentRunStatus to the newly-minted, distinct 8-member ExperimentStatus enum matching the backend's experiment-level persistence enum (`src/models/status_enums.py:97`). PAUSED/PARTIALLY_DELETED are not members of the Backend's experiment persistence enum (see the create-request entry for the pinned evidence); REGISTERED is a real experiment-level state the schema previously could not express at all. Scoped only to this bare-named resource's top-level status -- the embedded ExperimentListRunSummary.status (the latest run's own status) is unchanged and correctly stays on ExperimentRunStatus.",
       "version": "7.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/477",
       "findings": [

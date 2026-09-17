@@ -93,7 +93,7 @@ def _resolve_ref_url(ref_val: str, schema_file: Path, schemas_dir: Path) -> Path
 
     # Absolute URL with the canonical schema base
     if ref_val.startswith(_SCHEMA_BASE_URL):
-        relative_part = ref_val[len(_SCHEMA_BASE_URL) :]
+        relative_part = ref_val[len(_SCHEMA_BASE_URL):]
         candidate = schemas_dir / relative_part
         if candidate.exists():
             return Path(relative_part)
@@ -129,7 +129,9 @@ def _compute_referenced_schemas(schemas_dir: Path) -> set[Path]:
             content = sf.read_text(encoding="utf-8")
         except OSError:
             continue
-        for m in re.finditer(r'"(?:\$ref|paths_file)"\s*:\s*"([^"]+)"', content):
+        for m in re.finditer(
+            r'"(?:\$ref|paths_file)"\s*:\s*"([^"]+)"', content
+        ):
             if not m.group(1).endswith(".json") and ".json#" not in m.group(1):
                 continue
             resolved = _resolve_ref_url(m.group(1), sf, schemas_dir)
@@ -144,7 +146,9 @@ def _compute_referenced_schemas(schemas_dir: Path) -> set[Path]:
         except OSError:
             continue
         # Pattern: schemas_dir / "subdir" / "filename.json"
-        for m in re.finditer(r'schemas_dir\s*/\s*"([^"]+)"\s*/\s*"([^"]+)"', content):
+        for m in re.finditer(
+            r'schemas_dir\s*/\s*"([^"]+)"\s*/\s*"([^"]+)"', content
+        ):
             candidate = Path(m.group(1)) / m.group(2)
             if (schemas_dir / candidate).exists():
                 referenced.add(candidate)
@@ -174,7 +178,10 @@ class TestOrphanSchemas:
 
     def test_no_unexpected_orphan_schemas(self) -> None:
         schemas_dir = get_schemas_dir()
-        all_files = {f.relative_to(schemas_dir) for f in schemas_dir.rglob("*.json")}
+        all_files = {
+            f.relative_to(schemas_dir)
+            for f in schemas_dir.rglob("*.json")
+        }
 
         referenced = _compute_referenced_schemas(schemas_dir)
         unreferenced = all_files - referenced
@@ -202,7 +209,9 @@ class TestOrphanSchemas:
         stale_allowlist = KNOWN_ORPHAN_ALLOWLIST - unreferenced_str
         if stale_allowlist:
             lines.append("")
-            lines.append("Allowlist entries that are now reachable (consider removing them):")
+            lines.append(
+                "Allowlist entries that are now reachable (consider removing them):"
+            )
             for name in sorted(stale_allowlist):
                 lines.append(f"    {name}")
         report = "\n".join(lines)
@@ -212,7 +221,8 @@ class TestOrphanSchemas:
             f"New unreferenced schema files detected — either connect them to a "
             f"catalog/test or add to KNOWN_ORPHAN_ALLOWLIST in tests/test_schemas.py "
             f"with a comment explaining why they are currently standalone.\n"
-            f"Unexpected orphans:\n" + "\n".join(f"  {n}" for n in sorted(unexpected_orphans))
+            f"Unexpected orphans:\n"
+            + "\n".join(f"  {n}" for n in sorted(unexpected_orphans))
         )
 
 
@@ -224,7 +234,7 @@ class TestSchemaFileIntegrity:
         schema_files = get_all_schema_files()
         for schema_file in schema_files:
             try:
-                with open(schema_file, encoding="utf-8") as f:
+                with open(schema_file, encoding='utf-8') as f:
                     json.load(f)
             except json.JSONDecodeError as e:
                 pytest.fail(f"Failed to parse {schema_file}: {e}")
@@ -332,11 +342,12 @@ class TestNoBrandingIssues:
         """Schema files should not contain OptiGen references."""
         schema_files = get_all_schema_files()
         for schema_file in schema_files:
-            with open(schema_file, encoding="utf-8") as f:
+            with open(schema_file, encoding='utf-8') as f:
                 content = f.read()
 
             assert "OptiGen" not in content, f"Found 'OptiGen' in {schema_file}"
-            assert "optigen" not in content.lower(), f"Found 'optigen' in {schema_file}"
+            assert "optigen" not in content.lower(), \
+                f"Found 'optigen' in {schema_file}"
 
 
 class TestRequiredSchemas:
@@ -374,48 +385,70 @@ class TestRequiredSchemas:
         assert (schemas_dir / "measures" / "measure_schema.json").exists()
 
     def test_observability_trace_score_summary_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "observability" / "trace_score_summary_schema.json").exists()
+        assert (
+            schemas_dir / "observability" / "trace_score_summary_schema.json"
+        ).exists()
 
     def test_observability_review_score_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "observability" / "review_score_schema.json").exists()
+        assert (
+            schemas_dir / "observability" / "review_score_schema.json"
+        ).exists()
 
     def test_observability_evaluator_definition_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "observability" / "evaluator_definition_schema.json").exists()
+        assert (
+            schemas_dir / "observability" / "evaluator_definition_schema.json"
+        ).exists()
 
     def test_observability_annotation_queue_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "observability" / "annotation_queue_schema.json").exists()
+        assert (
+            schemas_dir / "observability" / "annotation_queue_schema.json"
+        ).exists()
 
     def test_project_schema_exists(self, schemas_dir):
         """Should have project_schema.json."""
         assert (schemas_dir / "projects" / "project_schema.json").exists()
 
     def test_project_analytics_summary_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_scoped_analytics_summary_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_scoped_analytics_summary_schema.json"
+        ).exists()
 
     def test_project_analytics_trend_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_scoped_analytics_trend_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_scoped_analytics_trend_schema.json"
+        ).exists()
 
     def test_project_pricing_catalog_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_scoped_pricing_catalog_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_scoped_pricing_catalog_schema.json"
+        ).exists()
 
     def test_project_optimization_overview_dashboard_schema_exists(self, schemas_dir):
         assert (
-            schemas_dir / "projects" / "project_scoped_optimization_overview_dashboard_schema.json"
+            schemas_dir
+            / "projects"
+            / "project_scoped_optimization_overview_dashboard_schema.json"
         ).exists()
 
     def test_project_evaluator_quality_dashboard_schema_exists(self, schemas_dir):
         assert (
-            schemas_dir / "projects" / "project_scoped_evaluator_quality_dashboard_schema.json"
+            schemas_dir
+            / "projects"
+            / "project_scoped_evaluator_quality_dashboard_schema.json"
         ).exists()
 
     def test_project_usage_dashboard_schema_exists(self, schemas_dir):
         assert (
-            schemas_dir / "projects" / "project_scoped_project_usage_dashboard_schema.json"
+            schemas_dir
+            / "projects"
+            / "project_scoped_project_usage_dashboard_schema.json"
         ).exists()
 
     def test_project_observability_summary_dashboard_schema_exists(self, schemas_dir):
         assert (
-            schemas_dir / "projects" / "project_scoped_observability_summary_dashboard_schema.json"
+            schemas_dir
+            / "projects"
+            / "project_scoped_observability_summary_dashboard_schema.json"
         ).exists()
 
     def test_project_measure_distribution_schema_exists(self, schemas_dir):
@@ -429,20 +462,30 @@ class TestRequiredSchemas:
         ).exists()
 
     def test_project_export_job_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_export_job_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_export_job_schema.json"
+        ).exists()
 
     def test_project_export_job_list_response_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_export_job_list_response_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_export_job_list_response_schema.json"
+        ).exists()
 
     def test_cost_response_schemas_exist(self, schemas_dir):
         assert (schemas_dir / "costs" / "cost_users_response_schema.json").exists()
         assert (schemas_dir / "costs" / "cost_user_usage_response_schema.json").exists()
 
     def test_hybrid_session_create_request_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "optimization" / "hybrid_session_create_request_schema.json").exists()
+        assert (
+            schemas_dir
+            / "optimization"
+            / "hybrid_session_create_request_schema.json"
+        ).exists()
 
     def test_project_rate_limit_policy_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_rate_limit_policy_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_rate_limit_policy_schema.json"
+        ).exists()
 
     def test_project_rate_limit_policy_update_request_schema_exists(self, schemas_dir):
         assert (
@@ -450,28 +493,41 @@ class TestRequiredSchemas:
         ).exists()
 
     def test_project_retention_policy_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_retention_policy_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_retention_policy_schema.json"
+        ).exists()
 
     def test_project_retention_policy_update_request_schema_exists(self, schemas_dir):
         assert (
             schemas_dir / "projects" / "project_retention_policy_update_request_schema.json"
         ).exists()
 
+
     def test_project_membership_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_membership_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_membership_schema.json"
+        ).exists()
 
     def test_project_membership_list_response_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_membership_list_response_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_membership_list_response_schema.json"
+        ).exists()
 
     def test_project_membership_create_request_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_membership_create_request_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_membership_create_request_schema.json"
+        ).exists()
 
     def test_backend_root_lists_only_canonical_backend_modules(self, schemas_dir):
         with open(schemas_dir / "mep_endpoints.json", encoding="utf-8") as handle:
             openapi = json.load(handle)
 
         modules = openapi.get("x-endpoint-modules", [])
-        paths_files = {module.get("paths_file") for module in modules if isinstance(module, dict)}
+        paths_files = {
+            module.get("paths_file")
+            for module in modules
+            if isinstance(module, dict)
+        }
         assert "./optimization/optimization_endpoints.json" not in paths_files
         assert "./optimization/optimization_plan_endpoints.json" in paths_files
         assert "./projects/projects_endpoints.json" not in paths_files
@@ -512,9 +568,13 @@ class TestRequiredSchemas:
         ) as handle:
             execution_openapi = json.load(handle)
 
-        data_schema = execution_openapi["paths"]["/api/v1/experiment-runs/runs/{run_id}/traces"][
-            "get"
-        ]["responses"]["200"]["content"]["application/json"]["schema"]["properties"]["data"]
+        data_schema = (
+            execution_openapi["paths"]["/api/v1/experiment-runs/runs/{run_id}/traces"][
+                "get"
+            ]["responses"]["200"]["content"]["application/json"]["schema"]["properties"][
+                "data"
+            ]
+        )
         required = data_schema["required"]
         assert "trials" in required
         assert "trials_pagination" in required
@@ -523,7 +583,10 @@ class TestRequiredSchemas:
             data_schema["properties"]["trials"]["items"]["$ref"]
             == "./workflow_trace_trial_response_schema.json"
         )
-        assert data_schema["properties"]["trials_pagination"]["$ref"] == "../pagination_schema.json"
+        assert (
+            data_schema["properties"]["trials_pagination"]["$ref"]
+            == "../pagination_schema.json"
+        )
         assert (
             schemas_dir
             / "execution"
@@ -555,7 +618,9 @@ class TestRequiredSchemas:
         } <= workflow_required
 
     def test_project_membership_update_request_schema_exists(self, schemas_dir):
-        assert (schemas_dir / "projects" / "project_membership_update_request_schema.json").exists()
+        assert (
+            schemas_dir / "projects" / "project_membership_update_request_schema.json"
+        ).exists()
 
 
 class TestExampleMetricsSchema:
@@ -574,7 +639,10 @@ class TestExampleMetricsSchema:
 
     def test_valid_nested_format_passes(self, validator):
         """Valid nested format should pass validation."""
-        data = {"example_id": "ex_a3f4b2c8d1_0", "metrics": {"score": 0.85, "cost": 0.05}}
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": {"score": 0.85, "cost": 0.05}
+        }
         errors = validator.validate_example_metrics(data)
         assert errors == [], f"Unexpected errors: {errors}"
 
@@ -582,14 +650,17 @@ class TestExampleMetricsSchema:
         """Valid nested format with null metric values should pass."""
         data = {
             "example_id": "ex_abc12345de_42",
-            "metrics": {"score": 0.85, "pending_metric": None},
+            "metrics": {"score": 0.85, "pending_metric": None}
         }
         errors = validator.validate_example_metrics(data)
         assert errors == [], f"Unexpected errors: {errors}"
 
     def test_valid_nested_format_empty_metrics(self, validator):
         """Valid nested format with empty metrics dict should pass."""
-        data = {"example_id": "ex_abc12345de_0", "metrics": {}}
+        data = {
+            "example_id": "ex_abc12345de_0",
+            "metrics": {}
+        }
         errors = validator.validate_example_metrics(data)
         assert errors == [], f"Unexpected errors: {errors}"
 
@@ -609,7 +680,10 @@ class TestExampleMetricsSchema:
 
     def test_invalid_example_id_format_fails(self, validator):
         """Invalid example_id format should fail."""
-        data = {"example_id": "invalid_format", "metrics": {"score": 0.85}}
+        data = {
+            "example_id": "invalid_format",
+            "metrics": {"score": 0.85}
+        }
         errors = validator.validate_example_metrics(data)
         assert len(errors) > 0
         assert any("example_id" in e.lower() or "format" in e.lower() for e in errors)
@@ -618,7 +692,7 @@ class TestExampleMetricsSchema:
         """Example ID with uppercase hex should fail."""
         data = {
             "example_id": "ex_ABC12345_0",  # Uppercase not allowed
-            "metrics": {"score": 0.85},
+            "metrics": {"score": 0.85}
         }
         errors = validator.validate_example_metrics(data)
         assert len(errors) > 0
@@ -627,21 +701,27 @@ class TestExampleMetricsSchema:
         """Example ID with wrong prefix should fail."""
         data = {
             "example_id": "example_abc12345_0",  # Should be 'ex_'
-            "metrics": {"score": 0.85},
+            "metrics": {"score": 0.85}
         }
         errors = validator.validate_example_metrics(data)
         assert len(errors) > 0
 
     def test_non_numeric_metric_fails(self, validator):
         """Non-numeric metric values should fail."""
-        data = {"example_id": "ex_a3f4b2c8d1_0", "metrics": {"score": "not a number"}}
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": {"score": "not a number"}
+        }
         errors = validator.validate_example_metrics(data)
         assert len(errors) > 0
         assert any("score" in e or "numeric" in e for e in errors)
 
     def test_boolean_metric_fails(self, validator):
         """Boolean metric values should fail."""
-        data = {"example_id": "ex_a3f4b2c8d1_0", "metrics": {"passed": True}}
+        data = {
+            "example_id": "ex_a3f4b2c8d1_0",
+            "metrics": {"passed": True}
+        }
         errors = validator.validate_example_metrics(data)
         assert len(errors) > 0
         assert any("passed" in e or "numeric" in e for e in errors)
@@ -650,7 +730,7 @@ class TestExampleMetricsSchema:
         """More than 50 metrics should fail."""
         data = {
             "example_id": "ex_a3f4b2c8d1_0",
-            "metrics": {f"metric_{i}": float(i) for i in range(51)},
+            "metrics": {f"metric_{i}": float(i) for i in range(51)}
         }
         errors = validator.validate_example_metrics(data)
         assert len(errors) > 0
@@ -660,7 +740,7 @@ class TestExampleMetricsSchema:
         """Exactly 50 metrics should pass."""
         data = {
             "example_id": "ex_a3f4b2c8d1_0",
-            "metrics": {f"metric_{i}": float(i) / 100 for i in range(50)},
+            "metrics": {f"metric_{i}": float(i) / 100 for i in range(50)}
         }
         errors = validator.validate_example_metrics(data)
         assert errors == [], f"Unexpected errors: {errors}"
@@ -681,7 +761,11 @@ class TestProjectContracts:
         errors = validator.validate_request(
             "/api/v1beta/projects",
             "POST",
-            {"name": "Core Platform", "slug": "core-platform", "description": "Primary project"},
+            {
+                "name": "Core Platform",
+                "slug": "core-platform",
+                "description": "Primary project"
+            },
         )
         assert errors == []
 
@@ -723,7 +807,11 @@ class TestProjectContracts:
             openapi = json.load(handle)
 
         modules = openapi.get("x-endpoint-modules", [])
-        paths_files = {module.get("paths_file") for module in modules if isinstance(module, dict)}
+        paths_files = {
+            module.get("paths_file")
+            for module in modules
+            if isinstance(module, dict)
+        }
         assert "./prompts/prompts_endpoints.json" in paths_files
         assert "./observability/observability_endpoints.json" in paths_files
 
@@ -806,7 +894,7 @@ class TestProjectContracts:
         """Metrics as non-dict type should fail."""
         data = {
             "example_id": "ex_a3f4b2c8d1_0",
-            "metrics": [0.85, 0.05],  # Array instead of dict
+            "metrics": [0.85, 0.05]  # Array instead of dict
         }
         errors = analytics_validator.validate_example_metrics(data)
         assert len(errors) > 0
@@ -816,7 +904,7 @@ class TestProjectContracts:
         """Example ID as non-string type should fail."""
         data = {
             "example_id": 12345,  # Number instead of string
-            "metrics": {"score": 0.85},
+            "metrics": {"score": 0.85}
         }
         errors = analytics_validator.validate_example_metrics(data)
         assert len(errors) > 0
@@ -1292,12 +1380,17 @@ class TestObjectiveSchemaContracts:
             ),
         ],
     )
-    def test_schema_references_resolve_without_unresolvable_errors(self, schema_name, payload):
+    def test_schema_references_resolve_without_unresolvable_errors(
+        self, schema_name, payload
+    ):
         validator = SchemaValidator()
 
         errors = validator.validate_json(payload, schema_name)
 
-        assert not any("Unresolvable" in error or "Validation error:" in error for error in errors)
+        assert not any(
+            "Unresolvable" in error or "Validation error:" in error
+            for error in errors
+        )
 
 
 class TestProjectRetentionPolicyResponseRequiredness:
@@ -1364,3 +1457,4 @@ class TestProjectRetentionPolicyResponseRequiredness:
         assert set(policy_schema["required"]) == set(policy_schema["properties"].keys())
         for field_schema in policy_schema["properties"].values():
             assert "default" not in field_schema
+

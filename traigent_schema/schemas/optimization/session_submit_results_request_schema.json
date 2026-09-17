@@ -38,7 +38,12 @@
     "status": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 255
+      "maxLength": 64
+    },
+    "execution_mode": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Optional SDK execution mode label for this submission (e.g. 'local', 'hybrid'). Backend validates it as an optional string capped at 64 chars (src/routes/traigent_session_routes.py::_validate_results_payload) and uses it to record deprecated-wire-format telemetry and, on the interactive (typed) path, as metadata.mode (the classic path receives it as its own execution_mode argument, not via metadata)."
     },
     "outputs_sample": {
       "type": "array",
@@ -50,7 +55,7 @@
         "string",
         "null"
       ],
-      "maxLength": 5000
+      "maxLength": 2000
     },
     "metadata": {
       "type": [
@@ -78,6 +83,16 @@
         }
       },
       "additionalProperties": true
+    },
+    "execution_environment": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional opaque SDK execution environment metadata (e.g. runtime/platform info). Backend validates it as an optional object only and passes it through unvalidated to the session service on the classic (non-interactive) submission path (src/routes/traigent_session_routes.py::_validate_results_payload)."
+    },
+    "summary_stats": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional trial-level summary statistics (e.g. aggregated per-example scores). Backend validates it as an optional object only and passes it through unvalidated to the session service on both the interactive and classic submission paths (src/routes/traigent_session_routes.py::_validate_results_payload)."
     },
     "measures": {
       "oneOf": [

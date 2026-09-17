@@ -3,7 +3,7 @@
   "$id": "https://schemas.traigent.ai/datasets/generator_config_create_request_schema.json",
   "type": "object",
   "title": "Generator Configuration Create Request Schema",
-  "description": "Request-only inner contract for dataset create/update. Mirrors fields the backend BenchmarkCreator reads; resource schema stays canonical for reads.",
+  "description": "Request-only inner contract for dataset create (POST); the PUT path uses generator_config_update_request_schema.json. Mirrors fields the backend BenchmarkCreator reads; resource schema stays canonical for reads.",
   "properties": {
     "id": {
       "type": "string",

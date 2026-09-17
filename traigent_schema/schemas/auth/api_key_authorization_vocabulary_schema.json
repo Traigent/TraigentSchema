@@ -205,8 +205,14 @@
       },
       "uniqueItems": true
     },
+    "LegacyAuditPermissionToken": {
+      "type": "string",
+      "description": "Retired permission tokens that were grantable before the dataset resource was folded into benchmark. They are NOT grantable, requestable, or part of ApiKeyPermissionToken; they exist only so audit rows written under the old vocabulary still validate when read back. Read dataset.* as the matching benchmark.* permission.",
+      "enum": ["dataset.read", "dataset.write"],
+      "x-resource-alias-of": "benchmark"
+    },
     "AuditPermissionValue": {
-      "description": "Nullable audit-log permission field. API-key permission values must be canonical tokens; comma-separated values are allowed because API-key lifecycle audit rows can record several granted permissions in one field.",
+      "description": "Nullable audit-log permission field. Newly written values are canonical ApiKeyPermissionToken tokens; comma-separated values are allowed because API-key lifecycle audit rows can record several granted permissions in one field. Audit rows are immutable history, so the retired LegacyAuditPermissionToken values stay decodable here and nowhere else.",
       "anyOf": [
         {
           "type": "null"
@@ -215,8 +221,11 @@
           "$ref": "#/definitions/ApiKeyPermissionToken"
         },
         {
+          "$ref": "#/definitions/LegacyAuditPermissionToken"
+        },
+        {
           "type": "string",
-          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*$",
+          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*$",
           "x-token-ref": "#/definitions/ApiKeyPermissionToken"
         }
       ]

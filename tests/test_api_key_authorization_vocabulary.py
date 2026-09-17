@@ -250,6 +250,41 @@ def test_audit_permission_accepts_canonical_tokens_and_rejects_scope_tokens() ->
     assert errors
 
 
+def test_audit_permission_still_decodes_retired_dataset_tokens() -> None:
+    """Audit rows are immutable history: rows written while dataset.* was grantable
+    must keep validating after the vocabulary folds dataset into benchmark."""
+    validator = SchemaValidator()
+
+    for permission in (
+        "dataset.read",
+        "dataset.write",
+        "dataset.write,dataset.read",
+        "benchmark.read,dataset.read",
+    ):
+        assert (
+            validator.validate_json(
+                _audit_log_entry(permission),
+                AUDIT_LOG_ENTRY_RESPONSE,
+            )
+            == []
+        ), permission
+
+
+def test_retired_dataset_tokens_are_audit_only_not_grantable() -> None:
+    schema = load_schema(VOCABULARY_SCHEMA)
+    definitions = schema["definitions"]
+    legacy = set(definitions["LegacyAuditPermissionToken"]["enum"])
+
+    assert legacy == {"dataset.read", "dataset.write"}
+    assert legacy.isdisjoint(definitions["ApiKeyPermissionToken"]["enum"])
+    granted = {
+        permission
+        for entry in schema["x-scope-permission-map"].values()
+        for permission in entry["permissions"]
+    }
+    assert legacy.isdisjoint(granted)
+
+
 def test_project_permission_required_refs_canonical_project_permission() -> None:
     schema = load_schema(PROJECT_MEMBER_LOOKUP_ERROR)
     permission_schema = schema["properties"]["permission_required"]

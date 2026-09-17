@@ -30,7 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     permissions and `benchmark` compatibility aliases, mirroring `benchmarks:*` exactly
     (both scopes are runtime aliases of the same `benchmark` resource).
   - `ApiKeyPermissionToken` enum: removed `dataset.read` and `dataset.write` — no producer
-    or consumer exists. `AuditPermissionValue`'s comma-separated pattern is updated to match.
+    or consumer exists for new grants. `AuditPermissionValue` deliberately still accepts them,
+    through a new audit-only `LegacyAuditPermissionToken` definition, because audit rows are
+    immutable history and rows written under the old vocabulary must keep decoding; the
+    legacy tokens are not grantable and appear in no scope mapping.
     Breaking because a consumer that generated or validated against the old enum could
     previously mint/accept `dataset.read`/`dataset.write`, which are no longer valid tokens.
   - Added `x-known-resource-aliases` (new governed `x-*` extension, registered in

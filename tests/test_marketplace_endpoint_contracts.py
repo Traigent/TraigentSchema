@@ -36,6 +36,25 @@ def test_catalog_lists_exactly_the_three_marketplace_paths_with_post():
         )
 
 
+
+def test_marketplace_operations_are_contract_first_until_the_backend_routes_land():
+    """The three routes are implemented by TraigentBackend #3169, which is not merged.
+
+    Until it is, each operation must say ``x-asserted-against-backend: false`` so the
+    Backend's documented-routes conformance canary lists them as contract-first
+    instead of failing every Backend traigent-schema pin bump. Flip to ``true`` in
+    the same change that pins the Backend to a commit containing its routes.
+    """
+    spec = _load_catalog()
+    flags = {
+        (path, method): op.get("x-asserted-against-backend")
+        for path, ops in spec["paths"].items()
+        for method, op in ops.items()
+        if isinstance(op, dict)
+    }
+    assert len(flags) == 3
+    assert all(flag is False for flag in flags.values()), flags
+
 def test_catalog_wired_into_mep_master_module_list():
     with open(get_schemas_dir() / "mep_endpoints.json", encoding="utf-8") as fh:
         mep = json.load(fh)

@@ -47,6 +47,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that the ranking was correct. Description-only; no shape change.
 
 ### Fixed
+- **Submit-results optionals accept explicit `null` (completes part 1 of #454).**
+  `summary_stats`, `execution_mode`, and `execution_environment` on
+  `session_submit_results_request_schema.json` were declared as plain `object`/`string`,
+  so a client that serializes an unset optional as `null` failed validation even though
+  the server treats `null` exactly like an omitted field. Each now uses the schema's
+  existing `["<type>", "null"]` form; wrong types are still rejected. Widening only.
+- **`trial_sequencing: "client"` no longer reads as disabling cost controls (#323).**
+  The description on both session-create surfaces said the server's "budget accounting"
+  becomes informational only. It now scopes that to the optimizer's trial-count budget
+  and states, as a requirement on implementers, that client sequencing does not disable or
+  relax any spend, time, rate, or security limit that applies to the session.
+  Description-only; no shape change.
 - **`exportProjectFineTuningManifest` path drift in `planned_projects_endpoints.json`
   (#272).** The operation was declared at
   `/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest`, but the real

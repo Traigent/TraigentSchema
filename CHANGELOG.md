@@ -240,6 +240,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     accepted — a strict `validate_response` promotion of the experiment
     resource's `status` (planned, not yet wired) would otherwise false-reject
     real `REGISTERED` experiments.
+- **Reconciled the `datasets:*` auth-vocab scope mapping with the runtime bridge; removed
+  the orphaned `dataset.*` permission family (#266).** `api_key_authorization_vocabulary_schema.json`
+  declared `datasets:read`/`datasets:write` mapping to a `dataset.read`/`dataset.write`
+  permission family with `read:dataset`/`write:dataset` compatibility aliases that the
+  backend never produced or consumed in either direction (the backend bridges
+  `datasets`/`dataset` to the `benchmark` resource; there is no `ResourceType.DATASET`).
+  - `x-scope-permission-map`: `datasets:read`/`datasets:write` now map to `benchmark.*`
+    permissions and `benchmark` compatibility aliases, mirroring `benchmarks:*` exactly
+    (both scopes are runtime aliases of the same `benchmark` resource).
+  - `ApiKeyPermissionToken` enum: removed `dataset.read` and `dataset.write` — no producer
+    or consumer exists for new grants. `AuditPermissionValue` deliberately still accepts them,
+    through a new audit-only `LegacyAuditPermissionToken` definition, because audit rows are
+    immutable history and rows written under the old vocabulary must keep decoding; the
+    legacy tokens are not grantable and appear in no scope mapping.
+    The audit comma-list pattern is now generated from the canonical + legacy token enums
+    (it had silently omitted `director_evidence.read`, so a mixed value containing it failed
+    to decode) and is strictly end-anchored, so a value with a trailing newline is rejected.
+    Breaking because a consumer that generated or validated against the old enum could
+    previously mint/accept `dataset.read`/`dataset.write`, which are no longer valid tokens.
+  - Added `x-known-resource-aliases` (new governed `x-*` extension, registered in
+    `x_extensions_meta_schema.json`) documenting that `dataset` is an alias of `benchmark`
+    pending a full backend rename (tracked separately as BE#1267), so the alias is explicit
+    rather than silently orphaned again.
+  - The matching `tests/data/auth_taxonomy_known_drift.yaml` allowlist rows
+    (`be-scope-perm-datasets-read`, `be-scope-perm-datasets-write`) are removed: the
+    Schema/backend drift they named has converged.
+  - Out of scope for this change: the `billing_limits_schema.json` /
+    `project_scoped_analytics_summary_schema.json` `benchmarks` counters. The backend billing
+    and analytics surfaces still emit only `benchmarks` (no `datasets` key exists anywhere in
+    those code paths), so migrating those contract fields now would recreate the same
+    orphaned-token pattern this change fixes; that migration needs a coordinated backend
+    change first.
 
 ## [6.1.0] - 2026-09-17
 

@@ -139,6 +139,18 @@
       "type": "boolean",
       "description": "True when a schema carries short-lived privileged execution metadata that may be returned only to an authenticated, authorized caller and must be redacted from logs and diagnostics."
     },
+    "x-known-resource-aliases": {
+      "type": "object",
+      "description": "Names resources that are aliases of one another at runtime pending a full rename, so the alias is documented rather than silently orphaned. Keys are the alias resource name; each value names 'alias_of' (the canonical resource) and a 'note' explaining why the alias exists and what would retire it. Placed on the authorization vocabulary schema.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["alias_of", "note"],
+        "properties": {
+          "alias_of": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
     "x-max-event-bytes": {
       "type": "integer",
       "description": "Maximum canonicalized byte size of a single wire object (e.g. one observability v2 event body, 65536). Enforced by the admission edge, not by JSON Schema; declared on the schema whose instances are byte-capped so the limit is discoverable from the contract."
@@ -218,6 +230,10 @@
     "x-required-permission-vocabulary": {
       "type": "string",
       "description": "A $ref-style pointer to the vocabulary schema definition that enumerates all allowed values for x-required-permission on this endpoint or schema. Used to link endpoint contracts to the canonical permission token enum."
+    },
+    "x-resource-alias-of": {
+      "type": "string",
+      "description": "Names the canonical resource that this scope-permission-map entry's resource is an alias of at runtime (see x-known-resource-aliases for the full explanation). Placed on an x-scope-permission-map entry."
     },
     "x-response-headers": {
       "type": "object",

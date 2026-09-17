@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/marketplace_complete_request_schema.json",
+  "title": "AWS Marketplace Registration Completion Request",
+  "description": "Authenticated claim of a pending AWS Marketplace registration into the caller's own tenant. `registration_id` is the wire field name kept for API compatibility -- the value is the raw bearer handle returned by POST /register's redirect, not a database id. `tenant_id`, if supplied, is only accepted as an assertion that MUST equal the authenticated session's own tenant (a mismatch is rejected with 403); it never selects which tenant is claimed into. See src/routes/marketplace_routes.py:complete.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "registration_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Raw bearer handle for the pending registration (format mpr_<token>), not a database id."
+    },
+    "tenant_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Optional assertion of the target tenant. Must equal the authenticated session's own tenant (src/security/tenant_context.py:get_current_tenant_id) or the request is rejected with 403."
+    }
+  },
+  "required": ["registration_id"]
+}

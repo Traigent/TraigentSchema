@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/dataset_quality.json",
+  "$id": "https://schemas.traigent.ai/analytics/dataset_quality_schema.json",
   "title": "DatasetQuality",
   "description": "INTERNAL dataset-level scoring record aggregated from example scores. The quality signals and ranked example-ID lists below are proprietary and are NOT returned to clients; the API returns only non-signal metadata. Signal semantics and formulas are intentionally not documented here.",
   "type": "object",

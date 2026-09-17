@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/scoring_job_status.json",
+  "$id": "https://schemas.traigent.ai/analytics/scoring_job_status_schema.json",
   "title": "ScoringJobStatus",
   "description": "Status of an asynchronous scoring computation job",
   "type": "object",

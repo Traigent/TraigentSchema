@@ -205,7 +205,7 @@
       "description": "Configurations settings controlling experiment execution"
     },
     "status": {
-      "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ExperimentRunStatus",
+      "$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ExperimentStatus",
       "description": "Current execution status of the experiment"
     },
     "dataset_id": {

@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a pure `$id` rename with no `$ref` updates needed (nothing else referenced the old absolute
   form). Removes the now-moot `unresolved_ref` acknowledgement for these 7 operations from
   `scripts/breaking_schema_allowlist.json` (added on PR #471).
+- **AWS Marketplace operations marked contract-first.** The three operations in
+  `schemas/billing/marketplace_endpoints.json` (#474) now carry
+  `x-asserted-against-backend: false`: their Backend routes are in TraigentBackend
+  #3169, which has not merged, so the Backend's documented-routes conformance test
+  failed every traigent-schema pin bump past #474 (seen on TraigentBackend #3333).
+  Flip back to asserted when the Backend pins a commit containing those routes.
 
 ### Added
 - **`selection` receipt on `SessionAggregationDTO` (R3 selection receipt, PR 1 of 3).**

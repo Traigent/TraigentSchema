@@ -43,6 +43,21 @@
       ],
       "description": "Canonical categorical priority vocabulary with an escalation tier (low < normal < high < critical). Superset of Priority (#313). Distinct from the integer 'priority' rank-order fields, which are numeric ordering, not this severity vocabulary."
     },
+    "Confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Canonical numeric confidence score, [0, 1] (#314). This is the canonical wire form for 'confidence' going forward — new contracts use this numeric form, not a qualitative bucket. See ConfidenceLabel for the derived qualitative bucketing of this same score, and its documented thresholds."
+    },
+    "ConfidenceLabel": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "description": "Canonical coarse confidence bucket, DERIVED from a numeric Confidence score (#314, owner decision 2026-07-18: numeric is canonical, this qualitative enum is the derived label). Documented thresholds: confidence < 0.34 -> 'low'; 0.34 <= confidence < 0.67 -> 'medium'; confidence >= 0.67 -> 'high'. These cut-points are the target emitter convention introduced with this definition (the owner decision on #314 asks for documented thresholds but does not fix their values); JSON Schema cannot enforce the score-to-label mapping, so a payload's label is validated for enum membership only. Existing client-safe analytics surfaces (e.g. decision_payload_schema.json) that intentionally expose only this coarse bucket — never the raw numeric score, to avoid leaking proprietary scoring signals — reference this definition instead of re-spelling the enum. Emitters migrate to it opportunistically; this is not a big-bang rename of the 'confidence' field."
+    },
     "CacheReadTokens": {
       "type": [
         "integer",

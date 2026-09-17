@@ -41,9 +41,9 @@
           "description": "Sample size backing this candidate value."
         },
         "confidence": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
+          "allOf": [
+            { "$ref": "../common_types_schema.json#/definitions/Confidence" }
+          ]
         }
       },
       "required": ["value", "score", "support_n", "confidence"],
@@ -116,9 +116,9 @@
       "description": "Sample size backing this hint."
     },
     "confidence": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
+      "allOf": [
+        { "$ref": "../common_types_schema.json#/definitions/Confidence" }
+      ]
     },
     "derived_from": {
       "$ref": "#/definitions/DerivedFrom"

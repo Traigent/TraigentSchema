@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Canonical `Confidence` / `ConfidenceLabel` common types (#314, owner decision
+  2026-07-18: numeric canonical + derived qualitative label).** `confidence` was a
+  `0-1` number in optimization/datasets/auth schemas but a qualitative
+  `low`/`medium`/`high` enum in analytics responses — a dual wire form for one
+  concept. Adds `common_types_schema.json#/definitions/Confidence` (canonical
+  numeric `[0, 1]`) and `.../ConfidenceLabel` (canonical `low`/`medium`/`high`
+  enum, documented as the derived bucketing of the numeric score, with documented
+  thresholds) and re-points the occurrences listed below at the shared definition (a staged migration per #314 — `auth/agent_interaction_policy_request_schema.json`'s inline, unbounded `confidence` is NOT migrated here and is tracked separately):
+  numeric side (`optimization/tvar_correlation_schema.json`,
+  `optimization/tvar_value_recommendation_schema.json`,
+  `auth/interaction_policy_schema.json`,
+  `datasets/evaluation_set_schema.json`) and qualitative side
+  (`analytics/decision_payload_schema.json`,
+  `analytics/run_correlations_schema.json`,
+  `analytics/run_leaderboard_schema.json`). No field is renamed and no numeric
+  score is added to the client-safe analytics surfaces (which intentionally
+  expose only the coarse bucket) — this documents and DRYs the existing split,
+  it does not force a big-bang migration. `optimization/smart_pruning_schema.json`'s
+  `confidence` is a distinct algorithm-parameter concept (open interval, request-side
+  pruning threshold) and is intentionally left untouched.
+
+- **Selection receipt in strict (certified-selection) sessions.** The server decides the
+  winner there, so the Backend accepts a receipt only when `winner_trial_id` equals its
+  certified winner; with no certified winner, or a different one, it persists
+  `winner_not_eligible`. (The Python SDK sends no receipt in strict mode.) Also states that
+  NaN/Infinity in an integer-typed receipt field is `non_finite`, not `invalid_receipt`.
+  Description-only; no shape change.
+
+### Changed
 - **Selection receipt winner rule (unreleased contract from #491).** The Backend no longer
   requires `selection.winner_trial_id` to equal the trial it would rank best; it must be a
   completed trial of this session and in `eligible_trial_ids` (else `winner_not_eligible`).
@@ -175,6 +204,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
 
+### Changed
+- **Agent-quality offline verifier: stronger project/scope-ref privacy canary.**
+  Test-only. The `expected_project_ref`/`expected_build_session_ref` privacy canary in
+  `tests/test_agent_quality_verifier.py` previously exercised only the SCOPE_MISMATCH
+  failure path (a caller-supplied sentinel that never matched the bundle, proven not to
+  mutate the bundle by snapshot equality). That failure-path canary stays -- it is the only
+  test asserting the ref is absent from the raised error -- and is joined by two canaries that traverse the
+  public entry point's real success and abstain outcomes
+  (`AGENT_QUALITY_VERIFIED`/`AGENT_QUALITY_CLAIM_ABSTAINED`) and prove the caller's own
+  scope-ref pins never surface in the exported `AgentQualityVerificationResult`, plus a
+  non-vacuity meta-test. No production code changed.
+
 ### Fixed
 - **`session_submit_results_request_schema.json` now declares `summary_stats`,
   `execution_mode`, and `execution_environment` (part 1 of the #454 contract audit).**
@@ -216,8 +257,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   status set (`UNSET`/`OK`/`ERROR`), so labelling the field "OTel-compatible" could lead
   a caller to send OTel's own values and get a validation error. Description-only.
 
+## [7.0.0] - 2026-09-17
+
+### Breaking
+- **Minted a canonical `ExperimentStatus` enum and rebound the experiment
+  RESOURCE's `status` to it, correcting a mis-binding to `ExperimentRunStatus`
+  (#262).** The experiment resource is backed by a distinct, 8-member status
+  vocabulary (`{NOT_STARTED, PENDING, REGISTERED, RUNNING, FAILED, COMPLETED,
+  CANCELLED, UNKNOWN}`) that differs from the 9-member run-level
+  `ExperimentRunStatus` on three values: `REGISTERED` exists only at the
+  experiment level (with no run-level equivalent), while `PAUSED` and
+  `PARTIALLY_DELETED` are run-level states that are not members of the Backend's
+  experiment persistence enum (creating an experiment with either returns 422). The Schema previously had no `ExperimentStatus` definition at
+  all — the experiment resource simply `$ref`'d the run enum.
+  - `status_schema.json#/definitions/ExperimentStatus` (new): the 8 canonical
+    UPPER members above.
+  - `evaluation/experiment_schema.json` top-level `status` (the experiment
+    resource itself): rebound from `ExperimentRunStatus` to `ExperimentStatus`.
+    The embedded `ExperimentListRunSummary.status` ("current status of the
+    latest experiment run") is unchanged — it is correctly a run status.
+  - `evaluation/experiment_create_request_schema.json` top-level `status`:
+    same rebinding, for the same reason. Its embedded
+    `ExperimentListRunSummary.status` is likewise unchanged.
+  - Breaking because a request or response `status` of `PAUSED` or
+    `PARTIALLY_DELETED` on the experiment resource, previously schema-valid,
+    is now rejected, and `REGISTERED`, previously schema-invalid, is now
+    accepted — a strict `validate_response` promotion of the experiment
+    resource's `status` (planned, not yet wired) would otherwise false-reject
+    real `REGISTERED` experiments.
+- **Reconciled the `datasets:*` auth-vocab scope mapping with the runtime bridge; removed
+  the orphaned `dataset.*` permission family (#266).** `api_key_authorization_vocabulary_schema.json`
+  declared `datasets:read`/`datasets:write` mapping to a `dataset.read`/`dataset.write`
+  permission family with `read:dataset`/`write:dataset` compatibility aliases that the
+  backend never produced or consumed in either direction (the backend bridges
+  `datasets`/`dataset` to the `benchmark` resource; there is no `ResourceType.DATASET`).
+  - `x-scope-permission-map`: `datasets:read`/`datasets:write` now map to `benchmark.*`
+    permissions and `benchmark` compatibility aliases, mirroring `benchmarks:*` exactly
+    (both scopes are runtime aliases of the same `benchmark` resource).
+  - `ApiKeyPermissionToken` enum: removed `dataset.read` and `dataset.write` — no producer
+    or consumer exists for new grants. `AuditPermissionValue` deliberately still accepts them,
+    through a new audit-only `LegacyAuditPermissionToken` definition, because audit rows are
+    immutable history and rows written under the old vocabulary must keep decoding; the
+    legacy tokens are not grantable and appear in no scope mapping.
+    The audit comma-list pattern is now generated from the canonical + legacy token enums
+    (it had silently omitted `director_evidence.read`, so a mixed value containing it failed
+    to decode) and is strictly end-anchored, so a value with a trailing newline is rejected.
+    Breaking because a consumer that generated or validated against the old enum could
+    previously mint/accept `dataset.read`/`dataset.write`, which are no longer valid tokens.
+  - Added `x-known-resource-aliases` (new governed `x-*` extension, registered in
+    `x_extensions_meta_schema.json`) documenting that `dataset` is an alias of `benchmark`
+    pending a full backend rename (tracked separately as BE#1267), so the alias is explicit
+    rather than silently orphaned again.
+  - The matching `tests/data/auth_taxonomy_known_drift.yaml` allowlist rows
+    (`be-scope-perm-datasets-read`, `be-scope-perm-datasets-write`) are removed: the
+    Schema/backend drift they named has converged.
+  - Out of scope for this change: the `billing_limits_schema.json` /
+    `project_scoped_analytics_summary_schema.json` `benchmarks` counters. The backend billing
+    and analytics surfaces still emit only `benchmarks` (no `datasets` key exists anywhere in
+    those code paths), so migrating those contract fields now would recreate the same
+    orphaned-token pattern this change fixes; that migration needs a coordinated backend
+    change first.
+
 ## [6.1.0] - 2026-09-17
 
+### Added
 ### Fixed
 - **`project_retention_policy_schema.json`'s response now requires all 8 `policy`
   fields and drops their `default`s, matching the rate-limit sibling

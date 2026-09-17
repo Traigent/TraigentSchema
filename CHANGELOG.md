@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Normalized `$id` base URL for 7 analytics schemas (breaking-check blind spot).**
+  `curation_advice_schema.json`, `dataset_quality_schema.json`, `example_score_schema.json`,
+  `next_steps_receipt_request_schema.json`, `next_steps_receipt_response_schema.json`,
+  `next_steps_schema.json`, and `scoring_job_status_schema.json` declared `$id` under the
+  legacy `https://traigent.ai/schemas/...` host instead of the `https://schemas.traigent.ai/...`
+  host every other schema uses. `scripts/breaking_schema_check.py` resolves `$ref`s against
+  `SCHEMA_ID_BASE = "https://schemas.traigent.ai/"`, so operations in
+  `analytics/analytics_endpoints.json` referencing these 7 files came back `unresolved_ref` —
+  a blind spot the checker could not verify as non-breaking. No runtime behavior changes; this
+  is a pure `$id` rename with no `$ref` updates needed (nothing else referenced the old absolute
+  form). Removes the now-moot `unresolved_ref` acknowledgement for these 7 operations from
+  `scripts/breaking_schema_allowlist.json` (added on PR #471).
+- **AWS Marketplace operations marked contract-first.** The three operations in
+  `schemas/billing/marketplace_endpoints.json` (#474) now carry
+  `x-asserted-against-backend: false`: their Backend routes are in TraigentBackend
+  #3169, which has not merged, so the Backend's documented-routes conformance test
+  failed every traigent-schema pin bump past #474 (seen on TraigentBackend #3333).
+  Flip back to asserted when the Backend pins a commit containing those routes.
+
 ### Added
 - **`NormalizationStrategy` re-widened to `min_max`, `z_score`, `robust`
   (`schemas/optimization/objective_definition_schema.json`, `0.9.3` -> `0.9.4`).**
@@ -104,6 +124,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   never part of group identity, `identity_state`, sort vocabulary, or pagination/cursor
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
+
+### Fixed
+- **`session_submit_results_request_schema.json` now declares `summary_stats`,
+  `execution_mode`, and `execution_environment` (part 1 of the #454 contract audit).**
+  `POST /api/v1/sessions/{session_id}/results` already accepted all three
+  (`TraigentBackend`'s `_validate_results_payload`: `summary_stats`/`execution_environment`
+  as optional objects, `execution_mode` as an optional string capped at 64 chars), but the
+  schema's `additionalProperties: false` rejected them, so validating a real backend-accepted
+  submission against this schema failed closed on valid traffic. All three are optional and
+  additive — no existing required field, enum, or type changes; not a breaking change (see
+  `scripts/breaking_schema_check.py` output in the PR). The remaining #454 scope (auditing all
+  x-content/x-privacy-classification annotations across `schemas/optimization/`) is deferred to
+  a follow-up PR pending a per-field classification decision.
+- **`session_submit_results_request_schema.json` review fixes (round 2, #454).**
+  `execution_mode`'s description had the interactive/classic routing backwards: it now says
+  the backend records `execution_mode` into `metadata.mode` on the interactive (typed)
+  submission path (`_typed_session_is_admitted(...)` branch), not the classic path, which
+  instead receives it as its own `execution_mode` keyword argument
+  (`TraigentBackend`'s `src/routes/traigent_session_routes.py`). Also tightens `status`
+  (255 → 64 chars) and `error_message` (5000 → 2000 chars) to match the caps the backend
+  already enforces for those two pre-existing fields on the same endpoint
+  (`_validate_optional_string_field(data, "status", max_length=64)` and
+  `MAX_TRIAL_ERROR_MESSAGE_LENGTH = 2_000` in `src/services/traigent/terminal_outcome.py`) —
+  the same too-loose-vs-backend bug class this PR already fixed for the three new fields
+  above. This is a breaking (stricter) request-field change per
+  `scripts/breaking_schema_check.py`; acknowledged in `scripts/breaking_schema_allowlist.json`
+  with a reason (no known producer in this workspace emits a `status`/`error_message` beyond
+  the new caps — the backend has rejected them already).
+- **`workflow_trace_schema.json`'s `SpanPayload` object description no longer claims
+  `status` is a free, non-enum-enforced string.** #175 bound `status` to the closed
+  `ObservabilitySpanStatus` enum (`RUNNING`/`COMPLETED`/`FAILED`/`REJECTED`/`TIMEOUT`/
+  `CANCELLED`) and updated the field-level description, but left the object-level
+  description saying "`span_type` and `status` are free strings on the wire ...
+  accepts arbitrary status strings" — contradicting the enum enforcement actually in
+  force. `span_type` is unaffected and remains genuinely free-form. Description-only;
+  no validation behavior changes (`status` was already enum-enforced).
+- **`status`'s own field-level description dropped a misleading "OTel-compatible" label
+  (review follow-up on the fix above).** The enum vocabulary (`RUNNING`/`COMPLETED`/
+  `FAILED`/`REJECTED`/`TIMEOUT`/`CANCELLED`) does not overlap with OTel's native span
+  status set (`UNSET`/`OK`/`ERROR`), so labelling the field "OTel-compatible" could lead
+  a caller to send OTel's own values and get a validation error. Description-only.
+
+## [6.1.0] - 2026-09-17
+
+### Fixed
+- **`project_retention_policy_schema.json`'s response now requires all 8 `policy`
+  fields and drops their `default`s, matching the rate-limit sibling
+  (`project_rate_limit_policy_schema.json`, which already requires all 4 of its
+  policy fields).** Backend's `_normalize_retention_policy` unconditionally clamps
+  and fills every field on every GET/PATCH response, so none of them can actually
+  be absent; the response schema previously required only 2 of 8 and carried
+  `default`s on the other 6 (defaults that JSON-Schema never injects on a read, and
+  that belong on the update-request schema, not the resource response). Flagged as
+  a breaking contract tightening by `scripts/breaking_schema_check.py`; acknowledged
+  in `scripts/breaking_schema_allowlist.json`.
 
 ## [6.0.0] - 2026-09-14
 

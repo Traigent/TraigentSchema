@@ -2,6 +2,63 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "projects/project_retention_policy_schema.json",
+      "rule": "required",
+      "reason": "Backend's _normalize_retention_policy (src/services/project_service.py in the backend repo) unconditionally clamps and fills all 8 policy fields on every GET/PATCH response, so none of them can actually be absent; this promotes the remaining 6 into required[] to match the rate-limit sibling (project_rate_limit_policy_schema.json), which already requires all 4 of its policy fields. TraigentSchema issue #331. Response defaults belong on the update-request schema, not the resource response, so the response-side `default`s are dropped in the same change.",
+      "version": "6.1.0",
+      "pr": "#331",
+      "findings": [
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "dataset_retention_days",
+          "old": false,
+          "new": true,
+          "fingerprint": "60cb91d7a16dd66941236dfe8174b15871cf5592d9e42be862c7eee874f091e1"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "dataset_storage_limit_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "a40db612c8c379b1d304b080ff47e8bee7853936a9730f854bd59d7dc4eb5417"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "inline_payload_max_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "f7e1495634bc114c5685c640994f74c1a277452e4878be0e305f2ef42de94f64"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "observability_ingest_rpm",
+          "old": false,
+          "new": true,
+          "fingerprint": "14d7870fe7716316ee3ec6ff7f232c3cd0a32a257a6175a1e450e94c8f062397"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "payload_max_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "36f63937a4c66b073f917cd8e00e4c699e6d9b5d5fcbe472fe6caf91e14b87ff"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "trace_retention_days",
+          "old": false,
+          "new": true,
+          "fingerprint": "d57e238b5902799a9f0ab8ac59e4ce06d888c9215d0f23fb22ee0307eaeb0d4b"
+        }
+      ]
+    },
+    {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
       "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced. This acknowledgement is scoped only to this exact pointer and fingerprint.",
@@ -2483,71 +2540,6 @@
       ]
     },
     {
-      "file": "analytics/analytics_endpoints.json",
-      "rule": "unresolved_ref",
-      "reason": "Acknowledged unresolved, not verified non-breaking. The 7 pre-existing operations' $ref targets declare $id under https://traigent.ai/schemas/analytics/, while the checker resolves them under https://schemas.traigent.ai/analytics/ -- a pre-existing mismatch reproduced by any edit to this file, not caused by this PR. This PR changes neither those 7 operations nor their referenced files: `git diff --quiet origin/develop HEAD -- traigent_schema/schemas/analytics/{scoring_job_status,curation_advice,dataset_quality,example_score,next_steps,next_steps_receipt_request,next_steps_receipt_response}_schema.json; echo $?` prints 0. The $id repair is a tracked follow-up, out of this packet's edit boundary.",
-      "version": "6.0.0",
-      "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
-      "findings": [
-        {
-          "pointer": "#/paths//api/v1/analytics/example-scoring/jobs/{job_id}/get/responses/200/content/application/json/schema",
-          "role": "response",
-          "subject": null,
-          "old": null,
-          "new": null,
-          "fingerprint": "76cb276221d5053ab17a9ecfdb9fbd189a7938a1ed51dc8732d31f784ba0d36f"
-        },
-        {
-          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice/get/responses/200/content/application/json/schema",
-          "role": "response",
-          "subject": null,
-          "old": null,
-          "new": null,
-          "fingerprint": "72e61db380201d4c6427c95e4de75303ce3b536218698adb02a6b2acbaa755ab"
-        },
-        {
-          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/dataset-quality/get/responses/200/content/application/json/schema",
-          "role": "response",
-          "subject": null,
-          "old": null,
-          "new": null,
-          "fingerprint": "7297114c36d51911f3e9580b1cdf25aeb62b6f8d0be178680086c5b38da51f10"
-        },
-        {
-          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/scores/get/responses/200/content/application/json/schema/items",
-          "role": "response",
-          "subject": null,
-          "old": null,
-          "new": null,
-          "fingerprint": "3756bb13e970f8686efc4b111f36c166bcedc922da5671efd961c39ead929084"
-        },
-        {
-          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/get/responses/200/content/application/json/schema",
-          "role": "response",
-          "subject": null,
-          "old": null,
-          "new": null,
-          "fingerprint": "4ae0a9e1bbf02290ed827572d20fc4b75823ebaa9e39db5d2dfb7d5e555d1ef4"
-        },
-        {
-          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt/post/requestBody/content/application/json/schema",
-          "role": "request",
-          "subject": null,
-          "old": null,
-          "new": null,
-          "fingerprint": "c02955c9646e4ac2202df3cf5532a3206f8542ac49a02ccf3ac885743bb8f5ce"
-        },
-        {
-          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt/post/responses/200/content/application/json/schema",
-          "role": "response",
-          "subject": null,
-          "old": null,
-          "new": null,
-          "fingerprint": "82d8616101562b591201cf61775cd9dda1b6339fd0f6947ad6755d2ff4d4f9ba"
-        }
-      ]
-    },
-    {
       "file": "execution/experiment_group_schema.json",
       "rule": "property_added",
       "reason": "dataset_label is a new optional, nullable member on ExperimentGroupOverview added to let the portal's agent+dataset history table show a human-readable dataset name (Benchmark.label) instead of an opaque canonical dataset_id or 'No dataset'. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key.",
@@ -2563,6 +2555,48 @@
           "fingerprint": "4d0ca33534b1f02e6905415f2f886d539ead08e8b5df24bac4b6d56aa87c2925"
         }
       ]
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "maxLength",
+      "reason": "Tightens status (255 -> 64) and error_message (5000 -> 2000) to match the caps the backend already enforces at POST /api/v1/sessions/{session_id}/results (_validate_optional_string_field(data, \"status\", max_length=64) and MAX_TRIAL_ERROR_MESSAGE_LENGTH = 2_000 in src/services/traigent/terminal_outcome.py, both in TraigentBackend and both pre-existing, unrelated to this schema change). Before this fix the schema was looser than the backend for these two fields, the same too-loose-vs-backend bug class this PR (#454) fixed for the three new fields (summary_stats/execution_mode/execution_environment) on the same endpoint: a client validating a >64-char status or a >2000-char error_message against the schema saw it pass, then the live backend rejected it with 400 -- a false green on a submission the API would never accept. Tightening closes that gap instead of leaving it silently un-ported alongside the widening this PR already makes.",
+      "version": "Unreleased",
+      "pr": "#482",
+      "findings": [
+        {
+          "pointer": "#/properties/error_message",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "d07c7249100aa3214c246188c662290e0765ca91d65aa887cbe751f2b1a30677"
+        },
+        {
+          "pointer": "#/properties/status",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 255,
+          "new": 64,
+          "fingerprint": "fd99cb0e95d4ea834c399d4ca205ed4e95eec135f0a6f5ae2a0c5e0bb9ec754e"
+        }
+      ]
+    },
+    {
+      "file": "optimization/session_aggregation_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/selection",
+          "role": "conservative",
+          "subject": "selection",
+          "old": false,
+          "new": true,
+          "fingerprint": "03311a9c93e55d69eb17372d76edad959da83ad6298206244b30fbd2a4b05eff"
+        }
+      ],
+      "reason": "selection is a new OPTIONAL member of the closed SessionAggregationDTO (R3 selection receipt: records the SDK's selection decision and binds it to the session's own trials). The gate flags it under the bare-named-resource conservative heuristic because the old shape was additionalProperties:false and is echoed back in the finalize response. The Backend only echoes session_aggregation it persisted from the SDK's own finalize request, and no producer emits selection yet (Backend normalizer is R3 PR 2, Python SDK producer is PR 3), so a current SDK strictly validating the echo never receives the member; the SDK upgrade that sends selection ships together with the reader. Unreleased. Acknowledged rather than silenced so the widening of a closed shape is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "#491"
     },
     {
       "file": "optimization/objective_definition_schema.json",
@@ -2592,23 +2626,6 @@
           "fingerprint": "1e73fd1d61f99bed405dba6f6faf95d61e046afec05c71c07aadd0e92d738c41"
         }
       ]
-    },
-    {
-      "file": "optimization/session_aggregation_schema.json",
-      "rule": "property_added",
-      "findings": [
-        {
-          "pointer": "#/properties/selection",
-          "role": "conservative",
-          "subject": "selection",
-          "old": false,
-          "new": true,
-          "fingerprint": "03311a9c93e55d69eb17372d76edad959da83ad6298206244b30fbd2a4b05eff"
-        }
-      ],
-      "reason": "selection is a new OPTIONAL member of the closed SessionAggregationDTO (R3 selection receipt: records the SDK's selection decision and binds it to the session's own trials). The gate flags it under the bare-named-resource conservative heuristic because the old shape was additionalProperties:false and is echoed back in the finalize response. The Backend only echoes session_aggregation it persisted from the SDK's own finalize request, and no producer emits selection yet (Backend normalizer is R3 PR 2, Python SDK producer is PR 3), so a current SDK strictly validating the echo never receives the member; the SDK upgrade that sends selection ships together with the reader. Unreleased. Acknowledged rather than silenced so the widening of a closed shape is visible in the contract history.",
-      "version": "Unreleased",
-      "pr": "#491"
     }
   ]
 }

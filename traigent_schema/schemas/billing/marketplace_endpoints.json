@@ -10,6 +10,7 @@
       "post": {
         "summary": "Anonymous: resolve an AWS Marketplace registration token and stage a claimable pending registration",
         "description": "AWS posts the buyer here directly from the AWS Marketplace listing; there is no authenticated session yet. On success the buyer is redirected (303) into the portal's complete step with the new bearer handle as a query parameter -- nothing entitling happens until that step runs. No JSON body is returned on success.",
+        "x-asserted-against-backend": false,
         "requestBody": {
           "required": true,
           "content": {
@@ -66,6 +67,7 @@
       "post": {
         "summary": "Authenticated: claim a pending AWS Marketplace registration into the caller's own tenant",
         "description": "Requires an authenticated session (require_auth). The tenant a purchase is claimed into always comes from the canonical, authorization-checked session context, never from the request body -- an optional tenant_id in the body is accepted only as an assertion that must agree with it.",
+        "x-asserted-against-backend": false,
         "requestBody": {
           "required": true,
           "content": {
@@ -154,6 +156,7 @@
       "post": {
         "summary": "AWS-only: ingest an AWS Marketplace EventBridge lifecycle event",
         "description": "Authenticated by a shared secret in the X-Traigent-Marketplace-Secret header (constant-time compared), not by a user session. Idempotent by event id: a duplicate delivery is a no-op.",
+        "x-asserted-against-backend": false,
         "requestBody": {
           "required": true,
           "content": {

@@ -2615,6 +2615,122 @@
           "fingerprint": "e1a595ffbedfa68e6e4b0cf44aef23d1e9f3dd4f4ecd5a421d32a77feea63f40"
         }
       ]
+    },
+    {
+      "file": "evaluation/experiment_create_request_schema.json",
+      "rule": "enum",
+      "reason": "The experiment resource's status was mis-bound to ExperimentRunStatus (the 9-member run-level vocabulary) while the Backend backs the experiment resource with a distinct 8-member ExperimentStatus enum (TraigentSchema#262). This is a contract-breaking narrowing of a REQUEST field: PAUSED and PARTIALLY_DELETED were schema-valid and are now rejected; REGISTERED was schema-invalid and is now accepted. Observed at TraigentBackend origin/develop 56e66ca824fa: the experiment persistence enum `src/models/status_enums.py:97` has exactly the 8 members {NOT_STARTED, PENDING, REGISTERED, RUNNING, FAILED, COMPLETED, CANCELLED, UNKNOWN}; `POST /api/v1/experiments` with status PAUSED or PARTIALLY_DELETED returns HTTP 422 (\"is not a valid ExperimentStatus\") and with REGISTERED returns 201 (integration probe against the Flask test app); the list filter rejects non-members with 400 (`src/routes/experiment_routes.py:605-612`). `derive_reported_experiment_status` passes unrecognised stored strings through, so it is not cited as an enum bound. So the narrowed request values are ones the Backend already refuses; whether any client sends them is not claimed.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/477",
+      "findings": [
+        {
+          "pointer": "#/properties/status",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"PARTIALLY_DELETED\"",
+              "\"PAUSED\""
+            ]
+          },
+          "old": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PARTIALLY_DELETED\"",
+            "\"PAUSED\"",
+            "\"PENDING\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "new": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PENDING\"",
+            "\"REGISTERED\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "fingerprint": "801a7547f68991058328e2b616b7150752b1ba10277dffc997490bc00fe82326"
+        }
+      ]
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "enum",
+      "reason": "Same mis-binding fix as the create-request entry above (TraigentSchema#262): the experiment resource's top-level status is rebound from the run-level ExperimentRunStatus to the newly-minted, distinct 8-member ExperimentStatus enum matching the backend's experiment-level persistence enum (`src/models/status_enums.py:97`). PAUSED/PARTIALLY_DELETED are not members of the Backend's experiment persistence enum (see the create-request entry for the pinned evidence); REGISTERED is a real experiment-level state the schema previously could not express at all. Scoped only to this bare-named resource's top-level status -- the embedded ExperimentListRunSummary.status (the latest run's own status) is unchanged and correctly stays on ExperimentRunStatus.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/477",
+      "findings": [
+        {
+          "pointer": "#/properties/status",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"PARTIALLY_DELETED\"",
+              "\"PAUSED\""
+            ]
+          },
+          "old": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PARTIALLY_DELETED\"",
+            "\"PAUSED\"",
+            "\"PENDING\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "new": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PENDING\"",
+            "\"REGISTERED\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "fingerprint": "c0d65450746ea2f6a53431db8f1e0619b14a32d30c8d64b36112726417cf457c"
+        },
+        {
+          "pointer": "#/properties/status",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"REGISTERED\""
+            ]
+          },
+          "old": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PARTIALLY_DELETED\"",
+            "\"PAUSED\"",
+            "\"PENDING\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "new": [
+            "\"CANCELLED\"",
+            "\"COMPLETED\"",
+            "\"FAILED\"",
+            "\"NOT_STARTED\"",
+            "\"PENDING\"",
+            "\"REGISTERED\"",
+            "\"RUNNING\"",
+            "\"UNKNOWN\""
+          ],
+          "fingerprint": "be802649d34cfdcba035a7e86e3b2b440c712d233090c2582f509b810c041ddb"
+        }
+      ]
     }
   ]
 }

@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/marketplace_register_error_response_schema.json",
+  "title": "AWS Marketplace Registration Error",
+  "description": "Error body for POST /api/v1/billing/marketplace/register. Every error branch returns exactly `{\"error\": <fixed literal>}` -- no `success`/`message` envelope fields, unlike error_envelope_schema.json. 404 = integration disabled (checked before any other validation); 400 = the x-amzn-marketplace-token field was missing from both form data and JSON body; 502 = AWS could not resolve the supplied token (TokenResolutionError). See src/routes/marketplace_routes.py:register.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "type": "string",
+      "enum": [
+        "marketplace integration is not enabled",
+        "missing x-amzn-marketplace-token",
+        "AWS could not resolve this purchase; please retry from AWS Marketplace"
+      ]
+    }
+  },
+  "required": ["error"]
+}

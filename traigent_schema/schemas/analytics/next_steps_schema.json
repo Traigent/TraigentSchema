@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/next_steps.json",
+  "$id": "https://schemas.traigent.ai/analytics/next_steps_schema.json",
   "title": "NextSteps",
   "description": "CLIENT-SAFE next-step recommendation response for an experiment run. This contract follows an IP allowlist discipline: it may expose only category-level recommendation labels, templated rationale text, action templates, and coarse evidence labels. Example-scoring signals, rankings, formulas, and signal-derived values are proprietary and are NOT returned to clients.",
   "type": "object",

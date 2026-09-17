@@ -93,6 +93,11 @@
       "paths_file": "./billing/paddle_endpoints.json"
     },
     {
+      "name": "Billing AWS Marketplace",
+      "description": "Current backend AWS Marketplace purchase-to-account bridge routes (register, complete, events).",
+      "paths_file": "./billing/marketplace_endpoints.json"
+    },
+    {
       "name": "Billing Subscription Lifecycle",
       "description": "Current backend subscription and usage routes.",
       "paths_file": "./billing/subscription_lifecycle_endpoints.json"

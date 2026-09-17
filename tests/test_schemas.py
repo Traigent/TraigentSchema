@@ -1059,9 +1059,9 @@ class TestExperimentStatusEnumBinding:
         # REGISTERED exists only at the experiment level.
         assert "REGISTERED" in experiment_status
         assert "REGISTERED" not in run_status
-        # PAUSED / PARTIALLY_DELETED are run-only states, never reported at
-        # the experiment level (derive_reported_experiment_status bounds the
-        # reported experiment status to the 8-member set).
+        # PAUSED / PARTIALLY_DELETED are run-level states: they are not members
+        # of the Backend's experiment persistence enum (status_enums.py:97 at
+        # TraigentBackend 56e66ca824fa).
         assert experiment_status.isdisjoint({"PAUSED", "PARTIALLY_DELETED"})
         assert {"PAUSED", "PARTIALLY_DELETED"} <= run_status
 
@@ -1105,9 +1105,9 @@ class TestExperimentStatusEnumBinding:
         assert errors == []
 
     def test_experiment_schema_rejects_run_only_paused_status(self):
-        # PAUSED is a valid ExperimentRunStatus member but not a valid
-        # ExperimentStatus member; the backend never reports it for the
-        # experiment resource, so the schema must reject it now.
+        # PAUSED is a valid ExperimentRunStatus member but not a member of the
+        # Backend's experiment persistence enum (creating an experiment with it
+        # returns 422), so the experiment contract must reject it too.
         validator = SchemaValidator()
         errors = validator.validate_json(
             self._base_experiment_payload(status="PAUSED"), "experiment_schema"

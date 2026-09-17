@@ -214,8 +214,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CANCELLED, UNKNOWN}`) that differs from the 9-member run-level
   `ExperimentRunStatus` on three values: `REGISTERED` exists only at the
   experiment level (with no run-level equivalent), while `PAUSED` and
-  `PARTIALLY_DELETED` are run-only states never reported for the experiment
-  resource. The Schema previously had no `ExperimentStatus` definition at
+  `PARTIALLY_DELETED` are run-level states that are not members of the Backend's
+  experiment persistence enum (creating an experiment with either returns 422). The Schema previously had no `ExperimentStatus` definition at
   all — the experiment resource simply `$ref`'d the run enum.
   - `status_schema.json#/definitions/ExperimentStatus` (new): the 8 canonical
     UPPER members above.

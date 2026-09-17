@@ -32,7 +32,7 @@
         "CANCELLED",
         "UNKNOWN"
       ],
-      "description": "Status of the experiment resource itself. Distinct from ExperimentRunStatus (the vocabulary of an individual run): the backend backs the experiment resource with its own ExperimentStatus enum, whose member set differs on three values — REGISTERED (experiment-level only, no run-level equivalent) is present, while PAUSED and PARTIALLY_DELETED (run-only states) are absent and never reported at the experiment level."
+      "description": "Status of the experiment resource itself. Distinct from ExperimentRunStatus (the vocabulary of an individual run): the backend backs the experiment resource with its own ExperimentStatus enum, whose member set differs on three values — REGISTERED (experiment-level only, no run-level equivalent) is present, while PAUSED and PARTIALLY_DELETED (run-level states) are absent from it."
     },
     "ConfigurationRunStatus": {
       "type": "string",

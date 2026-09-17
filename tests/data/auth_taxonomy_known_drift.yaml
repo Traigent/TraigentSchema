@@ -63,31 +63,10 @@ drifts:
     note: >-
       Companion to harness:read; same reconciliation.
 
-  # ── Mismatch #5 — datasets:write grants benchmark.* (BE) vs dataset.* (Schema)
-  - id: be-scope-perm-datasets-read
-    detector_key: "backend.scope_permission_map.mismatch::datasets:read"
-    symbol_or_value: "datasets:read -> benchmark.read (BE) vs dataset.read (Schema)"
-    repo: TraigentBackend
-    surfaces: [TraigentBackend, TraigentSchema]
-    owner: backend-auth
-    phase_issue: "Schema#219 phase-1 (finish BE#1268 benchmark->dataset rename tail)"
-    remove_by: "Schema#219-enforce"
-    note: >-
-      _normalize_resource_scope pins resource_map['datasets']='benchmark', so
-      datasets:read expands to benchmark.read; Schema maps datasets:read ->
-      dataset.read. Unreconciled auth tail of the benchmark->dataset rename (BE#1268).
-
-  - id: be-scope-perm-datasets-write
-    detector_key: "backend.scope_permission_map.mismatch::datasets:write"
-    symbol_or_value: "datasets:write -> benchmark.write/read (BE) vs dataset.write/read (Schema)"
-    repo: TraigentBackend
-    surfaces: [TraigentBackend, TraigentSchema]
-    owner: backend-auth
-    phase_issue: "Schema#219 phase-1 (finish BE#1268 benchmark->dataset rename tail)"
-    remove_by: "Schema#219-enforce"
-    note: >-
-      datasets:write expands to {benchmark.write, benchmark.read} in BE vs
-      {dataset.write, dataset.read} in Schema. Same root as datasets:read.
+  # ── Mismatch #5 — RESOLVED (Schema#266): Schema now maps datasets:read/write to
+  # benchmark.* only, matching BE's _normalize_resource_scope bridge exactly. The
+  # be-scope-perm-datasets-read/-write rows are removed here (not just left stale)
+  # because the drift they named no longer exists.
 
   # ── Mismatch #6 — BE emits permission tokens absent from the Schema enum ────
   - id: be-perm-extra-model-read

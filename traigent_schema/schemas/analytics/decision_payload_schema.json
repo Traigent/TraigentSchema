@@ -42,13 +42,10 @@
       "description": "One-line, client-safe summary of the run outcome and the recommended direction."
     },
     "confidence": {
-      "type": "string",
-      "enum": [
-        "low",
-        "medium",
-        "high"
+      "allOf": [
+        { "$ref": "../common_types_schema.json#/definitions/ConfidenceLabel" }
       ],
-      "description": "Coarse confidence bucket for the recommendation. Buckets only; no numeric scores."
+      "description": "Coarse confidence bucket for the recommendation. Buckets only; no numeric scores — deliberately, to keep this KEYSTONE contract client-safe (#314: this is the derived-label side of the canonical numeric confidence, not a re-spelled enum)."
     },
     "recommended_action": {
       "type": "object",

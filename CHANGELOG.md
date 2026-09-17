@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Canonical `Confidence` / `ConfidenceLabel` common types (#314, owner decision
+  2026-07-18: numeric canonical + derived qualitative label).** `confidence` was a
+  `0-1` number in optimization/datasets/auth schemas but a qualitative
+  `low`/`medium`/`high` enum in analytics responses — a dual wire form for one
+  concept. Adds `common_types_schema.json#/definitions/Confidence` (canonical
+  numeric `[0, 1]`) and `.../ConfidenceLabel` (canonical `low`/`medium`/`high`
+  enum, documented as the derived bucketing of the numeric score, with documented
+  thresholds) and re-points the occurrences listed below at the shared definition (a staged migration per #314 — `auth/agent_interaction_policy_request_schema.json`'s inline, unbounded `confidence` is NOT migrated here and is tracked separately):
+  numeric side (`optimization/tvar_correlation_schema.json`,
+  `optimization/tvar_value_recommendation_schema.json`,
+  `auth/interaction_policy_schema.json`,
+  `datasets/evaluation_set_schema.json`) and qualitative side
+  (`analytics/decision_payload_schema.json`,
+  `analytics/run_correlations_schema.json`,
+  `analytics/run_leaderboard_schema.json`). No field is renamed and no numeric
+  score is added to the client-safe analytics surfaces (which intentionally
+  expose only the coarse bucket) — this documents and DRYs the existing split,
+  it does not force a big-bang migration. `optimization/smart_pruning_schema.json`'s
+  `confidence` is a distinct algorithm-parameter concept (open interval, request-side
+  pruning threshold) and is intentionally left untouched.
+
 - **Selection receipt in strict (certified-selection) sessions.** The server decides the
   winner there, so the Backend accepts a receipt only when `winner_trial_id` equals its
   certified winner; with no certified winner, or a different one, it persists
@@ -171,6 +192,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
 
+### Changed
+- **Agent-quality offline verifier: stronger project/scope-ref privacy canary.**
+  Test-only. The `expected_project_ref`/`expected_build_session_ref` privacy canary in
+  `tests/test_agent_quality_verifier.py` previously exercised only the SCOPE_MISMATCH
+  failure path (a caller-supplied sentinel that never matched the bundle, proven not to
+  mutate the bundle by snapshot equality). That failure-path canary stays -- it is the only
+  test asserting the ref is absent from the raised error -- and is joined by two canaries that traverse the
+  public entry point's real success and abstain outcomes
+  (`AGENT_QUALITY_VERIFIED`/`AGENT_QUALITY_CLAIM_ABSTAINED`) and prove the caller's own
+  scope-ref pins never surface in the exported `AgentQualityVerificationResult`, plus a
+  non-vacuity meta-test. No production code changed.
+
 ### Fixed
 - **`session_submit_results_request_schema.json` now declares `summary_stats`,
   `execution_mode`, and `execution_environment` (part 1 of the #454 contract audit).**
@@ -275,6 +308,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [6.1.0] - 2026-09-17
 
+### Added
 ### Fixed
 - **`generator_config`/`evaluator_config` create-request contracts now require `model_id` and
   `instructions` (requiredness-axis mirror of #200).** The dataset-create inner contracts

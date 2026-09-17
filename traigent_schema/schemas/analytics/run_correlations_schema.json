@@ -113,13 +113,10 @@
             "description": "Signed effect size of the parameter on the measure."
           },
           "confidence": {
-            "type": "string",
-            "enum": [
-              "low",
-              "medium",
-              "high"
+            "allOf": [
+              { "$ref": "../common_types_schema.json#/definitions/ConfidenceLabel" }
             ],
-            "description": "Coarse confidence bucket for the reported effect."
+            "description": "Coarse confidence bucket for the reported effect. Client-safe bucket only (#314: derived-label side of the canonical numeric confidence)."
           }
         }
       }

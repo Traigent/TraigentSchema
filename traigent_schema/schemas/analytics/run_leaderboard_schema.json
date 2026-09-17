@@ -106,13 +106,10 @@
             "additionalProperties": false
           },
           "confidence": {
-            "type": "string",
-            "enum": [
-              "low",
-              "medium",
-              "high"
+            "allOf": [
+              { "$ref": "../common_types_schema.json#/definitions/ConfidenceLabel" }
             ],
-            "description": "Coarse confidence bucket for this configuration's standing."
+            "description": "Coarse confidence bucket for this configuration's standing. Client-safe bucket only (#314: derived-label side of the canonical numeric confidence)."
           },
           "risk_flags": {
             "type": "array",

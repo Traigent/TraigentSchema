@@ -9,8 +9,10 @@ import json
 from pathlib import Path
 
 from jsonschema import Draft7Validator
+from referencing import Registry, Resource
 
 from traigent_schema import SchemaValidator
+from traigent_schema.utils import get_schemas_dir
 
 OPT_DIR = (
     Path(__file__).resolve().parent.parent
@@ -24,13 +26,46 @@ VALUE_RECOMMENDATION_FILE = OPT_DIR / "tvar_value_recommendation_schema.json"
 CORRELATION_FILE = OPT_DIR / "tvar_correlation_schema.json"
 OPT_ENDPOINTS_FILE = OPT_DIR / "optimization_endpoints.json"
 
+_SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
+
 
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _with_synthetic_id(schema: dict, path: Path) -> dict:
+    """Give ``schema`` the same synthetic ``$id`` SchemaValidator injects for
+    on-disk schemas that don't declare one, so a relative ``$ref`` (e.g. #314's
+    ``../common_types_schema.json#/definitions/Confidence``) resolves the same
+    way here as it does in production."""
+    if "$id" not in schema:
+        relative_path = path.relative_to(get_schemas_dir()).as_posix()
+        schema = {**schema, "$id": f"{_SCHEMA_ID_BASE}{relative_path}"}
+    return schema
+
+
+def _registry() -> Registry:
+    """Local, network-free registry covering every schema file, so cross-file
+    ``$ref``s (e.g. to common_types_schema.json) resolve without jsonschema
+    falling back to a live HTTP fetch of the ``$id`` URL."""
+    resources: list[tuple[str, Resource]] = []
+    for schema_file in get_schemas_dir().rglob("*.json"):
+        if "_endpoints" in schema_file.name:
+            continue  # OpenAPI catalogs, not JSON-Schema resources.
+        try:
+            schema = _with_synthetic_id(_load(schema_file), schema_file)
+        except (OSError, json.JSONDecodeError):
+            continue
+        resources.append((schema["$id"], Resource.from_contents(schema)))
+    return Registry().with_resources(resources)
+
+
+_REGISTRY = _registry()
+
+
 def _validator(path: Path) -> Draft7Validator:
-    return Draft7Validator(_load(path))
+    schema = _with_synthetic_id(_load(path), path)
+    return Draft7Validator(schema, registry=_REGISTRY)
 
 
 def _errors(path: Path, instance: dict) -> list:

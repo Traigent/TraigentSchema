@@ -121,10 +121,10 @@
           "optional": true
         },
         "confidence": {
-          "type": "number",
+          "allOf": [
+            { "$ref": "../common_types_schema.json#/definitions/Confidence" }
+          ],
           "description": "Confidence as a 0-1 ratio for the expected output (platform convention; FE clamps to [0,1])",
-          "minimum": 0,
-          "maximum": 1,
           "optional": true
         },
         "status": {

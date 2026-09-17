@@ -215,6 +215,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [7.0.0] - 2026-09-17
 
 ### Breaking
+- **Minted a canonical `ExperimentStatus` enum and rebound the experiment
+  RESOURCE's `status` to it, correcting a mis-binding to `ExperimentRunStatus`
+  (#262).** The experiment resource is backed by a distinct, 8-member status
+  vocabulary (`{NOT_STARTED, PENDING, REGISTERED, RUNNING, FAILED, COMPLETED,
+  CANCELLED, UNKNOWN}`) that differs from the 9-member run-level
+  `ExperimentRunStatus` on three values: `REGISTERED` exists only at the
+  experiment level (with no run-level equivalent), while `PAUSED` and
+  `PARTIALLY_DELETED` are run-level states that are not members of the Backend's
+  experiment persistence enum (creating an experiment with either returns 422). The Schema previously had no `ExperimentStatus` definition at
+  all — the experiment resource simply `$ref`'d the run enum.
+  - `status_schema.json#/definitions/ExperimentStatus` (new): the 8 canonical
+    UPPER members above.
+  - `evaluation/experiment_schema.json` top-level `status` (the experiment
+    resource itself): rebound from `ExperimentRunStatus` to `ExperimentStatus`.
+    The embedded `ExperimentListRunSummary.status` ("current status of the
+    latest experiment run") is unchanged — it is correctly a run status.
+  - `evaluation/experiment_create_request_schema.json` top-level `status`:
+    same rebinding, for the same reason. Its embedded
+    `ExperimentListRunSummary.status` is likewise unchanged.
+  - Breaking because a request or response `status` of `PAUSED` or
+    `PARTIALLY_DELETED` on the experiment resource, previously schema-valid,
+    is now rejected, and `REGISTERED`, previously schema-invalid, is now
+    accepted — a strict `validate_response` promotion of the experiment
+    resource's `status` (planned, not yet wired) would otherwise false-reject
+    real `REGISTERED` experiments.
 - **Reconciled the `datasets:*` auth-vocab scope mapping with the runtime bridge; removed
   the orphaned `dataset.*` permission family (#266).** `api_key_authorization_vocabulary_schema.json`
   declared `datasets:read`/`datasets:write` mapping to a `dataset.read`/`dataset.write`

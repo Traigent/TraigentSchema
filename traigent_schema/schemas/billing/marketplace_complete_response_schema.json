@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/marketplace_complete_response_schema.json",
+  "title": "AWS Marketplace Registration Completion Response",
+  "description": "200 response for POST /api/v1/billing/marketplace/complete: the Subscription created or resynced by claiming the purchase (src/services/billing/aws_marketplace/registration.py:complete_registration -> entitlement_sync.sync_entitlements). Unlike subscription_response_schema.json this is a bare object (no success/message envelope, no `data` wrapper) and its fields are never null on this path -- the enum status/plan_tier are always set before .value is read.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "plan_tier": {
+      "type": "string",
+      "enum": ["hobby", "pro", "enterprise", "free", "individual", "team"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "canceled", "past_due", "paused", "trialing"]
+    },
+    "current_period_end": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  },
+  "required": ["tenant_id", "plan_tier", "status", "current_period_end"]
+}

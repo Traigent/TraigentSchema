@@ -163,8 +163,8 @@
           "const": "client_attested_server_bound",
           "description": "Evidence class. Server-set on the persisted form; a request may omit it, and if present it must equal this value."
         },
-        "reason_code": {
-          "description": "The SDK selection reason code, or null. Bounded label.",
+        "selection_reason": {
+          "description": "The SDK's selection reason (the SDK result's reason code field), or null. Bounded label.",
           "oneOf": [
             {
               "$ref": "#/definitions/SelectionLabel"

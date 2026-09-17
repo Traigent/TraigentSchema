@@ -49,7 +49,7 @@ def _accepted(*, margin: bool = True) -> dict:
     selection: dict = {
         "disposition": "accepted",
         "attestation": "client_attested_server_bound",
-        "reason_code": None,
+        "selection_reason": None,
         "winner_trial_id": "trial_a",
         "eligible_trial_ids": ["trial_a", "trial_b", "trial_c"],
         "eligible_trial_count": 3,
@@ -83,12 +83,12 @@ class TestValidSelection:
 
     def test_accepted_margin_and_optional_fields_omitted(self) -> None:
         payload = _accepted()
-        for key in ("margin", "attestation", "reason_code"):
+        for key in ("margin", "attestation", "selection_reason"):
             del payload["selection"][key]
         assert not _errors(payload)
 
-    def test_accepted_with_reason_code_label(self) -> None:
-        assert not _errors(_with(lambda s: s.update(reason_code="SELECTED_BEST")))
+    def test_accepted_with_selection_reason_label(self) -> None:
+        assert not _errors(_with(lambda s: s.update(selection_reason="SELECTED_BEST")))
 
     def test_rejected(self) -> None:
         assert not _errors(_rejected())

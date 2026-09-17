@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on `disposition` (`oneOf` + `const`), `additionalProperties: false` at every level,
   content-free (ids, counts, digest, bounded numbers, bounded labels, closed enums):
   - `accepted` (request and persisted form): optional `attestation`
-    (`client_attested_server_bound`, server-set), optional `reason_code` (label or
+    (`client_attested_server_bound`, server-set), optional `selection_reason` (the SDK result's `reason_code`; label or
     null), `winner_trial_id`, `eligible_trial_ids` (unique, 1..10000 = Backend
     `MAX_TRIALS`), `eligible_trial_count` (≥ 1), `eligible_trial_ids_digest`
     (`^sha256:[0-9a-f]{64}$`), optional `margin` (null or `runner_up_trial_id`,

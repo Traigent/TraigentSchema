@@ -2772,7 +2772,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "analytics/decision_payload_schema.json",
@@ -2798,7 +2798,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "analytics/decision_payload_schema.json",
@@ -2837,7 +2837,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "analytics/run_correlations_schema.json",
@@ -2854,7 +2854,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "analytics/run_correlations_schema.json",
@@ -2880,7 +2880,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "analytics/run_correlations_schema.json",
@@ -2919,7 +2919,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "analytics/run_leaderboard_schema.json",
@@ -2936,7 +2936,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "analytics/run_leaderboard_schema.json",
@@ -2962,7 +2962,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "analytics/run_leaderboard_schema.json",
@@ -3001,7 +3001,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "auth/interaction_policy_schema.json",
@@ -3018,7 +3018,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "auth/interaction_policy_schema.json",
@@ -3035,7 +3035,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "auth/interaction_policy_schema.json",
@@ -3052,7 +3052,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "auth/interaction_policy_schema.json",
@@ -3091,7 +3091,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "datasets/evaluation_set_schema.json",
@@ -3108,7 +3108,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "datasets/evaluation_set_schema.json",
@@ -3125,7 +3125,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "datasets/evaluation_set_schema.json",
@@ -3142,7 +3142,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "datasets/evaluation_set_schema.json",
@@ -3181,7 +3181,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "optimization/tvar_correlation_schema.json",
@@ -3198,7 +3198,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "optimization/tvar_correlation_schema.json",
@@ -3215,7 +3215,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "optimization/tvar_correlation_schema.json",
@@ -3232,7 +3232,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "optimization/tvar_correlation_schema.json",
@@ -3271,7 +3271,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "optimization/tvar_value_recommendation_schema.json",
@@ -3296,7 +3296,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "optimization/tvar_value_recommendation_schema.json",
@@ -3321,7 +3321,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "optimization/tvar_value_recommendation_schema.json",
@@ -3346,7 +3346,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
     {
       "file": "optimization/tvar_value_recommendation_schema.json",
@@ -3415,7 +3415,7 @@
       ],
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
-      "pr": "#314"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     }
   ]
 }

@@ -1241,7 +1241,7 @@ class TestProjectRetentionPolicyResponseRequiredness:
     """#331: the retention-policy response under-required 2 of 8 policy fields and
     carried `default`s on the other 6, unlike its rate-limit sibling which requires
     all 4 of its policy fields. Backend's ``_normalize_retention_policy``
-    (TraigentBackend `src/services/project_service.py`) unconditionally fills all 8
+    (`src/services/project_service.py` in the backend repo) unconditionally fills all 8
     fields (clamped to a default when absent), so the response contract can — and
     should — require all 8 and drop the response-schema `default`s (defaults belong
     on the update-request schema, not the resource response).

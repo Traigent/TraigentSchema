@@ -4,7 +4,7 @@
     {
       "file": "projects/project_retention_policy_schema.json",
       "rule": "required",
-      "reason": "Backend's _normalize_retention_policy (TraigentBackend src/services/project_service.py) unconditionally clamps and fills all 8 policy fields on every GET/PATCH response, so none of them can actually be absent; this promotes the remaining 6 into required[] to match the rate-limit sibling (project_rate_limit_policy_schema.json), which already requires all 4 of its policy fields. TraigentSchema issue #331. Response defaults belong on the update-request schema, not the resource response, so the response-side `default`s are dropped in the same change.",
+      "reason": "Backend's _normalize_retention_policy (src/services/project_service.py in the backend repo) unconditionally clamps and fills all 8 policy fields on every GET/PATCH response, so none of them can actually be absent; this promotes the remaining 6 into required[] to match the rate-limit sibling (project_rate_limit_policy_schema.json), which already requires all 4 of its policy fields. TraigentSchema issue #331. Response defaults belong on the update-request schema, not the resource response, so the response-side `default`s are dropped in the same change.",
       "version": "6.1.0",
       "pr": "#331",
       "findings": [

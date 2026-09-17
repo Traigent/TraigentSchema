@@ -1,30 +1,55 @@
 {
-  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
-      "file": "x_extensions_meta_schema.json",
-      "rule": "property_added",
+      "file": "datasets/evaluator_config_create_request_schema.json",
+      "rule": "required",
+      "reason": "Backend's BenchmarkCreator hard-subscripts model_id and instructions off evaluator_config unconditionally (src/dal/benchmark_creator.py); the schema previously declared no required[] at all, so a schema-valid config omitting either field 500'd instead of failing a clean 422 (requiredness-axis mirror of #200, TraigentSchema issue #267). Tightening the request-only create contract to match what the backend actually reads is the intended fix, not an accidental restriction.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/487",
       "findings": [
         {
-          "pointer": "#/properties/x-known-resource-aliases",
-          "role": "conservative",
-          "subject": "x-known-resource-aliases",
+          "pointer": "#",
+          "role": "request",
+          "subject": "instructions",
           "old": false,
           "new": true,
-          "fingerprint": "782924add0e6227ae1c09f8c0aa48b5e2f71b35a37a3432df8fbdd9d32ceafcd"
+          "fingerprint": "f487c4ef9277c25b60697a0ac53e9bb8e0c6185044942381d1313ebca19c7d61"
         },
         {
-          "pointer": "#/properties/x-resource-alias-of",
-          "role": "conservative",
-          "subject": "x-resource-alias-of",
+          "pointer": "#",
+          "role": "request",
+          "subject": "model_id",
           "old": false,
           "new": true,
-          "fingerprint": "2380af457244b260a15ac1d578956172e57b6037e72bd1c53daa873c46f119c1"
+          "fingerprint": "de70a0d25d9251089e0d44126c7c29c7e06dc93cebc974aef821b73f436b511a"
         }
-      ],
-      "reason": "This meta-schema only enumerates the closed set of governed x-* vendor extension keywords used across traigent_schema/schemas/**; it is never used to validate a live request/response payload, so an old response consumer cannot receive or reject a newly-emitted member here. The two new keys register the x-known-resource-aliases and x-resource-alias-of extensions introduced by #266 (documenting that the dataset resource is a runtime alias of benchmark) so the governance test that requires every used x-* keyword to be declared here stays satisfied.",
-      "version": "7.0.0",
-      "pr": "#478"
+      ]
+    },
+    {
+      "file": "datasets/generator_config_create_request_schema.json",
+      "rule": "required",
+      "reason": "Backend's BenchmarkCreator hard-subscripts model_id and instructions off generator_config unconditionally (src/dal/benchmark_creator.py); the schema previously declared no required[] at all, so a schema-valid config omitting either field 500'd instead of failing a clean 422 (requiredness-axis mirror of #200, TraigentSchema issue #267). Tightening the request-only create contract to match what the backend actually reads is the intended fix, not an accidental restriction.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/487",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "instructions",
+          "old": false,
+          "new": true,
+          "fingerprint": "b2710a789d1472d0ffe615a6e634d6714e59a3a10e1fac93904dcf0bc43daac2"
+        },
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "model_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "1a3cf59d6ed6a31e7749d61ffe9e4ddda71d4259a140d091df7a722e833800c0"
+        }
+      ]
     },
     {
       "file": "projects/project_retention_policy_schema.json",
@@ -2550,7 +2575,7 @@
     {
       "file": "x_extensions_meta_schema.json",
       "rule": "property_added",
-      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts §4).",
+      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts \u00a74).",
       "version": "6.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
       "findings": [
@@ -2640,6 +2665,72 @@
           "fingerprint": "e1a595ffbedfa68e6e4b0cf44aef23d1e9f3dd4f4ecd5a421d32a77feea63f40"
         }
       ]
+    },
+    {
+      "file": "datasets/datasets_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/datasets/post/requestBody/content/application/json/schema/properties/evaluator_config",
+          "role": "request",
+          "subject": "instructions",
+          "old": false,
+          "new": true,
+          "fingerprint": "aaba9b130499d44a9c724e4185b034e6a1c99a0e14c765a5a8ad0d8c01cc5430"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/post/requestBody/content/application/json/schema/properties/evaluator_config",
+          "role": "request",
+          "subject": "model_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "18bde3e06a7d6ff3183c989b8e71fc8c0e6cff83d82f51cfcde63512170f4fd1"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/post/requestBody/content/application/json/schema/properties/generator_config",
+          "role": "request",
+          "subject": "instructions",
+          "old": false,
+          "new": true,
+          "fingerprint": "d991f734bee28c557e738814ab80a0ef35f5e19b3dd08dae67258e73efce27f9"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/post/requestBody/content/application/json/schema/properties/generator_config",
+          "role": "request",
+          "subject": "model_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "1283fee1791b68967fea98d3a9e0575ed351427c526771683142f35cca8ed874"
+        }
+      ],
+      "reason": "Round-2 review fix for #267: datasets_endpoints.json's PUT /api/v1/datasets/{dataset_id} requestBody was repointed from dataset_create_request_schema.json to a new dataset_update_request_schema.json (update keeps generator_config/evaluator_config optional, matching src/dal/benchmark_dal.py's partial-patch .get() semantics -- an EXISTING config is patched via .get(); note the update handler's create-if-absent branch, src/dal/benchmark_dal.py:400-403, does hard-subscript model_id/instructions, which is open Backend debt and not addressed by this contract change). That single-line edit makes the checker re-walk this whole OpenAPI file and re-surface the SAME model_id/instructions required[] additions already acknowledged above (datasets/generator_config_create_request_schema.json, datasets/evaluator_config_create_request_schema.json) -- this time via the untouched POST path's own endpoint-graph pointer instead of the schema-file pointer. Not a new tightening; the create path's requiredness is unchanged, and the update path stays permissive.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/487"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-known-resource-aliases",
+          "role": "conservative",
+          "subject": "x-known-resource-aliases",
+          "old": false,
+          "new": true,
+          "fingerprint": "782924add0e6227ae1c09f8c0aa48b5e2f71b35a37a3432df8fbdd9d32ceafcd"
+        },
+        {
+          "pointer": "#/properties/x-resource-alias-of",
+          "role": "conservative",
+          "subject": "x-resource-alias-of",
+          "old": false,
+          "new": true,
+          "fingerprint": "2380af457244b260a15ac1d578956172e57b6037e72bd1c53daa873c46f119c1"
+        }
+      ],
+      "reason": "This meta-schema only enumerates the closed set of governed x-* vendor extension keywords used across traigent_schema/schemas/**; it is never used to validate a live request/response payload, so an old response consumer cannot receive or reject a newly-emitted member here. The two new keys register the x-known-resource-aliases and x-resource-alias-of extensions introduced by #266 (documenting that the dataset resource is a runtime alias of benchmark) so the governance test that requires every used x-* keyword to be declared here stays satisfied.",
+      "version": "7.0.0",
+      "pr": "#478"
     },
     {
       "file": "evaluation/experiment_create_request_schema.json",
@@ -3416,6 +3507,47 @@
       "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "datasets/dataset_create_request_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/properties/evaluator_config",
+          "role": "request",
+          "subject": "instructions",
+          "old": false,
+          "new": true,
+          "fingerprint": "1950f740ec7df71f505734413f7d7632038fe4d485e3ce67e26d163a56d75485"
+        },
+        {
+          "pointer": "#/properties/evaluator_config",
+          "role": "request",
+          "subject": "model_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "5f9893d1a1baf82370482338e48bf8e426053d3f4a7f2cd8bcaeb6785050a127"
+        },
+        {
+          "pointer": "#/properties/generator_config",
+          "role": "request",
+          "subject": "instructions",
+          "old": false,
+          "new": true,
+          "fingerprint": "96dc76d42fd39de9cc06d304742139c59c40bd351b0fd1e7e8798fead8e54df5"
+        },
+        {
+          "pointer": "#/properties/generator_config",
+          "role": "request",
+          "subject": "model_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "62ff2f68285994d2b89724f59bdd07388e1dffcf7a9b9e5e9b45e990467cf3b3"
+        }
+      ],
+      "reason": "Round-4 review fix for #267: retitled/re-described dataset_create_request_schema.json and its two $ref'd inner create schemas (generator_config_create_request_schema.json, evaluator_config_create_request_schema.json) from stale create/update wording to create-only. Editing those description/title strings makes the checker treat the files as changed and re-walk dataset_create_request_schema.json's own #/properties/generator_config and #/properties/evaluator_config pointers, re-surfacing the SAME model_id/instructions required[] additions already acknowledged above (datasets/generator_config_create_request_schema.json, datasets/evaluator_config_create_request_schema.json, datasets/datasets_endpoints.json) via a new pointer path. Not a new tightening: no required[] array changed in this commit, only prose.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/487"
     }
   ]
 }

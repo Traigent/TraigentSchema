@@ -9,6 +9,7 @@ regress.
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import importlib.resources
 import json
@@ -1032,40 +1033,90 @@ def test_privacy_canary_measured_claim_sentinel_never_leaks_at_s8() -> None:
     _assert_no_leak(caught.value, sentinel)
 
 
-def test_privacy_canary_project_ref_sentinel_never_reaches_signed_bundle() -> None:
-    """Design test: a sentinel in ``context.expected_project_ref`` --
-    caller-supplied, never copied into a bundle or a result (see
-    :class:`v.AgentQualityVerificationContext`'s own docstring) -- causes
-    SCOPE_MISMATCH (the golden bundle's own scope-binding digest was built
-    from the REAL project ref, not this one) without ever reaching the
-    raised error, and the golden bundle's own content is untouched.
+def _assert_no_scope_ref_leak(result: v.AgentQualityVerificationResult, *sentinels: str) -> None:
+    """Shared canary body for the project/scope-ref success-and-abstain-path
+    canaries below: none of ``sentinels`` -- the caller's own
+    ``expected_project_ref``/``expected_build_session_ref`` pins -- appears
+    in any field of the exported :class:`v.AgentQualityVerificationResult`,
+    checked field by field (not one coarse repr of the whole object) so a
+    future field that echoes a context pin verbatim is named, not buried."""
+    for field in dataclasses.fields(result):
+        rendered = repr(getattr(result, field.name))
+        for sentinel in sentinels:
+            assert sentinel not in rendered, (
+                f"{field.name!r} carries the caller's own scope-ref pin {sentinel!r}: {rendered}"
+            )
 
-    P1-V2.6 final-review closure P3-6: the OLD
-    ``sentinel not in json.dumps(bundle)`` assert was vacuous -- ``bundle``
-    is built by :func:`build_agent_quality_bundle`, which never reads
-    ``context`` at all, so the sentinel could not have reached it
-    regardless of build order or of whether this module leaks context
-    content anywhere. The non-vacuous replacement: snapshot the bundle
-    BEFORE verification and assert it is byte-for-byte unchanged AFTER --
-    proof that the signed bundle handed to this failing call was never
-    mutated in place, which is what would make a caller-context leak into
-    it possible in the first place. A verifier that copied
-    ``context.expected_project_ref`` onto the bundle before failing would
-    break this assertion; the JSON-membership check alone would not have
-    caught it, since the sentinel would still legitimately be a string
-    inside ``bundle`` at that point -- this snapshot-equality check is
-    strictly stronger."""
-    sentinel = "CANARY_PROJECT_REF_SENTINEL"
+
+def test_privacy_canary_scope_ref_leak_into_result_would_be_caught() -> None:
+    """Non-vacuity meta-test for the exported-result canaries below (mirrors
+    :func:`test_privacy_canary_is_not_vacuous`): hand
+    :func:`_assert_no_scope_ref_leak` a result that DOES carry the sentinel
+    -- constructed directly, not through the verifier -- and prove the
+    canary's own assertion fails on it."""
+    leaking = v.AgentQualityVerificationResult(
+        code="AGENT_QUALITY_VERIFIED",
+        claim_id=f"AQ1-{_GV_PROJECT_REF}",
+        evidence_basis="issuer_verified",
+        primary_objective_id="obj.accuracy.exact_match.v1",
+        nominal_coverage_ppm=950000,
+        holdout_item_count=200,
+        interval_verification_level="construction_recomputed_v1",
+        split_verification_level="issuer_attested_v1",
+        dataset_condition_code="dataset_certificate_not_verified",
+        evaluator_condition_code="evaluator_certificate_not_verified",
+    )
+    with pytest.raises(AssertionError):
+        _assert_no_scope_ref_leak(leaking, _GV_PROJECT_REF, _GV_BUILD_SESSION_REF)
+
+
+def test_privacy_canary_scope_ref_never_reaches_exported_verified_result() -> None:
+    """P1-V2 amendment P3-6 (tracked at merge, issue #465): replaces the
+    prior ``test_privacy_canary_project_ref_sentinel_never_reaches_signed_bundle``.
+    The OLD canary proved only that a MISMATCHED project ref could not
+    mutate the bundle on the SCOPE_MISMATCH failure path -- a real but
+    narrow property, already covered by the S2 mismatch tests above
+    (``test_s2_scope_mismatch_*``). ``context.expected_project_ref``/
+    ``expected_build_session_ref`` are caller-controlled content that DOES
+    reach a genuine success, through the PUBLIC entry point
+    (:func:`v.verify_agent_quality_certificate`, not the private runner),
+    on the golden bundle -- exactly where a leak into the exported result
+    would be easiest to miss, since the call is expected to succeed, not
+    raise. Two properties, both non-vacuous (see
+    :func:`test_privacy_canary_scope_ref_leak_into_result_would_be_caught`
+    for the first; the byte-for-byte re-signed golden bundle for the
+    second): the caller's own scope-ref pins never appear anywhere in the
+    exported result (:class:`v.AgentQualityVerificationResult`'s own
+    docstring: no field is ever copied from ``context``), and the signed
+    bundle handed in is byte-for-byte unchanged after a real, SUCCESSFUL
+    verification -- not just after a rejected one, which is all the old
+    canary ever exercised."""
     bundle = build_agent_quality_bundle()
     bundle_snapshot = _gv_copy.deepcopy(bundle)
-    context = build_agent_quality_context(expected_project_ref=sentinel)
-    with pytest.raises(v.AgentQualityVerificationError) as caught:
-        v._run_agent_quality_checks(
-            bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
-        )
-    assert caught.value.code == "SCOPE_MISMATCH"
-    _assert_no_leak(caught.value, sentinel)
-    assert sentinel not in json.dumps(bundle)
+    context = build_agent_quality_context()
+    result = v.verify_agent_quality_certificate(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    assert result.code == "AGENT_QUALITY_VERIFIED"
+    _assert_no_scope_ref_leak(result, _GV_PROJECT_REF, _GV_BUILD_SESSION_REF)
+    assert bundle == bundle_snapshot
+
+
+def test_privacy_canary_scope_ref_never_reaches_exported_abstained_result() -> None:
+    """The abstain-path counterpart of the canary above: the SAME caller
+    scope-ref pins, traversing the public entry point's OTHER honest
+    outcome (an abstained bundle -- ``AGENT_QUALITY_CLAIM_ABSTAINED``), must
+    equally never surface in the exported result, and the abstained bundle
+    handed in is equally untouched by a successful abstain-path
+    verification."""
+    bundle = build_abstained_agent_quality_bundle()
+    bundle_snapshot = _gv_copy.deepcopy(bundle)
+    context = build_agent_quality_context(accept_abstained_bundle=True)
+    result = v.verify_agent_quality_certificate(
+        bundle, context=context, process_record_bundle=_GV_PROCESS_RECORD_BUNDLE
+    )
+    assert result.code == "AGENT_QUALITY_CLAIM_ABSTAINED"
+    _assert_no_scope_ref_leak(result, _GV_PROJECT_REF, _GV_BUILD_SESSION_REF)
     assert bundle == bundle_snapshot
 
 

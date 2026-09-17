@@ -43,43 +43,43 @@
         "trace_retention_days": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 3650,
-          "default": 30
+          "maximum": 3650
         },
         "dataset_retention_days": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 3650,
-          "default": 30
+          "maximum": 3650
         },
         "dataset_storage_limit_bytes": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 10995116277760,
-          "default": 5368709120
+          "maximum": 10995116277760
         },
         "observability_ingest_rpm": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 1000000,
-          "default": 600
+          "maximum": 1000000
         },
         "inline_payload_max_bytes": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 10485760,
-          "default": 262144
+          "maximum": 10485760
         },
         "payload_max_bytes": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 104857600,
-          "default": 10485760
+          "maximum": 104857600
         }
       },
       "required": [
         "export_artifact_retention_days",
-        "materialized_export_retention_days"
+        "materialized_export_retention_days",
+        "trace_retention_days",
+        "dataset_retention_days",
+        "dataset_storage_limit_bytes",
+        "observability_ingest_rpm",
+        "inline_payload_max_bytes",
+        "payload_max_bytes"
       ]
     }
   },

@@ -3,7 +3,7 @@
   "$id": "https://schemas.traigent.ai/datasets/evaluator_config_create_request_schema.json",
   "type": "object",
   "title": "Evaluator Configuration Create Request Schema",
-  "description": "Request-only inner contract for dataset create/update. Mirrors fields the backend BenchmarkCreator reads; resource schema stays canonical for reads.",
+  "description": "Request-only inner contract for dataset create (POST); the PUT path uses evaluator_config_update_request_schema.json. Mirrors fields the backend BenchmarkCreator reads; resource schema stays canonical for reads.",
   "properties": {
     "id": {
       "type": "string",
@@ -66,5 +66,6 @@
       "maxLength": 128
     }
   },
+  "required": ["model_id", "instructions"],
   "additionalProperties": true
 }

@@ -47,6 +47,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that the ranking was correct. Description-only; no shape change.
 
 ### Fixed
+- **Submit-results optionals accept explicit `null` (completes part 1 of #454).**
+  `summary_stats`, `execution_mode`, and `execution_environment` on
+  `session_submit_results_request_schema.json` were declared as plain `object`/`string`,
+  so a client that serializes an unset optional as `null` failed validation even though
+  the server treats `null` exactly like an omitted field. Each now uses the schema's
+  existing `["<type>", "null"]` form; wrong types are still rejected. Widening only.
+- **`trial_sequencing: "client"` no longer reads as disabling cost controls (#323).**
+  The description on both session-create surfaces said the server's "budget accounting"
+  becomes informational only. It now scopes that to the optimizer's trial-count budget
+  and states, as a requirement on implementers, that client sequencing does not disable or
+  relax any spend, time, rate, or security limit that applies to the session.
+  Description-only; no shape change.
 - **`exportProjectFineTuningManifest` path drift in `planned_projects_endpoints.json`
   (#272).** The operation was declared at
   `/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest`, but the real
@@ -256,6 +268,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `FAILED`/`REJECTED`/`TIMEOUT`/`CANCELLED`) does not overlap with OTel's native span
   status set (`UNSET`/`OK`/`ERROR`), so labelling the field "OTel-compatible" could lead
   a caller to send OTel's own values and get a validation error. Description-only.
+
+### Breaking
+- **`generator_config`/`evaluator_config` create-request contracts now require `model_id` and
+  `instructions` (requiredness-axis mirror of #200).** The dataset-create inner contracts
+  (`schemas/datasets/generator_config_create_request_schema.json`,
+  `evaluator_config_create_request_schema.json`) previously declared no `required[]` at all,
+  so a schema-valid config omitting `model_id`/`instructions` reached the backend, which reads
+  both via a hard subscript — an opaque 500 instead of a clean 422. Requiring both fields makes
+  the contract mirror what the backend actually reads; `generator_config`/`evaluator_config`
+  themselves stay optional at the outer `dataset_create_request_schema.json` level, so
+  dataset-create without a config is unaffected. Flagged as a breaking contract tightening by
+  `scripts/breaking_schema_check.py`; acknowledged in `scripts/breaking_schema_allowlist.json`.
+- **PUT /api/v1/datasets/{dataset_id} (update) no longer inherits the create-only requiredness
+  above.** `dataset_create_request_schema.json` is `$ref`'d by both the create and update
+  routes; the update handler reads an existing `generator_config`/`evaluator_config` as a
+  partial patch (`.get()` against the stored config — only the create-if-absent branch
+  hard-subscripts), so requiring `model_id`/`instructions` there too would 422 a legitimate
+  partial update. `PUT /api/v1/datasets/{dataset_id}` now resolves to a new
+  `schemas/datasets/dataset_update_request_schema.json`, whose `generator_config`/
+  `evaluator_config` reference new `generator_config_update_request_schema.json` /
+  `evaluator_config_update_request_schema.json` (same field set, no `required[]`); the create
+  path (`POST /api/v1/datasets`) is unchanged and keeps requiring both fields.
 
 ## [7.0.0] - 2026-09-17
 

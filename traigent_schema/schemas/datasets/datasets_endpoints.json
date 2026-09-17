@@ -57,7 +57,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./dataset_create_request_schema.json"
+                "$ref": "./dataset_update_request_schema.json"
               }
             }
           }

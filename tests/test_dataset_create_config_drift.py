@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
@@ -66,6 +68,7 @@ def test_resource_shaped_dataset_create_configs_still_validate():
             "id": "generator_123",
             "model_parameters_id": "model_parameters_123",
             "dataset_id": "dataset_123",
+            "model_id": "gpt-4o-mini",
             "instructions": "Generate realistic customer support questions.",
             "context_type": "text",
             "context_source": "dataset",
@@ -74,6 +77,7 @@ def test_resource_shaped_dataset_create_configs_still_validate():
             "id": "evaluator_123",
             "model_parameters_id": "model_parameters_123",
             "dataset_id": "dataset_123",
+            "model_id": "gpt-4o",
             "instructions": "Evaluate answer quality.",
             "context_type": "text",
             "context_source": "dataset",
@@ -81,6 +85,41 @@ def test_resource_shaped_dataset_create_configs_still_validate():
     }
 
     assert validator.validate_request("/api/v1/datasets", "POST", payload) == []
+
+
+def test_generator_and_evaluator_config_require_model_id_and_instructions():
+    """#267: BenchmarkCreator hard-subscripts model_id/instructions off both
+
+    inner config objects (src/dal/benchmark_creator.py), so a schema-valid
+    config missing either field previously 500'd instead of failing a clean
+    422. Both fields must now be declared required on the create-request
+    contracts whenever the config object itself is supplied.
+    """
+    validator = SchemaValidator(contract="backend")
+    base_payload = _base_dataset_payload()
+
+    missing_model_id = {
+        **base_payload,
+        "generator_config": {"instructions": "Generate support examples."},
+    }
+    errors = validator.validate_request("/api/v1/datasets", "POST", missing_model_id)
+    assert errors, "expected a validation error when generator_config omits model_id"
+    assert any("model_id" in str(e) for e in errors)
+
+    missing_instructions = {
+        **base_payload,
+        "evaluator_config": {"model_id": "gpt-4o"},
+    }
+    errors = validator.validate_request("/api/v1/datasets", "POST", missing_instructions)
+    assert errors, "expected a validation error when evaluator_config omits instructions"
+    assert any("instructions" in str(e) for e in errors)
+
+    for schema_name in (
+        "generator_config_create_request_schema.json",
+        "evaluator_config_create_request_schema.json",
+    ):
+        schema = _load(schema_name)
+        assert set(schema["required"]) == {"model_id", "instructions"}
 
 
 def test_dataset_create_uses_request_scoped_config_refs():
@@ -109,3 +148,133 @@ def test_resource_config_schemas_remain_strict_and_canonical():
         assert "model_id" not in resource_schema["properties"]
         assert "parameters" not in resource_schema["properties"]
         assert "context" not in resource_schema["properties"]
+
+
+def test_dataset_update_put_keeps_partial_patch_semantics():
+    """Round-2 review fix: dataset_create_request_schema.json is $ref'd by BOTH
+
+    POST /api/v1/datasets (create) and PUT /api/v1/datasets/{dataset_id}
+    (update) per datasets_endpoints.json. The update handler
+    (src/dal/benchmark_dal.py) reads generator_config/evaluator_config as a
+    partial patch against an existing config via .get() -- only the
+    create-if-absent branch there hard-subscripts model_id/instructions --
+    so PUT must NOT inherit the create-request required[] this PR added.
+    PUT now resolves to dataset_update_request_schema.json, whose nested
+    generator_config/evaluator_config point at the *_update_request_schema.json
+    variants (no required[]), while POST keeps the strict create-request ones.
+    """
+    validator = SchemaValidator(contract="backend")
+    base_payload = _base_dataset_payload()
+
+    # A legitimate partial-patch PUT: tweak only `parameters` on an existing
+    # generator_config, without resending model_id/instructions.
+    partial_patch_payload = {
+        **base_payload,
+        "generator_config": {"parameters": {"temperature": 0.5}},
+        "evaluator_config": {"parameters": {"temperature": 0}},
+    }
+
+    assert (
+        validator.validate_request("/api/v1/datasets/{dataset_id}", "PUT", partial_patch_payload)
+        == []
+    ), "PUT must accept a generator_config/evaluator_config partial patch"
+
+    # The same payload on POST (create) must still be rejected: create has no
+    # existing config to patch against, so model_id/instructions are required.
+    create_errors = validator.validate_request("/api/v1/datasets", "POST", partial_patch_payload)
+    assert create_errors, "POST must still require model_id/instructions"
+
+    endpoints = _load("datasets_endpoints.json")
+    put_ref = endpoints["paths"]["/api/v1/datasets/{dataset_id}"]["put"]["requestBody"]["content"][
+        "application/json"
+    ]["schema"]["$ref"]
+    assert put_ref == "./dataset_update_request_schema.json"
+
+    update_schema = _load("dataset_update_request_schema.json")
+    assert (
+        update_schema["properties"]["generator_config"]["$ref"]
+        == "https://schemas.traigent.ai/datasets/generator_config_update_request_schema.json#"
+    )
+    assert (
+        update_schema["properties"]["evaluator_config"]["$ref"]
+        == "https://schemas.traigent.ai/datasets/evaluator_config_update_request_schema.json#"
+    )
+    for update_config_name in (
+        "generator_config_update_request_schema.json",
+        "evaluator_config_update_request_schema.json",
+    ):
+        assert "required" not in _load(update_config_name)
+
+
+def test_dataset_update_schema_mirrors_create_properties_and_additional_properties():
+    """#267 drift guard: the update schema was created as a byte-for-byte
+
+    mirror of its create twin (round-2 review, N3). Nothing pins the mirror
+    together, so the next field added to dataset_create_request_schema.json
+    would silently not reach the PUT contract. This test fails the moment
+    dataset_update_request_schema.json's `properties` or
+    `additionalProperties` drift from dataset_create_request_schema.json's,
+    outside the two config $refs (which must keep pointing at the
+    *_update_request_schema.json twins, not the create ones).
+    """
+    create = _load("dataset_create_request_schema.json")
+    update = _load("dataset_update_request_schema.json")
+
+    assert set(create["properties"].keys()) == set(update["properties"].keys()), (
+        "dataset_update_request_schema.json's properties drifted from its "
+        "create twin (a property was added to or removed from only one side)"
+    )
+    for key, create_prop in create["properties"].items():
+        update_prop = update["properties"][key]
+        if key in ("generator_config", "evaluator_config"):
+            assert update_prop["$ref"] == create_prop["$ref"].replace(
+                "_create_request_schema.json", "_update_request_schema.json"
+            ), f"{key} must $ref its *_update_request_schema.json twin"
+            assert update_prop.get("description") == create_prop.get("description")
+        else:
+            assert update_prop == create_prop, (
+                f"property {key!r} drifted between dataset create and update schemas"
+            )
+    assert create["additionalProperties"] == update["additionalProperties"]
+
+
+@pytest.mark.parametrize("stem", ["generator_config", "evaluator_config"])
+def test_inner_config_update_schema_mirrors_create_with_no_required(stem):
+    """#267 drift guard (N3): generator_config/evaluator_config_update_request_schema.json
+
+    are byte-for-byte mirrors of their create twins except `$id`/`title`/
+    `description` and the absent `required[]` (the PUT handler reads them
+    as a partial patch, per test_dataset_update_put_keeps_partial_patch_semantics
+    above). This fails if a field is added to only one side of the pair, or
+    if `required` reappears on the update side.
+    """
+    create = _load(f"{stem}_create_request_schema.json")
+    update = _load(f"{stem}_update_request_schema.json")
+
+    assert create["properties"] == update["properties"], (
+        f"{stem}_update_request_schema.json's properties drifted from its create twin"
+    )
+    assert create["additionalProperties"] == update["additionalProperties"]
+    assert not update.get("required"), (
+        f"{stem}_update_request_schema.json must not declare required[] "
+        f"(PUT reads it as a partial patch); found {update.get('required')!r}"
+    )
+    assert create.get("required"), (
+        f"{stem}_create_request_schema.json should still declare required[]"
+    )
+
+
+@pytest.mark.parametrize("config_key", ["generator_config", "evaluator_config"])
+def test_dataset_update_put_still_type_checks_partial_patch_fields(config_key):
+    """The update variants drop required[] only; they are still typed.
+
+    A partial patch carrying a wrongly-typed field must be rejected on PUT,
+    otherwise "partial patch" would silently mean "anything goes".
+    """
+    validator = SchemaValidator(contract="backend")
+    bad_payload = {**_base_dataset_payload(), config_key: {"model_id": 123}}
+
+    errors = validator.validate_request("/api/v1/datasets/{dataset_id}", "PUT", bad_payload)
+
+    assert errors, f"PUT must reject a non-string {config_key}.model_id"
+    assert any("model_id" in str(error) or "123" in str(error) for error in errors)

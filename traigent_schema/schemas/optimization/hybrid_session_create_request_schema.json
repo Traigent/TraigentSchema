@@ -225,7 +225,7 @@
         "backend"
       ],
       "default": "backend",
-      "description": "Who decides which configuration each trial runs. 'backend' (default, fully backward-compatible): the server allocates trial ids from its own optimizer budget and may end the session early once it decides no further trials are useful. 'client': the caller (e.g. a locally-sequenced exhaustive grid or random search) decides trial order and count; the server allocates trial ids on demand and must not early-stop the session from its own budget accounting, which becomes informational only."
+      "description": "Who decides which configuration each trial runs. 'backend' (default, fully backward-compatible): the server allocates trial ids from its own optimizer budget and may end the session early once it decides no further trials are useful. 'client': the caller (e.g. a locally-sequenced exhaustive grid or random search) decides trial order and count; the server allocates trial ids on demand and must not early-stop the session from its own optimizer trial-count budget, which becomes informational only. This transfers trial sequencing only: it does not disable or relax any spend, time, rate, or security limit that applies to the session."
     },
     "hybrid_api_options": {
       "$ref": "https://schemas.traigent.ai/optimization/hybrid_api_options_schema.json",

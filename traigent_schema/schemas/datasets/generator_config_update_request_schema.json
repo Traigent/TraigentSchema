@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.traigent.ai/datasets/generator_config_create_request_schema.json",
+  "$id": "https://schemas.traigent.ai/datasets/generator_config_update_request_schema.json",
   "type": "object",
-  "title": "Generator Configuration Create Request Schema",
-  "description": "Request-only inner contract for dataset create (POST); the PUT path uses generator_config_update_request_schema.json. Mirrors fields the backend BenchmarkCreator reads; resource schema stays canonical for reads.",
+  "title": "Generator Configuration Update Request Schema",
+  "description": "Request-only inner contract for the dataset PUT (update) path. Mirrors generator_config_create_request_schema.json's field set for resource-shaped compatibility, but stays permissive: the backend's update handler (src/dal/benchmark_dal.py) reads this as a partial patch against an existing generator_config via .get(), not a hard subscript, so no field is required here. Caveat: when the dataset has NO existing generator_config the same handler creates one and does hard-subscript model_id/instructions (src/dal/benchmark_dal.py create-if-absent branch), so a parameter-only update in that state is rejected by the server, not by this contract -- open Backend debt, tracked separately. additionalProperties is deliberately true: this is an extensible, typed partial-patch object, not a closed contract.",
   "properties": {
     "id": {
       "type": "string",
@@ -66,6 +66,5 @@
       "maxLength": 128
     }
   },
-  "required": ["model_id", "instructions"],
   "additionalProperties": true
 }

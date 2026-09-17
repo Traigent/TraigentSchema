@@ -2626,6 +2626,24 @@
           "fingerprint": "1e73fd1d61f99bed405dba6f6faf95d61e046afec05c71c07aadd0e92d738c41"
         }
       ]
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "endpoint_removed",
+      "pointer_prefix": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest",
+      "reason": "exportProjectFineTuningManifest was declared at a drifted path (/core-exports/fine-tuning.manifest) that no Backend route implements (verified at TraigentBackend origin/develop efe0074ecf4c: the only `fine-tuning.manifest` route is `src/routes/analytics_routes.py:287`, mounted under /analytics; `git log -S'core-exports/fine-tuning' -- src/routes/` finds no commit registering the old path) -- the real, shipped route lives on the analytics blueprint and is mounted at /analytics/exports/fine-tuning.manifest by the v1beta project-scoped registrar. This is a same-operation path correction (operationId, parameters, and response schema are unchanged), not a removal of working functionality: at the pinned Backend ref the drifted path is unrouted (a 404), and the project-scoped served route is `GET /api/v1beta/projects/<project_id>/analytics/exports/fine-tuning.manifest` (`src/routes/api_v1beta.py:68` registers analytics_bp project-scoped; obligation_matrix_report.txt:5127). It is still a contract-breaking path rename for anyone who coded against the declared path. The catalog carries x-asserted-against-backend:false and is pre-release, which is why this ships as a path fix rather than a major bump. TraigentSchema#272. Callers already use the served path: TraigentFrontend src/services/coreMetricsService.ts:509, Traigent traigent/core_metrics/client.py:228, traigent-js src/core-metrics/index.ts:223 (all at origin/develop, 2026-09-17); no client references the removed path, so this rename breaks no known caller -- a reviewed pre-release exception, not a claim that the declared interface had no dependents in principle.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/483",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e1a595ffbedfa68e6e4b0cf44aef23d1e9f3dd4f4ecd5a421d32a77feea63f40"
+        }
+      ]
     }
   ]
 }

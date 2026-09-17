@@ -7,7 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Selection receipt winner rule (unreleased contract from #491).** The Backend no longer
+  requires `selection.winner_trial_id` to equal the trial it would rank best; it must be a
+  completed trial of this session and in `eligible_trial_ids` (else `winner_not_eligible`).
+  The SDK ranks by configuration average, weighted objectives and cost tie-breaks, so the
+  old rule rejected honest receipts. `winner_not_best` now applies only when
+  `margin.winner_trial_id` differs from `selection.winner_trial_id`. The receipt evidences
+  which eligible trial the SDK selected — not which configuration was shipped, and not
+  that the ranking was correct. Description-only; no shape change.
+
 ### Fixed
+- **`exportProjectFineTuningManifest` path drift in `planned_projects_endpoints.json`
+  (#272).** The operation was declared at
+  `/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest`, but the real
+  backend route lives on the `analytics` blueprint and is mounted at
+  `/api/v1beta/projects/{project_id}/analytics/exports/fine-tuning.manifest` — a client
+  following the declared path would 404. Corrected to the real, shipped path; the sibling
+  `exportProjectFineTuningJsonl` operation already correctly used `core-exports` and is
+  unchanged. This is a contract-breaking path rename, acknowledged in
+  `scripts/breaking_schema_allowlist.json` and shipped as a reviewed pre-release exception: the
+  catalog carries `x-asserted-against-backend: false`, and the Frontend, Python SDK and JS SDK
+  callers at `origin/develop` already use the served path (none references the drifted one). (The other item this
+  issue's title named, `lookupProjectMembershipCandidates`/`membership-candidates`, was
+  re-verified and is not a defect — it is an intentionally planned, not-yet-backend-built
+  contract per TraigentSchema#46, already excluded from the canonical backend surface by
+  its own dedicated test suite; no change needed.)
 - **Normalized `$id` base URL for 7 analytics schemas (breaking-check blind spot).**
   `curation_advice_schema.json`, `dataset_quality_schema.json`, `example_score_schema.json`,
   `next_steps_receipt_request_schema.json`, `next_steps_receipt_response_schema.json`,
@@ -106,8 +131,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     request schema accepts it) but the Backend ignores a client-sent
     `rejected_inconsistent` and persists no `selection` for that finalize.
   - **Backend-enforced (not expressible in JSON Schema):** every id belongs to this
-    session's trials for this tenant; `winner_trial_id` equals the server's finalized
-    best trial and is in `eligible_trial_ids`; `margin.winner_trial_id`
+    session's trials for this tenant; `winner_trial_id` is a completed trial of this
+    session and is in `eligible_trial_ids` (else `winner_not_eligible`) — it is the SDK's
+    own selection, not required to equal the trial the server would rank best; `margin.winner_trial_id`
     equals `selection.winner_trial_id` (else `winner_not_best` — the SDK silently
     falls back to another trial when it cannot find the requested winner);
     `runner_up_trial_id` is in
@@ -119,7 +145,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     parsers and JSON Schema `number` does not exclude them → `non_finite`). A
     schema-invalid or inconsistent receipt is persisted as the rejected form (never a
     partial claim) and never fails the finalize. Backend PR 2 must also: bind the
-    receipt atomically to the finalized winner and to this tenant/session's trials
+    receipt atomically to this tenant/session's completed trials
     (same transaction as the finalize); server-stamp `attestation` on every persisted
     accepted form; and on re-finalize never retain a stale accepted receipt from an
     earlier finalize.

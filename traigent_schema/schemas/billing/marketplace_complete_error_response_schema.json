@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/marketplace_complete_error_response_schema.json",
+  "title": "AWS Marketplace Registration Completion Error",
+  "description": "Error body for POST /api/v1/billing/marketplace/complete. Every error branch returns exactly `{\"error\": <fixed literal>}` -- no `success`/`message` envelope fields. 404 covers two distinct causes (integration disabled, or the registration handle itself was never found): 400 = registration_id missing from the JSON body; 403 = the asserted tenant_id disagreed with the authenticated session's own tenant; 404 = integration disabled OR RegistrationNotFoundError; 409 = RegistrationAlreadyClaimedError, or DoubleBillingError (tenant already has an entitling Paddle subscription), or AlreadyLinkedError (purchase already linked to a different tenant); 410 = RegistrationExpiredError. See src/routes/marketplace_routes.py:complete.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "type": "string",
+      "enum": [
+        "marketplace integration is not enabled",
+        "registration_id is required",
+        "tenant_id does not match the authenticated session's tenant; a purchase can only be claimed into a tenant you belong to",
+        "registration not found",
+        "registration already claimed",
+        "registration expired; start again from AWS Marketplace",
+        "this tenant already has an entitling Paddle subscription; cancel it before linking an AWS Marketplace purchase",
+        "this AWS Marketplace purchase is already linked to another tenant"
+      ]
+    }
+  },
+  "required": ["error"]
+}

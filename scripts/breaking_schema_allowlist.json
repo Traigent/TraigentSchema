@@ -2,6 +2,56 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "datasets/evaluator_config_create_request_schema.json",
+      "rule": "required",
+      "reason": "Backend's BenchmarkCreator hard-subscripts model_id and instructions off evaluator_config unconditionally (src/dal/benchmark_creator.py); the schema previously declared no required[] at all, so a schema-valid config omitting either field 500'd instead of failing a clean 422 (requiredness-axis mirror of #200, TraigentSchema issue #267). Tightening the request-only create contract to match what the backend actually reads is the intended fix, not an accidental restriction.",
+      "version": "6.1.0",
+      "pr": "#267",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "instructions",
+          "old": false,
+          "new": true,
+          "fingerprint": "f487c4ef9277c25b60697a0ac53e9bb8e0c6185044942381d1313ebca19c7d61"
+        },
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "model_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "de70a0d25d9251089e0d44126c7c29c7e06dc93cebc974aef821b73f436b511a"
+        }
+      ]
+    },
+    {
+      "file": "datasets/generator_config_create_request_schema.json",
+      "rule": "required",
+      "reason": "Backend's BenchmarkCreator hard-subscripts model_id and instructions off generator_config unconditionally (src/dal/benchmark_creator.py); the schema previously declared no required[] at all, so a schema-valid config omitting either field 500'd instead of failing a clean 422 (requiredness-axis mirror of #200, TraigentSchema issue #267). Tightening the request-only create contract to match what the backend actually reads is the intended fix, not an accidental restriction.",
+      "version": "6.1.0",
+      "pr": "#267",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "instructions",
+          "old": false,
+          "new": true,
+          "fingerprint": "b2710a789d1472d0ffe615a6e634d6714e59a3a10e1fac93904dcf0bc43daac2"
+        },
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "model_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "1a3cf59d6ed6a31e7749d61ffe9e4ddda71d4259a140d091df7a722e833800c0"
+        }
+      ]
+    },
+    {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
       "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced. This acknowledgement is scoped only to this exact pointer and fingerprint.",

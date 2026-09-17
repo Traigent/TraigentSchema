@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
 
+## [6.1.0] - 2026-09-17
+
 ### Fixed
 - **`generator_config`/`evaluator_config` create-request contracts now require `model_id` and
   `instructions` (requiredness-axis mirror of #200).** The dataset-create inner contracts
@@ -26,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   both via a hard subscript — an opaque 500 instead of a clean 422. Requiring both fields makes
   the contract mirror what the backend actually reads; `generator_config`/`evaluator_config`
   themselves stay optional at the outer `dataset_create_request_schema.json` level, so
-  dataset-create without a config is unaffected.
+  dataset-create without a config is unaffected. Flagged as a breaking contract tightening by
+  `scripts/breaking_schema_check.py`; acknowledged in `scripts/breaking_schema_allowlist.json`.
 
 ## [6.0.0] - 2026-09-14
 

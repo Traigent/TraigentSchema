@@ -15,27 +15,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   binds it to the session's own trials; does not recompute statistics. Discriminated
   on `disposition` (`oneOf` + `const`), `additionalProperties: false` at every level,
   content-free (ids, counts, digest, bounded numbers, bounded labels, closed enums):
-  - `accepted` (request and persisted form): optional `attestation`
-    (`client_attested_server_bound`, server-set), optional `selection_reason` (the SDK result's `reason_code`; label or
-    null), `winner_trial_id`, `eligible_trial_ids` (unique, 1..10000 = Backend
-    `MAX_TRIALS`), `eligible_trial_count` (≥ 1), `eligible_trial_ids_digest`
-    (`^sha256:[0-9a-f]{64}$`), optional `margin` (null or `runner_up_trial_id`,
-    `delta`, `ci95` of exactly 2 numbers, `p_value` and `effective_alpha` in [0, 1],
-    `verdict` ∈ `clear|statistical_tie|na`, `test` label, `n_shared_examples` ≥ 0,
-    `n_configs` ≥ 2).
-  - `rejected_inconsistent` (persisted only): `reason` ∈ `unknown_trial`,
+  - `accepted` (the form a client sends; persisted when binding succeeds): optional
+    `attestation` (`client_attested_server_bound`, server-set), optional
+    `selection_reason` (the SDK result's `reason_code`; label or null),
+    `winner_trial_id`, `eligible_trial_ids` (unique, 1..10000 = Backend `MAX_TRIALS`),
+    `eligible_trial_count` (1..10000), `eligible_trial_ids_digest`, optional `margin`.
+    Trial ids and the digest reject any whitespace, including a trailing newline.
+  - Digest preimage (exact): `sha256:` + lowercase hex SHA-256 of the UTF-8 bytes of
+    `json.dumps(sorted(eligible_trial_ids), separators=(",", ":"), ensure_ascii=False)`
+    (sort by Unicode code point; ids are ASCII so JS `JSON.stringify([...ids].sort())`
+    is byte-identical). Known answer: `["trial_a","trial_b","trial_c"]` →
+    `4a31e7194d0ef1862bfa5db184d1486776997a10810f1a72c67ab24aef08e005`.
+  - `margin` (null/omitted when the SDK has no runner-up): `runner_up_trial_id`,
+    `delta`, `ci95`, `p_value` and `effective_alpha` in [0, 1], `verdict` ∈
+    `clear|statistical_tie|na`, `test` label, `n_shared_examples`, `n_configs` ≥ 2 —
+    shaped per verdict with Draft-07 `if/then` to match the Python SDK's
+    `compute_best_config_margin`: `clear`/`statistical_tie` require numeric `delta`,
+    `ci95` and `p_value` and `n_shared_examples` ≥ 1; `na` (no shared per-example
+    data) requires `ci95: null`, `p_value: null`, `n_shared_examples: 0`, and allows a
+    numeric or null `delta`. `ci95` is the interval at level 1 − `effective_alpha`
+    (not a fixed 95%); the name is the SDK payload's key.
+  - `rejected_inconsistent` (Backend-written): `reason` ∈ `unknown_trial`,
     `winner_not_best`, `winner_not_eligible`, `runner_up_not_eligible`,
     `runner_up_is_winner`, `count_mismatch`, `duplicate_ids`, `non_finite`,
-    `out_of_range`, `exceeds_max_trials`, `digest_mismatch`.
+    `out_of_range`, `exceeds_max_trials`, `digest_mismatch`. A client may send it (the
+    request schema accepts it) but the Backend ignores a client-sent rejected form,
+    never persists it as sent, and persists only its own verdict.
   - **Backend-enforced (not expressible in JSON Schema):** every id belongs to this
     session's trials for this tenant; `winner_trial_id` equals the server's finalized
     best trial and is in `eligible_trial_ids`; `runner_up_trial_id` is in
-    `eligible_trial_ids` and ≠ `winner_trial_id`; `eligible_trial_ids` is sorted
-    ascending; `eligible_trial_count == len(eligible_trial_ids)`; the digest is
-    recomputed over the canonical sorted list and must match; `ci95[0] <= ci95[1]`;
-    `n_configs == eligible_trial_count` when `margin` is present. Non-finite numbers
-    cannot appear in JSON, so finiteness is by construction; a malformed receipt is
-    persisted as the rejected form, never as a partial claim.
+    `eligible_trial_ids` and ≠ `winner_trial_id`; `eligible_trial_ids` is sorted by
+    code point; `eligible_trial_count == len(eligible_trial_ids)`; the digest is
+    recomputed by the preimage rule above and must match; `ci95[0] <= ci95[1]`;
+    `n_configs <= eligible_trial_count` (`n_configs` counts distinct configs, so it
+    may be smaller); every number is finite (`NaN`/`Infinity` survive common JSON
+    parsers and JSON Schema `number` does not exclude them → `non_finite`). A
+    malformed receipt is persisted as the rejected form, never as a partial claim.
   - Breaking-gate acknowledgement: `property_added` on a closed, bare-named schema
     (conservative role) is allowlisted — no producer emits `selection` before the
     Backend (PR 2) and Python SDK (PR 3) land.

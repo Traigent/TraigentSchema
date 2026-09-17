@@ -118,6 +118,190 @@
       "type": "string",
       "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9][A-Za-z0-9+_.-]{0,63}$",
       "description": "Anchored version token — never free text."
+    },
+    "selection": {
+      "description": "OPTIONAL selection receipt (R3). CLIENT-ATTESTED, SERVER-BOUND: records the SDK's selection decision and binds it to the session's own trials (provenance and referential consistency); it does NOT recompute statistics. Discriminated on `disposition`: `accepted` is the request and persisted form; `rejected_inconsistent` is persisted-only, written by the Backend when the submitted receipt fails binding (content-free reason enum, never a partial claim). CONTENT-FREE: every field is an id, a count, a digest, a bounded number, a bounded label, or a closed enum — no free text anywhere. Non-finite numbers (NaN/Infinity) cannot be represented in JSON and are therefore not expressible here; a producer that would emit one sends a rejected form instead.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/SelectionAccepted"
+        },
+        {
+          "$ref": "#/definitions/SelectionRejectedInconsistent"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "SelectionLabel": {
+      "type": "string",
+      "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
+      "description": "Bounded label, never free text."
+    },
+    "SelectionTrialId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._-]{1,128}$",
+      "description": "BACKEND trial_id (the id the SDK submitted results under); same token shape as CertifiedSelectionReport.trial_id. The Backend enforces that it belongs to this session and tenant."
+    },
+    "SelectionAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "winner_trial_id",
+        "eligible_trial_ids",
+        "eligible_trial_count",
+        "eligible_trial_ids_digest"
+      ],
+      "description": "Accepted selection receipt. BACKEND-ENFORCED (not expressible in JSON Schema): every id belongs to this session's trials for this tenant; winner_trial_id equals the server's finalized best trial and is in eligible_trial_ids; eligible_trial_ids is sorted ascending (canonical order); eligible_trial_count == len(eligible_trial_ids); eligible_trial_ids_digest is recomputed over the canonical sorted list and must match.",
+      "properties": {
+        "disposition": {
+          "const": "accepted"
+        },
+        "attestation": {
+          "const": "client_attested_server_bound",
+          "description": "Evidence class. Server-set on the persisted form; a request may omit it, and if present it must equal this value."
+        },
+        "reason_code": {
+          "description": "The SDK selection reason code, or null. Bounded label.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/SelectionLabel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "winner_trial_id": {
+          "$ref": "#/definitions/SelectionTrialId"
+        },
+        "eligible_trial_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10000,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/SelectionTrialId"
+          },
+          "description": "The ranking-eligible trial ids, unique, sorted ascending (canonical; Backend-enforced). maxItems matches the Backend MAX_TRIALS bound."
+        },
+        "eligible_trial_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Count of eligible_trial_ids. Backend enforces equality with len(eligible_trial_ids)."
+        },
+        "eligible_trial_ids_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "sha256 of the canonical sorted eligible_trial_ids list. Additional evidence, never a substitute for the list; the Backend recomputes and compares it."
+        },
+        "margin": {
+          "description": "Winner-vs-runner-up margin, or null when no comparison was made.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/SelectionMargin"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "SelectionMargin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner_up_trial_id",
+        "delta",
+        "ci95",
+        "p_value",
+        "verdict",
+        "test",
+        "n_shared_examples",
+        "effective_alpha",
+        "n_configs"
+      ],
+      "description": "Statistical margin of the winner over the runner-up, as computed by the SDK (not recomputed server-side). BACKEND-ENFORCED (not expressible in JSON Schema): runner_up_trial_id is in eligible_trial_ids and differs from winner_trial_id; ci95[0] <= ci95[1]; n_configs == eligible_trial_count. All numbers are finite by construction (JSON has no NaN/Infinity).",
+      "properties": {
+        "runner_up_trial_id": {
+          "$ref": "#/definitions/SelectionTrialId"
+        },
+        "delta": {
+          "type": "number"
+        },
+        "ci95": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          },
+          "description": "95% confidence interval [lo, hi]; lo <= hi is Backend-enforced."
+        },
+        "p_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "clear",
+            "statistical_tie",
+            "na"
+          ]
+        },
+        "test": {
+          "$ref": "#/definitions/SelectionLabel"
+        },
+        "n_shared_examples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "effective_alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "n_configs": {
+          "type": "integer",
+          "minimum": 2
+        }
+      }
+    },
+    "SelectionRejectedInconsistent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "reason"
+      ],
+      "description": "Persisted-only form written by the Backend when a submitted receipt fails validation or server binding. Content-free: a closed reason enum only.",
+      "properties": {
+        "disposition": {
+          "const": "rejected_inconsistent"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "unknown_trial",
+            "winner_not_best",
+            "winner_not_eligible",
+            "runner_up_not_eligible",
+            "runner_up_is_winner",
+            "count_mismatch",
+            "duplicate_ids",
+            "non_finite",
+            "out_of_range",
+            "exceeds_max_trials",
+            "digest_mismatch"
+          ]
+        }
+      }
     }
   }
 }

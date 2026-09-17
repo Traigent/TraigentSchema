@@ -8,6 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`selection` receipt on `SessionAggregationDTO` (R3 selection receipt, PR 1 of 3).**
+  New optional `selection` (`schemas/optimization/session_aggregation_schema.json`),
+  carried in the finalize request's `session_aggregation` and echoed in the finalize
+  response. Client-attested, server-bound: records the SDK's selection decision and
+  binds it to the session's own trials; does not recompute statistics. Discriminated
+  on `disposition` (`oneOf` + `const`), `additionalProperties: false` at every level,
+  content-free (ids, counts, digest, bounded numbers, bounded labels, closed enums):
+  - `accepted` (request and persisted form): optional `attestation`
+    (`client_attested_server_bound`, server-set), optional `reason_code` (label or
+    null), `winner_trial_id`, `eligible_trial_ids` (unique, 1..10000 = Backend
+    `MAX_TRIALS`), `eligible_trial_count` (≥ 1), `eligible_trial_ids_digest`
+    (`^sha256:[0-9a-f]{64}$`), optional `margin` (null or `runner_up_trial_id`,
+    `delta`, `ci95` of exactly 2 numbers, `p_value` and `effective_alpha` in [0, 1],
+    `verdict` ∈ `clear|statistical_tie|na`, `test` label, `n_shared_examples` ≥ 0,
+    `n_configs` ≥ 2).
+  - `rejected_inconsistent` (persisted only): `reason` ∈ `unknown_trial`,
+    `winner_not_best`, `winner_not_eligible`, `runner_up_not_eligible`,
+    `runner_up_is_winner`, `count_mismatch`, `duplicate_ids`, `non_finite`,
+    `out_of_range`, `exceeds_max_trials`, `digest_mismatch`.
+  - **Backend-enforced (not expressible in JSON Schema):** every id belongs to this
+    session's trials for this tenant; `winner_trial_id` equals the server's finalized
+    best trial and is in `eligible_trial_ids`; `runner_up_trial_id` is in
+    `eligible_trial_ids` and ≠ `winner_trial_id`; `eligible_trial_ids` is sorted
+    ascending; `eligible_trial_count == len(eligible_trial_ids)`; the digest is
+    recomputed over the canonical sorted list and must match; `ci95[0] <= ci95[1]`;
+    `n_configs == eligible_trial_count` when `margin` is present. Non-finite numbers
+    cannot appear in JSON, so finiteness is by construction; a malformed receipt is
+    persisted as the rejected form, never as a partial claim.
+  - Breaking-gate acknowledgement: `property_added` on a closed, bare-named schema
+    (conservative role) is allowlisted — no producer emits `selection` before the
+    Backend (PR 2) and Python SDK (PR 3) land.
+  - JS SDK parity: R3 is Python-scoped; a parity follow-up issue in `traigent-js` is to
+    be filed by the seat and linked before R3 completion.
 - **`dataset_label` on `ExperimentGroupOverview` (agent+dataset history display label).**
   New optional, nullable `dataset_label` (`schemas/execution/experiment_group_schema.json`)
   carries the human-readable display label of the canonical dataset (`Benchmark.label`)

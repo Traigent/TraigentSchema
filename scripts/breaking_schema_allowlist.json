@@ -2588,6 +2588,23 @@
           "fingerprint": "fd99cb0e95d4ea834c399d4ca205ed4e95eec135f0a6f5ae2a0c5e0bb9ec754e"
         }
       ]
+    },
+    {
+      "file": "optimization/session_aggregation_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/selection",
+          "role": "conservative",
+          "subject": "selection",
+          "old": false,
+          "new": true,
+          "fingerprint": "03311a9c93e55d69eb17372d76edad959da83ad6298206244b30fbd2a4b05eff"
+        }
+      ],
+      "reason": "selection is a new OPTIONAL member of the closed SessionAggregationDTO (R3 selection receipt: records the SDK's selection decision and binds it to the session's own trials). The gate flags it under the bare-named-resource conservative heuristic because the old shape was additionalProperties:false and is echoed back in the finalize response. The Backend only echoes session_aggregation it persisted from the SDK's own finalize request, and no producer emits selection yet (Backend normalizer is R3 PR 2, Python SDK producer is PR 3), so a current SDK strictly validating the echo never receives the member; the SDK upgrade that sends selection ships together with the reader. Unreleased. Acknowledged rather than silenced so the widening of a closed shape is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "#491"
     }
   ]
 }

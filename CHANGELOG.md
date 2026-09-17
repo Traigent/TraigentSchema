@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Normalized `$id` base URL for 7 analytics schemas (breaking-check blind spot).**
+  `curation_advice_schema.json`, `dataset_quality_schema.json`, `example_score_schema.json`,
+  `next_steps_receipt_request_schema.json`, `next_steps_receipt_response_schema.json`,
+  `next_steps_schema.json`, and `scoring_job_status_schema.json` declared `$id` under the
+  legacy `https://traigent.ai/schemas/...` host instead of the `https://schemas.traigent.ai/...`
+  host every other schema uses. `scripts/breaking_schema_check.py` resolves `$ref`s against
+  `SCHEMA_ID_BASE = "https://schemas.traigent.ai/"`, so operations in
+  `analytics/analytics_endpoints.json` referencing these 7 files came back `unresolved_ref` —
+  a blind spot the checker could not verify as non-breaking. No runtime behavior changes; this
+  is a pure `$id` rename with no `$ref` updates needed (nothing else referenced the old absolute
+  form). Removes the now-moot `unresolved_ref` acknowledgement for these 7 operations from
+  `scripts/breaking_schema_allowlist.json` (added on PR #471).
+
 ### Added
 - **`dataset_label` on `ExperimentGroupOverview` (agent+dataset history display label).**
   New optional, nullable `dataset_label` (`schemas/execution/experiment_group_schema.json`)

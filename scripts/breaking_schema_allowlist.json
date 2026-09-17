@@ -5,8 +5,8 @@
       "file": "datasets/evaluator_config_create_request_schema.json",
       "rule": "required",
       "reason": "Backend's BenchmarkCreator hard-subscripts model_id and instructions off evaluator_config unconditionally (src/dal/benchmark_creator.py); the schema previously declared no required[] at all, so a schema-valid config omitting either field 500'd instead of failing a clean 422 (requiredness-axis mirror of #200, TraigentSchema issue #267). Tightening the request-only create contract to match what the backend actually reads is the intended fix, not an accidental restriction.",
-      "version": "6.1.0",
-      "pr": "#267",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/487",
       "findings": [
         {
           "pointer": "#",
@@ -30,8 +30,8 @@
       "file": "datasets/generator_config_create_request_schema.json",
       "rule": "required",
       "reason": "Backend's BenchmarkCreator hard-subscripts model_id and instructions off generator_config unconditionally (src/dal/benchmark_creator.py); the schema previously declared no required[] at all, so a schema-valid config omitting either field 500'd instead of failing a clean 422 (requiredness-axis mirror of #200, TraigentSchema issue #267). Tightening the request-only create contract to match what the backend actually reads is the intended fix, not an accidental restriction.",
-      "version": "6.1.0",
-      "pr": "#267",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/487",
       "findings": [
         {
           "pointer": "#",
@@ -2703,9 +2703,9 @@
           "fingerprint": "1283fee1791b68967fea98d3a9e0575ed351427c526771683142f35cca8ed874"
         }
       ],
-      "reason": "Round-2 review fix for #267: datasets_endpoints.json's PUT /api/v1/datasets/{dataset_id} requestBody was repointed from dataset_create_request_schema.json to a new dataset_update_request_schema.json (update keeps generator_config/evaluator_config optional, matching src/dal/benchmark_dal.py's partial-patch .get() semantics -- only the create path hard-subscripts). That single-line edit makes the checker re-walk this whole OpenAPI file and re-surface the SAME model_id/instructions required[] additions already acknowledged above (datasets/generator_config_create_request_schema.json, datasets/evaluator_config_create_request_schema.json) -- this time via the untouched POST path's own endpoint-graph pointer instead of the schema-file pointer. Not a new tightening; the create path's requiredness is unchanged, and the update path stays permissive.",
-      "version": "6.1.0",
-      "pr": "#267"
+      "reason": "Round-2 review fix for #267: datasets_endpoints.json's PUT /api/v1/datasets/{dataset_id} requestBody was repointed from dataset_create_request_schema.json to a new dataset_update_request_schema.json (update keeps generator_config/evaluator_config optional, matching src/dal/benchmark_dal.py's partial-patch .get() semantics -- an EXISTING config is patched via .get(); note the update handler's create-if-absent branch, src/dal/benchmark_dal.py:400-403, does hard-subscript model_id/instructions, which is open Backend debt and not addressed by this contract change). That single-line edit makes the checker re-walk this whole OpenAPI file and re-surface the SAME model_id/instructions required[] additions already acknowledged above (datasets/generator_config_create_request_schema.json, datasets/evaluator_config_create_request_schema.json) -- this time via the untouched POST path's own endpoint-graph pointer instead of the schema-file pointer. Not a new tightening; the create path's requiredness is unchanged, and the update path stays permissive.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/487"
     },
     {
       "file": "x_extensions_meta_schema.json",
@@ -3546,8 +3546,8 @@
         }
       ],
       "reason": "Round-4 review fix for #267: retitled/re-described dataset_create_request_schema.json and its two $ref'd inner create schemas (generator_config_create_request_schema.json, evaluator_config_create_request_schema.json) from stale create/update wording to create-only. Editing those description/title strings makes the checker treat the files as changed and re-walk dataset_create_request_schema.json's own #/properties/generator_config and #/properties/evaluator_config pointers, re-surfacing the SAME model_id/instructions required[] additions already acknowledged above (datasets/generator_config_create_request_schema.json, datasets/evaluator_config_create_request_schema.json, datasets/datasets_endpoints.json) via a new pointer path. Not a new tightening: no required[] array changed in this commit, only prose.",
-      "version": "7.0.0",
-      "pr": "#487"
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/487"
     }
   ]
 }

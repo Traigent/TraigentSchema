@@ -3,7 +3,7 @@
   "$id": "https://schemas.traigent.ai/datasets/evaluator_config_update_request_schema.json",
   "type": "object",
   "title": "Evaluator Configuration Update Request Schema",
-  "description": "Request-only inner contract for the dataset PUT (update) path. Mirrors evaluator_config_create_request_schema.json's field set for resource-shaped compatibility, but stays permissive: the backend's update handler (src/dal/benchmark_dal.py) reads this as a partial patch against an existing evaluator_config via .get(), not a hard subscript, so no field is required here.",
+  "description": "Request-only inner contract for the dataset PUT (update) path. Mirrors evaluator_config_create_request_schema.json's field set for resource-shaped compatibility, but stays permissive: the backend's update handler (src/dal/benchmark_dal.py) reads this as a partial patch against an existing evaluator_config via .get(), not a hard subscript, so no field is required here. Caveat: when the dataset has NO existing evaluator_config the same handler creates one and does hard-subscript model_id/instructions (src/dal/benchmark_dal.py create-if-absent branch), so a parameter-only update in that state is rejected by the server, not by this contract -- open Backend debt, tracked separately. additionalProperties is deliberately true: this is an extensible, typed partial-patch object, not a closed contract.",
   "properties": {
     "id": {
       "type": "string",

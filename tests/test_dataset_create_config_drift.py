@@ -262,3 +262,19 @@ def test_inner_config_update_schema_mirrors_create_with_no_required(stem):
     assert create.get("required"), (
         f"{stem}_create_request_schema.json should still declare required[]"
     )
+
+
+@pytest.mark.parametrize("config_key", ["generator_config", "evaluator_config"])
+def test_dataset_update_put_still_type_checks_partial_patch_fields(config_key):
+    """The update variants drop required[] only; they are still typed.
+
+    A partial patch carrying a wrongly-typed field must be rejected on PUT,
+    otherwise "partial patch" would silently mean "anything goes".
+    """
+    validator = SchemaValidator(contract="backend")
+    bad_payload = {**_base_dataset_payload(), config_key: {"model_id": 123}}
+
+    errors = validator.validate_request("/api/v1/datasets/{dataset_id}", "PUT", bad_payload)
+
+    assert errors, f"PUT must reject a non-string {config_key}.model_id"
+    assert any("model_id" in str(error) or "123" in str(error) for error in errors)

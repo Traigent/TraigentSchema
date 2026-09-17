@@ -245,6 +245,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   status set (`UNSET`/`OK`/`ERROR`), so labelling the field "OTel-compatible" could lead
   a caller to send OTel's own values and get a validation error. Description-only.
 
+### Breaking
+- **`generator_config`/`evaluator_config` create-request contracts now require `model_id` and
+  `instructions` (requiredness-axis mirror of #200).** The dataset-create inner contracts
+  (`schemas/datasets/generator_config_create_request_schema.json`,
+  `evaluator_config_create_request_schema.json`) previously declared no `required[]` at all,
+  so a schema-valid config omitting `model_id`/`instructions` reached the backend, which reads
+  both via a hard subscript — an opaque 500 instead of a clean 422. Requiring both fields makes
+  the contract mirror what the backend actually reads; `generator_config`/`evaluator_config`
+  themselves stay optional at the outer `dataset_create_request_schema.json` level, so
+  dataset-create without a config is unaffected. Flagged as a breaking contract tightening by
+  `scripts/breaking_schema_check.py`; acknowledged in `scripts/breaking_schema_allowlist.json`.
+- **PUT /api/v1/datasets/{dataset_id} (update) no longer inherits the create-only requiredness
+  above.** `dataset_create_request_schema.json` is `$ref`'d by both the create and update
+  routes; the update handler reads an existing `generator_config`/`evaluator_config` as a
+  partial patch (`.get()` against the stored config — only the create-if-absent branch
+  hard-subscripts), so requiring `model_id`/`instructions` there too would 422 a legitimate
+  partial update. `PUT /api/v1/datasets/{dataset_id}` now resolves to a new
+  `schemas/datasets/dataset_update_request_schema.json`, whose `generator_config`/
+  `evaluator_config` reference new `generator_config_update_request_schema.json` /
+  `evaluator_config_update_request_schema.json` (same field set, no `required[]`); the create
+  path (`POST /api/v1/datasets`) is unchanged and keeps requiring both fields.
+
 ## [7.0.0] - 2026-09-17
 
 ### Breaking
@@ -310,26 +332,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 ### Fixed
-- **`generator_config`/`evaluator_config` create-request contracts now require `model_id` and
-  `instructions` (requiredness-axis mirror of #200).** The dataset-create inner contracts
-  (`schemas/datasets/generator_config_create_request_schema.json`,
-  `evaluator_config_create_request_schema.json`) previously declared no `required[]` at all,
-  so a schema-valid config omitting `model_id`/`instructions` reached the backend, which reads
-  both via a hard subscript — an opaque 500 instead of a clean 422. Requiring both fields makes
-  the contract mirror what the backend actually reads; `generator_config`/`evaluator_config`
-  themselves stay optional at the outer `dataset_create_request_schema.json` level, so
-  dataset-create without a config is unaffected. Flagged as a breaking contract tightening by
-  `scripts/breaking_schema_check.py`; acknowledged in `scripts/breaking_schema_allowlist.json`.
-- **PUT /api/v1/datasets/{dataset_id} (update) no longer inherits the create-only requiredness
-  above.** `dataset_create_request_schema.json` is `$ref`'d by both the create and update
-  routes; the update handler reads an existing `generator_config`/`evaluator_config` as a
-  partial patch (`.get()` against the stored config — only the create-if-absent branch
-  hard-subscripts), so requiring `model_id`/`instructions` there too would 422 a legitimate
-  partial update. `PUT /api/v1/datasets/{dataset_id}` now resolves to a new
-  `schemas/datasets/dataset_update_request_schema.json`, whose `generator_config`/
-  `evaluator_config` reference new `generator_config_update_request_schema.json` /
-  `evaluator_config_update_request_schema.json` (same field set, no `required[]`); the create
-  path (`POST /api/v1/datasets`) is unchanged and keeps requiring both fields.
 - **`project_retention_policy_schema.json`'s response now requires all 8 `policy`
   fields and drops their `default`s, matching the rate-limit sibling
   (`project_rate_limit_policy_schema.json`, which already requires all 4 of its

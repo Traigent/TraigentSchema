@@ -106,7 +106,7 @@
         "start_time": { "type": "string", "minLength": 1, "description": "ISO 8601 start timestamp. NOT yet machine-enforced (format: date-time): the Python SDK ingest producer (traigent/integrations/observability/workflow_traces.py add_span path) accepts datetime|str and can emit offset-less or free-form strings; tighten producers first, then add the format assertion (TraigentSchema#316 residual)." },
         "status": {
           "$ref": "../status_schema.json#/definitions/ObservabilitySpanStatus",
-          "description": "OTel-compatible span status. Canonical UPPER vocab aligned to backend SpanStatus native PG enum. See TraigentSchema#175."
+          "description": "Canonical UPPER-case span status vocabulary aligned to backend SpanStatus native PG enum; not the raw OTel status set. See TraigentSchema#175."
         },
         "input_tokens": { "type": "integer", "minimum": 0 },
         "output_tokens": { "type": "integer", "minimum": 0 },

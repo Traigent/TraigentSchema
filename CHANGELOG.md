@@ -102,6 +102,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accepts arbitrary status strings" — contradicting the enum enforcement actually in
   force. `span_type` is unaffected and remains genuinely free-form. Description-only;
   no validation behavior changes (`status` was already enum-enforced).
+- **`status`'s own field-level description dropped a misleading "OTel-compatible" label
+  (review follow-up on the fix above).** The enum vocabulary (`RUNNING`/`COMPLETED`/
+  `FAILED`/`REJECTED`/`TIMEOUT`/`CANCELLED`) does not overlap with OTel's native span
+  status set (`UNSET`/`OK`/`ERROR`), so labelling the field "OTel-compatible" could lead
+  a caller to send OTel's own values and get a validation error. Description-only.
 
 ## [6.0.0] - 2026-09-14
 

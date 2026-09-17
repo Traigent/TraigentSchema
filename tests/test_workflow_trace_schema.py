@@ -154,7 +154,9 @@ def test_span_type_is_free_string_and_status_is_enum_bound():
     for status in ("RUNNING", "COMPLETED", "FAILED", "REJECTED", "TIMEOUT", "CANCELLED"):
         span_ok = {**_valid_span(), "status": status}
         payload_ok = {"spans": {**_span_batch(), "spans": [span_ok]}}
-        assert v.validate_json(payload_ok, SCHEMA) == [], f"canonical span status {status!r} should be accepted"
+        assert v.validate_json(payload_ok, SCHEMA) == [], (
+            f"canonical span status {status!r} should be accepted"
+        )
 
 
 def test_span_payload_description_matches_status_enum_binding():
@@ -175,6 +177,26 @@ def test_span_payload_description_matches_status_enum_binding():
         "description must not claim status is not enum-enforced"
     )
     assert "span_type" in description and "free" in description
+
+
+def test_span_status_field_description_not_falsely_otel_compatible():
+    """SpanPayload.status's field-level description must not claim OTel
+    compatibility (TraigentSchema#336 review round 2): the enum is
+    {RUNNING, COMPLETED, FAILED, REJECTED, TIMEOUT, CANCELLED}, none of which
+    are OTel's own span-status vocabulary (UNSET/OK/ERROR), so labelling the
+    field "OTel-compatible" would mislead a caller into sending OTel's native
+    values and getting a validation error.
+    """
+    with open(
+        get_schemas_dir() / "execution" / "workflow_trace_schema.json",
+        encoding="utf-8",
+    ) as handle:
+        spec = json.load(handle)
+
+    description = spec["definitions"]["SpanPayload"]["properties"]["status"]["description"]
+    assert "OTel-compatible" not in description, (
+        "status description must not claim OTel compatibility"
+    )
 
 
 def test_span_batch_requires_trace_and_config_run():

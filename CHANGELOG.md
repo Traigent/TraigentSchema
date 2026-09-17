@@ -7,7 +7,153 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Selection receipt winner rule (unreleased contract from #491).** The Backend no longer
+  requires `selection.winner_trial_id` to equal the trial it would rank best; it must be a
+  completed trial of this session and in `eligible_trial_ids` (else `winner_not_eligible`).
+  The SDK ranks by configuration average, weighted objectives and cost tie-breaks, so the
+  old rule rejected honest receipts. `winner_not_best` now applies only when
+  `margin.winner_trial_id` differs from `selection.winner_trial_id`. The receipt evidences
+  which eligible trial the SDK selected — not which configuration was shipped, and not
+  that the ranking was correct. Description-only; no shape change.
+
+### Fixed
+- **`exportProjectFineTuningManifest` path drift in `planned_projects_endpoints.json`
+  (#272).** The operation was declared at
+  `/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest`, but the real
+  backend route lives on the `analytics` blueprint and is mounted at
+  `/api/v1beta/projects/{project_id}/analytics/exports/fine-tuning.manifest` — a client
+  following the declared path would 404. Corrected to the real, shipped path; the sibling
+  `exportProjectFineTuningJsonl` operation already correctly used `core-exports` and is
+  unchanged. This is a contract-breaking path rename, acknowledged in
+  `scripts/breaking_schema_allowlist.json` and shipped as a reviewed pre-release exception: the
+  catalog carries `x-asserted-against-backend: false`, and the Frontend, Python SDK and JS SDK
+  callers at `origin/develop` already use the served path (none references the drifted one). (The other item this
+  issue's title named, `lookupProjectMembershipCandidates`/`membership-candidates`, was
+  re-verified and is not a defect — it is an intentionally planned, not-yet-backend-built
+  contract per TraigentSchema#46, already excluded from the canonical backend surface by
+  its own dedicated test suite; no change needed.)
+- **Normalized `$id` base URL for 7 analytics schemas (breaking-check blind spot).**
+  `curation_advice_schema.json`, `dataset_quality_schema.json`, `example_score_schema.json`,
+  `next_steps_receipt_request_schema.json`, `next_steps_receipt_response_schema.json`,
+  `next_steps_schema.json`, and `scoring_job_status_schema.json` declared `$id` under the
+  legacy `https://traigent.ai/schemas/...` host instead of the `https://schemas.traigent.ai/...`
+  host every other schema uses. `scripts/breaking_schema_check.py` resolves `$ref`s against
+  `SCHEMA_ID_BASE = "https://schemas.traigent.ai/"`, so operations in
+  `analytics/analytics_endpoints.json` referencing these 7 files came back `unresolved_ref` —
+  a blind spot the checker could not verify as non-breaking. No runtime behavior changes; this
+  is a pure `$id` rename with no `$ref` updates needed (nothing else referenced the old absolute
+  form). Removes the now-moot `unresolved_ref` acknowledgement for these 7 operations from
+  `scripts/breaking_schema_allowlist.json` (added on PR #471).
+- **AWS Marketplace operations marked contract-first.** The three operations in
+  `schemas/billing/marketplace_endpoints.json` (#474) now carry
+  `x-asserted-against-backend: false`: their Backend routes are in TraigentBackend
+  #3169, which has not merged, so the Backend's documented-routes conformance test
+  failed every traigent-schema pin bump past #474 (seen on TraigentBackend #3333).
+  Flip back to asserted when the Backend pins a commit containing those routes.
+
 ### Added
+- **`metric_metadata` (per-metric `direction` + `role`) on the run-results response.**
+  New optional, nullable `metric_metadata` map (`schemas/execution/run_results_response_schema.json`,
+  `GET /api/v1/experiment-runs/runs/{run_id}/results`) carries, for every key present
+  in the sibling `metrics` map, an authoritative `direction` (`maximize` | `minimize` | `band`,
+  reusing `ObjectiveDirection` from `optimization/objective_definition_schema.json`) and a
+  `role` (`quality` | `cost` | `latency` | `tokens`). Both keys are always present but
+  individually nullable: `{direction: null, role: null}` is the honest "genuinely unknown"
+  answer for an ad-hoc measure with no backing objective and no resolvable role — never a
+  silent default to `maximize`. Purely additive (`metric_metadata` itself is optional and
+  nullable; the map is not required); old readers that ignore it are unaffected. Fixes FE
+  consumers re-deriving metric direction/role from the metric name, which misclassifies any
+  metric whose name doesn't match a hardcoded keyword list.
+- **`trial_sequencing` on session create (client-driven trial sequencing, Schema#323).**
+  New optional `trial_sequencing` enum (`"client" | "backend"`, default `"backend"`,
+  fully backward-compatible) on `POST /api/v1/sessions`
+  (`schemas/optimization/optimization_endpoints.json`) and `POST /api/v1/hybrid/sessions`
+  (`schemas/optimization/hybrid_session_create_request_schema.json`). `"backend"` preserves
+  today's behavior: the server allocates trial ids from its own optimizer budget and may
+  early-stop the session. `"client"` declares that the caller (e.g. a locally-sequenced
+  exhaustive grid/random run) decides trial order and count; the server must allocate ids
+  on demand and never early-stop from its own budget, which becomes informational only.
+  Contract-first step of a Schema → Backend → SDK propagation; before this field existed
+  both requests used `additionalProperties: true`, so any shape of `trial_sequencing` sent
+  today validates with zero errors — this closes that gap with a real enum.
+- **`selection` receipt on `SessionAggregationDTO` (R3 selection receipt, PR 1 of 3).**
+  New optional `selection` (`schemas/optimization/session_aggregation_schema.json`),
+  carried in the finalize request's `session_aggregation` and echoed in the finalize
+  response. Client-attested, server-bound: records the SDK's selection decision and
+  binds it to the session's own trials; does not recompute statistics. Discriminated
+  on `disposition` (`oneOf` + `const`), `additionalProperties: false` at every level.
+  The `selection` block carries only ids, counts, a digest, bounded numbers, bounded
+  labels and closed enums and adds no free-text field; it does not make the enclosing
+  `SessionAggregationDTO` content-free (e.g. `best_weighted_config` may carry
+  configuration values):
+  - `accepted` (the form a client sends; persisted when binding succeeds): optional
+    `attestation` (`client_attested_server_bound`, server-set), optional
+    `selection_reason` (the SDK result's `reason_code`; label or null — when absent or
+    null the certificate must say no selection reason was supplied, never infer one),
+    `winner_trial_id`, `eligible_trial_ids` (unique, 1..10000 = Backend `MAX_TRIALS`),
+    `eligible_trial_count` (1..10000), `eligible_trial_ids_digest`, optional `margin`.
+    Trial ids and the digest reject any whitespace, including a trailing newline.
+  - Digest preimage (exact): `sha256:` + lowercase hex SHA-256 of the UTF-8 bytes of
+    `json.dumps(sorted(eligible_trial_ids), separators=(",", ":"), ensure_ascii=False)`
+    (sort by Unicode code point; ids are ASCII so JS `JSON.stringify([...ids].sort())`
+    is byte-identical). Known answer: `["trial_a","trial_b","trial_c"]` →
+    `4a31e7194d0ef1862bfa5db184d1486776997a10810f1a72c67ab24aef08e005`.
+  - `margin` (null/omitted when the SDK has no runner-up): `winner_trial_id` (the
+    trial the SDK computed the margin for; required in every verdict), `runner_up_trial_id`,
+    `delta`, `ci95`, `p_value` and `effective_alpha` in [0, 1], `verdict` ∈
+    `clear|statistical_tie|na`, `test` label, `n_shared_examples`, `n_configs` ≥ 2 —
+    shaped per verdict with Draft-07 `if/then` to match the Python SDK's
+    `compute_best_config_margin`: `clear`/`statistical_tie` require numeric `delta`,
+    `ci95` and `p_value` and `n_shared_examples` ≥ 1; `na` (no p-value: winner and
+    runner-up share fewer than the SDK's minimum shared examples, or none; the SDK
+    then reports `n_shared_examples` as 0) requires `ci95: null`, `p_value: null`, `n_shared_examples: 0`, and allows a
+    numeric or null `delta`. `ci95` is the interval at level 1 − `effective_alpha`
+    (not a fixed 95%); the name is the SDK payload's key.
+  - `rejected_inconsistent` (Backend-written): `reason` ∈ `invalid_receipt`,
+    `unknown_trial`, `winner_not_best`, `winner_not_eligible`, `runner_up_not_eligible`,
+    `runner_up_is_winner`, `count_mismatch`, `duplicate_ids`, `non_canonical_order`,
+    `non_finite`, `out_of_range`, `exceeds_max_trials`, `digest_mismatch`.
+    **Structural failures are classified, never fatal:** a `selection` value that fails
+    this schema (missing/extra field, wrong type, bad pattern, bad `attestation`) does
+    not fail the finalize — the Backend persists
+    `{disposition: rejected_inconsistent, reason: invalid_receipt}` and the rest of the
+    finalize proceeds. **Unsorted ids are rejected, never normalised:** a unique but
+    unsorted list whose digest is the canonical (sorted) digest → `non_canonical_order`;
+    with a non-canonical digest → `digest_mismatch`. **Precedence** (first that applies):
+    `invalid_receipt` (structure only — not the two list checks next, and not a
+    number's value) → `exceeds_max_trials` → `duplicate_ids` → `non_finite` (any NaN or
+    ±Infinity, ahead of every numeric bound) → `out_of_range` (a finite number outside a
+    schema bound, or ci95 low > high, or n_configs > eligible_trial_count) →
+    `non_canonical_order` → `count_mismatch` → `digest_mismatch` → binding reasons
+    (`unknown_trial`, `winner_not_eligible`, `winner_not_best`, `runner_up_not_eligible`,
+    `runner_up_is_winner`). A client may send it (the
+    request schema accepts it) but the Backend ignores a client-sent
+    `rejected_inconsistent` and persists no `selection` for that finalize.
+  - **Backend-enforced (not expressible in JSON Schema):** every id belongs to this
+    session's trials for this tenant; `winner_trial_id` is a completed trial of this
+    session and is in `eligible_trial_ids` (else `winner_not_eligible`) — it is the SDK's
+    own selection, not required to equal the trial the server would rank best; `margin.winner_trial_id`
+    equals `selection.winner_trial_id` (else `winner_not_best` — the SDK silently
+    falls back to another trial when it cannot find the requested winner);
+    `runner_up_trial_id` is in
+    `eligible_trial_ids` and ≠ `winner_trial_id`; `eligible_trial_ids` is sorted by
+    code point; `eligible_trial_count == len(eligible_trial_ids)`; the digest is
+    recomputed by the preimage rule above and must match; `ci95[0] <= ci95[1]`;
+    `n_configs <= eligible_trial_count` (`n_configs` counts distinct configs, so it
+    may be smaller); every number is finite (`NaN`/`Infinity` survive common JSON
+    parsers and JSON Schema `number` does not exclude them → `non_finite`). A
+    schema-invalid or inconsistent receipt is persisted as the rejected form (never a
+    partial claim) and never fails the finalize. Backend PR 2 must also: bind the
+    receipt atomically to this tenant/session's completed trials
+    (same transaction as the finalize); server-stamp `attestation` on every persisted
+    accepted form; and on re-finalize never retain a stale accepted receipt from an
+    earlier finalize.
+  - Breaking-gate acknowledgement: `property_added` on a closed, bare-named schema
+    (conservative role) is allowlisted — no producer emits `selection` before the
+    Backend (PR 2) and Python SDK (PR 3) land.
+  - JS SDK parity: R3 is Python-scoped; a parity follow-up issue in `traigent-js` is to
+    be filed by the seat and linked before R3 completion.
 - **`dataset_label` on `ExperimentGroupOverview` (agent+dataset history display label).**
   New optional, nullable `dataset_label` (`schemas/execution/experiment_group_schema.json`)
   carries the human-readable display label of the canonical dataset (`Benchmark.label`)
@@ -27,6 +173,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`AGENT_QUALITY_VERIFIED`/`AGENT_QUALITY_CLAIM_ABSTAINED`) and prove the caller's own
   scope-ref pins never surface in the exported `AgentQualityVerificationResult`, plus a
   non-vacuity meta-test. No production code changed.
+
+### Fixed
+- **`session_submit_results_request_schema.json` now declares `summary_stats`,
+  `execution_mode`, and `execution_environment` (part 1 of the #454 contract audit).**
+  `POST /api/v1/sessions/{session_id}/results` already accepted all three
+  (`TraigentBackend`'s `_validate_results_payload`: `summary_stats`/`execution_environment`
+  as optional objects, `execution_mode` as an optional string capped at 64 chars), but the
+  schema's `additionalProperties: false` rejected them, so validating a real backend-accepted
+  submission against this schema failed closed on valid traffic. All three are optional and
+  additive — no existing required field, enum, or type changes; not a breaking change (see
+  `scripts/breaking_schema_check.py` output in the PR). The remaining #454 scope (auditing all
+  x-content/x-privacy-classification annotations across `schemas/optimization/`) is deferred to
+  a follow-up PR pending a per-field classification decision.
+- **`session_submit_results_request_schema.json` review fixes (round 2, #454).**
+  `execution_mode`'s description had the interactive/classic routing backwards: it now says
+  the backend records `execution_mode` into `metadata.mode` on the interactive (typed)
+  submission path (`_typed_session_is_admitted(...)` branch), not the classic path, which
+  instead receives it as its own `execution_mode` keyword argument
+  (`TraigentBackend`'s `src/routes/traigent_session_routes.py`). Also tightens `status`
+  (255 → 64 chars) and `error_message` (5000 → 2000 chars) to match the caps the backend
+  already enforces for those two pre-existing fields on the same endpoint
+  (`_validate_optional_string_field(data, "status", max_length=64)` and
+  `MAX_TRIAL_ERROR_MESSAGE_LENGTH = 2_000` in `src/services/traigent/terminal_outcome.py`) —
+  the same too-loose-vs-backend bug class this PR already fixed for the three new fields
+  above. This is a breaking (stricter) request-field change per
+  `scripts/breaking_schema_check.py`; acknowledged in `scripts/breaking_schema_allowlist.json`
+  with a reason (no known producer in this workspace emits a `status`/`error_message` beyond
+  the new caps — the backend has rejected them already).
+- **`workflow_trace_schema.json`'s `SpanPayload` object description no longer claims
+  `status` is a free, non-enum-enforced string.** #175 bound `status` to the closed
+  `ObservabilitySpanStatus` enum (`RUNNING`/`COMPLETED`/`FAILED`/`REJECTED`/`TIMEOUT`/
+  `CANCELLED`) and updated the field-level description, but left the object-level
+  description saying "`span_type` and `status` are free strings on the wire ...
+  accepts arbitrary status strings" — contradicting the enum enforcement actually in
+  force. `span_type` is unaffected and remains genuinely free-form. Description-only;
+  no validation behavior changes (`status` was already enum-enforced).
+- **`status`'s own field-level description dropped a misleading "OTel-compatible" label
+  (review follow-up on the fix above).** The enum vocabulary (`RUNNING`/`COMPLETED`/
+  `FAILED`/`REJECTED`/`TIMEOUT`/`CANCELLED`) does not overlap with OTel's native span
+  status set (`UNSET`/`OK`/`ERROR`), so labelling the field "OTel-compatible" could lead
+  a caller to send OTel's own values and get a validation error. Description-only.
+
+## [6.1.0] - 2026-09-17
+
+### Fixed
+- **`project_retention_policy_schema.json`'s response now requires all 8 `policy`
+  fields and drops their `default`s, matching the rate-limit sibling
+  (`project_rate_limit_policy_schema.json`, which already requires all 4 of its
+  policy fields).** Backend's `_normalize_retention_policy` unconditionally clamps
+  and fills every field on every GET/PATCH response, so none of them can actually
+  be absent; the response schema previously required only 2 of 8 and carried
+  `default`s on the other 6 (defaults that JSON-Schema never injects on a read, and
+  that belong on the update-request schema, not the resource response). Flagged as
+  a breaking contract tightening by `scripts/breaking_schema_check.py`; acknowledged
+  in `scripts/breaking_schema_allowlist.json`.
 
 ## [6.0.0] - 2026-09-14
 

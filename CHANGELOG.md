@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **AWS Marketplace operations marked contract-first.** The three operations in
+  `schemas/billing/marketplace_endpoints.json` (#474) now carry
+  `x-asserted-against-backend: false`: their Backend routes are in TraigentBackend
+  #3169, which has not merged, so the Backend's documented-routes conformance test
+  failed every traigent-schema pin bump past #474 (seen on TraigentBackend #3333).
+  Flip back to asserted when the Backend pins a commit containing those routes.
+
 ### Added
 - **`selection` receipt on `SessionAggregationDTO` (R3 selection receipt, PR 1 of 3).**
   New optional `selection` (`schemas/optimization/session_aggregation_schema.json`),

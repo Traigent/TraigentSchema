@@ -13,11 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carried in the finalize request's `session_aggregation` and echoed in the finalize
   response. Client-attested, server-bound: records the SDK's selection decision and
   binds it to the session's own trials; does not recompute statistics. Discriminated
-  on `disposition` (`oneOf` + `const`), `additionalProperties: false` at every level,
-  content-free (ids, counts, digest, bounded numbers, bounded labels, closed enums):
+  on `disposition` (`oneOf` + `const`), `additionalProperties: false` at every level.
+  The `selection` block carries only ids, counts, a digest, bounded numbers, bounded
+  labels and closed enums and adds no free-text field; it does not make the enclosing
+  `SessionAggregationDTO` content-free (e.g. `best_weighted_config` may carry
+  configuration values):
   - `accepted` (the form a client sends; persisted when binding succeeds): optional
     `attestation` (`client_attested_server_bound`, server-set), optional
-    `selection_reason` (the SDK result's `reason_code`; label or null),
+    `selection_reason` (the SDK result's `reason_code`; label or null — when absent or
+    null the certificate must say no selection reason was supplied, never infer one),
     `winner_trial_id`, `eligible_trial_ids` (unique, 1..10000 = Backend `MAX_TRIALS`),
     `eligible_trial_count` (1..10000), `eligible_trial_ids_digest`, optional `margin`.
     Trial ids and the digest reject any whitespace, including a trailing newline.
@@ -37,10 +41,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     then reports `n_shared_examples` as 0) requires `ci95: null`, `p_value: null`, `n_shared_examples: 0`, and allows a
     numeric or null `delta`. `ci95` is the interval at level 1 − `effective_alpha`
     (not a fixed 95%); the name is the SDK payload's key.
-  - `rejected_inconsistent` (Backend-written): `reason` ∈ `unknown_trial`,
-    `winner_not_best`, `winner_not_eligible`, `runner_up_not_eligible`,
-    `runner_up_is_winner`, `count_mismatch`, `duplicate_ids`, `non_finite`,
-    `out_of_range`, `exceeds_max_trials`, `digest_mismatch`. A client may send it (the
+  - `rejected_inconsistent` (Backend-written): `reason` ∈ `invalid_receipt`,
+    `unknown_trial`, `winner_not_best`, `winner_not_eligible`, `runner_up_not_eligible`,
+    `runner_up_is_winner`, `count_mismatch`, `duplicate_ids`, `non_canonical_order`,
+    `non_finite`, `out_of_range`, `exceeds_max_trials`, `digest_mismatch`.
+    **Structural failures are classified, never fatal:** a `selection` value that fails
+    this schema (missing/extra field, wrong type, bad pattern, bad `attestation`) does
+    not fail the finalize — the Backend persists
+    `{disposition: rejected_inconsistent, reason: invalid_receipt}` and the rest of the
+    finalize proceeds. **Unsorted ids are rejected, never normalised:** a unique but
+    unsorted list whose digest is the canonical (sorted) digest → `non_canonical_order`;
+    with a non-canonical digest → `digest_mismatch`. **Precedence** (first that applies):
+    `invalid_receipt` (structure, other than the two list checks next) →
+    `exceeds_max_trials` → `duplicate_ids` → `non_canonical_order` → `count_mismatch` →
+    `digest_mismatch` → binding/value reasons (`unknown_trial`, `winner_not_eligible`,
+    `winner_not_best`, `runner_up_not_eligible`, `runner_up_is_winner`, `non_finite`,
+    `out_of_range`). A client may send it (the
     request schema accepts it) but the Backend ignores a client-sent
     `rejected_inconsistent` and persists no `selection` for that finalize.
   - **Backend-enforced (not expressible in JSON Schema):** every id belongs to this
@@ -55,7 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `n_configs <= eligible_trial_count` (`n_configs` counts distinct configs, so it
     may be smaller); every number is finite (`NaN`/`Infinity` survive common JSON
     parsers and JSON Schema `number` does not exclude them → `non_finite`). A
-    malformed receipt is persisted as the rejected form, never as a partial claim.
+    schema-invalid or inconsistent receipt is persisted as the rejected form (never a
+    partial claim) and never fails the finalize. Backend PR 2 must also: bind the
+    receipt atomically to the finalized winner and to this tenant/session's trials
+    (same transaction as the finalize); server-stamp `attestation` on every persisted
+    accepted form; and on re-finalize never retain a stale accepted receipt from an
+    earlier finalize.
   - Breaking-gate acknowledgement: `property_added` on a closed, bare-named schema
     (conservative role) is allowlisted — no producer emits `selection` before the
     Backend (PR 2) and Python SDK (PR 3) land.

@@ -13,7 +13,8 @@ and assert the exact set of ``(keyword, instance path)`` pairs that fail, so eac
 test pins the rule it is about rather than "some error exists".
 
 Rules JSON Schema cannot express (sorted ids, count == len(ids), runner_up != winner,
-digest correctness, n_configs <= eligible_trial_count, ci95 lo <= hi, finiteness)
+digest correctness, n_configs <= eligible_trial_count, ci95 lo <= hi, finiteness,
+rejection precedence, invalid_receipt classification of schema-invalid receipts)
 are Backend-enforced and deliberately NOT faked here.
 """
 
@@ -190,6 +191,7 @@ class TestValidSelection:
     @pytest.mark.parametrize(
         "reason",
         [
+            "invalid_receipt",
             "unknown_trial",
             "winner_not_best",
             "winner_not_eligible",
@@ -197,6 +199,7 @@ class TestValidSelection:
             "runner_up_is_winner",
             "count_mismatch",
             "duplicate_ids",
+            "non_canonical_order",
             "non_finite",
             "out_of_range",
             "exceeds_max_trials",
@@ -488,6 +491,19 @@ class TestInvalidRejected:
         instance = _rejected_selection()
         del instance[field]
         assert _rule_errors("SelectionRejectedInconsistent", instance) == {("required", ())}
+
+    @pytest.mark.parametrize("reason", ["invalid_receipt", "non_canonical_order"])
+    def test_round_d_reasons_validate_in_rejected_form(self, reason: str) -> None:
+        # invalid_receipt: structural failure classified, finalize proceeds.
+        # non_canonical_order: unique but unsorted ids with the canonical digest.
+        instance = {**_rejected_selection(), "reason": reason}
+        assert _rule_errors("SelectionRejectedInconsistent", instance) == set()
+        assert not _errors({"selection": instance})
+
+    @pytest.mark.parametrize("reason", ["looked_wrong_to_me", "unsorted_ids", "malformed"])
+    def test_unknown_reason_variants(self, reason: str) -> None:
+        instance = {**_rejected_selection(), "reason": reason}
+        assert _rule_errors("SelectionRejectedInconsistent", instance) == {("enum", ("reason",))}
 
     def test_unknown_reason(self) -> None:
         instance = {**_rejected_selection(), "reason": "looked_wrong_to_me"}

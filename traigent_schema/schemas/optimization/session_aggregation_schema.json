@@ -120,7 +120,7 @@
       "description": "Anchored version token — never free text."
     },
     "selection": {
-      "description": "OPTIONAL selection receipt (R3). CLIENT-ATTESTED, SERVER-BOUND: records the SDK's selection decision and binds it to the session's own trials (provenance and referential consistency); it does NOT recompute statistics. Discriminated on `disposition`. `accepted` is the form a client sends and the form the Backend persists when binding succeeds. `rejected_inconsistent` is Backend-written: when a submitted accepted receipt fails validation or server binding, the Backend persists this form with a content-free reason instead (never a partial claim). A client MAY send a rejected form (this schema accepts it in the finalize request), but it carries no claim: the Backend ignores a client-sent `rejected_inconsistent` and persists no `selection` for that finalize. Any rejected form in a response was written by the Backend. CONTENT-FREE: every field is an id, a count, a digest, a bounded number, a bounded label, or a closed enum — no free text anywhere. FINITENESS IS BACKEND-ENFORCED: JSON Schema `number` does not exclude non-finite values, and common parsers produce them (Python json.loads accepts `NaN`/`Infinity` and turns `1e999` into inf); the Backend rejects any non-finite number in the receipt with reason `non_finite`.",
+      "description": "OPTIONAL selection receipt (R3). CLIENT-ATTESTED, SERVER-BOUND: records the SDK's selection decision and binds it to the session's own trials (provenance and referential consistency); it does NOT recompute statistics. Discriminated on `disposition`. `accepted` is the form a client sends and the form the Backend persists when binding succeeds. `rejected_inconsistent` is Backend-written: when a submitted `selection` fails this schema or server binding, the Backend persists this form with a content-free reason instead (never a partial claim). STRUCTURAL FAILURES ARE CLASSIFIED, NEVER FATAL: a `selection` value that fails this schema (missing or extra field, wrong type, bad pattern, bad `attestation`) does not fail the finalize request; the Backend persists `{disposition: rejected_inconsistent, reason: invalid_receipt}` and the rest of the finalize proceeds. A client MAY send a rejected form (this schema accepts it in the finalize request), but it carries no claim: the Backend ignores a client-sent `rejected_inconsistent` and persists no `selection` for that finalize. Any rejected form in a response was written by the Backend. CONTENT-FREE SCOPE: the `selection` block carries only ids, counts, a digest, bounded numbers, bounded labels and closed enums; it adds no free-text field. This does NOT make the enclosing SessionAggregationDTO content-free — other properties (e.g. best_weighted_config) may carry configuration values. FINITENESS IS BACKEND-ENFORCED: JSON Schema `number` does not exclude non-finite values, and common parsers produce them (Python json.loads accepts `NaN`/`Infinity` and turns `1e999` into inf); the Backend rejects any non-finite number in the receipt with reason `non_finite`. REJECTION PRECEDENCE (the Backend reports the first reason that applies, in this order): (1) `invalid_receipt` — the `selection` value fails this schema's structure (missing or extra field, wrong type, bad pattern or bound, bad `attestation`, unknown `disposition`), other than the two list checks named next; (2) `exceeds_max_trials` — eligible_trial_ids has more than 10000 items; (3) `duplicate_ids` — eligible_trial_ids repeats an id; (4) `non_canonical_order` — the ids are unique but not sorted ascending by Unicode code point AND eligible_trial_ids_digest equals the digest of the canonical (sorted) list; (5) `count_mismatch` — eligible_trial_count != len(eligible_trial_ids); (6) `digest_mismatch` — eligible_trial_ids_digest differs from the canonical digest (this includes an unsorted list whose digest was computed over the unsorted order); (7) binding and value reasons — `unknown_trial`, `winner_not_eligible`, `winner_not_best`, `runner_up_not_eligible`, `runner_up_is_winner`, `non_finite`, `out_of_range`. Unsorted ids are rejected, never normalised.",
       "oneOf": [
         {
           "$ref": "#/definitions/SelectionAccepted"
@@ -154,7 +154,7 @@
         "eligible_trial_count",
         "eligible_trial_ids_digest"
       ],
-      "description": "Accepted selection receipt. BACKEND-ENFORCED (not expressible in JSON Schema): every id belongs to this session's trials for this tenant; winner_trial_id equals the server's finalized best trial and is in eligible_trial_ids; eligible_trial_ids is sorted ascending by Unicode code point (canonical order); eligible_trial_count == len(eligible_trial_ids); eligible_trial_ids_digest is recomputed from eligible_trial_ids by the preimage rule on that field and must match; every number is finite.",
+      "description": "Accepted selection receipt. BACKEND-ENFORCED (not expressible in JSON Schema): every id belongs to this session's trials for this tenant; winner_trial_id equals the server's finalized best trial and is in eligible_trial_ids; eligible_trial_ids is sorted ascending by Unicode code point (canonical order; unsorted ids are rejected with `non_canonical_order` or `digest_mismatch`, never normalised — see the precedence on `selection`); eligible_trial_count == len(eligible_trial_ids); eligible_trial_ids_digest is recomputed from eligible_trial_ids by the preimage rule on that field and must match; every number is finite.",
       "properties": {
         "disposition": {
           "const": "accepted"
@@ -164,7 +164,7 @@
           "description": "Evidence class. Server-set on the persisted form; a request may omit it, and if present it must equal this value."
         },
         "selection_reason": {
-          "description": "The SDK's selection reason (the SDK result's reason code field), or null. Bounded label.",
+          "description": "The SDK's selection reason (the SDK result's reason code field), or null. Bounded label. When absent or null, the certificate must say that no selection reason was supplied; it must never infer one.",
           "oneOf": [
             {
               "$ref": "#/definitions/SelectionLabel"
@@ -185,7 +185,7 @@
           "items": {
             "$ref": "#/definitions/SelectionTrialId"
           },
-          "description": "The ranking-eligible trial ids, unique, sorted ascending by Unicode code point (canonical; Backend-enforced). maxItems matches the Backend MAX_TRIALS bound."
+          "description": "The ranking-eligible trial ids, unique, sorted ascending by Unicode code point (canonical; Backend-enforced — an unsorted list is rejected, never re-sorted). maxItems matches the Backend MAX_TRIALS bound."
         },
         "eligible_trial_count": {
           "type": "integer",
@@ -357,7 +357,7 @@
         "disposition",
         "reason"
       ],
-      "description": "Backend-written form persisted when a submitted accepted receipt fails validation or server binding. Content-free: a closed reason enum only. Accepted by this schema in a request, but the Backend ignores a client-sent `rejected_inconsistent` and persists no `selection` for that finalize.",
+      "description": "Backend-written form persisted when a submitted `selection` fails this schema or server binding. Content-free: a closed reason enum only. A `selection` that fails this schema structurally is persisted as `reason: invalid_receipt` and the rest of the finalize proceeds (the finalize never fails on the receipt). Accepted by this schema in a request, but the Backend ignores a client-sent `rejected_inconsistent` and persists no `selection` for that finalize. REJECTION PRECEDENCE (the Backend reports the first reason that applies, in this order): (1) `invalid_receipt` — the `selection` value fails this schema's structure (missing or extra field, wrong type, bad pattern or bound, bad `attestation`, unknown `disposition`), other than the two list checks named next; (2) `exceeds_max_trials` — eligible_trial_ids has more than 10000 items; (3) `duplicate_ids` — eligible_trial_ids repeats an id; (4) `non_canonical_order` — the ids are unique but not sorted ascending by Unicode code point AND eligible_trial_ids_digest equals the digest of the canonical (sorted) list; (5) `count_mismatch` — eligible_trial_count != len(eligible_trial_ids); (6) `digest_mismatch` — eligible_trial_ids_digest differs from the canonical digest (this includes an unsorted list whose digest was computed over the unsorted order); (7) binding and value reasons — `unknown_trial`, `winner_not_eligible`, `winner_not_best`, `runner_up_not_eligible`, `runner_up_is_winner`, `non_finite`, `out_of_range`. Unsorted ids are rejected, never normalised.",
       "properties": {
         "disposition": {
           "const": "rejected_inconsistent"
@@ -365,6 +365,7 @@
         "reason": {
           "type": "string",
           "enum": [
+            "invalid_receipt",
             "unknown_trial",
             "winner_not_best",
             "winner_not_eligible",
@@ -372,6 +373,7 @@
             "runner_up_is_winner",
             "count_mismatch",
             "duplicate_ids",
+            "non_canonical_order",
             "non_finite",
             "out_of_range",
             "exceeds_max_trials",

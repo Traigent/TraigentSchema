@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/curation_advice.json",
+  "$id": "https://schemas.traigent.ai/analytics/curation_advice_schema.json",
   "title": "CurationAdvice",
   "description": "CLIENT-SAFE dataset curation advice response for example-scoring analytics. This contract exposes only category-level, templated advice and aggregate counts. Example IDs and signal scores are intentionally excluded from this contract; proprietary example-scoring signals, rankings, and formulas are NOT returned to clients.",
   "type": "object",

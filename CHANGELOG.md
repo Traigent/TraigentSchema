@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Selection receipt in strict (certified-selection) sessions.** The server decides the
+  winner there, so the Backend accepts a receipt only when `winner_trial_id` equals its
+  certified winner; with no certified winner, or a different one, it persists
+  `winner_not_eligible`. (The Python SDK sends no receipt in strict mode.) Also states that
+  NaN/Infinity in an integer-typed receipt field is `non_finite`, not `invalid_receipt`.
+  Description-only; no shape change.
+
+### Changed
 - **Selection receipt winner rule (unreleased contract from #491).** The Backend no longer
   requires `selection.winner_trial_id` to equal the trial it would rank best; it must be a
   completed trial of this session and in `eligible_trial_ids` (else `winner_not_eligible`).

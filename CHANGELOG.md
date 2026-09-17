@@ -114,6 +114,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   history table showing only an opaque `dataset_id` or "No dataset".
 
 ### Fixed
+- **`session_submit_results_request_schema.json` now declares `summary_stats`,
+  `execution_mode`, and `execution_environment` (part 1 of the #454 contract audit).**
+  `POST /api/v1/sessions/{session_id}/results` already accepted all three
+  (`TraigentBackend`'s `_validate_results_payload`: `summary_stats`/`execution_environment`
+  as optional objects, `execution_mode` as an optional string capped at 64 chars), but the
+  schema's `additionalProperties: false` rejected them, so validating a real backend-accepted
+  submission against this schema failed closed on valid traffic. All three are optional and
+  additive — no existing required field, enum, or type changes; not a breaking change (see
+  `scripts/breaking_schema_check.py` output in the PR). The remaining #454 scope (auditing all
+  x-content/x-privacy-classification annotations across `schemas/optimization/`) is deferred to
+  a follow-up PR pending a per-field classification decision.
+- **`session_submit_results_request_schema.json` review fixes (round 2, #454).**
+  `execution_mode`'s description had the interactive/classic routing backwards: it now says
+  the backend records `execution_mode` into `metadata.mode` on the interactive (typed)
+  submission path (`_typed_session_is_admitted(...)` branch), not the classic path, which
+  instead receives it as its own `execution_mode` keyword argument
+  (`TraigentBackend`'s `src/routes/traigent_session_routes.py`). Also tightens `status`
+  (255 → 64 chars) and `error_message` (5000 → 2000 chars) to match the caps the backend
+  already enforces for those two pre-existing fields on the same endpoint
+  (`_validate_optional_string_field(data, "status", max_length=64)` and
+  `MAX_TRIAL_ERROR_MESSAGE_LENGTH = 2_000` in `src/services/traigent/terminal_outcome.py`) —
+  the same too-loose-vs-backend bug class this PR already fixed for the three new fields
+  above. This is a breaking (stricter) request-field change per
+  `scripts/breaking_schema_check.py`; acknowledged in `scripts/breaking_schema_allowlist.json`
+  with a reason (no known producer in this workspace emits a `status`/`error_message` beyond
+  the new caps — the backend has rejected them already).
 - **`workflow_trace_schema.json`'s `SpanPayload` object description no longer claims
   `status` is a free, non-enum-enforced string.** #175 bound `status` to the closed
   `ObservabilitySpanStatus` enum (`RUNNING`/`COMPLETED`/`FAILED`/`REJECTED`/`TIMEOUT`/

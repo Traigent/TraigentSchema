@@ -122,9 +122,9 @@ def test_session_and_hybrid_create_agree_on_trial_sequencing_shape() -> None:
     assert session_field["default"] == hybrid_field["default"] == "backend"
 
 
-def test_client_sequencing_documents_that_hard_limits_stay_enforced() -> None:
+def test_client_sequencing_documents_that_no_limit_is_relaxed() -> None:
     """Handing trial ORDER and COUNT to the client must not read as handing over cost
-    control: both surfaces must say explicit spend/time/security limits stay enforced."""
+    control: both surfaces must say it relaxes no spend/time/rate/security limit."""
     import json
     from pathlib import Path
 
@@ -139,6 +139,6 @@ def test_client_sequencing_documents_that_hard_limits_stay_enforced() -> None:
 
     assert session_field["description"] == hybrid_field["description"]
     description = session_field["description"]
-    assert "remain enforced by the server" in description
-    for limit in ("spend", "time", "security"):
+    assert "does not disable or relax any" in description
+    for limit in ("spend", "time", "rate", "security"):
         assert limit in description, limit

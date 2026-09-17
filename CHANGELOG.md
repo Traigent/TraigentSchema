@@ -27,8 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`trial_sequencing: "client"` no longer reads as disabling cost controls (#323).**
   The description on both session-create surfaces said the server's "budget accounting"
   becomes informational only. It now scopes that to the optimizer's trial-count budget
-  and states that explicit spend, time, rate, and security limits remain enforced by the
-  server regardless of who sequences trials. Description-only; no shape change.
+  and states, as a requirement on implementers, that client sequencing does not disable or
+  relax any spend, time, rate, or security limit that applies to the session.
+  Description-only; no shape change.
 - **Normalized `$id` base URL for 7 analytics schemas (breaking-check blind spot).**
   `curation_advice_schema.json`, `dataset_quality_schema.json`, `example_score_schema.json`,
   `next_steps_receipt_request_schema.json`, `next_steps_receipt_response_schema.json`,

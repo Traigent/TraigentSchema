@@ -120,7 +120,7 @@
       "description": "Anchored version token — never free text."
     },
     "selection": {
-      "description": "OPTIONAL selection receipt (R3). CLIENT-ATTESTED, SERVER-BOUND: records the SDK's selection decision and binds it to the session's own trials (provenance and referential consistency); it does NOT recompute statistics. Discriminated on `disposition`. `accepted` is the form a client sends and the form the Backend persists when binding succeeds. `rejected_inconsistent` is Backend-written: when a submitted accepted receipt fails validation or server binding, the Backend persists this form with a content-free reason instead (never a partial claim). A client MAY send a rejected form (this schema accepts it in the finalize request), but it carries no claim: the Backend ignores a client-sent rejected form, never persists it as sent, and persists only its own verdict. Any rejected form in a response was written by the Backend. CONTENT-FREE: every field is an id, a count, a digest, a bounded number, a bounded label, or a closed enum — no free text anywhere. FINITENESS IS BACKEND-ENFORCED: JSON Schema `number` does not exclude non-finite values, and common parsers produce them (Python json.loads accepts `NaN`/`Infinity` and turns `1e999` into inf); the Backend rejects any non-finite number in the receipt with reason `non_finite`.",
+      "description": "OPTIONAL selection receipt (R3). CLIENT-ATTESTED, SERVER-BOUND: records the SDK's selection decision and binds it to the session's own trials (provenance and referential consistency); it does NOT recompute statistics. Discriminated on `disposition`. `accepted` is the form a client sends and the form the Backend persists when binding succeeds. `rejected_inconsistent` is Backend-written: when a submitted accepted receipt fails validation or server binding, the Backend persists this form with a content-free reason instead (never a partial claim). A client MAY send a rejected form (this schema accepts it in the finalize request), but it carries no claim: the Backend ignores a client-sent `rejected_inconsistent` and persists no `selection` for that finalize. Any rejected form in a response was written by the Backend. CONTENT-FREE: every field is an id, a count, a digest, a bounded number, a bounded label, or a closed enum — no free text anywhere. FINITENESS IS BACKEND-ENFORCED: JSON Schema `number` does not exclude non-finite values, and common parsers produce them (Python json.loads accepts `NaN`/`Infinity` and turns `1e999` into inf); the Backend rejects any non-finite number in the receipt with reason `non_finite`.",
       "oneOf": [
         {
           "$ref": "#/definitions/SelectionAccepted"
@@ -215,6 +215,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "winner_trial_id",
         "runner_up_trial_id",
         "delta",
         "ci95",
@@ -225,8 +226,12 @@
         "effective_alpha",
         "n_configs"
       ],
-      "description": "Statistical margin of the winner over the runner-up, projected from the Python SDK's compute_best_config_margin payload (traigent/core/stat_significance.py); not recomputed server-side. The SDK returns NO margin (send null or omit `margin`) when there are fewer than two distinct scored configs, so every margin names a runner-up and has n_configs >= 2. Shape depends on `verdict` (enforced below with if/then): `clear` / `statistical_tie` — a paired test ran on shared per-example scores: delta, ci95 and p_value are numbers and n_shared_examples >= 1. `na` — winner and runner-up share no comparable per-example data, so no test ran: ci95 and p_value are null, n_shared_examples is 0, and delta is the aggregate primary-score difference (number, or null if unavailable). BACKEND-ENFORCED (not expressible in JSON Schema): runner_up_trial_id is in eligible_trial_ids and differs from winner_trial_id; ci95[0] <= ci95[1]; n_configs <= eligible_trial_count (n_configs counts DISTINCT configs among the scored eligible trials, so it may be smaller than the trial count); every number is finite.",
+      "description": "Statistical margin of the winner over the runner-up, projected from the Python SDK's compute_best_config_margin payload (traigent/core/stat_significance.py); not recomputed server-side. The SDK returns NO margin (send null or omit `margin`) when there are fewer than two distinct scored configs, so every margin names a runner-up and has n_configs >= 2. Shape depends on `verdict` (enforced below with if/then): `clear` / `statistical_tie` — a paired test ran on shared per-example scores: delta, ci95 and p_value are numbers and n_shared_examples >= 1. `na` — no p-value: winner and runner-up share fewer than the SDK's minimum number of shared examples, or none, so no test ran: ci95 and p_value are null, n_shared_examples is 0, and delta is the aggregate primary-score difference (number, or null if unavailable). BACKEND-ENFORCED (not expressible in JSON Schema): winner_trial_id equals the receipt's winner_trial_id (the SDK falls back to another trial when it cannot find the requested winner, so the margin must name the trial it was computed for; mismatch -> `winner_not_best`); runner_up_trial_id is in eligible_trial_ids and differs from winner_trial_id; ci95[0] <= ci95[1]; n_configs <= eligible_trial_count (n_configs counts DISTINCT configs among the scored eligible trials, so it may be smaller than the trial count); every number is finite.",
       "properties": {
+        "winner_trial_id": {
+          "$ref": "#/definitions/SelectionTrialId",
+          "description": "The trial the SDK computed this margin for (the SDK margin payload's own winner_trial_id). Required in every verdict. The Backend rejects with `winner_not_best` when it differs from the receipt's winner_trial_id."
+        },
         "runner_up_trial_id": {
           "$ref": "#/definitions/SelectionTrialId"
         },
@@ -272,7 +277,7 @@
         "n_shared_examples": {
           "type": "integer",
           "minimum": 0,
-          "description": "Number of shared examples the paired test ran on: >= 1 for clear/statistical_tie, 0 for na."
+          "description": "Number of shared examples the paired test ran on: >= 1 for clear/statistical_tie. For na the SDK reports 0 even when the two trials share some examples below its minimum."
         },
         "effective_alpha": {
           "type": "number",
@@ -352,7 +357,7 @@
         "disposition",
         "reason"
       ],
-      "description": "Backend-written form persisted when a submitted accepted receipt fails validation or server binding. Content-free: a closed reason enum only. Accepted by this schema in a request, but a client-sent rejected form is ignored by the Backend (never persisted as sent).",
+      "description": "Backend-written form persisted when a submitted accepted receipt fails validation or server binding. Content-free: a closed reason enum only. Accepted by this schema in a request, but the Backend ignores a client-sent `rejected_inconsistent` and persists no `selection` for that finalize.",
       "properties": {
         "disposition": {
           "const": "rejected_inconsistent"

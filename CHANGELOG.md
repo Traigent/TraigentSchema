@@ -26,24 +26,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (sort by Unicode code point; ids are ASCII so JS `JSON.stringify([...ids].sort())`
     is byte-identical). Known answer: `["trial_a","trial_b","trial_c"]` →
     `4a31e7194d0ef1862bfa5db184d1486776997a10810f1a72c67ab24aef08e005`.
-  - `margin` (null/omitted when the SDK has no runner-up): `runner_up_trial_id`,
+  - `margin` (null/omitted when the SDK has no runner-up): `winner_trial_id` (the
+    trial the SDK computed the margin for; required in every verdict), `runner_up_trial_id`,
     `delta`, `ci95`, `p_value` and `effective_alpha` in [0, 1], `verdict` ∈
     `clear|statistical_tie|na`, `test` label, `n_shared_examples`, `n_configs` ≥ 2 —
     shaped per verdict with Draft-07 `if/then` to match the Python SDK's
     `compute_best_config_margin`: `clear`/`statistical_tie` require numeric `delta`,
-    `ci95` and `p_value` and `n_shared_examples` ≥ 1; `na` (no shared per-example
-    data) requires `ci95: null`, `p_value: null`, `n_shared_examples: 0`, and allows a
+    `ci95` and `p_value` and `n_shared_examples` ≥ 1; `na` (no p-value: winner and
+    runner-up share fewer than the SDK's minimum shared examples, or none; the SDK
+    then reports `n_shared_examples` as 0) requires `ci95: null`, `p_value: null`, `n_shared_examples: 0`, and allows a
     numeric or null `delta`. `ci95` is the interval at level 1 − `effective_alpha`
     (not a fixed 95%); the name is the SDK payload's key.
   - `rejected_inconsistent` (Backend-written): `reason` ∈ `unknown_trial`,
     `winner_not_best`, `winner_not_eligible`, `runner_up_not_eligible`,
     `runner_up_is_winner`, `count_mismatch`, `duplicate_ids`, `non_finite`,
     `out_of_range`, `exceeds_max_trials`, `digest_mismatch`. A client may send it (the
-    request schema accepts it) but the Backend ignores a client-sent rejected form,
-    never persists it as sent, and persists only its own verdict.
+    request schema accepts it) but the Backend ignores a client-sent
+    `rejected_inconsistent` and persists no `selection` for that finalize.
   - **Backend-enforced (not expressible in JSON Schema):** every id belongs to this
     session's trials for this tenant; `winner_trial_id` equals the server's finalized
-    best trial and is in `eligible_trial_ids`; `runner_up_trial_id` is in
+    best trial and is in `eligible_trial_ids`; `margin.winner_trial_id`
+    equals `selection.winner_trial_id` (else `winner_not_best` — the SDK silently
+    falls back to another trial when it cannot find the requested winner);
+    `runner_up_trial_id` is in
     `eligible_trial_ids` and ≠ `winner_trial_id`; `eligible_trial_ids` is sorted by
     code point; `eligible_trial_count == len(eligible_trial_ids)`; the digest is
     recomputed by the preimage rule above and must match; `ci95[0] <= ci95[1]`;

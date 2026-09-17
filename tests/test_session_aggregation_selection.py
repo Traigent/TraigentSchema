@@ -75,6 +75,7 @@ def _digest(ids: list[str]) -> str:
 # payloads, Traigent traigent/core/stat_significance.py.
 def _margin_mcnemar_clear() -> dict:
     return {
+        "winner_trial_id": "trial_a",
         "runner_up_trial_id": "trial_b",
         "delta": 0.25,
         "ci95": [0.06, 0.44],
@@ -89,6 +90,7 @@ def _margin_mcnemar_clear() -> dict:
 
 def _margin_paired_t_tie() -> dict:
     return {
+        "winner_trial_id": "trial_a",
         "runner_up_trial_id": "trial_b",
         "delta": -0.01,
         "ci95": [-0.05, 0.03],
@@ -103,6 +105,7 @@ def _margin_paired_t_tie() -> dict:
 
 def _margin_na(delta: float | None = 0.1) -> dict:
     return {
+        "winner_trial_id": "trial_a",
         "runner_up_trial_id": "trial_b",
         "delta": delta,
         "ci95": None,
@@ -348,6 +351,7 @@ class TestInvalidMargin:
     @pytest.mark.parametrize(
         "field",
         [
+            "winner_trial_id",
             "runner_up_trial_id",
             "delta",
             "ci95",
@@ -420,6 +424,31 @@ class TestInvalidMargin:
     )
     def test_bad_test_label(self, label: str) -> None:
         assert _rule_errors("SelectionMargin", _mar(test=label)) == {("pattern", ("test",))}
+
+    @pytest.mark.parametrize(
+        "margin_factory",
+        [_margin_mcnemar_clear, _margin_paired_t_tie, _margin_na],
+        ids=["clear", "statistical_tie", "na"],
+    )
+    def test_winner_trial_id_required_in_every_verdict(self, margin_factory: Any) -> None:
+        margin = margin_factory()
+        del margin["winner_trial_id"]
+        assert _rule_errors("SelectionMargin", margin) == {("required", ())}
+
+    @pytest.mark.parametrize(
+        ("tid", "keywords"),
+        [
+            ("trial_a\n", {"pattern"}),
+            ("trial a", {"pattern"}),
+            ("", {"pattern", "minLength"}),
+            ("a" * 129, {"pattern", "maxLength"}),
+        ],
+        ids=["trailing_newline", "space", "empty", "too_long"],
+    )
+    def test_bad_winner_trial_id(self, tid: str, keywords: set[str]) -> None:
+        assert _rule_errors("SelectionMargin", _mar(winner_trial_id=tid)) == {
+            (keyword, ("winner_trial_id",)) for keyword in keywords
+        }
 
     def test_bad_runner_up_id(self) -> None:
         assert _rule_errors("SelectionMargin", _mar(runner_up_trial_id="trial_b\n")) == {

@@ -17,6 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
 
+## [6.1.0] - 2026-09-17
+
+### Fixed
+- **`project_retention_policy_schema.json`'s response now requires all 8 `policy`
+  fields and drops their `default`s, matching the rate-limit sibling
+  (`project_rate_limit_policy_schema.json`, which already requires all 4 of its
+  policy fields).** Backend's `_normalize_retention_policy` unconditionally clamps
+  and fills every field on every GET/PATCH response, so none of them can actually
+  be absent; the response schema previously required only 2 of 8 and carried
+  `default`s on the other 6 (defaults that JSON-Schema never injects on a read, and
+  that belong on the update-request schema, not the resource response). Flagged as
+  a breaking contract tightening by `scripts/breaking_schema_check.py`; acknowledged
+  in `scripts/breaking_schema_allowlist.json`.
+
 ## [6.0.0] - 2026-09-14
 
 ### Breaking

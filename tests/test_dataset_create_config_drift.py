@@ -146,3 +146,63 @@ def test_resource_config_schemas_remain_strict_and_canonical():
         assert "model_id" not in resource_schema["properties"]
         assert "parameters" not in resource_schema["properties"]
         assert "context" not in resource_schema["properties"]
+
+
+def test_dataset_update_put_keeps_partial_patch_semantics():
+    """Round-2 review fix: dataset_create_request_schema.json is $ref'd by BOTH
+
+    POST /api/v1/datasets (create) and PUT /api/v1/datasets/{dataset_id}
+    (update) per datasets_endpoints.json. The update handler
+    (src/dal/benchmark_dal.py) reads generator_config/evaluator_config as a
+    partial patch against an existing config via .get() -- only the
+    create-if-absent branch there hard-subscripts model_id/instructions --
+    so PUT must NOT inherit the create-request required[] this PR added.
+    PUT now resolves to dataset_update_request_schema.json, whose nested
+    generator_config/evaluator_config point at the *_update_request_schema.json
+    variants (no required[]), while POST keeps the strict create-request ones.
+    """
+    validator = SchemaValidator(contract="backend")
+    base_payload = _base_dataset_payload()
+
+    # A legitimate partial-patch PUT: tweak only `parameters` on an existing
+    # generator_config, without resending model_id/instructions.
+    partial_patch_payload = {
+        **base_payload,
+        "generator_config": {"parameters": {"temperature": 0.5}},
+        "evaluator_config": {"parameters": {"temperature": 0}},
+    }
+
+    assert (
+        validator.validate_request(
+            "/api/v1/datasets/{dataset_id}", "PUT", partial_patch_payload
+        )
+        == []
+    ), "PUT must accept a generator_config/evaluator_config partial patch"
+
+    # The same payload on POST (create) must still be rejected: create has no
+    # existing config to patch against, so model_id/instructions are required.
+    create_errors = validator.validate_request(
+        "/api/v1/datasets", "POST", partial_patch_payload
+    )
+    assert create_errors, "POST must still require model_id/instructions"
+
+    endpoints = _load("datasets_endpoints.json")
+    put_ref = endpoints["paths"]["/api/v1/datasets/{dataset_id}"]["put"]["requestBody"][
+        "content"
+    ]["application/json"]["schema"]["$ref"]
+    assert put_ref == "./dataset_update_request_schema.json"
+
+    update_schema = _load("dataset_update_request_schema.json")
+    assert (
+        update_schema["properties"]["generator_config"]["$ref"]
+        == "https://schemas.traigent.ai/datasets/generator_config_update_request_schema.json#"
+    )
+    assert (
+        update_schema["properties"]["evaluator_config"]["$ref"]
+        == "https://schemas.traigent.ai/datasets/evaluator_config_update_request_schema.json#"
+    )
+    for update_config_name in (
+        "generator_config_update_request_schema.json",
+        "evaluator_config_update_request_schema.json",
+    ):
+        assert "required" not in _load(update_config_name)

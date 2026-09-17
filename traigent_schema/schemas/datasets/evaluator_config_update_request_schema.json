@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/evaluator_config_update_request_schema.json",
+  "type": "object",
+  "title": "Evaluator Configuration Update Request Schema",
+  "description": "Request-only inner contract for the dataset PUT (update) path. Mirrors evaluator_config_create_request_schema.json's field set for resource-shaped compatibility, but stays permissive: the backend's update handler (src/dal/benchmark_dal.py) reads this as a partial patch against an existing evaluator_config via .get(), not a hard subscript, so no field is required here.",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Optional evaluator configuration identifier accepted for resource-shaped compatibility.",
+      "maxLength": 128
+    },
+    "dataset_id": {
+      "type": "string",
+      "description": "Canonical reference to the evaluation dataset this evaluator is associated with.",
+      "maxLength": 128
+    },
+    "eval_dataset_id": {
+      "type": "string",
+      "description": "Legacy alias for the evaluation dataset identifier.",
+      "maxLength": 128
+    },
+    "evaluation_set_id": {
+      "type": "string",
+      "description": "Legacy alias for the evaluation dataset identifier.",
+      "maxLength": 128
+    },
+    "benchmark_id": {
+      "type": "string",
+      "description": "Compatibility alias for the evaluation dataset identifier.",
+      "maxLength": 128
+    },
+    "model_parameters_id": {
+      "type": "string",
+      "description": "Optional model parameters reference accepted for resource-shaped compatibility.",
+      "maxLength": 128
+    },
+    "model_id": {
+      "type": "string",
+      "description": "Identifier of the model the backend should use for evaluation.",
+      "maxLength": 255
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Backend-read model parameter overrides for evaluation.",
+      "additionalProperties": true
+    },
+    "context": {
+      "type": "object",
+      "description": "Backend-read nested evaluation context payload.",
+      "additionalProperties": true
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Detailed instructions guiding the evaluation process.",
+      "maxLength": 5000
+    },
+    "context_type": {
+      "type": "string",
+      "description": "Permissive context type hint accepted from legacy and canonical clients.",
+      "maxLength": 128
+    },
+    "context_source": {
+      "type": "string",
+      "description": "Permissive context source hint accepted from legacy and canonical clients.",
+      "maxLength": 128
+    }
+  },
+  "additionalProperties": true
+}

@@ -53,6 +53,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Flip back to asserted when the Backend pins a commit containing those routes.
 
 ### Added
+- **`metric_metadata` (per-metric `direction` + `role`) on the run-results response.**
+  New optional, nullable `metric_metadata` map (`schemas/execution/run_results_response_schema.json`,
+  `GET /api/v1/experiment-runs/runs/{run_id}/results`) carries, for every key present
+  in the sibling `metrics` map, an authoritative `direction` (`maximize` | `minimize` | `band`,
+  reusing `ObjectiveDirection` from `optimization/objective_definition_schema.json`) and a
+  `role` (`quality` | `cost` | `latency` | `tokens`). Both keys are always present but
+  individually nullable: `{direction: null, role: null}` is the honest "genuinely unknown"
+  answer for an ad-hoc measure with no backing objective and no resolvable role — never a
+  silent default to `maximize`. Purely additive (`metric_metadata` itself is optional and
+  nullable; the map is not required); old readers that ignore it are unaffected. Fixes FE
+  consumers re-deriving metric direction/role from the metric name, which misclassifies any
+  metric whose name doesn't match a hardcoded keyword list.
 - **`trial_sequencing` on session create (client-driven trial sequencing, Schema#323).**
   New optional `trial_sequencing` enum (`"client" | "backend"`, default `"backend"`,
   fully backward-compatible) on `POST /api/v1/sessions`

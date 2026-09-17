@@ -2,6 +2,63 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "projects/project_retention_policy_schema.json",
+      "rule": "required",
+      "reason": "Backend's _normalize_retention_policy (src/services/project_service.py in the backend repo) unconditionally clamps and fills all 8 policy fields on every GET/PATCH response, so none of them can actually be absent; this promotes the remaining 6 into required[] to match the rate-limit sibling (project_rate_limit_policy_schema.json), which already requires all 4 of its policy fields. TraigentSchema issue #331. Response defaults belong on the update-request schema, not the resource response, so the response-side `default`s are dropped in the same change.",
+      "version": "6.1.0",
+      "pr": "#331",
+      "findings": [
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "dataset_retention_days",
+          "old": false,
+          "new": true,
+          "fingerprint": "60cb91d7a16dd66941236dfe8174b15871cf5592d9e42be862c7eee874f091e1"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "dataset_storage_limit_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "a40db612c8c379b1d304b080ff47e8bee7853936a9730f854bd59d7dc4eb5417"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "inline_payload_max_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "f7e1495634bc114c5685c640994f74c1a277452e4878be0e305f2ef42de94f64"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "observability_ingest_rpm",
+          "old": false,
+          "new": true,
+          "fingerprint": "14d7870fe7716316ee3ec6ff7f232c3cd0a32a257a6175a1e450e94c8f062397"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "payload_max_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "36f63937a4c66b073f917cd8e00e4c699e6d9b5d5fcbe472fe6caf91e14b87ff"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "trace_retention_days",
+          "old": false,
+          "new": true,
+          "fingerprint": "d57e238b5902799a9f0ab8ac59e4ce06d888c9215d0f23fb22ee0307eaeb0d4b"
+        }
+      ]
+    },
+    {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
       "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced. This acknowledgement is scoped only to this exact pointer and fingerprint.",

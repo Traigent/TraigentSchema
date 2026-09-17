@@ -1,6 +1,666 @@
 {
-  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
+    {
+      "file": "analytics/decision_payload_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "b579d2d95ac8e272739ebf363b61408e61e6cbd6b322a834bacc8799a8444dc6"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "analytics/decision_payload_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"high\"",
+            "\"low\"",
+            "\"medium\""
+          ],
+          "new": null,
+          "fingerprint": "6b3f63830959efedd740c0469d151309d20814931a0db8c58b1796d7c6330277"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "analytics/decision_payload_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "string"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "27662214b1cdc8d244b855ebdfbbeeb9ba5be8cf0d5a17d73d2ffa08c768f06d"
+        },
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "b3c2c95e774b406d95839ad0d4348ead7daa91b401c6b68157d972b185859b16"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "analytics/run_correlations_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/parameter_correlations/items/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "bfb420ef2e7a3cc93196cd689b80aa6afee47aa5f64ff28622a61a454dcd6247"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "analytics/run_correlations_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/parameter_correlations/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"high\"",
+            "\"low\"",
+            "\"medium\""
+          ],
+          "new": null,
+          "fingerprint": "2d0e1541e90744ea007d92853c9e9341fa3d6bfcb9a30547decdb6cac2da7acb"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "analytics/run_correlations_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/parameter_correlations/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "string"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "fff40f1d724e81b37eb43a3f53d7ecfffc4d9154aab8ae01e653fd1198143b83"
+        },
+        {
+          "pointer": "#/properties/parameter_correlations/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "9eb8d9def38cb084eb36cbca7cd63357558f60fff96a572b25b7055c8f8ef7dd"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "analytics/run_leaderboard_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/configs/items/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "25d514d1b0dd533159d3b7cfef386d5ce3a85b3c2f9ad3aeab157e3087953e38"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "analytics/run_leaderboard_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/configs/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"high\"",
+            "\"low\"",
+            "\"medium\""
+          ],
+          "new": null,
+          "fingerprint": "6ae72f4721a2fd079ef156e380ebdd1a34d549ecb15f70e6c5345b89b62dd8e2"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "analytics/run_leaderboard_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/configs/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "string"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "ebc8243af091faaca68c2901b2b7e03914ad8896e4e43cb1b1e9b07e0308a7e4"
+        },
+        {
+          "pointer": "#/properties/configs/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "9f6695541867b134df5a952a35c08fe5932a2ee3d90ead1fc1f8457d1e981f95"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "auth/interaction_policy_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "b44e4f1e6621bac58a652ab9b0cc8255ea776ccba761c7cbf66d9bf7d848436f"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "auth/interaction_policy_schema.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "b1633e7d9b935a3d56caf60203cc9fc0a2d0be269267c86f206ef198109f801f"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "auth/interaction_policy_schema.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "28bc391dbd5517c6abdf0189309283af73e269c41dcf7277843c7145a465925a"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "auth/interaction_policy_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "4de5de57f49a1978d0005aed0d6a093a8b9e1762a2e959228e4c413933f89522"
+        },
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "3398f244a8fe53a952e7275455c6b9b47ef91f3886908ddb7000bd258eef711d"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "datasets/evaluation_set_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/examples/items/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "3b18e7bf50ed79b1c8fecd2d0fac39bc795a15cc5c92481c5a8de4c37730180d"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "datasets/evaluation_set_schema.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "8ebf5e46cdd5ab0b08428992224ff2d38bac5c372ba226dbb45d9d871fde0e5e"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "datasets/evaluation_set_schema.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "27f40dffc1663fbf935440d8cac26fc17f0872d73cda48237f9beecd57b25b5f"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "datasets/evaluation_set_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "d02dc68271f249b3c81449a5102d590e9070c9a94fe289be488ae42f41ba7d8e"
+        },
+        {
+          "pointer": "#/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "746eac90d28c93d64268a366dfcdd4f4f9d5ed6973cc2c464149ec9f158a3baf"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "optimization/tvar_correlation_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "286ef5cc46a456393fd22954e8565e6312db4805de9d5d446b58ecbc0887e551"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "optimization/tvar_correlation_schema.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "e924e92c303514a89b3e220f118af1ea998569d2aa58185b4097666cb36d5d44"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "optimization/tvar_correlation_schema.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "3bd8aee46abfdf40cf212558eadc43d35b9912be40128e219058d6dba6603a16"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "optimization/tvar_correlation_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "c065f77b0297be5ce7cd2c22a8750b07b49c750f9e14fabcd29753e5b0194cfa"
+        },
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "e048400e25346d100c51651ec3c3457ce954b8c31014097c2f8c8924bd45e067"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "optimization/tvar_value_recommendation_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "6c3785ae4097a0a5886105d2485f88a83720f2d2cf6e00114ff26417b87c9183"
+        },
+        {
+          "pointer": "#/properties/value_recommendations/items/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "551742ae16a5ed662903b6e52e5f97999992efdf6feb4b1104671976d88edb97"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "optimization/tvar_value_recommendation_schema.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "5d8431fdfda87dd21175f3049d52ec6bc920a184e0066af2d9fd06603aaf5891"
+        },
+        {
+          "pointer": "#/properties/value_recommendations/items/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "a8d49dda4a705f06e34ee1a5b08a072f623d5337d43dee3e0fc62eec76c8043a"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "optimization/tvar_value_recommendation_schema.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "efae9fab0e5cc0b8c34b867bfcf855f6b37c65be554fec20b5de4cfdcf400db0"
+        },
+        {
+          "pointer": "#/properties/value_recommendations/items/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "25ed676a42b203c1365ff7b338fd9238aa00800aa498ea69f457553f155e941a"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
+    {
+      "file": "optimization/tvar_value_recommendation_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "d64e1b29585d093ecb479545212a94694309255f332e2c881f374c1d33946783"
+        },
+        {
+          "pointer": "#/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "2f59468b4296d7a73f1d57a5ae7d8afb53f7c24258e220042b97bca3cf116df8"
+        },
+        {
+          "pointer": "#/properties/value_recommendations/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "0ac191e0b7affd7cf519960175dcf54dadcebbbbb910d3339ab2a3484e130270"
+        },
+        {
+          "pointer": "#/properties/value_recommendations/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "8c976d9fb3d0d418dd0a425a45a618c2296cdc39bd99ece8a4528a6191c36412"
+        }
+      ],
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "version": "6.1.0",
+      "pr": "#314"
+    },
     {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
@@ -2468,7 +3128,7 @@
     {
       "file": "x_extensions_meta_schema.json",
       "rule": "property_added",
-      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts §4).",
+      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts \u00a74).",
       "version": "6.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
       "findings": [

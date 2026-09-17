@@ -17,6 +17,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
 
+## [6.1.0] - 2026-09-17
+
+### Added
+- **Canonical `Confidence` / `ConfidenceLabel` common types (#314, owner decision
+  2026-07-18: numeric canonical + derived qualitative label).** `confidence` was a
+  `0-1` number in optimization/datasets/auth schemas but a qualitative
+  `low`/`medium`/`high` enum in analytics responses — a dual wire form for one
+  concept. Adds `common_types_schema.json#/definitions/Confidence` (canonical
+  numeric `[0, 1]`) and `.../ConfidenceLabel` (canonical `low`/`medium`/`high`
+  enum, documented as the derived bucketing of the numeric score, with documented
+  thresholds) and re-points every existing occurrence at the shared definition:
+  numeric side (`optimization/tvar_correlation_schema.json`,
+  `optimization/tvar_value_recommendation_schema.json`,
+  `auth/interaction_policy_schema.json`,
+  `datasets/evaluation_set_schema.json`) and qualitative side
+  (`analytics/decision_payload_schema.json`,
+  `analytics/run_correlations_schema.json`,
+  `analytics/run_leaderboard_schema.json`). No field is renamed and no numeric
+  score is added to the client-safe analytics surfaces (which intentionally
+  expose only the coarse bucket) — this documents and DRYs the existing split,
+  it does not force a big-bang migration. `optimization/smart_pruning_schema.json`'s
+  `confidence` is a distinct algorithm-parameter concept (open interval, request-side
+  pruning threshold) and is intentionally left untouched.
+
 ## [6.0.0] - 2026-09-14
 
 ### Breaking

@@ -22,11 +22,25 @@ def test_evaluation_set_id_typo_fixed():
 
 def test_score_confidence_are_ratio_0_1():
     example = _load("evaluation_set_schema.json")["definitions"]["EvaluationSetExample"]
-    for field in ("score", "confidence"):
-        prop = example["properties"][field]
-        assert prop["maximum"] == 1, f"{field} should be a 0-1 ratio, not 0-100"
-        assert prop["minimum"] == 0
-        assert "percentage" not in prop["description"].lower()
+
+    score_prop = example["properties"]["score"]
+    assert score_prop["maximum"] == 1, "score should be a 0-1 ratio, not 0-100"
+    assert score_prop["minimum"] == 0
+    assert "percentage" not in score_prop["description"].lower()
+
+    # #314: confidence is now the canonical numeric Confidence common type,
+    # $ref'd (via allOf) rather than inlined — resolve it to check the bounds.
+    confidence_prop = example["properties"]["confidence"]
+    assert confidence_prop["allOf"][0]["$ref"] == (
+        "../common_types_schema.json#/definitions/Confidence"
+    )
+    confidence_def = get_schemas_dir().joinpath("common_types_schema.json")
+    with open(confidence_def, encoding="utf-8") as fh:
+        common_types = json.load(fh)
+    resolved_confidence = common_types["definitions"]["Confidence"]
+    assert resolved_confidence["maximum"] == 1, "confidence should be a 0-1 ratio, not 0-100"
+    assert resolved_confidence["minimum"] == 0
+    assert "percentage" not in confidence_prop["description"].lower()
 
 
 def test_dataset_create_request_admits_client_fields_and_omits_server_fields():

@@ -52,11 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     finalize proceeds. **Unsorted ids are rejected, never normalised:** a unique but
     unsorted list whose digest is the canonical (sorted) digest → `non_canonical_order`;
     with a non-canonical digest → `digest_mismatch`. **Precedence** (first that applies):
-    `invalid_receipt` (structure, other than the two list checks next) →
-    `exceeds_max_trials` → `duplicate_ids` → `non_canonical_order` → `count_mismatch` →
-    `digest_mismatch` → binding/value reasons (`unknown_trial`, `winner_not_eligible`,
-    `winner_not_best`, `runner_up_not_eligible`, `runner_up_is_winner`, `non_finite`,
-    `out_of_range`). A client may send it (the
+    `invalid_receipt` (structure only — not the two list checks next, and not a
+    number's value) → `exceeds_max_trials` → `duplicate_ids` → `non_finite` (any NaN or
+    ±Infinity, ahead of every numeric bound) → `out_of_range` (a finite number outside a
+    schema bound, or ci95 low > high, or n_configs > eligible_trial_count) →
+    `non_canonical_order` → `count_mismatch` → `digest_mismatch` → binding reasons
+    (`unknown_trial`, `winner_not_eligible`, `winner_not_best`, `runner_up_not_eligible`,
+    `runner_up_is_winner`). A client may send it (the
     request schema accepts it) but the Backend ignores a client-sent
     `rejected_inconsistent` and persists no `selection` for that finalize.
   - **Backend-enforced (not expressible in JSON Schema):** every id belongs to this

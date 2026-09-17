@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Submit-results optionals accept explicit `null` (completes part 1 of #454).**
+  `summary_stats`, `execution_mode`, and `execution_environment` on
+  `session_submit_results_request_schema.json` were declared as plain `object`/`string`,
+  so a client that serializes an unset optional as `null` failed validation even though
+  the server treats `null` exactly like an omitted field. Each now uses the schema's
+  existing `["<type>", "null"]` form; wrong types are still rejected. Widening only.
+- **`trial_sequencing: "client"` no longer reads as disabling cost controls (#323).**
+  The description on both session-create surfaces said the server's "budget accounting"
+  becomes informational only. It now scopes that to the optimizer's trial-count budget
+  and states that explicit spend, time, rate, and security limits remain enforced by the
+  server regardless of who sequences trials. Description-only; no shape change.
 - **Normalized `$id` base URL for 7 analytics schemas (breaking-check blind spot).**
   `curation_advice_schema.json`, `dataset_quality_schema.json`, `example_score_schema.json`,
   `next_steps_receipt_request_schema.json`, `next_steps_receipt_response_schema.json`,

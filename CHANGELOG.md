@@ -30,6 +30,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and states, as a requirement on implementers, that client sequencing does not disable or
   relax any spend, time, rate, or security limit that applies to the session.
   Description-only; no shape change.
+- **`exportProjectFineTuningManifest` path drift in `planned_projects_endpoints.json`
+  (#272).** The operation was declared at
+  `/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest`, but the real
+  backend route lives on the `analytics` blueprint and is mounted at
+  `/api/v1beta/projects/{project_id}/analytics/exports/fine-tuning.manifest` — a client
+  following the declared path would 404. Corrected to the real, shipped path; the sibling
+  `exportProjectFineTuningJsonl` operation already correctly used `core-exports` and is
+  unchanged. This is a contract-breaking path rename, acknowledged in
+  `scripts/breaking_schema_allowlist.json` and shipped as a reviewed pre-release exception: the
+  catalog carries `x-asserted-against-backend: false`, and the Frontend, Python SDK and JS SDK
+  callers at `origin/develop` already use the served path (none references the drifted one). (The other item this
+  issue's title named, `lookupProjectMembershipCandidates`/`membership-candidates`, was
+  re-verified and is not a defect — it is an intentionally planned, not-yet-backend-built
+  contract per TraigentSchema#46, already excluded from the canonical backend surface by
+  its own dedicated test suite; no change needed.)
 - **Normalized `$id` base URL for 7 analytics schemas (breaking-check blind spot).**
   `curation_advice_schema.json`, `dataset_quality_schema.json`, `example_score_schema.json`,
   `next_steps_receipt_request_schema.json`, `next_steps_receipt_response_schema.json`,
@@ -50,6 +65,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Flip back to asserted when the Backend pins a commit containing those routes.
 
 ### Added
+- **`metric_metadata` (per-metric `direction` + `role`) on the run-results response.**
+  New optional, nullable `metric_metadata` map (`schemas/execution/run_results_response_schema.json`,
+  `GET /api/v1/experiment-runs/runs/{run_id}/results`) carries, for every key present
+  in the sibling `metrics` map, an authoritative `direction` (`maximize` | `minimize` | `band`,
+  reusing `ObjectiveDirection` from `optimization/objective_definition_schema.json`) and a
+  `role` (`quality` | `cost` | `latency` | `tokens`). Both keys are always present but
+  individually nullable: `{direction: null, role: null}` is the honest "genuinely unknown"
+  answer for an ad-hoc measure with no backing objective and no resolvable role — never a
+  silent default to `maximize`. Purely additive (`metric_metadata` itself is optional and
+  nullable; the map is not required); old readers that ignore it are unaffected. Fixes FE
+  consumers re-deriving metric direction/role from the metric name, which misclassifies any
+  metric whose name doesn't match a hardcoded keyword list.
 - **`trial_sequencing` on session create (client-driven trial sequencing, Schema#323).**
   New optional `trial_sequencing` enum (`"client" | "backend"`, default `"backend"`,
   fully backward-compatible) on `POST /api/v1/sessions`

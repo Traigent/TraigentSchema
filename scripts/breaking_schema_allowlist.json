@@ -1,5 +1,5 @@
 {
-  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
       "file": "projects/project_retention_policy_schema.json",
@@ -2525,7 +2525,7 @@
     {
       "file": "x_extensions_meta_schema.json",
       "rule": "property_added",
-      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts \u00a74).",
+      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts §4).",
       "version": "6.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
       "findings": [
@@ -2597,6 +2597,24 @@
       "reason": "selection is a new OPTIONAL member of the closed SessionAggregationDTO (R3 selection receipt: records the SDK's selection decision and binds it to the session's own trials). The gate flags it under the bare-named-resource conservative heuristic because the old shape was additionalProperties:false and is echoed back in the finalize response. The Backend only echoes session_aggregation it persisted from the SDK's own finalize request, and no producer emits selection yet (Backend normalizer is R3 PR 2, Python SDK producer is PR 3), so a current SDK strictly validating the echo never receives the member; the SDK upgrade that sends selection ships together with the reader. Unreleased. Acknowledged rather than silenced so the widening of a closed shape is visible in the contract history.",
       "version": "Unreleased",
       "pr": "#491"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "endpoint_removed",
+      "pointer_prefix": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest",
+      "reason": "exportProjectFineTuningManifest was declared at a drifted path (/core-exports/fine-tuning.manifest) that no Backend route implements (verified at TraigentBackend origin/develop efe0074ecf4c: the only `fine-tuning.manifest` route is `src/routes/analytics_routes.py:287`, mounted under /analytics; `git log -S'core-exports/fine-tuning' -- src/routes/` finds no commit registering the old path) -- the real, shipped route lives on the analytics blueprint and is mounted at /analytics/exports/fine-tuning.manifest by the v1beta project-scoped registrar. This is a same-operation path correction (operationId, parameters, and response schema are unchanged), not a removal of working functionality: at the pinned Backend ref the drifted path is unrouted (a 404), and the project-scoped served route is `GET /api/v1beta/projects/<project_id>/analytics/exports/fine-tuning.manifest` (`src/routes/api_v1beta.py:68` registers analytics_bp project-scoped; obligation_matrix_report.txt:5127). It is still a contract-breaking path rename for anyone who coded against the declared path. The catalog carries x-asserted-against-backend:false and is pre-release, which is why this ships as a path fix rather than a major bump. TraigentSchema#272. Callers already use the served path: TraigentFrontend src/services/coreMetricsService.ts:509, Traigent traigent/core_metrics/client.py:228, traigent-js src/core-metrics/index.ts:223 (all at origin/develop, 2026-09-17); no client references the removed path, so this rename breaks no known caller -- a reviewed pre-release exception, not a claim that the declared interface had no dependents in principle.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/483",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e1a595ffbedfa68e6e4b0cf44aef23d1e9f3dd4f4ecd5a421d32a77feea63f40"
+        }
+      ]
     }
   ]
 }

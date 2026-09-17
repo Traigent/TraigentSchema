@@ -1141,7 +1141,7 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest": {
+    "/api/v1beta/projects/{project_id}/analytics/exports/fine-tuning.manifest": {
       "get": {
         "summary": "Export project fine-tuning manifest",
         "description": "Export a privacy-safe fine-tuning manifest for the active project.",

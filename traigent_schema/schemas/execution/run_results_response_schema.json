@@ -4,6 +4,50 @@
   "title": "Run Results Response Schema",
   "description": "Response schema for GET /api/v1/experiment-runs/runs/{run_id}/results. The route is in the 'bare' wrap-map list (experiment_run_routes), so there is no {success,message,data} envelope. The payload is directly the results object. Configurations are paginated via configurations_pagination (a run-results-specific extension of the standard pagination shape). Over-materialization of this surface is tracked in TraigentBackend#1106.",
   "type": "object",
+  "definitions": {
+    "MetricRole": {
+      "type": "string",
+      "enum": ["quality", "cost", "latency", "tokens"],
+      "description": "Authoritative category for a metric on this response, resolved once at read time:\n- quality: response/accuracy-type metric\n- cost: dollar or token-cost metric\n- latency: time-based (duration) metric\n- tokens: token-count metric"
+    },
+    "MetricMetadataEntry": {
+      "type": "object",
+      "description": "Authoritative per-metric direction and role for one key in the sibling `metrics` map, resolved once at read time (objective direction takes priority over a resolved role). `direction: null` and `role: null` together mean genuinely unknown -- no backing objective and no resolvable role -- and consumers must not default such a metric to 'maximize' or re-derive its role by matching the metric name.",
+      "properties": {
+        "direction": {
+          "oneOf": [
+            {
+              "$ref": "../optimization/objective_definition_schema.json#/definitions/ObjectiveDirection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optimization direction for this metric (maximize/minimize/band). Equal to the backing objective's direction when one exists; otherwise derived from a resolved role (quality -> maximize, cost -> minimize, latency -> minimize); null only when neither applies."
+        },
+        "role": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/MetricRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Resolved category for this metric, or null when it cannot be resolved. A null role must not be assigned to the cost/latency axis or re-guessed from the metric name."
+        }
+      },
+      "required": ["direction", "role"],
+      "additionalProperties": false
+    },
+    "MetricMetadataMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/MetricMetadataEntry"
+      },
+      "description": "Metric name to authoritative direction/role metadata. Has an entry for every key present in the sibling `metrics` map, so its key set is deliberately as open as that map's: no key pattern and no key-count cap."
+    }
+  },
   "properties": {
     "run_id": {
       "type": "string",
@@ -42,6 +86,17 @@
           "additionalProperties": {
             "type": "number"
           }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metric_metadata": {
+      "description": "Authoritative per-metric direction and role, covering every key present in `metrics` -- objective direction takes priority, then a resolved role, else {direction: null, role: null} for a genuinely ad-hoc measure. Null when `metrics` is null. Optional: omitted by readers that have not yet been updated to serialize it.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/MetricMetadataMap"
         },
         {
           "type": "null"

@@ -78,9 +78,9 @@
       "minimum": 0
     },
     "confidence": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
+      "allOf": [
+        { "$ref": "../common_types_schema.json#/definitions/Confidence" }
+      ]
     },
     "interpretation": {
       "type": "string",

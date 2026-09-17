@@ -134,6 +134,32 @@ def test_metric_metadata_entry_requires_both_keys_even_when_null() -> None:
     assert _errors(extra_key)
 
 
+def test_metric_metadata_can_cover_every_key_the_metrics_map_accepts() -> None:
+    """The map promises one entry per ``metrics`` key, so any ``metrics`` map that
+    validates must still validate once fully covered -- past 50 keys and for
+    metric names that are not identifiers."""
+    many = {f"m{i}": 1.0 for i in range(51)}
+    odd_names = {"f1-score": 0.8, "latency.p95": 120.0, "cost ($)": 0.01}
+
+    for metrics in (many, odd_names):
+        assert _errors(_payload(metrics=metrics)) == []
+        covered = _payload(
+            metrics=metrics,
+            metric_metadata={name: {"direction": None, "role": None} for name in metrics},
+        )
+        assert _errors(covered) == []
+
+
+def test_metric_metadata_entries_stay_closed_for_non_identifier_names() -> None:
+    """Opening the key set must not open the entry shape."""
+    payload = _payload(
+        metrics={"f1-score": 0.8},
+        metric_metadata={"f1-score": {"direction": "maximize"}},
+    )
+
+    assert _errors(payload)
+
+
 def test_run_results_get_endpoint_still_references_run_results_response_schema() -> None:
     """Sanity check that this contract change did not disturb the endpoint wiring
     verified by test_success_envelope_and_response_coverage.py."""

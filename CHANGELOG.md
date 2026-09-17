@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Canonical `Confidence` / `ConfidenceLabel` common types (#314, owner decision
+  2026-07-18: numeric canonical + derived qualitative label).** `confidence` was a
+  `0-1` number in optimization/datasets/auth schemas but a qualitative
+  `low`/`medium`/`high` enum in analytics responses — a dual wire form for one
+  concept. Adds `common_types_schema.json#/definitions/Confidence` (canonical
+  numeric `[0, 1]`) and `.../ConfidenceLabel` (canonical `low`/`medium`/`high`
+  enum, documented as the derived bucketing of the numeric score, with documented
+  thresholds) and re-points the occurrences listed below at the shared definition (a staged migration per #314 — `auth/agent_interaction_policy_request_schema.json`'s inline, unbounded `confidence` is NOT migrated here and is tracked separately):
+  numeric side (`optimization/tvar_correlation_schema.json`,
+  `optimization/tvar_value_recommendation_schema.json`,
+  `auth/interaction_policy_schema.json`,
+  `datasets/evaluation_set_schema.json`) and qualitative side
+  (`analytics/decision_payload_schema.json`,
+  `analytics/run_correlations_schema.json`,
+  `analytics/run_leaderboard_schema.json`). No field is renamed and no numeric
+  score is added to the client-safe analytics surfaces (which intentionally
+  expose only the coarse bucket) — this documents and DRYs the existing split,
+  it does not force a big-bang migration. `optimization/smart_pruning_schema.json`'s
+  `confidence` is a distinct algorithm-parameter concept (open interval, request-side
+  pruning threshold) and is intentionally left untouched.
+
 - **Selection receipt in strict (certified-selection) sessions.** The server decides the
   winner there, so the Backend accepts a receipt only when `winner_trial_id` equals its
   certified winner; with no certified winner, or a different one, it persists
@@ -38,6 +59,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/hybrid/sessions`, or an `objectives` field routed through `objective_schema.json`
   (experiment create/response). Purely additive — no previously-accepted typed payload is
   rejected.
+- **Submit-results optionals accept explicit `null` (completes part 1 of #454).**
+  `summary_stats`, `execution_mode`, and `execution_environment` on
+  `session_submit_results_request_schema.json` were declared as plain `object`/`string`,
+  so a client that serializes an unset optional as `null` failed validation even though
+  the server treats `null` exactly like an omitted field. Each now uses the schema's
+  existing `["<type>", "null"]` form; wrong types are still rejected. Widening only.
+- **`trial_sequencing: "client"` no longer reads as disabling cost controls (#323).**
+  The description on both session-create surfaces said the server's "budget accounting"
+  becomes informational only. It now scopes that to the optimizer's trial-count budget
+  and states, as a requirement on implementers, that client sequencing does not disable or
+  relax any spend, time, rate, or security limit that applies to the session.
+  Description-only; no shape change.
 - **`exportProjectFineTuningManifest` path drift in `planned_projects_endpoints.json`
   (#272).** The operation was declared at
   `/api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest`, but the real
@@ -183,6 +216,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys, and old readers that ignore it are unaffected. Fixes the portal's agent+dataset
   history table showing only an opaque `dataset_id` or "No dataset".
 
+### Changed
+- **Agent-quality offline verifier: stronger project/scope-ref privacy canary.**
+  Test-only. The `expected_project_ref`/`expected_build_session_ref` privacy canary in
+  `tests/test_agent_quality_verifier.py` previously exercised only the SCOPE_MISMATCH
+  failure path (a caller-supplied sentinel that never matched the bundle, proven not to
+  mutate the bundle by snapshot equality). That failure-path canary stays -- it is the only
+  test asserting the ref is absent from the raised error -- and is joined by two canaries that traverse the
+  public entry point's real success and abstain outcomes
+  (`AGENT_QUALITY_VERIFIED`/`AGENT_QUALITY_CLAIM_ABSTAINED`) and prove the caller's own
+  scope-ref pins never surface in the exported `AgentQualityVerificationResult`, plus a
+  non-vacuity meta-test. No production code changed.
+
 ### Fixed
 - **`session_submit_results_request_schema.json` now declares `summary_stats`,
   `execution_mode`, and `execution_environment` (part 1 of the #454 contract audit).**
@@ -223,6 +268,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `FAILED`/`REJECTED`/`TIMEOUT`/`CANCELLED`) does not overlap with OTel's native span
   status set (`UNSET`/`OK`/`ERROR`), so labelling the field "OTel-compatible" could lead
   a caller to send OTel's own values and get a validation error. Description-only.
+
+### Breaking
+- **`generator_config`/`evaluator_config` create-request contracts now require `model_id` and
+  `instructions` (requiredness-axis mirror of #200).** The dataset-create inner contracts
+  (`schemas/datasets/generator_config_create_request_schema.json`,
+  `evaluator_config_create_request_schema.json`) previously declared no `required[]` at all,
+  so a schema-valid config omitting `model_id`/`instructions` reached the backend, which reads
+  both via a hard subscript — an opaque 500 instead of a clean 422. Requiring both fields makes
+  the contract mirror what the backend actually reads; `generator_config`/`evaluator_config`
+  themselves stay optional at the outer `dataset_create_request_schema.json` level, so
+  dataset-create without a config is unaffected. Flagged as a breaking contract tightening by
+  `scripts/breaking_schema_check.py`; acknowledged in `scripts/breaking_schema_allowlist.json`.
+- **PUT /api/v1/datasets/{dataset_id} (update) no longer inherits the create-only requiredness
+  above.** `dataset_create_request_schema.json` is `$ref`'d by both the create and update
+  routes; the update handler reads an existing `generator_config`/`evaluator_config` as a
+  partial patch (`.get()` against the stored config — only the create-if-absent branch
+  hard-subscripts), so requiring `model_id`/`instructions` there too would 422 a legitimate
+  partial update. `PUT /api/v1/datasets/{dataset_id}` now resolves to a new
+  `schemas/datasets/dataset_update_request_schema.json`, whose `generator_config`/
+  `evaluator_config` reference new `generator_config_update_request_schema.json` /
+  `evaluator_config_update_request_schema.json` (same field set, no `required[]`); the create
+  path (`POST /api/v1/datasets`) is unchanged and keeps requiring both fields.
 
 ## [7.0.0] - 2026-09-17
 
@@ -287,6 +354,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [6.1.0] - 2026-09-17
 
+### Added
 ### Fixed
 - **`project_retention_policy_schema.json`'s response now requires all 8 `policy`
   fields and drops their `default`s, matching the rate-limit sibling

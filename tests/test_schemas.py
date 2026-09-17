@@ -960,10 +960,16 @@ class TestDatasetContracts:
         }
 
     def test_dataset_create_request_validates_with_nested_refs(self, validator):
+        # #267: the create-request generator_config/evaluator_config contracts now
+        # require model_id (in addition to instructions), so the shared
+        # resource-shaped fixture needs model_id added for this create-request path.
+        payload = self._valid_dataset_payload()
+        payload["generator_config"]["model_id"] = "gpt-4o-mini"
+        payload["evaluator_config"]["model_id"] = "gpt-4o"
         errors = validator.validate_request(
             "/api/v1/datasets",
             "POST",
-            self._valid_dataset_payload(),
+            payload,
         )
         assert errors == []
 

@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`POST /api/v1/model-parameters` and the two `/api/v1/example-sets` reads are now
+  declared (unblocks TraigentBackend #3347, #3352, #3353).** All three endpoints were
+  absent from this repo, which is why a Backend PR could reshape their request/response
+  bodies with no schema lane objecting and why a Frontend break went unnoticed until a
+  human traced it. New files:
+  `agents/standalone_model_parameters_create_request_schema.json`,
+  `agents/standalone_model_parameters_create_response_schema.json`,
+  `datasets/example_set_list_response_schema.json`,
+  `datasets/example_set_examples_list_response_schema.json`. Every declared shape is
+  transcribed from Backend source read on `origin/develop` and cites its `file:line`;
+  per-branch error shapes are declared per branch, because the standalone
+  model-parameters route emits the canonical validation envelope from four branches and a
+  bare `{error}` body from two, and the example-set reads' 404/500 branches are bare while
+  their 200 is enveloped. A side effect: `validation_error_schema.json` was an ORPHAN
+  before this change (nothing `$ref`'d it); it is now reachable, and the orphan count in
+  `reports/schema_reachability/unreachable_schemas.json` drops 43 -> 42.
+
+  The example-set item shapes are deliberately NOT `$ref`s to `example_set_schema.json`:
+  that file's closed resource definition requires only `{id, name, description, examples}`
+  with `additionalProperties: false` and declares none of `agent_id` / `example_set_id` /
+  `tenant_id` / `project_id` / `type` / `selection_method` / `num_examples` /
+  `similarity_threshold` / `tags`, and its `Example` definition requires a non-null
+  `output` the column permits to be null. Reusing it would have declared a contract the
+  serializers violate on every row.
+
+- **`POST /api/v1/agents/{agent_id}/model-parameters` declares its 422.** It previously
+  declared only a 201. TraigentBackend #3347 resolves `model_id` against the model catalog
+  before constructing the row, so an unresolvable id is a field-attributed
+  `VALIDATION_ERROR` instead of an FK-violation 500.
+
+### Changed
+- **`validation_error_schema.json` no longer claims to be a 422-only shape.** The same
+  body is emitted at 400 and at 422 and the choice is per-branch, not per-shape: the
+  canonical helper `response_handler.validation_error_response` pins 422, while call sites
+  that invoke `error_response(..., status=400, error_code="VALIDATION_ERROR")` directly
+  emit 400 - including every validation branch of `POST /api/v1/model-parameters`. The
+  description now says both and tells consumers to branch on `error_code`, never on the
+  status. Description-only; no shape change. The 400-vs-422 split is a real, unresolved
+  Backend inconsistency and is recorded rather than silently narrowed to one status.
+
+- **`success_envelope_schema.json#/x-wrap-map` gains a `mixed` classification.** A
+  two-list bare/wrapped map cannot describe `example_set_routes` after TraigentBackend
+  #3353, which migrated 2 of its ~10 operations to the envelope and left the rest bare.
+  The file moves out of `bare` into `mixed`, where its `default` and its enveloped
+  operations are enumerated; `x_extensions_meta_schema.json` documents the new key. The
+  per-operation `x-wrap-status` annotations in the endpoint catalogs carry the same fact at
+  the route level.
+
+- **`success_envelope_schema.json` no longer declares a top-level `pagination`.**
+  Pre-existing divergence, corrected here because #3353 makes it load-bearing: the
+  canonical `paginated_response` helper is documented strict nested-only and emits
+  `data.pagination` beside `data.items`, so no producer of this envelope ever emitted a
+  `pagination` sibling of `data`. `additionalProperties` stays `true`, so this removes a
+  false declaration without newly rejecting any body (the breaking-change gate classifies
+  it INFO, not BREAKING, for exactly that reason). The nine `*_list_response_schema.json`
+  files that declare a top-level `pagination` are inner-payload schemas (the `data` object
+  itself), not envelopes, and are correct as they stand.
+
 ### Changed
 - **Canonical `Confidence` / `ConfidenceLabel` common types (#314, owner decision
   2026-07-18: numeric canonical + derived qualitative label).** `confidence` was a

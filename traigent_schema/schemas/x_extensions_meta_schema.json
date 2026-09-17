@@ -417,7 +417,7 @@
     },
     "x-wrap-map": {
       "type": "object",
-      "description": "Documents the envelope-wrapping classification of route groups: which route sets are wrapped in the standard success envelope ('wrapped'), which are bare ('bare'), and which have not yet been classified ('unclassified'). Placed on the top-level endpoint contract schema.",
+      "description": "Documents the envelope-wrapping classification of route groups: which route sets are wrapped in the standard success envelope ('wrapped'), which are bare ('bare'), which have not yet been classified ('unclassified'), and which are internally inconsistent ('mixed'). The first three are arrays of route-file names. 'mixed' is an object keyed by route-file name, each value carrying `default` (what the file's unlisted operations do), `enveloped_operations` (the 'METHOD /path' operations that DO emit the envelope) and `reason`; it exists because a two-list bare/wrapped map cannot describe a file where only some operations were migrated, and putting such a file in either list states something false about most of its operations. A route file appears in at most one classification. Placed on the top-level endpoint contract schema.",
       "additionalProperties": true
     },
     "x-wrap-status": {

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/marketplace_events_response_schema.json",
+  "title": "AWS Marketplace Event Handling Result",
+  "description": "200 response for POST /api/v1/billing/marketplace/events. `result` is the exact vocabulary returned by handle_marketplace_event: duplicate (event id already recorded, no-op), ignored (recorded but outside RESYNC_EVENTS), unknown_customer (no linked customer yet, but a live pending registration explains it -- acknowledged, not urgent), orphaned_purchase (no linked customer and no live pending registration -- dead-lettered, processed=False, for operator follow-up via GET /billing/dead-letter-events), processed (resynced entitlements for a known linked customer). See src/services/billing/aws_marketplace/events.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-privacy-classification": "billing_sensitive",
+  "properties": {
+    "result": {
+      "type": "string",
+      "enum": ["duplicate", "ignored", "unknown_customer", "orphaned_purchase", "processed"]
+    }
+  },
+  "required": ["result"]
+}

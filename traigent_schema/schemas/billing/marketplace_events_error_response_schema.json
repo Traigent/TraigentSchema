@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/billing/marketplace_events_error_response_schema.json",
+  "title": "AWS Marketplace Event Ingestion Error",
+  "description": "Error body for POST /api/v1/billing/marketplace/events. Every error branch returns exactly `{\"error\": <fixed literal>}` -- no `success`/`message` envelope fields. 404 = integration disabled; 401 = the X-Traigent-Marketplace-Secret header did not match (hmac.compare_digest); 400 = the body was not a JSON object or was missing a truthy `id`. See src/routes/marketplace_routes.py:events.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "type": "string",
+      "enum": [
+        "marketplace integration is not enabled",
+        "unauthorized",
+        "malformed event"
+      ]
+    }
+  },
+  "required": ["error"]
+}

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://traigent.ai/schemas/analytics/example_score.json",
+  "$id": "https://schemas.traigent.ai/analytics/example_score_schema.json",
   "title": "ExampleScore",
   "description": "INTERNAL per-example scoring record. The per-example tuning signals below are proprietary and are NOT returned to clients; the API returns only non-signal metadata (example_id, sample_count, algorithm_version, timestamps). Signal field semantics and formulas are intentionally not documented here. Signal-driven guidance is delivered to clients via the GuidancePlan API.",
   "type": "object",

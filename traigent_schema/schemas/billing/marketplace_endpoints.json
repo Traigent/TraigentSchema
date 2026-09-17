@@ -1,0 +1,215 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Billing — AWS Marketplace Integration",
+    "version": "1.0.0",
+    "description": "Public-surface Flask routes covering the AWS Marketplace purchase-to-account bridge: the anonymous registration landing page, the authenticated claim step, and the inbound EventBridge lifecycle-event webhook. Modeled on billing/paddle_endpoints.json. Source: src/routes/marketplace_routes.py, registered under url_prefix=/api/v1/billing/marketplace in src/routes/api_v1.py."
+  },
+  "paths": {
+    "/api/v1/billing/marketplace/register": {
+      "post": {
+        "summary": "Anonymous: resolve an AWS Marketplace registration token and stage a claimable pending registration",
+        "description": "AWS posts the buyer here directly from the AWS Marketplace listing; there is no authenticated session yet. On success the buyer is redirected (303) into the portal's complete step with the new bearer handle as a query parameter -- nothing entitling happens until that step runs. No JSON body is returned on success.",
+        "x-asserted-against-backend": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "./marketplace_register_request_schema.json"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "./marketplace_register_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "Registration staged; redirect (Location header) to the complete step carrying the new bearer handle. No response body."
+          },
+          "400": {
+            "description": "The x-amzn-marketplace-token field was missing from both form data and JSON body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_register_error_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "AWS Marketplace integration is not enabled in this deployment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_register_error_response_schema.json"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "AWS could not resolve the supplied token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_register_error_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/marketplace/complete": {
+      "post": {
+        "summary": "Authenticated: claim a pending AWS Marketplace registration into the caller's own tenant",
+        "description": "Requires an authenticated session (require_auth). The tenant a purchase is claimed into always comes from the canonical, authorization-checked session context, never from the request body -- an optional tenant_id in the body is accepted only as an assertion that must agree with it.",
+        "x-asserted-against-backend": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./marketplace_complete_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Purchase claimed; the resulting/resynced Subscription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_complete_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "registration_id was missing from the JSON body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_complete_error_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (no authenticated session). Body shape is the shared require_auth() envelope, not the marketplace-specific error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The asserted tenant_id disagreed with the authenticated session's own tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_complete_error_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "AWS Marketplace integration is not enabled, or the registration handle was never found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_complete_error_response_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The registration was already claimed, or the tenant already has an entitling Paddle subscription, or this purchase is already linked to a different tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_complete_error_response_schema.json"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The registration handle has expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_complete_error_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/marketplace/events": {
+      "post": {
+        "summary": "AWS-only: ingest an AWS Marketplace EventBridge lifecycle event",
+        "description": "Authenticated by a shared secret in the X-Traigent-Marketplace-Secret header (constant-time compared), not by a user session. Idempotent by event id: a duplicate delivery is a no-op.",
+        "x-asserted-against-backend": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./marketplace_events_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event recorded/processed; see `result` for the exact outcome.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_events_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body was not a JSON object, or was missing a truthy `id`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_events_error_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The X-Traigent-Marketplace-Secret header did not match the configured shared secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_events_error_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "AWS Marketplace integration is not enabled in this deployment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./marketplace_events_error_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

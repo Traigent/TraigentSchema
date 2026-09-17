@@ -194,6 +194,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     through a new audit-only `LegacyAuditPermissionToken` definition, because audit rows are
     immutable history and rows written under the old vocabulary must keep decoding; the
     legacy tokens are not grantable and appear in no scope mapping.
+    The audit comma-list pattern is now generated from the canonical + legacy token enums
+    (it had silently omitted `director_evidence.read`, so a mixed value containing it failed
+    to decode) and is strictly end-anchored, so a value with a trailing newline is rejected.
     Breaking because a consumer that generated or validated against the old enum could
     previously mint/accept `dataset.read`/`dataset.write`, which are no longer valid tokens.
   - Added `x-known-resource-aliases` (new governed `x-*` extension, registered in

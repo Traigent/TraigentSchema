@@ -212,7 +212,7 @@
       "x-resource-alias-of": "benchmark"
     },
     "AuditPermissionValue": {
-      "description": "Nullable audit-log permission field. Newly written values are canonical ApiKeyPermissionToken tokens; comma-separated values are allowed because API-key lifecycle audit rows can record several granted permissions in one field. Audit rows are immutable history, so the retired LegacyAuditPermissionToken values stay decodable here and nowhere else.",
+      "description": "Nullable audit-log permission field. Newly written values are canonical ApiKeyPermissionToken tokens; comma-separated values are allowed because API-key lifecycle audit rows can record several granted permissions in one field. Audit rows are immutable history, so the retired LegacyAuditPermissionToken values stay decodable here and nowhere else. The comma-separated pattern is the union of every ApiKeyPermissionToken and LegacyAuditPermissionToken value (a test regenerates it, so it cannot drift) and is end-anchored with (?!\\n)$ because some regex engines let a bare $ match before a trailing newline.",
       "anyOf": [
         {
           "type": "null"
@@ -225,7 +225,7 @@
         },
         {
           "type": "string",
-          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*$",
+          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|director_evidence\\.read|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|director_evidence\\.read|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*(?!\\n)$",
           "x-token-ref": "#/definitions/ApiKeyPermissionToken"
         }
       ]

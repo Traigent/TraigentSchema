@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`trial_sequencing` on session create (client-driven trial sequencing, Schema#323).**
+  New optional `trial_sequencing` enum (`"client" | "backend"`, default `"backend"`,
+  fully backward-compatible) on `POST /api/v1/sessions`
+  (`schemas/optimization/optimization_endpoints.json`) and `POST /api/v1/hybrid/sessions`
+  (`schemas/optimization/hybrid_session_create_request_schema.json`). `"backend"` preserves
+  today's behavior: the server allocates trial ids from its own optimizer budget and may
+  early-stop the session. `"client"` declares that the caller (e.g. a locally-sequenced
+  exhaustive grid/random run) decides trial order and count; the server must allocate ids
+  on demand and never early-stop from its own budget, which becomes informational only.
+  Contract-first step of a Schema → Backend → SDK propagation; before this field existed
+  both requests used `additionalProperties: true`, so any shape of `trial_sequencing` sent
+  today validates with zero errors — this closes that gap with a real enum.
 - **`dataset_label` on `ExperimentGroupOverview` (agent+dataset history display label).**
   New optional, nullable `dataset_label` (`schemas/execution/experiment_group_schema.json`)
   carries the human-readable display label of the canonical dataset (`Benchmark.label`)

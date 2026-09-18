@@ -4,7 +4,7 @@
   "type": "object",
   "title": "Objective Definition Schema",
   "description": "Defines an optimization objective compatible with TVL 0.9 and SDK wire payloads. Specifies a metric to optimize, its orientation/direction, weight, normalization, and optional banding. Multi-objective normalization and aggregation behavior (zero-span fallback, weight rescaling, dominance guard) is specified separately in multi_objective_semantics_schema.json as a meta-contract; those constants are not wire-format fields.",
-  "version": "0.9.4",
+  "version": "0.10.0",
   "definitions": {
     "ObjectiveDirection": {
       "type": "string",
@@ -52,7 +52,7 @@
     "name": {
       "type": "string",
       "description": "Objective metric name (must match a measure name)",
-      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_.-]*$"
     },
     "direction": {
       "$ref": "#/definitions/ObjectiveDirection",

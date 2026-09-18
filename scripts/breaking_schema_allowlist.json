@@ -2890,7 +2890,7 @@
           "fingerprint": "b579d2d95ac8e272739ebf363b61408e61e6cbd6b322a834bacc8799a8444dc6"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -2916,7 +2916,7 @@
           "fingerprint": "6b3f63830959efedd740c0469d151309d20814931a0db8c58b1796d7c6330277"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -2955,7 +2955,7 @@
           "fingerprint": "b3c2c95e774b406d95839ad0d4348ead7daa91b401c6b68157d972b185859b16"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -2972,7 +2972,7 @@
           "fingerprint": "bfb420ef2e7a3cc93196cd689b80aa6afee47aa5f64ff28622a61a454dcd6247"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -2998,7 +2998,7 @@
           "fingerprint": "2d0e1541e90744ea007d92853c9e9341fa3d6bfcb9a30547decdb6cac2da7acb"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3037,7 +3037,7 @@
           "fingerprint": "9eb8d9def38cb084eb36cbca7cd63357558f60fff96a572b25b7055c8f8ef7dd"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3054,7 +3054,7 @@
           "fingerprint": "25d514d1b0dd533159d3b7cfef386d5ce3a85b3c2f9ad3aeab157e3087953e38"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3080,7 +3080,7 @@
           "fingerprint": "6ae72f4721a2fd079ef156e380ebdd1a34d549ecb15f70e6c5345b89b62dd8e2"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3119,7 +3119,7 @@
           "fingerprint": "9f6695541867b134df5a952a35c08fe5932a2ee3d90ead1fc1f8457d1e981f95"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3136,7 +3136,7 @@
           "fingerprint": "b44e4f1e6621bac58a652ab9b0cc8255ea776ccba761c7cbf66d9bf7d848436f"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3153,7 +3153,7 @@
           "fingerprint": "b1633e7d9b935a3d56caf60203cc9fc0a2d0be269267c86f206ef198109f801f"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3170,7 +3170,7 @@
           "fingerprint": "28bc391dbd5517c6abdf0189309283af73e269c41dcf7277843c7145a465925a"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3209,7 +3209,7 @@
           "fingerprint": "3398f244a8fe53a952e7275455c6b9b47ef91f3886908ddb7000bd258eef711d"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3226,7 +3226,7 @@
           "fingerprint": "3b18e7bf50ed79b1c8fecd2d0fac39bc795a15cc5c92481c5a8de4c37730180d"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3243,7 +3243,7 @@
           "fingerprint": "8ebf5e46cdd5ab0b08428992224ff2d38bac5c372ba226dbb45d9d871fde0e5e"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3260,7 +3260,7 @@
           "fingerprint": "27f40dffc1663fbf935440d8cac26fc17f0872d73cda48237f9beecd57b25b5f"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3299,7 +3299,7 @@
           "fingerprint": "746eac90d28c93d64268a366dfcdd4f4f9d5ed6973cc2c464149ec9f158a3baf"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3316,7 +3316,7 @@
           "fingerprint": "286ef5cc46a456393fd22954e8565e6312db4805de9d5d446b58ecbc0887e551"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3333,7 +3333,7 @@
           "fingerprint": "e924e92c303514a89b3e220f118af1ea998569d2aa58185b4097666cb36d5d44"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3350,7 +3350,7 @@
           "fingerprint": "3bd8aee46abfdf40cf212558eadc43d35b9912be40128e219058d6dba6603a16"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3389,7 +3389,7 @@
           "fingerprint": "e048400e25346d100c51651ec3c3457ce954b8c31014097c2f8c8924bd45e067"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3414,7 +3414,7 @@
           "fingerprint": "551742ae16a5ed662903b6e52e5f97999992efdf6feb4b1104671976d88edb97"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3439,7 +3439,7 @@
           "fingerprint": "a8d49dda4a705f06e34ee1a5b08a072f623d5337d43dee3e0fc62eec76c8043a"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3464,7 +3464,7 @@
           "fingerprint": "25ed676a42b203c1365ff7b338fd9238aa00800aa498ea69f457553f155e941a"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3533,7 +3533,7 @@
           "fingerprint": "8c976d9fb3d0d418dd0a425a45a618c2296cdc39bd99ece8a4528a6191c36412"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3577,6 +3577,465 @@
       "reason": "Round-4 review fix for #267: retitled/re-described dataset_create_request_schema.json and its two $ref'd inner create schemas (generator_config_create_request_schema.json, evaluator_config_create_request_schema.json) from stale create/update wording to create-only. Editing those description/title strings makes the checker treat the files as changed and re-walk dataset_create_request_schema.json's own #/properties/generator_config and #/properties/evaluator_config pointers, re-surfacing the SAME model_id/instructions required[] additions already acknowledged above (datasets/generator_config_create_request_schema.json, datasets/evaluator_config_create_request_schema.json, datasets/datasets_endpoints.json) via a new pointer path. Not a new tightening: no required[] array changed in this commit, only prose.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/487"
+    },
+    {
+      "file": "analytics/run_leaderboard_schema.json",
+      "rule": "patternProperties_added",
+      "findings": [
+        {
+          "pointer": "#/properties/configs/items/properties/measures/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "4520af36c461e1e242dc8048914818ccecafd9d602522bcddc2549bedfe38d86"
+        },
+        {
+          "pointer": "#/properties/ranking_basis/properties/constraints/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "c674f4101dff84fe6dfde7ca95e1c9ec9d548f1167cd18278832f47d0e574529"
+        },
+        {
+          "pointer": "#/properties/ranking_basis/properties/weights/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "54ca9615040dcc0a0f8daad3884c7695096f5142dba629fbd32dd86385b3d1ec"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the paired 'patternProperties key added' finding, which is the other half of the same in-place rewrite.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "analytics/run_leaderboard_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/configs/items/properties/measures/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "949a8533e2400d535ea625466728870b2451f676884979cfcfacfc761fd6fe25"
+        },
+        {
+          "pointer": "#/properties/ranking_basis/properties/constraints/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "5a0442d2d9d82f4f654f59e170a6c3c17320c7cdc50ea3e6f2d7c01bab85a7ba"
+        },
+        {
+          "pointer": "#/properties/ranking_basis/properties/weights/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "ebc6278314e363fc82ff0fee032a8bdb6a628d67fbcf7cf3363df2b07c9ebd76"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "analytics/run_pareto_schema.json",
+      "rule": "patternProperties_added",
+      "findings": [
+        {
+          "pointer": "#/properties/frontier/items/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "aa24ffecce9863f6301987b93d9326cde87f0baf2ecef34100f9b5699ab4082c"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the paired 'patternProperties key added' finding, which is the other half of the same in-place rewrite.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "analytics/run_pareto_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/frontier/items/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "47a4bec5eba7f039a8b876037cc77aeb6c18267cf0f3a2ead97720614bc2f640"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "patternProperties_added",
+      "findings": [
+        {
+          "pointer": "#/properties/measures/oneOf/0/items/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "0d95072c0daf251290651359588a2766420fdbce828bba17e55bf918cc03c213"
+        },
+        {
+          "pointer": "#/properties/summary_stats/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "4d7529fc2782cb0cf90b97d166c4d993a3b0db8c6c637242a44037c60d4d54f3"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the paired 'patternProperties key added' finding, which is the other half of the same in-place rewrite.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "evaluation/configuration_run_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/measures/oneOf/0/items/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "a6477547f11d1e5db5d8f36e9f5fc87669c3fae6bd845c0fa1d6e055b9c55c0e"
+        },
+        {
+          "pointer": "#/properties/summary_stats/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "9950854976c0b5cf9c62ae24c04d40c2958499f50af297f5e56370b4c554bfec"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "execution/metric_submission_schema.json",
+      "rule": "patternProperties_added",
+      "findings": [
+        {
+          "pointer": "#/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "912a01837b35af930f3d1037480eda4848162684f60239f7dccaa6c42be97e65"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the paired 'patternProperties key added' finding, which is the other half of the same in-place rewrite.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "execution/metric_submission_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "3ffa1431a8c431f4c18de7c2a73c19ebe92c341f022aa4a23d91f366c8b41202"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/config_space_schema.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/properties/exploration/properties/convergence/properties/metric",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "fde088f38778e60c4b18a09fc34a9c901042d326cd426efe600a3f0e56411acc"
+        },
+        {
+          "pointer": "#/properties/measures/items",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "ca9fca2ab1da881ee386ca91bfb8c6ff0cd94e635235cd88d8a04f9d8a677e74"
+        },
+        {
+          "pointer": "#/properties/objectives/items/properties/name",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "d4ba91684d9ee676fc605e8c0485baccc7c13ef3b07a9495b3a952ebec0c26e5"
+        },
+        {
+          "pointer": "#/properties/promotion_policy/properties/chance_constraints/items/properties/name",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "cfac3625990d7685fe2e66527cd142ef8c41bb5ea19e562fd00b67204d128964"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/config_space_schema.json",
+      "rule": "patternProperties_added",
+      "findings": [
+        {
+          "pointer": "#/properties/promotion_policy/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "18d02d570319d3297fcebeb4c453c4c9427de3b767216ac91d8f556536d94a9a"
+        },
+        {
+          "pointer": "#/properties/promotion_policy/properties/tie_breakers/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "acc7a056925f7a6c3b01f686fdc4aab4c5b550394f465ccab7e136e161bc1183"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the paired 'patternProperties key added' finding, which is the other half of the same in-place rewrite.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/config_space_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/promotion_policy/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "aa8f36d32e557848dcdab4107d5b99d303f6ce5e4b04735b8f45b47ceca7a435"
+        },
+        {
+          "pointer": "#/properties/promotion_policy/properties/tie_breakers/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "05356eace49c7624ad6799cf645bd8026a50754eac2adef7f485ce76d800758d"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/exploration_config_schema.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/properties/convergence/properties/metric",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "08756b24234ac4301d8445f16edc94a1713ad0bae96bf6c282dbb5d909a07a0d"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/objective_definition_schema.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/properties/name",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "8828bc7028ca689ef75f241cf591575ad48364bd497a7cb4f82c89adbb4ee464"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/optimization_plan_request_schema.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/properties/objectives/items",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "8b534e444f119d2067cdd3dea2477da97c9cbc1d0a4f60d17c4bb5ba34e5e933"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/optimization_plan_request_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/weights/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "8c82c2f11dd163adfa11c2f8918b8e3f099726b4e2fbacef0b9a5d208ed823b6"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/promotion_policy_schema.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/properties/chance_constraints/items/properties/name",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "ff834a13664441e2b5e32153a74f33badfbb62807f2d34559d2f19e73c5b9674"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/promotion_policy_schema.json",
+      "rule": "patternProperties_added",
+      "findings": [
+        {
+          "pointer": "#/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "5b80b663b481025842da79d048835f011b1f61c668d17f42a3bf29da6b1d6ffb"
+        },
+        {
+          "pointer": "#/properties/tie_breakers/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "old": false,
+          "new": true,
+          "fingerprint": "846b1a5bdcc21444752f00ac29dac10171eedc52dfbd216c96ec6b2ddcf5ed56"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the paired 'patternProperties key added' finding, which is the other half of the same in-place rewrite.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/promotion_policy_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "6137439d68c1e4c34322b977ce3ad262ebf4586bbea4df1b7963a78a45324d9a"
+        },
+        {
+          "pointer": "#/properties/tie_breakers/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "conservative",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "6ab69dcdff6e6a4314b6de16660331c39ecaef7fb4e770fb3dc88c0958cd5c01"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/measures/oneOf/0/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "7b70fcc405706d19c6e4a57e19f4a254b4d57437493d956118214c604cf5f871"
+        },
+        {
+          "pointer": "#/properties/measures/oneOf/1/items/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "eecfa04e97c651207ee3f16746d97ad9f4ef175a70187d63ab48be8bc042fa78"
+        },
+        {
+          "pointer": "#/properties/metadata/properties/measures/oneOf/0/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "45c1f406dc629d2e34206c9d672d5641f2383bcf453735aa78a58c70a6c0002d"
+        },
+        {
+          "pointer": "#/properties/metadata/properties/measures/oneOf/1/items/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "934358b5f4f1bd75615a346f7e6fc99171705c34c1ea14c8fe6b77d82e7e79a5"
+        },
+        {
+          "pointer": "#/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "13327b8e9315c3a5bd4874367b476507338633197e10453f1b7753f84044a1a6"
+        }
+      ],
+      "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/304"
     }
   ]
 }

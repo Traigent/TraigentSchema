@@ -153,6 +153,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Flip back to asserted when the Backend pins a commit containing those routes.
 
 ### Added
+- **`NormalizationStrategy` re-widened to `min_max`, `z_score`, `robust`
+  (`schemas/optimization/objective_definition_schema.json`, `0.9.3` -> `0.9.4`).**
+  The enum was narrowed to `["min_max"]` when `z_score`/`robust` were advertised but
+  unimplemented (fail-closed contract half of a bug fix). The optimization library's
+  normalization math for all three strategies is now implemented and merged
+  (deterministic handling of zero-span/zero-scale, single-sample populations, and
+  non-finite observations), so the contract is widened back deliberately: the
+  description now names the reference implementation's `normalize_objective_values()`/
+  `NormalizationSpec` as the normative source for that edge-case behavior instead of
+  restating it in the schema. Purely additive — `min_max` payloads are unaffected,
+  and this only accepts values that previously failed validation. Parity manifest
+  restamped (`scripts/refresh_parity.py --update`).
 - **`metric_metadata` (per-metric `direction` + `role`) on the run-results response.**
   New optional, nullable `metric_metadata` map (`schemas/execution/run_results_response_schema.json`,
   `GET /api/v1/experiment-runs/runs/{run_id}/results`) carries, for every key present

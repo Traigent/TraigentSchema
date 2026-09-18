@@ -4,7 +4,7 @@
   "type": "object",
   "title": "Objective Definition Schema",
   "description": "Defines an optimization objective compatible with TVL 0.9 and SDK wire payloads. Specifies a metric to optimize, its orientation/direction, weight, normalization, and optional banding. Multi-objective normalization and aggregation behavior (zero-span fallback, weight rescaling, dominance guard) is specified separately in multi_objective_semantics_schema.json as a meta-contract; those constants are not wire-format fields.",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "definitions": {
     "ObjectiveDirection": {
       "type": "string",
@@ -43,9 +43,9 @@
     },
     "NormalizationStrategy": {
       "type": "string",
-      "enum": ["min_max"],
+      "enum": ["min_max", "z_score", "robust"],
       "default": "min_max",
-      "description": "Strategy used to normalize objective values before weighted aggregation. Only 'min_max' is implemented. 'z_score' and 'robust' are reserved for future versions and will raise NotImplementedError if used."
+      "description": "Strategy used to normalize objective values before weighted aggregation. 'min_max' scales to the observed [lo, hi] range; 'z_score' standardizes by mean/population-stddev then maps to [0, 1]; 'robust' centers on the median and scales by IQR (falling back to MAD, then min_max's zero-span value, when both are zero). Deterministic edge-case handling (zero-span/zero-scale fallback, single-sample populations, non-finite observations) is normative in the reference implementation's normalize_objective_values()/NormalizationSpec, not restated per-field here."
     }
   },
   "properties": {

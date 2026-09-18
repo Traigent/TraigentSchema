@@ -106,6 +106,88 @@
         }
       }
     },
+    "/api/v1/example-sets": {
+      "get": {
+        "summary": "List example sets (paginated)",
+        "description": "TraigentBackend src/routes/example_set_routes.py:96 `get_example_sets`, blueprint url_prefix `/example-sets` registered under /api/v1 at src/routes/api_v1.py:119. Previously undeclared in this repo — which is why TraigentBackend#3353 could change its pagination shape with no schema lane objecting. Query parameters: `page` (default 1), `per_page` (default 20, clamped to [1, 100] by MAX_EXAMPLE_SET_PER_PAGE, src/routes/example_set_routes.py:34, 104-108), and the `name` / `created_after` / `created_before` filters (:111-136).",
+        "operationId": "listExampleSets",
+        "x-wrap-status": "wrapped",
+        "responses": {
+          "200": {
+            "description": "Canonical nested paginated envelope {success, message, data: {items, pagination}} since TraigentBackend#3353.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./example_set_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "BARE failure body, not the canonical error envelope: `{\"success\": false, \"error\": \"Failed to fetch example sets\"}` with no `message` (src/routes/example_set_routes.py:154-156). Declared as it is rather than as error_envelope_schema.json, which requires `message`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "title": "Bare example-set list failure",
+                  "required": ["success", "error"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/example-sets/{set_id}/examples": {
+      "get": {
+        "summary": "List examples in an example set (paginated)",
+        "description": "TraigentBackend src/routes/example_set_routes.py:326 `get_example_set_examples`. Previously undeclared in this repo. Query parameters: `page` (default 1), `per_page` (default 20, clamped to [1, 100], :340). The parent set is resolved through `_get_scoped_example_set`, so ownership is transitive through the parent agent (:51-62).",
+        "operationId": "listExampleSetExamples",
+        "x-wrap-status": "wrapped",
+        "responses": {
+          "200": {
+            "description": "Canonical nested paginated envelope {success, message, data: {items, pagination}} since TraigentBackend#3353. The pre-#3353 bare {examples, current_page, per_page, total_examples, total_pages} body no longer exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./example_set_examples_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Example set not found, or owned by another caller (the two are deliberately indistinguishable). BARE `{\"error\": \"Example set not found\"}` — src/routes/example_set_routes.py:335-336.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BareExampleError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "BARE `{\"error\": \"Failed to fetch examples\"}` — src/routes/example_set_routes.py:359-361. Note this route's failure body differs from GET /api/v1/example-sets's, which also carries `success: false`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BareExampleError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/datasets/{dataset_id}/upload": {
       "post": {
         "summary": "Upload examples into a dataset",
@@ -318,6 +400,22 @@
                 }
               }
             }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BareExampleError": {
+        "type": "object",
+        "title": "Bare example-set error",
+        "description": "Pre-envelope error body emitted by the example-set read routes: a single `error` string, no `success`/`message`/`error_code`. Declared here rather than reusing error_envelope_schema.json, which requires `message`.",
+        "required": ["error"],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
           }
         }
       }

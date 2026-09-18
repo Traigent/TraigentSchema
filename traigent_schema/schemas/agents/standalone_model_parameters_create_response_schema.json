@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/standalone_model_parameters_create_response_schema.json",
+  "title": "Standalone Model Parameters Create Response",
+  "description": "201 body of POST /api/v1/model-parameters. BARE (not the success envelope): the handler returns `jsonify(response), 201` where `response` is built literally at src/routes/model_parameters_routes.py:298-317. `model_parameters_routes` is classified bare in success_envelope_schema.json#/x-wrap-map. Field names are camelCase at the top level and snake_case inside each item — that asymmetry is what the code emits, not a transcription error.",
+  "type": "object",
+  "required": [
+    "modelParametersId",
+    "modelParameters"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "modelParametersId": {
+      "type": "string",
+      "description": "Id of the FIRST created row only (`created[0].id`) — not a collection id, and not a handle to the other rows when the request created several.",
+      "x-identifier": true
+    },
+    "modelParameters": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per created row, in request order.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "model_id",
+          "temperature",
+          "max_tokens",
+          "top_p",
+          "frequency_penalty",
+          "presence_penalty",
+          "top_k",
+          "repetition_penalty",
+          "stop_sequences"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "x-identifier": true
+          },
+          "model_id": {
+            "type": "string",
+            "x-reference": true
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "max_tokens": {
+            "type": "integer"
+          },
+          "top_p": {
+            "type": "number"
+          },
+          "frequency_penalty": {
+            "type": "number",
+            "description": "Never null in this response: the ModelParameters constructor substitutes agents/model_parameters_schema.json's declared `default` when the request omits the optional (src/models/model_parameters.py:92-109), so an omitted `frequencyPenalty` is persisted and echoed as 0.2."
+          },
+          "presence_penalty": {
+            "type": "number",
+            "description": "Never null in this response: the ModelParameters constructor substitutes agents/model_parameters_schema.json's declared `default` when the request omits the optional (src/models/model_parameters.py:92-109), so an omitted `presencePenalty` is persisted and echoed as 0.2."
+          },
+          "top_k": {
+            "type": "integer",
+            "description": "Never null in this response: the ModelParameters constructor substitutes agents/model_parameters_schema.json's declared `default` when the request omits the optional (src/models/model_parameters.py:92-109), so an omitted `topK` is persisted and echoed as 50."
+          },
+          "repetition_penalty": {
+            "type": "number",
+            "description": "Never null in this response: the ModelParameters constructor substitutes agents/model_parameters_schema.json's declared `default` when the request omits the optional (src/models/model_parameters.py:92-109), so an omitted `repetitionPenalty` is persisted and echoed as 0.2."
+          },
+          "stop_sequences": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Always null from this route: nothing sets it and agents/model_parameters_schema.json declares the default as null (src/models/model_parameters.py:110-114, 130-134). The key is always present (src/routes/model_parameters_routes.py:312)."
+          }
+        }
+      }
+    }
+  }
+}

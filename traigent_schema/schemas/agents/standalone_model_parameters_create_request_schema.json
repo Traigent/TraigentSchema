@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/standalone_model_parameters_create_request_schema.json",
+  "title": "Standalone Model Parameters Create Request",
+  "description": "POST /api/v1/model-parameters — the STANDALONE model-parameters create route (src/routes/model_parameters_routes.py:92 `create_model_parameters`, blueprint url_prefix `/model-parameters` registered under /api/v1 by src/routes/api_v1.py:121). Distinct from agents/model_parameters_create_request_schema.json (POST /api/v1/agents/{agent_id}/model-parameters): this route takes a camelCase `modelParameters` ARRAY and names its owning agent in the body, because ModelParameters carries no tenant/project column and the agent association is its only ownership record (src/routes/model_parameters_routes.py:210-239). Numeric bounds are enforced by `validate_model_parameter_bounds` reading THIS repo's agents/model_parameters_schema.json (snake_case) with camelCase field labels (src/routes/model_parameters_routes.py:169-188), so the bounds below mirror that file. additionalProperties:true — the handler reads only the keys named here and ignores the rest.",
+  "type": "object",
+  "required": ["modelParameters", "agentId"],
+  "additionalProperties": true,
+  "properties": {
+    "modelParameters": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Non-empty array of parameter entries. A missing/non-array/empty value is rejected with a BARE 400 `{error}` body (src/routes/model_parameters_routes.py:114-117), not the canonical envelope.",
+      "items": {
+        "type": "object",
+        "required": ["temperature", "maxTokens", "topP"],
+        "additionalProperties": true,
+        "properties": {
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "description": "Sampling temperature. Bounds from agents/model_parameters_schema.json#/properties/temperature."
+          },
+          "maxTokens": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Maximum tokens to generate. The handler rejects a non-integral number such as 1000.5 (src/routes/model_parameters_routes.py:59-71)."
+          },
+          "topP": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Nucleus-sampling mass. Bounds from agents/model_parameters_schema.json#/properties/top_p."
+          },
+          "frequencyPenalty": {
+            "type": "number",
+            "minimum": -2,
+            "maximum": 2,
+            "description": "Optional frequency penalty."
+          },
+          "presencePenalty": {
+            "type": "number",
+            "minimum": -2,
+            "maximum": 2,
+            "description": "Optional presence penalty."
+          },
+          "topK": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional top-k cutoff."
+          },
+          "repetitionPenalty": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Optional repetition penalty."
+          }
+        }
+      }
+    },
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Id of the owning agent. Bounded by the AGENT_ID_MAX_LENGTH column width (TraigentBackend src/models/agent.py:13 `AGENT_ID_MAX_LENGTH = 512`). REQUIRED: the handler returns 422 VALIDATION_ERROR when it is absent or blank, because a ModelParameters row with no agent association is attributable to nobody (src/routes/model_parameters_routes.py:240-248). Resolved through the owner-scoped AgentDAL, so a foreign or unknown id yields a non-disclosing 404.",
+      "x-reference": true
+    },
+    "modelId": {
+      "type": "string",
+      "description": "Optional LLM model identifier. When absent the handler resolves or creates a default catalog row; when present-but-unknown it creates a lightweight stub row (src/routes/model_parameters_routes.py:263-277). NOTE: unlike POST /api/v1/agents/{agent_id}/model-parameters after TraigentBackend#3347, this route does NOT reject an unresolvable modelId.",
+      "maxLength": 128
+    }
+  }
+}

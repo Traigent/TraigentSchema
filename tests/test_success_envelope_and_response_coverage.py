@@ -265,3 +265,100 @@ def test_experiment_group_response_schemas_wrap_payloads_in_data():
         assert payload_definition["additionalProperties"] is False
         for bare_top_level_key in ("items", "group", "source_experiments", "pagination"):
             assert bare_top_level_key not in properties
+
+
+# ---- #136 follow-up — a route file can be MIXED, and pagination is nested ---- #
+# TraigentBackend#3353 moved 2 of example_set_routes' ~10 operations onto
+# response_handler.paginated_response and left the rest bare. A two-list
+# bare/wrapped map cannot say that, and leaving the file in `bare` states
+# something false about the two migrated reads.
+
+
+def _envelope():
+    return _load("success_envelope_schema.json")
+
+
+def test_wrap_map_records_example_set_routes_as_mixed_not_bare():
+    wm = _envelope()["x-wrap-map"]
+    assert "example_set_routes" not in wm["bare"], (
+        "example_set_routes has 2 enveloped operations since TraigentBackend#3353; "
+        "a blanket 'bare' classification is false for them"
+    )
+    assert "example_set_routes" not in wm.get("wrapped", []), (
+        "the file's other ~8 operations still return bare jsonify bodies; "
+        "'wrapped' would be as wrong as 'bare'"
+    )
+    entry = wm["mixed"]["example_set_routes"]
+    assert entry["default"] == "bare"
+    assert entry["enveloped_operations"] == [
+        "GET /api/v1/example-sets",
+        "GET /api/v1/example-sets/{set_id}/examples",
+    ]
+    assert entry["reason"].strip(), "a mixed classification must say why"
+
+
+def test_wrap_map_classifications_stay_mutually_exclusive():
+    """No route file may appear in more than one classification, mixed included."""
+    wm = _envelope()
+    wrap_map = wm["x-wrap-map"]
+    buckets = {
+        name: set(wrap_map.get(name, []))
+        for name in ("wrapped", "bare", "unclassified")
+    }
+    buckets["mixed"] = {k for k in wrap_map.get("mixed", {}) if not k.startswith("$")}
+    names = sorted(buckets)
+    for i, left in enumerate(names):
+        for right in names[i + 1 :]:
+            overlap = buckets[left] & buckets[right]
+            assert not overlap, f"{left} and {right} both claim {sorted(overlap)}"
+
+
+def test_canonical_envelope_does_not_declare_a_top_level_pagination():
+    """`paginated_response` is documented strict nested-only and emits
+    data.pagination (TraigentBackend src/utils/response_handler.py:288-296,
+    349-356). A top-level `pagination` sibling of `data` describes a shape no
+    producer of this envelope emits."""
+    env = _envelope()
+    assert "pagination" not in env["properties"], (
+        "pagination belongs inside data, next to items — not beside data"
+    )
+    # additionalProperties stays open, so this is a documentation correction and
+    # not a new rejection of any body.
+    assert env["additionalProperties"] is True
+
+
+EXAMPLE_SET_READS = {
+    "/api/v1/example-sets": "example_set_list_response_schema.json",
+    "/api/v1/example-sets/{set_id}/examples": (
+        "example_set_examples_list_response_schema.json"
+    ),
+}
+
+
+def test_example_set_reads_are_declared_and_annotated_wrapped():
+    spec = _load("datasets/datasets_endpoints.json")
+    for path, stem in EXAMPLE_SET_READS.items():
+        op = spec["paths"][path]["get"]
+        assert op["x-wrap-status"] == "wrapped", path
+        ref = op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        assert ref.endswith(stem), (path, ref)
+
+
+def test_example_set_read_responses_nest_pagination_under_data():
+    for stem in EXAMPLE_SET_READS.values():
+        schema = _load(f"datasets/{stem}")
+        assert schema["required"] == ["success", "message", "data"], stem
+        assert schema["properties"]["success"]["const"] is True, stem
+        assert "pagination" not in schema["properties"], (
+            f"{stem}: pagination must be nested under data, not a sibling of it"
+        )
+        data = schema["properties"]["data"]
+        assert set(data["required"]) == {"items", "pagination"}, stem
+        assert data["additionalProperties"] is False, stem
+        assert data["properties"]["pagination"]["$ref"] == "../pagination_schema.json", stem
+        # the canonical pagination contract is reused unchanged
+        pagination = _load("pagination_schema.json")
+        assert set(pagination["required"]) == {
+            "page", "per_page", "total", "total_pages", "has_next", "has_prev",
+        }
+        assert pagination["additionalProperties"] is False

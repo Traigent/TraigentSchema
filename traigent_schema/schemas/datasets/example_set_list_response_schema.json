@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/example_set_list_response_schema.json",
+  "title": "Example Set List Response Schema",
+  "description": "200 body of GET /api/v1/example-sets after TraigentBackend#3353. The route now returns `response_handler.paginated_response(...)`, whose shape is strict nested-only — {success, message, data: {items, pagination}} (src/utils/response_handler.py:288-296 documents it, :349-356 emits it). Before #3353 the route emitted a top-level `pagination` with a `pages` key and no has_next/has_prev; that form is gone. x-wrap-status: wrapped — this is one of the two enveloped operations in the otherwise-bare `example_set_routes` (see success_envelope_schema.json#/x-wrap-map/mixed). The item shape is ExampleSet.to_dict() (src/models/agent.py:287-305) and is deliberately NOT a $ref to example_set_schema.json: that file's closed resource definition requires only {id, name, description, examples} with additionalProperties:false and declares none of agent_id / example_set_id / tenant_id / project_id / type / selection_method / num_examples / similarity_threshold / tags, so $ref'ing it would declare a contract this serializer violates on every row.",
+  "type": "object",
+  "x-wrap-status": "wrapped",
+  "required": ["success", "message", "data"],
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true,
+      "description": "Discriminator — always true for success responses."
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable summary; \"Example sets retrieved successfully\" from this route."
+    },
+    "data": {
+      "type": "object",
+      "description": "Nested paginated payload. `pagination` lives HERE, not at the top level — paginated_response is strict nested-only.",
+      "required": ["items", "pagination"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "Page of example sets, each `ExampleSet.to_dict()`.",
+          "items": { "$ref": "#/definitions/SerializedExampleSet" }
+        },
+        "pagination": {
+          "$ref": "../pagination_schema.json",
+          "description": "Canonical {page, per_page, total, total_pages, has_next, has_prev}. `per_page` is clamped to [1, 100] by the route (MAX_EXAMPLE_SET_PER_PAGE, src/routes/example_set_routes.py:34, 105-108)."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "SerializedExampleSet": {
+      "type": "object",
+      "description": "Exactly what ExampleSet.to_dict() emits (src/models/agent.py:287-305). Every key is always present; nullability below follows the column definitions at src/models/agent.py:232-266.",
+      "required": [
+        "id",
+        "example_set_id",
+        "tenant_id",
+        "project_id",
+        "agent_id",
+        "name",
+        "description",
+        "type",
+        "selection_method",
+        "num_examples",
+        "similarity_threshold",
+        "tags",
+        "created_at",
+        "updated_at",
+        "examples"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Primary key.",
+          "x-identifier": true
+        },
+        "example_set_id": {
+          "type": "string",
+          "description": "Backward-compatibility alias emitted alongside `id`, always equal to it (src/models/agent.py:277-285, 291). New consumers read `id`.",
+          "x-identifier": true
+        },
+        "tenant_id": {
+          "type": "string",
+          "description": "Owning tenant. Emitted by the serializer; it is the caller's own tenant, never another's, because the list query is tenant- and owner-scoped (src/routes/example_set_routes.py:116-125)."
+        },
+        "project_id": {
+          "type": ["string", "null"],
+          "description": "Owning project; nullable column (src/models/agent.py:239-245)."
+        },
+        "agent_id": {
+          "type": "string",
+          "description": "Parent agent; the only ownership record an example set has.",
+          "x-reference": true
+        },
+        "name": { "type": "string" },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Nullable Text column — unlike example_set_schema.json, which requires it."
+        },
+        "type": {
+          "type": "string",
+          "description": "Defaults to \"input-output\" at the column level."
+        },
+        "selection_method": {
+          "type": "string",
+          "description": "NOT NULL column; the create route defaults it to \"all\"."
+        },
+        "num_examples": { "type": ["integer", "null"] },
+        "similarity_threshold": { "type": ["number", "null"] },
+        "tags": {
+          "type": ["array", "object", "string", "number", "boolean", "null"],
+          "description": "Untyped JSON column (JSONType) — the serializer passes it through unchanged, so the wire type is whatever was stored."
+        },
+        "created_at": {
+          "type": ["string", "null"],
+          "description": "ISO-8601 from `datetime.isoformat()` — naive (no timezone offset), because the column is a naive DateTime defaulted with datetime.utcnow. Null only if the attribute is unset."
+        },
+        "updated_at": {
+          "type": ["string", "null"],
+          "description": "ISO-8601 from `datetime.isoformat()`, naive; see created_at."
+        },
+        "examples": {
+          "type": "array",
+          "description": "FULL example rows, eagerly serialized for every set in the page (src/models/agent.py:304). This list is NOT paginated here — GET /api/v1/example-sets/{set_id}/examples is the paginated surface.",
+          "items": { "$ref": "./example_set_examples_list_response_schema.json#/definitions/SerializedExample" }
+        }
+      }
+    }
+  }
+}

@@ -305,3 +305,101 @@ def test_entitlement_required_forbids_an_unsynchronised_error_code() -> None:
         payload = _entitlement(details={"reason": "access_period_ended"})
         payload["error_code"] = smuggled
         assert _entitlement_errors(payload) != [], f"error_code={smuggled!r} was accepted"
+
+
+# --------------------------------------------------------------------------- #
+# ValidationErrorDTO is emitted at BOTH 400 and 422
+#
+# TraigentBackend#3347 returns it at 422 (via response_handler.
+# validation_error_response, which pins UNPROCESSABLE_ENTITY);
+# TraigentBackend#3352 returns the same shape at 400 from
+# model_parameters_routes' own error_response calls. The schema must not claim
+# one status for the shape, and consumers must branch on error_code.
+# --------------------------------------------------------------------------- #
+
+import json as _json
+
+from traigent_schema.utils import get_schemas_dir as _schemas_dir
+
+
+def _schema(rel_path):
+    with open(_schemas_dir() / rel_path, encoding="utf-8") as fh:
+        return _json.load(fh)
+
+
+def test_validation_error_description_covers_both_statuses():
+    description = _schema("validation_error_schema.json")["description"]
+    assert "400" in description and "422" in description, (
+        "the shape is emitted at both statuses; naming only one misdescribes it"
+    )
+    assert "VALIDATION_ERROR" in description, (
+        "the consumer's branch key is error_code, not the status"
+    )
+    # the shape itself is unchanged by this correction
+    branch = _schema("validation_error_schema.json")["allOf"][1]
+    assert branch["required"] == ["details"]
+    assert branch["properties"]["details"]["minProperties"] == 1
+
+
+def test_agent_model_parameters_post_declares_the_422_validation_response():
+    """TraigentBackend#3347: an unresolvable model_id is a client error, not a
+    raw FK-violation 500. The route previously declared only a 201."""
+    op = _schema("agents/agents_endpoints.json")["paths"][
+        "/api/v1/agents/{agent_id}/model-parameters"
+    ]["post"]
+    assert set(op["responses"]) == {"201", "422"}
+    ref = op["responses"]["422"]["content"]["application/json"]["schema"]["$ref"]
+    assert ref == "../validation_error_schema.json"
+
+
+def test_standalone_model_parameters_400_declares_both_live_shapes():
+    """The envelope branch and the un-migrated bare {error} branch coexist on
+    one status. Declaring only the envelope would let a conformance lane pass
+    while two live branches violate it."""
+    op = _schema("agents/agents_endpoints.json")["paths"]["/api/v1/model-parameters"][
+        "post"
+    ]
+    assert set(op["responses"]) == {"201", "400", "404", "422", "500"}
+    variants = op["responses"]["400"]["content"]["application/json"]["schema"]["oneOf"]
+    assert len(variants) == 2
+    assert {"$ref": "../validation_error_schema.json"} in variants
+    bare = next(v for v in variants if "$ref" not in v)
+    assert bare["required"] == ["error"]
+    assert bare["additionalProperties"] is False
+    assert set(bare["properties"]) == {"error"}
+    # the 422 on the SAME operation carries the same shape at a different status
+    assert op["responses"]["422"]["content"]["application/json"]["schema"] == {
+        "$ref": "../validation_error_schema.json"
+    }
+
+
+def test_standalone_model_parameters_400_variants_are_mutually_exclusive():
+    """oneOf only works if no body satisfies both arms."""
+    validator = SchemaValidator()
+    envelope_body = {
+        "success": False,
+        "message": "Request validation failed",
+        "error": "Validation error",
+        "error_code": "VALIDATION_ERROR",
+        "details": {"modelParameters[0].maxTokens": ["Missing required field(s)"]},
+    }
+    assert validator.validate_json(envelope_body, "validation_error_schema") == []
+    bare_body = {"error": "No model parameters provided"}
+    assert validator.validate_json(bare_body, "validation_error_schema"), (
+        "the bare branch must not satisfy the envelope arm"
+    )
+    op = _schema("agents/agents_endpoints.json")["paths"]["/api/v1/model-parameters"][
+        "post"
+    ]
+    bare_arm = next(
+        v
+        for v in op["responses"]["400"]["content"]["application/json"]["schema"]["oneOf"]
+        if "$ref" not in v
+    )
+    from jsonschema import Draft7Validator
+
+    bare_validator = Draft7Validator(bare_arm)
+    assert list(bare_validator.iter_errors(envelope_body)), (
+        "the envelope body must not satisfy the bare arm"
+    )
+    assert not list(bare_validator.iter_errors(bare_body))

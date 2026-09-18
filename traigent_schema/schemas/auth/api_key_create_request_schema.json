@@ -14,7 +14,7 @@
     },
     "key_type": {
       "type": "string",
-      "enum": ["user", "service", "admin", "temporary", "readonly", "system"],
+      "enum": ["user", "service", "admin", "temporary", "readonly", "system", "director"],
       "default": "user",
       "description": "API key type."
     },
@@ -32,13 +32,11 @@
     "scopes": {
       "type": "array",
       "items": {"type": "string", "maxLength": 64},
-      "minItems": 1,
       "description": "Requested scope values."
     },
     "permissions": {
       "type": "array",
       "items": {"type": "string", "maxLength": 64},
-      "minItems": 1,
       "default": ["read"],
       "description": "Requested permission values."
     },
@@ -84,7 +82,66 @@
     "metadata": {
       "type": "object",
       "description": "Optional client-defined metadata."
+    },
+    "resource_grants": {
+      "type": "array",
+      "description": "Initial per-resource grants created atomically with the key. Required for key_type=director.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resource_type", "resource_id", "permissions", "expires_at"],
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "enum": ["experiment"]
+          },
+          "resource_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "permissions": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["read"]},
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
     }
   },
-  "required": ["key_name"]
+  "required": ["key_name"],
+  "allOf": [
+    {
+      "if": {
+        "properties": {"key_type": {"const": "director"}},
+        "required": ["key_type"]
+      },
+      "then": {
+        "required": ["scopes", "permissions", "resource_grants"],
+        "properties": {
+          "scopes": {"const": ["director_evidence:read"]},
+          "permissions": {"maxItems": 0},
+          "resource_grants": {"minItems": 1},
+          "scope_preset": {"not": {}}
+        }
+      },
+      "else": {
+        "properties": {
+          "scopes": {"minItems": 1},
+          "permissions": {"minItems": 1},
+          "resource_grants": {"not": {}}
+        }
+      }
+    }
+  ],
+  "x-backend-obligations": [
+    "For key_type=director, each grant's expires_at is no later than 30 days after the request is processed, and the key is rejected with 400 (nothing persisted) otherwise.",
+    "Each granted experiment must belong to the caller's authenticated project/tenant context.",
+    "A director key's type is immutable, and its scopes/permissions/grants invariants hold on the merged persisted state."
+  ]
 }

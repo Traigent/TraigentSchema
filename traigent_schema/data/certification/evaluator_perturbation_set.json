@@ -1,0 +1,13 @@
+{
+  "schema_version":"traigent.evaluator_quality.perturbation_set_document.v1",
+  "registry_id":"traigent.evaluator_quality.perturbation_set.v1",
+  "registry_version":"1.0.0",
+  "canonicalization":"jcs_v1",
+  "probes":[
+    {"probe_id":"constant_output","required":true,"skip_reasons":["requires_labelled_adversarial_cells","insufficient_probe_cells"]},
+    {"probe_id":"verbosity","required":true,"skip_reasons":["requires_labelled_adversarial_cells","insufficient_probe_cells"]},
+    {"probe_id":"position","required":true,"skip_reasons":["requires_paired_position_scores","insufficient_probe_cells"]},
+    {"probe_id":"self_preference","required":false,"skip_reasons":["not_applicable_to_evaluator_kind","insufficient_probe_cells"]},
+    {"probe_id":"one_token_fool","required":false,"skip_reasons":["requires_labelled_adversarial_cells","insufficient_probe_cells"]}
+  ]
+}

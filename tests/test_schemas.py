@@ -47,7 +47,6 @@ KNOWN_ORPHAN_ALLOWLIST: frozenset[str] = frozenset(
         # Execution sub-schemas for internal modes.
         "execution/best_config_response_schema.json",
         "execution/dataset_storage_schema.json",
-        "execution/execution_mode_schema.json",
         "execution/hybrid_session_schema.json",
         "execution/saas_execution_schema.json",
         "execution/service_registration_schema.json",
@@ -502,6 +501,7 @@ class TestRequiredSchemas:
         assert (
             schemas_dir / "projects" / "project_retention_policy_update_request_schema.json"
         ).exists()
+
 
     def test_project_membership_schema_exists(self, schemas_dir):
         assert (
@@ -1235,3 +1235,70 @@ class TestObjectiveSchemaContracts:
             "Unresolvable" in error or "Validation error:" in error
             for error in errors
         )
+
+
+class TestProjectRetentionPolicyResponseRequiredness:
+    """#331: the retention-policy response under-required 2 of 8 policy fields and
+    carried `default`s on the other 6, unlike its rate-limit sibling which requires
+    all 4 of its policy fields. Backend's ``_normalize_retention_policy``
+    (`src/services/project_service.py` in the backend repo) unconditionally fills all 8
+    fields (clamped to a default when absent), so the response contract can — and
+    should — require all 8 and drop the response-schema `default`s (defaults belong
+    on the update-request schema, not the resource response).
+    """
+
+    @staticmethod
+    def _full_retention_payload() -> dict[str, object]:
+        return {
+            "tenant_id": "tenant_123",
+            "project_id": "project_123",
+            "updated_at": None,
+            "updated_by": None,
+            "policy": {
+                "export_artifact_retention_days": 30,
+                "materialized_export_retention_days": 7,
+                "trace_retention_days": 30,
+                "dataset_retention_days": 30,
+                "dataset_storage_limit_bytes": 5368709120,
+                "observability_ingest_rpm": 600,
+                "inline_payload_max_bytes": 262144,
+                "payload_max_bytes": 10485760,
+            },
+        }
+
+    def test_full_backend_shaped_payload_validates(self):
+        validator = SchemaValidator()
+        errors = validator.validate_json(
+            self._full_retention_payload(), "project_retention_policy_schema"
+        )
+        assert errors == []
+
+    @pytest.mark.parametrize(
+        "missing_field",
+        [
+            "trace_retention_days",
+            "dataset_retention_days",
+            "dataset_storage_limit_bytes",
+            "observability_ingest_rpm",
+            "inline_payload_max_bytes",
+            "payload_max_bytes",
+        ],
+    )
+    def test_response_missing_a_previously_optional_field_now_fails(self, missing_field):
+        validator = SchemaValidator()
+        payload = self._full_retention_payload()
+        del payload["policy"][missing_field]
+        errors = validator.validate_json(payload, "project_retention_policy_schema")
+        assert errors, f"expected a validation error when policy omits {missing_field}"
+
+    def test_response_schema_requires_all_eight_policy_fields_and_drops_defaults(self):
+        with open(
+            get_schemas_dir() / "projects" / "project_retention_policy_schema.json",
+            encoding="utf-8",
+        ) as handle:
+            schema = json.load(handle)
+        policy_schema = schema["properties"]["policy"]
+        assert set(policy_schema["required"]) == set(policy_schema["properties"].keys())
+        for field_schema in policy_schema["properties"].values():
+            assert "default" not in field_schema
+

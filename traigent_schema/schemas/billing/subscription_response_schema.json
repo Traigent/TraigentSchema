@@ -38,6 +38,12 @@
           "type": ["string", "null"],
           "enum": ["active", "canceled", "past_due", "paused", "trialing", null]
         },
+        "source": {
+          "type": "string",
+          "enum": ["paddle", "aws_marketplace"],
+          "default": "paddle",
+          "description": "Billing channel that owns this subscription. Additive; absent means paddle."
+        },
         "plan_tier": {
           "type": ["string", "null"],
           "enum": ["hobby", "pro", "enterprise", "free", "individual", "team", null]

@@ -17,6 +17,12 @@ Example:
 import importlib
 
 from traigent_schema.analytics_validators import AnalyticsValidator
+from traigent_schema.content_identity import (
+    DATASET_VERSION_CONTENT_DIGEST_DOMAIN,
+    EVALUATOR_JUDGE_CONFIG_DIGEST_DOMAIN,
+    compute_dataset_version_content_digest,
+    compute_judge_config_digest,
+)
 from traigent_schema.invariants import (
     InvariantComparisonBoundError,
     InvariantDeclarationError,
@@ -46,8 +52,13 @@ _CERTIFICATION_EXPORTS = frozenset(
         "ClientCertificateProjection",
         "ClientCoAttestationContext",
         "derive_client_key_ref",
+        "PROCESS_RECORD_ERROR_CODES",
+        "ProcessRecordVerificationContext",
+        "ProcessRecordVerificationError",
+        "ProcessRecordVerificationResult",
         "RelyingPartyPolicy",
         "RelyingPartyVerificationError",
+        "TrustAnchorKeyV1",
         "VerificationContext",
         "VerificationError",
         "VerificationResult",
@@ -55,6 +66,7 @@ _CERTIFICATION_EXPORTS = frozenset(
         "verify_agent_certificate",
         "verify_certificate",
         "verify_certificate_with_materials",
+        "verify_process_record_certificate",
         "prepare_client_co_attestation",
     }
 )
@@ -80,6 +92,10 @@ def __getattr__(name: str) -> object:
 # of ``__all__`` to preserve the root package's lazy certification import boundary.
 __all__ = [
     "AnalyticsValidator",
+    "DATASET_VERSION_CONTENT_DIGEST_DOMAIN",
+    "EVALUATOR_JUDGE_CONFIG_DIGEST_DOMAIN",
+    "compute_dataset_version_content_digest",
+    "compute_judge_config_digest",
     "SchemaDependencyError",
     "InvariantComparisonBoundError",
     "InvariantDeclarationError",

@@ -1,0 +1,8 @@
+{
+  "schema_version": "traigent.process_definition_document.v1",
+  "definition_id": "traigent.process_definition.asap.v1",
+  "definition_version": "1.0.0",
+  "expected_steps": ["prepare", "evaluate", "aggregate", "select", "finalize"],
+  "stream_ids": ["decision_stream", "receipt_event_stream", "transition_stream"],
+  "canonicalization": "jcs_v1"
+}

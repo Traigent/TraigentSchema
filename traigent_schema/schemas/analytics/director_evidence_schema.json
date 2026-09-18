@@ -1,0 +1,226 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/director_evidence_schema.json",
+  "title": "Director Evidence (v2)",
+  "description": "Content-free, coarsened evidence for one exact experiment run, read by the Director with a restricted Director key. Exactly one of three branches: available (A), ordinary abstain (B), privacy abstain (C). Suppressed properties are absent, never null. G1 contracts §2. payload_version carries the major only; enum additions are a major bump (G1 v0.6 F5).",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/branch_available"
+    },
+    {
+      "$ref": "#/definitions/branch_abstain"
+    },
+    {
+      "$ref": "#/definitions/branch_privacy_abstain"
+    }
+  ],
+  "definitions": {
+    "payload_version": {
+      "type": "string",
+      "const": "director_evidence.v2"
+    },
+    "run_status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "cancelled",
+        "in_progress",
+        "unknown"
+      ]
+    },
+    "provenance": {
+      "type": "string",
+      "enum": [
+        "match",
+        "mismatch",
+        "unknown"
+      ]
+    },
+    "completed_trials": {
+      "type": "string",
+      "enum": [
+        "3-9",
+        "10+"
+      ]
+    },
+    "recorded_observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bucket",
+        "completeness"
+      ],
+      "properties": {
+        "bucket": {
+          "type": "string",
+          "enum": [
+            "0",
+            "1-9",
+            "10-99",
+            "100+"
+          ]
+        },
+        "completeness": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "mean_quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pct_bucket"
+      ],
+      "properties": {
+        "pct_bucket": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "multipleOf": 5
+        }
+      }
+    },
+    "nonzero_cost": {
+      "type": "string",
+      "enum": [
+        "none",
+        "some",
+        "most",
+        "all",
+        "unknown"
+      ]
+    },
+    "age": {
+      "type": "string",
+      "enum": [
+        "fresh",
+        "stale"
+      ]
+    },
+    "ordinary_abstain_reason": {
+      "type": "string",
+      "enum": [
+        "run_status_unknown",
+        "run_not_terminal",
+        "run_not_completed",
+        "no_completed_trials",
+        "too_few_trials",
+        "metric_not_declared",
+        "metric_ambiguous",
+        "metric_not_normalized",
+        "metric_incomplete_coverage"
+      ]
+    },
+    "branch_available": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_version",
+        "evidence_available",
+        "run_status",
+        "provenance",
+        "completed_trials",
+        "recorded_observations",
+        "mean_quality",
+        "nonzero_cost",
+        "age"
+      ],
+      "properties": {
+        "payload_version": {
+          "$ref": "#/definitions/payload_version"
+        },
+        "evidence_available": {
+          "type": "boolean",
+          "const": true
+        },
+        "run_status": {
+          "type": "string",
+          "const": "completed"
+        },
+        "provenance": {
+          "$ref": "#/definitions/provenance"
+        },
+        "completed_trials": {
+          "type": "string",
+          "enum": [
+            "3-9",
+            "10+"
+          ]
+        },
+        "recorded_observations": {
+          "$ref": "#/definitions/recorded_observations"
+        },
+        "mean_quality": {
+          "$ref": "#/definitions/mean_quality"
+        },
+        "nonzero_cost": {
+          "$ref": "#/definitions/nonzero_cost"
+        },
+        "age": {
+          "$ref": "#/definitions/age"
+        }
+      }
+    },
+    "branch_abstain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_version",
+        "evidence_available",
+        "abstain_reason",
+        "run_status",
+        "provenance"
+      ],
+      "properties": {
+        "payload_version": {
+          "$ref": "#/definitions/payload_version"
+        },
+        "evidence_available": {
+          "type": "boolean",
+          "const": false
+        },
+        "abstain_reason": {
+          "$ref": "#/definitions/ordinary_abstain_reason"
+        },
+        "run_status": {
+          "$ref": "#/definitions/run_status"
+        },
+        "provenance": {
+          "$ref": "#/definitions/provenance"
+        }
+      }
+    },
+    "branch_privacy_abstain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_version",
+        "evidence_available",
+        "abstain_reason",
+        "run_status"
+      ],
+      "properties": {
+        "payload_version": {
+          "$ref": "#/definitions/payload_version"
+        },
+        "evidence_available": {
+          "type": "boolean",
+          "const": false
+        },
+        "abstain_reason": {
+          "type": "string",
+          "const": "privacy_mode"
+        },
+        "run_status": {
+          "$ref": "#/definitions/run_status"
+        }
+      }
+    }
+  }
+}

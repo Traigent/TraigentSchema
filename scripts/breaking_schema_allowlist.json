@@ -2,6 +2,63 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "projects/project_retention_policy_schema.json",
+      "rule": "required",
+      "reason": "Backend's _normalize_retention_policy (src/services/project_service.py in the backend repo) unconditionally clamps and fills all 8 policy fields on every GET/PATCH response, so none of them can actually be absent; this promotes the remaining 6 into required[] to match the rate-limit sibling (project_rate_limit_policy_schema.json), which already requires all 4 of its policy fields. TraigentSchema issue #331. Response defaults belong on the update-request schema, not the resource response, so the response-side `default`s are dropped in the same change.",
+      "version": "6.1.0",
+      "pr": "#331",
+      "findings": [
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "dataset_retention_days",
+          "old": false,
+          "new": true,
+          "fingerprint": "60cb91d7a16dd66941236dfe8174b15871cf5592d9e42be862c7eee874f091e1"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "dataset_storage_limit_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "a40db612c8c379b1d304b080ff47e8bee7853936a9730f854bd59d7dc4eb5417"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "inline_payload_max_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "f7e1495634bc114c5685c640994f74c1a277452e4878be0e305f2ef42de94f64"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "observability_ingest_rpm",
+          "old": false,
+          "new": true,
+          "fingerprint": "14d7870fe7716316ee3ec6ff7f232c3cd0a32a257a6175a1e450e94c8f062397"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "payload_max_bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "36f63937a4c66b073f917cd8e00e4c699e6d9b5d5fcbe472fe6caf91e14b87ff"
+        },
+        {
+          "pointer": "#/properties/policy",
+          "role": "conservative",
+          "subject": "trace_retention_days",
+          "old": false,
+          "new": true,
+          "fingerprint": "d57e238b5902799a9f0ab8ac59e4ce06d888c9215d0f23fb22ee0307eaeb0d4b"
+        }
+      ]
+    },
+    {
       "file": "certification/certification_endpoints_v0.json",
       "rule": "allOf_branch_count_changed",
       "reason": "The retrieval response intentionally removes a duplicate allOf wrapper and reuses the canonical SealStatementV0. That definition still const-pins decision_stream to empty_sealed, receipt_event_stream to sealed, and transition_stream to sealed, while its root-commitment conditions remain enforced. This acknowledgement is scoped only to this exact pointer and fingerprint.",
@@ -24,7 +81,7 @@
       "pointer_prefix": "#/properties/relying_party_policy/properties/verifier_bindings",
       "reason": "The materials policy is intentionally tightened to the runtime's exact ordered B1/G1 verifier contract, so omitted or reversed bindings fail closed instead of describing a policy the verifier cannot execute. This is an intentional Agent Certificate v0 correction reviewed under owner-authorized ChangeSession cs_3e01e0344f7b19eb and parity acknowledgement cs_a3a1c535f699b367; the exact schema boundary is covered here.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440"
     },
     {
       "file": "certification/agent_certificate_v0_schema.json",
@@ -1114,7 +1171,7 @@
       "rule": "allOf_branch_count_changed",
       "reason": "Adds the inverse co-attestation condition so issuer-only B1 and zero-claim certificates cannot carry client material, while G1 and tier-1 certificates retain the required co-attestation path. This deliberate Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
@@ -1165,7 +1222,7 @@
       "rule": "pattern",
       "reason": "Narrows every envelope client-key reference to the deterministic project-scoped ckr form, preventing caller-selected or ambiguous identifiers from entering G1 bindings, co-attestation, and key-ring projections. This intentional content-free Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
@@ -1206,7 +1263,7 @@
       "rule": "property_added",
       "reason": "Adds the v0 scope line, G1 build-session/client-key bindings, rendered claim sentence, and public project_ref needed to make the certificate projection self-describing, content-free, and verifiable without reconstructing identity. These deliberate fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/certificate_scope_line",
@@ -1255,7 +1312,7 @@
       "rule": "pattern",
       "reason": "Uses the canonical ckr client-key reference in the G1 payload rather than the old unconstrained opaque reference, binding the declaration to the project-scoped verification key. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/6/properties/params/properties/client_key_ref",
@@ -1272,7 +1329,7 @@
       "rule": "property_added",
       "reason": "Adds build_session_ref and client_key_ref to the G1 payload so the emitted client declaration is bound to the named session and derived verification key. These fields are deliberate v0 protocol additions reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/5/properties/params/properties/build_session_ref",
@@ -1297,7 +1354,7 @@
       "rule": "required",
       "reason": "Requires both session and derived client-key bindings for G1 so an incomplete declaration cannot pass as a valid v0 claim. This intentional fail-closed Certified Agent v0 change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/5/properties/params",
@@ -1322,7 +1379,7 @@
       "rule": "pattern",
       "reason": "Enforces the deterministic project-scoped ckr client-key reference wherever the printable claim family carries a client binding, eliminating ambiguous opaque identifiers. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
@@ -1339,7 +1396,7 @@
       "rule": "property_added",
       "reason": "Adds the G1 session/key bindings and renderer-produced sentence required for a closed, content-free claim whose text and identity can be checked from the v0 projection. These deliberate Certified Agent v0 fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/0/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
@@ -1372,7 +1429,7 @@
       "rule": "required",
       "reason": "Requires rendered_text and the G1 session/key bindings so every emitted claim is structurally complete and cannot omit the load-bearing declaration context. This intentional fail-closed Certified Agent v0 change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/oneOf/0",
@@ -1405,7 +1462,7 @@
       "rule": "allOf_branch_count_changed",
       "reason": "The nested claim branch count changes because v0 now admits the issuer-verified B1 path alongside G1 while retaining explicit abstention branches; positional branch drift is an intentional union expansion, not an accidental removal. It was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
@@ -1422,7 +1479,7 @@
       "rule": "pattern",
       "reason": "Applies the deterministic ckr client-key reference to co-attestation and embedded unsigned-manifest projections, so signatures bind the same project-scoped key identifier everywhere. This intentional Certified Agent v0 hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/co_attestation/properties/client_key_ref",
@@ -1455,7 +1512,7 @@
       "rule": "allOf_branch_count_changed",
       "reason": "Expands the manifest's claim branch to represent the admitted B1 issuer-verification case while preserving the fixed G1 and abstention shapes. The conservative branch-count finding is therefore an intentional Certified Agent v0 union change reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/claims/items/allOf",
@@ -1472,7 +1529,7 @@
       "rule": "pattern",
       "reason": "Uses the canonical deterministic ckr reference in the signed manifest's client-key and key-ring sections, preventing a manifest from naming an unbound or caller-selected key. This intentional Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/6/properties/params/properties/client_key_ref",
@@ -1497,7 +1554,7 @@
       "rule": "property_added",
       "reason": "Adds G1 session/key bindings, rendered claim text, and project_ref to the signed manifest projection so the issuer/client signatures cover the complete v0 declaration context. These deliberate Certified Agent v0 fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/claims/items/properties/payload/oneOf/5/properties/params/properties/build_session_ref",
@@ -1538,7 +1595,7 @@
       "rule": "required",
       "reason": "Requires the new G1 declaration context and project scope in the signed manifest so incomplete or ambiguously scoped certificates fail closed before signature verification. This intentional Certified Agent v0 tightening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/allOf/0/properties/claims/items",
@@ -1579,7 +1636,7 @@
       "rule": "maxItems",
       "reason": "Raises the verifier-binding maximum to exactly two because the v0 discovery bundle now publishes the ordered B1 and G1 verifier contract together. This intentional materials-policy change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/relying_party_policy/properties/verifier_bindings",
@@ -1596,7 +1653,7 @@
       "rule": "pattern",
       "reason": "Constrains the discovered client key to the canonical project-scoped ckr reference, matching certificate and manifest bindings and avoiding an ambiguous opaque key identifier. This intentional Certified Agent v0 materials hardening was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/properties/client/properties/key_ref",
@@ -1630,7 +1687,7 @@
       "rule": "allOf_branch_count_changed",
       "reason": "The retrieval response inherits the deliberate v0 claim and co-attestation conditional branches, including the issuer-only B1 rule and G1/tier-1 requirement. This is an intentional reflected contract change reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/claims/items/allOf",
@@ -1680,7 +1737,7 @@
       "rule": "maxItems",
       "reason": "The verification-materials retrieval endpoint now returns the fixed two-entry ordered B1/G1 verifier-binding contract, so its maximum intentionally matches the materials schema. This deliberate Certified Agent v0 policy change was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/verification-materials/get/responses/200/content/application/json/schema/properties/relying_party_policy/properties/verifier_bindings",
@@ -1714,7 +1771,7 @@
       "rule": "pattern",
       "reason": "Constrains bind-G1 and client-key management request references to the canonical deterministic ckr form, aligning endpoint inputs with the signed certificate and discovery materials. This intentional Certified Agent v0 binding was reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/certificate-build-sessions/bind-g1/post/requestBody/content/application/json/schema/properties/client_key_ref",
@@ -1747,7 +1804,7 @@
       "rule": "property_added",
       "reason": "The signed-certificate retrieval endpoint intentionally exposes the complete content-free v0 projection, including scope, G1 bindings, rendered claims, and project scope, so consumers verify exactly what was signed. These reflected protocol fields were reviewed under cs_3e01e0344f7b19eb and cs_a3a1c535f699b367 on the pending g1-v2 campaign.",
       "version": "5.8.0",
-      "pr": "pending (branch agent/cert-v0-schema-g1-v2-20260828)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/440",
       "findings": [
         {
           "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/certificate_scope_line",
@@ -2025,6 +2082,646 @@
       "reason": "Promotion acknowledgement for release 5.8.0 (PR #448). Paired with the oneOf_added acknowledgement above for the same two pointers: the gate reports 'type no longer allows object' because it does not resolve oneOf branches back to member types; the object (MeasureResults) branch is unchanged and an array (ExampleMetrics list) branch is now also accepted. Same PR #437 change, same evidence, reached through this endpoint file's $ref to session_submit_results_request_schema.json. Exact identities and fingerprints only.",
       "version": "5.8.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/448"
+    },
+    {
+      "file": "billing/subscription_response_schema.json",
+      "rule": "property_added",
+      "reason": "Adds the optional 'source' discriminator (paddle | aws_marketplace) so a subscription records which commerce channel created it. AWS Marketplace purchases carry no Paddle identifiers, so without this the backend cannot tell the two apart and the shared entitlement predicate cannot remain the single chokepoint that governs access. Flagged BREAKING only because this response object closes additionalProperties, so a strict response validator would reject the newly emitted member. The property is optional and appears in no 'required' array, and no in-repo consumer validates it: the generated Python surface types the payload as an opaque mapping (traigent/generated/schema_types.py:1287 on origin/develop), and TypeScript types are compile-time only. Noted for whoever regenerates the SDKs: the generated JS type SubscriptionResponseSchema is a closed exact shape with no index signature, unlike its siblings, so traigent-js must regenerate before it can carry the member. That regeneration is tracked as SDK parity work rather than silently assumed. Reviewed under spine trail st_b6ed75e9c728.",
+      "version": "5.8.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/452",
+      "findings": [
+        {
+          "pointer": "#/properties/data/oneOf/1/properties/source",
+          "role": "response",
+          "subject": "source",
+          "old": false,
+          "new": true,
+          "fingerprint": "a72ea730b1fe6489637dd86f3ff06e07bddf16d3d81736c589ec9e980f32b18c"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_schema.json",
+      "rule": "property_added",
+      "reason": "current_version is a new, optional, nullable property (default null) added under a closed additionalProperties:false object as part of the R3 dataset-version content-identity contract. It carries a DatasetVersionV1 record via cross-file $ref for callers that want a content-addressable snapshot of a dataset revision. Old readers that VALIDATE against the previous schema reject a payload carrying this key (closed object); producers MUST OMIT the key -- never emit null -- until every consumer has upgraded to a schema version that knows it; readers that ignore unknown keys are unaffected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/468",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version",
+          "role": "conservative",
+          "subject": "current_version",
+          "old": false,
+          "new": true,
+          "fingerprint": "9068d1f9ba28a3df199ef85e09c75e2c592672f9320e41c76cbfb34966b8798c"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_schema.json",
+      "rule": "property_removed",
+      "reason": "Reverts a same-release placement error: #468 (merged 2026-09-13T20:58Z at 335d8fc, version Unreleased) attached the evaluator version to the datasets evaluator_config resource, which is NOT the evaluator the build uses; the field moves to observability/evaluator_definition_schema.json (EvaluatorDefinition, whose persisted judge_config is the digest preimage). No producer has ever emitted it and no consumer reads it (both were merged minutes earlier, unreleased, and the Backend/SDK pins have not been bumped); acknowledged rather than silenced so the removal is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/properties/evaluator_config/properties/current_version",
+          "role": "conservative",
+          "subject": "current_version",
+          "old": true,
+          "new": false,
+          "fingerprint": "33bd21b6ed42fe6235aa3bc353aa96aa456e664a4d298cfcfb8587eb01767983"
+        }
+      ]
+    },
+    {
+      "file": "datasets/evaluator_config_schema.json",
+      "rule": "property_removed",
+      "reason": "Reverts a same-release placement error: #468 (merged 2026-09-13T20:58Z at 335d8fc, version Unreleased) attached the evaluator version to the datasets evaluator_config resource, which is NOT the evaluator the build uses; the field moves to observability/evaluator_definition_schema.json (EvaluatorDefinition, whose persisted judge_config is the digest preimage). No producer has ever emitted it and no consumer reads it (both were merged minutes earlier, unreleased, and the Backend/SDK pins have not been bumped); acknowledged rather than silenced so the removal is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version",
+          "role": "conservative",
+          "subject": "current_version",
+          "old": true,
+          "new": false,
+          "fingerprint": "11b3659afc1e4e702603c4c09291959cf5b315bc9a6887a03e0d6f5142db8eee"
+        }
+      ]
+    },
+    {
+      "file": "datasets/evaluator_version_schema.json",
+      "rule": "file_removed",
+      "reason": "Same correction: the file moves to observability/evaluator_version_schema.json (git rename) next to the resource it versions; identical $id family change is intentional and no consumer resolves the old path (unreleased, no pins bumped).",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2a53674d8b8cb0c538ba12ecf377c7c0851eadd35deb0bfdeb10e9251a885577"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_schema.json",
+      "rule": "property_added",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468: the real payload (src/routes/dataset_version_routes.py) carries version_label (required, unique per dataset), example_ids, example_count, description, metadata, created_by, created_at and no integer revision; revision becomes optional (row-stored versions only), and the immutable content_snapshot plus content_digest_domain are added so the digest is recomputable offline. The Backend has returned dataset-version payloads since #273 (src/routes/dataset_version_routes.py), stored in dataset metadata and never validated against this schema; #468 described them with a guessed shape. This correction makes the schema match that payload. No producer emits dataset.current_version or the new content_digest / content_digest_domain / content_snapshot fields yet, and no consumer reads them; Unreleased. Acknowledged rather than silenced so the correction is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/content_digest_domain",
+          "role": "conservative",
+          "subject": "content_digest_domain",
+          "old": false,
+          "new": true,
+          "fingerprint": "eb484a64cabf1b79d5e8ffee8effea998f53a6f9392688ccdca1e71ad5c84456"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/content_snapshot",
+          "role": "conservative",
+          "subject": "content_snapshot",
+          "old": false,
+          "new": true,
+          "fingerprint": "c0643a7b241bb636404ab2941d1cfd66cdf6efdf90b8487c3d46f37451b2e761"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/created_by",
+          "role": "conservative",
+          "subject": "created_by",
+          "old": false,
+          "new": true,
+          "fingerprint": "08b79ff1f12dfd4ec6ce23274f0b2d63012004dfd5b62650412a70ca60b4efef"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/description",
+          "role": "conservative",
+          "subject": "description",
+          "old": false,
+          "new": true,
+          "fingerprint": "253bcd945d862c4bf5094fc5250adb9b98bfb24eccaf1f36924d755ce03c2dfa"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/example_count",
+          "role": "conservative",
+          "subject": "example_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "5a5247a3921363744cec6b2b6f839edf281d49fe1debda0353f0496f3375b6a2"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/example_ids",
+          "role": "conservative",
+          "subject": "example_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "a37190faa125ec22d6aeb76bc713e23cf003bf00f14889133e4133018d011a2e"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/metadata",
+          "role": "conservative",
+          "subject": "metadata",
+          "old": false,
+          "new": true,
+          "fingerprint": "28eea09fd78051b542050ccb5d783291b293b1b01a472257876d78761a92163e"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0/properties/version_label",
+          "role": "conservative",
+          "subject": "version_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "f444526e529adfae3ea0316c5579b521a64b98ba6a2fec193d749f1dabb58ffd"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_schema.json",
+      "rule": "required",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468: created_at, example_count, example_ids and version_label become required (matching what the Backend's dataset-version payload always carries), and the previously-required integer revision becomes optional (row-stored versions only). The Backend has returned dataset-version payloads since #273 (src/routes/dataset_version_routes.py), stored in dataset metadata and never validated against this schema; #468 described them with a guessed shape. This correction makes the schema match that payload. No producer emits dataset.current_version or the new content_digest / content_digest_domain / content_snapshot fields yet, and no consumer reads them; Unreleased. Acknowledged rather than silenced so the correction is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "created_at",
+          "old": false,
+          "new": true,
+          "fingerprint": "2cb3697639c829d27c19e8f1fb7c0ccef1f1978c4b67991fbc4996ae1980b970"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "example_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "5e9429cd0bdf568a8826015d9613bb72a5f6d30dbd6c9732ce929f26faf333dd"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "example_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "5e9d3c311f5cd046fc3111ffe36721e8b538347109cfae320504072b425a8413"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "version_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "a4a0dab3dfc718480784ae947f23b4a334333f153cd60ab6300b89c002c883fb"
+        },
+        {
+          "pointer": "#/properties/current_version/oneOf/0",
+          "role": "conservative",
+          "subject": "revision",
+          "old": true,
+          "new": false,
+          "fingerprint": "51fe3b72de81d6b24fcbc809e065145df38635d2c3849c49c2317033b186d902"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_version_schema.json",
+      "rule": "property_added",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468: the real payload (src/routes/dataset_version_routes.py) carries version_label (required, unique per dataset), example_ids, example_count, description, metadata, created_by, created_at and no integer revision; revision becomes optional (row-stored versions only), and the immutable content_snapshot plus content_digest_domain are added so the digest is recomputable offline. The Backend has returned dataset-version payloads since #273 (src/routes/dataset_version_routes.py), stored in dataset metadata and never validated against this schema; #468 described them with a guessed shape. This correction makes the schema match that payload. No producer emits dataset.current_version or the new content_digest / content_digest_domain / content_snapshot fields yet, and no consumer reads them; Unreleased. Acknowledged rather than silenced so the correction is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/content_digest_domain",
+          "role": "conservative",
+          "subject": "content_digest_domain",
+          "old": false,
+          "new": true,
+          "fingerprint": "0bc6c753c392e8ee319736689c7ef058f3612e87c866961a462db6de6a948472"
+        },
+        {
+          "pointer": "#/allOf/0/properties/content_snapshot",
+          "role": "conservative",
+          "subject": "content_snapshot",
+          "old": false,
+          "new": true,
+          "fingerprint": "dc94487bf8320f3f204dd995b39611919a5422c3475be9e5706d35b2f0cc98cd"
+        },
+        {
+          "pointer": "#/allOf/0/properties/created_by",
+          "role": "conservative",
+          "subject": "created_by",
+          "old": false,
+          "new": true,
+          "fingerprint": "a550fe202d298534a48c614b574f7b9416063ddd565379e1a6c87960bce73719"
+        },
+        {
+          "pointer": "#/allOf/0/properties/description",
+          "role": "conservative",
+          "subject": "description",
+          "old": false,
+          "new": true,
+          "fingerprint": "1bf3d730a5418b10227bfcae09fd81ee6542b4922f6b10f9eeb6b6c85ff35d7a"
+        },
+        {
+          "pointer": "#/allOf/0/properties/example_count",
+          "role": "conservative",
+          "subject": "example_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "32bfc233417253a4d3955567ae56881975f91760c8469cf1af01e1c620084692"
+        },
+        {
+          "pointer": "#/allOf/0/properties/example_ids",
+          "role": "conservative",
+          "subject": "example_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "3726de18e3a03f233b747aa30c308810afa2accb63b753d5307cbf0965c67e7d"
+        },
+        {
+          "pointer": "#/allOf/0/properties/metadata",
+          "role": "conservative",
+          "subject": "metadata",
+          "old": false,
+          "new": true,
+          "fingerprint": "a9d2719e6d820d98b5984ce8d739ae8333cc868ebacd59b64bd26e1a30ce2d2a"
+        },
+        {
+          "pointer": "#/allOf/0/properties/version_label",
+          "role": "conservative",
+          "subject": "version_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "978e34afb9898fa89d4bed12c4f943890527cd2e906606bbae654c84af4de998"
+        }
+      ]
+    },
+    {
+      "file": "datasets/dataset_version_schema.json",
+      "rule": "required",
+      "reason": "Corrects the DatasetVersionV1 shape merged prematurely in #468: created_at, example_count, example_ids and version_label become required (matching what the Backend's dataset-version payload always carries), and the previously-required integer revision becomes optional (row-stored versions only). The Backend has returned dataset-version payloads since #273 (src/routes/dataset_version_routes.py), stored in dataset metadata and never validated against this schema; #468 described them with a guessed shape. This correction makes the schema match that payload. No producer emits dataset.current_version or the new content_digest / content_digest_domain / content_snapshot fields yet, and no consumer reads them; Unreleased. Acknowledged rather than silenced so the correction is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/469",
+      "findings": [
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "created_at",
+          "old": false,
+          "new": true,
+          "fingerprint": "d550a129c682e163ffcddea4639684f3dd043eadb247d53a4f85f4548f7cb61f"
+        },
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "example_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "68a6936dd1855a3c1983e2e4a9d3988d734258dd12c7a8144061f5a999bf27c1"
+        },
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "example_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "d490b60eab1d94a17ae9d62688d39f6a1feace549c4034200d1a75f8fd227b77"
+        },
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "version_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "e4c529f81cd25ba3df2f96add5270445e8dbf8f7d2604b24451d495d89d77adb"
+        },
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "revision",
+          "old": true,
+          "new": false,
+          "fingerprint": "e0ae21a6bcab9b580258db9ae65c70db5782981faeecf475e5ae8642ae0136a2"
+        }
+      ]
+    },
+    {
+      "file": "execution/execution_mode_schema.json",
+      "rule": "file_removed",
+      "reason": "Owner decision on Traigent#2271: no deployed clients exist for the legacy execution_mode selector, so it is REMOVED rather than deprecated. This standalone schema was never $ref'd from the reachable request/response graph (mep/sdk_tuning/planned_projects roots) or from any live endpoint -- it was allowlisted as a structural orphan in tests/test_schemas.py and exercised only by its own now-removed direct-load tests -- so deleting it drops no live contract path.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7db85db755207fc9e42e814f9daebeb5e692e7cb23e54f4c32c3e3b743db9c43"
+        }
+      ]
+    },
+    {
+      "file": "optimization/hybrid_session_create_request_schema.json",
+      "rule": "allOf_added",
+      "reason": "Owner decision on Traigent#2271: the flat legacy execution_mode selector and flat hybrid_api_* keys are removed, not deprecated, because no deployed client exists. additionalProperties stayed open on this request object, so removing the (never-declared-here) properties alone would not reject them; this allOf adds an explicit not/anyOf that fails closed on execution_mode or any flat hybrid_api_* key. algorithm/offline/hybrid_api_options (nested) are unaffected and keep validating.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "51273aca3602101dfa9a856301170851e1d7783cd28d29732438a9d5789c0422"
+        }
+      ]
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_added",
+      "reason": "Same Traigent#2271 rejection as the hybrid_session_create_request_schema.json entry above, applied to POST /api/v1/hybrid/sessions's inline request body copy: execution_mode and flat hybrid_api_* keys now fail closed via an added not/anyOf allOf branch instead of validating silently under additionalProperties:true.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "cc03ea3b65a56a86c1406f6d5a9930b379ebb78e285d37ae223cd08569749d61"
+        }
+      ]
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "reason": "POST /api/v1/sessions (SDK session create), Traigent#2271: the deprecated free-form execution_mode property is deleted and a new allOf branch is added that explicitly rejects execution_mode and every flat hybrid_api_* key (endpoint, transport, transport_type, batch_size, batch_parallelism, keep_alive, heartbeat_interval, timeout, auth_header, auto_discover_tvars, tunable_id). This is an intentional narrowing, not an accidental one: no deployed client sends these per the owner's Traigent#2271 decision, and algorithm/offline/hybrid_api_options remain the sole canonical selectors.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 9,
+          "new": 10,
+          "fingerprint": "745c9823007df02f4616733b0f27458bdac660046a0e1bd13aabb6b3447bb730"
+        }
+      ]
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_removed",
+      "reason": "Traigent#2271: x-preferred-values and x-deprecated-values were declared solely to document the now-removed OptimizationExecutionMode/ExecutionMode enums' local/edge_analytics migration notes. With those enums deleted, tests/test_x_extensions_governance.py's stale-registry-entry ratchet (test_meta_schema_has_no_stale_unused_entries) fails if the two keywords stay registered with zero remaining usage, so they are removed from the meta-schema together with their only callers.",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/470",
+      "findings": [
+        {
+          "pointer": "#/properties/x-deprecated-values",
+          "role": "conservative",
+          "subject": "x-deprecated-values",
+          "old": true,
+          "new": false,
+          "fingerprint": "e947b0feb37f166df0312cfcd80632ea5ae56db2f7eb43f25e7c8da6e4d73cde"
+        },
+        {
+          "pointer": "#/properties/x-preferred-values",
+          "role": "conservative",
+          "subject": "x-preferred-values",
+          "old": true,
+          "new": false,
+          "fingerprint": "f29d854b9d88a91268f87fd416c1e66d27c8cabb52b9e4db9bea5bf1f143b80f"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "allOf_added",
+      "reason": "The conditional adds a director key type. For every pre-existing key type and for omitted key_type, the else branch restores exactly the previous minItems:1 on scopes/permissions and forbids the new resource_grants (not:{}). The accepted request set for existing clients is therefore unchanged. See test_item6f4_non_director_* in tests/test_director_evidence_contract.py for the differential proof (empty scopes/permissions rejected, resource_grants rejected, valid scopes+permissions and omitted scopes+permissions both still accepted, across user/service/admin/temporary/readonly/system/omitted key_type).",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "88679fc781f05d477e7cd36fcad5580b006950dfcd346da680a156c53cb0f77d"
+        }
+      ]
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts §4).",
+      "version": "6.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
+      "findings": [
+        {
+          "pointer": "#/properties/x-restricted-scopes",
+          "role": "conservative",
+          "subject": "x-restricted-scopes",
+          "old": false,
+          "new": true,
+          "fingerprint": "b74acba875af983a3ff9d9ad61c9ff2c2999b8f3ff4f54130b6d363cc3d74df9"
+        }
+      ]
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "property_added",
+      "reason": "dataset_label is a new optional, nullable member on ExperimentGroupOverview added to let the portal's agent+dataset history table show a human-readable dataset name (Benchmark.label) instead of an opaque canonical dataset_id or 'No dataset'. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key.",
+      "version": "Unreleased",
+      "pr": "#472",
+      "findings": [
+        {
+          "pointer": "#/properties/group/properties/dataset_label",
+          "role": "conservative",
+          "subject": "dataset_label",
+          "old": false,
+          "new": true,
+          "fingerprint": "4d0ca33534b1f02e6905415f2f886d539ead08e8b5df24bac4b6d56aa87c2925"
+        }
+      ]
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "maxLength",
+      "reason": "Tightens status (255 -> 64) and error_message (5000 -> 2000) to match the caps the backend already enforces at POST /api/v1/sessions/{session_id}/results (_validate_optional_string_field(data, \"status\", max_length=64) and MAX_TRIAL_ERROR_MESSAGE_LENGTH = 2_000 in src/services/traigent/terminal_outcome.py, both in TraigentBackend and both pre-existing, unrelated to this schema change). Before this fix the schema was looser than the backend for these two fields, the same too-loose-vs-backend bug class this PR (#454) fixed for the three new fields (summary_stats/execution_mode/execution_environment) on the same endpoint: a client validating a >64-char status or a >2000-char error_message against the schema saw it pass, then the live backend rejected it with 400 -- a false green on a submission the API would never accept. Tightening closes that gap instead of leaving it silently un-ported alongside the widening this PR already makes.",
+      "version": "Unreleased",
+      "pr": "#482",
+      "findings": [
+        {
+          "pointer": "#/properties/error_message",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "d07c7249100aa3214c246188c662290e0765ca91d65aa887cbe751f2b1a30677"
+        },
+        {
+          "pointer": "#/properties/status",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 255,
+          "new": 64,
+          "fingerprint": "fd99cb0e95d4ea834c399d4ca205ed4e95eec135f0a6f5ae2a0c5e0bb9ec754e"
+        }
+      ]
+    },
+    {
+      "file": "optimization/session_aggregation_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/selection",
+          "role": "conservative",
+          "subject": "selection",
+          "old": false,
+          "new": true,
+          "fingerprint": "03311a9c93e55d69eb17372d76edad959da83ad6298206244b30fbd2a4b05eff"
+        }
+      ],
+      "reason": "selection is a new OPTIONAL member of the closed SessionAggregationDTO (R3 selection receipt: records the SDK's selection decision and binds it to the session's own trials). The gate flags it under the bare-named-resource conservative heuristic because the old shape was additionalProperties:false and is echoed back in the finalize response. The Backend only echoes session_aggregation it persisted from the SDK's own finalize request, and no producer emits selection yet (Backend normalizer is R3 PR 2, Python SDK producer is PR 3), so a current SDK strictly validating the echo never receives the member; the SDK upgrade that sends selection ships together with the reader. Unreleased. Acknowledged rather than silenced so the widening of a closed shape is visible in the contract history.",
+      "version": "Unreleased",
+      "pr": "#491"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "endpoint_removed",
+      "pointer_prefix": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest",
+      "reason": "exportProjectFineTuningManifest was declared at a drifted path (/core-exports/fine-tuning.manifest) that no Backend route implements (verified at TraigentBackend origin/develop efe0074ecf4c: the only `fine-tuning.manifest` route is `src/routes/analytics_routes.py:287`, mounted under /analytics; `git log -S'core-exports/fine-tuning' -- src/routes/` finds no commit registering the old path) -- the real, shipped route lives on the analytics blueprint and is mounted at /analytics/exports/fine-tuning.manifest by the v1beta project-scoped registrar. This is a same-operation path correction (operationId, parameters, and response schema are unchanged), not a removal of working functionality: at the pinned Backend ref the drifted path is unrouted (a 404), and the project-scoped served route is `GET /api/v1beta/projects/<project_id>/analytics/exports/fine-tuning.manifest` (`src/routes/api_v1beta.py:68` registers analytics_bp project-scoped; obligation_matrix_report.txt:5127). It is still a contract-breaking path rename for anyone who coded against the declared path. The catalog carries x-asserted-against-backend:false and is pre-release, which is why this ships as a path fix rather than a major bump. TraigentSchema#272. Callers already use the served path: TraigentFrontend src/services/coreMetricsService.ts:509, Traigent traigent/core_metrics/client.py:228, traigent-js src/core-metrics/index.ts:223 (all at origin/develop, 2026-09-17); no client references the removed path, so this rename breaks no known caller -- a reviewed pre-release exception, not a claim that the declared interface had no dependents in principle.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/483",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e1a595ffbedfa68e6e4b0cf44aef23d1e9f3dd4f4ecd5a421d32a77feea63f40"
+        }
+      ]
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "unresolved_ref",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/jobs/{job_id}/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "76cb276221d5053ab17a9ecfdb9fbd189a7938a1ed51dc8732d31f784ba0d36f"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "72e61db380201d4c6427c95e4de75303ce3b536218698adb02a6b2acbaa755ab"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/dataset-quality/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7297114c36d51911f3e9580b1cdf25aeb62b6f8d0be178680086c5b38da51f10"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/scores/get/responses/200/content/application/json/schema/items",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3756bb13e970f8686efc4b111f36c166bcedc922da5671efd961c39ead929084"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "4ae0a9e1bbf02290ed827572d20fc4b75823ebaa9e39db5d2dfb7d5e555d1ef4"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c02955c9646e4ac2202df3cf5532a3206f8542ac49a02ccf3ac885743bb8f5ce"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt/post/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "82d8616101562b591201cf61775cd9dda1b6339fd0f6947ad6755d2ff4d4f9ba"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). No request/response-shape change; this changes schema identifiers. PR #485 (e100f2c) moved the $id of these seven analytics schemas from https://traigent.ai/schemas/analytics/<name>.json to https://schemas.traigent.ai/analytics/<name>_schema.json, the base that all but one of the package's identified schemas use. A consumer that resolves these seven schemas by their absolute $id must use the new identifier. On main, the BASE side of this promotion diff, the old $id makes analytics_endpoints.json's relative $ref (./<name>_schema.json) resolve to a URL that no schema declares, so the gate cannot load the base shape and fails closed with unresolved_ref on each of the seven request/response bodies. #485 itself did not trip this because analytics_endpoints.json was not in that PR's changed set; the promotion diff contains it because #471 (1ec76fe) added the director-evidence operation to the same file. Reviewed at promotion, and re-checked by an independent reviewer: each of the seven schema files is equal between origin/main and HEAD except its $id (in-memory JSON comparison); the endpoint file's $refs to them are unchanged; the gate's own registry reports seven UNRESOLVED on origin/main and seven RESOLVED on HEAD; no request or response body change is hidden behind this entry. Exact fingerprints, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/error_message",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "ef749583dca7218d9aaeac90537d150fe74d0cfdb3fd333ecc2d30503e29a34a"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/status",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 255,
+          "new": 64,
+          "fingerprint": "767b66eff0b0bd4e03ff1cebcfdde2c35357c64be5e41c9d712ca5bedff9a83a"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). This is PR #482's tightening of status (255 -> 64) and error_message (5000 -> 2000) seen through this endpoint file's $ref to session_submit_results_request_schema.json. #482 acknowledged it on the request schema file; the promotion diff reaches the same two fields through the results POST requestBody, so the pointers, and therefore the fingerprints, differ from #482's file-level entry and need their own exact entry. Same change, same evidence, re-verified at the promoted Backend revision e7a28b896: src/routes/traigent_session_routes.py:981-984 rejects a status longer than 64 characters and :986-992 rejects an error_message longer than MAX_TRIAL_ERROR_MESSAGE_LENGTH = 2_000 (src/services/traigent/terminal_outcome.py:18), both answered with 400. The schema was looser than the server; a payload that passed the old bound was already refused by the API. Exact fingerprints, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/finalize/post/responses/200/content/application/json/schema/properties/session_aggregation/properties/selection",
+          "role": "response",
+          "subject": "selection",
+          "old": false,
+          "new": true,
+          "fingerprint": "3c6dca4ae315ae44e774f469bc92f0d6dc6a4f71b9de342e311a18552c291f28"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). This is PR #491's new OPTIONAL selection member of the closed (additionalProperties:false) SessionAggregationDTO, the R3 selection receipt, seen through the finalize 200 response's session_aggregation property; #491's own entry covers the same widening on session_aggregation_schema.json. It is a real widening of a closed response shape, and a consumer can receive the member without having sent it: once a finalizing client has sent an accepted selection the Backend persists it; a later finalize that omits the rollup preserves and re-binds it (src/services/traigent/interactive_session_service.py:4820-4849 at e7a28b896) and echoes it (:6216-6282), as the live-PostgreSQL re-finalize test shows (tests/security/rls_live/test_session_selection_receipt_live.py:394-427: a retry that sends no rollup is answered with the accepted receipt); any reader of the stored run results sees it too. A validator built against the previous closed shape will therefore reject those responses for a session whose finalizing client sent a receipt; a well-formed client-sent rejected form stores nothing. Accepted at review because the member is optional, the only first-party producer is the Python SDK revision that also carries the reader (Traigent #2313), and it ships in the 6.x major line opened by #470's breaking removal (5.8.0 -> 6.0.0), which already ends compatibility promises to consumers pinned to the 5.x shapes. Mixed-version strict validators remain a known limitation, recorded here rather than silenced. Exact fingerprint, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
     }
   ]
 }

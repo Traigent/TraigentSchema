@@ -1,0 +1,2763 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/dataset_record_v1_schema.json",
+  "title": "Traigent Dataset Record Certificate v1",
+  "description": "Closed, content-free dataset-quality certificate contract (pillar 2). dataset_record_v1 is a separate contract family: it does not add identifiers or templates to the frozen Agent Certificate v0 claim-ID/template vocabulary and it modifies neither v0 nor Process Record V1. It binds the process record's already-verified unsigned manifest by digest -- the process record is the only join key across the four pillars -- and the bound bundle arrives as a SEPARATE verification input, never embedded. Direction of binding is dataset-record to process-record, never the reverse. The subject of this certificate IS the data, so composition and leakage coverage open a new, named, registered disclosure channel (item_count and per-cell counts) beyond what certificate_client_evidence_manifest_v0_schema.json's evaluation_dataset slot discloses; every other field is a const, an enum, a digest, or a derived non-semantic ref. The verifier MUST reject decoded booleans and floating-point values for every integer-valued field, even where a Draft-07 implementation would accept 1.0 as integer-compatible, and every declared integer maximum in this family is bounded below the fp2 JCS safe-integer ceiling (2**53 - 1).",
+  "definitions": {
+    "DatasetRecordDigestDomainRegistryV1": {
+      "description": "Normative fixed role domains for the dataset-record family. Every digest is SHA-256 over UTF8(the corresponding domain) || 0x00 || jcs_v1(the named projection with its self-digest and any stated outer signature excluded); the four derived-ref domains (dataset_ref, dataset_ref_item_set, corpus_ref, leakage_scope_ref) instead prefix a length-prefixed part list, as their own definitions state. Mirrors ProcessRecordDigestDomainRegistryV1 (process_record_v1_schema.json#/definitions/ProcessRecordDigestDomainRegistryV1); it does not extend it. This registry is CLOSED over the verifier's domain constants: every b\"traigent.dataset_record.*\" constant the verifier uses must appear here (sol round 1 P2 -- claim_support_rows was used but unregistered, which made the registry a partial list a reader could not rely on).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_leaf",
+        "item_set_root",
+        "cell_root",
+        "identity_root",
+        "taxonomy",
+        "method_registry",
+        "prereg",
+        "prereg_signature",
+        "composition",
+        "leakage_report",
+        "leaf_generation_attestation",
+        "efficiency_report",
+        "limitations",
+        "unsigned_manifest",
+        "issuer_signature",
+        "leaf_list",
+        "dataset_ref",
+        "corpus_ref",
+        "leakage_scope_ref",
+        "scope_binding",
+        "claim_support_rows",
+        "dataset_ref_item_set"
+      ],
+      "properties": {
+        "item_leaf": {
+          "const": "traigent.dataset_record.item_leaf.v1"
+        },
+        "item_set_root": {
+          "const": "traigent.dataset_record.item_set_root.v1"
+        },
+        "cell_root": {
+          "const": "traigent.dataset_record.cell_root.v1"
+        },
+        "identity_root": {
+          "const": "traigent.dataset_record.identity_root.v1"
+        },
+        "taxonomy": {
+          "const": "traigent.dataset_record.taxonomy.v1"
+        },
+        "method_registry": {
+          "const": "traigent.dataset_record.method_registry.v1"
+        },
+        "prereg": {
+          "const": "traigent.dataset_record.prereg.v1"
+        },
+        "prereg_signature": {
+          "const": "traigent.dataset_record.prereg_signature.v1"
+        },
+        "composition": {
+          "const": "traigent.dataset_record.composition.v1"
+        },
+        "leakage_report": {
+          "const": "traigent.dataset_record.leakage_report.v1"
+        },
+        "leaf_generation_attestation": {
+          "const": "traigent.dataset_record.leaf_generation_attestation.v1"
+        },
+        "efficiency_report": {
+          "const": "traigent.dataset_record.efficiency_report.v1"
+        },
+        "limitations": {
+          "const": "traigent.dataset_record.limitations.v1"
+        },
+        "unsigned_manifest": {
+          "const": "traigent.dataset_record.unsigned_manifest.v1"
+        },
+        "issuer_signature": {
+          "const": "traigent.dataset_record.issuer_signature.v1"
+        },
+        "leaf_list": {
+          "const": "traigent.dataset_record.leaf_list.v1"
+        },
+        "dataset_ref": {
+          "const": "traigent.dataset_record.dataset_ref.v1"
+        },
+        "corpus_ref": {
+          "const": "traigent.dataset_record.corpus_ref.v1"
+        },
+        "leakage_scope_ref": {
+          "const": "traigent.dataset_record.leakage_scope_ref.v1"
+        },
+        "scope_binding": {
+          "const": "traigent.dataset_record.scope_binding.v1"
+        },
+        "claim_support_rows": {
+          "const": "traigent.dataset_record.claim_support_rows.v1"
+        },
+        "dataset_ref_item_set": {
+          "const": "traigent.dataset_record.dataset_ref_item_set.v1"
+        }
+      }
+    },
+    "ScopeBindingProjectionV1": {
+      "description": "The ONLY place project_ref and build_session_ref appear in this family, and it is a DIGEST PREIMAGE, never a bundle field -- the construction is taken from pillar 1's ScopeBindingProjectionV1 and matches pillar 3's adoption of it, so all three families treat caller-influenced scope strings identically. ProjectRefV0's pattern bounds the alphabet and length but not the MEANING, and OpaqueRef admits 8-128 arbitrary characters, so both are hashed rather than carried: removing the field is a guarantee where a minting rule is only a policy. The verifier constructs this projection itself from context.expected_project_ref, context.expected_build_session_ref and the separately-verified process record, hashes it under traigent.dataset_record.scope_binding.v1, and compares against the manifest's scope_binding_digest. No instance of this definition is ever transmitted.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_ref",
+        "build_session_ref"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.scope_binding.v1"
+        },
+        "project_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/ProjectRefV0"
+        },
+        "build_session_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        }
+      }
+    },
+    "DatasetRefV1": {
+      "description": "Named semantic type: the dataset identifier. It is DERIVED, never caller-selected -- `dsr:` plus base64url-without-padding of SHA-256(UTF8(traigent.dataset_record.dataset_ref.v1) || uint64be(len(dataset_identity_root)) || UTF8(dataset_identity_root) || uint64be(8) || uint64be(identity_blind_epoch)), rendered as exactly 43 base64url characters. Shape and derivation discipline copied from certification_common_v0_schema.json#/definitions/ClientKeyRefV0. This closes the channel an OpaqueRef leaves open: OpaqueRef admits 8-128 arbitrary characters, which holds a customer or dataset name, and the shipped verifier already records that the schema cannot prove such a ref carries no content. NULL-IDENTITY DERIVATION (sol round 1 P1): a customer who declines the long-lived identity blind carries dataset_identity_root null, and the first draft then had no derivation at all -- the field stayed required, so such a record carried a SUPPLIED dsr: value, i.e. exactly the free channel this type exists to close. With a null root the ref is instead derived from a non-label source under its OWN domain: SHA-256(UTF8(traigent.dataset_record.dataset_ref_item_set.v1) || uint64be(len(item_set_root)) || UTF8(item_set_root)). The separate domain is what keeps the two derivations non-interchangeable, so a null-identity ref can never be replayed as an identity-rooted one. item_set_root is already public in this manifest and is itself a digest over blinded leaves, so this opens no channel the record did not already carry. The verifier RECOMPUTES this value under whichever derivation the record's own dataset_identity_root selects; a hand-written ref fails REF_NOT_DERIVED. Pseudonymous and stable across builds within one epoch, so it is a disclosed linkability channel with its own Disclosure Register entry; it carries no customer label.",
+      "type": "string",
+      "pattern": "^dsr:[A-Za-z0-9_-]{43}$"
+    },
+    "CorpusRefV1": {
+      "description": "Named semantic type: one corpus within a leakage scope. Derived exactly as DatasetRefV1, over UTF8(traigent.dataset_record.corpus_ref.v1) || the corpus leaf root || the leakage scope ref. Never caller-selected; recomputed by the verifier.",
+      "type": "string",
+      "pattern": "^cpr:[A-Za-z0-9_-]{43}$"
+    },
+    "LeakageScopeRefV1": {
+      "description": "Named semantic type: one leakage-comparison scope, i.e. the set of corpora committed under one shared blind. Derived over UTF8(traigent.dataset_record.leakage_scope_ref.v1) || the scope-blind commitment. Never caller-selected; recomputed by the verifier.",
+      "type": "string",
+      "pattern": "^lsr:[A-Za-z0-9_-]{43}$"
+    },
+    "DatasetRecordSignaturePreimageV1": {
+      "description": "Normative issuer-signature preimage profile; signature bytes and the outer signature block are excluded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "framing",
+        "signed_projection"
+      ],
+      "properties": {
+        "domain": {
+          "const": "traigent.dataset_record.issuer_signature.v1"
+        },
+        "framing": {
+          "const": "UTF8(domain) || 0x00 || jcs_v1(unsigned_manifest)"
+        },
+        "signed_projection": {
+          "const": "unsigned_manifest"
+        }
+      }
+    },
+    "DatasetRecordSchemaVersionV1": {
+      "type": "string",
+      "const": "traigent.dataset_record.v1"
+    },
+    "DatasetTaxonomyIdentityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "taxonomy_id",
+        "taxonomy_version",
+        "taxonomy_digest"
+      ],
+      "properties": {
+        "taxonomy_id": {
+          "const": "traigent.dataset_taxonomy.asap.v1"
+        },
+        "taxonomy_version": {
+          "const": "1.0.0"
+        },
+        "taxonomy_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetMethodRegistryIdentityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_id",
+        "registry_version",
+        "registry_digest"
+      ],
+      "properties": {
+        "registry_id": {
+          "const": "traigent.dataset_method_registry.asap.v1"
+        },
+        "registry_version": {
+          "const": "1.0.0"
+        },
+        "registry_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetIdentityV1": {
+      "description": "The dataset's public identity. NOTE ON SHAPE (revision 3): dataset_commitment_ref is NOT here -- it sits TOP-LEVEL on the manifest, matching pillar 3, so all three families address the per-build commitment at the same depth. This object carries the CROSS-BUILD identity instead. Because CommitmentSchemeV0 requires the blind to be generated per slot per build, two honest builds of the same dataset produce DIFFERENT dataset_commitment_ref values, so equality of that field is a per-build scope pin and NOT an identity. dataset_identity_root is the cross-build identity: the same root construction under a long-lived per-dataset identity blind, comparable only within one identity_blind_epoch. Two records name the same evaluation dataset iff dataset_identity_root AND identity_blind_epoch both match; a changed root under an unchanged epoch is a defect (IDENTITY_EPOCH_INCONSISTENT). NON-CLAIM: every root here is an unopened commitment -- per certificate_evidence_refs_v0_schema.json#/definitions/EvidenceKindV0 (client_commitment_digest) it proves only that the client presented that commitment at commit time, never truth, authorship, or completeness -- and NOTHING here binds the committed set to the set that was actually evaluated (DS_NC_EVALUATED_SET_NOT_BOUND).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_ref",
+        "dataset_revision",
+        "canonicalization",
+        "item_set_root",
+        "dataset_identity_root",
+        "identity_blind_epoch",
+        "item_count",
+        "leakage_scope_ref"
+      ],
+      "properties": {
+        "dataset_ref": {
+          "$ref": "#/definitions/DatasetRefV1"
+        },
+        "dataset_revision": {
+          "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+        },
+        "canonicalization": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0"
+        },
+        "item_set_root": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "dataset_identity_root": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        },
+        "identity_blind_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "item_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "leakage_scope_ref": {
+          "$ref": "#/definitions/LeakageScopeRefV1"
+        }
+      },
+      "allOf": [
+        {
+          "description": "A customer that declines the long-lived identity blind carries a null root; DS1 then abstains rather than silently degrading to the commitment-ref reading (open item 11).",
+          "if": {
+            "properties": {
+              "dataset_identity_root": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "dataset_identity_root"
+            ]
+          },
+          "then": {
+            "properties": {
+              "identity_blind_epoch": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatasetCategoryIdV1": {
+      "description": "Closed item-category vocabulary. Values are resolved against the shipped dataset_taxonomy_document.json (package data, pinned digest); a caller-supplied category is unrepresentable. Extending this enum is a new taxonomy version with a new digest, never a new value under the same id.",
+      "type": "string",
+      "enum": [
+        "factual_lookup",
+        "multi_hop_reasoning",
+        "arithmetic",
+        "code_generation",
+        "structured_extraction",
+        "summarization",
+        "classification",
+        "instruction_following",
+        "safety_refusal",
+        "tool_invocation"
+      ]
+    },
+    "DatasetDifficultyStratumV1": {
+      "type": "string",
+      "enum": [
+        "s1_easy",
+        "s2_moderate",
+        "s3_hard",
+        "s4_adversarial"
+      ]
+    },
+    "DatasetPopulationKindV1": {
+      "description": "Closed vocabulary for the declared population the dataset is meant to represent. NON-CLAIM: this names the KIND of population claimed, never establishes a sampling frame or an inclusion probability, so no inference from dataset to population is licensed (see DS_NC_NO_SAMPLING_FRAME).",
+      "type": "string",
+      "enum": [
+        "customer_declared_domain",
+        "public_benchmark_replica",
+        "synthetic_from_declared_spec",
+        "historical_production_sample",
+        "adversarial_curated",
+        "undeclared"
+      ]
+    },
+    "DatasetCompositionCellV1": {
+      "description": "One POPULATED (category, stratum) cell, its item count, and its leaf root. item_count is minimum 1: a cell with zero items is not populated, and admitting one broke both populated_cell_count and the imbalance ratio. Cells are unique by (category_id, difficulty_stratum); draft-07 cannot express that, so it is a verifier obligation. cell_leaf_root is the role digest over the sorted leaves whose preimage carries THIS cell's category and stratum (traigent.dataset_record.cell_root.v1); when leaf lists are supplied the verifier recomputes it, checks the cell's leaf count against item_count, and checks that the multiset union of every cell's leaves reconstructs item_set_root -- which is what upgrades DS2 from declared counts to a checked partition. DISCLOSURE: this count is an issuer->relying-party disclosure with its own Disclosure Register entry; it is deliberately more than the v0 evaluation_dataset slot discloses (certificate_client_evidence_manifest_v0_schema.json#/definitions/EvaluationDatasetSlotV0 keeps row counts client-local).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category_id",
+        "difficulty_stratum",
+        "item_count",
+        "cell_leaf_root"
+      ],
+      "properties": {
+        "category_id": {
+          "$ref": "#/definitions/DatasetCategoryIdV1"
+        },
+        "difficulty_stratum": {
+          "$ref": "#/definitions/DatasetDifficultyStratumV1"
+        },
+        "item_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "cell_leaf_root": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetCompositionV1": {
+      "description": "The declared partition of the committed item set over the pinned taxonomy. The cell counts MUST sum to DatasetIdentityV1.item_count -- a verifier obligation, since draft-07 cannot sum an array. NON-CLAIM (DS_NC_COMPOSITION_IS_DECLARED_NOT_MEASURED): summing declared counts proves ARITHMETIC, not composition. Absent supplied leaf lists nothing binds an item to the cell it was counted in, so DS2 is client_declared and asserts only that the declared counts partition the committed set; it becomes issuer_verified only when the per-cell leaf roots are recomputed from the lists. NON-CLAIM: coverage is one-sided over the DECLARED taxonomy. It shows which declared categories and strata have items; it cannot show that no undeclared category exists, and it is not evidence that the dataset represents the customer's live traffic. composition_digest is SHA-256 over UTF8(traigent.dataset_record.composition.v1) || 0x00 || jcs_v1(this object with composition_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "taxonomy",
+        "population_kind",
+        "population_definition_commitment",
+        "cells",
+        "populated_cell_count",
+        "composition_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.composition.v1"
+        },
+        "taxonomy": {
+          "$ref": "#/definitions/DatasetTaxonomyIdentityV1"
+        },
+        "population_kind": {
+          "$ref": "#/definitions/DatasetPopulationKindV1"
+        },
+        "population_definition_commitment": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 40,
+          "items": {
+            "$ref": "#/definitions/DatasetCompositionCellV1"
+          }
+        },
+        "populated_cell_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 40
+        },
+        "composition_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetLeakageFindingKindV1": {
+      "description": "Closed leakage-finding vocabulary, partitioned by what can actually be checked. declared_corpus_overlap and split_disjointness are Tier A: exactly recomputable offline from two supplied leaf-commitment lists in one leakage scope, therefore ALWAYS backend_observed. near_duplicate_overlap is Tier B: the method and threshold are pre-registered and resolvable, but re-running the detector needs the items, so the finding is backend_observed and NOT verifier-recomputable. training_corpus_contamination and prior_output_contamination are Tier C: no party in this system observes a model provider's training corpus, so they are ALWAYS client_attested. The tier-to-basis coupling is structural (see DatasetLeakageFindingV1), not advisory.",
+      "type": "string",
+      "enum": [
+        "declared_corpus_overlap",
+        "split_disjointness",
+        "near_duplicate_overlap",
+        "training_corpus_contamination",
+        "prior_output_contamination"
+      ]
+    },
+    "DatasetNearDuplicateMethodV1": {
+      "description": "Closed near-duplicate method vocabulary, resolved against the shipped dataset_method_registry_document.json. A method absent from the pinned registry is unrepresentable.",
+      "type": "string",
+      "enum": [
+        "exact_normalized_v1",
+        "minhash_jaccard_v1",
+        "simhash_hamming_v1"
+      ]
+    },
+    "DatasetLeakageFindingV1": {
+      "description": "One leakage finding. Tier A/B kinds MUST carry observation_basis backend_observed; Tier C kinds MUST carry client_attested -- a Tier C finding is structurally incapable of claiming backend observation. near_duplicate_overlap MUST carry method and threshold_milli; no other kind may. threshold_milli is a fixed-unit integer (0..1000 = 0.000..1.000 similarity); floats are banned from every preimage in this family (certification_common_v0_schema.json#/definitions/CanonicalizationProfileV0).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_kind",
+        "observation_basis",
+        "corpus_a_ref",
+        "corpus_b_ref",
+        "overlap_count"
+      ],
+      "properties": {
+        "finding_kind": {
+          "$ref": "#/definitions/DatasetLeakageFindingKindV1"
+        },
+        "observation_basis": {
+          "$ref": "process_record_v1_schema.json#/definitions/ObservationBasisV1"
+        },
+        "corpus_a_ref": {
+          "$ref": "#/definitions/CorpusRefV1"
+        },
+        "corpus_b_ref": {
+          "$ref": "#/definitions/CorpusRefV1"
+        },
+        "overlap_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "disjointness_asserted": {
+          "type": "boolean"
+        },
+        "method": {
+          "$ref": "#/definitions/DatasetNearDuplicateMethodV1"
+        },
+        "threshold_milli": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "finding_kind": {
+                "enum": [
+                  "training_corpus_contamination",
+                  "prior_output_contamination"
+                ]
+              }
+            },
+            "required": [
+              "finding_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observation_basis": {
+                "const": "client_attested"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "observation_basis": {
+                "const": "backend_observed"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "finding_kind": {
+                "const": "near_duplicate_overlap"
+              }
+            },
+            "required": [
+              "finding_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "method",
+              "threshold_milli"
+            ]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "method"
+                  ]
+                },
+                {
+                  "required": [
+                    "threshold_milli"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "finding_kind": {
+                "const": "split_disjointness"
+              }
+            },
+            "required": [
+              "finding_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "disjointness_asserted"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "disjointness_asserted"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "DatasetLeakageReportV1": {
+      "description": "The bounded leakage report. leaf_list_digests binds, by digest, the per-corpus sorted leaf-commitment lists a caller may supply as the FIFTH verification input; the lists themselves are never embedded (a 10^6-item list is not a certificate). Every corpus in one leakage scope is committed under one shared client-local blind, which is what makes set intersection computable by a holder of two lists while leaving every item opaque; the blind is never transmitted (certification_common_v0_schema.json#/definitions/CommitmentSchemeV0). NON-CLAIM (DS_NC_TOKEN_DISJOINTNESS_NOT_ITEM_DISJOINTNESS): intersecting two token lists proves the TOKEN LISTS are disjoint. It does not prove a common blind was used, that each leaf was built from a real item under the declared preimage, or that either list is complete -- three ways an empty intersection coexists with fully overlapping items. leaf_generation_attestation_digest binds the backend-signed record that makes those three premises issuer-attested; without it DS3 is client_declared. leakage_report_digest is SHA-256 over UTF8(traigent.dataset_record.leakage_report.v1) || 0x00 || jcs_v1(this object with leakage_report_digest excluded).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "leakage_scope_ref",
+        "method_registry",
+        "findings",
+        "leaf_list_digests",
+        "leaf_generation_attestation_digest",
+        "leakage_report_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.leakage_report.v1"
+        },
+        "leakage_scope_ref": {
+          "$ref": "#/definitions/LeakageScopeRefV1"
+        },
+        "method_registry": {
+          "$ref": "#/definitions/DatasetMethodRegistryIdentityV1"
+        },
+        "findings": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/definitions/DatasetLeakageFindingV1"
+          }
+        },
+        "leaf_list_digests": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "corpus_ref",
+              "leaf_count",
+              "leaf_list_digest"
+            ],
+            "properties": {
+              "corpus_ref": {
+                "$ref": "#/definitions/CorpusRefV1"
+              },
+              "leaf_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65536
+              },
+              "leaf_list_digest": {
+                "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+              }
+            }
+          }
+        },
+        "leaf_generation_attestation_digest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        },
+        "leakage_report_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetLeafGenerationAttestationV1": {
+      "description": "The backend-observed, issuer-signed record that closes the three premises Tier-A intersection cannot prove on its own. scope_blind_commitment is a commitment TO the shared scope blind, never the blind (which is client-local and never transmitted, certification_common_v0_schema.json#/definitions/CommitmentSchemeV0); every corpus in this scope having the same value is what evidences a common blind. PER-CORPUS COMMITMENTS (sol round 1 P2): the first draft carried the commitment ONLY at this top level, so 'every corpus has the same value' was a set of one and the verifier's equality check could not fire -- a check that reads as evidence and is vacuous is worse than no check. Each corpora[] entry now carries its own scope_blind_commitment and every one MUST equal this object's; a divergent entry is representable and rejected (LEAF_SCOPE_BLIND_MISMATCH), which is what makes the common-blind premise checked rather than merely asserted. leaf_domain is const, so a leaf built under a different preimage is out of scope by construction. completeness is const and states that the listed leaves are EVERY leaf the backend generated for that corpus under this scope -- which is the premise an incomplete list would violate. NON-CLAIM (DS_NC_LEAF_GENERATION_ATTESTED): this is an issuer attestation over its own generation process, not a proof; it raises DS3 from client_declared to issuer_verified and no further.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "leakage_scope_ref",
+        "scope_blind_commitment",
+        "leaf_domain",
+        "completeness",
+        "corpora",
+        "attestation_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.leaf_generation_attestation.v1"
+        },
+        "leakage_scope_ref": {
+          "$ref": "#/definitions/LeakageScopeRefV1"
+        },
+        "scope_blind_commitment": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "leaf_domain": {
+          "const": "traigent.dataset_record.item_leaf.v1"
+        },
+        "completeness": {
+          "const": "every_leaf_generated_for_this_corpus_under_this_scope_is_listed"
+        },
+        "corpora": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "corpus_ref",
+              "leaf_count",
+              "leaf_root",
+              "scope_blind_commitment",
+              "observation_basis"
+            ],
+            "properties": {
+              "corpus_ref": {
+                "$ref": "#/definitions/CorpusRefV1"
+              },
+              "leaf_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65536
+              },
+              "leaf_root": {
+                "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+              },
+              "scope_blind_commitment": {
+                "description": "This corpus's own commitment to the scope blind under which its leaves were generated. MUST equal the attestation's top-level scope_blind_commitment; draft-07 cannot express the cross-field equality, so it is a verifier obligation (LEAF_SCOPE_BLIND_MISMATCH).",
+                "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+              },
+              "observation_basis": {
+                "description": "MUST be backend_observed: a leaf-generation attestation is a statement about generation the BACKEND observed, and a client_attested corpus entry would let DS3 upgrade on a basis nothing observed. Expressed as allOf rather than a const sibling of $ref -- under draft-07 a keyword sitting beside $ref is IGNORED, so the sibling form admitted client_attested (astra P2).",
+                "allOf": [
+                  {
+                    "$ref": "process_record_v1_schema.json#/definitions/ObservationBasisV1"
+                  },
+                  {
+                    "const": "backend_observed"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "attestation_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetLeafListV1": {
+      "description": "The FIFTH verification input, supplied out of band exactly as the trust-status snapshot is the fourth: one corpus's sorted per-item leaf commitments. Each leaf is HMAC-SHA-256 under the identity blind over UTF8(traigent.dataset_record.item_leaf.v1) || 0x00 || jcs_v1({input_digest, reference_answer_digest, category_id, difficulty_stratum}); category and stratum are closed enum values, so carrying them adds no content channel while making the composition partition checkable. The leaves are fixed-size opaque tokens and carry no item content. Publishing a list discloses exactly its LENGTH, which the record already discloses as leaf_count. leaf_list_digest is SHA-256 over UTF8(traigent.dataset_record.leaf_list.v1) || 0x00 || jcs_v1(the sorted leaves array).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "corpus_ref",
+        "leakage_scope_ref",
+        "leaves"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.leaf_list.v1"
+        },
+        "corpus_ref": {
+          "$ref": "#/definitions/CorpusRefV1"
+        },
+        "leakage_scope_ref": {
+          "$ref": "#/definitions/LeakageScopeRefV1"
+        },
+        "leaves": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 65536,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+          }
+        }
+      }
+    },
+    "DatasetItemSetLeafListV1": {
+      "description": "The COMMITTED ITEM SET's own leaf list -- the second projection of the fifth verification input, and the one composition-cell reconstruction reads. It is a FIRST-CLASS artifact of this contract (sol round 1 P1): the first draft carried it as an untyped extra key inside the corpus-keyed leaf_lists map, so the (category, stratum) tag beside each leaf was neither schema-validated nor named anywhere in the contract, while composition cell roots were recomputed from it. Every supplied instance is now validated against THIS definition before any cell root is recomputed, so the tags are closed-enum values of the pinned taxonomy and a malformed or free-text tag is rejected as input shape rather than surfacing as a digest mismatch. WHAT THE TAGS ARE AND ARE NOT: offline nothing can bind a tag to its leaf's HMAC preimage -- the verifier holds no blind, which is the whole point of the commitment scheme -- so the tags are never TRUSTED, only CHECKED: the (category, stratum) grouping they induce must reproduce every declared cell's issuer-signed cell_leaf_root, and the whole sorted leaf set must reproduce the issuer-signed item_set_root, both of which sit inside the issuer signature. A mis-tagged, truncated, padded, or fabricated list therefore FAILS verification; it cannot manufacture one, and that asymmetry -- not the tags' own trustworthiness -- is what DS2's issuer_verified upgrade rests on. item_set_root is carried here so the artifact names the manifest value it is offered against; the verifier compares it to the manifest's own and recomputes it from the leaves regardless. No instance of this definition crosses the wire inside a certificate bundle.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "dataset_ref",
+        "item_set_root",
+        "entries"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.item_set_leaf_list.v1"
+        },
+        "dataset_ref": {
+          "$ref": "#/definitions/DatasetRefV1"
+        },
+        "item_set_root": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "leaf",
+              "category_id",
+              "difficulty_stratum"
+            ],
+            "properties": {
+              "leaf": {
+                "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+              },
+              "category_id": {
+                "$ref": "#/definitions/DatasetCategoryIdV1"
+              },
+              "difficulty_stratum": {
+                "$ref": "#/definitions/DatasetDifficultyStratumV1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "DatasetLimitationCodeV1": {
+      "description": "Closed limitation vocabulary; the wire record carries the code only, and the renderer prints the pinned sentence. Sentences: single_language = 'Every item is in one declared language; cross-lingual behaviour is not exercised.' - synthetic_generation = 'Some or all items were generated rather than observed; generation artefacts may be scored as competence.' - single_annotator = 'Reference answers come from one annotator or one model; no independent agreement was measured.' - no_adjudication = 'Disagreements were not adjudicated; reference answers are unreviewed.' - stale_relative_to_domain = 'The declared domain changes faster than this dataset revision; items may no longer be current.' - small_stratum = 'At least one populated stratum is below the registry minimum; per-stratum results there are not stable.' - unbalanced_strata = 'Stratum sizes differ by more than an order of magnitude; an aggregate score is dominated by the largest stratum.' - template_derived = 'Items were expanded from templates; item count overstates independent evidence.' - reference_answers_model_generated = 'Reference answers were produced by a model; the ceiling is that model, not ground truth.' - license_restricted_redistribution = 'The item source restricts redistribution; the dataset cannot be shared for independent replication.'",
+      "type": "string",
+      "enum": [
+        "single_language",
+        "synthetic_generation",
+        "single_annotator",
+        "no_adjudication",
+        "stale_relative_to_domain",
+        "small_stratum",
+        "unbalanced_strata",
+        "template_derived",
+        "reference_answers_model_generated",
+        "license_restricted_redistribution"
+      ]
+    },
+    "DatasetLimitationSeverityV1": {
+      "description": "Bounded ordered severity. 1 = disclosed, 2 = material, 3 = blocking for the declared population. An integer enum in the style of certification_common_v0_schema.json#/definitions/ClaimTier; never a float, never a label.",
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "DatasetLimitationV1": {
+      "description": "One declared limitation. small_stratum and unbalanced_strata are DERIVABLE from the composition and are therefore backend_observed and MANDATORY when their condition holds -- omission is a verifier failure (LIMITATION_OMITTED), so the certificate cannot reward selective silence. Every other code is a client_attested declaration; absence of a code is absence of a declaration, never evidence of its absence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limitation_code",
+        "severity",
+        "observation_basis"
+      ],
+      "properties": {
+        "limitation_code": {
+          "$ref": "#/definitions/DatasetLimitationCodeV1"
+        },
+        "severity": {
+          "$ref": "#/definitions/DatasetLimitationSeverityV1"
+        },
+        "observation_basis": {
+          "$ref": "process_record_v1_schema.json#/definitions/ObservationBasisV1"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "limitation_code": {
+                "enum": [
+                  "small_stratum",
+                  "unbalanced_strata"
+                ]
+              }
+            },
+            "required": [
+              "limitation_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observation_basis": {
+                "const": "backend_observed"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "observation_basis": {
+                "const": "client_attested"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatasetLimitationsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "limitations",
+        "limitations_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.limitations.v1"
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/DatasetLimitationV1"
+          }
+        },
+        "limitations_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetEstimatorKindV1": {
+      "description": "Whether a reported number is an exact deterministic function of the outcome matrix, a sampled estimate with an interval, or a one-sided bound. A bound is never printable as its target quantity: greedy backward elimination yields an UPPER bound on the minimum decisive subset, and no renderer may call it the minimum.",
+      "type": "string",
+      "enum": [
+        "exact",
+        "estimate",
+        "upper_bound"
+      ]
+    },
+    "DatasetIntervalMethodV1": {
+      "description": "Closed interval-method vocabulary. DELIBERATE DIVERGENCE FROM PILLAR 1, ruled on by the captain and recorded here so it is not later 'harmonised' as drift: pillar 1 EXCLUDES bootstrap_percentile_v1 from v1 emission and pillar 2 keeps it, and both are correct because the two families make different claims about the same estimator. Pillar 1's intervals are claimed RELYING-PARTY RECOMPUTABLE, and a bootstrap cannot be recomputed without the per-item score vector -- which would be both a privacy-boundary violation and a re-identification channel -- so emitting one there would assert a recomputability the contract cannot deliver. This family never claims recomputability for any efficiency figure: DS_NC_EFFICIENCY_NOT_RECOMPUTABLE is a printed non-claim, the result object carries efficiency_evidence = backend_observed_not_recomputed, the score vector never reaches the wire, and resample_count / bootstrap_unit / random_seed are bound to the signed plan so the ISSUER's own rerun is reproducible. The programme rule both designs satisfy is not 'all pillars register the same estimators' but 'every quantity declares its verification class, and anything not recomputable by the relying party carries a printed non-claim'.",
+      "type": "string",
+      "enum": [
+        "none",
+        "bootstrap_percentile_v1",
+        "wilson_score_v1"
+      ]
+    },
+    "DatasetQuantityKindV1": {
+      "description": "What kind of quantity an estimate is about. It exists so the interval method can be COUPLED to the quantity: wilson_score_v1 is a binomial-proportion interval and is meaningless over a Fisher-information mean, which the first draft's schema permitted.",
+      "type": "string",
+      "enum": [
+        "proportion",
+        "real_valued",
+        "count"
+      ]
+    },
+    "DatasetInformationUnitV1": {
+      "description": "Closed fixed-unit vocabulary for the item-information statistic. fisher_micro = 10^-6 Fisher information units under the fitted 2PL; point_biserial_milli = 10^-3 point-biserial correlation, signed; variance_micro = 10^-6 score-variance units. Each method has exactly one admissible unit (see DatasetEfficiencyReportV1's if/then chain) -- the first draft admitted score_variance_v1 as a method with no matching unit. The unit also determines the admissible range; floats are banned from every preimage in this family.",
+      "type": "string",
+      "enum": [
+        "fisher_micro",
+        "point_biserial_milli",
+        "variance_micro"
+      ]
+    },
+    "DatasetBoundedEstimateV1": {
+      "description": "A point estimate with its interval, as three fixed-unit integers, plus the sample size that makes it weighable. lo <= point <= hi is a verifier obligation (draft-07 cannot compare sibling values). sample_size_n and effective_sample_size_n are MANDATORY on every estimate: a ppm with no N is a number a relying party cannot weigh, and effective N is what falls below N when items are clustered or resampled by cell rather than by item. An 'exact' or 'upper_bound' estimator MUST carry interval_method 'none' and lo == point == hi; an 'estimate' MUST carry a real interval method, a level, and -- for bootstrap_percentile_v1 -- its resample_count, bootstrap_unit and random_seed, each equal to the signed plan's. wilson_score_v1 is admissible ONLY when quantity_kind is 'proportion'. interval_level_ppm is parts-per-million of confidence (950000 = 95%), and is the estimator's NOMINAL coverage, never measured coverage.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "estimator_kind",
+        "quantity_kind",
+        "point",
+        "lo",
+        "hi",
+        "interval_method",
+        "sample_size_n",
+        "effective_sample_size_n"
+      ],
+      "properties": {
+        "estimator_kind": {
+          "$ref": "#/definitions/DatasetEstimatorKindV1"
+        },
+        "quantity_kind": {
+          "$ref": "#/definitions/DatasetQuantityKindV1"
+        },
+        "point": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 10000000
+        },
+        "lo": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 10000000
+        },
+        "hi": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 10000000
+        },
+        "interval_method": {
+          "$ref": "#/definitions/DatasetIntervalMethodV1"
+        },
+        "interval_level_ppm": {
+          "type": "integer",
+          "minimum": 500000,
+          "maximum": 999999
+        },
+        "sample_size_n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "effective_sample_size_n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "resample_count": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 100000
+        },
+        "bootstrap_unit": {
+          "$ref": "#/definitions/DatasetBootstrapUnitV1"
+        },
+        "random_seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "estimator_kind": {
+                "const": "estimate"
+              }
+            },
+            "required": [
+              "estimator_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "interval_level_ppm"
+            ],
+            "properties": {
+              "interval_method": {
+                "enum": [
+                  "bootstrap_percentile_v1",
+                  "wilson_score_v1"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "interval_method": {
+                "const": "none"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "interval_level_ppm"
+                  ]
+                },
+                {
+                  "required": [
+                    "resample_count"
+                  ]
+                },
+                {
+                  "required": [
+                    "bootstrap_unit"
+                  ]
+                },
+                {
+                  "required": [
+                    "random_seed"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "description": "Wilson is a binomial-proportion interval; pairing it with anything else is schema-invalid rather than merely discouraged.",
+          "if": {
+            "properties": {
+              "interval_method": {
+                "const": "wilson_score_v1"
+              }
+            },
+            "required": [
+              "interval_method"
+            ]
+          },
+          "then": {
+            "properties": {
+              "quantity_kind": {
+                "const": "proportion"
+              }
+            }
+          }
+        },
+        {
+          "description": "A bootstrap without its parameters is not reproducible, so it is not a claim.",
+          "if": {
+            "properties": {
+              "interval_method": {
+                "const": "bootstrap_percentile_v1"
+              }
+            },
+            "required": [
+              "interval_method"
+            ]
+          },
+          "then": {
+            "required": [
+              "resample_count",
+              "bootstrap_unit",
+              "random_seed"
+            ]
+          }
+        }
+      ]
+    },
+    "DatasetInformationMethodV1": {
+      "type": "string",
+      "enum": [
+        "irt_2pl_mml_v1",
+        "point_biserial_v1",
+        "score_variance_v1"
+      ]
+    },
+    "DatasetScoreMetricV1": {
+      "type": "string",
+      "enum": [
+        "exact_match_v1",
+        "graded_0_1_v1",
+        "evaluator_score_v1"
+      ]
+    },
+    "DatasetMissingOutcomePolicyV1": {
+      "description": "How a missing (config, item) outcome is handled. Silently dropping failed cells inflates every efficiency figure, so the policy is named in the plan and bound by containment.",
+      "type": "string",
+      "enum": [
+        "treat_as_failure_v1",
+        "exclude_pairwise_v1",
+        "reject_run_v1"
+      ]
+    },
+    "DatasetTieBreakV1": {
+      "description": "A TOTAL tie-break. A partial one leaves the winner ambiguous and the greedy elimination irreproducible, which would make every E2 number uncheckable.",
+      "type": "string",
+      "enum": [
+        "lowest_cost_then_lowest_candidate_index_v1",
+        "lowest_candidate_index_v1"
+      ]
+    },
+    "DatasetBootstrapUnitV1": {
+      "description": "Resampling items and resampling (item, config) cells give different interval widths; resampling cells understates the interval when items are the correlated unit.",
+      "type": "string",
+      "enum": [
+        "item_v1",
+        "item_config_cell_v1"
+      ]
+    },
+    "DatasetSelectionRuleV1": {
+      "type": "string",
+      "enum": [
+        "argmax_mean_score_v1",
+        "argmax_mean_score_cost_tiebreak_v1",
+        "pareto_first_by_declared_order_v1"
+      ]
+    },
+    "DatasetInertnessCriterionV1": {
+      "type": "string",
+      "enum": [
+        "winner_preserving",
+        "rank_preserving"
+      ]
+    },
+    "DatasetEliminationOrderV1": {
+      "description": "Greedy backward elimination is order-dependent, so the order is itself pre-registered: without it the reported subset size is not reproducible and is therefore not a claim.",
+      "type": "string",
+      "enum": [
+        "item_index_ascending",
+        "estimated_information_ascending"
+      ]
+    },
+    "PreRegistrationEvidenceGradeV1": {
+      "description": "The SHARED three-grade vocabulary, identical in pillars 1, 2 and 3, so one word means one thing across the programme. digest_bound_attestation: the plan is signed and the report's scope is contained by it -- this catches POST-SIGNATURE MUTATION ONLY and is what this contract ships today. caller_pinned_before_results: a relying party held prereg_digest itself, from the issuer, before results existed, and pins it at verification -- genuine ordering evidence, but ONLY for that party and worthless to a third party who receives plan and results together. log_inclusion_proof: an append-only transparency log contains prereg_digest at a position provably earlier than the results -- ACTUAL PROOF, and currently UNREACHABLE because no such log exists; a record declaring it fails PREREGISTRATION_GRADE_UNSUPPORTED. The verifier DERIVES the grade from its inputs and never trusts this field upward: a declared grade above what the inputs support fails PREREGISTRATION_GRADE_MISMATCH. Ordering the plan against the process record's receipt stream does NOT lift the grade -- the same issuer writes the receipts and signs the plan.",
+      "type": "string",
+      "enum": [
+        "digest_bound_attestation",
+        "caller_pinned_before_results",
+        "log_inclusion_proof"
+      ]
+    },
+    "DatasetEfficiencyPreRegistrationV1": {
+      "description": "The signed measurement plan. A RESULT IS STRUCTURALLY UNREPRESENTABLE INSIDE IT: additionalProperties:false plus a property set containing no *_ppm, no count of anything observed, no DatasetBoundedEstimateV1 and no verdict, so a plan carrying a number that could only be known after the run is schema-invalid rather than merely suspicious (the construction pillar 3 uses for EvaluatorPreRegistrationV1). prereg_digest is SHA-256 over UTF8(traigent.dataset_record.prereg.v1) || 0x00 || jcs_v1(this document with prereg_digest excluded). The document is signed as its OWN artifact by DatasetPreRegistrationSignatureV1, and both its digest and its signature digest sit in the manifest's const coverage tuple. The coverage const enumerates every policy field, and the containment check requires that every method id, unit, threshold, weighting, seed and estimator parameter the efficiency report cites equals this document's, with nothing named in the report that this document did not name -> PREREGISTRATION_SCOPE_VIOLATION. NON-CLAIM (DS_NC_PREREG_ORDER_ISSUER_ASSERTED): registered_at is issuer-asserted. Ordering it against the process record's receipt stream proves internal consistency of one issuer-signed record, not third-party time; an issuer that writes the receipts and signs this plan controls both. The digest, signature and containment checks hold regardless of timestamps and are the load-bearing set.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "registered_at",
+        "evidence_grade",
+        "candidate_set_commitment",
+        "candidate_count",
+        "selection_rule",
+        "inertness_criterion",
+        "elimination_order",
+        "information_method",
+        "information_unit",
+        "information_floor",
+        "near_duplicate_method",
+        "near_duplicate_threshold_milli",
+        "interval_method",
+        "interval_level_ppm",
+        "score_metric",
+        "per_item_weighting",
+        "per_category_weighting",
+        "missing_outcome_policy",
+        "tie_break",
+        "bootstrap_unit",
+        "bootstrap_resamples",
+        "random_seed",
+        "minimum_sample_size_n",
+        "coverage",
+        "prereg_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.prereg.v1"
+        },
+        "registered_at": {
+          "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
+        },
+        "evidence_grade": {
+          "$ref": "#/definitions/PreRegistrationEvidenceGradeV1"
+        },
+        "candidate_set_commitment": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 1024
+        },
+        "selection_rule": {
+          "$ref": "#/definitions/DatasetSelectionRuleV1"
+        },
+        "inertness_criterion": {
+          "$ref": "#/definitions/DatasetInertnessCriterionV1"
+        },
+        "elimination_order": {
+          "$ref": "#/definitions/DatasetEliminationOrderV1"
+        },
+        "information_method": {
+          "$ref": "#/definitions/DatasetInformationMethodV1"
+        },
+        "information_unit": {
+          "$ref": "#/definitions/DatasetInformationUnitV1"
+        },
+        "information_floor": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 10000000
+        },
+        "near_duplicate_method": {
+          "$ref": "#/definitions/DatasetNearDuplicateMethodV1"
+        },
+        "near_duplicate_threshold_milli": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "interval_method": {
+          "$ref": "#/definitions/DatasetIntervalMethodV1"
+        },
+        "interval_level_ppm": {
+          "type": "integer",
+          "minimum": 500000,
+          "maximum": 999999
+        },
+        "score_metric": {
+          "$ref": "#/definitions/DatasetScoreMetricV1"
+        },
+        "per_item_weighting": {
+          "description": "Removed as a degree of freedom rather than pre-registered, following pillar 1's no_combination_v1. A later version that DOES weight has a declared, digested place to say so.",
+          "const": "unweighted_v1"
+        },
+        "per_category_weighting": {
+          "const": "unweighted_v1"
+        },
+        "missing_outcome_policy": {
+          "$ref": "#/definitions/DatasetMissingOutcomePolicyV1"
+        },
+        "tie_break": {
+          "$ref": "#/definitions/DatasetTieBreakV1"
+        },
+        "bootstrap_unit": {
+          "$ref": "#/definitions/DatasetBootstrapUnitV1"
+        },
+        "bootstrap_resamples": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 100000
+        },
+        "random_seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "minimum_sample_size_n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "coverage": {
+          "const": [
+            "evidence_grade",
+            "candidate_set_commitment",
+            "candidate_count",
+            "selection_rule",
+            "inertness_criterion",
+            "elimination_order",
+            "information_method",
+            "information_unit",
+            "information_floor",
+            "near_duplicate_method",
+            "near_duplicate_threshold_milli",
+            "interval_method",
+            "interval_level_ppm",
+            "score_metric",
+            "per_item_weighting",
+            "per_category_weighting",
+            "missing_outcome_policy",
+            "tie_break",
+            "bootstrap_unit",
+            "bootstrap_resamples",
+            "random_seed",
+            "minimum_sample_size_n"
+          ]
+        },
+        "prereg_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetPreRegistrationSignatureV1": {
+      "description": "External issuer signature over the plan body only, under UTF8(traigent.dataset_record.prereg_signature.v1) || 0x00 || jcs_v1(preregistration with prereg_digest excluded). Outside the body, so no signature self-reference -- the anti-self-reference construction the shipped family uses at process_record_v1_schema.json#/definitions/ProcessRecordSignatureV1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "algorithm",
+        "issuer_key_ref",
+        "trust_ring_ref",
+        "signed_payload",
+        "prereg_digest",
+        "signature"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.prereg_signature.v1"
+        },
+        "algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "signed_payload": {
+          "const": "dataset_efficiency_preregistration"
+        },
+        "prereg_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "signature": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"
+        }
+      }
+    },
+    "DatasetPreRegistrationEnvelopeV1": {
+      "description": "The plan plus its own signature. It travels INSIDE the bundle because the same issuer signs both and both are fixed at issuance -- unlike the trust-status snapshot, which has a different signer and a different lifetime and is therefore a separate input.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "preregistration",
+        "signature"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.prereg_envelope.v1"
+        },
+        "preregistration": {
+          "$ref": "#/definitions/DatasetEfficiencyPreRegistrationV1"
+        },
+        "signature": {
+          "$ref": "#/definitions/DatasetPreRegistrationSignatureV1"
+        }
+      }
+    },
+    "DatasetAppliedPolicyProjectionV1": {
+      "description": "The report's own echo of the nine aggregation-policy fields the signed plan fixes: what the issuer states it ACTUALLY applied when producing the figures in this report. Added after sol round 1 P1 on policy completeness. The first draft pre-registered score_metric, the two weightings, missing_outcome_policy and tie_break but gave the report no field carrying them, so containment could compare only the fields that happened to appear twice (candidate set, interval parameters); the four that most change a statistic were unfalsifiable -- 'pre-registered' with nothing to compare against. Every field here MUST equal the plan's field of the same name, or PREREGISTRATION_SCOPE_VIOLATION. NON-CLAIM: this closes the CONTAINMENT gap only. It states which policy the issuer applied and binds that statement inside the signed report digest; it is not evidence that the arithmetic obeyed it -- that needs the outcome matrix, which this contract does not carry (DS_NC_EFFICIENCY_NOT_RECOMPUTABLE stands unchanged). coverage is a const tuple naming the nine, so a projection that silently drops one is schema-invalid rather than quietly uncompared.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "score_metric",
+        "per_item_weighting",
+        "per_category_weighting",
+        "missing_outcome_policy",
+        "tie_break",
+        "bootstrap_unit",
+        "bootstrap_resamples",
+        "random_seed",
+        "minimum_sample_size_n",
+        "coverage"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.applied_policy.v1"
+        },
+        "score_metric": {
+          "$ref": "#/definitions/DatasetScoreMetricV1"
+        },
+        "per_item_weighting": {
+          "const": "unweighted_v1"
+        },
+        "per_category_weighting": {
+          "const": "unweighted_v1"
+        },
+        "missing_outcome_policy": {
+          "$ref": "#/definitions/DatasetMissingOutcomePolicyV1"
+        },
+        "tie_break": {
+          "$ref": "#/definitions/DatasetTieBreakV1"
+        },
+        "bootstrap_unit": {
+          "$ref": "#/definitions/DatasetBootstrapUnitV1"
+        },
+        "bootstrap_resamples": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 100000
+        },
+        "random_seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "minimum_sample_size_n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "coverage": {
+          "const": [
+            "score_metric",
+            "per_item_weighting",
+            "per_category_weighting",
+            "missing_outcome_policy",
+            "tie_break",
+            "bootstrap_unit",
+            "bootstrap_resamples",
+            "random_seed",
+            "minimum_sample_size_n"
+          ]
+        }
+      }
+    },
+    "DatasetEfficiencyReportV1": {
+      "description": "The three efficiency measures. E1 information: mean_item_information in the pre-registered unit, plus uninformative_item_count (items whose interval lies wholly below information_floor). E2 redundancy: inert_item_count and inert_fraction_ppm under the pre-registered inertness_criterion, plus decisive_subset_upper_bound -- the size surviving greedy backward elimination in the pre-registered order, an UPPER bound on the minimum decisive subset and never the minimum. E3 cost: cost_efficiency_ppm and latency_efficiency_ppm are floor integer division, (decisive * 1000000) // full, so the verifier's recomputation is bit-exact; a zero denominator abstains rather than dividing. inert_item_count and decisive_subset_upper_bound measure different quantities and are NOT required to sum to item_count. NON-CLAIM: every number here is relative to the pre-registered candidate set and selection rule; it is not a property of the dataset alone, and a different agent population may re-inform items that measured as inert. applied_policy is the report's own echo of the nine aggregation-policy fields the plan fixes, so containment can compare them instead of taking them on trust (see DatasetAppliedPolicyProjectionV1). efficiency_report_digest is SHA-256 over UTF8(traigent.dataset_record.efficiency_report.v1) || 0x00 || jcs_v1(this object with efficiency_report_digest excluded), so the echoed policy is inside the issuer signature by the same path as every figure it governs.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "prereg_digest",
+        "candidate_set_commitment",
+        "candidate_count",
+        "applied_policy",
+        "information_method",
+        "mean_item_information",
+        "information_unit",
+        "uninformative_item_count",
+        "inert_item_count",
+        "inert_fraction_ppm",
+        "decisive_subset_upper_bound",
+        "decisive_subset_estimator_kind",
+        "full_pass_cost_microusd",
+        "decisive_subset_cost_microusd",
+        "cost_efficiency_ppm",
+        "full_pass_latency_us",
+        "decisive_subset_latency_us",
+        "latency_efficiency_ppm",
+        "efficiency_report_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.efficiency_report.v1"
+        },
+        "prereg_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "candidate_set_commitment": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 1024
+        },
+        "applied_policy": {
+          "$ref": "#/definitions/DatasetAppliedPolicyProjectionV1"
+        },
+        "information_method": {
+          "$ref": "#/definitions/DatasetInformationMethodV1"
+        },
+        "mean_item_information": {
+          "$ref": "#/definitions/DatasetBoundedEstimateV1"
+        },
+        "information_unit": {
+          "$ref": "#/definitions/DatasetInformationUnitV1"
+        },
+        "uninformative_item_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "inert_item_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "inert_fraction_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "decisive_subset_upper_bound": {
+          "$ref": "#/definitions/DatasetBoundedEstimateV1"
+        },
+        "decisive_subset_estimator_kind": {
+          "description": "Adjacent const, deliberately redundant with the estimate object's own estimator_kind. This is the number most likely to be misquoted as a minimum, so a renderer reading either field alone still sees the bound.",
+          "const": "upper_bound"
+        },
+        "full_pass_cost_microusd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "decisive_subset_cost_microusd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "cost_efficiency_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "full_pass_latency_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000
+        },
+        "decisive_subset_latency_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000
+        },
+        "latency_efficiency_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "efficiency_report_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      },
+      "allOf": [
+        {
+          "description": "Each information method has exactly one admissible unit. The first draft admitted score_variance_v1 with no matching unit at all (sol P2).",
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "information_method": {
+                    "const": "irt_2pl_mml_v1"
+                  }
+                },
+                "required": [
+                  "information_method"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "information_unit": {
+                    "const": "fisher_micro"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "information_method": {
+                    "const": "point_biserial_v1"
+                  }
+                },
+                "required": [
+                  "information_method"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "information_unit": {
+                    "const": "point_biserial_milli"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "information_method": {
+                    "const": "score_variance_v1"
+                  }
+                },
+                "required": [
+                  "information_method"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "information_unit": {
+                    "const": "variance_micro"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "description": "The unit bounds the estimate's range. point_biserial is a signed correlation in [-1, 1]; the other two are non-negative.",
+          "if": {
+            "properties": {
+              "information_unit": {
+                "const": "point_biserial_milli"
+              }
+            },
+            "required": [
+              "information_unit"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mean_item_information": {
+                "properties": {
+                  "point": {
+                    "minimum": -1000,
+                    "maximum": 1000
+                  },
+                  "lo": {
+                    "minimum": -1000,
+                    "maximum": 1000
+                  },
+                  "hi": {
+                    "minimum": -1000,
+                    "maximum": 1000
+                  },
+                  "quantity_kind": {
+                    "const": "real_valued"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "mean_item_information": {
+                "properties": {
+                  "point": {
+                    "minimum": 0
+                  },
+                  "lo": {
+                    "minimum": 0
+                  },
+                  "hi": {
+                    "minimum": 0
+                  },
+                  "quantity_kind": {
+                    "const": "real_valued"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "The decisive subset is a one-sided bound in items, never an exact minimum and never an interval-bearing estimate.",
+          "properties": {
+            "decisive_subset_upper_bound": {
+              "properties": {
+                "estimator_kind": {
+                  "const": "upper_bound"
+                },
+                "quantity_kind": {
+                  "const": "count"
+                },
+                "point": {
+                  "minimum": 1,
+                  "maximum": 1000000
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatasetRecordClaimIdV1": {
+      "description": "The complete v1 dataset claim allowlist, each named for what it PROVES rather than what it suggests (revised after sol P1 on DS1, DS2 and DS3). DS1 = committed-set identity: the committed item set and its reference answers are identical to those of any other record carrying this dataset_identity_root AND identity_blind_epoch. It is NOT a claim that the committed set was the set evaluated, and equality of the per-build dataset_commitment_ref is a scope pin, not an identity. DS2 = declared partition: the declared per-cell counts partition the committed item set over the pinned taxonomy -- client_declared arithmetic unless per-cell leaf roots were recomputed from supplied leaf lists, which upgrades it to issuer_verified. DS3 = token-list disjointness: the supplied leaf-commitment TOKEN LISTS for two corpora are disjoint -- not a claim of underlying item disjointness unless a leaf-generation attestation is present. DS4 = near-duplicate screen under the planned method and threshold; it depends on backend observation of raw items, NOT on leaf lists. DS5 = efficiency (information, redundancy, cost per unit of signal) computed under a signed plan whose scope contains every figure reported -- 'under a signed plan', not 'pre-registered', because the plan's ordering is issuer-asserted (DS_NC_PREREG_ORDER_ISSUER_ASSERTED). Nothing outside this enum may print.",
+      "type": "string",
+      "enum": [
+        "DS1",
+        "DS2",
+        "DS3",
+        "DS4",
+        "DS5"
+      ]
+    },
+    "DatasetRecordNonClaimIdV1": {
+      "description": "The SEVENTEEN mandatory printed non-claims, tuple-validated in canonical print order. Non-claims are printed records, never implied by absence (certificate_claims_v0_schema.json#/definitions/NonClaimV0). Five were added and one renamed across revisions 2 and 3: DS_NC_EVALUATED_SET_NOT_BOUND, DS_NC_COMPOSITION_IS_DECLARED_NOT_MEASURED, DS_NC_TOKEN_DISJOINTNESS_NOT_ITEM_DISJOINTNESS, DS_NC_LEAF_GENERATION_ATTESTED and DS_NC_EFFICIENCY_NOT_RECOMPUTABLE are new; DS_NC_PREREG_ORDER_ISSUER_ASSERTED replaces the weaker DS_NC_NO_TRUSTED_TIMESTAMP and is worded to sit alongside pillar 1's NCQ_PREREG_ORDER_NOT_PROVEN and pillar 3's NC_EVQ_PREREG_TIME_ISSUER_ASSERTED.",
+      "type": "string",
+      "enum": [
+        "DS_NC_NO_CONTENT",
+        "DS_NC_EVALUATED_SET_NOT_BOUND",
+        "DS_NC_NO_REPRESENTATIVENESS",
+        "DS_NC_NO_SAMPLING_FRAME",
+        "DS_NC_COMPOSITION_IS_DECLARED_NOT_MEASURED",
+        "DS_NC_NO_LABEL_CORRECTNESS",
+        "DS_NC_NO_ANNOTATION_QUALITY",
+        "DS_NC_TOKEN_DISJOINTNESS_NOT_ITEM_DISJOINTNESS",
+        "DS_NC_LEAF_GENERATION_ATTESTED",
+        "DS_NC_NO_TRAINING_CORPUS_ACCESS",
+        "DS_NC_NEAR_DUPLICATE_METHOD_BOUND",
+        "DS_NC_INERTNESS_IS_CANDIDATE_RELATIVE",
+        "DS_NC_DECISIVE_SUBSET_IS_UPPER_BOUND",
+        "DS_NC_ITEM_INFORMATION_MODEL_DEPENDENT",
+        "DS_NC_EFFICIENCY_NOT_RECOMPUTABLE",
+        "DS_NC_NO_FUTURE_VALIDITY",
+        "DS_NC_PREREG_ORDER_ISSUER_ASSERTED"
+      ]
+    },
+    "DatasetRecordNonClaimReasonCatalogV1": {
+      "description": "Pinned non-claim sentence catalog; the wire record carries identifiers only. DS_NC_NO_CONTENT = 'The item set is committed, not opened; this record establishes nothing about the content, provenance, or correctness of any item.' - DS_NC_EVALUATED_SET_NOT_BOUND = 'Nothing in this record proves that the committed item set is the set the agent was actually evaluated on.' - DS_NC_NO_REPRESENTATIVENESS = 'Coverage is over the declared taxonomy only; it is not evidence that this dataset represents the customer's live traffic.' - DS_NC_NO_SAMPLING_FRAME = 'The declared population is a declaration; no sampling frame or inclusion probability exists, so no inference from dataset to population is licensed.' - DS_NC_COMPOSITION_IS_DECLARED_NOT_MEASURED = 'Unless per-cell leaf roots were recomputed, the composition is issuer-declared counts that sum correctly; no item is bound to the cell it was counted in.' - DS_NC_NO_LABEL_CORRECTNESS = 'Reference answers are committed, not adjudicated; this record does not state that any reference answer is correct.' - DS_NC_NO_ANNOTATION_QUALITY = 'No inter-annotator agreement was measured unless a limitation code says otherwise; absence of a limitation is absence of a declaration.' - DS_NC_TOKEN_DISJOINTNESS_NOT_ITEM_DISJOINTNESS = 'Disjoint token lists are not disjoint items: this does not prove a common blind was used, that each token came from a real item, or that either list is complete.' - DS_NC_LEAF_GENERATION_ATTESTED = 'Leaf generation and list completeness are attested by the issuer over its own process; they are not independently proven.' - DS_NC_NO_TRAINING_CORPUS_ACCESS = 'No model provider training corpus was inspected; training contamination findings are client attestations only.' - DS_NC_NEAR_DUPLICATE_METHOD_BOUND = 'Near-duplicate findings hold only for the planned method and threshold; a different method yields a different count.' - DS_NC_INERTNESS_IS_CANDIDATE_RELATIVE = 'Inert and decisive-subset results hold only for the declared candidate set; they are not properties of the dataset alone.' - DS_NC_DECISIVE_SUBSET_IS_UPPER_BOUND = 'The decisive-subset size is a greedy upper bound under a declared elimination order; it is not the minimum.' - DS_NC_ITEM_INFORMATION_MODEL_DEPENDENT = 'Item information depends on the fitted model and the candidate population; it is not an intrinsic property of an item.' - DS_NC_EFFICIENCY_NOT_RECOMPUTABLE = 'The information, inertness and decisive-subset figures were computed by the issuer over data no relying party holds; only their derived ratios can be rechecked from this certificate.' - DS_NC_NO_FUTURE_VALIDITY = 'These results describe the evaluated candidate set at this time; a new agent may re-inform items that measured as inert.' - DS_NC_PREREG_ORDER_ISSUER_ASSERTED = 'That the measurement plan preceded the results is asserted by the issuer, which wrote both the plan and the receipts it is ordered against; no external time anchor attested it.'",
+      "type": "string",
+      "enum": [
+        "tmpl.dsnoncert.no_content.v1",
+        "tmpl.dsnoncert.evaluated_set_not_bound.v1",
+        "tmpl.dsnoncert.no_representativeness.v1",
+        "tmpl.dsnoncert.no_sampling_frame.v1",
+        "tmpl.dsnoncert.composition_is_declared_not_measured.v1",
+        "tmpl.dsnoncert.no_label_correctness.v1",
+        "tmpl.dsnoncert.no_annotation_quality.v1",
+        "tmpl.dsnoncert.token_disjointness_not_item_disjointness.v1",
+        "tmpl.dsnoncert.leaf_generation_attested.v1",
+        "tmpl.dsnoncert.no_training_corpus_access.v1",
+        "tmpl.dsnoncert.near_duplicate_method_bound.v1",
+        "tmpl.dsnoncert.inertness_is_candidate_relative.v1",
+        "tmpl.dsnoncert.decisive_subset_is_upper_bound.v1",
+        "tmpl.dsnoncert.item_information_model_dependent.v1",
+        "tmpl.dsnoncert.efficiency_not_recomputable.v1",
+        "tmpl.dsnoncert.no_future_validity.v1",
+        "tmpl.dsnoncert.prereg_order_issuer_asserted.v1"
+      ]
+    },
+    "DatasetRecordNonClaimV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "non_claim_id",
+        "reason_template_id"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "non_claim"
+        },
+        "non_claim_id": {
+          "$ref": "#/definitions/DatasetRecordNonClaimIdV1"
+        },
+        "reason_template_id": {
+          "$ref": "#/definitions/DatasetRecordNonClaimReasonCatalogV1"
+        }
+      },
+      "not": {
+        "required": [
+          "verifier"
+        ]
+      }
+    },
+    "DatasetRecordNonClaimsFixedTupleV1": {
+      "description": "All seventeen, in canonical print order. additionalItems:false plus the min/max bounds make omission, addition, and reordering schema-invalid, exactly as certificate_claims_v0_schema.json#/definitions/NonClaimsFixedTupleV0 does for v0's fourteen. The order is not arbitrary: each non-claim sits immediately after the claim a reader is most likely to over-read it from.",
+      "type": "array",
+      "minItems": 17,
+      "maxItems": 17,
+      "additionalItems": false,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_NO_CONTENT"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.no_content.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_EVALUATED_SET_NOT_BOUND"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.evaluated_set_not_bound.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_NO_REPRESENTATIVENESS"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.no_representativeness.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_NO_SAMPLING_FRAME"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.no_sampling_frame.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_COMPOSITION_IS_DECLARED_NOT_MEASURED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.composition_is_declared_not_measured.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_NO_LABEL_CORRECTNESS"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.no_label_correctness.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_NO_ANNOTATION_QUALITY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.no_annotation_quality.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_TOKEN_DISJOINTNESS_NOT_ITEM_DISJOINTNESS"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.token_disjointness_not_item_disjointness.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_LEAF_GENERATION_ATTESTED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.leaf_generation_attested.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_NO_TRAINING_CORPUS_ACCESS"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.no_training_corpus_access.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_NEAR_DUPLICATE_METHOD_BOUND"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.near_duplicate_method_bound.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_INERTNESS_IS_CANDIDATE_RELATIVE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.inertness_is_candidate_relative.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_DECISIVE_SUBSET_IS_UPPER_BOUND"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.decisive_subset_is_upper_bound.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_ITEM_INFORMATION_MODEL_DEPENDENT"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.item_information_model_dependent.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_EFFICIENCY_NOT_RECOMPUTABLE"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.efficiency_not_recomputable.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_NO_FUTURE_VALIDITY"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.no_future_validity.v1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordNonClaimV1"
+            },
+            {
+              "properties": {
+                "non_claim_id": {
+                  "const": "DS_NC_PREREG_ORDER_ISSUER_ASSERTED"
+                },
+                "reason_template_id": {
+                  "const": "tmpl.dsnoncert.prereg_order_issuer_asserted.v1"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DatasetVerifierIdV1": {
+      "description": "Closed verifier-id vocabulary. The first draft used a ^ver\\.dataset\\.[a-z0-9_]{1,64}$ pattern, which is 64 free lowercase characters -- a content channel opened for no reason, since this family's verifier set is finite and ours (sol P1 on the privacy path).",
+      "type": "string",
+      "enum": [
+        "ver.dataset.identity_v1",
+        "ver.dataset.composition_v1",
+        "ver.dataset.token_disjointness_v1",
+        "ver.dataset.near_duplicate_v1",
+        "ver.dataset.efficiency_v1"
+      ]
+    },
+    "DatasetAttestationBasisV1": {
+      "description": "Closed attestation vocabulary for a client_declared row. It deliberately carries NO 'pass' and no verifier identity: a client declaration records that a signed declaration was presented, not that anything was verified.",
+      "type": "string",
+      "enum": [
+        "client_signed_declaration_v1"
+      ]
+    },
+    "DatasetRecordClaimSupportRowV1": {
+      "description": "One support row per claim id, reusing the FROZEN v0 evidence-basis / abstention discipline unchanged. THE THREE BRANCHES ARE STRUCTURALLY DIFFERENT (revised after sol P2): an issuer_verified row binds a closed verifier id, its version, a PASS result and the exact evidence refs; a client_declared row binds an attestation_basis and evidence refs and is FORBIDDEN a verifier id, a version or a verifier_result, because 'PASS' beside a client declaration reads as verified truth and is exactly the misreading this contract exists to prevent; an abstained row binds exactly one closed reason code and nothing else. Tier-C (client_attested) leakage findings can only ever produce a client_declared row -- an issuer cannot verify what no party observed. DS2 is issuer_verified only when per-cell leaf roots were recomputed, DS3 only when a leaf-generation attestation is present; otherwise both are client_declared. When leaf lists are not supplied, or a corpus exceeds 65536 leaves, DS3 abstains with the frozen v0 code missing_evidence_binding; DS4 does NOT, because near-duplicate evidence is backend observation of raw items and has no leaf-list dependency. No new abstention code is added.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "evidence_basis"
+      ],
+      "properties": {
+        "claim_id": {
+          "$ref": "#/definitions/DatasetRecordClaimIdV1"
+        },
+        "evidence_basis": {
+          "$ref": "certificate_audit_report_v0_schema.json#/definitions/EvidenceBasisV0"
+        },
+        "abstention_code": {
+          "$ref": "certificate_audit_report_v0_schema.json#/definitions/AbstentionCodeV0"
+        },
+        "verifier_id": {
+          "$ref": "#/definitions/DatasetVerifierIdV1"
+        },
+        "verifier_version": {
+          "$ref": "certification_common_v0_schema.json#/definitions/BoundedSemver"
+        },
+        "verifier_result": {
+          "const": "pass"
+        },
+        "attestation_basis": {
+          "$ref": "#/definitions/DatasetAttestationBasisV1"
+        },
+        "evidence_refs": {
+          "description": "EXACTLY one evidence ref, committing to the artifact this contract's verifier recomputed for this claim. The first draft admitted up to four, which the verifier rejects (dataset_record_verifier.py's _check_support_rows requires len(refs) == 1, and separately forbids EvidenceRefV0's optional opaque locator), so a producer following the schema could emit a record that no relying party could verify -- a live schema/verifier compatibility defect. The one-ref profile is the deliberate side: a second ref would be support this verifier did not establish.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "certificate_evidence_refs_v0_schema.json#/definitions/EvidenceRefV0"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "evidence_basis": {
+                "const": "issuer_verified"
+              }
+            },
+            "required": [
+              "evidence_basis"
+            ]
+          },
+          "then": {
+            "required": [
+              "verifier_id",
+              "verifier_version",
+              "verifier_result",
+              "evidence_refs"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "abstention_code"
+                  ]
+                },
+                {
+                  "required": [
+                    "attestation_basis"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_basis": {
+                "const": "client_declared"
+              }
+            },
+            "required": [
+              "evidence_basis"
+            ]
+          },
+          "then": {
+            "required": [
+              "attestation_basis",
+              "evidence_refs"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "abstention_code"
+                  ]
+                },
+                {
+                  "required": [
+                    "verifier_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "verifier_version"
+                  ]
+                },
+                {
+                  "required": [
+                    "verifier_result"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "evidence_basis": {
+                "const": "abstained"
+              }
+            },
+            "required": [
+              "evidence_basis"
+            ]
+          },
+          "then": {
+            "required": [
+              "abstention_code"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "verifier_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "verifier_version"
+                  ]
+                },
+                {
+                  "required": [
+                    "verifier_result"
+                  ]
+                },
+                {
+                  "required": [
+                    "attestation_basis"
+                  ]
+                },
+                {
+                  "required": [
+                    "evidence_refs"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "DatasetRecordClaimSupportRowsV1": {
+      "description": "Exactly five ordered rows: DS1, DS2, DS3, DS4, DS5. Missing, duplicate, extra, or reordered rows are schema-invalid. Set digest uses UTF8(traigent.dataset_record.claim_support_rows.v1) || 0x00 || jcs_v1(the fixed row tuple).",
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "additionalItems": false,
+      "items": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "DS1"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "DS2"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "DS3"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "DS4"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatasetRecordClaimSupportRowV1"
+            },
+            {
+              "properties": {
+                "claim_id": {
+                  "const": "DS5"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DatasetRecordUnsignedManifestV1": {
+      "description": "The complete signed dataset manifest. It binds the process record's already-verified unsigned manifest by digest, and carries only typed digests and references for dataset artifacts. Signature bytes, report bodies, leaf lists, and support rows are excluded from this manifest's preimage; their digests are bound as values. dataset_commitment_ref MUST equal ProcessRecordUnsignedManifestV1.dataset_commitment_ref for the bound process record and the caller's pin -- draft-07 cannot check either equality, so both are verifier obligations.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "process_unsigned_manifest_digest",
+        "dataset_commitment_ref",
+        "commitment_scheme",
+        "scope_binding_digest",
+        "identity",
+        "taxonomy",
+        "method_registry",
+        "composition_digest",
+        "leakage_report_digest",
+        "leaf_generation_attestation_digest",
+        "efficiency_report_digest",
+        "limitations_digest",
+        "prereg_digest",
+        "prereg_signature_digest",
+        "prereg_evidence_grade",
+        "prereg_registered_at",
+        "claim_support_rows_digest",
+        "non_claims",
+        "trust_ring_ref",
+        "issuer_key_ref",
+        "issuer_signature_algorithm",
+        "coverage"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.unsigned_manifest.v1"
+        },
+        "process_unsigned_manifest_digest": {
+          "description": "The already-verified process record is bound BY DIGEST and supplied as a separate verification input; it is never embedded (revision 3, converging with pillars 1 and 3). This field is required and inside coverage because the process record is the ONLY join key across the four pillars -- pillar 2 carries no evaluator ref and pillar 3 carries no dataset ref, so if any family made this optional the pillars would stop composing.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "dataset_commitment_ref": {
+          "description": "TOP-LEVEL (revision 3), matching pillar 3's shape. NORMATIVELY the slot_commitment_digest of certificate_client_evidence_manifest_v0_schema.json#/definitions/EvaluationDatasetSlotV0 for this build, i.e. the same value the process record signs at ProcessRecordUnsignedManifestV1.dataset_commitment_ref. A per-build scope pin, NOT a cross-build identity -- see DatasetIdentityV1.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "commitment_scheme": {
+          "$ref": "certification_common_v0_schema.json#/definitions/CommitmentSchemeV0"
+        },
+        "scope_binding_digest": {
+          "description": "Revision 4: replaces the project_ref and build_session_ref FIELDS this manifest used to carry. Role digest over ScopeBindingProjectionV1, which the verifier rebuilds from its own context pins and the separately-verified process record. The scope values cross only inside the preimage, so this family's signed surface contains NO caller-influenced string at all -- there is no field for a sentinel to sit in. Adopted from pillar 1's ScopeBindingProjectionV1; pillar 3 adopted the same construction.",
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "identity": {
+          "$ref": "#/definitions/DatasetIdentityV1"
+        },
+        "taxonomy": {
+          "$ref": "#/definitions/DatasetTaxonomyIdentityV1"
+        },
+        "method_registry": {
+          "$ref": "#/definitions/DatasetMethodRegistryIdentityV1"
+        },
+        "composition_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "leakage_report_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "leaf_generation_attestation_digest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        },
+        "efficiency_report_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "limitations_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "prereg_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "prereg_signature_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "prereg_evidence_grade": {
+          "$ref": "#/definitions/PreRegistrationEvidenceGradeV1"
+        },
+        "prereg_registered_at": {
+          "$ref": "process_record_v1_schema.json#/definitions/UtcTimestampV1"
+        },
+        "claim_support_rows_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "non_claims": {
+          "$ref": "#/definitions/DatasetRecordNonClaimsFixedTupleV1"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "issuer_signature_algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "coverage": {
+          "const": [
+            "process_unsigned_manifest_digest",
+            "dataset_commitment_ref",
+            "commitment_scheme",
+            "scope_binding_digest",
+            "identity",
+            "taxonomy",
+            "method_registry",
+            "composition_digest",
+            "leakage_report_digest",
+            "leaf_generation_attestation_digest",
+            "efficiency_report_digest",
+            "limitations_digest",
+            "prereg_digest",
+            "prereg_signature_digest",
+            "prereg_evidence_grade",
+            "prereg_registered_at",
+            "claim_support_rows_digest",
+            "non_claims",
+            "trust_ring_ref",
+            "issuer_key_ref",
+            "issuer_signature_algorithm"
+          ]
+        }
+      }
+    },
+    "DatasetRecordSignatureV1": {
+      "description": "External issuer signature block. The issuer signs only the canonical unsigned dataset manifest under UTF8(traigent.dataset_record.issuer_signature.v1) || 0x00 || jcs_v1(unsigned_manifest). This block is outside that manifest, so signature self-reference is impossible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "algorithm",
+        "issuer_key_ref",
+        "trust_ring_ref",
+        "signed_payload",
+        "unsigned_manifest_digest",
+        "signature"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.signature.v1"
+        },
+        "algorithm": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
+        },
+        "issuer_key_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "trust_ring_ref": {
+          "$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"
+        },
+        "signed_payload": {
+          "const": "unsigned_dataset_manifest"
+        },
+        "unsigned_manifest_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        },
+        "signature": {
+          "$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"
+        }
+      }
+    },
+    "DatasetRecordCertificateBundleV1": {
+      "description": "Identifying dataset-record envelope. REVISION 3: the process-record bundle is NOT a member. It is bound by process_unsigned_manifest_digest and supplied as a SEPARATE verification input, converging with pillars 1 and 3 -- embedding would place a second copy of the v0 certificate inside a second signed envelope, so the same artifact could be presented under two signatures whose scopes differ and a verifier that checked one would not have checked the other. Leaf lists and the process-record bundle are both separate inputs, for the same reason the trust-status snapshot is (process_record_verifier.py's fourth-input rationale).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "unsigned_manifest",
+        "signature",
+        "composition",
+        "leakage_report",
+        "efficiency_report",
+        "limitations",
+        "preregistration_envelope",
+        "claim_support_rows"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/definitions/DatasetRecordSchemaVersionV1"
+        },
+        "unsigned_manifest": {
+          "$ref": "#/definitions/DatasetRecordUnsignedManifestV1"
+        },
+        "signature": {
+          "$ref": "#/definitions/DatasetRecordSignatureV1"
+        },
+        "composition": {
+          "$ref": "#/definitions/DatasetCompositionV1"
+        },
+        "leakage_report": {
+          "$ref": "#/definitions/DatasetLeakageReportV1"
+        },
+        "leaf_generation_attestation": {
+          "$ref": "#/definitions/DatasetLeafGenerationAttestationV1"
+        },
+        "efficiency_report": {
+          "$ref": "#/definitions/DatasetEfficiencyReportV1"
+        },
+        "limitations": {
+          "$ref": "#/definitions/DatasetLimitationsV1"
+        },
+        "preregistration_envelope": {
+          "$ref": "#/definitions/DatasetPreRegistrationEnvelopeV1"
+        },
+        "claim_support_rows": {
+          "$ref": "#/definitions/DatasetRecordClaimSupportRowsV1"
+        }
+      },
+      "allOf": [
+        {
+          "description": "The attestation is optional, but its presence and the manifest's digest for it must agree: a bundle carrying the attestation with a null digest, or a non-null digest with no attestation, is unrepresentable.",
+          "if": {
+            "required": [
+              "leaf_generation_attestation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "leaf_generation_attestation_digest": {
+                    "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "unsigned_manifest": {
+                "properties": {
+                  "leaf_generation_attestation_digest": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DatasetRecordErrorLocationV1": {
+      "description": "A bounded JSON pointer naming WHERE a failure was found. Every segment is either a schema-owned key name from this contract or an integer index; a customer value can never appear because the verifier builds the pointer from the schema's own key set and array positions, never from an instance value. A contract test asserts that every segment a verifier can emit is drawn from the union of this schema's property names.",
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^(/([a-z][a-z0-9_]{0,47}|[0-9]{1,5})){0,12}$"
+    },
+    "DatasetRecordErrorV1": {
+      "description": "Closed dataset-record wire error shape: a closed code PLUS a field location (sol P2 -- the first draft specified the location in prose but omitted it from the schema). No request data, free-form detail, or content-bearing diagnostics may cross this boundary. The code enum is DELIBERATELY coarser than the verifier's local error vocabulary: adding a verifier code must never widen it, exactly as ProcessRecordErrorV1 is coarser than PROCESS_RECORD_ERROR_CODES.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "code",
+        "location"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_record.error.v1"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "dataset_record_invalid_manifest",
+            "dataset_record_invalid_registry",
+            "dataset_record_limit_exceeded",
+            "dataset_record_verification_failed"
+          ]
+        },
+        "location": {
+          "$ref": "#/definitions/DatasetRecordErrorLocationV1"
+        }
+      }
+    },
+    "DatasetTaxonomyDocumentV1": {
+      "description": "Canonical package registry document for the closed dataset taxonomy shipped as traigent_schema/data/certification/dataset_taxonomy_document.json. Mirrors CapturePolicyDocumentV1 (process_record_v1_schema.json#/definitions/CapturePolicyDocumentV1) structurally, not by import -- this is a separate contract family. It carries no caller label or free text: category_ids, difficulty_strata and population_kinds are CONST arrays, byte-identical to DatasetCategoryIdV1 / DatasetDifficultyStratumV1 / DatasetPopulationKindV1's own enums (a contract test asserts set-equality both ways, so the schema enum and the shipped document cannot drift). taxonomy_digest is role-separated SHA-256 over UTF8(traigent.dataset_record.taxonomy.v1) || 0x00 || jcs_v1(this document with taxonomy_digest excluded); the self-field is excluded so the registry document has no digest fixed point.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "taxonomy_id",
+        "taxonomy_version",
+        "category_ids",
+        "difficulty_strata",
+        "population_kinds",
+        "min_stratum_size",
+        "imbalance_ratio_limit",
+        "canonicalization",
+        "taxonomy_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_taxonomy_document.v1"
+        },
+        "taxonomy_id": {
+          "const": "traigent.dataset_taxonomy.asap.v1"
+        },
+        "taxonomy_version": {
+          "const": "1.0.0"
+        },
+        "category_ids": {
+          "const": [
+            "factual_lookup",
+            "multi_hop_reasoning",
+            "arithmetic",
+            "code_generation",
+            "structured_extraction",
+            "summarization",
+            "classification",
+            "instruction_following",
+            "safety_refusal",
+            "tool_invocation"
+          ]
+        },
+        "difficulty_strata": {
+          "const": [
+            "s1_easy",
+            "s2_moderate",
+            "s3_hard",
+            "s4_adversarial"
+          ]
+        },
+        "population_kinds": {
+          "const": [
+            "customer_declared_domain",
+            "public_benchmark_replica",
+            "synthetic_from_declared_spec",
+            "historical_production_sample",
+            "adversarial_curated",
+            "undeclared"
+          ]
+        },
+        "min_stratum_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "imbalance_ratio_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "canonicalization": {
+          "const": "jcs_v1"
+        },
+        "taxonomy_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "DatasetMethodRegistryDocumentV1": {
+      "description": "Canonical package registry document for the closed dataset-quality method registry shipped as traigent_schema/data/certification/dataset_method_registry_document.json. Mirrors ProcessDefinitionDocumentV1 (process_record_v1_schema.json#/definitions/ProcessDefinitionDocumentV1) structurally, not by import. information_methods, selection_rules, inertness_criteria, elimination_orders, near_duplicate_methods and interval_methods are CONST arrays, each byte-identical to the corresponding schema enum (DatasetInformationMethodV1, DatasetSelectionRuleV1, DatasetInertnessCriterionV1, DatasetEliminationOrderV1, DatasetNearDuplicateMethodV1, DatasetIntervalMethodV1) -- a contract test asserts set-equality both ways so package data and schema cannot drift. registry_digest is role-separated SHA-256 over UTF8(traigent.dataset_record.method_registry.v1) || 0x00 || jcs_v1(this document with registry_digest excluded); the self-field is excluded so the registry document has no digest fixed point.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "registry_id",
+        "registry_version",
+        "information_methods",
+        "selection_rules",
+        "inertness_criteria",
+        "elimination_orders",
+        "near_duplicate_methods",
+        "interval_methods",
+        "canonicalization",
+        "registry_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "traigent.dataset_method_registry_document.v1"
+        },
+        "registry_id": {
+          "const": "traigent.dataset_method_registry.asap.v1"
+        },
+        "registry_version": {
+          "const": "1.0.0"
+        },
+        "information_methods": {
+          "const": [
+            "irt_2pl_mml_v1",
+            "point_biserial_v1",
+            "score_variance_v1"
+          ]
+        },
+        "selection_rules": {
+          "const": [
+            "argmax_mean_score_v1",
+            "argmax_mean_score_cost_tiebreak_v1",
+            "pareto_first_by_declared_order_v1"
+          ]
+        },
+        "inertness_criteria": {
+          "const": [
+            "winner_preserving",
+            "rank_preserving"
+          ]
+        },
+        "elimination_orders": {
+          "const": [
+            "item_index_ascending",
+            "estimated_information_ascending"
+          ]
+        },
+        "near_duplicate_methods": {
+          "const": [
+            "exact_normalized_v1",
+            "minhash_jaccard_v1",
+            "simhash_hamming_v1"
+          ]
+        },
+        "interval_methods": {
+          "const": [
+            "none",
+            "bootstrap_percentile_v1",
+            "wilson_score_v1"
+          ]
+        },
+        "canonicalization": {
+          "const": "jcs_v1"
+        },
+        "registry_digest": {
+          "$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/DatasetRecordCertificateBundleV1"
+    }
+  ]
+}

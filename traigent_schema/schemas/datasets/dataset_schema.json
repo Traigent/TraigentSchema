@@ -161,6 +161,18 @@
         }
       },
       "additionalProperties": true
+    },
+    "current_version": {
+      "oneOf": [
+        {
+          "$ref": "./dataset_version_schema.json#/definitions/DatasetVersionV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The current DatasetVersionV1 record for this dataset (dataset_version_schema.json): a labeled, immutable snapshot of this dataset's example membership, carrying the content-addressable content_digest for the examples it snapshots. OPTIONAL and ADDITIVE: absent or null means no versioned snapshot has been created for this dataset yet (e.g. a legacy dataset predating this field). Old readers that VALIDATE against the previous schema reject a payload carrying this key (closed object); producers MUST OMIT the key -- never emit null -- until every consumer has upgraded to a schema version that knows it; readers that ignore unknown keys are unaffected."
     }
   },
   "required": [

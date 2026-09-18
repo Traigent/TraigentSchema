@@ -8,6 +8,45 @@ fresh relying-party context, and an explicit pinned policy; it does not
 resolve keys, contact Traigent, access a database, or inspect private evidence.
 """
 
+from traigent_schema.certification.agent_quality_verifier import (
+    AGENT_QUALITY_CLAIM_ABSTAINED,
+    AGENT_QUALITY_ERROR_CODES,
+    AGENT_QUALITY_VERIFIED,
+    AgentQualityVerificationContext,
+    AgentQualityVerificationError,
+    AgentQualityVerificationResult,
+    verify_agent_quality_certificate,
+)
+from traigent_schema.certification.dataset_record_verifier import (
+    DATASET_RECORD_ERROR_CODES,
+    DatasetRecordVerificationContext,
+    DatasetRecordVerificationError,
+    DatasetRecordVerificationResult,
+    verify_dataset_record_certificate,
+)
+from traigent_schema.certification.evaluator_quality_verifier import (
+    EVALUATOR_QUALITY_CLAIMS_PARTIAL,
+    EVALUATOR_QUALITY_ERROR_CODES,
+    EVALUATOR_QUALITY_VERIFIED,
+    EvaluatorQualityVerificationContext,
+    EvaluatorQualityVerificationError,
+    EvaluatorQualityVerificationResult,
+    verify_evaluator_quality_certificate,
+)
+from traigent_schema.certification.process_record_verifier import (
+    PROCESS_RECORD_ERROR_CODES,
+    ProcessRecordVerificationContext,
+    ProcessRecordVerificationError,
+    ProcessRecordVerificationResult,
+    TrustAnchorKeyV1,
+    verify_process_record_certificate,
+)
+from traigent_schema.certification.prohibited_register import (
+    PROHIBITED_REGISTER_BASELINE_DIGEST,
+    PROHIBITED_REGISTER_BASELINE_PINNED_DIGEST,
+    ProhibitedRegisterBaselineError,
+    load_prohibited_register_baseline,
+)
 from traigent_schema.certification.relying_party_verifier import (
     CLIENT_CO_ATTESTATION_CONTEXT_FIELDS,
     CLIENT_CO_ATTESTATION_ERROR_CODES,
@@ -27,19 +66,48 @@ from traigent_schema.certification.relying_party_verifier import (
 )
 
 __all__ = [
+    "AGENT_QUALITY_CLAIM_ABSTAINED",
+    "AGENT_QUALITY_ERROR_CODES",
+    "AGENT_QUALITY_VERIFIED",
+    "AgentQualityVerificationContext",
+    "AgentQualityVerificationError",
+    "AgentQualityVerificationResult",
     "CLIENT_CO_ATTESTATION_ERROR_CODES",
     "CLIENT_CO_ATTESTATION_CONTEXT_FIELDS",
     "ClientCertificateProjection",
     "ClientCoAttestationContext",
+    "DATASET_RECORD_ERROR_CODES",
+    "DatasetRecordVerificationContext",
+    "DatasetRecordVerificationError",
+    "DatasetRecordVerificationResult",
+    "EVALUATOR_QUALITY_CLAIMS_PARTIAL",
+    "EVALUATOR_QUALITY_ERROR_CODES",
+    "EVALUATOR_QUALITY_VERIFIED",
+    "EvaluatorQualityVerificationContext",
+    "EvaluatorQualityVerificationError",
+    "EvaluatorQualityVerificationResult",
     "derive_client_key_ref",
+    "PROCESS_RECORD_ERROR_CODES",
+    "ProcessRecordVerificationContext",
+    "ProcessRecordVerificationError",
+    "ProcessRecordVerificationResult",
+    "load_prohibited_register_baseline",
+    "PROHIBITED_REGISTER_BASELINE_DIGEST",
+    "PROHIBITED_REGISTER_BASELINE_PINNED_DIGEST",
+    "ProhibitedRegisterBaselineError",
     "RelyingPartyPolicy",
     "RelyingPartyVerificationError",
+    "TrustAnchorKeyV1",
     "VerificationContext",
     "VerificationError",
     "VerificationResult",
     "verify_certificate",
     "verify_agent_certificate",
+    "verify_agent_quality_certificate",
     "verify",
     "verify_certificate_with_materials",
+    "verify_dataset_record_certificate",
+    "verify_evaluator_quality_certificate",
+    "verify_process_record_certificate",
     "prepare_client_co_attestation",
 ]

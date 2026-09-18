@@ -1,0 +1,11 @@
+{
+  "schema_version": "traigent.agent_quality.aggregation_policy_document.v1",
+  "policy_id": "traigent.aggregation_policy.pillar1.v1",
+  "policy_version": "1.0.0",
+  "per_item_aggregation": "unweighted_mean_v1",
+  "multi_objective_combination": "no_combination_v1",
+  "objective_weighting": "none_v1",
+  "tie_rule": "no_ranking_v1",
+  "missing_item_rule": "reject_v1",
+  "canonicalization": "jcs_v1"
+}

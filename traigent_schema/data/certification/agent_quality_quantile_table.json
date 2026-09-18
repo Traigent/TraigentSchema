@@ -1,0 +1,565 @@
+{
+  "schema_version": "traigent.agent_quality.quantile_table_document.v1",
+  "table_id": "traigent.quantile_table.student_t.v1",
+  "table_version": "1.0.0",
+  "canonicalization": "jcs_v1",
+  "description": "Two-sided Student-t quantiles, scaled by 1e6 and rounded up (ceiling), keyed by (nominal_coverage_ppm, df_bucket). df_bucket 1000000000 is the sentinel for the infinite-degrees-of-freedom (normal) row.",
+  "df_bucket_infinity_sentinel": 1000000000,
+  "rows": [
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 1,
+      "quantile_x1e6": 6313752
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 2,
+      "quantile_x1e6": 2919986
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 3,
+      "quantile_x1e6": 2353364
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 4,
+      "quantile_x1e6": 2131847
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 5,
+      "quantile_x1e6": 2015049
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 6,
+      "quantile_x1e6": 1943181
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 7,
+      "quantile_x1e6": 1894579
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 8,
+      "quantile_x1e6": 1859549
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 9,
+      "quantile_x1e6": 1833113
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 10,
+      "quantile_x1e6": 1812462
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 11,
+      "quantile_x1e6": 1795885
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 12,
+      "quantile_x1e6": 1782288
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 13,
+      "quantile_x1e6": 1770934
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 14,
+      "quantile_x1e6": 1761311
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 15,
+      "quantile_x1e6": 1753051
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 16,
+      "quantile_x1e6": 1745884
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 17,
+      "quantile_x1e6": 1739607
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 18,
+      "quantile_x1e6": 1734064
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 19,
+      "quantile_x1e6": 1729133
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 20,
+      "quantile_x1e6": 1724719
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 21,
+      "quantile_x1e6": 1720743
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 22,
+      "quantile_x1e6": 1717145
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 23,
+      "quantile_x1e6": 1713872
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 24,
+      "quantile_x1e6": 1710883
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 25,
+      "quantile_x1e6": 1708141
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 26,
+      "quantile_x1e6": 1705618
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 27,
+      "quantile_x1e6": 1703289
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 28,
+      "quantile_x1e6": 1701131
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 29,
+      "quantile_x1e6": 1699128
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 30,
+      "quantile_x1e6": 1697261
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 40,
+      "quantile_x1e6": 1683852
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 60,
+      "quantile_x1e6": 1670649
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 120,
+      "quantile_x1e6": 1657651
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 200,
+      "quantile_x1e6": 1652509
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 500,
+      "quantile_x1e6": 1647907
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 1000,
+      "quantile_x1e6": 1646379
+    },
+    {
+      "nominal_coverage_ppm": 900000,
+      "df_bucket": 1000000000,
+      "quantile_x1e6": 1644854
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 1,
+      "quantile_x1e6": 12706205
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 2,
+      "quantile_x1e6": 4302653
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 3,
+      "quantile_x1e6": 3182447
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 4,
+      "quantile_x1e6": 2776446
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 5,
+      "quantile_x1e6": 2570582
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 6,
+      "quantile_x1e6": 2446912
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 7,
+      "quantile_x1e6": 2364625
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 8,
+      "quantile_x1e6": 2306005
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 9,
+      "quantile_x1e6": 2262158
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 10,
+      "quantile_x1e6": 2228139
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 11,
+      "quantile_x1e6": 2200986
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 12,
+      "quantile_x1e6": 2178813
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 13,
+      "quantile_x1e6": 2160369
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 14,
+      "quantile_x1e6": 2144787
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 15,
+      "quantile_x1e6": 2131450
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 16,
+      "quantile_x1e6": 2119906
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 17,
+      "quantile_x1e6": 2109816
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 18,
+      "quantile_x1e6": 2100923
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 19,
+      "quantile_x1e6": 2093025
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 20,
+      "quantile_x1e6": 2085964
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 21,
+      "quantile_x1e6": 2079614
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 22,
+      "quantile_x1e6": 2073874
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 23,
+      "quantile_x1e6": 2068658
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 24,
+      "quantile_x1e6": 2063899
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 25,
+      "quantile_x1e6": 2059539
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 26,
+      "quantile_x1e6": 2055530
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 27,
+      "quantile_x1e6": 2051831
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 28,
+      "quantile_x1e6": 2048408
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 29,
+      "quantile_x1e6": 2045230
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 30,
+      "quantile_x1e6": 2042273
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 40,
+      "quantile_x1e6": 2021076
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 60,
+      "quantile_x1e6": 2000298
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 120,
+      "quantile_x1e6": 1979931
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 200,
+      "quantile_x1e6": 1971897
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 500,
+      "quantile_x1e6": 1964720
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 1000,
+      "quantile_x1e6": 1962340
+    },
+    {
+      "nominal_coverage_ppm": 950000,
+      "df_bucket": 1000000000,
+      "quantile_x1e6": 1959964
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 1,
+      "quantile_x1e6": 63656742
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 2,
+      "quantile_x1e6": 9924844
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 3,
+      "quantile_x1e6": 5840910
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 4,
+      "quantile_x1e6": 4604095
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 5,
+      "quantile_x1e6": 4032143
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 6,
+      "quantile_x1e6": 3707429
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 7,
+      "quantile_x1e6": 3499484
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 8,
+      "quantile_x1e6": 3355388
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 9,
+      "quantile_x1e6": 3249836
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 10,
+      "quantile_x1e6": 3169273
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 11,
+      "quantile_x1e6": 3105807
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 12,
+      "quantile_x1e6": 3054540
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 13,
+      "quantile_x1e6": 3012276
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 14,
+      "quantile_x1e6": 2976843
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 15,
+      "quantile_x1e6": 2946713
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 16,
+      "quantile_x1e6": 2920782
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 17,
+      "quantile_x1e6": 2898231
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 18,
+      "quantile_x1e6": 2878441
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 19,
+      "quantile_x1e6": 2860935
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 20,
+      "quantile_x1e6": 2845340
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 21,
+      "quantile_x1e6": 2831360
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 22,
+      "quantile_x1e6": 2818757
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 23,
+      "quantile_x1e6": 2807336
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 24,
+      "quantile_x1e6": 2796940
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 25,
+      "quantile_x1e6": 2787436
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 26,
+      "quantile_x1e6": 2778715
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 27,
+      "quantile_x1e6": 2770683
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 28,
+      "quantile_x1e6": 2763263
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 29,
+      "quantile_x1e6": 2756386
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 30,
+      "quantile_x1e6": 2749996
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 40,
+      "quantile_x1e6": 2704460
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 60,
+      "quantile_x1e6": 2660284
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 120,
+      "quantile_x1e6": 2617422
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 200,
+      "quantile_x1e6": 2600635
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 500,
+      "quantile_x1e6": 2585698
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 1000,
+      "quantile_x1e6": 2580755
+    },
+    {
+      "nominal_coverage_ppm": 990000,
+      "df_bucket": 1000000000,
+      "quantile_x1e6": 2575830
+    }
+  ]
+}

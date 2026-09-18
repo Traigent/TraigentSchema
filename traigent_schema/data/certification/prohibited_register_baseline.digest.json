@@ -1,0 +1,11 @@
+{
+  "document": "prohibited_register_baseline.json",
+  "construction": "sha256 over jcs_v1(document) — plain, no domain tag (a DigestRoleDomainTagV0 entry would require editing the frozen certification_common_v0_schema.json enum, out of scope for this packet)",
+  "digest": "sha256:fa5eb3033d622d8a0c22fc0d5507b22e238b150af3fc05fe6827d266251357f3",
+  "source_document": "runs/response-comparison-debugging/prohibited-register-P1-P40-DRAFT.md",
+  "source_document_sha256": "10412328ce256599b150dfa87b67109ad79bf540b5f68da81db5bfb625e5898f",
+  "ratified_by": "owner",
+  "ratified_on": "2026-09-07",
+  "decision_ref": "chat_decision:certified-agent-prohibited-register-ratify-A-20260907",
+  "spine_trail": "st_a7f607179358"
+}

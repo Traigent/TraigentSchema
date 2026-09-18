@@ -1,0 +1,15 @@
+{
+  "schema_version":"traigent.evaluator_quality.assertion_templates_document.v1",
+  "registry_id":"traigent.evaluator_quality.assertion_templates.v1",
+  "registry_version":"1.0.0",
+  "canonicalization":"jcs_v1",
+  "templates":[
+    {"template_id":"tmpl.evq.identity_commitment.v1","emittable":true,"normative_sentence":"The issuer attests evaluator identity commitment."},
+    {"template_id":"tmpl.evq.calibration_against_reference.v1","emittable":true,"normative_sentence":"The issuer reports calibration against the declared reference."},
+    {"template_id":"tmpl.evq.agreement_with_reference.v1","emittable":true,"normative_sentence":"The issuer reports agreement with the declared reference."},
+    {"template_id":"tmpl.evq.sensitivity_two_sided.v1","emittable":true,"normative_sentence":"The issuer reports two-sided sensitivity."},
+    {"template_id":"tmpl.evq.reliability_declared_probe_set.v1","emittable":true,"normative_sentence":"The issuer reports reliability over the declared probe set."},
+    {"template_id":"tmpl.evq.efficiency_per_evaluation.v1","emittable":false,"normative_sentence":"Efficiency is not claimed by this v1 verifier."},
+    {"template_id":"tmpl.evq.agreement_per_cost_frontier.v1","emittable":false,"normative_sentence":"A cost frontier is not claimed by this v1 verifier."}
+  ]
+}

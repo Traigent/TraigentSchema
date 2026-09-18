@@ -1,0 +1,55 @@
+{
+  "schema_version": "traigent.agent_quality.objective_registry_document.v1",
+  "registry_id": "traigent.objective_registry.pillar1.v1",
+  "registry_version": "1.0.0",
+  "canonicalization": "jcs_v1",
+  "entries": [
+    {
+      "objective_id": "obj.accuracy.exact_match.v1",
+      "objective_kind": "binary_rate",
+      "unit": "ppm",
+      "direction": "maximize",
+      "minimum": 0,
+      "maximum": 1000000,
+      "minimum_sample_size": 30
+    },
+    {
+      "objective_id": "obj.accuracy.evaluator_score_mean.v1",
+      "objective_kind": "bounded_mean",
+      "unit": "ppm",
+      "direction": "maximize",
+      "minimum": 0,
+      "maximum": 1000000,
+      "minimum_sample_size": 30
+    },
+    {
+      "objective_id": "obj.cost.mean_microusd_per_item.v1",
+      "objective_kind": "nonnegative_mean",
+      "unit": "microusd",
+      "direction": "minimize",
+      "minimum": 0,
+      "maximum": 1000000000000000,
+      "minimum_sample_size": 200,
+      "distribution_assumption": "clt_adequate_n200_v1"
+    },
+    {
+      "objective_id": "obj.latency.mean_us.v1",
+      "objective_kind": "nonnegative_mean",
+      "unit": "microsecond",
+      "direction": "minimize",
+      "minimum": 0,
+      "maximum": 1000000000000000,
+      "minimum_sample_size": 200,
+      "distribution_assumption": "clt_adequate_n200_v1"
+    },
+    {
+      "objective_id": "obj.latency.p50_us.v1",
+      "objective_kind": "nonnegative_quantile",
+      "unit": "microsecond",
+      "direction": "minimize",
+      "minimum": 0,
+      "maximum": 1000000000000000,
+      "minimum_sample_size": 100
+    }
+  ]
+}

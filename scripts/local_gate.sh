@@ -80,11 +80,18 @@ freshness_preflight() {
       read -r ahead behind <<< "$counts"
       echo "  • $ref@$sha (HEAD ahead $ahead / behind $behind)"
       if [[ "$behind" =~ ^[0-9]+$ && "$behind" -gt 0 ]]; then
-        if [[ "$strict" == "1" ]] || { [[ "$ref" == "origin/main" ]] && [[ "$MAIN_BOUND" == "1" ]]; }; then
-          echo "    ❌ HEAD is behind $ref; refresh/rebase before a main-bound gate"
+        # Hard-fail only on drift from the branch's OWN base. A release/*
+        # branch is a pinned snapshot: it is promoted to main from a
+        # reviewed revision, so it is behind origin/develop by design and
+        # gets more so the longer the release review takes. Being behind
+        # origin/main is still a hard stop -- that promotion would lose
+        # content main already has. LOCAL_GATE_STRICT_FRESHNESS=1 restores
+        # the previous behaviour of failing on drift from either line.
+        if [[ "${LOCAL_GATE_STRICT_FRESHNESS:-0}" == "1" ]] || { [[ "$ref" == "$base_ref" ]] && [[ "$MAIN_BOUND" == "1" ]]; }; then
+          echo "    ❌ HEAD is behind its base $ref; merge/rebase before pushing -- this branch would lose content $ref already has"
           rc=1
         else
-          echo "    ⚠️  HEAD is behind $ref; develop-bound local results may differ from hosted CI"
+          echo "    ⚠️  HEAD is behind $ref; local results may differ from hosted CI on that line"
         fi
       fi
     else

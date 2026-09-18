@@ -216,6 +216,10 @@ class TestAnalyticsEndpoints:
                 "/api/v1/analytics/runs/{run_id}/example-insights",
                 "run_example_insights_response_schema.json",
             ),
+            (
+                "/api/v1/analytics/runs/{run_id}/director-evidence",
+                "director_evidence_response_schema.json",
+            ),
         ],
     )
     def test_run_analytics_200s_reference_success_envelope_responses(

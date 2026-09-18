@@ -1,0 +1,34 @@
+{
+  "schema_version": "traigent.dataset_taxonomy_document.v1",
+  "taxonomy_id": "traigent.dataset_taxonomy.asap.v1",
+  "taxonomy_version": "1.0.0",
+  "category_ids": [
+    "factual_lookup",
+    "multi_hop_reasoning",
+    "arithmetic",
+    "code_generation",
+    "structured_extraction",
+    "summarization",
+    "classification",
+    "instruction_following",
+    "safety_refusal",
+    "tool_invocation"
+  ],
+  "difficulty_strata": [
+    "s1_easy",
+    "s2_moderate",
+    "s3_hard",
+    "s4_adversarial"
+  ],
+  "population_kinds": [
+    "customer_declared_domain",
+    "public_benchmark_replica",
+    "synthetic_from_declared_spec",
+    "historical_production_sample",
+    "adversarial_curated",
+    "undeclared"
+  ],
+  "min_stratum_size": 30,
+  "imbalance_ratio_limit": 10,
+  "canonicalization": "jcs_v1"
+}

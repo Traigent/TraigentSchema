@@ -115,7 +115,7 @@
           }
         }
       ],
-      "description": "Optional per-measure scores. Two backend-supported shapes, dispatched by _validate_submission_measures in src/routes/traigent_session_routes.py: a flat metric-name-to-number MeasuresDict object (routed to validate_measures_dict, strict=true: max 50 keys, identifier keys ^[a-zA-Z_][a-zA-Z0-9_]*$, numeric|null values), or a list of per-example ExampleMetrics objects (routed to validate_measures_list instead), the form that carries the per-example sibling identity fields (input_id, example_digest, output_digest, verified_match, signal_key_id)."
+      "description": "Optional per-measure scores. Two backend-supported shapes, dispatched by _validate_submission_measures in src/routes/traigent_session_routes.py: a flat metric-name-to-number MeasuresDict object (routed to validate_measures_dict, strict=true: max 50 keys, metric-name keys ^[a-zA-Z_][a-zA-Z0-9_.-]*$, numeric|null values), or a list of per-example ExampleMetrics objects (routed to validate_measures_list instead), the form that carries the per-example sibling identity fields (input_id, example_digest, output_digest, verified_match, signal_key_id)."
     }
   },
   "required": [

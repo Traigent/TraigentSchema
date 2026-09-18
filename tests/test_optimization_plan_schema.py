@@ -144,9 +144,15 @@ def test_optimization_plan_request_rejects_extra_fields_and_bad_weights() -> Non
         schema,
         _request_payload(dataset={"size": 120, "has_holdout": True, "split_seed": 7}),
     )
-    assert _errors(schema, _request_payload(weights={"bad-key": 1.0}))
+    assert _errors(schema, _request_payload(weights={"bad key": 1.0}))
+    assert _errors(schema, _request_payload(weights={"9leading": 1.0}))
     assert _errors(schema, _request_payload(weights={"accuracy": "high"}))
-    assert _errors(schema, _request_payload(objectives=["accuracy", "bad-key"]))
+    assert _errors(schema, _request_payload(objectives=["accuracy", "bad key"]))
+
+    # #304: hyphens and dots are valid metric names on both the weights map and
+    # the objectives list -- see test_metric_name_pattern_is_consistent_across_surfaces.
+    assert _errors(schema, _request_payload(weights={"response-time": 1.0})) == []
+    assert _errors(schema, _request_payload(objectives=["accuracy", "cost.usd"])) == []
     assert _errors(schema, _request_payload(budget={"max_trials": 0, "cost_limit_usd": 1.0}))
 
 

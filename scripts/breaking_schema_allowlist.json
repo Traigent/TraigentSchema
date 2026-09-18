@@ -2615,6 +2615,113 @@
           "fingerprint": "e1a595ffbedfa68e6e4b0cf44aef23d1e9f3dd4f4ecd5a421d32a77feea63f40"
         }
       ]
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "unresolved_ref",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/jobs/{job_id}/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "76cb276221d5053ab17a9ecfdb9fbd189a7938a1ed51dc8732d31f784ba0d36f"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "72e61db380201d4c6427c95e4de75303ce3b536218698adb02a6b2acbaa755ab"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/dataset-quality/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7297114c36d51911f3e9580b1cdf25aeb62b6f8d0be178680086c5b38da51f10"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/scores/get/responses/200/content/application/json/schema/items",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3756bb13e970f8686efc4b111f36c166bcedc922da5671efd961c39ead929084"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "4ae0a9e1bbf02290ed827572d20fc4b75823ebaa9e39db5d2dfb7d5e555d1ef4"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c02955c9646e4ac2202df3cf5532a3206f8542ac49a02ccf3ac885743bb8f5ce"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt/post/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "82d8616101562b591201cf61775cd9dda1b6339fd0f6947ad6755d2ff4d4f9ba"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). No request/response-shape change; this changes schema identifiers. PR #485 (e100f2c) moved the $id of these seven analytics schemas from https://traigent.ai/schemas/analytics/<name>.json to https://schemas.traigent.ai/analytics/<name>_schema.json, the base that all but one of the package's identified schemas use. A consumer that resolves these seven schemas by their absolute $id must use the new identifier. On main, the BASE side of this promotion diff, the old $id makes analytics_endpoints.json's relative $ref (./<name>_schema.json) resolve to a URL that no schema declares, so the gate cannot load the base shape and fails closed with unresolved_ref on each of the seven request/response bodies. #485 itself did not trip this because analytics_endpoints.json was not in that PR's changed set; the promotion diff contains it because #471 (1ec76fe) added the director-evidence operation to the same file. Reviewed at promotion, and re-checked by an independent reviewer: each of the seven schema files is equal between origin/main and HEAD except its $id (in-memory JSON comparison); the endpoint file's $refs to them are unchanged; the gate's own registry reports seven UNRESOLVED on origin/main and seven RESOLVED on HEAD; no request or response body change is hidden behind this entry. Exact fingerprints, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/error_message",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "ef749583dca7218d9aaeac90537d150fe74d0cfdb3fd333ecc2d30503e29a34a"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/status",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 255,
+          "new": 64,
+          "fingerprint": "767b66eff0b0bd4e03ff1cebcfdde2c35357c64be5e41c9d712ca5bedff9a83a"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). This is PR #482's tightening of status (255 -> 64) and error_message (5000 -> 2000) seen through this endpoint file's $ref to session_submit_results_request_schema.json. #482 acknowledged it on the request schema file; the promotion diff reaches the same two fields through the results POST requestBody, so the pointers, and therefore the fingerprints, differ from #482's file-level entry and need their own exact entry. Same change, same evidence, re-verified at the promoted Backend revision e7a28b896: src/routes/traigent_session_routes.py:981-984 rejects a status longer than 64 characters and :986-992 rejects an error_message longer than MAX_TRIAL_ERROR_MESSAGE_LENGTH = 2_000 (src/services/traigent/terminal_outcome.py:18), both answered with 400. The schema was looser than the server; a payload that passed the old bound was already refused by the API. Exact fingerprints, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/finalize/post/responses/200/content/application/json/schema/properties/session_aggregation/properties/selection",
+          "role": "response",
+          "subject": "selection",
+          "old": false,
+          "new": true,
+          "fingerprint": "3c6dca4ae315ae44e774f469bc92f0d6dc6a4f71b9de342e311a18552c291f28"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). This is PR #491's new OPTIONAL selection member of the closed (additionalProperties:false) SessionAggregationDTO, the R3 selection receipt, seen through the finalize 200 response's session_aggregation property; #491's own entry covers the same widening on session_aggregation_schema.json. It is a real widening of a closed response shape, and a consumer can receive the member without having sent it: once a finalizing client has sent an accepted selection the Backend persists it; a later finalize that omits the rollup preserves and re-binds it (src/services/traigent/interactive_session_service.py:4820-4849 at e7a28b896) and echoes it (:6216-6282), as the live-PostgreSQL re-finalize test shows (tests/security/rls_live/test_session_selection_receipt_live.py:394-427: a retry that sends no rollup is answered with the accepted receipt); any reader of the stored run results sees it too. A validator built against the previous closed shape will therefore reject those responses for a session whose finalizing client sent a receipt; a well-formed client-sent rejected form stores nothing. Accepted at review because the member is optional, the only first-party producer is the Python SDK revision that also carries the reader (Traigent #2313), and it ships in the 6.x major line opened by #470's breaking removal (5.8.0 -> 6.0.0), which already ends compatibility promises to consumers pinned to the 5.x shapes. Mixed-version strict validators remain a known limitation, recorded here rather than silenced. Exact fingerprint, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
     }
   ]
 }

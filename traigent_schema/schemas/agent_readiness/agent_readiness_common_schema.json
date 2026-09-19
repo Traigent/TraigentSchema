@@ -88,6 +88,36 @@
         "observation_basis",
         "observed_at",
         "evidence_ref"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "state": {"const": "SUPPORTED"},
+            "observation_basis": {
+              "enum": [
+                "backend_observed",
+                "server_recorded_client_declaration",
+                "client_reported"
+              ]
+            },
+            "evidence_ref": {"$ref": "#/definitions/EvidenceRef"}
+          }
+        },
+        {
+          "properties": {
+            "state": {"const": "GAP"},
+            "observation_basis": {"enum": ["backend_observed", "client_reported"]},
+            "evidence_ref": {"$ref": "#/definitions/EvidenceRef"}
+          }
+        },
+        {
+          "properties": {
+            "state": {"const": "UNKNOWN"},
+            "observation_basis": {"const": "not_assessed"},
+            "observed_at": {"type": "null"},
+            "evidence_ref": {"type": "null"}
+          }
+        }
       ]
     },
     "CoverageState": {
@@ -158,17 +188,6 @@
       },
       "required": ["id", "name", "status"]
     },
-    "Pagination": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "page": {"type": "integer", "minimum": 1},
-        "per_page": {"type": "integer", "minimum": 1},
-        "total": {"type": "integer", "minimum": 0},
-        "total_pages": {"type": "integer", "minimum": 0}
-      },
-      "required": ["page", "per_page", "total", "total_pages"]
-    },
     "ReportedMetric": {
       "type": "object",
       "additionalProperties": false,
@@ -211,6 +230,87 @@
               ]
             }
           }
+        }
+      ]
+    },
+    "AccuracyMetric": {
+      "allOf": [
+        {"$ref": "#/definitions/ReportedMetric"},
+        {"properties": {"kind": {"const": "ACCURACY"}}}
+      ]
+    },
+    "CostMetric": {
+      "allOf": [
+        {"$ref": "#/definitions/ReportedMetric"},
+        {"properties": {"kind": {"const": "COST"}}}
+      ]
+    },
+    "LatencyMetric": {
+      "allOf": [
+        {"$ref": "#/definitions/ReportedMetric"},
+        {"properties": {"kind": {"const": "LATENCY"}}}
+      ]
+    },
+    "ReportedMetrics": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "oneOf": [
+        {"maxItems": 0},
+        {
+          "minItems": 1,
+          "maxItems": 1,
+          "items": [{"$ref": "#/definitions/AccuracyMetric"}],
+          "additionalItems": false
+        },
+        {
+          "minItems": 1,
+          "maxItems": 1,
+          "items": [{"$ref": "#/definitions/CostMetric"}],
+          "additionalItems": false
+        },
+        {
+          "minItems": 1,
+          "maxItems": 1,
+          "items": [{"$ref": "#/definitions/LatencyMetric"}],
+          "additionalItems": false
+        },
+        {
+          "minItems": 2,
+          "maxItems": 2,
+          "items": [
+            {"$ref": "#/definitions/AccuracyMetric"},
+            {"$ref": "#/definitions/CostMetric"}
+          ],
+          "additionalItems": false
+        },
+        {
+          "minItems": 2,
+          "maxItems": 2,
+          "items": [
+            {"$ref": "#/definitions/AccuracyMetric"},
+            {"$ref": "#/definitions/LatencyMetric"}
+          ],
+          "additionalItems": false
+        },
+        {
+          "minItems": 2,
+          "maxItems": 2,
+          "items": [
+            {"$ref": "#/definitions/CostMetric"},
+            {"$ref": "#/definitions/LatencyMetric"}
+          ],
+          "additionalItems": false
+        },
+        {
+          "minItems": 3,
+          "maxItems": 3,
+          "items": [
+            {"$ref": "#/definitions/AccuracyMetric"},
+            {"$ref": "#/definitions/CostMetric"},
+            {"$ref": "#/definitions/LatencyMetric"}
+          ],
+          "additionalItems": false
         }
       ]
     },

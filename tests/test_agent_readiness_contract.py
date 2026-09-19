@@ -91,13 +91,21 @@ def _portfolio_payload() -> dict[str, Any]:
             }
         ],
         "ordering": "STAGE_THEN_LEAST_RECENT_ACTIVITY",
-        "pagination": {"page": 1, "per_page": 25, "total": 1, "total_pages": 1},
+        "pagination": {
+            "page": 1,
+            "per_page": 25,
+            "total": 1,
+            "total_pages": 1,
+            "has_next": False,
+            "has_prev": False,
+        },
     }
 
 
 def _detail_payload() -> dict[str, Any]:
     def unknown(check_id: str) -> dict[str, Any]:
         return _check(check_id, "UNKNOWN", "not_assessed", None, None)
+
     return {
         "schema_version": "1.0.0",
         "as_of": "2026-09-20T00:00:00Z",
@@ -219,7 +227,14 @@ def _detail_payload() -> dict[str, Any]:
                     "evaluator_reference_change": "FIRST_RECORDED_REFERENCE",
                 }
             ],
-            "pagination": {"page": 2, "per_page": 1, "total": 2, "total_pages": 2},
+            "pagination": {
+                "page": 2,
+                "per_page": 1,
+                "total": 2,
+                "total_pages": 2,
+                "has_next": False,
+                "has_prev": True,
+            },
         },
         "next_action_code": "EVALUATE_DATASET_EXAMPLES",
     }
@@ -231,6 +246,7 @@ def test_schema_files_are_valid_draft7_and_discoverable() -> None:
         "agent_readiness_common_schema",
         "agent_readiness_portfolio_response_schema",
         "agent_readiness_detail_response_schema",
+        "agent_readiness_error_schema",
     ):
         assert name in validator.available_schemas
         schema = json.loads((SCHEMAS / f"{name}.json").read_text(encoding="utf-8"))
@@ -288,6 +304,97 @@ def test_metric_allowlist_rejects_generic_or_wrong_unit_values() -> None:
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
 
+def test_reported_metrics_reject_duplicate_kinds() -> None:
+    detail = _detail_payload()
+    metric = detail["journey"]["items"][0]["reported_metrics"][0]
+    detail["journey"]["items"][0]["reported_metrics"] = [
+        metric,
+        {**metric, "value": 1.0, "source_key": "total_cost_usd"},
+    ]
+    assert SchemaValidator().validate_json(detail, "agent_readiness_detail_response_schema")
+
+
+def test_evidence_state_basis_ref_and_time_combinations_are_closed() -> None:
+    validator = SchemaValidator()
+    invalid = (
+        ("SUPPORTED", "not_assessed", None, None),
+        ("UNKNOWN", "backend_observed", {"kind": "agent", "id": "agent-1"}, None),
+        ("UNKNOWN", "not_assessed", None, "2026-09-20T00:00:00Z"),
+        ("GAP", "not_assessed", None, None),
+    )
+    for state, basis, evidence_ref, observed_at in invalid:
+        detail = _detail_payload()
+        detail["pillars"]["agent"]["checks"][0].update(
+            state=state,
+            observation_basis=basis,
+            evidence_ref=evidence_ref,
+            observed_at=observed_at,
+        )
+        assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+
+def test_named_references_and_record_basis_are_kind_and_source_closed() -> None:
+    validator = SchemaValidator()
+    detail = _detail_payload()
+    detail["journey"]["items"][0]["evaluation_dataset_ref"]["kind"] = "agent"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["journey"]["items"][0]["evaluator_version_ref"]["kind"] = "agent"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["current_context"]["evaluation_dataset_association"]["evaluation_dataset_ref"][
+        "kind"
+    ] = "agent"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["journey"]["items"][0]["record_observation_basis"] = "client_reported"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+
+def test_anchor_null_and_pagination_limits_are_enforced() -> None:
+    validator = SchemaValidator()
+    detail = _detail_payload()
+    detail["anchor_run_id"] = None
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["journey"]["pagination"]["per_page"] = 51
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["journey"]["items"] = detail["journey"]["items"] * 51
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    portfolio = _portfolio_payload()
+    portfolio["pagination"]["per_page"] = 101
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
+
+    portfolio = _portfolio_payload()
+    portfolio["items"] = portfolio["items"] * 101
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
+
+
+def test_readiness_error_envelope_rejects_private_sentinels_and_details() -> None:
+    validator = SchemaValidator()
+    valid = {
+        "success": False,
+        "message": "Not found",
+        "error": "not_found",
+        "error_code": "not_found",
+    }
+    assert validator.validate_json(valid, "agent_readiness_error_schema") == []
+
+    for field in ("message", "error", "error_code"):
+        invalid = {**valid, field: "private_prompt_output_canary"}
+        assert validator.validate_json(invalid, "agent_readiness_error_schema")
+
+    invalid = {**valid, "details": {"canary": "private_prompt_output_canary"}}
+    assert validator.validate_json(invalid, "agent_readiness_error_schema")
+
+
 def test_normative_matrix_covers_every_check_and_next_action() -> None:
     matrix = json.loads(MATRIX.read_text(encoding="utf-8"))
     assert {row["check_id"] for row in matrix["checks"]} == CHECK_IDS
@@ -297,6 +404,17 @@ def test_normative_matrix_covers_every_check_and_next_action() -> None:
         "Only evaluator_version_resolution=resolved"
     )
     assert all("existing_ui_flow_or_sdk_call" in row for row in matrix["next_actions"])
+    completion_action = next(
+        row for row in matrix["next_actions"] if row["code"] == "COMPLETE_EVALUATION_RUN"
+    )
+    assert (
+        "hybrid.ts:2870 submitOptimizationTrialResult"
+        in completion_action["existing_ui_flow_or_sdk_call"]
+    )
+    assert ":2891 finalizeOptimizationSession" in completion_action["existing_ui_flow_or_sdk_call"]
+    assert (
+        "hybrid-backend-smoke.mjs:73 then :86" in completion_action["existing_ui_flow_or_sdk_call"]
+    )
     assert (
         next(row for row in matrix["next_actions"] if row["code"] == "REVIEW_RECORDED_EVIDENCE")[
             "kind"
@@ -322,6 +440,31 @@ def test_endpoint_inventory_registers_both_project_scoped_get_routes() -> None:
     ]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "agent_readiness_detail_response_schema.json"
     )
+    assert (
+        paths["/api/v1beta/projects/{project_id}/agent-readiness"]["get"][
+            "x-asserted-against-backend"
+        ]
+        is False
+    )
+    assert (
+        paths["/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}"]["get"][
+            "x-asserted-against-backend"
+        ]
+        is False
+    )
+    for path in paths.values():
+        for response in path["get"]["responses"].values():
+            if response.get("content"):
+                assert (
+                    response["content"]["application/json"]["schema"]["$ref"]
+                    == "./agent_readiness_error_schema.json"
+                    or response["content"]["application/json"]["schema"]["$ref"].endswith(
+                        "agent_readiness_portfolio_response_schema.json"
+                    )
+                    or response["content"]["application/json"]["schema"]["$ref"].endswith(
+                        "agent_readiness_detail_response_schema.json"
+                    )
+                )
 
     root = json.loads((get_schemas_dir() / "mep_endpoints.json").read_text(encoding="utf-8"))
     modules = [

@@ -133,7 +133,7 @@
   },
   "next_actions": [
     {"code": "ESTABLISH_BASELINE_EVALUATION", "driven_by": "no recorded evaluation path", "existing_ui_flow_or_sdk_call": "TraigentFrontend/src/services/api.ts:2138-2145 createExperiment -> POST /api/experiments", "kind": "CTA"},
-    {"code": "COMPLETE_EVALUATION_RUN", "driven_by": "runs exist but no completed run", "existing_ui_flow_or_sdk_call": "traigent-js/src/optimization/hybrid.ts:2870-2888 submitOptimizationTrialResult -> HybridSessionClient.submitResult -> POST /sessions/{session_id}/results", "kind": "CTA"},
+    {"code": "COMPLETE_EVALUATION_RUN", "driven_by": "runs exist but no completed run", "existing_ui_flow_or_sdk_call": "traigent-js/src/optimization/hybrid.ts:2870 submitOptimizationTrialResult then :2891 finalizeOptimizationSession; sequence corroborated by scripts/ci/hybrid-backend-smoke.mjs:73 then :86", "kind": "CTA"},
     {"code": "EVALUATE_DATASET_EXAMPLES", "driven_by": "anchor ConfigurationRun reports total_examples=0", "existing_ui_flow_or_sdk_call": "traigent-js/src/optimization/hybrid.ts:2870-2888 submitOptimizationTrialResult -> POST /sessions/{session_id}/results", "kind": "CTA"},
     {"code": "RECORD_ACCURACY_MEASURE", "driven_by": "anchor has no literal accuracy measure", "existing_ui_flow_or_sdk_call": "traigent-js/src/optimization/hybrid.ts:2870-2888 submitOptimizationTrialResult -> POST /sessions/{session_id}/results", "kind": "CTA"},
     {"code": "REVIEW_RECORDED_EVIDENCE", "driven_by": "no gap or unknown with an established action", "existing_ui_flow_or_sdk_call": "none; informational guidance only", "kind": "GUIDANCE_ONLY"}

@@ -40,9 +40,15 @@
       "properties": {
         "items": {
           "type": "array",
+          "maxItems": 50,
           "items": {"$ref": "#/definitions/JourneyItem"}
         },
-        "pagination": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/Pagination"}
+        "pagination": {
+          "allOf": [
+            {"$ref": "../pagination_schema.json"},
+            {"properties": {"per_page": {"maximum": 50}}}
+          ]
+        }
       },
       "required": ["items", "pagination"]
     },
@@ -61,6 +67,23 @@
     "journey",
     "next_action_code"
   ],
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "anchor_run_id": {"type": "null"},
+            "anchor_completed_at": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}
+          }
+        }
+      ]
+    }
+  ],
   "definitions": {
     "AgentPillarDetail": {
       "type": "object",
@@ -72,10 +95,10 @@
           "minItems": 4,
           "maxItems": 4,
           "items": [
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "AGENT_RECORD_AVAILABLE"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "COMPLETED_EVALUATION_RUN"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "ACCURACY_MEASURE_RECORDED"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "UNIT_BEARING_EFFICIENCY_MEASURE_RECORDED"}}}]}
+            {"$ref": "#/definitions/AgentRecordAvailableCheck"},
+            {"$ref": "#/definitions/CompletedEvaluationRunCheck"},
+            {"$ref": "#/definitions/AccuracyMeasureRecordedCheck"},
+            {"$ref": "#/definitions/UnitBearingEfficiencyMeasureRecordedCheck"}
           ],
           "additionalItems": false
         }
@@ -92,9 +115,9 @@
           "minItems": 3,
           "maxItems": 3,
           "items": [
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "EVALUATOR_VERSION_SNAPSHOT_RECORDED"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "EVALUATOR_EXECUTION_LINK_ASSESSED"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "EVALUATOR_STABILITY_ASSESSED"}}}]}
+            {"$ref": "#/definitions/EvaluatorVersionSnapshotRecordedCheck"},
+            {"$ref": "#/definitions/EvaluatorExecutionLinkAssessedCheck"},
+            {"$ref": "#/definitions/EvaluatorStabilityAssessedCheck"}
           ],
           "additionalItems": false
         }
@@ -111,9 +134,9 @@
           "minItems": 3,
           "maxItems": 3,
           "items": [
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "RUN_DATASET_IDENTITY_RECORDED"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "EVALUATED_EXAMPLE_COUNT_RECORDED"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "DATASET_QUALITY_ASSESSMENT_RECORDED"}}}]}
+            {"$ref": "#/definitions/RunDatasetIdentityRecordedCheck"},
+            {"$ref": "#/definitions/EvaluatedExampleCountRecordedCheck"},
+            {"$ref": "#/definitions/DatasetQualityAssessmentRecordedCheck"}
           ],
           "additionalItems": false
         }
@@ -131,9 +154,9 @@
           "minItems": 3,
           "maxItems": 3,
           "items": [
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "EXPERIMENT_PATH_RECORDED"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "SELECTED_CONFIGURATION_RECORDED"}}}]},
-            {"allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"}, {"properties": {"check_id": {"const": "SELECTION_LEDGER_MATCH_ASSESSED"}}}]}
+            {"$ref": "#/definitions/ExperimentPathRecordedCheck"},
+            {"$ref": "#/definitions/SelectedConfigurationRecordedCheck"},
+            {"$ref": "#/definitions/SelectionLedgerMatchAssessedCheck"}
           ],
           "additionalItems": false
         },
@@ -141,12 +164,179 @@
       },
       "required": ["coverage_state", "stage", "checks", "certificate_match"]
     },
+    "AgentEvidenceRef": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+        {"properties": {"kind": {"const": "agent"}}}
+      ]
+    },
+    "ExperimentEvidenceRef": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+        {"properties": {"kind": {"const": "experiment"}}}
+      ]
+    },
+    "ExperimentRunEvidenceRef": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+        {"properties": {"kind": {"const": "experiment_run"}}}
+      ]
+    },
+    "ConfigurationRunEvidenceRef": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+        {"properties": {"kind": {"const": "configuration_run"}}}
+      ]
+    },
+    "EvaluationDatasetRef": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+        {"properties": {"kind": {"const": "evaluation_dataset"}}}
+      ]
+    },
+    "EvaluatorVersionRef": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+        {"properties": {"kind": {"const": "evaluator_version"}}}
+      ]
+    },
+    "DatasetQualityEvidenceRef": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+        {"properties": {"kind": {"const": "dataset_quality"}}}
+      ]
+    },
+    "SupportedBackendAgentCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "SUPPORTED"}, "observation_basis": {"const": "backend_observed"}, "evidence_ref": {"$ref": "#/definitions/AgentEvidenceRef"}}}
+      ]
+    },
+    "SupportedBackendExperimentRunCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "SUPPORTED"}, "observation_basis": {"const": "backend_observed"}, "evidence_ref": {"$ref": "#/definitions/ExperimentRunEvidenceRef"}}}
+      ]
+    },
+    "SupportedClientConfigurationRunCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "SUPPORTED"}, "observation_basis": {"const": "client_reported"}, "evidence_ref": {"$ref": "#/definitions/ConfigurationRunEvidenceRef"}}}
+      ]
+    },
+    "SupportedServerEvaluatorVersionCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "SUPPORTED"}, "observation_basis": {"const": "server_recorded_client_declaration"}, "evidence_ref": {"$ref": "#/definitions/EvaluatorVersionRef"}}}
+      ]
+    },
+    "SupportedServerEvaluationDatasetCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "SUPPORTED"}, "observation_basis": {"const": "server_recorded_client_declaration"}, "evidence_ref": {"$ref": "#/definitions/EvaluationDatasetRef"}}}
+      ]
+    },
+    "SupportedBackendDatasetQualityCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "SUPPORTED"}, "observation_basis": {"const": "backend_observed"}, "evidence_ref": {"$ref": "#/definitions/DatasetQualityEvidenceRef"}}}
+      ]
+    },
+    "SupportedBackendExperimentCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "SUPPORTED"}, "observation_basis": {"const": "backend_observed"}, "evidence_ref": {"$ref": "#/definitions/ExperimentEvidenceRef"}}}
+      ]
+    },
+    "GapBackendAgentCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "GAP"}, "observation_basis": {"const": "backend_observed"}, "evidence_ref": {"$ref": "#/definitions/AgentEvidenceRef"}}}
+      ]
+    },
+    "GapClientConfigurationRunCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "GAP"}, "observation_basis": {"const": "client_reported"}, "evidence_ref": {"$ref": "#/definitions/ConfigurationRunEvidenceRef"}}}
+      ]
+    },
+    "UnknownCheck": {
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceCheck"},
+        {"properties": {"state": {"const": "UNKNOWN"}}}
+      ]
+    },
+    "AgentRecordAvailableCheck": {
+      "allOf": [{"$ref": "#/definitions/SupportedBackendAgentCheck"}, {"properties": {"check_id": {"const": "AGENT_RECORD_AVAILABLE"}}}]
+    },
+    "CompletedEvaluationRunCheck": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/definitions/SupportedBackendExperimentRunCheck"}, {"properties": {"check_id": {"const": "COMPLETED_EVALUATION_RUN"}}}]},
+        {"allOf": [{"$ref": "#/definitions/GapBackendAgentCheck"}, {"properties": {"check_id": {"const": "COMPLETED_EVALUATION_RUN"}}}]},
+        {"allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "COMPLETED_EVALUATION_RUN"}}}]}
+      ]
+    },
+    "AccuracyMeasureRecordedCheck": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/definitions/SupportedClientConfigurationRunCheck"}, {"properties": {"check_id": {"const": "ACCURACY_MEASURE_RECORDED"}}}]},
+        {"allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "ACCURACY_MEASURE_RECORDED"}}}]}
+      ]
+    },
+    "UnitBearingEfficiencyMeasureRecordedCheck": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/definitions/SupportedClientConfigurationRunCheck"}, {"properties": {"check_id": {"const": "UNIT_BEARING_EFFICIENCY_MEASURE_RECORDED"}}}]},
+        {"allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "UNIT_BEARING_EFFICIENCY_MEASURE_RECORDED"}}}]}
+      ]
+    },
+    "EvaluatorVersionSnapshotRecordedCheck": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/definitions/SupportedServerEvaluatorVersionCheck"}, {"properties": {"check_id": {"const": "EVALUATOR_VERSION_SNAPSHOT_RECORDED"}}}]},
+        {"allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "EVALUATOR_VERSION_SNAPSHOT_RECORDED"}}}]}
+      ]
+    },
+    "EvaluatorExecutionLinkAssessedCheck": {
+      "allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "EVALUATOR_EXECUTION_LINK_ASSESSED"}}}]
+    },
+    "EvaluatorStabilityAssessedCheck": {
+      "allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "EVALUATOR_STABILITY_ASSESSED"}}}]
+    },
+    "RunDatasetIdentityRecordedCheck": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/definitions/SupportedServerEvaluationDatasetCheck"}, {"properties": {"check_id": {"const": "RUN_DATASET_IDENTITY_RECORDED"}}}]},
+        {"allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "RUN_DATASET_IDENTITY_RECORDED"}}}]}
+      ]
+    },
+    "EvaluatedExampleCountRecordedCheck": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/definitions/SupportedClientConfigurationRunCheck"}, {"properties": {"check_id": {"const": "EVALUATED_EXAMPLE_COUNT_RECORDED"}}}]},
+        {"allOf": [{"$ref": "#/definitions/GapClientConfigurationRunCheck"}, {"properties": {"check_id": {"const": "EVALUATED_EXAMPLE_COUNT_RECORDED"}}}]},
+        {"allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "EVALUATED_EXAMPLE_COUNT_RECORDED"}}}]}
+      ]
+    },
+    "DatasetQualityAssessmentRecordedCheck": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/definitions/SupportedBackendDatasetQualityCheck"}, {"properties": {"check_id": {"const": "DATASET_QUALITY_ASSESSMENT_RECORDED"}}}]},
+        {"allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "DATASET_QUALITY_ASSESSMENT_RECORDED"}}}]}
+      ]
+    },
+    "ExperimentPathRecordedCheck": {
+      "oneOf": [
+        {"allOf": [{"$ref": "#/definitions/SupportedBackendExperimentCheck"}, {"properties": {"check_id": {"const": "EXPERIMENT_PATH_RECORDED"}}}]},
+        {"allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "EXPERIMENT_PATH_RECORDED"}}}]}
+      ]
+    },
+    "SelectedConfigurationRecordedCheck": {
+      "allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "SELECTED_CONFIGURATION_RECORDED"}}}]
+    },
+    "SelectionLedgerMatchAssessedCheck": {
+      "allOf": [{"$ref": "#/definitions/UnknownCheck"}, {"properties": {"check_id": {"const": "SELECTION_LEDGER_MATCH_ASSESSED"}}}]
+    },
     "CurrentDatasetAssociation": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
-        "evaluation_dataset_ref": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+        "evaluation_dataset_ref": {"$ref": "#/definitions/EvaluationDatasetRef"},
         "observed_at": {"type": "string", "format": "date-time"}
       },
       "required": ["experiment_id", "evaluation_dataset_ref", "observed_at"]
@@ -177,13 +367,13 @@
         "completed_at": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/NullableDateTime"},
         "evaluation_dataset_ref": {
           "oneOf": [
-            {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+            {"$ref": "#/definitions/EvaluationDatasetRef"},
             {"type": "null"}
           ]
         },
         "evaluator_version_ref": {
           "oneOf": [
-            {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvidenceRef"},
+            {"$ref": "#/definitions/EvaluatorVersionRef"},
             {"type": "null"}
           ]
         },
@@ -196,12 +386,9 @@
         },
         "reported_example_evaluations": {"type": ["integer", "null"], "minimum": 0},
         "reported_metrics": {
-          "type": "array",
-          "maxItems": 3,
-          "uniqueItems": true,
-          "items": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ReportedMetric"}
+          "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ReportedMetrics"
         },
-        "record_observation_basis": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ObservationBasis"},
+        "record_observation_basis": {"const": "backend_observed"},
         "dataset_reference_change": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ReferenceChange"},
         "evaluator_reference_change": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ReferenceChange"}
       },

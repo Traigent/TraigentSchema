@@ -10,6 +10,7 @@
     "as_of": {"type": "string", "format": "date-time"},
     "items": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -65,11 +66,33 @@
           "process",
           "last_activity_at",
           "next_action_code"
+        ],
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "anchor_run_id": {"type": "null"},
+                  "anchor_completed_at": {"type": "null"}
+                }
+              },
+              {
+                "properties": {
+                  "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}
+                }
+              }
+            ]
+          }
         ]
       }
     },
     "ordering": {"const": "STAGE_THEN_LEAST_RECENT_ACTIVITY"},
-    "pagination": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/Pagination"}
+    "pagination": {
+      "allOf": [
+        {"$ref": "../pagination_schema.json"},
+        {"properties": {"per_page": {"maximum": 100}}}
+      ]
+    }
   },
   "required": ["schema_version", "as_of", "items", "ordering", "pagination"]
 }

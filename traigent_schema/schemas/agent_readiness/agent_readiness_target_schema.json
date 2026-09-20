@@ -22,10 +22,16 @@
       "additionalProperties": false,
       "properties": {
         "schema": {"$ref": "#/definitions/OpaqueId"},
-        "digest": {"$ref": "#/definitions/Digest"},
+        "digest": {
+          "oneOf": [{"$ref": "#/definitions/Digest"}, {"type": "null"}]
+        },
         "state": {"type": "string", "enum": ["verified", "unknown"]}
       },
-      "required": ["schema", "digest", "state"]
+      "required": ["schema", "digest", "state"],
+      "oneOf": [
+        {"properties": {"state": {"const": "verified"}, "digest": {"$ref": "#/definitions/Digest"}}},
+        {"properties": {"state": {"const": "unknown"}, "digest": {"type": "null"}}}
+      ]
     },
     "ArtifactVersions": {
       "type": "object",
@@ -102,7 +108,7 @@
           "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
         },
         "source_run_id": {"$ref": "#/definitions/OpaqueId"},
-        "use_case": {"type": "string", "enum": ["question-answering", "classification", "summarization", "generation", "other"]},
+        "use_case": {"type": "string", "enum": ["question-answering", "summarization"]},
         "requirement": {
           "type": "object",
           "additionalProperties": false,
@@ -168,7 +174,7 @@
           "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
         },
         "agent_id": {"$ref": "#/definitions/OpaqueId"},
-        "use_case": {"type": "string", "enum": ["question-answering", "classification", "summarization", "generation", "other"]},
+        "use_case": {"type": "string", "enum": ["question-answering", "summarization"]},
         "subject_binding": {"$ref": "#/definitions/SubjectBinding"},
         "requirement": {"$ref": "#/definitions/LatencyRequirement"},
         "declared_by": {"$ref": "#/definitions/Declarer"},

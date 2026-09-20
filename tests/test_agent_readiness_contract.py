@@ -461,17 +461,21 @@ def test_readiness_error_envelope_rejects_private_sentinels_and_details() -> Non
     for code, message in (
         ("PROJECT_ACCESS_DENIED", "Authorization denied"),
         ("PROJECT_NOT_FOUND", "Project not found"),
+        ("TENANT_ACCESS_DENIED", "Authorization denied"),
+        ("TENANT_NOT_FOUND", "Not found"),
     ):
-        error = "authorization_denied" if code == "PROJECT_ACCESS_DENIED" else "not_found"
+        error = "authorization_denied" if "ACCESS_DENIED" in code else "not_found"
+        payload = {
+            "success": False,
+            "message": message,
+            "error": error,
+            "error_code": code,
+        }
+        assert validator.validate_json(payload, "agent_readiness_error_schema") == []
         assert validator.validate_json(
-            {
-                "success": False,
-                "message": message,
-                "error": error,
-                "error_code": code,
-            },
+            {**payload, "details": {"canary": "private_prompt_output_canary"}},
             "agent_readiness_error_schema",
-        ) == []
+        )
 
     for field in ("message", "error", "error_code"):
         invalid = {**valid, field: "private_prompt_output_canary"}

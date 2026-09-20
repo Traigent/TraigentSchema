@@ -35,7 +35,9 @@
         "authorization_denied",
         "not_found",
         "PROJECT_ACCESS_DENIED",
-        "PROJECT_NOT_FOUND"
+        "PROJECT_NOT_FOUND",
+        "TENANT_ACCESS_DENIED",
+        "TENANT_NOT_FOUND"
       ]
     }
   },
@@ -45,7 +47,9 @@
     {"$ref": "#/definitions/AuthorizationDenied"},
     {"$ref": "#/definitions/NotFound"},
     {"$ref": "#/definitions/ProjectAccessDenied"},
-    {"$ref": "#/definitions/ProjectNotFound"}
+    {"$ref": "#/definitions/ProjectNotFound"},
+    {"$ref": "#/definitions/TenantAccessDenied"},
+    {"$ref": "#/definitions/TenantNotFound"}
   ],
   "definitions": {
     "InvalidRequest": {
@@ -112,6 +116,28 @@
         "message": {"const": "Project not found"},
         "error": {"const": "not_found"},
         "error_code": {"const": "PROJECT_NOT_FOUND"}
+      }
+    },
+    "TenantAccessDenied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Authorization denied"},
+        "error": {"const": "authorization_denied"},
+        "error_code": {"const": "TENANT_ACCESS_DENIED"}
+      }
+    },
+    "TenantNotFound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Not found"},
+        "error": {"const": "not_found"},
+        "error_code": {"const": "TENANT_NOT_FOUND"}
       }
     }
   }

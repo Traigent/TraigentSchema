@@ -4251,6 +4251,850 @@
       "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). This is PR #491's new OPTIONAL selection member of the closed (additionalProperties:false) SessionAggregationDTO, the R3 selection receipt, seen through the finalize 200 response's session_aggregation property; #491's own entry covers the same widening on session_aggregation_schema.json. It is a real widening of a closed response shape, and a consumer can receive the member without having sent it: once a finalizing client has sent an accepted selection the Backend persists it; a later finalize that omits the rollup preserves and re-binds it (src/services/traigent/interactive_session_service.py:4820-4849 at e7a28b896) and echoes it (:6216-6282), as the live-PostgreSQL re-finalize test shows (tests/security/rls_live/test_session_selection_receipt_live.py:394-427: a retry that sends no rollup is answered with the accepted receipt); any reader of the stored run results sees it too. A validator built against the previous closed shape will therefore reject those responses for a session whose finalizing client sent a receipt; a well-formed client-sent rejected form stores nothing. Accepted at review because the member is optional, the only first-party producer is the Python SDK revision that also carries the reader (Traigent #2313), and it ships in the 6.x major line opened by #470's breaking removal (5.8.0 -> 6.0.0), which already ends compatibility promises to consumers pinned to the 5.x shapes. Mixed-version strict validators remain a known limitation, recorded here rather than silenced. Exact fingerprint, no pointer_prefix wildcard.",
       "version": "6.1.0",
       "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
+    },
+    {
+      "file": "datasets/dataset_create_request_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/examples/items/properties/confidence/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "827c74cb1867fc60ecdb6a0609e17bff17532a222bca13b0da6541173643d0dd"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "datasets/dataset_create_request_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/examples/items/properties/confidence",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "445bbb30027af5a4a86b5f8984f1b65aeda5e107cbe1fb135fcbd99151471daa"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "datasets/datasets_endpoints.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/datasets/post/requestBody/content/application/json/schema/properties/examples/items/properties/confidence/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "f140115ac3e29bf5af356ee9429e070195eaeac323d069933062da4b7983ed32"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/put/requestBody/content/application/json/schema/properties/examples/items/properties/confidence/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "a8b580ef35a3fd0d7256fbe897597c1aa00485a397aebe25e3bd8f2ca882838d"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/examples/{example_id}/put/requestBody/content/application/json/schema/properties/confidence/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "0601be37a12d9afe045ff3b1faa2e839994df7a0d294bff2b38d4ff9a013b04a"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "datasets/datasets_endpoints.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/get/responses/200/content/application/json/schema/properties/data/properties/examples/items/properties/confidence",
+          "role": "response",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "2bbb65e98910a3df82952f8c1baa25f3d87617bffe7b7e7d82c420c61dd56cd5"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/examples/{example_id}/put/responses/200/content/application/json/schema/properties/confidence",
+          "role": "response",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "d1fb0ad49c65d11fdc13e1ef34eccbeb084421253f30845e3f945a5e58b2aa2e"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "datasets/datasets_endpoints.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/get/responses/200/content/application/json/schema/properties/data/properties/examples/items/properties/confidence",
+          "role": "response",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "0a5c690d03e68b7ebd4595fb792bb420941b0a06aca89b7405d5058524033171"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/examples/{example_id}/put/responses/200/content/application/json/schema/properties/confidence",
+          "role": "response",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "40f72a21768d152015a123a89e74523649063549cae886b6046acfa0afc6f1e2"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "datasets/datasets_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/datasets/post/requestBody/content/application/json/schema/properties/examples/items/properties/confidence",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "8bc74aafa02b87fce560c53f48980eca755be55263536d4fc67c4e26899cc5df"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/get/responses/200/content/application/json/schema/properties/data/properties/examples/items/properties/confidence",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "d251b70cd7ce1f0f94dd4efc3780a2da825d3f48a2bb37315c5fd8c75d4f596e"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/put/requestBody/content/application/json/schema/properties/examples/items/properties/confidence",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "ef324038126fd688687a4641d5ebffdbe464658e2fedb1baaac8d2dbba74a8ef"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/examples/{example_id}/put/requestBody/content/application/json/schema/properties/confidence",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "01add5102ea00850fb40a32732bd5f7752b94d0e9f6a8525c3f4110cd717a539"
+        },
+        {
+          "pointer": "#/paths//api/v1/datasets/{dataset_id}/examples/{example_id}/put/responses/200/content/application/json/schema/properties/confidence",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "43620f88d70a74c95c63c4649d10bab846ff686bcc846d49a6cc91d67c1d179a"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "evaluation/experiment_create_request_schema.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/properties/objectives/properties/objectives/items/allOf/0/properties/name",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "84ebfc121395860570c87f1f076313327d8f1a9836bd0e26d2edeb478188892e"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #499's intentional metric-name widening from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$. The new language is a strict superset: it adds only dot and hyphen after the unchanged first-character rule, so every previously accepted request name remains valid. Because a patternProperties regex is the map key, an in-place widening is reported mechanically as the old key removed plus a new key added; nothing was deleted. tests/test_metric_name_pattern_consistency.py proves the superset over a boundary-spanning alphabet and pins every metric surface while keeping TVAR/agent identifiers strict. A strict old response validator can reject newly emitted dotted or hyphenated metric keys; that additive compatibility edge was explicitly accepted in #499 so the canonical objective migration does not silently drop real metric names. Exact identities and fingerprints only.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/499"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/benchmark/properties/examples/items/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "7715d92e4428e07073b221106db4cf620f086534fa1172369701de3ff49d7ec7"
+        },
+        {
+          "pointer": "#/properties/dataset/properties/examples/items/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "e1e57a43c69646bc20200b036b9b7157078e793054f7fb879b59b45759ea0d0e"
+        },
+        {
+          "pointer": "#/properties/eval_dataset/properties/examples/items/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "8998d973ef0178f33bb140bb0948963d93e10a960cdd279d303bb78f55864477"
+        },
+        {
+          "pointer": "#/properties/evaluation_set/properties/examples/items/properties/confidence/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "2c37f06df0eadb5a15192f0d112aef0ef32422e772dcae641ac5e2b23df0ffce"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/objectives/properties/objectives/items/allOf/0/properties/normalization",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"robust\"",
+              "\"z_score\""
+            ]
+          },
+          "old": [
+            "\"min_max\""
+          ],
+          "new": [
+            "\"min_max\"",
+            "\"robust\"",
+            "\"z_score\""
+          ],
+          "fingerprint": "5da7a9ade3e6493ece6a975c0dd603f57ef7730f2a73091ff8b6d3a4f8f52aba"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings project PR #480's additive NormalizationStrategy widening through experiment_schema.json and config_space_schema.json. The enum intentionally restores z_score and robust beside the existing min_max value after their deterministic implementations and edge-case behavior landed in traigent-smartopt; min_max remains valid and unchanged. The ordered release train promotes traigent-smartopt immediately after Schema and before any Backend production deployment can emit the restored values. The direct objective_definition_schema.json finding was reviewed and acknowledged in #480; these container projections need their own pointer-bound fingerprints only because the promotion diff reaches the same definition through additional files. Exact identities and fingerprints only.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/480"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/properties/benchmark/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "dfd9a92d67ac129bf68b7ca053eef421cc91941a5bb0249ade2cc65fb95d318d"
+        },
+        {
+          "pointer": "#/properties/dataset/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "612c55bf8c6b29f9064b91c63bf24e032a74cc89ec609da7f350f5e6dc460d83"
+        },
+        {
+          "pointer": "#/properties/eval_dataset/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "e1a645eb56ec96ad9a17159665b3282ff7de118cdabc7c5892228408d4041ff6"
+        },
+        {
+          "pointer": "#/properties/evaluation_set/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "76d0e6f6da8aade5e80a586d8beab893a45807ec47a25e5327fd6843532e6696"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/properties/benchmark/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "b735e12e3ede150256ffb900358e8a5c8858f8e4c087f6bc2c628b577b376630"
+        },
+        {
+          "pointer": "#/properties/dataset/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "9b84bc5d09f5dc9ee95e985f5e321e478366e41e84ef3ac5c3aa1762f899abe8"
+        },
+        {
+          "pointer": "#/properties/eval_dataset/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "a637c0af4a00391856ba5574e6d449a1c71e2a874947aad33b537fd64ad9889d"
+        },
+        {
+          "pointer": "#/properties/evaluation_set/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "452849f0128f7bdfe04e360afafca61b5ce30709215665dae783ca5671a1ab4c"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/properties/objectives/properties/objectives/items/allOf/0/properties/name",
+          "role": "conservative",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "a91cf8571ffda68f91eb5e4a0b9ee7c4b53c2f7a39bb89c6661d17a046af538f"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #499's intentional metric-name widening from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$. The new language is a strict superset: it adds only dot and hyphen after the unchanged first-character rule, so every previously accepted request name remains valid. Because a patternProperties regex is the map key, an in-place widening is reported mechanically as the old key removed plus a new key added; nothing was deleted. tests/test_metric_name_pattern_consistency.py proves the superset over a boundary-spanning alphabet and pins every metric surface while keeping TVAR/agent identifiers strict. A strict old response validator can reject newly emitted dotted or hyphenated metric keys; that additive compatibility edge was explicitly accepted in #499 so the canonical objective migration does not silently drop real metric names. Exact identities and fingerprints only.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/499"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/benchmark/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "5178c6d3b476b1a66f878435c1e82f504c63c88039b9b49f0410b89facd56e9e"
+        },
+        {
+          "pointer": "#/properties/benchmark/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "c3b63898dbdae52c143d326fcf598f1d6555d4899733ab2cf16244c8a6db5e98"
+        },
+        {
+          "pointer": "#/properties/dataset/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "58c3dba0ba9f98a58a08cb52f2aea7391fe5ace2683ece360e8556362e3f764e"
+        },
+        {
+          "pointer": "#/properties/dataset/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "4493f39ee118a74b3d723c1bf8d74f8f6fe0e7527b3450202bf38785e0c06427"
+        },
+        {
+          "pointer": "#/properties/eval_dataset/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "1d1ac94328b47643ae75b88369b1d0dba953b38f7e76251321d6de5836a4cded"
+        },
+        {
+          "pointer": "#/properties/eval_dataset/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "e8effe5f273e7dd2141c6cf73e103474e319c31361d9eeddc2d13bf607d9f2ab"
+        },
+        {
+          "pointer": "#/properties/evaluation_set/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "number"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "61b545655e04c5a7954f49823b463656003471a25fafad2f7e3aa4e98718b505"
+        },
+        {
+          "pointer": "#/properties/evaluation_set/properties/examples/items/properties/confidence",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "c5b04efa0a58959a124b0a8f2f3f5592a97a60788dc118812043ed53a002d1f0"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "optimization/config_space_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/objectives/items/properties/normalization",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"robust\"",
+              "\"z_score\""
+            ]
+          },
+          "old": [
+            "\"min_max\""
+          ],
+          "new": [
+            "\"min_max\"",
+            "\"robust\"",
+            "\"z_score\""
+          ],
+          "fingerprint": "e6216263a767e4716a22d7aea4fe2ec79777f02ded9e7324c46f32ff4d1dc5d8"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings project PR #480's additive NormalizationStrategy widening through experiment_schema.json and config_space_schema.json. The enum intentionally restores z_score and robust beside the existing min_max value after their deterministic implementations and edge-case behavior landed in traigent-smartopt; min_max remains valid and unchanged. The ordered release train promotes traigent-smartopt immediately after Schema and before any Backend production deployment can emit the restored values. The direct objective_definition_schema.json finding was reviewed and acknowledged in #480; these container projections need their own pointer-bound fingerprints only because the promotion diff reaches the same definition through additional files. Exact identities and fingerprints only.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/480"
+    },
+    {
+      "file": "optimization/hybrid_session_create_request_schema.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/properties/objectives/oneOf/0/items/oneOf/0/allOf/0/properties/name",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "9b7679cc52734bee535be796e48100d763a79f56c4a48811401d7b01aaeb4b3c"
+        },
+        {
+          "pointer": "#/properties/promotion_policy/properties/chance_constraints/items/properties/name",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "78c1a706360942169847672983f38c9155b77f02b36c1abfc57313e4c6bef0e7"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #499's intentional metric-name widening from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$. The new language is a strict superset: it adds only dot and hyphen after the unchanged first-character rule, so every previously accepted request name remains valid. Because a patternProperties regex is the map key, an in-place widening is reported mechanically as the old key removed plus a new key added; nothing was deleted. tests/test_metric_name_pattern_consistency.py proves the superset over a boundary-spanning alphabet and pins every metric surface while keeping TVAR/agent identifiers strict. A strict old response validator can reject newly emitted dotted or hyphenated metric keys; that additive compatibility edge was explicitly accepted in #499 so the canonical objective migration does not silently drop real metric names. Exact identities and fingerprints only.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/499"
+    },
+    {
+      "file": "optimization/hybrid_session_create_request_schema.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/promotion_policy/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "9ec5a688b716abada8932df72ab53c2d2450514cf4aa020ea652821af070253e"
+        },
+        {
+          "pointer": "#/properties/promotion_policy/properties/tie_breakers/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "a40415fc5d42309714ed2fb74ce847ecc30f99771229ec09e29206d789e7eccd"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #499's intentional metric-name widening from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$. The new language is a strict superset: it adds only dot and hyphen after the unchanged first-character rule, so every previously accepted request name remains valid. Because a patternProperties regex is the map key, an in-place widening is reported mechanically as the old key removed plus a new key added; nothing was deleted. tests/test_metric_name_pattern_consistency.py proves the superset over a boundary-spanning alphabet and pins every metric surface while keeping TVAR/agent identifiers strict. A strict old response validator can reject newly emitted dotted or hyphenated metric keys; that additive compatibility edge was explicitly accepted in #499 so the canonical objective migration does not silently drop real metric names. Exact identities and fingerprints only.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/499"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/correlations/items/properties/confidence",
+          "role": "response",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "ab0e8c04aa4941c2d254e8ab01399854ac42b9174fb569cf712d9414911664cb"
+        },
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/value_recommendations/items/properties/confidence",
+          "role": "response",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "aab9771bdf59c75d792b18eb563527a8b6d3a582edd4114b127de9d257feba15"
+        },
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/value_recommendations/items/properties/value_recommendations/items/properties/confidence",
+          "role": "response",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "2aca605ddd2676d1a4ae53ab43765d14553b237b4bf8844ed5297b9628263218"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/correlations/items/properties/confidence",
+          "role": "response",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "75910232a663efd5407a0e22b87527e7ae9d3f6cd9b6fbec796bbc6a827f7aca"
+        },
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/value_recommendations/items/properties/confidence",
+          "role": "response",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "be443d3e4d5d16abd6de87c639f98a4b18783ebaf4935dec49a9798d2cfc8973"
+        },
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/value_recommendations/items/properties/value_recommendations/items/properties/confidence",
+          "role": "response",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "fb8197ec5b6bab6ec3baba4435fb917f2bfb9756eee001ac17f05c44355c9b55"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/objectives/oneOf/0/items/oneOf/0/allOf/0/properties/name",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "2c2bc4afc67bddbfcc5dd97fc3eea54d1f758f8792724b1d7897f8674c1088ee"
+        },
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/chance_constraints/items/properties/name",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "5fec47ada71b08c17c4e5e0b758f5e3e7341d6e069d304ca8b9a8a889ba792eb"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/objectives/oneOf/0/items/oneOf/0/allOf/0/properties/name",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "89a5e2594c8b957545e625caa45737e2591fa7f8724e29d2a8df1ea4c841b06f"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/chance_constraints/items/properties/name",
+          "role": "request",
+          "subject": "pattern",
+          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "fingerprint": "0b713ab5db89cb4bf4c8dd37ffc778d7855a7ddaae659758811dd9abb5ff3fa6"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #499's intentional metric-name widening from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$. The new language is a strict superset: it adds only dot and hyphen after the unchanged first-character rule, so every previously accepted request name remains valid. Because a patternProperties regex is the map key, an in-place widening is reported mechanically as the old key removed plus a new key added; nothing was deleted. tests/test_metric_name_pattern_consistency.py proves the superset over a boundary-spanning alphabet and pins every metric surface while keeping TVAR/agent identifiers strict. A strict old response validator can reject newly emitted dotted or hyphenated metric keys; that additive compatibility edge was explicitly accepted in #499 so the canonical objective migration does not silently drop real metric names. Exact identities and fingerprints only.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/499"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "patternProperties_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "55d388778e5a8f0978000f0a4c74a6aae296e7080d8fd57776f78e2cdcad2358"
+        },
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/tie_breakers/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "77c1ed8780084739b1af071ff6f719db9c65cd5dbae800c8ad514f3f1a42455b"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "743063f8da9e67dbb0ce2d3d224142ff2c38972927b38e6ec2c28472c158eb31"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/tie_breakers/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "8a43b9fc7dddc931d03a2e28b9ed210c76ba164fa577e97b8c445aa75dea7456"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/measures/oneOf/0/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "23c10e76dda6fc8c75a65920a551ed29baf3f99eed84d69e652853c49aa894a9"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/measures/oneOf/1/items/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "2d3007ef8a105c5fc832486dde8e1a6aed8f905ba29eeb5d3ff53fe2529c48bb"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/metadata/properties/measures/oneOf/0/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "510f2bb42abd56ee33b134132f826442dc04d0f9363f6828e7787fa30436c796"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/metadata/properties/measures/oneOf/1/items/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "468433d951daea549899f3e0933ceae099f3c5d6ad3fec08719b0cdb4674063d"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/metrics/patternProperties/^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "role": "request",
+          "subject": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "old": true,
+          "new": false,
+          "fingerprint": "e4a692ca183acddb06d0bc676136b028708e613b4c18bb530669e8eeaab4ebd9"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #499's intentional metric-name widening from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$. The new language is a strict superset: it adds only dot and hyphen after the unchanged first-character rule, so every previously accepted request name remains valid. Because a patternProperties regex is the map key, an in-place widening is reported mechanically as the old key removed plus a new key added; nothing was deleted. tests/test_metric_name_pattern_consistency.py proves the superset over a boundary-spanning alphabet and pins every metric surface while keeping TVAR/agent identifiers strict. A strict old response validator can reject newly emitted dotted or hyphenated metric keys; that additive compatibility edge was explicitly accepted in #499 so the canonical objective migration does not silently drop real metric names. Exact identities and fingerprints only.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/499"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/correlations/items/properties/confidence",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "678777eed08ce14a80daf69ee61b2c2f2abd40c5fd7d488a5c431c9579b1cd02"
+        },
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/value_recommendations/items/properties/confidence",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "309c3d1a99bdb386a3052c5cfa12f91f1ed6935c24646a8d51125c6348f44c94"
+        },
+        {
+          "pointer": "#/paths//api/v1/optimization/recommendations/get/responses/200/content/application/json/schema/properties/value_recommendations/items/properties/value_recommendations/items/properties/confidence",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": null,
+          "fingerprint": "db5fcbc2ccd062eeb1ad4fd50e4eb94a25581117b4e205455de840e993039215"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
+      "version": "7.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     }
   ]
 }

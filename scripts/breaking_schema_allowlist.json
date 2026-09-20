@@ -5095,6 +5095,56 @@
       "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #490's canonical Confidence / ConfidenceLabel refactor. That PR replaced inline numeric type/minimum/maximum or label enum constraints with allOf references to common_types_schema.json definitions that carry the same number [0,1] or low/medium/high constraints, and it acknowledged the 37 direct-file findings. The promotion comparison reaches the same fields through dataset, experiment, and optimization container schemas; the checker deliberately compares the local inline node and therefore reports the moved constraints as removed or unconstrained even though a Draft 7 validator resolves the reference and enforces the same wire values. The #490 contract tests build a local registry, validate both boundaries, and prevent a network fallback. No field is renamed and no previously valid confidence value changes meaning. Exact identities and fingerprints only; no prefix or wildcard acknowledgement.",
       "version": "7.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/items/items/properties/attention_state",
+          "role": "response",
+          "subject": "attention_state",
+          "old": false,
+          "new": true,
+          "fingerprint": "dbd6115dd070a3d77eb27c1ee7857bacac5c61bc6d1fa2421d787824652f0b93"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/portfolio_counts",
+          "role": "response",
+          "subject": "portfolio_counts",
+          "old": false,
+          "new": true,
+          "fingerprint": "e0f05505ddf602140d17a8e198ae5b1f54e15be30fdc3653cfe138799c5b3023"
+        }
+      ],
+      "reason": "This intentional Phase 3 closed-response expansion adds whole-project portfolio_counts, independent of filtered pagination, and the canonical attention_state resolvability/attention classification for each authorized agent. Old strict response validators may reject these newly emitted members and must upgrade. The exact Schema, Backend, Frontend, and retained real-backend runtime behavior were reviewed under ChangeSession cs_862d6aa40800338b and supplemental ChangeSession cs_ad52051752c3ee08; this acknowledgement covers only the listed identities and fingerprints.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/511"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/properties/attention_state",
+          "role": "response",
+          "subject": "attention_state",
+          "old": false,
+          "new": true,
+          "fingerprint": "57bbb4d677b445392c7e120c68425868facb7d9af6cb9d07f26694998501bca5"
+        },
+        {
+          "pointer": "#/properties/portfolio_counts",
+          "role": "response",
+          "subject": "portfolio_counts",
+          "old": false,
+          "new": true,
+          "fingerprint": "fe69b3a6d4a3100e4118c3091afaae0c0f068e67c61e3dfe252fe07df93ec473"
+        }
+      ],
+      "reason": "This intentional Phase 3 closed-response expansion adds whole-project portfolio_counts, independent of filtered pagination, and the canonical attention_state resolvability/attention classification for each authorized agent. Old strict response validators may reject these newly emitted members and must upgrade. The exact Schema, Backend, Frontend, and retained real-backend runtime behavior were reviewed under ChangeSession cs_862d6aa40800338b and supplemental ChangeSession cs_ad52051752c3ee08; this acknowledgement covers only the listed identities and fingerprints.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/511"
     }
   ]
 }

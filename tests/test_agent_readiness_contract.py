@@ -306,6 +306,42 @@ def test_metric_allowlist_rejects_generic_or_wrong_unit_values() -> None:
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
 
+def test_accuracy_metric_source_key_is_closed_and_value_is_nonnegative_numeric() -> None:
+    validator = SchemaValidator()
+
+    for source_key in ("accuracy", "accuracy.mean"):
+        detail = _detail_payload()
+        detail["journey"]["items"][0]["reported_metrics"] = [
+            {
+                "kind": "ACCURACY",
+                "value": 0.0,
+                "unit": "UNIT_NOT_RECORDED",
+                "source_key": source_key,
+                "observation_basis": "client_reported",
+            }
+        ]
+        assert validator.validate_json(detail, "agent_readiness_detail_response_schema") == []
+
+    for source_key in ("accuracy.aggregate", "accuracy_mean", "metrics.accuracy.mean"):
+        detail = _detail_payload()
+        detail["journey"]["items"][0]["reported_metrics"][0].update(
+            kind="ACCURACY",
+            unit="UNIT_NOT_RECORDED",
+            source_key=source_key,
+        )
+        assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    for value in (-0.001, True, "0.5", None):
+        detail = _detail_payload()
+        detail["journey"]["items"][0]["reported_metrics"][0].update(
+            kind="ACCURACY",
+            unit="UNIT_NOT_RECORDED",
+            source_key="accuracy.mean",
+            value=value,
+        )
+        assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+
 def test_reported_metrics_reject_duplicate_kinds() -> None:
     detail = _detail_payload()
     metric = detail["journey"]["items"][0]["reported_metrics"][0]
@@ -648,6 +684,20 @@ def test_normative_matrix_covers_every_check_and_next_action() -> None:
     assert matrix["checks"][4]["resolution_rule"].startswith(
         "Only evaluator_version_resolution=resolved"
     )
+    accuracy_check = next(
+        row for row in matrix["checks"] if row["check_id"] == "ACCURACY_MEASURE_RECORDED"
+    )
+    assert (
+        accuracy_check["conditions"][0]["condition"]
+        == (
+            "anchor_configuration_run_has_scalar_accuracy_or_"
+            "eligible_accuracy_mean_with_positive_count"
+        )
+    )
+    accuracy_action = next(
+        row for row in matrix["next_actions"] if row["code"] == "RECORD_ACCURACY_MEASURE"
+    )
+    assert "eligible accuracy.mean aggregate with positive count" in accuracy_action["driven_by"]
     assert all("existing_ui_flow_or_sdk_call" in row for row in matrix["next_actions"])
     completion_action = next(
         row for row in matrix["next_actions"] if row["code"] == "COMPLETE_EVALUATION_RUN"

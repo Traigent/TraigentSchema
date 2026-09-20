@@ -74,7 +74,10 @@ def _portfolio_payload() -> dict[str, Any]:
             {
                 "agent": {"id": "agent-1", "name": "Support agent", "status": "running"},
                 "anchor_run_id": None,
+                "anchor_experiment_id": None,
                 "anchor_completed_at": None,
+                "next_action_experiment_id": None,
+                "next_action_run_id": None,
                 "pillars": {
                     "agent": _summary(1, 0, 3),
                     "evaluator": _summary(0, 0, 3),
@@ -113,7 +116,10 @@ def _detail_payload() -> dict[str, Any]:
         "as_of": "2026-09-20T00:00:00Z",
         "agent": {"id": "agent-1", "name": "Support agent", "status": None},
         "anchor_run_id": "run-anchor",
+        "anchor_experiment_id": "experiment-anchor",
         "anchor_completed_at": "2026-09-19T23:00:00Z",
+        "next_action_experiment_id": "experiment-anchor",
+        "next_action_run_id": "run-anchor",
         "agent_updated_after_anchor": True,
         "pillars": {
             "agent": {
@@ -238,6 +244,24 @@ def _detail_payload() -> dict[str, Any]:
                 "has_prev": True,
             },
         },
+        "anchor_summary": {
+            "experiment_id": "experiment-anchor",
+            "experiment_name": "Anchor",
+            "run_id": "run-anchor",
+            "is_anchor": True,
+            "status": "COMPLETED",
+            "started_at": "2026-09-19T22:55:00Z",
+            "completed_at": "2026-09-19T23:00:00Z",
+            "evaluation_dataset_ref": {"kind": "evaluation_dataset", "id": "dataset-v1"},
+            "evaluator_version_ref": {"kind": "evaluator_version", "id": "eval-v1"},
+            "identity_snapshot_state": "RECORDED",
+            "metric_configuration_run_id": "config-1",
+            "reported_example_evaluations": 1,
+            "reported_metrics": [],
+            "record_observation_basis": "backend_observed",
+            "dataset_reference_change": "REFERENCE_CONTINUITY_UNKNOWN",
+            "evaluator_reference_change": "REFERENCE_CONTINUITY_UNKNOWN",
+        },
         "next_action_code": "EVALUATE_DATASET_EXAMPLES",
     }
 
@@ -271,6 +295,53 @@ def test_completed_detail_fixture_is_valid_and_allows_page_without_anchor() -> N
     assert errors == []
     assert _detail_payload()["anchor_run_id"] == "run-anchor"
     assert all(not row["is_anchor"] for row in _detail_payload()["journey"]["items"])
+
+
+def test_next_action_targets_are_closed_for_each_action_state() -> None:
+    validator = SchemaValidator()
+    for code in sorted(NEXT_ACTIONS):
+        detail = _detail_payload()
+        detail["next_action_code"] = code
+        if code == "ESTABLISH_BASELINE_EVALUATION":
+            detail["next_action_experiment_id"] = None
+            detail["next_action_run_id"] = None
+        elif code == "COMPLETE_EVALUATION_RUN":
+            detail["next_action_experiment_id"] = "experiment-in-progress"
+            detail["next_action_run_id"] = "run-in-progress"
+        else:
+            detail["next_action_experiment_id"] = "experiment-anchor"
+            detail["next_action_run_id"] = "run-anchor"
+        assert validator.validate_json(detail, "agent_readiness_detail_response_schema") == []
+
+    invalid = _detail_payload()
+    invalid["next_action_code"] = "ESTABLISH_BASELINE_EVALUATION"
+    invalid["next_action_experiment_id"] = "must-not-be-present"
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+    for code in sorted(NEXT_ACTIONS):
+        portfolio = _portfolio_payload()
+        item = portfolio["items"][0]
+        item["next_action_code"] = code
+        if code == "ESTABLISH_BASELINE_EVALUATION":
+            item["next_action_experiment_id"] = None
+            item["next_action_run_id"] = None
+        elif code == "COMPLETE_EVALUATION_RUN":
+            item["process"]["stage"] = "RUNS_RECORDED"
+            item["next_action_experiment_id"] = "experiment-in-progress"
+            item["next_action_run_id"] = "run-in-progress"
+        else:
+            item["anchor_run_id"] = "run-anchor"
+            item["anchor_experiment_id"] = "experiment-anchor"
+            item["anchor_completed_at"] = "2026-09-19T23:00:00Z"
+            item["process"]["stage"] = "EVALUATION_COMPLETED"
+            item["next_action_experiment_id"] = "experiment-anchor"
+            item["next_action_run_id"] = "run-anchor"
+        assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema") == []
+
+    invalid = _detail_payload()
+    invalid["next_action_code"] = "COMPLETE_EVALUATION_RUN"
+    invalid["next_action_experiment_id"] = None
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
 
 
 def test_detail_check_order_is_closed() -> None:
@@ -397,6 +468,9 @@ def test_anchor_null_and_pagination_limits_are_enforced() -> None:
     detail = _detail_payload()
     detail["anchor_run_id"] = None
     detail["process_assurance"]["stage"] = "RUNS_RECORDED"
+    detail["next_action_code"] = "COMPLETE_EVALUATION_RUN"
+    detail["next_action_experiment_id"] = "experiment-in-progress"
+    detail["next_action_run_id"] = "run-in-progress"
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     detail = _detail_payload()
@@ -433,13 +507,17 @@ def test_anchor_stage_implications_and_page_anchor_rule_are_closed() -> None:
 
     detail = _detail_payload()
     detail["anchor_run_id"] = None
+    detail["anchor_experiment_id"] = None
     detail["anchor_completed_at"] = None
+    detail["anchor_summary"] = None
     detail["process_assurance"]["stage"] = "EVALUATION_COMPLETED"
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     detail = _detail_payload()
     detail["anchor_run_id"] = None
+    detail["anchor_experiment_id"] = None
     detail["anchor_completed_at"] = None
+    detail["anchor_summary"] = None
     detail["process_assurance"]["stage"] = "RUNS_RECORDED"
     detail["journey"]["items"][0]["is_anchor"] = True
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
@@ -591,9 +669,14 @@ def test_anchor_and_stage_gate_run_dependent_check_states() -> None:
     validator = SchemaValidator()
     detail = _detail_payload()
     detail["anchor_run_id"] = None
+    detail["anchor_experiment_id"] = None
+    detail["anchor_summary"] = None
     detail["anchor_completed_at"] = None
     detail["agent_updated_after_anchor"] = False
     detail["process_assurance"]["stage"] = "RUNS_RECORDED"
+    detail["next_action_code"] = "COMPLETE_EVALUATION_RUN"
+    detail["next_action_experiment_id"] = "experiment-in-progress"
+    detail["next_action_run_id"] = "run-in-progress"
 
     agent_checks = detail["pillars"]["agent"]["checks"]
     agent_checks[1] = _check(

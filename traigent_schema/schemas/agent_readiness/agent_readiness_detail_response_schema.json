@@ -15,6 +15,24 @@
         {"type": "null"}
       ]
     },
+    "anchor_experiment_id": {
+      "oneOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+        {"type": "null"}
+      ]
+    },
+    "next_action_experiment_id": {
+      "oneOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+        {"type": "null"}
+      ]
+    },
+    "next_action_run_id": {
+      "oneOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+        {"type": "null"}
+      ]
+    },
     "anchor_completed_at": {
       "oneOf": [
         {"type": "string", "format": "date-time"},
@@ -52,6 +70,12 @@
       },
       "required": ["items", "pagination"]
     },
+    "anchor_summary": {
+      "oneOf": [
+        {"$ref": "#/definitions/JourneyItem"},
+        {"type": "null"}
+      ]
+    },
     "next_action_code": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/NextActionCode"}
   },
   "required": [
@@ -59,12 +83,16 @@
     "as_of",
     "agent",
     "anchor_run_id",
+    "anchor_experiment_id",
     "anchor_completed_at",
+    "next_action_experiment_id",
+    "next_action_run_id",
     "agent_updated_after_anchor",
     "pillars",
     "process_assurance",
     "current_context",
     "journey",
+    "anchor_summary",
     "next_action_code"
   ],
   "allOf": [
@@ -78,6 +106,7 @@
               }
             },
             "anchor_run_id": {"type": "null"},
+            "anchor_experiment_id": {"type": "null"},
             "anchor_completed_at": {"type": "null"}
           }
         },
@@ -89,6 +118,7 @@
               }
             },
             "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+            "anchor_experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
             "anchor_completed_at": {
               "oneOf": [
                 {"type": "string", "format": "date-time"},
@@ -101,9 +131,23 @@
     },
     {
       "oneOf": [
+        {"properties": {"anchor_run_id": {"type": "null"}, "anchor_summary": {"type": "null"}}},
+        {"properties": {"anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, "anchor_summary": {"properties": {"is_anchor": {"const": true}}}}}
+      ]
+    },
+    {
+      "oneOf": [
+        {"properties": {"next_action_code": {"const": "ESTABLISH_BASELINE_EVALUATION"}, "next_action_experiment_id": {"type": "null"}, "next_action_run_id": {"type": "null"}}},
+        {"properties": {"next_action_code": {"const": "COMPLETE_EVALUATION_RUN"}, "next_action_experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, "next_action_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}}},
+        {"properties": {"next_action_code": {"enum": ["EVALUATE_DATASET_EXAMPLES", "RECORD_ACCURACY_MEASURE", "REVIEW_RECORDED_EVIDENCE"]}, "next_action_experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, "next_action_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}}}
+      ]
+    },
+    {
+      "oneOf": [
         {
           "properties": {
             "anchor_run_id": {"type": "null"},
+            "anchor_experiment_id": {"type": "null"},
             "anchor_completed_at": {"type": "null"},
             "journey": {
               "properties": {

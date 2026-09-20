@@ -707,10 +707,12 @@ _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH = "agent_lifecycle_record/agent_lifecycle_co
 _AGENT_LIFECYCLE_RECEIPT_SUBMIT_RESPONSE_SCHEMA_PATH = (
     "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json"
 )
+_AGENT_READINESS_TARGET_SCHEMA_PATH = "agent_readiness/agent_readiness_target_schema.json"
 _AGENT_LIFECYCLE_REASON_CODES_ALLOWED_PATHS = frozenset(
     {
         _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH,
         _AGENT_LIFECYCLE_RECEIPT_SUBMIT_RESPONSE_SCHEMA_PATH,
+        _AGENT_READINESS_TARGET_SCHEMA_PATH,
     }
 )
 

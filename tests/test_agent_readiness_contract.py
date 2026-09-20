@@ -979,19 +979,22 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
                 continue
             for response in operation["responses"].values():
                 if response.get("content"):
-                    assert (
-                        response["content"]["application/json"]["schema"]["$ref"]
-                        == "./agent_readiness_error_schema.json"
-                        or response["content"]["application/json"]["schema"][
-                            "$ref"
-                        ].endswith("agent_readiness_portfolio_response_schema.json")
-                        or response["content"]["application/json"]["schema"][
-                            "$ref"
-                        ].endswith("agent_readiness_detail_response_schema.json")
-                        or response["content"]["application/json"]["schema"][
-                            "$ref"
-                        ].endswith("agent_readiness_target_schema.json#/definitions/DeclaredTarget")
-                    )
+                    schema = response["content"]["application/json"]["schema"]
+                    if "$ref" in schema:
+                        assert (
+                            schema["$ref"] == "./agent_readiness_error_schema.json"
+                            or schema["$ref"].endswith(
+                                "agent_readiness_portfolio_response_schema.json"
+                            )
+                            or schema["$ref"].endswith(
+                                "agent_readiness_detail_response_schema.json"
+                            )
+                            or schema["$ref"].endswith(
+                                "agent_readiness_target_schema.json#/definitions/DeclaredTarget"
+                            )
+                        )
+                    else:
+                        assert schema.get("additionalProperties") is False
 
     root = json.loads(
         (get_schemas_dir() / "mep_endpoints.json").read_text(encoding="utf-8")

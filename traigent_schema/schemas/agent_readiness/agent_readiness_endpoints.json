@@ -51,7 +51,9 @@
           "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
           "404": {"description": "Agent not found in the authorized project scope", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
         }
-      },
+      }
+    },
+    "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions": {
       "post": {
         "summary": "Declare or replace the project Agent team latency requirement",
         "operationId": "createAgentReadinessTargetRevision",

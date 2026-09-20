@@ -101,8 +101,18 @@ def _portfolio_payload() -> dict[str, Any]:
                 },
                 "last_activity_at": None,
                 "next_action_code": "ESTABLISH_BASELINE_EVALUATION",
+                "attention_state": "ACTIONABLE",
             }
         ],
+        "portfolio_counts": {
+            "total_agents": 1,
+            "by_stage": {
+                "NO_RUNS": 1,
+                "RUNS_RECORDED": 0,
+                "EVALUATION_COMPLETED": 0,
+            },
+            "by_attention": {"ACTIONABLE": 1, "NO_PORTAL_ACTION": 0},
+        },
         "ordering": "STAGE_THEN_LEAST_RECENT_ACTIVITY",
         "pagination": {
             "page": 1,

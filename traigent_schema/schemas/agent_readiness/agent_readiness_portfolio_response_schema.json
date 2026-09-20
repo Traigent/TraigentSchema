@@ -81,7 +81,11 @@
               {"type": "null"}
             ]
           },
-          "next_action_code": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/NextActionCode"}
+          "next_action_code": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/NextActionCode"},
+          "attention_state": {
+            "description": "Deterministic classification of the existing typed next action; GAP alone is not actionable.",
+            "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/AttentionState"
+          }
         },
         "required": [
           "agent",
@@ -93,7 +97,8 @@
           "pillars",
           "process",
           "last_activity_at",
-          "next_action_code"
+          "next_action_code",
+          "attention_state"
         ],
         "allOf": [
           {
@@ -139,6 +144,34 @@
         ]
       }
     },
+    "portfolio_counts": {
+      "description": "Counts over the complete authorized project portfolio before search, filters, or pagination.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total_agents": {"type": "integer", "minimum": 0},
+        "by_stage": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "NO_RUNS": {"type": "integer", "minimum": 0},
+            "RUNS_RECORDED": {"type": "integer", "minimum": 0},
+            "EVALUATION_COMPLETED": {"type": "integer", "minimum": 0}
+          },
+          "required": ["NO_RUNS", "RUNS_RECORDED", "EVALUATION_COMPLETED"]
+        },
+        "by_attention": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ACTIONABLE": {"type": "integer", "minimum": 0},
+            "NO_PORTAL_ACTION": {"type": "integer", "minimum": 0}
+          },
+          "required": ["ACTIONABLE", "NO_PORTAL_ACTION"]
+        }
+      },
+      "required": ["total_agents", "by_stage", "by_attention"]
+    },
     "ordering": {"const": "STAGE_THEN_LEAST_RECENT_ACTIVITY"},
     "pagination": {
       "allOf": [
@@ -147,5 +180,5 @@
       ]
     }
   },
-  "required": ["schema_version", "as_of", "items", "ordering", "pagination"]
+  "required": ["schema_version", "as_of", "items", "portfolio_counts", "ordering", "pagination"]
 }

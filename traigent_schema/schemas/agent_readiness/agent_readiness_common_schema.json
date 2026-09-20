@@ -298,7 +298,7 @@
           "properties": {
             "kind": {"const": "ACCURACY"},
             "unit": {"const": "UNIT_NOT_RECORDED"},
-            "source_key": {"const": "accuracy"}
+            "source_key": {"enum": ["accuracy", "accuracy.mean"]}
           }
         },
         {

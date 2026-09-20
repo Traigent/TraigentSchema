@@ -608,6 +608,34 @@ def test_anchor_and_stage_gate_run_dependent_check_states() -> None:
     invalid["process_assurance"]["coverage_state"] = "EVIDENCE_INCOMPLETE"
     assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
 
+    valid_no_runs = deepcopy(detail)
+    valid_no_runs["process_assurance"]["stage"] = "NO_RUNS"
+    valid_no_runs["process_assurance"]["checks"][0] = _check(
+        "EXPERIMENT_PATH_RECORDED", "UNKNOWN", "not_assessed", None, None
+    )
+    valid_no_runs["pillars"]["agent"]["checks"][1] = _check(
+        "COMPLETED_EVALUATION_RUN", "UNKNOWN", "not_assessed", None, None
+    )
+    valid_no_runs["pillars"]["agent"]["coverage_state"] = "EVIDENCE_INCOMPLETE"
+    assert validator.validate_json(valid_no_runs, "agent_readiness_detail_response_schema") == []
+
+    invalid = deepcopy(valid_no_runs)
+    invalid["pillars"]["agent"]["checks"][1] = _check(
+        "COMPLETED_EVALUATION_RUN",
+        "GAP",
+        "backend_observed",
+        {"kind": "agent", "id": "agent-1"},
+    )
+    invalid["pillars"]["agent"]["coverage_state"] = "GAPS_RECORDED"
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+    invalid = deepcopy(detail)
+    invalid["pillars"]["agent"]["checks"][1] = _check(
+        "COMPLETED_EVALUATION_RUN", "UNKNOWN", "not_assessed", None, None
+    )
+    invalid["pillars"]["agent"]["coverage_state"] = "EVIDENCE_INCOMPLETE"
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
 
 def test_normative_matrix_covers_every_check_and_next_action() -> None:
     matrix = json.loads(MATRIX.read_text(encoding="utf-8"))

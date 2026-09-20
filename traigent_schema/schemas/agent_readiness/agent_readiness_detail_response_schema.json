@@ -206,6 +206,20 @@
                   "items": [{"$ref": "#/definitions/UnknownCheckState"}]
                 }
               }
+            },
+            "pillars": {
+              "properties": {
+                "agent": {
+                  "properties": {
+                    "checks": {
+                      "items": [
+                        {},
+                        {"$ref": "#/definitions/UnknownCheckState"}
+                      ]
+                    }
+                  }
+                }
+              }
             }
           }
         },
@@ -216,6 +230,20 @@
                 "stage": {"const": "RUNS_RECORDED"},
                 "checks": {
                   "items": [{"$ref": "#/definitions/SupportedCheckState"}]
+                }
+              }
+            },
+            "pillars": {
+              "properties": {
+                "agent": {
+                  "properties": {
+                    "checks": {
+                      "items": [
+                        {},
+                        {"properties": {"state": {"const": "GAP"}}}
+                      ]
+                    }
+                  }
                 }
               }
             }

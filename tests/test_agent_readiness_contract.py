@@ -689,7 +689,10 @@ def test_normative_matrix_covers_every_check_and_next_action() -> None:
     )
     assert (
         accuracy_check["conditions"][0]["condition"]
-        == "anchor_configuration_run_has_scalar_accuracy_or_eligible_accuracy_mean_with_positive_count"
+        == (
+            "anchor_configuration_run_has_scalar_accuracy_or_"
+            "eligible_accuracy_mean_with_positive_count"
+        )
     )
     accuracy_action = next(
         row for row in matrix["next_actions"] if row["code"] == "RECORD_ACCURACY_MEASURE"

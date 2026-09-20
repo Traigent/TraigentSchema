@@ -4096,6 +4096,40 @@
       "pr": "pending (branch feature/agent-readiness-phase1-20260920, WorkIntent st_9908fedb20a7)"
     },
     {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/team_requirement",
+          "role": "response",
+          "subject": "team_requirement",
+          "old": false,
+          "new": true,
+          "fingerprint": "982a00695ae3b5b8b1a5687ab562655985a9ae6f84c1a41915c3b6a577369933"
+        }
+      ],
+      "reason": "The reviewed Phase 4 detail response intentionally adds the closed team latency requirement projection so viewers can see the current evaluated configuration, finite MET/NOT_MET/CANNOT_DETERMINE result, source disclosure, and the independently unavailable certificate state. Existing strict response validators must upgrade; the addition is limited to this admitted readiness detail contract.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/512"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/get/responses/200/content/application/json/schema/properties/team_requirement",
+          "role": "response",
+          "subject": "team_requirement",
+          "old": false,
+          "new": true,
+          "fingerprint": "c3d3b0e97f61304b53e797f9030d7ff90f653a995e975eeb96ece35129e55401"
+        }
+      ],
+      "reason": "The reviewed Phase 4 endpoint projection intentionally exposes the same closed team latency requirement on the admitted agent detail GET, enabling the existing viewer/editor surface to disclose its current evaluated configuration and finite evaluation state. Existing strict response validators must upgrade; no shared error envelope or unrelated route is broadened.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/512"
+    },
+    {
       "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
       "rule": "allOf_branch_count_changed",
       "findings": [

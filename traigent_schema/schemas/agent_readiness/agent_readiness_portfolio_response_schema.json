@@ -72,13 +72,29 @@
             "oneOf": [
               {
                 "properties": {
+                  "process": {
+                    "properties": {
+                      "stage": {"enum": ["NO_RUNS", "RUNS_RECORDED"]}
+                    }
+                  },
                   "anchor_run_id": {"type": "null"},
                   "anchor_completed_at": {"type": "null"}
                 }
               },
               {
                 "properties": {
-                  "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}
+                  "process": {
+                    "properties": {
+                      "stage": {"const": "EVALUATION_COMPLETED"}
+                    }
+                  },
+                  "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+                  "anchor_completed_at": {
+                    "oneOf": [
+                      {"type": "string", "format": "date-time"},
+                      {"type": "null"}
+                    ]
+                  }
                 }
               }
             ]

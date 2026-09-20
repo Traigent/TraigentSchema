@@ -72,8 +72,50 @@
       "oneOf": [
         {
           "properties": {
+            "process_assurance": {
+              "properties": {
+                "stage": {"enum": ["NO_RUNS", "RUNS_RECORDED"]}
+              }
+            },
             "anchor_run_id": {"type": "null"},
             "anchor_completed_at": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "process_assurance": {
+              "properties": {
+                "stage": {"const": "EVALUATION_COMPLETED"}
+              }
+            },
+            "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+            "anchor_completed_at": {
+              "oneOf": [
+                {"type": "string", "format": "date-time"},
+                {"type": "null"}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "anchor_run_id": {"type": "null"},
+            "anchor_completed_at": {"type": "null"},
+            "journey": {
+              "properties": {
+                "items": {
+                  "not": {
+                    "contains": {
+                      "properties": {"is_anchor": {"const": true}}
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         {
@@ -409,6 +451,36 @@
         "record_observation_basis",
         "dataset_reference_change",
         "evaluator_reference_change"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {"properties": {"reported_metrics": {"minItems": 1}}},
+              {"properties": {"reported_example_evaluations": {"type": "integer"}}}
+            ]
+          },
+          "then": {
+            "properties": {
+              "metric_configuration_run_id": {
+                "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "identity_snapshot_state": {"const": "NOT_RECORDED"}
+            }
+          },
+          "then": {
+            "properties": {
+              "evaluation_dataset_ref": {"type": "null"},
+              "evaluator_version_ref": {"type": "null"}
+            }
+          }
+        }
       ]
     }
   }

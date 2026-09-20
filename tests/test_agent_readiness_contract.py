@@ -358,6 +358,7 @@ def test_anchor_null_and_pagination_limits_are_enforced() -> None:
     validator = SchemaValidator()
     detail = _detail_payload()
     detail["anchor_run_id"] = None
+    detail["process_assurance"]["stage"] = "RUNS_RECORDED"
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     detail = _detail_payload()
@@ -377,6 +378,76 @@ def test_anchor_null_and_pagination_limits_are_enforced() -> None:
     assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
 
 
+def test_anchor_stage_implications_and_page_anchor_rule_are_closed() -> None:
+    validator = SchemaValidator()
+
+    portfolio = _portfolio_payload()
+    portfolio["items"][0]["process"]["stage"] = "EVALUATION_COMPLETED"
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
+
+    portfolio = _portfolio_payload()
+    portfolio["items"][0]["anchor_run_id"] = "run-anchor"
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
+
+    detail = _detail_payload()
+    detail["process_assurance"]["stage"] = "RUNS_RECORDED"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["anchor_run_id"] = None
+    detail["anchor_completed_at"] = None
+    detail["process_assurance"]["stage"] = "EVALUATION_COMPLETED"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["anchor_run_id"] = None
+    detail["anchor_completed_at"] = None
+    detail["process_assurance"]["stage"] = "RUNS_RECORDED"
+    detail["journey"]["items"][0]["is_anchor"] = True
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    completed_undated = _detail_payload()
+    completed_undated["anchor_completed_at"] = None
+    assert (
+        validator.validate_json(completed_undated, "agent_readiness_detail_response_schema") == []
+    )
+
+
+def test_journey_metric_and_identity_implications_are_closed() -> None:
+    validator = SchemaValidator()
+
+    detail = _detail_payload()
+    item = detail["journey"]["items"][0]
+    item["metric_configuration_run_id"] = None
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    item = detail["journey"]["items"][0]
+    item["metric_configuration_run_id"] = None
+    item["reported_metrics"] = []
+    item["reported_example_evaluations"] = 0
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    item = detail["journey"]["items"][0]
+    item["metric_configuration_run_id"] = None
+    item["reported_metrics"] = []
+    item["reported_example_evaluations"] = None
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema") == []
+
+    detail = _detail_payload()
+    item = detail["journey"]["items"][0]
+    item["identity_snapshot_state"] = "NOT_RECORDED"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    item = detail["journey"]["items"][0]
+    item["identity_snapshot_state"] = "NOT_RECORDED"
+    item["evaluation_dataset_ref"] = None
+    item["evaluator_version_ref"] = None
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema") == []
+
+
 def test_readiness_error_envelope_rejects_private_sentinels_and_details() -> None:
     validator = SchemaValidator()
     valid = {
@@ -386,6 +457,21 @@ def test_readiness_error_envelope_rejects_private_sentinels_and_details() -> Non
         "error_code": "not_found",
     }
     assert validator.validate_json(valid, "agent_readiness_error_schema") == []
+
+    for code, message in (
+        ("PROJECT_ACCESS_DENIED", "Authorization denied"),
+        ("PROJECT_NOT_FOUND", "Project not found"),
+    ):
+        error = "authorization_denied" if code == "PROJECT_ACCESS_DENIED" else "not_found"
+        assert validator.validate_json(
+            {
+                "success": False,
+                "message": message,
+                "error": error,
+                "error_code": code,
+            },
+            "agent_readiness_error_schema",
+        ) == []
 
     for field in ("message", "error", "error_code"):
         invalid = {**valid, field: "private_prompt_output_canary"}

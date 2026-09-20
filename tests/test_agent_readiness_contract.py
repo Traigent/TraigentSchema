@@ -942,6 +942,13 @@ def test_endpoint_inventory_registers_both_project_scoped_get_routes() -> None:
     ]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "agent_readiness_portfolio_response_schema.json"
     )
+    list_bad_request = paths[
+        "/api/v1beta/projects/{project_id}/agent-readiness"
+    ]["get"]["responses"]["400"]
+    assert all(
+        parameter in list_bad_request["description"].lower()
+        for parameter in ("pagination", "search", "stage", "attention")
+    )
     assert paths["/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}"]["get"][
         "responses"
     ]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(

@@ -24,7 +24,7 @@
             "description": "Project Agent readiness evidence retrieved successfully",
             "content": {"application/json": {"schema": {"$ref": "./agent_readiness_portfolio_response_schema.json"}}}
           },
-          "400": {"description": "Invalid pagination or search parameters", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "400": {"description": "Invalid pagination, search, stage, or attention parameters", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
           "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
           "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
         }

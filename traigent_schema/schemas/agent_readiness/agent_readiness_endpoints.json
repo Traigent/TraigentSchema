@@ -51,6 +51,27 @@
           "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
           "404": {"description": "Agent not found in the authorized project scope", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
         }
+      },
+      "post": {
+        "summary": "Declare or replace the project Agent team latency requirement",
+        "operationId": "createAgentReadinessTargetRevision",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "agent_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "./agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest"}}}
+        },
+        "responses": {
+          "201": {"description": "Immutable target revision created", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_target_schema.json#/definitions/DeclaredTarget"}}}},
+          "400": {"description": "Invalid target declaration", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Project Agent write access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "404": {"description": "Agent or source run not found in the authorized project scope", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "409": {"description": "The immutable target changed since the form was loaded", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
+        }
       }
     }
   }

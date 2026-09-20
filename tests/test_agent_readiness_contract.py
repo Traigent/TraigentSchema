@@ -217,6 +217,7 @@ def _detail_payload() -> dict[str, Any]:
             ],
             "certificate_match": "NOT_ASSESSED",
         },
+        "team_requirement": {"state": "NONE_DECLARED"},
         "current_context": {
             "evaluation_dataset_association": {
                 "experiment_id": "experiment-1",

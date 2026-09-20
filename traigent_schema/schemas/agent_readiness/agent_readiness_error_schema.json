@@ -15,7 +15,8 @@
         "Authentication required",
         "Authorization denied",
         "Not found",
-        "Project not found"
+        "Project not found",
+        "This requirement changed. Reload the current revision before saving."
       ]
     },
     "error": {
@@ -24,7 +25,8 @@
         "invalid_request",
         "authentication_required",
         "authorization_denied",
-        "not_found"
+        "not_found",
+        "revision_conflict"
       ]
     },
     "error_code": {
@@ -37,7 +39,8 @@
         "PROJECT_ACCESS_DENIED",
         "PROJECT_NOT_FOUND",
         "TENANT_ACCESS_DENIED",
-        "TENANT_NOT_FOUND"
+        "TENANT_NOT_FOUND",
+        "revision_conflict"
       ]
     }
   },
@@ -49,7 +52,8 @@
     {"$ref": "#/definitions/ProjectAccessDenied"},
     {"$ref": "#/definitions/ProjectNotFound"},
     {"$ref": "#/definitions/TenantAccessDenied"},
-    {"$ref": "#/definitions/TenantNotFound"}
+    {"$ref": "#/definitions/TenantNotFound"},
+    {"$ref": "#/definitions/RevisionConflict"}
   ],
   "definitions": {
     "InvalidRequest": {
@@ -138,6 +142,17 @@
         "message": {"const": "Not found"},
         "error": {"const": "not_found"},
         "error_code": {"const": "TENANT_NOT_FOUND"}
+      }
+    },
+    "RevisionConflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "This requirement changed. Reload the current revision before saving."},
+        "error": {"const": "revision_conflict"},
+        "error_code": {"const": "revision_conflict"}
       }
     }
   }

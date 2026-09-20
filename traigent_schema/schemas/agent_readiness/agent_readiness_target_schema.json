@@ -1,0 +1,202 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json",
+  "title": "Agent Readiness Team Latency Requirement",
+  "description": "Closed, server-attributable team mean-response-time target and its current on-read evaluation.",
+  "definitions": {
+    "OpaqueId": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+    },
+    "DecimalString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    },
+    "Digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ArtifactVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"$ref": "#/definitions/OpaqueId"},
+        "digest": {"$ref": "#/definitions/Digest"},
+        "state": {"type": "string", "enum": ["verified", "unknown"]}
+      },
+      "required": ["schema", "digest", "state"]
+    },
+    "ArtifactVersions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agent": {"$ref": "#/definitions/ArtifactVersion"},
+        "dataset": {"$ref": "#/definitions/ArtifactVersion"},
+        "evaluator": {"$ref": "#/definitions/ArtifactVersion"},
+        "config_space": {"$ref": "#/definitions/ArtifactVersion"}
+      },
+      "required": ["agent", "dataset", "evaluator", "config_space"]
+    },
+    "IdentitySource": {
+      "type": "string",
+      "enum": ["registered", "declared", "unknown"]
+    },
+    "SubjectBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_run_id": {"$ref": "#/definitions/OpaqueId"},
+        "declared_agent_id": {"$ref": "#/definitions/OpaqueId"},
+        "declared_dataset_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "evaluator_version_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "agent_id_source": {"$ref": "#/definitions/IdentitySource"},
+        "dataset_id_source": {"$ref": "#/definitions/IdentitySource"},
+        "evaluator_version_source": {"$ref": "#/definitions/IdentitySource"},
+        "config_space_source": {"$ref": "#/definitions/IdentitySource"},
+        "artifact_versions": {"$ref": "#/definitions/ArtifactVersions"}
+      },
+      "required": [
+        "source_run_id",
+        "declared_agent_id",
+        "declared_dataset_id",
+        "evaluator_version_id",
+        "agent_id_source",
+        "dataset_id_source",
+        "evaluator_version_source",
+        "config_space_source",
+        "artifact_versions"
+      ]
+    },
+    "LatencyRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metric_id": {"const": "SDK_MEAN_RESPONSE_TIME"},
+        "source_key": {"const": "response_time_ms.mean"},
+        "unit": {"const": "MILLISECONDS"},
+        "direction": {"const": "minimize"},
+        "comparison": {"const": "at_most"},
+        "threshold_ms": {"$ref": "#/definitions/DecimalString"},
+        "accepted_observation_basis": {"const": "client_reported"}
+      },
+      "required": [
+        "metric_id",
+        "source_key",
+        "unit",
+        "direction",
+        "comparison",
+        "threshold_ms",
+        "accepted_observation_basis"
+      ]
+    },
+    "TargetDeclarationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "expected_current_revision_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "source_run_id": {"$ref": "#/definitions/OpaqueId"},
+        "use_case": {"type": "string", "enum": ["question-answering", "classification", "summarization", "generation", "other"]},
+        "requirement": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "metric_id": {"const": "SDK_MEAN_RESPONSE_TIME"},
+            "threshold_ms": {"$ref": "#/definitions/DecimalString"},
+            "accepted_observation_basis": {"const": "client_reported"}
+          },
+          "required": ["metric_id", "threshold_ms", "accepted_observation_basis"]
+        }
+      },
+      "required": ["expected_current_revision_id", "source_run_id", "use_case", "requirement"]
+    },
+    "Declarer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "principal_kind": {"type": "string", "enum": ["USER", "API_KEY"]},
+        "principal_ref": {"$ref": "#/definitions/OpaqueId"}
+      },
+      "required": ["principal_kind", "principal_ref"]
+    },
+    "Evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "result": {"type": "string", "enum": ["MET", "NOT_MET", "CANNOT_DETERMINE"]},
+        "reason_codes": {
+          "type": "array",
+          "items": {"type": "string", "enum": [
+            "REQUIRED_ARTIFACT_VERSION_NOT_RECORDED",
+            "SUBJECT_VERSION_MISMATCH",
+            "METRIC_NOT_RECORDED",
+            "METRIC_UNIT_NOT_RECORDED_OR_INCOMPATIBLE",
+            "EVIDENCE_BASIS_NOT_RECORDED_OR_NOT_ACCEPTED"
+          ]},
+          "uniqueItems": true
+        },
+        "source_run_id": {"$ref": "#/definitions/OpaqueId"},
+        "source_configuration_run_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "observed_value_ms": {
+          "oneOf": [{"$ref": "#/definitions/DecimalString"}, {"type": "null"}]
+        },
+        "unit": {"const": "MILLISECONDS"},
+        "observation_basis": {
+          "oneOf": [{"const": "client_reported"}, {"type": "null"}]
+        },
+        "observed_count": {
+          "oneOf": [{"type": "integer", "minimum": 1}, {"type": "null"}]
+        },
+        "evaluated_at": {"type": "string", "format": "date-time"}
+      },
+      "required": ["result", "reason_codes", "source_run_id", "source_configuration_run_id", "observed_value_ms", "unit", "observation_basis", "observed_count", "evaluated_at"]
+    },
+    "TargetRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "revision_id": {"$ref": "#/definitions/OpaqueId"},
+        "previous_revision_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "agent_id": {"$ref": "#/definitions/OpaqueId"},
+        "use_case": {"type": "string", "enum": ["question-answering", "classification", "summarization", "generation", "other"]},
+        "subject_binding": {"$ref": "#/definitions/SubjectBinding"},
+        "requirement": {"$ref": "#/definitions/LatencyRequirement"},
+        "declared_by": {"$ref": "#/definitions/Declarer"},
+        "declared_at": {"type": "string", "format": "date-time"}
+      },
+      "required": ["revision_id", "previous_revision_id", "agent_id", "use_case", "subject_binding", "requirement", "declared_by", "declared_at"]
+    },
+    "NoTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {"state": {"const": "NONE_DECLARED"}},
+      "required": ["state"]
+    },
+    "DeclaredTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {"const": "DECLARED"},
+        "revision": {"$ref": "#/definitions/TargetRevision"},
+        "evaluation": {"$ref": "#/definitions/Evaluation"}
+      },
+      "required": ["state", "revision", "evaluation"]
+    }
+  },
+  "oneOf": [
+    {"$ref": "#/definitions/TargetDeclarationRequest"},
+    {"$ref": "#/definitions/TargetRevision"},
+    {"$ref": "#/definitions/NoTarget"},
+    {"$ref": "#/definitions/DeclaredTarget"}
+  ]
+}

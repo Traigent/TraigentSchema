@@ -297,6 +297,17 @@ def test_completed_detail_fixture_is_valid_and_allows_page_without_anchor() -> N
     assert all(not row["is_anchor"] for row in _detail_payload()["journey"]["items"])
 
 
+def test_anchor_summary_is_required_and_completed_when_anchor_exists() -> None:
+    validator = SchemaValidator()
+    invalid = _detail_payload()
+    invalid["anchor_summary"] = None
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+    invalid = _detail_payload()
+    invalid["anchor_summary"]["status"] = "RUNNING"
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+
 def test_next_action_targets_are_closed_for_each_action_state() -> None:
     validator = SchemaValidator()
     for code in sorted(NEXT_ACTIONS):
@@ -342,6 +353,12 @@ def test_next_action_targets_are_closed_for_each_action_state() -> None:
     invalid["next_action_code"] = "COMPLETE_EVALUATION_RUN"
     invalid["next_action_experiment_id"] = None
     assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+    terminal_only = _detail_payload()
+    terminal_only["next_action_code"] = "COMPLETE_EVALUATION_RUN"
+    terminal_only["next_action_experiment_id"] = None
+    terminal_only["next_action_run_id"] = None
+    assert validator.validate_json(terminal_only, "agent_readiness_detail_response_schema") == []
 
 
 def test_detail_check_order_is_closed() -> None:

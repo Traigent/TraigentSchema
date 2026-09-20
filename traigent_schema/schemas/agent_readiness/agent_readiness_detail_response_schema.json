@@ -132,13 +132,24 @@
     {
       "oneOf": [
         {"properties": {"anchor_run_id": {"type": "null"}, "anchor_summary": {"type": "null"}}},
-        {"properties": {"anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, "anchor_summary": {"properties": {"is_anchor": {"const": true}}}}}
+        {
+          "properties": {
+            "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+            "anchor_summary": {
+              "allOf": [
+                {"$ref": "#/definitions/JourneyItem"},
+                {"properties": {"is_anchor": {"const": true}, "status": {"const": "COMPLETED"}}, "required": ["is_anchor", "status"]}
+              ]
+            }
+          }
+        }
       ]
     },
     {
       "oneOf": [
         {"properties": {"next_action_code": {"const": "ESTABLISH_BASELINE_EVALUATION"}, "next_action_experiment_id": {"type": "null"}, "next_action_run_id": {"type": "null"}}},
         {"properties": {"next_action_code": {"const": "COMPLETE_EVALUATION_RUN"}, "next_action_experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, "next_action_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}}},
+        {"properties": {"next_action_code": {"const": "COMPLETE_EVALUATION_RUN"}, "next_action_experiment_id": {"type": "null"}, "next_action_run_id": {"type": "null"}}},
         {"properties": {"next_action_code": {"enum": ["EVALUATE_DATASET_EXAMPLES", "RECORD_ACCURACY_MEASURE", "REVIEW_RECORDED_EVIDENCE"]}, "next_action_experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, "next_action_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}}}
       ]
     },

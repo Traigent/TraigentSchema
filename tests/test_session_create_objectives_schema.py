@@ -62,6 +62,24 @@ def _hybrid_create_payload(objectives: object | None = None) -> dict[str, object
     return payload
 
 
+def test_session_create_accepts_z_score_and_robust_normalization() -> None:
+    """NormalizationStrategy was re-widened once the optimization library's
+    z_score/robust math landed; the contract must accept both again."""
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    for strategy in ("z_score", "robust"):
+        objectives = deepcopy(_typed_objectives())
+        objectives[0]["normalization"] = strategy
+
+        errors = validator.validate_request(
+            "/api/v1/sessions",
+            "POST",
+            _session_create_payload(objectives),
+        )
+
+        assert errors == [], f"Expected '{strategy}' to validate cleanly, got: {errors}"
+
+
 def test_session_create_accepts_typed_objective_definitions() -> None:
     validator = SchemaValidator(contract="sdk_tuning")
 

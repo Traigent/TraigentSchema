@@ -1,0 +1,155 @@
+{
+  "schema_version": "1.0.0",
+  "purpose": "Normative state table for the read-only agent-readiness projection. It records narrow evidence facts and does not define readiness or certification.",
+  "anchor_rule": {
+    "selection": "latest completed ExperimentRun ordered by completed_at descending with nulls last, then id descending",
+    "shared_by": [
+      "COMPLETED_EVALUATION_RUN",
+      "ACCURACY_MEASURE_RECORDED",
+      "UNIT_BEARING_EFFICIENCY_MEASURE_RECORDED",
+      "EVALUATOR_VERSION_SNAPSHOT_RECORDED",
+      "EVALUATOR_EXECUTION_LINK_ASSESSED",
+      "EVALUATOR_STABILITY_ASSESSED",
+      "RUN_DATASET_IDENTITY_RECORDED",
+      "EVALUATED_EXAMPLE_COUNT_RECORDED",
+      "DATASET_QUALITY_ASSESSMENT_RECORDED"
+    ],
+    "journey_page_may_omit_anchor": true,
+    "completed_run_with_null_completed_at": {
+      "stage": "EVALUATION_COMPLETED",
+      "anchor_run_id": "run-opaque",
+      "anchor_completed_at": null,
+      "heading_fallback": "Latest completed run"
+    }
+  },
+  "coverage_rule": {
+    "detail_and_process": {
+      "gap_precedence": "GAPS_RECORDED when any positional check has state GAP",
+      "unknown_without_gap": "EVIDENCE_INCOMPLETE when no check has state GAP and any check has state UNKNOWN",
+      "all_supported": "CHECKS_RECORDED when every positional check has state SUPPORTED"
+    },
+    "portfolio_counts": {
+      "gap_precedence": "GAPS_RECORDED when gap_checks is at least 1",
+      "unknown_without_gap": "EVIDENCE_INCOMPLETE when gap_checks is 0 and unknown_checks is at least 1",
+      "all_supported": "CHECKS_RECORDED when gap_checks and unknown_checks are both 0",
+      "top_gap_code": "null exactly when gap_checks is 0; otherwise a CheckId"
+    }
+  },
+  "checks": [
+    {
+      "check_id": "AGENT_RECORD_AVAILABLE",
+      "pillar": "agent",
+      "conditions": [
+        {"condition": "scoped_agent_row_exists", "state": "SUPPORTED", "observation_basis": "backend_observed", "evidence_ref_kind": "agent"}
+      ]
+    },
+    {
+      "check_id": "COMPLETED_EVALUATION_RUN",
+      "pillar": "agent",
+      "conditions": [
+        {"condition": "shared_anchor_exists", "state": "SUPPORTED", "observation_basis": "backend_observed", "evidence_ref_kind": "experiment_run"},
+        {"condition": "runs_exist_but_none_completed", "state": "GAP", "observation_basis": "backend_observed", "evidence_ref_kind": "agent"},
+        {"condition": "no_runs", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "ACCURACY_MEASURE_RECORDED",
+      "pillar": "agent",
+      "conditions": [
+        {"condition": "anchor_configuration_run_has_scalar_accuracy_or_eligible_accuracy_mean_with_positive_count", "state": "SUPPORTED", "observation_basis": "client_reported", "evidence_ref_kind": "configuration_run"},
+        {"condition": "anchor_missing_or_unrecognized_accuracy", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "UNIT_BEARING_EFFICIENCY_MEASURE_RECORDED",
+      "pillar": "agent",
+      "conditions": [
+        {"condition": "anchor_has_exact_unit_bearing_cost_or_latency_key", "state": "SUPPORTED", "observation_basis": "client_reported", "evidence_ref_kind": "configuration_run"},
+        {"condition": "anchor_missing_generic_or_ambiguous_cost_or_latency", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "EVALUATOR_VERSION_SNAPSHOT_RECORDED",
+      "pillar": "evaluator",
+      "conditions": [
+        {"condition": "identity_snapshot_resolution_is_resolved", "state": "SUPPORTED", "observation_basis": "server_recorded_client_declaration", "evidence_ref_kind": "evaluator_version"},
+        {"condition": "resolution_is_missing_unresolved_or_not_applicable", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ],
+      "resolution_rule": "Only evaluator_version_resolution=resolved supports this check; any other resolution is UNKNOWN."
+    },
+    {
+      "check_id": "EVALUATOR_EXECUTION_LINK_ASSESSED",
+      "pillar": "evaluator",
+      "conditions": [
+        {"condition": "current_slice_has_no_execution_link_producer", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "EVALUATOR_STABILITY_ASSESSED",
+      "pillar": "evaluator",
+      "conditions": [
+        {"condition": "current_slice_has_no_stability_producer", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "RUN_DATASET_IDENTITY_RECORDED",
+      "pillar": "evaluation_dataset",
+      "conditions": [
+        {"condition": "identity_v2_anchor_has_immutable_dataset_identity", "state": "SUPPORTED", "observation_basis": "server_recorded_client_declaration", "evidence_ref_kind": "evaluation_dataset"},
+        {"condition": "legacy_or_incomplete_anchor_identity", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "EVALUATED_EXAMPLE_COUNT_RECORDED",
+      "pillar": "evaluation_dataset",
+      "conditions": [
+        {"condition": "anchor_total_examples_is_positive_integer", "state": "SUPPORTED", "observation_basis": "client_reported", "evidence_ref_kind": "configuration_run"},
+        {"condition": "anchor_total_examples_is_zero", "state": "GAP", "observation_basis": "client_reported", "evidence_ref_kind": "configuration_run"},
+        {"condition": "anchor_total_examples_missing_non_integer_or_no_anchor", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "DATASET_QUALITY_ASSESSMENT_RECORDED",
+      "pillar": "evaluation_dataset",
+      "conditions": [
+        {"condition": "assessment_record_exists", "state": "SUPPORTED", "observation_basis": "backend_observed", "evidence_ref_kind": "dataset_quality"},
+        {"condition": "assessment_record_absent_or_no_anchor", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ],
+      "wording": "Dataset quality assessment record produced"
+    },
+    {
+      "check_id": "EXPERIMENT_PATH_RECORDED",
+      "pillar": "process",
+      "conditions": [
+        {"condition": "one_or_more_scoped_runs_exist", "state": "SUPPORTED", "observation_basis": "backend_observed", "evidence_ref_kind": "experiment"},
+        {"condition": "no_scoped_runs_exist", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "SELECTED_CONFIGURATION_RECORDED",
+      "pillar": "process",
+      "conditions": [
+        {"condition": "no_authoritative_agent_selection_join_in_slice", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    },
+    {
+      "check_id": "SELECTION_LEDGER_MATCH_ASSESSED",
+      "pillar": "process",
+      "conditions": [
+        {"condition": "no_authoritative_agent_ledger_join_in_slice", "state": "UNKNOWN", "observation_basis": "not_assessed", "evidence_ref_kind": null}
+      ]
+    }
+  ],
+  "current_context": {
+    "mutable_experiment_evaluation_set_id": "may populate only current_context.evaluation_dataset_association",
+    "historical_run_identity": "never populated from mutable Experiment.evaluation_set_id or client evaluator_config_id"
+  },
+  "next_actions": [
+    {"code": "ESTABLISH_BASELINE_EVALUATION", "driven_by": "no recorded evaluation path", "existing_ui_flow_or_sdk_call": "TraigentFrontend/src/services/api.ts:2138-2145 createExperiment -> POST /api/experiments", "kind": "CTA"},
+    {"code": "COMPLETE_EVALUATION_RUN", "driven_by": "runs exist but no completed run", "existing_ui_flow_or_sdk_call": "traigent-js/src/optimization/hybrid.ts:2870 submitOptimizationTrialResult then :2891 finalizeOptimizationSession; sequence corroborated by scripts/ci/hybrid-backend-smoke.mjs:73 then :86", "kind": "CTA"},
+    {"code": "EVALUATE_DATASET_EXAMPLES", "driven_by": "anchor ConfigurationRun reports total_examples=0", "existing_ui_flow_or_sdk_call": "traigent-js/src/optimization/hybrid.ts:2870-2888 submitOptimizationTrialResult -> POST /sessions/{session_id}/results", "kind": "CTA"},
+    {"code": "RECORD_ACCURACY_MEASURE", "driven_by": "anchor has no scalar accuracy or eligible accuracy.mean aggregate with positive count", "existing_ui_flow_or_sdk_call": "traigent-js/src/optimization/hybrid.ts:2870-2888 submitOptimizationTrialResult -> POST /sessions/{session_id}/results", "kind": "CTA"},
+    {"code": "REVIEW_RECORDED_EVIDENCE", "driven_by": "no gap or unknown with an established action", "existing_ui_flow_or_sdk_call": "none; informational guidance only", "kind": "GUIDANCE_ONLY"}
+  ],
+  "forbidden_action_basis": "A raw REST field that no released SDK sends is not an engineer path."
+}

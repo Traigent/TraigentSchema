@@ -49,12 +49,35 @@ skip() { [[ ",${LOCAL_GATE_SKIP:-}," == *",$1,"* ]]; }
 hr() { printf '─%.0s' {1..64}; echo; }
 section() { hr; echo "▶ $1"; }
 
-# release/hotfix branches target main; everything else targets develop.
-base_branch="develop"; [[ "$BRANCH" =~ ^(release|hotfix)/ ]] && base_branch="main"
+# release/hotfix branches target main; a checkout literally ON main (the
+# core_project/main/<repo> surface) targets main too -- it IS main, so its
+# meaningful comparison base is main, not develop; everything else targets
+# develop.
+#
+# Defect (witnessed 2026-09-18, local gate defect 2): before this branch, a
+# checkout on BRANCH=main fell through to base_branch="develop" (the regex
+# above only matches "release/*"/"hotfix/*", never the literal string
+# "main"), so breaking_schema_check.py ran `origin/develop -> working tree`.
+# main is the RELEASED contract and develop is ahead of it BY DESIGN (see the
+# freshness comment below), so every feature develop had added read as a
+# BREAKING removal run in that direction -- endpoint_removed/file_removed/
+# property_removed findings on x-restricted-scopes / x-resource-alias-of /
+# x-known-resource-aliases, all false. Comparing main against ITSELF
+# (origin/main) makes the check ask the right question instead: "does what's
+# about to be pushed to main break the contract main already ships" -- and
+# also makes it correctly REQUIRED (MAIN_BOUND=1 below), which a literal
+# `main` checkout was previously skipping same as base_branch.
+if [[ "$BRANCH" == "main" ]]; then
+  base_branch="main"
+elif [[ "$BRANCH" =~ ^(release|hotfix)/ ]]; then
+  base_branch="main"
+else
+  base_branch="develop"
+fi
 base_ref="origin/$base_branch"
 
 MAIN_BOUND=0
-[[ "$BRANCH" =~ ^(release|hotfix)/ ]] && MAIN_BOUND=1
+[[ "$BRANCH" == "main" || "$BRANCH" =~ ^(release|hotfix)/ ]] && MAIN_BOUND=1
 [[ "${LOCAL_GATE_SONAR:-0}" == "1" ]] && MAIN_BOUND=1
 
 freshness_preflight() {
@@ -209,6 +232,12 @@ fi
 # prints the exact JSON to add.
 if ! skip breakingschema; then
   section "contract breaking-change gate (ci.yml: breaking-schema-check)"
+  # Print the comparison direction up front (defect 2 fix, 2026-09-18): a
+  # wrong base_ref used to fail SILENTLY as a wall of false BREAKING
+  # findings with no cue that the comparison itself was backwards. Stating
+  # "base=$base_ref" here means a bad direction is visible on sight instead
+  # of only inferable from the findings.
+  echo "  • base=${base_ref} (branch=${BRANCH}, base_branch=${base_branch})"
   if command -v python3 >/dev/null 2>&1 && [[ -f scripts/breaking_schema_check.py ]]; then
     if python3 scripts/breaking_schema_check.py --check --base-ref "$base_ref"; then
       echo "  ✅ no un-acknowledged BREAKING contract changes"

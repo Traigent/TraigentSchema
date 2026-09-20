@@ -94,6 +94,34 @@ def test_submit_results_accepts_backend_supported_extra_fields():
     )
 
 
+def test_submit_results_accepts_explicit_null_for_backend_optional_fields():
+    """The backend treats an explicit null exactly like an omitted field for all three
+    (_validate_object_fields / _validate_optional_string_field skip None), so a client
+    that serializes unset optionals as null must not fail schema validation."""
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    for field in ("summary_stats", "execution_mode", "execution_environment"):
+        assert validator.validate_json(_request(**{field: None}), SCHEMA) == [], field
+
+    assert (
+        validator.validate_json(
+            _request(
+                summary_stats=None, execution_mode=None, execution_environment=None
+            ),
+            SCHEMA,
+        )
+        == []
+    )
+
+
+def test_submit_results_nullable_fields_still_reject_wrong_types():
+    validator = SchemaValidator(contract="sdk_tuning")
+
+    assert validator.validate_json(_request(summary_stats=[]), SCHEMA)
+    assert validator.validate_json(_request(execution_mode=7), SCHEMA)
+    assert validator.validate_json(_request(execution_environment="prod"), SCHEMA)
+
+
 def test_submit_results_rejects_execution_mode_over_backend_length_cap():
     """execution_mode inherits the backend's 64-char cap for this field."""
     validator = SchemaValidator(contract="sdk_tuning")
@@ -164,9 +192,19 @@ def test_submit_results_measures_inherit_measuresdict_contract():
     assert validator.validate_json(_request(metrics=too_many), SCHEMA)
     assert validator.validate_json(_request(metrics={"a": 1}, measures=too_many), SCHEMA)
 
-    # non-identifier keys are rejected
-    assert validator.validate_json(_request(measures={"bad-key": 1}), SCHEMA)
+    # malformed keys are rejected: a space, a leading digit, a path separator
+    assert validator.validate_json(_request(measures={"bad key": 1}), SCHEMA)
     assert validator.validate_json(_request(metrics={"has space": 1}), SCHEMA)
+    assert validator.validate_json(_request(measures={"9leading": 1}), SCHEMA)
+    assert validator.validate_json(_request(measures={"bad/key": 1}), SCHEMA)
+
+    # #304: hyphens and dots ARE valid in a measure name -- real metric names carry
+    # them ("response-time", "cost.usd") and the legacy objective form accepted any
+    # string, so narrowing them out would drop objectives on the way to canonical.
+    assert validator.validate_json(
+        _request(metrics={"response-time": 0.4}, measures={"cost.usd": 0.02}),
+        SCHEMA,
+    ) == []
 
     # non-numeric values are rejected
     assert validator.validate_json(_request(measures={"f1": "high"}), SCHEMA)
@@ -186,8 +224,12 @@ def test_submit_results_legacy_metadata_measures_is_constrained():
     payload["metadata"] = {"measures": {"f1": 0.8}}
     assert validator.validate_json(payload, SCHEMA) == []
 
-    payload["metadata"] = {"measures": {"bad-key": 1}}
+    payload["metadata"] = {"measures": {"bad key": 1}}
     assert validator.validate_json(payload, SCHEMA)
+
+    # #304: the legacy fallback path inherits the widened character set too
+    payload["metadata"] = {"measures": {"response-time": 0.4, "cost.usd": 0.02}}
+    assert validator.validate_json(payload, SCHEMA) == []
 
 
 def test_submit_results_measures_reference_canonical_definition():

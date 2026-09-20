@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/agent_readiness_portfolio_response_schema.json",
+  "title": "Agent Readiness Portfolio Response",
+  "description": "Content-free project-scoped Agent portfolio. It reports record coverage for three artifacts and a separate process stage; it contains no readiness, certification, or composite score.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "as_of": {"type": "string", "format": "date-time"},
+    "items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "agent": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/AgentSummary"},
+          "anchor_run_id": {
+            "oneOf": [
+              {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+              {"type": "null"}
+            ]
+          },
+          "anchor_experiment_id": {
+            "oneOf": [
+              {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+              {"type": "null"}
+            ]
+          },
+          "next_action_experiment_id": {
+            "oneOf": [
+              {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+              {"type": "null"}
+            ]
+          },
+          "next_action_run_id": {
+            "oneOf": [
+              {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+              {"type": "null"}
+            ]
+          },
+          "anchor_completed_at": {
+            "oneOf": [
+              {"type": "string", "format": "date-time"},
+              {"type": "null"}
+            ]
+          },
+          "pillars": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "agent": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/PillarSummary"},
+              "evaluator": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/PillarSummary"},
+              "evaluation_dataset": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/PillarSummary"}
+            },
+            "required": ["agent", "evaluator", "evaluation_dataset"]
+          },
+          "process": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "stage": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ProcessStage"},
+              "coverage_state": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CoverageState"},
+              "supported_checks": {"type": "integer", "minimum": 0},
+              "gap_checks": {"type": "integer", "minimum": 0},
+              "unknown_checks": {"type": "integer", "minimum": 0},
+              "top_gap_code": {
+                "oneOf": [
+                  {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CheckId"},
+                  {"type": "null"}
+                ]
+              }
+            },
+            "required": ["stage", "coverage_state", "supported_checks", "gap_checks", "unknown_checks", "top_gap_code"],
+            "allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CoverageFromCounts"}]
+          },
+          "last_activity_at": {
+            "oneOf": [
+              {"type": "string", "format": "date-time"},
+              {"type": "null"}
+            ]
+          },
+          "next_action_code": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/NextActionCode"}
+        },
+        "required": [
+          "agent",
+          "anchor_run_id",
+          "anchor_experiment_id",
+          "anchor_completed_at",
+          "next_action_experiment_id",
+          "next_action_run_id",
+          "pillars",
+          "process",
+          "last_activity_at",
+          "next_action_code"
+        ],
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "process": {
+                    "properties": {
+                      "stage": {"enum": ["NO_RUNS", "RUNS_RECORDED"]}
+                    }
+                  },
+                  "anchor_run_id": {"type": "null"},
+                  "anchor_experiment_id": {"type": "null"},
+                  "anchor_completed_at": {"type": "null"}
+                }
+              },
+              {
+                "properties": {
+                  "process": {
+                    "properties": {
+                      "stage": {"const": "EVALUATION_COMPLETED"}
+                    }
+                  },
+                  "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+                  "anchor_experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+                  "anchor_completed_at": {
+                    "oneOf": [
+                      {"type": "string", "format": "date-time"},
+                      {"type": "null"}
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "oneOf": [
+              {"properties": {"next_action_code": {"const": "ESTABLISH_BASELINE_EVALUATION"}, "next_action_experiment_id": {"type": "null"}, "next_action_run_id": {"type": "null"}}},
+              {"properties": {"next_action_code": {"const": "COMPLETE_EVALUATION_RUN"}, "next_action_experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, "next_action_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}}},
+              {"properties": {"next_action_code": {"enum": ["EVALUATE_DATASET_EXAMPLES", "RECORD_ACCURACY_MEASURE", "REVIEW_RECORDED_EVIDENCE"]}, "next_action_experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, "next_action_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}}}
+            ]
+          }
+        ]
+      }
+    },
+    "ordering": {"const": "STAGE_THEN_LEAST_RECENT_ACTIVITY"},
+    "pagination": {
+      "allOf": [
+        {"$ref": "../pagination_schema.json"},
+        {"properties": {"per_page": {"maximum": 100}}}
+      ]
+    }
+  },
+  "required": ["schema_version", "as_of", "items", "ordering", "pagination"]
+}

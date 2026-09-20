@@ -192,6 +192,16 @@
         "responses": {
           "201": {
             "description": "Model parameters created successfully"
+          },
+          "422": {
+            "description": "Validation failed. Emitted as a field-attributed VALIDATION_ERROR by response_handler.validation_error_response, which pins the status to 422 (TraigentBackend src/utils/response_handler.py:361-388), from the BoundaryValidationError raised by validate_model_parameter_bounds (src/routes/agent_routes.py:1164-1181). Since TraigentBackend#3347 this includes an unresolvable `model_id`: `model_parameters.model_id` is a NOT NULL FK onto `models.id`, so the id is resolved against the catalog before the row is constructed (src/validators/persistence_boundary.py `_model_id_references_existing_model`) and `details` carries `{\"model_id\": [\"Field does not reference an existing model\"]}` instead of the request reaching the insert and surfacing as a 500.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../validation_error_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -212,6 +222,93 @@
         "responses": {
           "200": {
             "description": "Model parameters updated successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/model-parameters": {
+      "post": {
+        "summary": "Create model parameters (standalone, agent named in the body)",
+        "description": "The STANDALONE create route — TraigentBackend src/routes/model_parameters_routes.py:92 `create_model_parameters`, blueprint url_prefix `/model-parameters` registered under /api/v1 at src/routes/api_v1.py:121. It is NOT a synonym for POST /api/v1/agents/{agent_id}/model-parameters: it takes a camelCase `modelParameters` array, names the owning agent in the body, and does not reject an unresolvable `modelId`. Declared here because it was previously undeclared in this repo, which is why TraigentBackend#3352 could reshape its error body with no contract objecting.",
+        "operationId": "createModelParametersStandalone",
+        "x-wrap-status": "mixed — `model_parameters_routes` is classified bare in success_envelope_schema.json#/x-wrap-map and the 201 IS bare, but four of this operation's error branches emit the canonical error envelope via response_handler while two emit a bare {error} body. Per-branch shapes are declared on each response below; do not assume one shape for the operation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./standalone_model_parameters_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Model parameters created. BARE body (not the success envelope) — src/routes/model_parameters_routes.py:298-317.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./standalone_model_parameters_create_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — TWO DIFFERENT SHAPES, by branch. (a) Canonical field-attributed VALIDATION_ERROR envelope: a missing required entry field (since TraigentBackend#3352, src/routes/model_parameters_routes.py:128-141 replacing the previous hard-coded \"Missing required fields\" blob), a non-numeric/non-integral value (:134-139, :148-167 via `_model_parameter_validation_error_response`, src/routes/model_parameters_routes.py:42-49), or an out-of-bounds value (:189-196). (b) BARE `{error}` body, still un-migrated: `modelParameters` absent (:114-115) or not a non-empty array (:116-117). Both branches are declared because declaring only (a) would make a conformance lane pass while two live branches violate it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "../validation_error_schema.json"
+                    },
+                    {
+                      "type": "object",
+                      "title": "Bare model-parameters request error",
+                      "description": "Pre-envelope shape retained by the payload-level guards at src/routes/model_parameters_routes.py:114-117. Not the canonical envelope: no `success`, no `message`, no `error_code`.",
+                      "required": ["error"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Either \"No model parameters provided\" or \"modelParameters must be a non-empty array\"."
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The `agentId` names no agent the caller owns. Non-disclosing by design: an unknown id and another customer's id return the same body (src/routes/model_parameters_routes.py:250-258). Canonical error envelope with error_code NOT_FOUND; `details` happens to be field-attributed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`agentId` absent or blank. ModelParameters carries no tenant/project column, so the agent association is its only possible ownership record and a row created without one is attributable to nobody — the handler refuses rather than mint it (src/routes/model_parameters_routes.py:240-248). Field-attributed VALIDATION_ERROR at 422, NOT the 400 the sibling validation branches above use — see validation_error_schema.json's note on the 400/422 split.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../validation_error_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unhandled failure; the transaction is rolled back. response_handler suppresses 5xx detail, so the body is the canonical envelope with a generic message and a sanitized error_code (src/routes/model_parameters_routes.py:319-331; src/utils/response_handler.py:124-131).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/validation_error_schema.json",
   "title": "Validation Error DTO",
-  "description": "ErrorEnvelopeDTO specialized for 422 input-validation failures. Composes error_envelope_schema.json and narrows `details` to a {field: [reason, ...]} map so the client can attach per-field messages. Aligned with BE#671.",
+  "description": "ErrorEnvelopeDTO specialized for field-attributed input-validation failures. Composes error_envelope_schema.json and narrows `details` to a {field: [reason, ...]} map so the client can attach per-field messages. Aligned with BE#671. STATUS CODE: this shape is emitted at BOTH 400 and 422 and the choice is per-branch, not per-shape, so a consumer must branch on `error_code == \"VALIDATION_ERROR\"` and never on the status alone. 422 is what TraigentBackend's canonical helper produces (`response_handler.validation_error_response` pins HTTPStatus.UNPROCESSABLE_ENTITY, src/utils/response_handler.py:361-388) and what POST /api/v1/agents/{agent_id}/model-parameters returns for an unresolvable `model_id` (TraigentBackend#3347). 400 is what call sites that invoke `error_response(..., status=400, error_code=\"VALIDATION_ERROR\")` directly produce, including every validation branch of POST /api/v1/model-parameters (src/routes/model_parameters_routes.py:42-49, 189-196) which TraigentBackend#3352 extended to the missing-required-field case. The two codes for one semantic are a known, unresolved inconsistency in the backend, recorded here rather than silently narrowed to one status; reconciling them is a separate owner decision, and this schema constrains the body only.",
   "allOf": [
     {
       "$ref": "./error_envelope_schema.json"

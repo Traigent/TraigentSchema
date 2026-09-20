@@ -1,0 +1,426 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json",
+  "title": "Agent Readiness Common Types",
+  "description": "Closed, content-free types for the agent-readiness evidence projection. These types describe individual recorded facts and coverage, never readiness, certification, or a composite score.",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "OpaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "NullableDateTime": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "EvidenceState": {
+      "type": "string",
+      "enum": ["SUPPORTED", "GAP", "UNKNOWN"]
+    },
+    "ObservationBasis": {
+      "type": "string",
+      "enum": [
+        "backend_observed",
+        "server_recorded_client_declaration",
+        "client_reported",
+        "not_assessed"
+      ]
+    },
+    "EvidenceRefKind": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "experiment",
+        "experiment_run",
+        "configuration_run",
+        "evaluation_dataset",
+        "evaluator_version",
+        "dataset_quality"
+      ]
+    },
+    "EvidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"$ref": "#/definitions/EvidenceRefKind"},
+        "id": {"$ref": "#/definitions/OpaqueId"}
+      },
+      "required": ["kind", "id"]
+    },
+    "CheckId": {
+      "type": "string",
+      "enum": [
+        "AGENT_RECORD_AVAILABLE",
+        "COMPLETED_EVALUATION_RUN",
+        "ACCURACY_MEASURE_RECORDED",
+        "UNIT_BEARING_EFFICIENCY_MEASURE_RECORDED",
+        "EVALUATOR_VERSION_SNAPSHOT_RECORDED",
+        "EVALUATOR_EXECUTION_LINK_ASSESSED",
+        "EVALUATOR_STABILITY_ASSESSED",
+        "RUN_DATASET_IDENTITY_RECORDED",
+        "EVALUATED_EXAMPLE_COUNT_RECORDED",
+        "DATASET_QUALITY_ASSESSMENT_RECORDED",
+        "EXPERIMENT_PATH_RECORDED",
+        "SELECTED_CONFIGURATION_RECORDED",
+        "SELECTION_LEDGER_MATCH_ASSESSED"
+      ]
+    },
+    "EvidenceCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {"$ref": "#/definitions/CheckId"},
+        "state": {"$ref": "#/definitions/EvidenceState"},
+        "observation_basis": {"$ref": "#/definitions/ObservationBasis"},
+        "observed_at": {"$ref": "#/definitions/NullableDateTime"},
+        "evidence_ref": {
+          "oneOf": [
+            {"$ref": "#/definitions/EvidenceRef"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "required": [
+        "check_id",
+        "state",
+        "observation_basis",
+        "observed_at",
+        "evidence_ref"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "state": {"const": "SUPPORTED"},
+            "observation_basis": {
+              "enum": [
+                "backend_observed",
+                "server_recorded_client_declaration",
+                "client_reported"
+              ]
+            },
+            "evidence_ref": {"$ref": "#/definitions/EvidenceRef"}
+          }
+        },
+        {
+          "properties": {
+            "state": {"const": "GAP"},
+            "observation_basis": {"enum": ["backend_observed", "client_reported"]},
+            "evidence_ref": {"$ref": "#/definitions/EvidenceRef"}
+          }
+        },
+        {
+          "properties": {
+            "state": {"const": "UNKNOWN"},
+            "observation_basis": {"const": "not_assessed"},
+            "observed_at": {"type": "null"},
+            "evidence_ref": {"type": "null"}
+          }
+        }
+      ]
+    },
+    "CoverageState": {
+      "type": "string",
+      "enum": ["GAPS_RECORDED", "EVIDENCE_INCOMPLETE", "CHECKS_RECORDED"]
+    },
+    "PillarSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "coverage_state": {"$ref": "#/definitions/CoverageState"},
+        "supported_checks": {"type": "integer", "minimum": 0},
+        "gap_checks": {"type": "integer", "minimum": 0},
+        "unknown_checks": {"type": "integer", "minimum": 0},
+        "top_gap_code": {
+          "oneOf": [
+            {"$ref": "#/definitions/CheckId"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "required": [
+        "coverage_state",
+        "supported_checks",
+        "gap_checks",
+        "unknown_checks",
+        "top_gap_code"
+      ],
+      "allOf": [{"$ref": "#/definitions/CoverageFromCounts"}]
+    },
+    "PillarDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "coverage_state": {"$ref": "#/definitions/CoverageState"},
+        "checks": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/EvidenceCheck"}
+        }
+      },
+      "required": ["coverage_state", "checks"]
+    },
+    "CoverageFromCounts": {
+      "allOf": [
+        {
+          "if": {"properties": {"gap_checks": {"minimum": 1}}},
+          "then": {"properties": {"coverage_state": {"const": "GAPS_RECORDED"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {"properties": {"gap_checks": {"maximum": 0}}},
+              {"properties": {"unknown_checks": {"minimum": 1}}}
+            ]
+          },
+          "then": {"properties": {"coverage_state": {"const": "EVIDENCE_INCOMPLETE"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {"properties": {"gap_checks": {"maximum": 0}}},
+              {"properties": {"unknown_checks": {"maximum": 0}}}
+            ]
+          },
+          "then": {"properties": {"coverage_state": {"const": "CHECKS_RECORDED"}}}
+        },
+        {
+          "if": {"properties": {"gap_checks": {"maximum": 0}}},
+          "then": {"properties": {"top_gap_code": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"gap_checks": {"minimum": 1}}},
+          "then": {
+            "properties": {
+              "top_gap_code": {"$ref": "#/definitions/CheckId"}
+            }
+          }
+        }
+      ]
+    },
+    "CoverageFromChecks": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "checks": {"contains": {"properties": {"state": {"const": "GAP"}}}}
+            }
+          },
+          "then": {"properties": {"coverage_state": {"const": "GAPS_RECORDED"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "not": {
+                  "properties": {
+                    "checks": {"contains": {"properties": {"state": {"const": "GAP"}}}}
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "checks": {"contains": {"properties": {"state": {"const": "UNKNOWN"}}}}
+                }
+              }
+            ]
+          },
+          "then": {"properties": {"coverage_state": {"const": "EVIDENCE_INCOMPLETE"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "not": {
+                  "properties": {
+                    "checks": {"contains": {"properties": {"state": {"const": "GAP"}}}}
+                  }
+                }
+              },
+              {
+                "not": {
+                  "properties": {
+                    "checks": {"contains": {"properties": {"state": {"const": "UNKNOWN"}}}}
+                  }
+                }
+              }
+            ]
+          },
+          "then": {"properties": {"coverage_state": {"const": "CHECKS_RECORDED"}}}
+        }
+      ]
+    },
+    "ProcessStage": {
+      "type": "string",
+      "enum": ["NO_RUNS", "RUNS_RECORDED", "EVALUATION_COMPLETED"]
+    },
+    "NextActionCode": {
+      "type": "string",
+      "enum": [
+        "ESTABLISH_BASELINE_EVALUATION",
+        "COMPLETE_EVALUATION_RUN",
+        "EVALUATE_DATASET_EXAMPLES",
+        "RECORD_ACCURACY_MEASURE",
+        "REVIEW_RECORDED_EVIDENCE"
+      ]
+    },
+    "AgentSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/definitions/OpaqueId"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 255},
+        "status": {
+          "oneOf": [
+            {"$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/AgentStatus"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "required": ["id", "name", "status"]
+    },
+    "ReportedMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"type": "string", "enum": ["ACCURACY", "COST", "LATENCY"]},
+        "value": {"type": "number", "minimum": 0},
+        "unit": {
+          "type": "string",
+          "enum": ["UNIT_NOT_RECORDED", "USD", "MILLISECONDS"]
+        },
+        "source_key": {"type": "string", "minLength": 1, "maxLength": 64},
+        "observation_basis": {"const": "client_reported"}
+      },
+      "required": ["kind", "value", "unit", "source_key", "observation_basis"],
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {"const": "ACCURACY"},
+            "unit": {"const": "UNIT_NOT_RECORDED"},
+            "source_key": {"enum": ["accuracy", "accuracy.mean"]}
+          }
+        },
+        {
+          "properties": {
+            "kind": {"const": "COST"},
+            "unit": {"const": "USD"},
+            "source_key": {"enum": ["cost_usd", "total_cost_usd"]}
+          }
+        },
+        {
+          "properties": {
+            "kind": {"const": "LATENCY"},
+            "unit": {"const": "MILLISECONDS"},
+            "source_key": {
+              "enum": [
+                "latency_ms",
+                "total_latency_ms",
+                "response_time_ms",
+                "execution_time_ms"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "AccuracyMetric": {
+      "allOf": [
+        {"$ref": "#/definitions/ReportedMetric"},
+        {"properties": {"kind": {"const": "ACCURACY"}}}
+      ]
+    },
+    "CostMetric": {
+      "allOf": [
+        {"$ref": "#/definitions/ReportedMetric"},
+        {"properties": {"kind": {"const": "COST"}}}
+      ]
+    },
+    "LatencyMetric": {
+      "allOf": [
+        {"$ref": "#/definitions/ReportedMetric"},
+        {"properties": {"kind": {"const": "LATENCY"}}}
+      ]
+    },
+    "ReportedMetrics": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "oneOf": [
+        {"maxItems": 0},
+        {
+          "minItems": 1,
+          "maxItems": 1,
+          "items": [{"$ref": "#/definitions/AccuracyMetric"}],
+          "additionalItems": false
+        },
+        {
+          "minItems": 1,
+          "maxItems": 1,
+          "items": [{"$ref": "#/definitions/CostMetric"}],
+          "additionalItems": false
+        },
+        {
+          "minItems": 1,
+          "maxItems": 1,
+          "items": [{"$ref": "#/definitions/LatencyMetric"}],
+          "additionalItems": false
+        },
+        {
+          "minItems": 2,
+          "maxItems": 2,
+          "items": [
+            {"$ref": "#/definitions/AccuracyMetric"},
+            {"$ref": "#/definitions/CostMetric"}
+          ],
+          "additionalItems": false
+        },
+        {
+          "minItems": 2,
+          "maxItems": 2,
+          "items": [
+            {"$ref": "#/definitions/AccuracyMetric"},
+            {"$ref": "#/definitions/LatencyMetric"}
+          ],
+          "additionalItems": false
+        },
+        {
+          "minItems": 2,
+          "maxItems": 2,
+          "items": [
+            {"$ref": "#/definitions/CostMetric"},
+            {"$ref": "#/definitions/LatencyMetric"}
+          ],
+          "additionalItems": false
+        },
+        {
+          "minItems": 3,
+          "maxItems": 3,
+          "items": [
+            {"$ref": "#/definitions/AccuracyMetric"},
+            {"$ref": "#/definitions/CostMetric"},
+            {"$ref": "#/definitions/LatencyMetric"}
+          ],
+          "additionalItems": false
+        }
+      ]
+    },
+    "IdentitySnapshotState": {
+      "type": "string",
+      "enum": ["RECORDED", "PARTIAL", "NOT_RECORDED"]
+    },
+    "ReferenceChange": {
+      "type": "string",
+      "enum": [
+        "FIRST_RECORDED_REFERENCE",
+        "SAME_RECORDED_REFERENCES",
+        "RECORDED_REFERENCE_CHANGED",
+        "REFERENCE_CONTINUITY_UNKNOWN"
+      ]
+    },
+    "CertificateMatch": {
+      "type": "string",
+      "enum": ["NOT_ASSESSED"]
+    }
+  }
+}

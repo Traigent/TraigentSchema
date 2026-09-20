@@ -9,6 +9,59 @@ set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
+# ── Defect 1 fix (witnessed 2026-09-18): a tag-only push has no commits ────
+# git invokes pre-push with the list of refs being pushed on STDIN, one line
+# per ref: "<local ref> <local sha> <remote ref> <remote sha>" (git-push(1),
+# githooks(5)). `git push origin <tag>` pushes a tag ref and carries ZERO
+# commits for the branch gate to evaluate, yet the old hook never read
+# stdin at all -- it went straight to `exec scripts/local_gate.sh`, which
+# discards any chance to inspect stdin first (exec replaces the process
+# image; the child never learns why it was invoked, only that it was) -- so
+# every tag push still ran the full ruff+mypy+pytest+parity+breaking-schema
+# gate against whatever HEAD happened to be. Today that blocked the R3
+# release tag `cert-digests-and-receipt-r3` on `main`.
+#
+# Fix: read stdin BEFORE the env-clearing/exec below and skip the gate ONLY
+# when EVERY ref being pushed is a tag ref (refs/tags/*). A mixed push
+# (any refs/heads/* line present) still runs the gate in full. If stdin is
+# empty or carries no parseable ref line (e.g. this hook invoked by hand
+# with no stdin piped in), fall through and run the gate -- that is the
+# hook's original, fail-closed default, unchanged.
+#
+# Deletions: a deletion push reports `<local sha>` as 40 zeros and
+# `<local ref>` as the literal string "(delete)" (githooks(5)), so
+# classification below keys on `remote_ref` -- always a real refs/... path,
+# for both a normal push and a deletion -- rather than on local_sha/local_ref.
+# Consequence, decided here: a TAG deletion is classified as a tag-only push
+# and skipped, same as a tag creation/update, because deleting a tag also
+# carries no branch content to gate. A BRANCH deletion is NOT skipped by
+# this check even though it also carries no commits: remote_ref is
+# refs/heads/*, so all_tags is cleared and the gate still runs. Branch
+# deletions are rare/deliberate on this workspace's branch-discipline model
+# (worktrees are removed via `git worktree remove`, not by hand-pushing a
+# delete), and the safer default is to keep the gate on for every ref that
+# isn't provably tag-only, matching this hook's pre-existing behaviour for
+# every non-tag ref.
+all_tags=1
+saw_ref=0
+while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "$local_ref" ]] && continue
+  saw_ref=1
+  case "$remote_ref" in
+    refs/tags/*) ;;
+    *) all_tags=0 ;;
+  esac
+done
+
+if [[ "$saw_ref" == "1" && "$all_tags" == "1" ]]; then
+  echo "pre-push: every pushed ref is under refs/tags/ -- a tag-only push" >&2
+  echo "pre-push: carries zero commits, so the branch gate (ruff/mypy/" >&2
+  echo "pre-push: pytest/parity/breaking-schema) has nothing to evaluate." >&2
+  echo "pre-push: skipping. Run scripts/local_gate.sh by hand first if you" >&2
+  echo "pre-push: also want it checked at this SHA before tagging." >&2
+  exit 0
+fi
+
 # Defense-in-depth: git invokes pre-push with the pusher's local Git environment
 # (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...) still exported. If local_gate.sh
 # — or anything it execs, e.g. a pytest fixture that runs `git -C <tmp-repo>` —

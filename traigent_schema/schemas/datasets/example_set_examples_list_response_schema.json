@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/example_set_examples_list_response_schema.json",
+  "title": "Example Set Examples List Response Schema",
+  "description": "200 body of GET /api/v1/example-sets/{set_id}/examples after TraigentBackend#3353. The route now returns `response_handler.paginated_response(...)` — {success, message, data: {items, pagination}} (src/utils/response_handler.py:288-296, :349-356). Before #3353 it emitted a bare {examples, current_page, per_page, total_examples, total_pages} with no envelope (src/routes/example_set_routes.py:349-357); that form is gone, and `examples`/`current_page`/`total_examples` no longer exist on the wire. x-wrap-status: wrapped — one of the two enveloped operations in the otherwise-bare `example_set_routes` (see success_envelope_schema.json#/x-wrap-map/mixed). The item shape is Example.to_dict() (src/models/agent.py:338-349) and is deliberately NOT a $ref to example_set_schema.json#/definitions/Example: that closed definition requires a non-null `output`, declares a `metadata` field the serializer never emits, and omits `explanation` / `tags` / `tenant_id` / `project_id` / `example_set_id`, all of which this serializer does emit.",
+  "type": "object",
+  "x-wrap-status": "wrapped",
+  "required": ["success", "message", "data"],
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true,
+      "description": "Discriminator — always true for success responses."
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable summary; \"Examples retrieved successfully\" from this route."
+    },
+    "data": {
+      "type": "object",
+      "description": "Nested paginated payload. `pagination` lives HERE, not at the top level — paginated_response is strict nested-only.",
+      "required": ["items", "pagination"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "Page of examples, each `Example.to_dict()`.",
+          "items": { "$ref": "#/definitions/SerializedExample" }
+        },
+        "pagination": {
+          "$ref": "../pagination_schema.json",
+          "description": "Canonical {page, per_page, total, total_pages, has_next, has_prev}. `per_page` is clamped to [1, 100] by the route (src/routes/example_set_routes.py:340)."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "SerializedExample": {
+      "type": "object",
+      "description": "Exactly what Example.to_dict() emits (src/models/agent.py:338-349). Every key is always present; nullability follows the column definitions at src/models/agent.py:313-333.",
+      "required": [
+        "example_id",
+        "tenant_id",
+        "project_id",
+        "example_set_id",
+        "input",
+        "output",
+        "explanation",
+        "tags"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "example_id": {
+          "type": "string",
+          "description": "Primary key.",
+          "x-identifier": true
+        },
+        "tenant_id": {
+          "type": "string",
+          "description": "Owning tenant; the caller's own, because the parent set is owner-scoped before the query runs (src/routes/example_set_routes.py:333-336)."
+        },
+        "project_id": {
+          "type": ["string", "null"],
+          "description": "Owning project; nullable column."
+        },
+        "example_set_id": {
+          "type": "string",
+          "description": "Parent example set.",
+          "x-reference": true
+        },
+        "input": {
+          "type": "string",
+          "description": "Input text or prompt. NOT NULL column.",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
+        },
+        "output": {
+          "type": ["string", "null"],
+          "description": "Expected/reference output. NULLABLE — the column has no nullable=False (src/models/agent.py:331), which is why example_set_schema.json#/definitions/Example's `required: [example_id, input, output]` cannot describe this payload.",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
+        },
+        "explanation": {
+          "type": ["string", "null"],
+          "description": "Free-text rationale supplied with the example; user-authored content, not declared by example_set_schema.json at all.",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
+        },
+        "tags": {
+          "type": ["array", "object", "string", "number", "boolean", "null"],
+          "description": "Untyped JSON column (JSONType) — passed through unchanged, so the wire type is whatever was stored."
+        }
+      }
+    }
+  }
+}

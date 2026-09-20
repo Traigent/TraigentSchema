@@ -27,9 +27,9 @@
       "description": "Where the resolved profile came from."
     },
     "confidence": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1,
+      "allOf": [
+        { "$ref": "../common_types_schema.json#/definitions/Confidence" }
+      ],
       "description": "Resolver confidence in the returned profile, normalized to [0, 1]."
     },
     "schema_version": {

@@ -1,5 +1,5 @@
 {
-  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' \u2014 it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed \u2014 a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire \u2014 a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
+  "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
       "file": "datasets/evaluator_config_create_request_schema.json",
@@ -2575,7 +2575,7 @@
     {
       "file": "x_extensions_meta_schema.json",
       "rule": "property_added",
-      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts \u00a74).",
+      "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts §4).",
       "version": "6.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
       "findings": [
@@ -2890,7 +2890,7 @@
           "fingerprint": "b579d2d95ac8e272739ebf363b61408e61e6cbd6b322a834bacc8799a8444dc6"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -2916,7 +2916,7 @@
           "fingerprint": "6b3f63830959efedd740c0469d151309d20814931a0db8c58b1796d7c6330277"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -2955,7 +2955,7 @@
           "fingerprint": "b3c2c95e774b406d95839ad0d4348ead7daa91b401c6b68157d972b185859b16"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -2972,7 +2972,7 @@
           "fingerprint": "bfb420ef2e7a3cc93196cd689b80aa6afee47aa5f64ff28622a61a454dcd6247"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -2998,7 +2998,7 @@
           "fingerprint": "2d0e1541e90744ea007d92853c9e9341fa3d6bfcb9a30547decdb6cac2da7acb"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3037,7 +3037,7 @@
           "fingerprint": "9eb8d9def38cb084eb36cbca7cd63357558f60fff96a572b25b7055c8f8ef7dd"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3054,7 +3054,7 @@
           "fingerprint": "25d514d1b0dd533159d3b7cfef386d5ce3a85b3c2f9ad3aeab157e3087953e38"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3080,7 +3080,7 @@
           "fingerprint": "6ae72f4721a2fd079ef156e380ebdd1a34d549ecb15f70e6c5345b89b62dd8e2"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3119,7 +3119,7 @@
           "fingerprint": "9f6695541867b134df5a952a35c08fe5932a2ee3d90ead1fc1f8457d1e981f95"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type; the qualitative low/medium/high enum becomes the derived ConfidenceLabel common type with documented thresholds. This field's enum/type constraints are semantically unchanged (still exactly low/medium/high strings) — they now live behind an allOf $ref to common_types_schema.json#/definitions/ConfidenceLabel instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed. This is a client-safe, coarse-bucket surface; the derived-label side of the split, not the numeric side.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3136,7 +3136,7 @@
           "fingerprint": "b44e4f1e6621bac58a652ab9b0cc8255ea776ccba761c7cbf66d9bf7d848436f"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3153,7 +3153,7 @@
           "fingerprint": "b1633e7d9b935a3d56caf60203cc9fc0a2d0be269267c86f206ef198109f801f"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3170,7 +3170,7 @@
           "fingerprint": "28bc391dbd5517c6abdf0189309283af73e269c41dcf7277843c7145a465925a"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3209,7 +3209,7 @@
           "fingerprint": "3398f244a8fe53a952e7275455c6b9b47ef91f3886908ddb7000bd258eef711d"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3226,7 +3226,7 @@
           "fingerprint": "3b18e7bf50ed79b1c8fecd2d0fac39bc795a15cc5c92481c5a8de4c37730180d"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3243,7 +3243,7 @@
           "fingerprint": "8ebf5e46cdd5ab0b08428992224ff2d38bac5c372ba226dbb45d9d871fde0e5e"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3260,7 +3260,7 @@
           "fingerprint": "27f40dffc1663fbf935440d8cac26fc17f0872d73cda48237f9beecd57b25b5f"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3299,7 +3299,7 @@
           "fingerprint": "746eac90d28c93d64268a366dfcdd4f4f9d5ed6973cc2c464149ec9f158a3baf"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3316,7 +3316,7 @@
           "fingerprint": "286ef5cc46a456393fd22954e8565e6312db4805de9d5d446b58ecbc0887e551"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3333,7 +3333,7 @@
           "fingerprint": "e924e92c303514a89b3e220f118af1ea998569d2aa58185b4097666cb36d5d44"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3350,7 +3350,7 @@
           "fingerprint": "3bd8aee46abfdf40cf212558eadc43d35b9912be40128e219058d6dba6603a16"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3389,7 +3389,7 @@
           "fingerprint": "e048400e25346d100c51651ec3c3457ce954b8c31014097c2f8c8924bd45e067"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3414,7 +3414,7 @@
           "fingerprint": "551742ae16a5ed662903b6e52e5f97999992efdf6feb4b1104671976d88edb97"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3439,7 +3439,7 @@
           "fingerprint": "a8d49dda4a705f06e34ee1a5b08a072f623d5337d43dee3e0fc62eec76c8043a"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3464,7 +3464,7 @@
           "fingerprint": "25ed676a42b203c1365ff7b338fd9238aa00800aa498ea69f457553f155e941a"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -3533,7 +3533,7 @@
           "fingerprint": "8c976d9fb3d0d418dd0a425a45a618c2296cdc39bd99ece8a4528a6191c36412"
         }
       ],
-      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) \u2014 they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
+      "reason": "Owner decision 2026-07-18 (#314): confidence standardizes on the numeric [0,1] Confidence common type. This field's type/minimum/maximum constraints are semantically unchanged (still exactly type:number, minimum:0, maximum:1) — they now live behind an allOf $ref to common_types_schema.json#/definitions/Confidence instead of being re-spelled inline, so the tool's structural diff cannot see through the $ref and reports the inline type/bounds as removed. This is the canonical numeric side of the split.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/490"
     },
@@ -4058,10 +4058,38 @@
       "file": "agent_readiness/agent_readiness_detail_response_schema.json",
       "rule": "property_added",
       "findings": [
-        {"pointer": "#/properties/anchor_experiment_id", "role": "response", "subject": "anchor_experiment_id", "old": false, "new": true, "fingerprint": "e8387d65f67a3367fb60be5f38035f3d7e806cd2775a5f8a9c8b11b1d85dcac4"},
-        {"pointer": "#/properties/anchor_summary", "role": "response", "subject": "anchor_summary", "old": false, "new": true, "fingerprint": "5badaa85244f94c56fa768b4389c5e63152437ff45a81661853b20514bb0936e"},
-        {"pointer": "#/properties/next_action_experiment_id", "role": "response", "subject": "next_action_experiment_id", "old": false, "new": true, "fingerprint": "2bbefb82fb6adc04a35342fab0ac97c8a613360d0f8fb3e0efde77fc360121a9"},
-        {"pointer": "#/properties/next_action_run_id", "role": "response", "subject": "next_action_run_id", "old": false, "new": true, "fingerprint": "e805975ba422413bad073e36c082ce7ba136ae57c1b6da3a0926d164cb74ea4d"}
+        {
+          "pointer": "#/properties/anchor_experiment_id",
+          "role": "response",
+          "subject": "anchor_experiment_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "e8387d65f67a3367fb60be5f38035f3d7e806cd2775a5f8a9c8b11b1d85dcac4"
+        },
+        {
+          "pointer": "#/properties/anchor_summary",
+          "role": "response",
+          "subject": "anchor_summary",
+          "old": false,
+          "new": true,
+          "fingerprint": "5badaa85244f94c56fa768b4389c5e63152437ff45a81661853b20514bb0936e"
+        },
+        {
+          "pointer": "#/properties/next_action_experiment_id",
+          "role": "response",
+          "subject": "next_action_experiment_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "2bbefb82fb6adc04a35342fab0ac97c8a613360d0f8fb3e0efde77fc360121a9"
+        },
+        {
+          "pointer": "#/properties/next_action_run_id",
+          "role": "response",
+          "subject": "next_action_run_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "e805975ba422413bad073e36c082ce7ba136ae57c1b6da3a0926d164cb74ea4d"
+        }
       ],
       "reason": "These four closed response members are the approved Phase 1 authoritative anchor and action-target extension. They let the UI keep off-page anchor metrics stable and provide a real destination only when a scoped experiment/run exists; nullable values preserve honest no-run and no-target states. The change was reviewed under WorkIntent st_9908fedb20a7 within parent ChangeSession cs_a4ada4eadd530ffa and excludes code, prompts, examples, outputs, and arbitrary configuration.",
       "version": "Unreleased",
@@ -4088,13 +4116,141 @@
       "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
       "rule": "property_added",
       "findings": [
-        {"pointer": "#/properties/items/items/properties/anchor_experiment_id", "role": "response", "subject": "anchor_experiment_id", "old": false, "new": true, "fingerprint": "c3491a19e759c3163e89f0e155bc10692c8c472f4bbc943527c3825d38535f07"},
-        {"pointer": "#/properties/items/items/properties/next_action_experiment_id", "role": "response", "subject": "next_action_experiment_id", "old": false, "new": true, "fingerprint": "417d7a351362885fca1d02c84c8a2cc3ec7bcbeee07e7515fd5136ff7c664e8d"},
-        {"pointer": "#/properties/items/items/properties/next_action_run_id", "role": "response", "subject": "next_action_run_id", "old": false, "new": true, "fingerprint": "c413c4ece1163eeec1d1a268413d74fa53e8638e2c8e1cfe5cc7c482df16baa6"}
+        {
+          "pointer": "#/properties/items/items/properties/anchor_experiment_id",
+          "role": "response",
+          "subject": "anchor_experiment_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "c3491a19e759c3163e89f0e155bc10692c8c472f4bbc943527c3825d38535f07"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/next_action_experiment_id",
+          "role": "response",
+          "subject": "next_action_experiment_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "417d7a351362885fca1d02c84c8a2cc3ec7bcbeee07e7515fd5136ff7c664e8d"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/next_action_run_id",
+          "role": "response",
+          "subject": "next_action_run_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "c413c4ece1163eeec1d1a268413d74fa53e8638e2c8e1cfe5cc7c482df16baa6"
+        }
       ],
       "reason": "These closed portfolio response members carry the approved Phase 1 anchor experiment and exact action target identifiers. They preserve tenant/project scoping and allow the UI to offer a real destination without guessing an ID or exposing customer content; nullable values remain truthful when no target exists. The change was reviewed under WorkIntent st_9908fedb20a7 within parent ChangeSession cs_a4ada4eadd530ffa.",
       "version": "Unreleased",
       "pr": "pending (branch feature/agent-readiness-phase1-20260920, WorkIntent st_9908fedb20a7)"
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "unresolved_ref",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/jobs/{job_id}/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "76cb276221d5053ab17a9ecfdb9fbd189a7938a1ed51dc8732d31f784ba0d36f"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "72e61db380201d4c6427c95e4de75303ce3b536218698adb02a6b2acbaa755ab"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/dataset-quality/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7297114c36d51911f3e9580b1cdf25aeb62b6f8d0be178680086c5b38da51f10"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/example-scoring/{experiment_run_id}/scores/get/responses/200/content/application/json/schema/items",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3756bb13e970f8686efc4b111f36c166bcedc922da5671efd961c39ead929084"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "4ae0a9e1bbf02290ed827572d20fc4b75823ebaa9e39db5d2dfb7d5e555d1ef4"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c02955c9646e4ac2202df3cf5532a3206f8542ac49a02ccf3ac885743bb8f5ce"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt/post/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "82d8616101562b591201cf61775cd9dda1b6339fd0f6947ad6755d2ff4d4f9ba"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). No request/response-shape change; this changes schema identifiers. PR #485 (e100f2c) moved the $id of these seven analytics schemas from https://traigent.ai/schemas/analytics/<name>.json to https://schemas.traigent.ai/analytics/<name>_schema.json, the base that all but one of the package's identified schemas use. A consumer that resolves these seven schemas by their absolute $id must use the new identifier. On main, the BASE side of this promotion diff, the old $id makes analytics_endpoints.json's relative $ref (./<name>_schema.json) resolve to a URL that no schema declares, so the gate cannot load the base shape and fails closed with unresolved_ref on each of the seven request/response bodies. #485 itself did not trip this because analytics_endpoints.json was not in that PR's changed set; the promotion diff contains it because #471 (1ec76fe) added the director-evidence operation to the same file. Reviewed at promotion, and re-checked by an independent reviewer: each of the seven schema files is equal between origin/main and HEAD except its $id (in-memory JSON comparison); the endpoint file's $refs to them are unchanged; the gate's own registry reports seven UNRESOLVED on origin/main and seven RESOLVED on HEAD; no request or response body change is hidden behind this entry. Exact fingerprints, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/error_message",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "ef749583dca7218d9aaeac90537d150fe74d0cfdb3fd333ecc2d30503e29a34a"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/requestBody/content/application/json/schema/properties/status",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 255,
+          "new": 64,
+          "fingerprint": "767b66eff0b0bd4e03ff1cebcfdde2c35357c64be5e41c9d712ca5bedff9a83a"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). This is PR #482's tightening of status (255 -> 64) and error_message (5000 -> 2000) seen through this endpoint file's $ref to session_submit_results_request_schema.json. #482 acknowledged it on the request schema file; the promotion diff reaches the same two fields through the results POST requestBody, so the pointers, and therefore the fingerprints, differ from #482's file-level entry and need their own exact entry. Same change, same evidence, re-verified at the promoted Backend revision e7a28b896: src/routes/traigent_session_routes.py:981-984 rejects a status longer than 64 characters and :986-992 rejects an error_message longer than MAX_TRIAL_ERROR_MESSAGE_LENGTH = 2_000 (src/services/traigent/terminal_outcome.py:18), both answered with 400. The schema was looser than the server; a payload that passed the old bound was already refused by the API. Exact fingerprints, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/finalize/post/responses/200/content/application/json/schema/properties/session_aggregation/properties/selection",
+          "role": "response",
+          "subject": "selection",
+          "old": false,
+          "new": true,
+          "fingerprint": "3c6dca4ae315ae44e774f469bc92f0d6dc6a4f71b9de342e311a18552c291f28"
+        }
+      ],
+      "reason": "Promotion acknowledgement for release 6.1.0 (the R3 develop->main promotion). This is PR #491's new OPTIONAL selection member of the closed (additionalProperties:false) SessionAggregationDTO, the R3 selection receipt, seen through the finalize 200 response's session_aggregation property; #491's own entry covers the same widening on session_aggregation_schema.json. It is a real widening of a closed response shape, and a consumer can receive the member without having sent it: once a finalizing client has sent an accepted selection the Backend persists it; a later finalize that omits the rollup preserves and re-binds it (src/services/traigent/interactive_session_service.py:4820-4849 at e7a28b896) and echoes it (:6216-6282), as the live-PostgreSQL re-finalize test shows (tests/security/rls_live/test_session_selection_receipt_live.py:394-427: a retry that sends no rollup is answered with the accepted receipt); any reader of the stored run results sees it too. A validator built against the previous closed shape will therefore reject those responses for a session whose finalizing client sent a receipt; a well-formed client-sent rejected form stores nothing. Accepted at review because the member is optional, the only first-party producer is the Python SDK revision that also carries the reader (Traigent #2313), and it ships in the 6.x major line opened by #470's breaking removal (5.8.0 -> 6.0.0), which already ends compatibility promises to consumers pinned to the 5.x shapes. Mixed-version strict validators remain a known limitation, recorded here rather than silenced. Exact fingerprint, no pointer_prefix wildcard.",
+      "version": "6.1.0",
+      "pr": "release/2026-09-17-r3-digests-and-receipt (R3 develop->main promotion PR)"
     }
   ]
 }

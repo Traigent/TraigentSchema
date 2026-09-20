@@ -22,6 +22,19 @@
       "heading_fallback": "Latest completed run"
     }
   },
+  "coverage_rule": {
+    "detail_and_process": {
+      "gap_precedence": "GAPS_RECORDED when any positional check has state GAP",
+      "unknown_without_gap": "EVIDENCE_INCOMPLETE when no check has state GAP and any check has state UNKNOWN",
+      "all_supported": "CHECKS_RECORDED when every positional check has state SUPPORTED"
+    },
+    "portfolio_counts": {
+      "gap_precedence": "GAPS_RECORDED when gap_checks is at least 1",
+      "unknown_without_gap": "EVIDENCE_INCOMPLETE when gap_checks is 0 and unknown_checks is at least 1",
+      "all_supported": "CHECKS_RECORDED when gap_checks and unknown_checks are both 0",
+      "top_gap_code": "null exactly when gap_checks is 0; otherwise a CheckId"
+    }
+  },
   "checks": [
     {
       "check_id": "AGENT_RECORD_AVAILABLE",

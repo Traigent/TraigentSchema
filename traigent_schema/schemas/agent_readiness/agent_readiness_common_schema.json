@@ -9,7 +9,7 @@
     "OpaqueId": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 255
+      "maxLength": 512
     },
     "NullableDateTime": {
       "type": ["string", "null"],
@@ -145,7 +145,8 @@
         "gap_checks",
         "unknown_checks",
         "top_gap_code"
-      ]
+      ],
+      "allOf": [{"$ref": "#/definitions/CoverageFromCounts"}]
     },
     "PillarDetail": {
       "type": "object",
@@ -158,6 +159,96 @@
         }
       },
       "required": ["coverage_state", "checks"]
+    },
+    "CoverageFromCounts": {
+      "allOf": [
+        {
+          "if": {"properties": {"gap_checks": {"minimum": 1}}},
+          "then": {"properties": {"coverage_state": {"const": "GAPS_RECORDED"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {"properties": {"gap_checks": {"maximum": 0}}},
+              {"properties": {"unknown_checks": {"minimum": 1}}}
+            ]
+          },
+          "then": {"properties": {"coverage_state": {"const": "EVIDENCE_INCOMPLETE"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {"properties": {"gap_checks": {"maximum": 0}}},
+              {"properties": {"unknown_checks": {"maximum": 0}}}
+            ]
+          },
+          "then": {"properties": {"coverage_state": {"const": "CHECKS_RECORDED"}}}
+        },
+        {
+          "if": {"properties": {"gap_checks": {"maximum": 0}}},
+          "then": {"properties": {"top_gap_code": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"gap_checks": {"minimum": 1}}},
+          "then": {
+            "properties": {
+              "top_gap_code": {"$ref": "#/definitions/CheckId"}
+            }
+          }
+        }
+      ]
+    },
+    "CoverageFromChecks": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "checks": {"contains": {"properties": {"state": {"const": "GAP"}}}}
+            }
+          },
+          "then": {"properties": {"coverage_state": {"const": "GAPS_RECORDED"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "not": {
+                  "properties": {
+                    "checks": {"contains": {"properties": {"state": {"const": "GAP"}}}}
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "checks": {"contains": {"properties": {"state": {"const": "UNKNOWN"}}}}
+                }
+              }
+            ]
+          },
+          "then": {"properties": {"coverage_state": {"const": "EVIDENCE_INCOMPLETE"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "not": {
+                  "properties": {
+                    "checks": {"contains": {"properties": {"state": {"const": "GAP"}}}}
+                  }
+                }
+              },
+              {
+                "not": {
+                  "properties": {
+                    "checks": {"contains": {"properties": {"state": {"const": "UNKNOWN"}}}}
+                  }
+                }
+              }
+            ]
+          },
+          "then": {"properties": {"coverage_state": {"const": "CHECKS_RECORDED"}}}
+        }
+      ]
     },
     "ProcessStage": {
       "type": "string",

@@ -46,9 +46,16 @@
               "coverage_state": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CoverageState"},
               "supported_checks": {"type": "integer", "minimum": 0},
               "gap_checks": {"type": "integer", "minimum": 0},
-              "unknown_checks": {"type": "integer", "minimum": 0}
+              "unknown_checks": {"type": "integer", "minimum": 0},
+              "top_gap_code": {
+                "oneOf": [
+                  {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CheckId"},
+                  {"type": "null"}
+                ]
+              }
             },
-            "required": ["stage", "coverage_state", "supported_checks", "gap_checks", "unknown_checks"]
+            "required": ["stage", "coverage_state", "supported_checks", "gap_checks", "unknown_checks", "top_gap_code"],
+            "allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CoverageFromCounts"}]
           },
           "last_activity_at": {
             "oneOf": [

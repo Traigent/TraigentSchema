@@ -124,6 +124,111 @@
           }
         }
       ]
+    },
+    {
+      "if": {"properties": {"anchor_completed_at": {"type": "null"}}},
+      "then": {"properties": {"agent_updated_after_anchor": {"const": false}}}
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "anchor_run_id": {"type": "null"},
+            "pillars": {
+              "properties": {
+                "agent": {
+                  "properties": {
+                    "checks": {
+                      "items": [
+                        {},
+                        {"$ref": "#/definitions/GapOrUnknownCheckState"},
+                        {"$ref": "#/definitions/UnknownCheckState"},
+                        {"$ref": "#/definitions/UnknownCheckState"}
+                      ]
+                    }
+                  }
+                },
+                "evaluator": {
+                  "properties": {
+                    "checks": {
+                      "items": [
+                        {"$ref": "#/definitions/UnknownCheckState"},
+                        {},
+                        {}
+                      ]
+                    }
+                  }
+                },
+                "evaluation_dataset": {
+                  "properties": {
+                    "checks": {
+                      "items": [
+                        {"$ref": "#/definitions/UnknownCheckState"},
+                        {"$ref": "#/definitions/UnknownCheckState"},
+                        {"$ref": "#/definitions/UnknownCheckState"}
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "anchor_run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
+            "pillars": {
+              "properties": {
+                "agent": {
+                  "properties": {
+                    "checks": {
+                      "items": [
+                        {},
+                        {"$ref": "#/definitions/SupportedCheckState"}
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "process_assurance": {
+              "properties": {
+                "stage": {"const": "NO_RUNS"},
+                "checks": {
+                  "items": [{"$ref": "#/definitions/UnknownCheckState"}]
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "process_assurance": {
+              "properties": {
+                "stage": {"const": "RUNS_RECORDED"},
+                "checks": {
+                  "items": [{"$ref": "#/definitions/SupportedCheckState"}]
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "process_assurance": {
+              "properties": {"stage": {"const": "EVALUATION_COMPLETED"}}
+            }
+          }
+        }
+      ]
     }
   ],
   "definitions": {
@@ -145,7 +250,8 @@
           "additionalItems": false
         }
       },
-      "required": ["coverage_state", "checks"]
+      "required": ["coverage_state", "checks"],
+      "allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CoverageFromChecks"}]
     },
     "EvaluatorPillarDetail": {
       "type": "object",
@@ -164,7 +270,8 @@
           "additionalItems": false
         }
       },
-      "required": ["coverage_state", "checks"]
+      "required": ["coverage_state", "checks"],
+      "allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CoverageFromChecks"}]
     },
     "DatasetPillarDetail": {
       "type": "object",
@@ -183,7 +290,8 @@
           "additionalItems": false
         }
       },
-      "required": ["coverage_state", "checks"]
+      "required": ["coverage_state", "checks"],
+      "allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CoverageFromChecks"}]
     },
     "ProcessAssurance": {
       "type": "object",
@@ -204,7 +312,8 @@
         },
         "certificate_match": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CertificateMatch"}
       },
-      "required": ["coverage_state", "stage", "checks", "certificate_match"]
+      "required": ["coverage_state", "stage", "checks", "certificate_match"],
+      "allOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/CoverageFromChecks"}]
     },
     "AgentEvidenceRef": {
       "allOf": [
@@ -308,6 +417,18 @@
         {"properties": {"state": {"const": "UNKNOWN"}}}
       ]
     },
+    "SupportedCheckState": {
+      "properties": {"state": {"const": "SUPPORTED"}}
+    },
+    "GapOrUnknownCheckState": {
+      "oneOf": [
+        {"properties": {"state": {"const": "GAP"}}},
+        {"properties": {"state": {"const": "UNKNOWN"}}}
+      ]
+    },
+    "UnknownCheckState": {
+      "properties": {"state": {"const": "UNKNOWN"}}
+    },
     "AgentRecordAvailableCheck": {
       "allOf": [{"$ref": "#/definitions/SupportedBackendAgentCheck"}, {"properties": {"check_id": {"const": "AGENT_RECORD_AVAILABLE"}}}]
     },
@@ -401,7 +522,7 @@
       "additionalProperties": false,
       "properties": {
         "experiment_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
-        "experiment_name": {"type": ["string", "null"], "maxLength": 255},
+        "experiment_name": {"type": ["string", "null"], "maxLength": 512},
         "run_id": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"},
         "is_anchor": {"type": "boolean"},
         "status": {"$ref": "https://schemas.traigent.ai/status_schema.json#/definitions/ExperimentRunStatus"},

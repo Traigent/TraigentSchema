@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -82,9 +83,10 @@ def _portfolio_payload() -> dict[str, Any]:
                 "process": {
                     "stage": "NO_RUNS",
                     "coverage_state": "EVIDENCE_INCOMPLETE",
-                    "supported_checks": 0,
-                    "gap_checks": 0,
-                    "unknown_checks": 3,
+                "supported_checks": 0,
+                "gap_checks": 0,
+                "unknown_checks": 3,
+                "top_gap_code": None,
                 },
                 "last_activity_at": None,
                 "next_action_code": "ESTABLISH_BASELINE_EVALUATION",
@@ -115,7 +117,7 @@ def _detail_payload() -> dict[str, Any]:
         "agent_updated_after_anchor": True,
         "pillars": {
             "agent": {
-                "coverage_state": "CHECKS_RECORDED",
+                "coverage_state": "EVIDENCE_INCOMPLETE",
                 "checks": [
                     _check(
                         "AGENT_RECORD_AVAILABLE",
@@ -408,6 +410,7 @@ def test_anchor_stage_implications_and_page_anchor_rule_are_closed() -> None:
 
     completed_undated = _detail_payload()
     completed_undated["anchor_completed_at"] = None
+    completed_undated["agent_updated_after_anchor"] = False
     assert (
         validator.validate_json(completed_undated, "agent_readiness_detail_response_schema") == []
     )
@@ -485,11 +488,135 @@ def test_readiness_error_envelope_rejects_private_sentinels_and_details() -> Non
     assert validator.validate_json(invalid, "agent_readiness_error_schema")
 
 
+def test_opaque_ids_and_experiment_names_allow_512_but_reject_513() -> None:
+    validator = SchemaValidator()
+    long_id = "a" * 512
+
+    portfolio = _portfolio_payload()
+    portfolio["items"][0]["agent"]["id"] = long_id
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema") == []
+
+    portfolio["items"][0]["agent"]["id"] = long_id + "a"
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
+
+    detail = _detail_payload()
+    detail["agent"]["id"] = long_id
+    detail["journey"]["items"][0]["experiment_name"] = long_id
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema") == []
+
+    detail["agent"]["id"] = long_id + "a"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["journey"]["items"][0]["experiment_name"] = long_id + "a"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+
+def test_coverage_state_is_derived_from_checks_and_counts() -> None:
+    validator = SchemaValidator()
+
+    detail = _detail_payload()
+    detail["pillars"]["agent"]["coverage_state"] = "CHECKS_RECORDED"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail = _detail_payload()
+    detail["process_assurance"]["coverage_state"] = "CHECKS_RECORDED"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    for pillar in ("evaluator", "evaluation_dataset"):
+        detail = _detail_payload()
+        detail["pillars"][pillar]["coverage_state"] = "CHECKS_RECORDED"
+        assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    portfolio = _portfolio_payload()
+    portfolio["items"][0]["pillars"]["agent"]["coverage_state"] = "CHECKS_RECORDED"
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
+
+    portfolio = _portfolio_payload()
+    portfolio["items"][0]["pillars"]["agent"]["top_gap_code"] = "AGENT_RECORD_AVAILABLE"
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
+
+    portfolio = _portfolio_payload()
+    portfolio["items"][0]["process"]["coverage_state"] = "CHECKS_RECORDED"
+    assert validator.validate_json(portfolio, "agent_readiness_portfolio_response_schema")
+
+
+def test_undated_anchor_requires_false_updated_flag() -> None:
+    validator = SchemaValidator()
+    detail = _detail_payload()
+    detail["anchor_completed_at"] = None
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
+
+    detail["agent_updated_after_anchor"] = False
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema") == []
+
+
+def test_anchor_and_stage_gate_run_dependent_check_states() -> None:
+    validator = SchemaValidator()
+    detail = _detail_payload()
+    detail["anchor_run_id"] = None
+    detail["anchor_completed_at"] = None
+    detail["agent_updated_after_anchor"] = False
+    detail["process_assurance"]["stage"] = "RUNS_RECORDED"
+
+    agent_checks = detail["pillars"]["agent"]["checks"]
+    agent_checks[1] = _check(
+        "COMPLETED_EVALUATION_RUN",
+        "GAP",
+        "backend_observed",
+        {"kind": "agent", "id": "agent-1"},
+    )
+    agent_checks[2] = _check("ACCURACY_MEASURE_RECORDED", "UNKNOWN", "not_assessed", None, None)
+    agent_checks[3] = _check(
+        "UNIT_BEARING_EFFICIENCY_MEASURE_RECORDED", "UNKNOWN", "not_assessed", None, None
+    )
+    detail["pillars"]["agent"]["coverage_state"] = "GAPS_RECORDED"
+    evaluator_checks = detail["pillars"]["evaluator"]["checks"]
+    evaluator_checks[0] = _check(
+        "EVALUATOR_VERSION_SNAPSHOT_RECORDED", "UNKNOWN", "not_assessed", None, None
+    )
+    detail["pillars"]["evaluator"]["coverage_state"] = "EVIDENCE_INCOMPLETE"
+    dataset_checks = detail["pillars"]["evaluation_dataset"]["checks"]
+    for index, check in enumerate(dataset_checks):
+        dataset_checks[index] = _check(check["check_id"], "UNKNOWN", "not_assessed", None, None)
+    detail["pillars"]["evaluation_dataset"]["coverage_state"] = "EVIDENCE_INCOMPLETE"
+    assert validator.validate_json(detail, "agent_readiness_detail_response_schema") == []
+
+    invalid = deepcopy(detail)
+    invalid["pillars"]["agent"]["checks"][2] = _check(
+        "ACCURACY_MEASURE_RECORDED",
+        "SUPPORTED",
+        "client_reported",
+        {"kind": "configuration_run", "id": "config-1"},
+    )
+    invalid["pillars"]["agent"]["coverage_state"] = "EVIDENCE_INCOMPLETE"
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+    invalid = deepcopy(detail)
+    invalid["anchor_run_id"] = "run-anchor"
+    invalid["process_assurance"]["stage"] = "EVALUATION_COMPLETED"
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+    invalid = deepcopy(detail)
+    invalid["process_assurance"]["stage"] = "NO_RUNS"
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+    invalid = deepcopy(detail)
+    invalid["process_assurance"]["checks"][0] = _check(
+        "EXPERIMENT_PATH_RECORDED", "UNKNOWN", "not_assessed", None, None
+    )
+    invalid["process_assurance"]["coverage_state"] = "EVIDENCE_INCOMPLETE"
+    assert validator.validate_json(invalid, "agent_readiness_detail_response_schema")
+
+
 def test_normative_matrix_covers_every_check_and_next_action() -> None:
     matrix = json.loads(MATRIX.read_text(encoding="utf-8"))
     assert {row["check_id"] for row in matrix["checks"]} == CHECK_IDS
     assert {row["code"] for row in matrix["next_actions"]} == NEXT_ACTIONS
     assert matrix["anchor_rule"]["journey_page_may_omit_anchor"] is True
+    assert matrix["coverage_rule"]["detail_and_process"]["gap_precedence"].startswith(
+        "GAPS_RECORDED"
+    )
     assert matrix["checks"][4]["resolution_rule"].startswith(
         "Only evaluator_version_resolution=resolved"
     )

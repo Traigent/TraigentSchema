@@ -101,8 +101,18 @@ def _portfolio_payload() -> dict[str, Any]:
                 },
                 "last_activity_at": None,
                 "next_action_code": "ESTABLISH_BASELINE_EVALUATION",
+                "attention_state": "ACTIONABLE",
             }
         ],
+        "portfolio_counts": {
+            "total_agents": 1,
+            "by_stage": {
+                "NO_RUNS": 1,
+                "RUNS_RECORDED": 0,
+                "EVALUATION_COMPLETED": 0,
+            },
+            "by_attention": {"ACTIONABLE": 1, "NO_PORTAL_ACTION": 0},
+        },
         "ordering": "STAGE_THEN_LEAST_RECENT_ACTIVITY",
         "pagination": {
             "page": 1,
@@ -931,6 +941,13 @@ def test_endpoint_inventory_registers_both_project_scoped_get_routes() -> None:
         "responses"
     ]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "agent_readiness_portfolio_response_schema.json"
+    )
+    list_bad_request = paths[
+        "/api/v1beta/projects/{project_id}/agent-readiness"
+    ]["get"]["responses"]["400"]
+    assert all(
+        parameter in list_bad_request["description"].lower()
+        for parameter in ("pagination", "search", "stage", "attention")
     )
     assert paths["/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}"]["get"][
         "responses"

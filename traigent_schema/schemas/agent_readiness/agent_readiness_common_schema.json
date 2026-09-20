@@ -254,6 +254,10 @@
       "type": "string",
       "enum": ["NO_RUNS", "RUNS_RECORDED", "EVALUATION_COMPLETED"]
     },
+    "AttentionState": {
+      "type": "string",
+      "enum": ["ACTIONABLE", "NO_PORTAL_ACTION"]
+    },
     "NextActionCode": {
       "type": "string",
       "enum": [

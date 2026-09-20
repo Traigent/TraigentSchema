@@ -4036,6 +4036,65 @@
       "reason": "The metric-name character class is being WIDENED from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$ so that real metric names carrying a hyphen or a dot (\"response-time\", \"cost.usd\") are expressible. The new class is a strict superset of the old one: same anchors, same first-character class, and the trailing class only gains '.' and '-'. Every name that validated before this change still validates after it, so no payload that was accepted becomes rejected. This is proved exhaustively, not asserted, by tests/test_metric_name_pattern_consistency.py::test_widened_pattern_is_a_strict_superset_of_the_old_one, which enumerates every string up to length 3 over a boundary-spanning alphabet and fails if any name accepted by the old pattern is rejected by the new one. Context: issue #304 -- sessions and experiments accepted different objective representations, and the legacy {metric,direction,weight} form allowed any 1-255 character string where the canonical form required a Python identifier. Collapsing to the single canonical form (owner decision 2026-09-18) would therefore have silently dropped any objective whose metric name contained a hyphen or dot. Widening is the precondition for that migration, not an independent loosening. TVAR and agent names in optimization/tvar_definition_schema.json are deliberately NOT widened -- they become Python keyword arguments in user code -- and a consistency test pins that split in both directions. This entry covers the mechanical 'patternProperties key removed' / 'pattern changed' finding: the pattern string is itself the map key, so replacing it reads to the checker as a removal plus an addition. Nothing was deleted; the key was rewritten in place.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/499"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 5,
+          "new": 7,
+          "fingerprint": "591d8b28ef526183d279016b69c03daf5c51a2bcb25d9e18396bb9a7a524cabc"
+        }
+      ],
+      "reason": "The detail response intentionally adds closed Phase 1 branches for authoritative anchor facts and action targets so clients can distinguish a page summary from the global anchor and can route only to an exact scoped run. This is the approved contract extension reviewed under WorkIntent st_9908fedb20a7 within parent ChangeSession cs_a4ada4eadd530ffa; it preserves the existing evidence fields and does not infer metrics or expose content.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/agent-readiness-phase1-20260920, WorkIntent st_9908fedb20a7)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {"pointer": "#/properties/anchor_experiment_id", "role": "response", "subject": "anchor_experiment_id", "old": false, "new": true, "fingerprint": "e8387d65f67a3367fb60be5f38035f3d7e806cd2775a5f8a9c8b11b1d85dcac4"},
+        {"pointer": "#/properties/anchor_summary", "role": "response", "subject": "anchor_summary", "old": false, "new": true, "fingerprint": "5badaa85244f94c56fa768b4389c5e63152437ff45a81661853b20514bb0936e"},
+        {"pointer": "#/properties/next_action_experiment_id", "role": "response", "subject": "next_action_experiment_id", "old": false, "new": true, "fingerprint": "2bbefb82fb6adc04a35342fab0ac97c8a613360d0f8fb3e0efde77fc360121a9"},
+        {"pointer": "#/properties/next_action_run_id", "role": "response", "subject": "next_action_run_id", "old": false, "new": true, "fingerprint": "e805975ba422413bad073e36c082ce7ba136ae57c1b6da3a0926d164cb74ea4d"}
+      ],
+      "reason": "These four closed response members are the approved Phase 1 authoritative anchor and action-target extension. They let the UI keep off-page anchor metrics stable and provide a real destination only when a scoped experiment/run exists; nullable values preserve honest no-run and no-target states. The change was reviewed under WorkIntent st_9908fedb20a7 within parent ChangeSession cs_a4ada4eadd530ffa and excludes code, prompts, examples, outputs, and arbitrary configuration.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/agent-readiness-phase1-20260920, WorkIntent st_9908fedb20a7)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 1,
+          "new": 2,
+          "fingerprint": "72dc6da696084c5df565b8acd5d7545bd0b96d9fa40ab96670389bb6a57dcd2d"
+        }
+      ],
+      "reason": "The portfolio item adds a closed Phase 1 action-target branch so each agent row can expose an exact scoped destination or an honest no-target state. This is the approved contract extension reviewed under WorkIntent st_9908fedb20a7 within parent ChangeSession cs_a4ada4eadd530ffa and does not add scores, comparisons, or content-bearing fields.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/agent-readiness-phase1-20260920, WorkIntent st_9908fedb20a7)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {"pointer": "#/properties/items/items/properties/anchor_experiment_id", "role": "response", "subject": "anchor_experiment_id", "old": false, "new": true, "fingerprint": "c3491a19e759c3163e89f0e155bc10692c8c472f4bbc943527c3825d38535f07"},
+        {"pointer": "#/properties/items/items/properties/next_action_experiment_id", "role": "response", "subject": "next_action_experiment_id", "old": false, "new": true, "fingerprint": "417d7a351362885fca1d02c84c8a2cc3ec7bcbeee07e7515fd5136ff7c664e8d"},
+        {"pointer": "#/properties/items/items/properties/next_action_run_id", "role": "response", "subject": "next_action_run_id", "old": false, "new": true, "fingerprint": "c413c4ece1163eeec1d1a268413d74fa53e8638e2c8e1cfe5cc7c482df16baa6"}
+      ],
+      "reason": "These closed portfolio response members carry the approved Phase 1 anchor experiment and exact action target identifiers. They preserve tenant/project scoping and allow the UI to offer a real destination without guessing an ID or exposing customer content; nullable values remain truthful when no target exists. The change was reviewed under WorkIntent st_9908fedb20a7 within parent ChangeSession cs_a4ada4eadd530ffa.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/agent-readiness-phase1-20260920, WorkIntent st_9908fedb20a7)"
     }
   ]
 }

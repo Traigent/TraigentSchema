@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/agent_readiness_error_schema.json",
+  "title": "Agent Readiness Error Envelope",
+  "description": "Closed, content-free 4xx error envelope for Agent readiness routes. Public strings are finite server-controlled values; details, request data, identifiers, exception text, and internal diagnostics are not representable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "message", "error", "error_code"],
+  "properties": {
+    "success": {"const": false},
+    "message": {
+      "type": "string",
+      "enum": [
+        "Invalid request",
+        "Authentication required",
+        "Authorization denied",
+        "Not found",
+        "Project not found"
+      ]
+    },
+    "error": {
+      "type": "string",
+      "enum": [
+        "invalid_request",
+        "authentication_required",
+        "authorization_denied",
+        "not_found"
+      ]
+    },
+    "error_code": {
+      "type": "string",
+      "enum": [
+        "invalid_request",
+        "authentication_required",
+        "authorization_denied",
+        "not_found",
+        "PROJECT_ACCESS_DENIED",
+        "PROJECT_NOT_FOUND",
+        "TENANT_ACCESS_DENIED",
+        "TENANT_NOT_FOUND"
+      ]
+    }
+  },
+  "oneOf": [
+    {"$ref": "#/definitions/InvalidRequest"},
+    {"$ref": "#/definitions/AuthenticationRequired"},
+    {"$ref": "#/definitions/AuthorizationDenied"},
+    {"$ref": "#/definitions/NotFound"},
+    {"$ref": "#/definitions/ProjectAccessDenied"},
+    {"$ref": "#/definitions/ProjectNotFound"},
+    {"$ref": "#/definitions/TenantAccessDenied"},
+    {"$ref": "#/definitions/TenantNotFound"}
+  ],
+  "definitions": {
+    "InvalidRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Invalid request"},
+        "error": {"const": "invalid_request"},
+        "error_code": {"const": "invalid_request"}
+      }
+    },
+    "AuthenticationRequired": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Authentication required"},
+        "error": {"const": "authentication_required"},
+        "error_code": {"const": "authentication_required"}
+      }
+    },
+    "AuthorizationDenied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Authorization denied"},
+        "error": {"const": "authorization_denied"},
+        "error_code": {"const": "authorization_denied"}
+      }
+    },
+    "NotFound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Not found"},
+        "error": {"const": "not_found"},
+        "error_code": {"const": "not_found"}
+      }
+    },
+    "ProjectAccessDenied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Authorization denied"},
+        "error": {"const": "authorization_denied"},
+        "error_code": {"const": "PROJECT_ACCESS_DENIED"}
+      }
+    },
+    "ProjectNotFound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Project not found"},
+        "error": {"const": "not_found"},
+        "error_code": {"const": "PROJECT_NOT_FOUND"}
+      }
+    },
+    "TenantAccessDenied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Authorization denied"},
+        "error": {"const": "authorization_denied"},
+        "error_code": {"const": "TENANT_ACCESS_DENIED"}
+      }
+    },
+    "TenantNotFound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Not found"},
+        "error": {"const": "not_found"},
+        "error_code": {"const": "TENANT_NOT_FOUND"}
+      }
+    }
+  }
+}

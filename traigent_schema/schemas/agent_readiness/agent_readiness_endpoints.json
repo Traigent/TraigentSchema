@@ -1,0 +1,55 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Agent Readiness Routes",
+    "version": "1.0.0",
+    "description": "Canonical read-only project-scoped Agent readiness projection routes."
+  },
+  "paths": {
+    "/api/v1beta/projects/{project_id}/agent-readiness": {
+      "get": {
+        "summary": "List project Agent readiness evidence",
+        "operationId": "listProjectAgentReadiness",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "page", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}},
+          {"name": "per_page", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 25}},
+          {"name": "search", "in": "query", "required": false, "schema": {"type": "string", "minLength": 1, "maxLength": 200}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Project Agent readiness evidence retrieved successfully",
+            "content": {"application/json": {"schema": {"$ref": "./agent_readiness_portfolio_response_schema.json"}}}
+          },
+          "400": {"description": "Invalid pagination or search parameters", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}": {
+      "get": {
+        "summary": "Get project Agent readiness evidence detail",
+        "operationId": "getProjectAgentReadinessDetail",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "agent_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "journey_page", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}},
+          {"name": "journey_per_page", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 25}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Project Agent readiness detail retrieved successfully",
+            "content": {"application/json": {"schema": {"$ref": "./agent_readiness_detail_response_schema.json"}}}
+          },
+          "400": {"description": "Invalid journey pagination parameters", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "404": {"description": "Agent not found in the authorized project scope", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
+        }
+      }
+    }
+  }
+}

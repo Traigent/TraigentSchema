@@ -18,6 +18,11 @@
       "paths_file": "./agents/agents_endpoints.json"
     },
     {
+      "name": "Agent Readiness",
+      "description": "Read-only project-scoped Agent readiness evidence routes.",
+      "paths_file": "./agent_readiness/agent_readiness_endpoints.json"
+    },
+    {
       "name": "Datasets",
       "description": "Canonical backend dataset routes.",
       "paths_file": "./datasets/datasets_endpoints.json"

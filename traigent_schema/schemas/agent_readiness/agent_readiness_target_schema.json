@@ -108,7 +108,7 @@
           "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
         },
         "source_run_id": {"$ref": "#/definitions/OpaqueId"},
-        "use_case": {"type": "string", "enum": ["question-answering", "summarization"]},
+        "use_case": {"type": "string", "enum": ["question-answering", "summarization", "translation", "code-generation", "chat", "classification", "generation", "extraction", "other"]},
         "requirement": {
           "type": "object",
           "additionalProperties": false,
@@ -174,7 +174,7 @@
           "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
         },
         "agent_id": {"$ref": "#/definitions/OpaqueId"},
-        "use_case": {"type": "string", "enum": ["question-answering", "summarization"]},
+        "use_case": {"type": "string", "enum": ["question-answering", "summarization", "translation", "code-generation", "chat", "classification", "generation", "extraction", "other"]},
         "subject_binding": {"$ref": "#/definitions/SubjectBinding"},
         "requirement": {"$ref": "#/definitions/LatencyRequirement"},
         "declared_by": {"$ref": "#/definitions/Declarer"},

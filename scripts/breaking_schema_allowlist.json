@@ -5179,6 +5179,111 @@
       "reason": "This intentional Phase 3 closed-response expansion adds whole-project portfolio_counts, independent of filtered pagination, and the canonical attention_state resolvability/attention classification for each authorized agent. Old strict response validators may reject these newly emitted members and must upgrade. The exact Schema, Backend, Frontend, and retained real-backend runtime behavior were reviewed under ChangeSession cs_862d6aa40800338b and supplemental ChangeSession cs_ad52051752c3ee08; this acknowledgement covers only the listed identities and fingerprints.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/511"
-    }
+    },
+  {
+      "file": "agent_readiness/agent_readiness_target_schema.json",
+      "rule": "enum",
+      "findings": [
+          {
+              "pointer": "#/oneOf/0/properties/use_case",
+              "role": "conservative",
+              "subject": {
+                  "direction": "added",
+                  "values": [
+                      "\"chat\"",
+                      "\"classification\"",
+                      "\"code-generation\"",
+                      "\"extraction\"",
+                      "\"generation\"",
+                      "\"other\"",
+                      "\"translation\""
+                  ]
+              },
+              "old": [
+                  "\"question-answering\"",
+                  "\"summarization\""
+              ],
+              "new": [
+                  "\"chat\"",
+                  "\"classification\"",
+                  "\"code-generation\"",
+                  "\"extraction\"",
+                  "\"generation\"",
+                  "\"other\"",
+                  "\"question-answering\"",
+                  "\"summarization\"",
+                  "\"translation\""
+              ],
+              "fingerprint": "2d4a0f4d2f536235d729ad229ee95916f5d14f4ac8857b6b2d8cd87a3ca5fbe5"
+          },
+          {
+              "pointer": "#/oneOf/1/properties/use_case",
+              "role": "conservative",
+              "subject": {
+                  "direction": "added",
+                  "values": [
+                      "\"chat\"",
+                      "\"classification\"",
+                      "\"code-generation\"",
+                      "\"extraction\"",
+                      "\"generation\"",
+                      "\"other\"",
+                      "\"translation\""
+                  ]
+              },
+              "old": [
+                  "\"question-answering\"",
+                  "\"summarization\""
+              ],
+              "new": [
+                  "\"chat\"",
+                  "\"classification\"",
+                  "\"code-generation\"",
+                  "\"extraction\"",
+                  "\"generation\"",
+                  "\"other\"",
+                  "\"question-answering\"",
+                  "\"summarization\"",
+                  "\"translation\""
+              ],
+              "fingerprint": "9b6de475ca9fcb91cf0312371b30d85a70dc4e0e4a739169d8b5af36a842c93f"
+          },
+          {
+              "pointer": "#/oneOf/3/properties/revision/properties/use_case",
+              "role": "conservative",
+              "subject": {
+                  "direction": "added",
+                  "values": [
+                      "\"chat\"",
+                      "\"classification\"",
+                      "\"code-generation\"",
+                      "\"extraction\"",
+                      "\"generation\"",
+                      "\"other\"",
+                      "\"translation\""
+                  ]
+              },
+              "old": [
+                  "\"question-answering\"",
+                  "\"summarization\""
+              ],
+              "new": [
+                  "\"chat\"",
+                  "\"classification\"",
+                  "\"code-generation\"",
+                  "\"extraction\"",
+                  "\"generation\"",
+                  "\"other\"",
+                  "\"question-answering\"",
+                  "\"summarization\"",
+                  "\"translation\""
+              ],
+              "fingerprint": "f9c084f40895da972c0f07e2d9a277c19eb69b974c74e49210364f0f89e064b7"
+          }
+      ],
+      "reason": "This intentional Phase 4 additive enum expansion restores the canonical nine-value evaluation-set UseCase vocabulary on both the target request and immutable revision response. Existing strict validators that only know the two historical values may reject newly valid declarations and must upgrade. The exact Schema, Backend, and Frontend propagation was reviewed under the admitted Phase 4 supplement; this acknowledgement covers only the listed identities and fingerprints.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/512"
+  }
   ]
 }

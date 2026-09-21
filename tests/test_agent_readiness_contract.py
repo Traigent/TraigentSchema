@@ -217,6 +217,7 @@ def _detail_payload() -> dict[str, Any]:
             ],
             "certificate_match": "NOT_ASSESSED",
         },
+        "team_requirement": {"state": "NONE_DECLARED"},
         "current_context": {
             "evaluation_dataset_association": {
                 "experiment_id": "experiment-1",
@@ -928,7 +929,7 @@ def test_normative_matrix_covers_every_check_and_next_action() -> None:
     )
 
 
-def test_endpoint_inventory_registers_both_project_scoped_get_routes() -> None:
+def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() -> None:
     inventory = json.loads(
         (SCHEMAS / "agent_readiness_endpoints.json").read_text(encoding="utf-8")
     )
@@ -936,6 +937,7 @@ def test_endpoint_inventory_registers_both_project_scoped_get_routes() -> None:
     assert set(paths) == {
         "/api/v1beta/projects/{project_id}/agent-readiness",
         "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}",
+        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions",
     }
     assert paths["/api/v1beta/projects/{project_id}/agent-readiness"]["get"][
         "responses"
@@ -966,19 +968,33 @@ def test_endpoint_inventory_registers_both_project_scoped_get_routes() -> None:
         ]
         is False
     )
+    target_path = "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions"
+    assert "post" in paths[target_path]
+    assert paths[target_path]["post"]["responses"]["201"]["content"]["application/json"][
+        "schema"
+    ]["$ref"].endswith("agent_readiness_target_schema.json#/definitions/DeclaredTarget")
     for path in paths.values():
-        for response in path["get"]["responses"].values():
-            if response.get("content"):
-                assert (
-                    response["content"]["application/json"]["schema"]["$ref"]
-                    == "./agent_readiness_error_schema.json"
-                    or response["content"]["application/json"]["schema"][
-                        "$ref"
-                    ].endswith("agent_readiness_portfolio_response_schema.json")
-                    or response["content"]["application/json"]["schema"][
-                        "$ref"
-                    ].endswith("agent_readiness_detail_response_schema.json")
-                )
+        for operation in path.values():
+            if not isinstance(operation, dict) or "responses" not in operation:
+                continue
+            for response in operation["responses"].values():
+                if response.get("content"):
+                    schema = response["content"]["application/json"]["schema"]
+                    if "$ref" in schema:
+                        assert (
+                            schema["$ref"] == "./agent_readiness_error_schema.json"
+                            or schema["$ref"].endswith(
+                                "agent_readiness_portfolio_response_schema.json"
+                            )
+                            or schema["$ref"].endswith(
+                                "agent_readiness_detail_response_schema.json"
+                            )
+                            or schema["$ref"].endswith(
+                                "agent_readiness_target_schema.json#/definitions/DeclaredTarget"
+                            )
+                        )
+                    else:
+                        assert schema.get("additionalProperties") is False
 
     root = json.loads(
         (get_schemas_dir() / "mep_endpoints.json").read_text(encoding="utf-8")

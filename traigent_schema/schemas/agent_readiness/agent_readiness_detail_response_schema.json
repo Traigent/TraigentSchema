@@ -51,6 +51,12 @@
       "required": ["agent", "evaluator", "evaluation_dataset"]
     },
     "process_assurance": {"$ref": "#/definitions/ProcessAssurance"},
+    "team_requirement": {
+      "oneOf": [
+        {"$ref": "./agent_readiness_target_schema.json#/definitions/NoTarget"},
+        {"$ref": "./agent_readiness_target_schema.json#/definitions/DeclaredTarget"}
+      ]
+    },
     "current_context": {"$ref": "#/definitions/CurrentContext"},
     "journey": {
       "type": "object",
@@ -90,6 +96,7 @@
     "agent_updated_after_anchor",
     "pillars",
     "process_assurance",
+    "team_requirement",
     "current_context",
     "journey",
     "anchor_summary",

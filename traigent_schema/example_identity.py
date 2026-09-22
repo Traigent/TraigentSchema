@@ -461,7 +461,8 @@ def compute_example_version(
     _check_keys(keys)
     payload = example_version_payload(example_id, expected=expected, metadata=metadata)
     match = _EXAMPLE_ID_RE.fullmatch(example_id)
-    assert match is not None  # checked by example_version_payload
+    if match is None:  # defensive: example_version_payload already validated it
+        raise ContentIdentityError("example_id is not a valid ex1 identifier")
     if match.group(1) != keys.key_id:
         raise ContentIdentityError("example_id was minted under a different key id")
     digest = _hmac_hex(keys.example_version_key, DOMAIN_EXAMPLE_VERSION, payload)

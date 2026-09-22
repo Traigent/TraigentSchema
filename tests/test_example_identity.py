@@ -447,6 +447,26 @@ def test_inclusion_proof_vectors(case: dict[str, Any]) -> None:
     assert ei.verify_inclusion_proof(proof) is case["valid"]
 
 
+@pytest.mark.parametrize("case", VECTORS["json_text_accepted"], ids=lambda c: c["name"])
+def test_json_text_accepted_vectors(case: dict[str, Any]) -> None:
+    parsed = ei.parse_strict_json(case["json_text"])
+    assert ei.compute_example_id(KEYS_A, parsed["input"]) == case["expect"]["example_id"]
+    if case["equals_example"]:
+        by_name = {v["name"]: v["expect"] for v in VECTORS["examples"]}
+        assert case["expect"]["example_id"] == by_name[case["equals_example"]]["example_id"]
+
+
+def test_decimal_range_check_is_independent_of_the_decimal_context() -> None:
+    import decimal
+
+    with decimal.localcontext() as context:
+        context.prec = 5  # a hostile context must not change the verdict
+        for text in ("9007199254740991.0000000000001", "-9007199254740991.0000000000001"):
+            with pytest.raises(ei.ContentIdentityError):
+                ei.parse_strict_json(text)
+        assert ei.parse_strict_json("9007199254740990.9999999999999999999") == float(2**53 - 1)
+
+
 @pytest.mark.parametrize("case", VECTORS["rejections"], ids=lambda c: c["name"])
 def test_rejection_vectors(case: dict[str, Any]) -> None:
     with pytest.raises(ei.ContentIdentityError):
@@ -517,8 +537,12 @@ def test_every_score_input_changes_the_evaluator_digest() -> None:
     }
     assert digests["base"] == digests["base_reordered_keys"]
     for name in ("orientation_changed", "weight_changed", "judge_model_changed",
-                 "judge_config_changed", "dependency_changed", "code_changed", "model_free"):
+                 "judge_config_changed", "dependency_changed", "code_changed", "model_free",
+                 "no_helpers"):
         assert digests[name] != digests["base"], name
+    # Model-free evaluators: efp2 sees neither of these; the manifest must.
+    for name in ("model_free_threshold_changed", "model_free_helper_changed"):
+        assert digests[name] != digests["model_free"], name
 
 
 # ---------------------------------------------------------------------------

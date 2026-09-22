@@ -367,11 +367,19 @@ Identity still comes from content, never from them.
   - `objectives`: the objective set, as `{name, orientation, weight}`. It MUST be sorted by
     `name` with unique names, and anything else is rejected, so that one set has exactly one
     spelling. This closes Director map gap G7.
-  - `dependency_versions`: behaviour-affecting dependency versions. `{}` asserts none.
+  - `config_digest`: the evaluator's **bound configuration**, meaning thresholds, captured
+    parameters and closure-bound values. efp2 covers source only, so without this a
+    model-free evaluator's threshold change would not be a new version. Use the digest of `{}`
+    when there is none.
+  - `helper_digests`: the contents of the **local helper files** the evaluator calls (project
+    source), keyed by name. `{}` asserts none.
+  - `dependency_versions`: behaviour-affecting third-party dependency versions. `{}` asserts
+    none.
   - Changing an objective's orientation or weight, the judge model, the judge configuration, a
-    dependency or the code changes the digest (the `evaluator_versions` vectors).
+    dependency or the code changes the digest. So does changing only a model-free evaluator's
+    threshold or only a local helper file. The `evaluator_versions` vectors pin all of these.
 - **Resolution:** a run records `witnessed_at_scoring` only when the **server** observed the
-  version that actually scored (section 11, rule R5). Today the Backend records the version
+  version that actually scored (section 11, claim rule C3). Today the Backend records the version
   *declared* at session start (`experiment_run_identity_snapshot`), and certification never
   reads it.
 
@@ -441,7 +449,7 @@ ID1.** A certificate may carry them only as labelled declarations, never as issu
 claims.
 
 **What the issuer binds.** It binds only server-recorded linkage and server-witnessed evaluator
-versions:
+versions, under the rules below:
 
 1. The `scheme` (`traigent.content_identity.v1`) and the `kid`.
 2. `agent_id` and the candidate `build_digest`, plus the base `build_digest` and
@@ -450,27 +458,50 @@ versions:
    The root is recomputed from the stored member list. A non-empty conflict list is disclosed.
 4. For every trial on the claimed front: `trial_id`, `evaluated_root` (recomputed), its counts,
    `repetition`, and the observed provider versions.
-5. The evaluator id and its `evaluator_version_digest` (recomputed from the inlined manifest),
-   with `resolution = witnessed_at_scoring`.
+5. The evaluator id and its `evaluator_version_digest` (recomputed from the inlined manifest).
+   This counts as a claim only with `resolution = witnessed_at_scoring` (C3).
 6. For selection-versus-evaluation claims: the search-set root and the size of the
    `example_id` overlap (section 13). Zero is itself the claim.
 
-**Issuer rejection rules.** The issuer MUST refuse to issue if any of the following holds:
+**Two kinds of rule** (made precise by the re-review, relay decision I, section 16). A
+`complete` record (section 10) guarantees that the needed fields are *present*. The rules below
+decide whether each fact is *server-recorded*. There are two kinds:
 
-- **R1:** `record_state` of the run binding, or of its dataset identity, is not `complete`.
-- **R2:** any agent or candidate manifest is not certifiable (`coverage != complete`), or its
-  recomputed `build_digest` differs from the recorded one.
-- **R3:** any root recomputed from the server-stored member list differs from the recorded root.
-  The same applies when the member list is not server-stored (the root is then only declared).
-- **R4:** the run–trial–candidate linkage is not server-recorded, for example a candidate
-  asserted only by the client.
-- **R5:** the evaluator claim rests on `resolution = declared_at_session_start`, or on a
-  `version_digest` that does not recompute from the inlined manifest. The certificate may still
-  carry the declared version, labelled as declared, but makes no evaluator-version claim.
-- **R6:** the `kid` check fails. The kid of the record, of every root, and of every member id
-  and version (section 5) must equal the record's `key_id`.
-- **R7:** the front trials do not share one `dataset_root` and one `evaluator_version_digest`.
-  That is ID2.
+- **Issuance rules (I1–I4)** cover the facts **every** certificate needs. If one fails, the
+  issuer issues nothing.
+- **Claim rules (C1–C6)** each gate one specific claim. If a claim's server-recorded facts are
+  missing, the issuer **refuses that claim only**. The certificate is still issued without it.
+  The facts involved may appear in it only as labelled declarations, and a relying party must
+  not read a declaration as a claim.
+
+**Issuance rules: if any fails, nothing is issued.**
+
+- **I1 (complete record):** the run binding's `record_state` is `complete`, and so is its
+  dataset identity's.
+- **I2 (a real run):** the run and every bound trial are rows the Backend minted itself. The
+  run-to-trial linkage is server-recorded. Without that, nothing in the certificate is attached
+  to anything that actually ran.
+- **I3 (key consistency):** the `kid` of the record, of every root, and of every member id and
+  version equals the record's `key_id` (section 5).
+- **I4 (the dataset):** `dataset_root` recomputes from the **server-stored** member list and
+  equals the recorded root. Every certificate is a statement about some evaluation data, so a
+  certificate whose dataset is only declared says nothing.
+
+**Claim rules: if one fails, only that claim is refused.**
+
+| Claim | Server-recorded facts it requires | Property |
+|---|---|---|
+| **C1: evaluated set** of trial *t* ("*t* was scored on exactly this multiset") | `evaluated_root` recomputes from the server-stored member list, and the multiset is a sub-multiset of the dataset | ID1 |
+| **C2: agent version** of candidate *c* ("the measured candidate is build *B*") | trial-to-candidate linkage recorded by the server at trial registration; the candidate's manifest is certifiable (`coverage: complete`) and recomputes to `build_digest`; the same holds for the base build, plus `base_head_generation` | ID1 |
+| **C3: evaluator version** ("scores came from evaluator version *E*") | `resolution = witnessed_at_scoring`, and `version_digest` recomputes from the inlined manifest. A declared-at-session-start version may be carried, labelled declared, but never claimed | ID1 |
+| **C4: comparable front** ("these trials are comparable") | C1 and C3 hold for every front trial, and all front trials share one `dataset_root` and one `evaluator_version_digest` | ID2 |
+| **C5: no selection leakage** ("search and evaluation examples do not overlap") | `search_set` is server-recorded with a recomputed root; the certificate states the size of the `example_id` overlap (section 13), and zero is itself the claim | — |
+| **C6: winner or ranking** ("*c* is best among these") | C4, plus C2 for every ranked candidate | ID1, ID2 |
+
+This removes the earlier contradiction, where a blanket "refuse to issue" sat beside a rule
+allowing a declared evaluator. A certificate whose evaluator is only declared **is** issued, if
+I1–I4 pass. It carries the declared version with that label and simply has no C3, C4 or C6
+claim.
 
 Relying parties can then check, **without any tenant key**:
 
@@ -481,9 +512,10 @@ Relying parties can then check, **without any tenant key**:
 Model-checking properties:
 
 - **ID1** (certificate identities resolve to server records that actually ran): every
-  issuer-attested root, build digest and evaluator digest equals a server-recorded value. R1–R5
-  enforce it, and declared facts never count.
-- **ID2** (the claimed front shares one dataset and one evaluator version): R7.
+  issuer-attested root, build digest and evaluator digest equals a server-recorded value. This
+  is enforced by I1–I4 for the certificate itself and by C1–C3 for each claim. Declared facts
+  never count.
+- **ID2** (the claimed front shares one dataset and one evaluator version): C4.
 - **ID3** (promotion CAS: at most one accepted successor per generation, candidates never lost):
   generation compare-and-set (Director item 2).
 
@@ -623,7 +655,7 @@ here as a relay decision, 2026-09-23 (owner-delegated).
   records are certifiable (section 10).
 - **D: ID1 linkage** (astra P1-4). The issuer binds only server-recorded linkage and
   server-witnessed evaluator versions. Declared facts are labelled and cannot satisfy ID1.
-  Issuer rejection rules R1–R7 apply (section 11). Implemented in M3/M4.
+  The issuer rules apply (section 11; made precise by decision I as issuance rules I1–I4 and claim rules C1–C6). Implemented in M3/M4.
 - **E: validation** (astra P2).
   - Full-string matching for `tenant_id` and every identifier pattern.
   - Number literals are judged by their exact decimal value before rounding.
@@ -634,6 +666,18 @@ here as a relay decision, 2026-09-23 (owner-delegated).
 - **G: kid** (Fable F3, astra P3). The kid is the second colon field. Consumers check it on the
   record, the roots and every member. Lookups are tenant-scoped, and a collision is a hard error
   at key creation (sections 3 and 5).
+- **I: re-review of `0c3c96fb`** (astra; items 1 and 3 were resolved there, and these three
+  still blocked):
+  - **Item 2:** `EvaluatorVersionManifestV1` requires `config_digest` (the bound configuration)
+    and `helper_digests` (local helper contents; `{}` means none). Vectors show that a
+    threshold-only change and a helper-only change each change the digest (section 9).
+  - **Item 4:** §11 now separates issuance rules I1–I4, which cover facts every certificate
+    needs and block issuance, from claim rules C1–C6, which refuse only the affected claim.
+    This removes the "refuse to issue" versus declared-evaluator contradiction.
+  - **Item 5:** the literal range check uses exact `Decimal(text).copy_abs()` comparison.
+    `abs()` rounded under the 28-digit context and accepted `9007199254740991.0000000000001`.
+    Vectors cover rejection of that value and its negative, and acceptance of a just-under
+    value and of the limit with trailing zeros (the `json_text_accepted` section).
 - **H: `supersedes`** (Fable F4). An optional annotation, never hashed, pinned by a vector
   (section 7).
 
@@ -685,6 +729,6 @@ is `tests/test_example_identity.py` ("Conformance vectors").
 4. Resolve evaluator versions **at scoring time** (`witnessed_at_scoring`).
 5. Make agents project-owned.
 6. Add the agent-head generation compare-and-set (Director item 2).
-7. Revise the certificate contract to bind section 11 and enforce issuer rules R1–R7
+7. Revise the certificate contract to bind section 11 and enforce issuance rules I1–I4 and claim rules C1–C6
    (milestones M3/M4). Add ID1 through ID3 to the model-checking
    contract.

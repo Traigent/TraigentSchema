@@ -220,9 +220,12 @@ def _parse_float(text: str) -> float:
     # Judge the literal's EXACT decimal value, before rounding to a double:
     # 9007199254740991.1 rounds to 9007199254740991.0 (in range) but is not in
     # range as written, and a JS parser that looks at the rounded Number would
-    # disagree with one that looks at the text. Decimal parses exactly;
-    # 1e400 and 9007199254740993.0 are rejected by the same comparison.
-    if abs(Decimal(text)) > _MAX_SAFE_DECIMAL:
+    # disagree with one that looks at the text. Decimal(text) and copy_abs()
+    # are exact and Decimal comparison is exact; abs() is NOT -- it rounds to
+    # the context precision (28 digits), which accepted
+    # 9007199254740991.0000000000001. 1e400 and 9007199254740993.0 are
+    # rejected by the same comparison.
+    if Decimal(text).copy_abs() > _MAX_SAFE_DECIMAL:
         raise ContentIdentityError("number literal outside +/-(2**53-1)")
     return float(text)
 
@@ -543,14 +546,23 @@ def compute_evaluator_version_digest(manifest: Mapping[str, Any]) -> str:
     evaluator code (its fp2 efp2 digest), the judge model and its
     configuration (``judge``: null for a model-free evaluator -- explicit, never
     omitted), the objective set, and the behaviour-affecting dependency
-    versions. ``objectives`` MUST be sorted ascending by ``name`` (ASCII) with
-    unique names, so the same set has one spelling; it is rejected otherwise
-    rather than silently re-sorted. Schema:
+    versions, plus -- because efp2 covers the evaluator's source only -- the
+    evaluator's bound configuration (``config_digest``: thresholds, captured
+    parameters) and the contents of its local helper files
+    (``helper_digests``; ``{}`` asserts none). ``objectives`` MUST be sorted
+    ascending by ``name`` (ASCII) with unique names, so the same set has one
+    spelling; it is rejected otherwise rather than silently re-sorted. Schema:
     ``schemas/evaluation/evaluator_version_manifest_v1_schema.json``.
     """
     if type(manifest) is not dict:
         raise ContentIdentityError("evaluator version manifest must be a plain dict")
     _require_digest(manifest.get("code_digest"), "code_digest")
+    _require_digest(manifest.get("config_digest"), "config_digest")
+    helpers = manifest.get("helper_digests")
+    if type(helpers) is not dict:
+        raise ContentIdentityError("helper_digests must be a map (empty means none)")
+    for digest in helpers.values():
+        _require_digest(digest, "helper_digests value")
     if "judge" not in manifest:
         raise ContentIdentityError("judge must be present (null for a model-free evaluator)")
     judge = manifest["judge"]

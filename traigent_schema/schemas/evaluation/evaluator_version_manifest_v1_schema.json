@@ -48,7 +48,7 @@
         "name": {
           "type": "string",
           "pattern": "^[a-zA-Z_][a-zA-Z0-9_.-]{0,127}(?![\\s\\S])",
-              "description": "The repo's canonical metric-name pattern (METRIC_NAME), capped at 128 characters."
+          "description": "The repo's canonical metric-name pattern (METRIC_NAME), capped at 128 characters."
         },
         "orientation": {
           "type": "string",
@@ -71,6 +71,8 @@
         "manifest_version",
         "evaluator_id",
         "code_digest",
+        "config_digest",
+        "helper_digests",
         "judge",
         "objectives",
         "dependency_versions"
@@ -86,6 +88,21 @@
         "code_digest": {
           "$ref": "#/definitions/Sha256DigestV1",
           "description": "The fp2 efp2 digest of the evaluator code (docs/fingerprints/fp2.md)."
+        },
+        "config_digest": {
+          "$ref": "#/definitions/Sha256DigestV1",
+          "description": "jcs_v1 SHA-256 of the evaluator's BOUND configuration: thresholds, captured parameters, closure-bound values and any other setting that changes a score but is not source text. efp2 covers source only, so without this a model-free evaluator's threshold change would not be a new version. The digest of {} when there is none."
+        },
+        "helper_digests": {
+          "type": "object",
+          "maxProperties": 256,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9_.:/-]{1,128}(?![\\s\\S])"
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/Sha256DigestV1"
+          },
+          "description": "Contents of LOCAL helper files the evaluator calls (project source, not third-party packages -- dependency_versions covers those), keyed by a stable name. {} asserts none."
         },
         "judge": {
           "oneOf": [

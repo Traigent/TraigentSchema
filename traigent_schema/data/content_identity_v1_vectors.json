@@ -1813,6 +1813,18 @@
       "json_text": "{\"input\": {\"a\": 1e16}}"
     },
     {
+      "name": "long_fraction_just_over_limit",
+      "description": "9007199254740991.0000000000001: exact value just above 2**53-1. A 28-digit Decimal context rounds it to the limit; the comparison must be exact.",
+      "kind": "json_text",
+      "json_text": "{\"input\": {\"a\": 9007199254740991.0000000000001}}"
+    },
+    {
+      "name": "long_fraction_just_over_limit_negative",
+      "description": "-9007199254740991.0000000000001: the same, negative.",
+      "kind": "json_text",
+      "json_text": "{\"input\": {\"a\": -9007199254740991.0000000000001}}"
+    },
+    {
       "name": "float_literal_exact_value_above_safe",
       "description": "9007199254740991.1: its EXACT decimal value is above 2**53-1 even though it rounds to 9007199254740991.0. Judge the literal, not the rounded double.",
       "kind": "json_text",
@@ -2266,6 +2278,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": {
           "provider": "openai",
           "model": "gpt-4o-2024-08-06",
@@ -2289,6 +2305,70 @@
       }
     },
     {
+      "name": "evaluator_config_digest_omitted",
+      "kind": "evaluator_version",
+      "description": "config_digest omitted (efp2 covers source only).",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      }
+    },
+    {
+      "name": "evaluator_helper_digests_omitted",
+      "kind": "evaluator_version",
+      "description": "helper_digests omitted ({} is how to say 'none').",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      }
+    },
+    {
       "name": "evaluator_judge_omitted",
       "kind": "evaluator_version",
       "description": "judge key omitted (must be explicit null for a model-free evaluator).",
@@ -2296,6 +2376,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "objectives": [
           {
             "name": "accuracy",
@@ -2399,6 +2483,35 @@
           "language_version": "3.12",
           "sdk_version": "0.28.0"
         }
+      }
+    }
+  ],
+  "json_text_accepted": [
+    {
+      "name": "long_fraction_just_under_limit",
+      "description": "9007199254740990.9999999999999999999: exact value just BELOW 2**53-1, so accepted; it rounds to the double 9007199254740991.0.",
+      "json_text": "{\"input\": {\"n\": 9007199254740990.9999999999999999999}}",
+      "equals_example": "max_safe_integer",
+      "expect": {
+        "example_id": "ex1:k5fc87e16b0083664:da3e08e61898ea5701e409d98ee5dbca127add6fb4e5ba5c63df7b8ff53fc3d6"
+      }
+    },
+    {
+      "name": "limit_with_trailing_zeros",
+      "description": "9007199254740991.0000000000000: exact value EQUAL to 2**53-1, so accepted.",
+      "json_text": "{\"input\": {\"n\": 9007199254740991.0000000000000}}",
+      "equals_example": "max_safe_integer",
+      "expect": {
+        "example_id": "ex1:k5fc87e16b0083664:da3e08e61898ea5701e409d98ee5dbca127add6fb4e5ba5c63df7b8ff53fc3d6"
+      }
+    },
+    {
+      "name": "negative_limit",
+      "description": "-9007199254740991 is accepted.",
+      "json_text": "{\"input\": {\"n\": -9007199254740991}}",
+      "equals_example": null,
+      "expect": {
+        "example_id": "ex1:k5fc87e16b0083664:70581574371ed8e2f7da53351b21dc5b0b6668d5618560c78aa1641bbf902517"
       }
     }
   ],
@@ -2716,6 +2829,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": {
           "provider": "openai",
           "model": "gpt-4o-2024-08-06",
@@ -2738,7 +2855,7 @@
         }
       },
       "expect": {
-        "evaluator_version_digest": "sha256:40f0f7c7f6911a1b910cd34bca7a9f227c3099580e9cccfaf15a31264de08576"
+        "evaluator_version_digest": "sha256:d90363b578f2e8ea7cccf1d6c6c3f9532ead051e82b89c8ce1c6f6b99b7d7ba4"
       }
     },
     {
@@ -2765,12 +2882,16 @@
           "model": "gpt-4o-2024-08-06",
           "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
         },
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
         "evaluator_id": "ev_accuracy_judge",
         "manifest_version": 1
       },
       "expect": {
-        "evaluator_version_digest": "sha256:40f0f7c7f6911a1b910cd34bca7a9f227c3099580e9cccfaf15a31264de08576"
+        "evaluator_version_digest": "sha256:d90363b578f2e8ea7cccf1d6c6c3f9532ead051e82b89c8ce1c6f6b99b7d7ba4"
       }
     },
     {
@@ -2780,6 +2901,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": {
           "provider": "openai",
           "model": "gpt-4o-2024-08-06",
@@ -2802,7 +2927,7 @@
         }
       },
       "expect": {
-        "evaluator_version_digest": "sha256:ef9d5d1b0546706ec4e15d5e21fd1b8ae7c00e6434227d7f91c7246a521e6571"
+        "evaluator_version_digest": "sha256:71ee009269f8481c82d82c2858ab1fe8bcc824f7c0c2cd5e510de60b05978602"
       }
     },
     {
@@ -2812,6 +2937,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": {
           "provider": "openai",
           "model": "gpt-4o-2024-08-06",
@@ -2834,7 +2963,7 @@
         }
       },
       "expect": {
-        "evaluator_version_digest": "sha256:ca1e096bb30848699935ae067a51d97d3ef53d53749b3e904f614b899e0a5092"
+        "evaluator_version_digest": "sha256:d77f1dca06f4d8965e26796fb536bc6ddb95003115f4ff92a9eccca6539a6f65"
       }
     },
     {
@@ -2844,6 +2973,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": {
           "provider": "openai",
           "model": "gpt-4o-2024-11-20",
@@ -2866,7 +2999,7 @@
         }
       },
       "expect": {
-        "evaluator_version_digest": "sha256:73bb3796503a9c79e8f5cdfa06af87ea2b2b5254afa280df15be065c74f377c9"
+        "evaluator_version_digest": "sha256:33b88f600b02d55e6d81c6466c781e2a286ad5729914b4b9de73f996fa8df6b2"
       }
     },
     {
@@ -2876,6 +3009,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": {
           "provider": "openai",
           "model": "gpt-4o-2024-08-06",
@@ -2898,7 +3035,7 @@
         }
       },
       "expect": {
-        "evaluator_version_digest": "sha256:e33b01788d0f2ba0cecf4100080b2fabda55ce222777267fd869ee33879b893a"
+        "evaluator_version_digest": "sha256:7f3827f8cf29aea4db0ad95b7d4e5a95243712c3e6d648a99dc54537f414f038"
       }
     },
     {
@@ -2908,6 +3045,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": {
           "provider": "openai",
           "model": "gpt-4o-2024-08-06",
@@ -2930,7 +3071,7 @@
         }
       },
       "expect": {
-        "evaluator_version_digest": "sha256:38cb91a345622c01c9e4ebb525c51275a68736d1ab36b9ee85319f906f5d7f9d"
+        "evaluator_version_digest": "sha256:0f9a551db7c7d59f5f669da5a28f2883ff50410579612ed7b296617d5ebb07bb"
       }
     },
     {
@@ -2940,6 +3081,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": {
           "provider": "openai",
           "model": "gpt-4o-2024-08-06",
@@ -2962,7 +3107,7 @@
         }
       },
       "expect": {
-        "evaluator_version_digest": "sha256:2edf7bca822185029d309bd874a3ba7cc9a2a02e3e1b129aa89852bf49026b1e"
+        "evaluator_version_digest": "sha256:ec1ee025d691c45475f57d07cc7b0d6afe77a708206de9f5c679c4a33654a40f"
       }
     },
     {
@@ -2972,6 +3117,10 @@
         "manifest_version": 1,
         "evaluator_id": "ev_accuracy_judge",
         "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
         "judge": null,
         "objectives": [
           {
@@ -2990,7 +3139,105 @@
         }
       },
       "expect": {
-        "evaluator_version_digest": "sha256:9d0e5f54b2e019e06f182e56d9e62b5570d809b9b00a3b916c0edee49e2e1858"
+        "evaluator_version_digest": "sha256:870a87759effea5e6d343723a1e37bd079a10c87327901a37fbb645b8db8f88d"
+      }
+    },
+    {
+      "name": "model_free_threshold_changed",
+      "description": "Model-free evaluator: only its bound configuration (e.g. a pass threshold) changed -- efp2 would not see this; config_digest does.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7e7",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
+        },
+        "judge": null,
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:26f1d012eb2ebf8ee1f33ab5b79c9130817b9f9559b09484f52a609b478e0580"
+      }
+    },
+    {
+      "name": "model_free_helper_changed",
+      "description": "Model-free evaluator: only a local helper file changed.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {
+          "eval/normalize.py": "sha256:e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8"
+        },
+        "judge": null,
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:b3b70d808081343b227657c4baf8c16bc348f48170c70efafefa6e5f8b16609c"
+      }
+    },
+    {
+      "name": "no_helpers",
+      "description": "helper_digests {} asserts the evaluator has no local helpers.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "config_digest": "sha256:e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+        "helper_digests": {},
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:3960f2bb25e4f7f2b0f718dac636407394a2de6bb451aa70e65e71e675acee8e"
       }
     }
   ]

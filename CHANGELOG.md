@@ -24,9 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   contamination checks; unkeyed agent `build_digest` over a manifest that must cover code,
   prompts, helper modules, tool definitions and the candidate configuration, with a `coverage`
   declaration (only `complete` is certifiable; a dirty `code_revision` requires `source_digest`);
-  unkeyed `evaluator_version_digest` over efp2 code + judge + objective set + dependencies;
+  unkeyed `evaluator_version_digest` over efp2 code + bound config + local helpers + judge +
+  objective set + dependencies;
   `record_state` draft/complete on run bindings and dataset identities (only complete is
-  certifiable); normative issuer rules R1-R7 binding only server-recorded linkage (ID1). Canonicalization is jcs_v1 plus one rule stricter than fp2: any number,
+  certifiable); normative issuer rules binding only server-recorded linkage (ID1): issuance rules
+  I1-I4 block a certificate, claim rules C1-C6 refuse only the affected claim. Canonicalization is jcs_v1 plus one rule stricter than fp2: any number,
   float included, with |v| > 2^53-1 is rejected so JS and Python cannot diverge. New additive schemas (no consumer yet):
   `datasets/content_identity_v1_schema.json`, `agents/agent_version_manifest_v1_schema.json`,
   `evaluation/evaluator_version_manifest_v1_schema.json`,

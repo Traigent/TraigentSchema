@@ -218,6 +218,8 @@ _EVALUATOR = {
     "manifest_version": 1,
     "evaluator_id": "ev_accuracy_judge",
     "code_digest": "sha256:" + "e1" * 32,
+    "config_digest": "sha256:" + "e5" * 32,
+    "helper_digests": {"eval/normalize.py": "sha256:" + "e6" * 32},
     "judge": {"provider": "openai", "model": "gpt-4o-2024-08-06",
               "config_digest": "sha256:" + "e2" * 32},
     "objectives": [
@@ -252,6 +254,26 @@ EVALUATORS: list[tuple[str, str, dict[str, Any]]] = [
      {**_EVALUATOR, "code_digest": "sha256:" + "e4" * 32}),
     ("model_free", "judge: null for a model-free evaluator (explicit, never omitted).",
      {**_EVALUATOR, "judge": None}),
+    ("model_free_threshold_changed", "Model-free evaluator: only its bound configuration "
+     "(e.g. a pass threshold) changed -- efp2 would not see this; config_digest does.",
+     {**_EVALUATOR, "judge": None, "config_digest": "sha256:" + "e7" * 32}),
+    ("model_free_helper_changed", "Model-free evaluator: only a local helper file changed.",
+     {**_EVALUATOR, "judge": None,
+      "helper_digests": {"eval/normalize.py": "sha256:" + "e8" * 32}}),
+    ("no_helpers", "helper_digests {} asserts the evaluator has no local helpers.",
+     {**_EVALUATOR, "helper_digests": {}}),
+]
+
+# JSON text that the STRICT parser must ACCEPT; example_id is computed from the parsed
+# "input" under tenant_a. Each must equal the named example's id.
+JSON_TEXT_ACCEPTED: list[tuple[str, str, str, str]] = [
+    ("long_fraction_just_under_limit", "9007199254740990.9999999999999999999: exact value just "
+     "BELOW 2**53-1, so accepted; it rounds to the double 9007199254740991.0.",
+     '{"input": {"n": 9007199254740990.9999999999999999999}}', "max_safe_integer"),
+    ("limit_with_trailing_zeros", "9007199254740991.0000000000000: exact value EQUAL to 2**53-1, "
+     "so accepted.", '{"input": {"n": 9007199254740991.0000000000000}}', "max_safe_integer"),
+    ("negative_limit", "-9007199254740991 is accepted.",
+     '{"input": {"n": -9007199254740991}}', ""),
 ]
 
 JSON_TEXT_REJECTIONS: list[tuple[str, str, str]] = [
@@ -274,6 +296,11 @@ JSON_TEXT_REJECTIONS: list[tuple[str, str, str]] = [
      '{"input": {"a": 9007199254740993.0}}'),
     ("float_literal_1e16", "1e16: exponent-form literal outside the safe range.",
      '{"input": {"a": 1e16}}'),
+    ("long_fraction_just_over_limit", "9007199254740991.0000000000001: exact value just above "
+     "2**53-1. A 28-digit Decimal context rounds it to the limit; the comparison must be exact.",
+     '{"input": {"a": 9007199254740991.0000000000001}}'),
+    ("long_fraction_just_over_limit_negative", "-9007199254740991.0000000000001: the same, "
+     "negative.", '{"input": {"a": -9007199254740991.0000000000001}}'),
     ("float_literal_exact_value_above_safe", "9007199254740991.1: its EXACT decimal value is "
      "above 2**53-1 even though it rounds to 9007199254740991.0. Judge the literal, not the "
      "rounded double.", '{"input": {"a": 9007199254740991.1}}'),
@@ -464,6 +491,15 @@ def build_vectors() -> dict[str, Any]:
             raise SystemExit(f"tampered proof {label} verified")
         proofs.append({**case, "valid": False, "tamper": label})
 
+    json_text_accepted = []
+    for name, description, text, equals in JSON_TEXT_ACCEPTED:
+        example_id = ei.compute_example_id(_keys("tenant_a"), ei.parse_strict_json(text)["input"])
+        if equals and example_id != by_name[equals]["example_id"]:
+            raise SystemExit(f"accepted json_text {name} does not equal {equals}")
+        json_text_accepted.append({"name": name, "description": description, "json_text": text,
+                                   "equals_example": equals or None,
+                                   "expect": {"example_id": example_id}})
+
     rejections = []
     keys_a = _keys("tenant_a")
     for name, description, text in JSON_TEXT_REJECTIONS:
@@ -524,6 +560,12 @@ def build_vectors() -> dict[str, Any]:
         {"name": "evaluator_objectives_unsorted", "kind": "evaluator_version",
          "description": "Objectives not sorted by name: one set must have one spelling.",
          "manifest": {**_EVALUATOR, "objectives": list(reversed(_EVALUATOR["objectives"]))}},
+        {"name": "evaluator_config_digest_omitted", "kind": "evaluator_version",
+         "description": "config_digest omitted (efp2 covers source only).",
+         "manifest": {k: v for k, v in _EVALUATOR.items() if k != "config_digest"}},
+        {"name": "evaluator_helper_digests_omitted", "kind": "evaluator_version",
+         "description": "helper_digests omitted ({} is how to say 'none').",
+         "manifest": {k: v for k, v in _EVALUATOR.items() if k != "helper_digests"}},
         {"name": "evaluator_judge_omitted", "kind": "evaluator_version",
          "description": "judge key omitted (must be explicit null for a model-free evaluator).",
          "manifest": {k: v for k, v in _EVALUATOR.items() if k != "judge"}},
@@ -608,6 +650,7 @@ def build_vectors() -> dict[str, Any]:
         "multisets": multisets,
         "inclusion_proofs": proofs,
         "rejections": rejections,
+        "json_text_accepted": json_text_accepted,
         "agent_builds": [
             {"name": name, "description": description, "manifest": manifest,
              "expect": {"build_digest": ei.compute_agent_build_digest(manifest),

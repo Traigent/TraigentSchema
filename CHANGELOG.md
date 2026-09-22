@@ -21,10 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `evaluated_root` = RFC 9162 Merkle tree hash over sorted `[example_id, example_version, count]`
   leaves (order-free, duplicates counted, conflicting versions reported); RFC 9162 inclusion
   proofs that verify without any key; opt-in unkeyed `exu1` digest for public-benchmark
-  contamination checks; unkeyed agent `build_digest` (a dirty `code_revision` requires
-  `source_digest`). Canonicalization is jcs_v1 plus one rule stricter than fp2: any number,
+  contamination checks; unkeyed agent `build_digest` over a manifest that must cover code,
+  prompts, helper modules, tool definitions and the candidate configuration, with a `coverage`
+  declaration (only `complete` is certifiable; a dirty `code_revision` requires `source_digest`);
+  unkeyed `evaluator_version_digest` over efp2 code + judge + objective set + dependencies;
+  `record_state` draft/complete on run bindings and dataset identities (only complete is
+  certifiable); normative issuer rules R1-R7 binding only server-recorded linkage (ID1). Canonicalization is jcs_v1 plus one rule stricter than fp2: any number,
   float included, with |v| > 2^53-1 is rejected so JS and Python cannot diverge. New additive schemas (no consumer yet):
   `datasets/content_identity_v1_schema.json`, `agents/agent_version_manifest_v1_schema.json`,
+  `evaluation/evaluator_version_manifest_v1_schema.json`,
   `execution/run_identity_binding_v1_schema.json`. Nothing existing changes:
   `DatasetVersionV1.content_digest`, fp2 and every certification contract are untouched.
 - **`POST /api/v1/model-parameters` and the two `/api/v1/example-sets` reads are now

@@ -12,6 +12,7 @@ which the Backend and SDKs implement in follow-up PRs.
 | Vector generator / freshness check | `scripts/generate_content_identity_v1_vectors.py --check` |
 | Example / dataset / trial / proof wire shapes | `traigent_schema/schemas/datasets/content_identity_v1_schema.json` |
 | Agent version manifest | `traigent_schema/schemas/agents/agent_version_manifest_v1_schema.json` |
+| Evaluator version manifest | `traigent_schema/schemas/evaluation/evaluator_version_manifest_v1_schema.json` |
 | Run identity binding (what a certificate binds) | `traigent_schema/schemas/execution/run_identity_binding_v1_schema.json` |
 | Tests (known answers, properties, conformance) | `tests/test_example_identity.py` |
 
@@ -33,7 +34,7 @@ match.
 | Dataset | `dataset_id` (Backend, a name) | `dataset_root` = order-free **multiset** Merkle root over `(example_id, example_version, count)` | same as examples |
 | Trial's evaluated examples | the trial | `evaluated_root` + member list, same construction | the process that ran the trial |
 | Agent | `agent_id`, declared and **project-owned** (Backend) | `build_digest` over a build manifest, plus per-trial **observed** provider versions | SDK computes, Backend records |
-| Evaluator | `evaluator_id` (Backend definition or declared) | judge-config digest / efp2, **witnessed at scoring time** | Backend (registered) / SDK (local) |
+| Evaluator | `evaluator_id` (Backend definition or declared) | `evaluator_version_digest` over code (efp2) + judge + objective set + dependencies, **witnessed at scoring time** | Backend (registered) / SDK (local) |
 | Run | `run_id` | the run identity binding (section 10) | Backend |
 | Agent head (what is served) | `(tenant, project, agent, environment)` | monotonic `generation`, advanced only by compare-and-set | Backend (Director contract) |
 
@@ -53,8 +54,13 @@ content-identity vectors pin all of it:
   - Why: once JavaScript has parsed `9007199254740993` or `9007199254740993.0`, it holds
     `9007199254740992`. Accepting any number beyond the safe range would let Python and JS
     hash different values for the same text.
-  - Both runtimes enforce this one check, on the parsed text and on in-memory values:
-    `abs(v) <= 2^53 − 1`. In JS that is `Math.abs(v) <= Number.MAX_SAFE_INTEGER`.
+  - **On JSON text**, the check applies to the literal's **exact decimal value, before
+    rounding** (relay decision E). `9007199254740991.1` is rejected even though it rounds to
+    `9007199254740991.0`. Python compares `Decimal(literal)`. A JS strict parser must compare
+    the literal's digits, not the rounded `Number`.
+  - **On in-memory values**, which have already been rounded, the check is
+    `abs(v) <= 2^53 − 1`. In JS that is `Math.abs(v) <= Number.MAX_SAFE_INTEGER`. A value that
+    was rounded *before* it reached the producer cannot be detected.
   - `9007199254740991.0` is accepted and hashes like the integer `9007199254740991`.
 - Non-plain types (subclasses, dates, bytes, sets, class instances) → **reject**.
 - Nesting deeper than 100 containers → **reject** (fp2's limit, counting the outermost
@@ -69,14 +75,15 @@ content-identity vectors pin all of it:
 
 **Duplicate object keys** exist only in JSON *text*. Any producer that parses JSON text before
 hashing MUST use a strict parser that rejects duplicate keys, `NaN`/`Infinity` literals, and
-integer literals beyond ±(2^53 − 1). The Python reference is `parse_strict_json`. JavaScript's
+number literals whose exact decimal value is beyond ±(2^53 − 1). The Python reference is `parse_strict_json`. JavaScript's
 `JSON.parse` silently keeps the last duplicate and rounds big numbers, so the JS SDK needs its
 own strict parser (or `JSON.parse` with source-text access where the runtime provides it). The
-`json_text` rejection vectors pin this. They cover:
+`json_text` rejection vectors pin this, and `example_input` rejection vectors pin the in-memory
+check (`{"a": 1e16}`, `{"a": 9007199254740992}`). The `json_text` vectors cover:
 
 - duplicate keys;
 - `NaN` and `Infinity` literals, and `1e400`;
-- `2^53`, `2^53 + 1`, `-2^53`, `9007199254740993.0` and `1e16`;
+- `2^53`, `2^53 + 1`, `-2^53`, `9007199254740993.0`, `1e16` and `9007199254740991.1`;
 - a lone surrogate in a value, and one in a key.
 
 Known false equality, inherited from fp2 and impossible to close across languages: `1` and
@@ -99,11 +106,19 @@ kid            = "k" + hex(HKDF-Expand(PRK, info("traigent.content_identity.key_
 
 - HKDF is RFC 5869 with SHA-256. The tests check the implementation against RFC 5869 test
   cases A.1 and A.3.
+- **Full-string matching.** Every identifier and `tenant_id` pattern is matched against the
+  whole string (Python `re.fullmatch`; in JSON Schema, the portable end anchor `(?![\s\S])`).
+  A trailing newline is rejected (relay decision E). A plain `$` also matches before a final
+  `\n` in Python, which would create a second spelling of one id.
 - `kid` is public. It names the key version inside every identifier, so an id minted under a
   rotated key can never be mistaken for one minted under the old key, and a verifier holding
   the wrong key version finds out immediately. It is derived rather than assigned, so no
   registry is needed to produce it. Human-readable key labels belong in the key registry
   (section 12), not in ids.
+- **`kid` is probabilistic** (64 bits; relay decision G). It is only unique within a tenant
+  with high probability. Key lookups are therefore always **tenant-scoped** (`(tenant_id, kid)`,
+  never `kid` alone). A `kid` collision among one tenant's key versions is a **hard error at
+  key creation**: the Backend discards the new master and generates another.
 - The master must be exactly 32 bytes and SHOULD be unique per tenant (ruling D1).
 - The tenant id is bound into every HKDF `info` (review item F2, adopted 2026-09-23). If a
   master is ever reused by mistake across two tenants, their keys, `kid`s and ids are still
@@ -151,8 +166,8 @@ part. The projection strips them. The primitive `compute_example_version` **reje
 caller that skipped the projection fails loudly. The alternative would be a version that
 changes every time someone re-tags a row.
 
-`context, example_id, external_id, source_ref, tags, split, splits, difficulty, confidence,
-status, score, explanation, created_at, updated_at`
+`context, example_id, external_id, source_ref, supersedes, tags, split, splits, difficulty,
+confidence, status, score, explanation, created_at, updated_at`
 
 This list extends the annotation exclusions of `DatasetVersionV1`: tags, explanation,
 difficulty, confidence, status and score.
@@ -205,7 +220,13 @@ MTH(D[n]) = SHA-256(0x01 || MTH(D[0:k]) || MTH(D[k:n])),  k = largest power of t
 - **A multiset.** A repeated pair is merged into `count`, so `[a, a, b]` and `[(a, 2), b]` give
   the same root, and that root differs from `[a, b]`. Duplicates are never silently collapsed,
   which is the MLflow failure recorded in the survey.
-- **One key version per root.** Members minted under different `kid`s are rejected.
+- **One key version per root, checked everywhere** (relay decision G). The `kid` is,
+  normatively, the **second colon-separated field** of every `ex1:`, `exv1:` and `msr1:`
+  identifier (`key_id_of` in the reference). A consumer MUST check that it equals the record's
+  `key_id` for the record, for every root it carries (`dataset_root`, `evaluated_root`), and for
+  every member's id and version. Members minted under different `kid`s are rejected.
+- **Counts are bounded.** Each member's `count` and the multiset's `total_count` are at most
+  2^53 − 1 (relay decision E). Summing past that bound is rejected.
 - **Conflicting labels.** If one `example_id` appears with more than one `example_version`, the
   root is still defined, but the producer MUST warn and MUST report the ids in
   `conflicting_example_ids`. Paired comparisons exclude those ids (section 13).
@@ -275,6 +296,13 @@ shown with `is_sub_multiset` over the member lists, not with a log proof.
   - the DVC `.dir` md5;
   - the MLflow `digest`.
 
+- `supersedes`: the `example_id` this example replaces (relay decision H). A typo fix changes
+  the input, and so the id; `supersedes` keeps the lineage visible.
+  - It is an annotation on `ExampleIdentityV1` and never hashed.
+  - It is a reserved metadata key, so the projection strips it.
+  - The `with_annotations` vector proves that `external_id`, `source_ref` and `supersedes`
+    change neither `example_id` nor `example_version`.
+
 These fields let a Traigent root be mapped back to the source platform's own version handle.
 Identity still comes from content, never from them.
 
@@ -290,15 +318,29 @@ Identity still comes from content, never from them.
     splits an agent's history whenever a knob is added. The SDKs MUST warn when `agent_name` is
     absent.
 - **Version: `build_digest`.** It is `"sha256:" + hex(SHA-256(UTF8("traigent.content_identity.agent_build.v1") || 0x00 || jcs_v1(AgentBuildManifestV1)))`.
-  - The manifest must contain at least one of `code_revision` (full git commit plus a `dirty`
-    flag) or `source_digest` (afp2).
-  - When `code_revision.dirty` is true, `source_digest` is **required**. Otherwise two
-    different uncommitted trees on one commit would share a `build_digest`. The schema
-    enforces this with `if`/`then`, `compute_agent_build_digest` enforces it too, and a
-    rejection vector pins it.
-  - It may also contain `dependency_lock_digest`, `asset_digests` (prompts and tool specs that
-    live outside the function), `applied_config_digest`, `label` and `runtime`.
-  - It is unkeyed, because the manifest holds only digests and version strings.
+  It is unkeyed, because the manifest holds only digests and version strings. The manifest MUST
+  commit to the **full behaviour-affecting surface** (relay decision A, section 16):
+  - **Code:** `code_revision` (a full git commit plus a `dirty` flag) and/or `source_digest`
+    (afp2). When `dirty` is true, `source_digest` is **required**; otherwise two different
+    uncommitted trees on one commit would share a `build_digest`.
+  - **Assets, all three categories required:** `asset_digests.prompts`,
+    `asset_digests.helper_modules` (project source the agent imports) and
+    `asset_digests.tool_definitions` (tool, function-calling and retriever specs). Each is a map
+    from a stable name to a `sha256:` digest. An empty map `{}` asserts that the category is
+    empty; it is not the same as "unknown".
+  - **Candidate configuration, required:** `applied_config_digest`. That is the trial's
+    configuration for a candidate, the promoted one for a head, or the default for a base
+    build (the digest of `{}` when there are no knobs).
+  - **Coverage, required:** `coverage` is `complete` or `partial`. `partial` admits that some
+    behaviour-affecting input is missing, for example a helper the SDK could not locate. A
+    partial manifest still gets a `build_digest`, which is useful for history and comparison.
+    It is **not certifiable**:
+    - the schema's `CertifiableAgentBuildManifestV1` requires `coverage: "complete"`;
+    - `compute_agent_build_digest(manifest, certifiable=True)` rejects it;
+    - the vectors pin both.
+  - Optional fields: `dependency_lock_digest`, `label` and `runtime`.
+  - Changing only a helper module, only a prompt, only a tool definition, or only the
+    configuration changes `build_digest` (the `agent_builds` vectors).
   - Relabelling produces a new version by design, so a label can never be moved onto different
     bits.
 - **Observed provider versions** are recorded per trial from provider *responses*: requested
@@ -313,27 +355,51 @@ Identity still comes from content, never from them.
 
 - **Identity:** `evaluator_id`, the Backend evaluator definition, or a declared name for an
   SDK-local metric set.
-- **Version:**
-  - For a registered judge, the existing `EvaluatorVersionV1.judge_config_digest`.
-  - For a local evaluator, the fp2 `efp2` digest. The objective set (name, orientation, weight)
-    should be folded into it, per the Director map, gap G7.
-- **Resolution:** a run records `witnessed_at_scoring` only when the scorer reported the version
-  it actually executed. Today the Backend records the version *declared* at session start
-  (`experiment_run_identity_snapshot`), and certification never reads it. A certificate MUST NOT
-  make an evaluator-version claim from a declared-only binding.
+- **Version: `evaluator_version_digest`** (relay decision B). It is
+  `"sha256:" + hex(SHA-256(UTF8("traigent.content_identity.evaluator_version.v1") || 0x00 || jcs_v1(EvaluatorVersionManifestV1)))`,
+  defined by `schemas/evaluation/evaluator_version_manifest_v1_schema.json` and computed by
+  `compute_evaluator_version_digest`. The manifest commits to everything that changes a score:
+  - `code_digest`: the fp2 **efp2** digest of the evaluator code. fp2 and efp2 are consumed
+    here, not changed.
+  - `judge`: `{provider, model, config_digest}`, or an **explicit `null`** for a model-free
+    evaluator. Omitting the field is rejected. For a registered judge, `config_digest` is the
+    existing `EvaluatorVersionV1.judge_config_digest`.
+  - `objectives`: the objective set, as `{name, orientation, weight}`. It MUST be sorted by
+    `name` with unique names, and anything else is rejected, so that one set has exactly one
+    spelling. This closes Director map gap G7.
+  - `dependency_versions`: behaviour-affecting dependency versions. `{}` asserts none.
+  - Changing an objective's orientation or weight, the judge model, the judge configuration, a
+    dependency or the code changes the digest (the `evaluator_versions` vectors).
+- **Resolution:** a run records `witnessed_at_scoring` only when the **server** observed the
+  version that actually scored (section 11, rule R5). Today the Backend records the version
+  *declared* at session start (`experiment_run_identity_snapshot`), and certification never
+  reads it.
 
 ## 10. Runs, trials, candidates and promotion
 
-A run records one `RunIdentityBindingV1`:
+A run records one `RunIdentityBindingV1` with a `record_state` (relay decision C):
 
-- the base `agent` version;
-- `base_head_generation`, the agent head generation captured when the run **starts**;
-- the `dataset` (`DatasetIdentityV1` with `dataset_root`) and, optionally, a separate
-  `search_set`;
-- the `evaluator` binding;
+- **`draft`**: still being assembled. It may lack any linkage and is **never certifiable**.
+- **`complete`**: the schema's `if`/`then` requires all of the following:
+  - `base_head_generation`;
+  - a certifiable base `agent`: its manifest is inlined and has `coverage: "complete"`;
+  - a `dataset` whose own `record_state` is `complete`;
+  - an inlined evaluator `manifest`;
+  - at least one trial, and a certifiable `candidate` on every trial.
+- **Only `complete` records are certifiable.**
+
+`DatasetIdentityV1` carries its own `record_state`. Like `EvaluatedSetV1`, it carries its
+members either inline or by reference, exactly one of the two (`oneOf(members | members_ref)`).
+A consumer MUST obtain the list and recompute the root.
+
+The record contains:
+
+- the base `agent` version and `base_head_generation`, the agent head generation captured when
+  the run **starts**;
+- the `dataset` and, optionally, a separate `search_set`;
+- the `evaluator` binding: `version_digest`, `resolution` and the manifest;
 - for each trial:
-  - `evaluated`: an `EvaluatedSetV1` with `evaluated_root`, the counts, and `members` or
-    `members_ref`;
+  - `evaluated`: an `EvaluatedSetV1`;
   - `candidate`: the agent version this trial's configuration defines;
   - `observed_provider_versions`.
 
@@ -357,22 +423,54 @@ matches them):**
 
 ## 11. What certificates will bind
 
-This is the input to the certificate contract revision. It is not implemented in this PR, and
-the frozen v0 and v1 certificate families are untouched. An issuer-signed certificate about a
-candidate binds:
+This section is **normative** for the certificate contract revision (relay decision D). The
+issuer implements it in milestones M3 and M4; it is not implemented in this PR, and the frozen
+v0 and v1 certificate families are untouched.
 
-1. The `scheme` (`traigent.content_identity.v1`) and the `kid`, so a verifier knows which key
-   version the ids are under.
+**Provenance labels.** Every identity fact in a run binding comes from one of two sources:
+
+- **server-recorded**: the Backend itself created or observed the fact. Examples are run and
+  trial rows it minted, candidate linkage it persisted when the trial was registered, roots it
+  recomputed from member lists it stores, and an evaluator version it observed when scoring.
+- **declared**: a client sent the fact and the server could not witness it. Examples are an
+  SDK-computed root with no stored member list, a client-asserted candidate, and an evaluator
+  version declared at session start.
+
+The certificate MUST label every bound fact with its source. **Declared facts cannot satisfy
+ID1.** A certificate may carry them only as labelled declarations, never as issuer-attested
+claims.
+
+**What the issuer binds.** It binds only server-recorded linkage and server-witnessed evaluator
+versions:
+
+1. The `scheme` (`traigent.content_identity.v1`) and the `kid`.
 2. `agent_id` and the candidate `build_digest`, plus the base `build_digest` and
-   `base_head_generation`.
+   `base_head_generation`. Each is recomputed from the inlined, certifiable manifest.
 3. `dataset_id`, `dataset_root`, `distinct_count`, `total_count` and `conflicting_example_ids`.
-   A non-empty conflict list must be disclosed.
-4. For every trial on the claimed front: `trial_id`, `evaluated_root`, its counts,
+   The root is recomputed from the stored member list. A non-empty conflict list is disclosed.
+4. For every trial on the claimed front: `trial_id`, `evaluated_root` (recomputed), its counts,
    `repetition`, and the observed provider versions.
-5. The evaluator id, its version digest, and `resolution`. Only `witnessed_at_scoring` may
-   support an evaluator claim.
+5. The evaluator id and its `evaluator_version_digest` (recomputed from the inlined manifest),
+   with `resolution = witnessed_at_scoring`.
 6. For selection-versus-evaluation claims: the search-set root and the size of the
    `example_id` overlap (section 13). Zero is itself the claim.
+
+**Issuer rejection rules.** The issuer MUST refuse to issue if any of the following holds:
+
+- **R1:** `record_state` of the run binding, or of its dataset identity, is not `complete`.
+- **R2:** any agent or candidate manifest is not certifiable (`coverage != complete`), or its
+  recomputed `build_digest` differs from the recorded one.
+- **R3:** any root recomputed from the server-stored member list differs from the recorded root.
+  The same applies when the member list is not server-stored (the root is then only declared).
+- **R4:** the run–trial–candidate linkage is not server-recorded, for example a candidate
+  asserted only by the client.
+- **R5:** the evaluator claim rests on `resolution = declared_at_session_start`, or on a
+  `version_digest` that does not recompute from the inlined manifest. The certificate may still
+  carry the declared version, labelled as declared, but makes no evaluator-version claim.
+- **R6:** the `kid` check fails. The kid of the record, of every root, and of every member id
+  and version (section 5) must equal the record's `key_id`.
+- **R7:** the front trials do not share one `dataset_root` and one `evaluator_version_digest`.
+  That is ID2.
 
 Relying parties can then check, **without any tenant key**:
 
@@ -380,14 +478,14 @@ Relying parties can then check, **without any tenant key**:
   proof whose `tree_size` equals the signed `distinct_count`;
 - that two certificates used the same dataset (equal roots under the same `kid`).
 
-This makes the model-checking properties proposed in CONSOLIDATED concrete:
+Model-checking properties:
 
-- **ID1** (certificate identities resolve to server records that actually ran): the roots and
-  build digests in the certificate equal those in the run binding.
-- **ID2** (the claimed front shares one dataset and one evaluator version): every front trial
-  has the same `dataset_root` and the same evaluator digest.
+- **ID1** (certificate identities resolve to server records that actually ran): every
+  issuer-attested root, build digest and evaluator digest equals a server-recorded value. R1–R5
+  enforce it, and declared facts never count.
+- **ID2** (the claimed front shares one dataset and one evaluator version): R7.
 - **ID3** (promotion CAS: at most one accepted successor per generation, candidates never lost):
-  generation compare-and-set.
+  generation compare-and-set (Director item 2).
 
 ---
 
@@ -448,7 +546,8 @@ Custody, rotation and the public-digest opt-in are settled by the owner rulings 
 
 1. **An edited input is a new example.** `example_id` hashes the input, so fixing a typo in a
    prompt mints a new id, and history across that edit is not joined automatically. Lineage
-   across input edits needs an explicit link: `external_id`, or a future `supersedes` record.
+   across input edits needs an explicit link: `external_id`, or the `supersedes` annotation
+   (section 7).
    The Director synthesis recommended an assigned id plus a separate content digest for exactly
    this reason. The owner ruled for the hash, and this is its price.
 2. **Low-entropy inputs are guessable by key holders** (section 14).
@@ -463,10 +562,17 @@ Custody, rotation and the public-digest opt-in are settled by the owner rulings 
    or a receipt witnesses them. That is the same limit the certificate ledger already has.
 7. **Tree size comes from the signed record, not the proof** (section 6).
 8. **No consistency proofs.** Sorted multisets are not append-only.
-9. **JS strict parsing.** JS cannot tell an integer from a float in memory, so the big-integer
-   rule is enforceable only where JSON text is parsed (section 2).
+9. **Number range before rounding is a text-only check.** Once a value has been rounded, for
+   example `9007199254740991.1` to `9007199254740991.0`, or a JS `Number` that has lost
+   precision, the original is gone. The exact-decimal rule is therefore enforceable only where
+   JSON text is parsed (section 2). In-memory values get the post-rounding check.
 10. **Performance.** Building a proof recomputes subtrees, which is O(n log n). That is fine for
     evaluation datasets. Millions of rows would want a cached tree.
+11. **Coverage and completeness are declarations.** `coverage: "complete"` is the producer's
+    claim that every behaviour-affecting input is in the agent manifest. Nothing offline can
+    prove the absence of an unlisted helper or prompt. The certifiable gate ensures that the
+    claim was *made*, not that it is *true*. An issuer can strengthen it only with its own
+    evidence, for example by rebuilding from `code_revision` when `dirty` is false.
 
 ## 16. Owner rulings (2026-09-23)
 
@@ -498,6 +604,39 @@ a tenant admin. It gates the unkeyed `exu1` digest.
   `^[A-Za-z0-9_-]{1,128}$`) is now a cross-SDK agreement point. The SDKs receive it from the
   Backend together with the purpose keys and never construct it themselves.
 
+### Relay decisions 2026-09-23 (owner-delegated)
+
+The owner was unavailable and delegated these decisions to the relay coordinator. They come
+from the milestone M1 reviews: astra BLOCK, and Fable APPROVE with must-fixes. Each is recorded
+here as a relay decision, 2026-09-23 (owner-delegated).
+
+- **A: agent version coverage** (astra P1-1). `asset_digests` is required, with three
+  categories: prompts, helper modules and tool definitions. `applied_config_digest` is required.
+  `coverage` is required, `complete` or `partial`, and only `complete` is certifiable
+  (section 8).
+- **B: evaluator version** (astra P1-2, Fable M2). `EvaluatorVersionManifestV1` and
+  `evaluator_version_digest` are defined in this spec, covering efp2 code, judge, objectives and
+  dependencies. fp2 and efp2 are unchanged (section 9).
+- **C: complete versus draft** (astra P1-3, Fable F2/F5). `record_state` is added to the run
+  binding and to the dataset identity. A `complete` record requires `base_head_generation` and
+  every candidate. `DatasetIdentityV1` gets `oneOf(members | members_ref)`. Only `complete`
+  records are certifiable (section 10).
+- **D: ID1 linkage** (astra P1-4). The issuer binds only server-recorded linkage and
+  server-witnessed evaluator versions. Declared facts are labelled and cannot satisfy ID1.
+  Issuer rejection rules R1–R7 apply (section 11). Implemented in M3/M4.
+- **E: validation** (astra P2).
+  - Full-string matching for `tenant_id` and every identifier pattern.
+  - Number literals are judged by their exact decimal value before rounding.
+  - `total_count` ≤ 2^53 − 1.
+  - Rejection vectors pin each rule (sections 2, 3 and 5).
+- **F: in-memory big numbers** (Fable F1). `example_input` rejection vectors for `1e16` and
+  `2^53`.
+- **G: kid** (Fable F3, astra P3). The kid is the second colon field. Consumers check it on the
+  record, the roots and every member. Lookups are tenant-scoped, and a collision is a hard error
+  at key creation (sections 3 and 5).
+- **H: `supersedes`** (Fable F4). An optional annotation, never hashed, pinned by a vector
+  (section 7).
+
 ## 17. What each implementation must do next
 
 The rule for every implementation: pass **every** section of
@@ -515,8 +654,13 @@ is `tests/test_example_identity.py` ("Conformance vectors").
    `example_id`, and keep a user-supplied id as `external_id`.
 3. Record `evaluated_root` and members for each trial, with repetitions kept separate from
    counts.
-4. Emit `AgentBuildManifestV1` and `build_digest`. Capture observed provider versions from
-   responses.
+4. Emit `AgentBuildManifestV1` and `build_digest`:
+   - all three asset categories (prompts, helper modules, tool definitions);
+   - `applied_config_digest`;
+   - an honest `coverage`: `partial` whenever a behaviour-affecting file could not be located.
+
+   Emit `EvaluatorVersionManifestV1` and `evaluator_version_digest`. Capture observed provider
+   versions from responses.
 5. Stop auto-applying winners (Director item 1). Capture `base_head_generation` at step start
    (Director item 2).
 
@@ -535,9 +679,12 @@ is `tests/test_example_identity.py` ("Conformance vectors").
    `(tenant, kid, status, created_at)`.
 2. Compute ids and `dataset_root` for hosted datasets. Store `dataset_root` on
    `dataset_versions`. Resolve a run's dataset version by root.
-3. Persist `RunIdentityBindingV1` per run, with a member-list store behind `members_ref`.
+3. Persist `RunIdentityBindingV1` per run with a `record_state`, and a member-list store behind
+   `members_ref` for both datasets and trials. Record run, trial and candidate linkage
+   server-side, and label every fact server-recorded or declared (section 11).
 4. Resolve evaluator versions **at scoring time** (`witnessed_at_scoring`).
 5. Make agents project-owned.
 6. Add the agent-head generation compare-and-set (Director item 2).
-7. Revise the certificate contract to bind section 11. Add ID1 through ID3 to the model-checking
+7. Revise the certificate contract to bind section 11 and enforce issuer rules R1–R7
+   (milestones M3/M4). Add ID1 through ID3 to the model-checking
    contract.

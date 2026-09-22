@@ -14,7 +14,7 @@ Three kinds of evidence, deliberately separated:
    file is exactly what the generator emits.
 
 Schemas exercised here: content_identity_v1_schema, agent_version_manifest_v1_schema,
-run_identity_binding_v1_schema.
+run_identity_binding_v1_schema, evaluator_version_manifest_v1_schema.
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ SCHEMAS = ROOT / "traigent_schema" / "schemas"
 CONTENT_SCHEMA_PATH = SCHEMAS / "datasets" / "content_identity_v1_schema.json"
 AGENT_SCHEMA_PATH = SCHEMAS / "agents" / "agent_version_manifest_v1_schema.json"
 RUN_SCHEMA_PATH = SCHEMAS / "execution" / "run_identity_binding_v1_schema.json"
+EVALUATOR_SCHEMA_PATH = SCHEMAS / "evaluation" / "evaluator_version_manifest_v1_schema.json"
 VECTORS = json.loads(
     resources.files("traigent_schema")
     .joinpath("data", "content_identity_v1_vectors.json")
@@ -464,16 +465,60 @@ def test_rejection_vectors(case: dict[str, Any]) -> None:
             ei.compute_example_id(KEYS_A, case["input"])
         elif kind == "agent_build":
             ei.compute_agent_build_digest(case["manifest"])
+        elif kind == "agent_build_certifiable":
+            ei.compute_agent_build_digest(case["manifest"], certifiable=True)
+        elif kind == "evaluator_version":
+            ei.compute_evaluator_version_digest(case["manifest"])
         else:  # pragma: no cover - a new kind must be wired here
             pytest.fail(f"unknown rejection kind {kind}")
 
 
 @pytest.mark.parametrize("case", VECTORS["agent_builds"], ids=lambda c: c["name"])
 def test_agent_build_vectors(case: dict[str, Any]) -> None:
-    assert ei.compute_agent_build_digest(case["manifest"]) == case["expect"]["build_digest"]
-    assert not list(
-        _validator(AGENT_SCHEMA_PATH, "AgentBuildManifestV1").iter_errors(case["manifest"])
+    manifest = case["manifest"]
+    assert ei.compute_agent_build_digest(manifest) == case["expect"]["build_digest"]
+    assert not list(_validator(AGENT_SCHEMA_PATH, "AgentBuildManifestV1").iter_errors(manifest))
+    certifiable_errors = list(
+        _validator(AGENT_SCHEMA_PATH, "CertifiableAgentBuildManifestV1").iter_errors(manifest)
     )
+    if case["expect"]["certifiable"]:
+        assert not certifiable_errors
+        assert ei.compute_agent_build_digest(manifest, certifiable=True) == (
+            case["expect"]["build_digest"]
+        )
+    else:
+        assert certifiable_errors
+        with pytest.raises(ei.ContentIdentityError):
+            ei.compute_agent_build_digest(manifest, certifiable=True)
+
+
+def test_every_behaviour_input_changes_the_build_digest() -> None:
+    digests = {c["name"]: c["expect"]["build_digest"] for c in VECTORS["agent_builds"]}
+    assert digests["full"] == digests["full_reordered"]
+    for name in ("config_changed", "helper_changed", "prompt_changed", "tool_changed",
+                 "relabelled", "partial_coverage"):
+        assert digests[name] != digests["full"], name
+
+
+@pytest.mark.parametrize("case", VECTORS["evaluator_versions"], ids=lambda c: c["name"])
+def test_evaluator_version_vectors(case: dict[str, Any]) -> None:
+    manifest = case["manifest"]
+    assert (
+        ei.compute_evaluator_version_digest(manifest)
+        == case["expect"]["evaluator_version_digest"]
+    )
+    validator = _validator(EVALUATOR_SCHEMA_PATH, "EvaluatorVersionManifestV1")
+    assert not list(validator.iter_errors(manifest))
+
+
+def test_every_score_input_changes_the_evaluator_digest() -> None:
+    digests = {
+        c["name"]: c["expect"]["evaluator_version_digest"] for c in VECTORS["evaluator_versions"]
+    }
+    assert digests["base"] == digests["base_reordered_keys"]
+    for name in ("orientation_changed", "weight_changed", "judge_model_changed",
+                 "judge_config_changed", "dependency_changed", "code_changed", "model_free"):
+        assert digests[name] != digests["base"], name
 
 
 # ---------------------------------------------------------------------------
@@ -481,14 +526,19 @@ def test_agent_build_vectors(case: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", [CONTENT_SCHEMA_PATH, AGENT_SCHEMA_PATH, RUN_SCHEMA_PATH])
+@pytest.mark.parametrize(
+    "path", [CONTENT_SCHEMA_PATH, AGENT_SCHEMA_PATH, RUN_SCHEMA_PATH, EVALUATOR_SCHEMA_PATH]
+)
 def test_new_schemas_are_meta_valid(path: Path) -> None:
     Draft7Validator.check_schema(json.loads(path.read_text(encoding="utf-8")))
 
 
-def _dataset_identity(root: ei.MultisetRoot, *, members: bool = True) -> dict[str, Any]:
+def _dataset_identity(
+    root: ei.MultisetRoot, *, members: bool = True, record_state: str = "complete"
+) -> dict[str, Any]:
     record: dict[str, Any] = {
         "scheme": ei.SCHEME,
+        "record_state": record_state,
         "key_id": root.key_id,
         "dataset_root": root.root,
         "distinct_count": root.distinct_count,
@@ -500,6 +550,8 @@ def _dataset_identity(root: ei.MultisetRoot, *, members: bool = True) -> dict[st
             {"example_id": m.example_id, "example_version": m.example_version, "count": m.count}
             for m in root.members
         ]
+    else:
+        record["members_ref"] = "blob://dataset/members"
     return record
 
 
@@ -521,22 +573,41 @@ def test_reference_outputs_validate_against_the_schemas() -> None:
         "root": proof.root,
     }
     assert not list(_validator(CONTENT_SCHEMA_PATH, "InclusionProofV1").iter_errors(proof_record))
+    binding = _complete_binding(dataset_record, dataset.root, evaluated)
+    errors = list(_validator(RUN_SCHEMA_PATH, "RunIdentityBindingV1").iter_errors(binding))
+    assert not errors, [e.message for e in errors]
+
+
+def _agent_version(manifest: dict[str, Any]) -> dict[str, Any]:
+    return {"agent_id": manifest["agent_id"],
+            "build_digest": ei.compute_agent_build_digest(manifest),
+            "manifest": manifest}
+
+
+def _complete_binding(
+    dataset_record: dict[str, Any], dataset_root: str, evaluated: ei.MultisetRoot
+) -> dict[str, Any]:
     manifest = VECTORS["agent_builds"][0]["manifest"]
-    binding = {
+    candidate = next(c["manifest"] for c in VECTORS["agent_builds"]
+                     if c["name"] == "config_changed")
+    evaluator = VECTORS["evaluator_versions"][0]["manifest"]
+    return {
         "scheme": ei.SCHEME,
+        "record_state": "complete",
         "run_id": "run_1",
-        "agent": {"agent_id": "agent_0001",
-                  "build_digest": ei.compute_agent_build_digest(manifest),
-                  "manifest": manifest},
+        "agent": _agent_version(manifest),
         "base_head_generation": 3,
         "dataset": dataset_record,
-        "evaluator": {"evaluator_id": "ev_1", "version_digest": "sha256:" + "ab" * 32,
-                      "resolution": "witnessed_at_scoring"},
+        "evaluator": {"evaluator_id": evaluator["evaluator_id"],
+                      "version_digest": ei.compute_evaluator_version_digest(evaluator),
+                      "resolution": "witnessed_at_scoring",
+                      "manifest": evaluator},
         "trials": [{
             "trial_id": "trial_1",
+            "candidate": _agent_version(candidate),
             "evaluated": {
                 "scheme": ei.SCHEME, "trial_id": "trial_1", "repetition": 0,
-                "key_id": evaluated.key_id, "dataset_root": dataset.root,
+                "key_id": evaluated.key_id, "dataset_root": dataset_root,
                 "evaluated_root": evaluated.root, "distinct_count": evaluated.distinct_count,
                 "total_count": evaluated.total_count, "members_ref": "blob://trial_1/members",
             },
@@ -546,8 +617,123 @@ def test_reference_outputs_validate_against_the_schemas() -> None:
             }],
         }],
     }
-    errors = list(_validator(RUN_SCHEMA_PATH, "RunIdentityBindingV1").iter_errors(binding))
-    assert not errors, [e.message for e in errors]
+
+
+def _break(binding: dict[str, Any], how: str) -> dict[str, Any]:
+    broken = json.loads(json.dumps(binding))
+    if how == "no_base_head_generation":
+        del broken["base_head_generation"]
+    elif how == "no_candidate":
+        del broken["trials"][0]["candidate"]
+    elif how == "partial_agent":
+        broken["agent"]["manifest"]["coverage"] = "partial"
+    elif how == "partial_candidate":
+        broken["trials"][0]["candidate"]["manifest"]["coverage"] = "partial"
+    elif how == "agent_manifest_not_inlined":
+        del broken["agent"]["manifest"]
+    elif how == "draft_dataset":
+        broken["dataset"]["record_state"] = "draft"
+    elif how == "evaluator_manifest_not_inlined":
+        del broken["evaluator"]["manifest"]
+    elif how == "no_trials":
+        broken["trials"] = []
+    return broken
+
+
+_COMPLETE_BREAKS = [
+    "no_base_head_generation", "no_candidate", "partial_agent", "partial_candidate",
+    "agent_manifest_not_inlined", "draft_dataset", "evaluator_manifest_not_inlined", "no_trials",
+]
+
+
+@pytest.mark.parametrize("how", _COMPLETE_BREAKS)
+def test_complete_run_binding_requires_full_linkage(how: str) -> None:
+    pairs = _pairs(3)
+    dataset = ei.compute_multiset_root(pairs)
+    evaluated = ei.compute_multiset_root(pairs[:2])
+    binding = _complete_binding(_dataset_identity(dataset), dataset.root, evaluated)
+    validator = _validator(RUN_SCHEMA_PATH, "RunIdentityBindingV1")
+    assert not list(validator.iter_errors(binding))
+    broken = _break(binding, how)
+    assert list(validator.iter_errors(broken)), how
+    # The same record is acceptable as a DRAFT (never certifiable).
+    broken["record_state"] = "draft"
+    assert not list(validator.iter_errors(broken)), how
+
+
+def test_record_state_is_required() -> None:
+    dataset = ei.compute_multiset_root(_pairs(2))
+    record = _dataset_identity(dataset)
+    del record["record_state"]
+    assert list(_validator(CONTENT_SCHEMA_PATH, "DatasetIdentityV1").iter_errors(record))
+
+
+def test_dataset_identity_members_xor_reference() -> None:
+    dataset = ei.compute_multiset_root(_pairs(2))
+    validator = _validator(CONTENT_SCHEMA_PATH, "DatasetIdentityV1")
+    by_ref = _dataset_identity(dataset, members=False)
+    assert not list(validator.iter_errors(by_ref))
+    both = {**_dataset_identity(dataset), "members_ref": "blob://x"}
+    assert list(validator.iter_errors(both))
+    neither = _dataset_identity(dataset)
+    del neither["members"]
+    assert list(validator.iter_errors(neither))
+
+
+def test_supersedes_is_an_annotation_on_the_example_identity() -> None:
+    old_id = ei.compute_example_id(KEYS_A, {"q": "typo"})
+    new_id, new_version = ei.identify_example(KEYS_A, ei.ExampleProjection(input={"q": "fixed"}))
+    record = {"example_id": new_id, "example_version": new_version, "supersedes": old_id}
+    assert not list(_validator(CONTENT_SCHEMA_PATH, "ExampleIdentityV1").iter_errors(record))
+    assert ei.project_sdk_example({"q": "fixed"}, None, {"supersedes": old_id}).metadata is None
+
+
+@pytest.mark.parametrize(
+    ("definition", "value"),
+    [
+        ("KeyIdV1", KEYS_A.key_id + "\n"),
+        ("ExampleIdV1", ei.compute_example_id(KEYS_A, "q") + "\n"),
+        ("MultisetRootV1", ei.compute_multiset_root([], key_id=KEYS_A.key_id).root + "\n"),
+        ("PublicInputDigestV1", ei.compute_public_input_digest("q") + "\n"),
+        ("Sha256HexV1", "0" * 64 + "\n"),
+    ],
+)
+def test_schema_patterns_reject_a_trailing_newline(definition: str, value: str) -> None:
+    assert list(_validator(CONTENT_SCHEMA_PATH, definition).iter_errors(value))
+    assert not list(_validator(CONTENT_SCHEMA_PATH, definition).iter_errors(value[:-1]))
+
+
+def test_every_pattern_in_the_new_schemas_uses_the_portable_end_anchor() -> None:
+    def patterns(node: Any) -> list[str]:
+        if isinstance(node, dict):
+            found = [v for k, v in node.items() if k == "pattern" and isinstance(v, str)]
+            return found + [p for v in node.values() for p in patterns(v)]
+        if isinstance(node, list):
+            return [p for v in node for p in patterns(v)]
+        return []
+
+    for path in (CONTENT_SCHEMA_PATH, AGENT_SCHEMA_PATH, RUN_SCHEMA_PATH, EVALUATOR_SCHEMA_PATH):
+        for pattern in patterns(json.loads(path.read_text(encoding="utf-8"))):
+            assert pattern.endswith("(?![\\s\\S])"), (path.name, pattern)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        KEYS_A.key_id + "\n",
+        "\n" + ei.compute_example_id(KEYS_A, "q"),
+        ei.compute_example_id(KEYS_A, "q") + "\n",
+    ],
+)
+def test_key_id_of_uses_full_string_matching(value: str) -> None:
+    with pytest.raises(ei.ContentIdentityError):
+        ei.key_id_of(value)
+
+
+def test_key_id_of_is_the_second_colon_field_everywhere() -> None:
+    eid, ver = _pairs(1)[0]
+    root = ei.compute_multiset_root([(eid, ver)])
+    assert ei.key_id_of(eid) == ei.key_id_of(ver) == ei.key_id_of(root.root) == KEYS_A.key_id
 
 
 @pytest.mark.parametrize(
@@ -652,3 +838,14 @@ def test_strict_parser_accepts_the_safe_boundary() -> None:
     assert ei.parse_strict_json("[9007199254740991, 9007199254740991.0, -1e-7]") == [
         2**53 - 1, float(2**53 - 1), -1e-7
     ]
+
+
+@pytest.mark.parametrize("name", ["1accuracy", ".cost", "-x", "a" * 129, "acc\n"])
+def test_objective_names_follow_the_canonical_metric_name_pattern(name: str) -> None:
+    manifest = {**VECTORS["evaluator_versions"][0]["manifest"],
+                "objectives": [{"name": name, "orientation": "maximize", "weight": 1}]}
+    with pytest.raises(ei.ContentIdentityError):
+        ei.compute_evaluator_version_digest(manifest)
+    assert list(
+        _validator(EVALUATOR_SCHEMA_PATH, "EvaluatorVersionManifestV1").iter_errors(manifest)
+    )

@@ -2,12 +2,12 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agents/agent_version_manifest_v1_schema.json",
   "title": "Agent Version Manifest V1",
-  "description": "What an agent version IS under traigent.content_identity.v1. Identity and version are separate: agent_id is a declared, project-owned, server-minted identity that never changes when the code changes; the agent VERSION is the digest of a build manifest (what was built) and is complemented, per trial, by the provider/model versions actually OBSERVED at run time (what ran). build_digest = 'sha256:' + lowercase hex SHA-256(UTF8('traigent.content_identity.agent_build.v1') || 0x00 || jcs_v1(AgentBuildManifestV1)). It is unkeyed: the manifest carries only digests, revisions and version strings, never prompts or user content. Normative text: docs/identity/content-identity-v1.md. Versions decide comparability, never identity (the rule already stated on optimization_endpoints.json agent_id / artifact_versions).",
+  "description": "What an agent version IS under traigent.content_identity.v1. Identity and version are separate: agent_id is a declared, project-owned, server-minted identity that never changes when the code changes; the agent VERSION is the digest of a build manifest (what was built) and is complemented, per trial, by the provider/model versions actually OBSERVED at run time (what ran). build_digest = 'sha256:' + lowercase hex SHA-256(UTF8('traigent.content_identity.agent_build.v1') || 0x00 || jcs_v1(AgentBuildManifestV1)). It is unkeyed: the manifest carries only digests, revisions and version strings, never prompts or user content. Normative text: docs/identity/content-identity-v1.md. Versions decide comparability, never identity (the rule already stated on optimization_endpoints.json agent_id / artifact_versions). Every string pattern in this file ends with the portable end anchor (?![\\s\\S]) instead of $: in Python's re (which Python jsonschema uses) $ also matches before a trailing newline, so '^x$' would accept 'x\\n' -- a second spelling of one identifier. (?![\\s\\S]) means end-of-string in both ECMA-262 and Python.",
   "version": "1.0.0",
   "definitions": {
     "Sha256DigestV1": {
       "type": "string",
-      "pattern": "^sha256:[0-9a-f]{64}$",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
       "description": "'sha256:' + 64 lowercase hex."
     },
     "CodeRevisionV1": {
@@ -28,7 +28,7 @@
         },
         "commit": {
           "type": "string",
-          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])",
           "description": "Full SHA-1 or SHA-256 git object id; abbreviations are not identities."
         },
         "dirty": {
@@ -63,13 +63,16 @@
       }
     },
     "AgentBuildManifestV1": {
-      "description": "The build manifest whose jcs_v1 digest is the agent build version. At least one of code_revision / source_digest MUST be present: a manifest with neither identifies nothing. When code_revision.dirty is true, source_digest is REQUIRED (enforced by if/then here and by compute_agent_build_digest): otherwise two different dirty trees on one commit would share a build_digest. Every field is a digest, a revision or a version string -- no content.",
+      "description": "The build manifest whose jcs_v1 digest is the agent build version. It MUST commit to the full behaviour-affecting surface: code (code_revision and/or source_digest; source_digest REQUIRED when code_revision.dirty is true), asset_digests with ALL THREE categories (prompts, helper_modules, tool_definitions -- an empty map asserts that the category is empty), the candidate configuration (applied_config_digest), and a coverage declaration. coverage='complete' asserts that every behaviour-affecting input is in the manifest; 'partial' admits that something is not (e.g. a helper the SDK could not locate). A partial manifest still yields a build_digest for history and comparison, but is NOT certifiable (CertifiableAgentBuildManifestV1; compute_agent_build_digest(..., certifiable=True)). coverage is a producer declaration: nothing offline can prove completeness. Every field is a digest, a revision or a version string -- no content.",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "manifest_version",
         "agent_id",
-        "runtime"
+        "runtime",
+        "asset_digests",
+        "applied_config_digest",
+        "coverage"
       ],
       "properties": {
         "manifest_version": {
@@ -99,21 +102,63 @@
         },
         "asset_digests": {
           "type": "object",
-          "maxProperties": 256,
-          "propertyNames": {
-            "pattern": "^[A-Za-z0-9_.:/-]{1,128}$"
-          },
-          "additionalProperties": {
-            "$ref": "#/definitions/Sha256DigestV1"
-          },
-          "description": "Digests of prompt templates, tool specs and other files that change behaviour but live outside the decorated function, keyed by a stable asset name."
+          "additionalProperties": false,
+          "required": [
+            "prompts",
+            "helper_modules",
+            "tool_definitions"
+          ],
+          "description": "Digests of every behaviour-affecting file outside the decorated function, keyed by a stable asset name within its category. All three categories are required; {} asserts the category is empty.",
+          "properties": {
+            "prompts": {
+              "type": "object",
+              "maxProperties": 256,
+              "propertyNames": {
+                "pattern": "^[A-Za-z0-9_.:/-]{1,128}(?![\\s\\S])"
+              },
+              "additionalProperties": {
+                "$ref": "#/definitions/Sha256DigestV1"
+              },
+              "description": "Prompt templates and system prompts."
+            },
+            "helper_modules": {
+              "type": "object",
+              "maxProperties": 256,
+              "propertyNames": {
+                "pattern": "^[A-Za-z0-9_.:/-]{1,128}(?![\\s\\S])"
+              },
+              "additionalProperties": {
+                "$ref": "#/definitions/Sha256DigestV1"
+              },
+              "description": "Source files of helper modules the agent imports from the project (not third-party packages, which dependency_lock_digest covers)."
+            },
+            "tool_definitions": {
+              "type": "object",
+              "maxProperties": 256,
+              "propertyNames": {
+                "pattern": "^[A-Za-z0-9_.:/-]{1,128}(?![\\s\\S])"
+              },
+              "additionalProperties": {
+                "$ref": "#/definitions/Sha256DigestV1"
+              },
+              "description": "Tool / function-calling specifications and retriever definitions."
+            }
+          }
         },
         "applied_config_digest": {
           "$ref": "#/definitions/Sha256DigestV1",
-          "description": "fp2 digest of the configuration the agent is BUILT WITH (the promoted winner, or the trial's config for a candidate). Absent for a base build before any configuration is applied."
+          "description": "fp2 digest of the configuration the agent runs with: the trial's configuration for a candidate, the promoted configuration for a head, the default configuration for a base build (digest of {} when there are no knobs). Required: the configuration is part of what the version is."
         },
         "runtime": {
           "$ref": "#/definitions/AgentRuntimeV1"
+        },
+        "coverage": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial"
+          ],
+          "description": "Producer's declaration of whether this manifest covers every behaviour-affecting input. Only 'complete' is certifiable."
         }
       },
       "anyOf": [
@@ -163,7 +208,7 @@
       "properties": {
         "provider": {
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"
+          "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}(?![\\s\\S])"
         },
         "requested_model": {
           "type": "string",
@@ -211,6 +256,44 @@
           "$ref": "#/definitions/AgentBuildManifestV1"
         }
       }
+    },
+    "CertifiableAgentBuildManifestV1": {
+      "description": "An AgentBuildManifestV1 that may back a certificate: coverage MUST be 'complete'.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AgentBuildManifestV1"
+        },
+        {
+          "type": "object",
+          "required": [
+            "coverage"
+          ],
+          "properties": {
+            "coverage": {
+              "const": "complete"
+            }
+          }
+        }
+      ]
+    },
+    "CertifiableAgentVersionV1": {
+      "description": "An AgentVersionV1 that may back a certificate: the manifest MUST be inlined and certifiable, so the issuer can recompute build_digest and check coverage.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AgentVersionV1"
+        },
+        {
+          "type": "object",
+          "required": [
+            "manifest"
+          ],
+          "properties": {
+            "manifest": {
+              "$ref": "#/definitions/CertifiableAgentBuildManifestV1"
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [

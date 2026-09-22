@@ -47,6 +47,8 @@ TENANTS = {
 }
 
 _Q = {"question": "What is 2+2?", "lang": "en"}
+# Replaced at build time by the id of a typo'd earlier version of _Q's input.
+_SUPERSEDED_MARKER = "@@SUPERSEDED@@"
 
 
 def _nested(depth: int) -> list[Any]:
@@ -117,6 +119,11 @@ EXAMPLES: list[tuple[str, str, str, dict[str, Any]]] = [
      {"input": dict(_Q), "expected": "4"}),
     ("rotated_key", "Baseline under tenant_a's rotated master: different kid and ids.",
      "tenant_a_rotated", {"input": dict(_Q), "expected": "4"}),
+    ("with_annotations", "Baseline carrying external_id, source_ref and supersedes: they are "
+     "annotations and must NOT change example_id or example_version.", "tenant_a",
+     {"input": dict(_Q), "expected": "4", "external_id": "ls-ex-123",
+      "source_ref": {"platform": "langsmith", "dataset_id": "ds-1", "version": "v3"},
+      "supersedes": _SUPERSEDED_MARKER}),
     ("reused_master_other_tenant", "Baseline under tenant_c, which reuses tenant_a's master "
      "by mistake: tenant_id in the HKDF info still gives a different kid and ids.",
      "tenant_c_reused_master", {"input": dict(_Q), "expected": "4"}),
@@ -143,6 +150,8 @@ RELATIONS: list[tuple[str, str, str, str]] = [
     ("baseline", "cross_tenant", "example_id", "different"),
     ("baseline", "rotated_key", "example_id", "different"),
     ("baseline", "reused_master_other_tenant", "example_id", "different"),
+    ("baseline", "with_annotations", "example_id", "equal"),
+    ("baseline", "with_annotations", "example_version", "equal"),
 ]
 
 PROJECTIONS: list[tuple[str, str, dict[str, Any]]] = [
@@ -152,6 +161,7 @@ PROJECTIONS: list[tuple[str, str, dict[str, Any]]] = [
      "context is lifted into the id payload.",
      {"input_data": {"q": "x"}, "expected_output": "y",
       "metadata": {"context": "ctx", "example_id": "row-7", "external_id": "ext-1",
+                   "supersedes": "ex1:k0000000000000000:" + "0" * 64,
                    "source_ref": {"platform": "langsmith"}, "tags": ["a"], "split": "test",
                    "splits": ["test"], "difficulty": "hard", "confidence": 0.9,
                    "status": "ok", "score": 1, "explanation": "e", "created_at": "t",
@@ -170,18 +180,78 @@ _BUILD = {
                       "dirty": False},
     "source_digest": "sha256:" + "11" * 32,
     "dependency_lock_digest": "sha256:" + "22" * 32,
-    "asset_digests": {"prompts/system.txt": "sha256:" + "33" * 32},
+    "asset_digests": {
+        "prompts": {"system.txt": "sha256:" + "33" * 32},
+        "helper_modules": {"app/retrieval.py": "sha256:" + "55" * 32},
+        "tool_definitions": {"search": "sha256:" + "66" * 32},
+    },
+    "applied_config_digest": "sha256:" + "44" * 32,
+    "coverage": "complete",
     "runtime": {"language": "python", "language_version": "3.12", "sdk_version": "0.28.0"},
 }
+
+
+def _with_asset(category: str, name: str, digest: str) -> dict[str, Any]:
+    assets = {k: dict(v) for k, v in _BUILD["asset_digests"].items()}
+    assets[category][name] = digest
+    return {**_BUILD, "asset_digests": assets}
 
 AGENT_BUILDS: list[tuple[str, str, dict[str, Any]]] = [
     ("full", "A full build manifest.", _BUILD),
     ("full_reordered", "Same manifest, keys in reverse order; must equal full.",
      dict(reversed(list(_BUILD.items())))),
-    ("config_applied", "Same build with a configuration applied: a different version.",
-     {**_BUILD, "applied_config_digest": "sha256:" + "44" * 32}),
+    ("config_changed", "Same build, different candidate configuration: a different version.",
+     {**_BUILD, "applied_config_digest": "sha256:" + "77" * 32}),
+    ("helper_changed", "Only a helper module changed: a different version.",
+     _with_asset("helper_modules", "app/retrieval.py", "sha256:" + "88" * 32)),
+    ("prompt_changed", "Only a prompt changed: a different version.",
+     _with_asset("prompts", "system.txt", "sha256:" + "99" * 32)),
+    ("tool_changed", "Only a tool definition changed: a different version.",
+     _with_asset("tool_definitions", "search", "sha256:" + "aa" * 32)),
+    ("partial_coverage", "coverage='partial' still yields a build_digest (history), but "
+     "is rejected for certifiable use (see rejections).", {**_BUILD, "coverage": "partial"}),
     ("relabelled", "Same bits, different label: a different version by design.",
      {**_BUILD, "label": "v1.4"}),
+]
+
+_EVALUATOR = {
+    "manifest_version": 1,
+    "evaluator_id": "ev_accuracy_judge",
+    "code_digest": "sha256:" + "e1" * 32,
+    "judge": {"provider": "openai", "model": "gpt-4o-2024-08-06",
+              "config_digest": "sha256:" + "e2" * 32},
+    "objectives": [
+        {"name": "accuracy", "orientation": "maximize", "weight": 0.7},
+        {"name": "cost", "orientation": "minimize", "weight": 0.3},
+    ],
+    "dependency_versions": {"rapidfuzz": "3.9.6"},
+}
+
+
+def _objective(index: int, **changes: Any) -> dict[str, Any]:
+    objectives = [dict(o) for o in _EVALUATOR["objectives"]]
+    objectives[index].update(changes)
+    return {**_EVALUATOR, "objectives": objectives}
+
+
+EVALUATORS: list[tuple[str, str, dict[str, Any]]] = [
+    ("base", "A judge-backed evaluator with two objectives.", _EVALUATOR),
+    ("base_reordered_keys", "Same manifest, keys in reverse order; must equal base.",
+     dict(reversed(list(_EVALUATOR.items())))),
+    ("orientation_changed", "cost orientation flipped to maximize: a different version.",
+     _objective(1, orientation="maximize")),
+    ("weight_changed", "accuracy weight 0.7 -> 0.6: a different version.",
+     _objective(0, weight=0.6)),
+    ("judge_model_changed", "Judge model changed: a different version.",
+     {**_EVALUATOR, "judge": {**_EVALUATOR["judge"], "model": "gpt-4o-2024-11-20"}}),
+    ("judge_config_changed", "Judge configuration changed: a different version.",
+     {**_EVALUATOR, "judge": {**_EVALUATOR["judge"], "config_digest": "sha256:" + "e3" * 32}}),
+    ("dependency_changed", "A behaviour-affecting dependency version changed.",
+     {**_EVALUATOR, "dependency_versions": {"rapidfuzz": "3.10.0"}}),
+    ("code_changed", "Evaluator code (efp2) changed.",
+     {**_EVALUATOR, "code_digest": "sha256:" + "e4" * 32}),
+    ("model_free", "judge: null for a model-free evaluator (explicit, never omitted).",
+     {**_EVALUATOR, "judge": None}),
 ]
 
 JSON_TEXT_REJECTIONS: list[tuple[str, str, str]] = [
@@ -204,6 +274,9 @@ JSON_TEXT_REJECTIONS: list[tuple[str, str, str]] = [
      '{"input": {"a": 9007199254740993.0}}'),
     ("float_literal_1e16", "1e16: exponent-form literal outside the safe range.",
      '{"input": {"a": 1e16}}'),
+    ("float_literal_exact_value_above_safe", "9007199254740991.1: its EXACT decimal value is "
+     "above 2**53-1 even though it rounds to 9007199254740991.0. Judge the literal, not the "
+     "rounded double.", '{"input": {"a": 9007199254740991.1}}'),
 ]
 
 
@@ -218,6 +291,9 @@ def _field(fields: dict[str, Any], name: str) -> Any:
 
 def _example_vector(name: str, description: str, tenant: str, fields: dict[str, Any]) -> dict:
     keys = _keys(tenant)
+    if fields.get("supersedes") == _SUPERSEDED_MARKER:
+        typo = {"question": "What is 2+2 ?", "lang": "en"}
+        fields = {**fields, "supersedes": ei.compute_example_id(keys, typo)}
     input_value = fields["input"]
     context = _field(fields, "context")
     expected = _field(fields, "expected")
@@ -240,6 +316,29 @@ def _example_vector(name: str, description: str, tenant: str, fields: dict[str, 
         "public_input_digest": ei.compute_public_input_digest(input_value, context=context),
     }
     return vector
+
+
+def _apply_rejection(case: dict[str, Any]) -> None:
+    keys_a = _keys("tenant_a")
+    kind = case["kind"]
+    if kind == "example_version":
+        ei.compute_example_version(
+            keys_a, case["example_id"], expected=case["expected"], metadata=case["metadata"]
+        )
+    elif kind == "multiset":
+        ei.compute_multiset_root([tuple(item) for item in case["items"]])
+    elif kind == "key_derivation":
+        ei.derive_tenant_keys(bytes.fromhex(case["tenant_master_hex"]), case["tenant_id"])
+    elif kind == "example_input":
+        ei.compute_example_id(keys_a, case["input"])
+    elif kind == "agent_build":
+        ei.compute_agent_build_digest(case["manifest"])
+    elif kind == "agent_build_certifiable":
+        ei.compute_agent_build_digest(case["manifest"], certifiable=True)
+    elif kind == "evaluator_version":
+        ei.compute_evaluator_version_digest(case["manifest"])
+    else:
+        raise SystemExit(f"unknown rejection kind {kind}")
 
 
 def _projection_vector(name: str, description: str, given: dict[str, Any]) -> dict:
@@ -408,11 +507,58 @@ def build_vectors() -> dict[str, Any]:
                         "trees on one commit would share a build_digest.",
          "manifest": {**{k: v for k, v in _BUILD.items() if k != "source_digest"},
                       "code_revision": {**_BUILD["code_revision"], "dirty": True}}},
+        {"name": "agent_build_partial_coverage_certifiable", "kind": "agent_build_certifiable",
+         "description": "coverage='partial' used where a certifiable manifest is required.",
+         "manifest": {**_BUILD, "coverage": "partial"}},
+        {"name": "agent_build_missing_asset_category", "kind": "agent_build",
+         "description": "asset_digests without tool_definitions: every category is required "
+                        "({} asserts none).",
+         "manifest": {**_BUILD, "asset_digests": {
+             k: v for k, v in _BUILD["asset_digests"].items() if k != "tool_definitions"}}},
+        {"name": "agent_build_missing_config", "kind": "agent_build",
+         "description": "No applied_config_digest: the configuration is part of the version.",
+         "manifest": {k: v for k, v in _BUILD.items() if k != "applied_config_digest"}},
+        {"name": "agent_build_missing_coverage", "kind": "agent_build",
+         "description": "No coverage declaration.",
+         "manifest": {k: v for k, v in _BUILD.items() if k != "coverage"}},
+        {"name": "evaluator_objectives_unsorted", "kind": "evaluator_version",
+         "description": "Objectives not sorted by name: one set must have one spelling.",
+         "manifest": {**_EVALUATOR, "objectives": list(reversed(_EVALUATOR["objectives"]))}},
+        {"name": "evaluator_judge_omitted", "kind": "evaluator_version",
+         "description": "judge key omitted (must be explicit null for a model-free evaluator).",
+         "manifest": {k: v for k, v in _EVALUATOR.items() if k != "judge"}},
+        {"name": "tenant_id_trailing_newline", "kind": "key_derivation",
+         "description": "tenant_id with a trailing newline: patterns are FULL-string matches.",
+         "tenant_master_hex": TENANTS["tenant_a"][1], "tenant_id": "tenant_0a0a0a0a\n"},
+        {"name": "example_id_trailing_newline", "kind": "example_version",
+         "description": "example_version for an example_id with a trailing newline.",
+         "example_id": by_name["baseline"]["example_id"] + "\n", "expected": "4",
+         "metadata": None},
+        {"name": "member_trailing_newline", "kind": "multiset",
+         "description": "A multiset member whose example_version has a trailing newline.",
+         "items": [[base[0], base[1] + "\n"]]},
+        {"name": "total_count_overflow", "kind": "multiset",
+         "description": "Two members whose counts sum past 2**53-1 (each count alone is valid).",
+         "items": [[*base, 2**53 - 1], [*others[0], 1]]},
+        {"name": "in_memory_1e16", "kind": "example_input",
+         "description": "In-memory float 1e16 (no JSON text involved).", "input": {"a": 1e16}},
+        {"name": "in_memory_2_53", "kind": "example_input",
+         "description": "In-memory 9007199254740992 (2**53).",
+         "input": {"a": 9007199254740992}},
         {"name": "agent_build_without_revision_or_source", "kind": "agent_build",
          "description": "Neither code_revision nor source_digest: identifies nothing.",
          "manifest": {k: v for k, v in _BUILD.items()
                       if k not in ("code_revision", "source_digest")}},
     ])
+
+    for case in rejections:
+        if case["kind"] == "json_text":
+            continue
+        try:
+            _apply_rejection(case)
+        except ei.ContentIdentityError:
+            continue
+        raise SystemExit(f"rejection {case['name']} was accepted")
 
     key_derivation = []
     for tenant, (tenant_id, master_hex) in TENANTS.items():
@@ -448,6 +594,7 @@ def build_vectors() -> dict[str, Any]:
                 "agent_build": ei.DOMAIN_AGENT_BUILD,
                 "example_id": ei.DOMAIN_EXAMPLE_ID,
                 "example_version": ei.DOMAIN_EXAMPLE_VERSION,
+                "evaluator_version": ei.DOMAIN_EVALUATOR_VERSION,
                 "key_id": ei.DOMAIN_KEY_ID,
                 "multiset_leaf": ei.DOMAIN_MULTISET_LEAF,
                 "public_input": ei.DOMAIN_PUBLIC_INPUT,
@@ -463,8 +610,15 @@ def build_vectors() -> dict[str, Any]:
         "rejections": rejections,
         "agent_builds": [
             {"name": name, "description": description, "manifest": manifest,
-             "expect": {"build_digest": ei.compute_agent_build_digest(manifest)}}
+             "expect": {"build_digest": ei.compute_agent_build_digest(manifest),
+                        "certifiable": manifest.get("coverage") == "complete"}}
             for name, description, manifest in AGENT_BUILDS
+        ],
+        "evaluator_versions": [
+            {"name": name, "description": description, "manifest": manifest,
+             "expect": {"evaluator_version_digest":
+                        ei.compute_evaluator_version_digest(manifest)}}
+            for name, description, manifest in EVALUATORS
         ],
     }
 

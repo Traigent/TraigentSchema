@@ -9,6 +9,7 @@
       "agent_build": "traigent.content_identity.agent_build.v1",
       "example_id": "traigent.content_identity.example_id.v1",
       "example_version": "traigent.content_identity.example_version.v1",
+      "evaluator_version": "traigent.content_identity.evaluator_version.v1",
       "key_id": "traigent.content_identity.key_id.v1",
       "multiset_leaf": "traigent.content_identity.multiset_leaf.v1",
       "public_input": "traigent.content_identity.public_input.v1"
@@ -26,6 +27,7 @@
       "split",
       "splits",
       "status",
+      "supersedes",
       "tags",
       "updated_at"
     ]
@@ -694,6 +696,30 @@
       }
     },
     {
+      "name": "with_annotations",
+      "description": "Baseline carrying external_id, source_ref and supersedes: they are annotations and must NOT change example_id or example_version.",
+      "tenant": "tenant_a",
+      "input": {
+        "question": "What is 2+2?",
+        "lang": "en"
+      },
+      "expected": "4",
+      "external_id": "ls-ex-123",
+      "source_ref": {
+        "platform": "langsmith",
+        "dataset_id": "ds-1",
+        "version": "v3"
+      },
+      "supersedes": "ex1:k5fc87e16b0083664:7453d8fb0c7fea058f95bc0b4ab4d5bcc277ec0549f872de5b1d194fe66fc960",
+      "expect": {
+        "id_payload_jcs": "{\"input\":{\"lang\":\"en\",\"question\":\"What is 2+2?\"}}",
+        "example_id": "ex1:k5fc87e16b0083664:45bb4b6f403c1db61da50cd776f7b137f315da2b75eae6ab018044f5586721ab",
+        "version_payload_jcs": "{\"example_id\":\"ex1:k5fc87e16b0083664:45bb4b6f403c1db61da50cd776f7b137f315da2b75eae6ab018044f5586721ab\",\"expected\":\"4\"}",
+        "example_version": "exv1:k5fc87e16b0083664:de456e32c28f7cd98a81d2bb2ac1a96d1ef7ae4afc4bf01f5470ee42bab6e4ca",
+        "public_input_digest": "exu1:d5b1f1e2caa382cd41f0b01ee260ec8cf213618f49106ec9663db56468ff1b74"
+      }
+    },
+    {
       "name": "reused_master_other_tenant",
       "description": "Baseline under tenant_c, which reuses tenant_a's master by mistake: tenant_id in the HKDF info still gives a different kid and ids.",
       "tenant": "tenant_c_reused_master",
@@ -825,6 +851,18 @@
       "b": "reused_master_other_tenant",
       "field": "example_id",
       "relation": "different"
+    },
+    {
+      "a": "baseline",
+      "b": "with_annotations",
+      "field": "example_id",
+      "relation": "equal"
+    },
+    {
+      "a": "baseline",
+      "b": "with_annotations",
+      "field": "example_version",
+      "relation": "equal"
     }
   ],
   "projections": [
@@ -862,6 +900,7 @@
           "context": "ctx",
           "example_id": "row-7",
           "external_id": "ext-1",
+          "supersedes": "ex1:k0000000000000000:0000000000000000000000000000000000000000000000000000000000000000",
           "source_ref": {
             "platform": "langsmith"
           },
@@ -1774,6 +1813,12 @@
       "json_text": "{\"input\": {\"a\": 1e16}}"
     },
     {
+      "name": "float_literal_exact_value_above_safe",
+      "description": "9007199254740991.1: its EXACT decimal value is above 2**53-1 even though it rounds to 9007199254740991.0. Judge the literal, not the rounded double.",
+      "kind": "json_text",
+      "json_text": "{\"input\": {\"a\": 9007199254740991.1}}"
+    },
+    {
       "name": "reserved_metadata_key",
       "kind": "example_version",
       "description": "compute_example_version with a reserved annotation key in metadata (caller skipped the projection).",
@@ -2059,13 +2104,272 @@
         },
         "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
         "asset_digests": {
-          "prompts/system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
         },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete",
         "runtime": {
           "language": "python",
           "language_version": "3.12",
           "sdk_version": "0.28.0"
         }
+      }
+    },
+    {
+      "name": "agent_build_partial_coverage_certifiable",
+      "kind": "agent_build_certifiable",
+      "description": "coverage='partial' used where a certifiable manifest is required.",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "partial",
+        "runtime": {
+          "language": "python",
+          "language_version": "3.12",
+          "sdk_version": "0.28.0"
+        }
+      }
+    },
+    {
+      "name": "agent_build_missing_asset_category",
+      "kind": "agent_build",
+      "description": "asset_digests without tool_definitions: every category is required ({} asserts none).",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          }
+        },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete",
+        "runtime": {
+          "language": "python",
+          "language_version": "3.12",
+          "sdk_version": "0.28.0"
+        }
+      }
+    },
+    {
+      "name": "agent_build_missing_config",
+      "kind": "agent_build",
+      "description": "No applied_config_digest: the configuration is part of the version.",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "coverage": "complete",
+        "runtime": {
+          "language": "python",
+          "language_version": "3.12",
+          "sdk_version": "0.28.0"
+        }
+      }
+    },
+    {
+      "name": "agent_build_missing_coverage",
+      "kind": "agent_build",
+      "description": "No coverage declaration.",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "runtime": {
+          "language": "python",
+          "language_version": "3.12",
+          "sdk_version": "0.28.0"
+        }
+      }
+    },
+    {
+      "name": "evaluator_objectives_unsorted",
+      "kind": "evaluator_version",
+      "description": "Objectives not sorted by name: one set must have one spelling.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          },
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      }
+    },
+    {
+      "name": "evaluator_judge_omitted",
+      "kind": "evaluator_version",
+      "description": "judge key omitted (must be explicit null for a model-free evaluator).",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      }
+    },
+    {
+      "name": "tenant_id_trailing_newline",
+      "kind": "key_derivation",
+      "description": "tenant_id with a trailing newline: patterns are FULL-string matches.",
+      "tenant_master_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "tenant_id": "tenant_0a0a0a0a\n"
+    },
+    {
+      "name": "example_id_trailing_newline",
+      "kind": "example_version",
+      "description": "example_version for an example_id with a trailing newline.",
+      "example_id": "ex1:k5fc87e16b0083664:45bb4b6f403c1db61da50cd776f7b137f315da2b75eae6ab018044f5586721ab\n",
+      "expected": "4",
+      "metadata": null
+    },
+    {
+      "name": "member_trailing_newline",
+      "kind": "multiset",
+      "description": "A multiset member whose example_version has a trailing newline.",
+      "items": [
+        [
+          "ex1:k5fc87e16b0083664:45bb4b6f403c1db61da50cd776f7b137f315da2b75eae6ab018044f5586721ab",
+          "exv1:k5fc87e16b0083664:de456e32c28f7cd98a81d2bb2ac1a96d1ef7ae4afc4bf01f5470ee42bab6e4ca\n"
+        ]
+      ]
+    },
+    {
+      "name": "total_count_overflow",
+      "kind": "multiset",
+      "description": "Two members whose counts sum past 2**53-1 (each count alone is valid).",
+      "items": [
+        [
+          "ex1:k5fc87e16b0083664:45bb4b6f403c1db61da50cd776f7b137f315da2b75eae6ab018044f5586721ab",
+          "exv1:k5fc87e16b0083664:de456e32c28f7cd98a81d2bb2ac1a96d1ef7ae4afc4bf01f5470ee42bab6e4ca",
+          9007199254740991
+        ],
+        [
+          "ex1:k5fc87e16b0083664:8e7b075df8bc853bf88ca532d613c1853eb0b3b56d00e7877bb8b0bd3047ed0e",
+          "exv1:k5fc87e16b0083664:adf02e8912fa0689575d6b79cbe56a8c455d73366759ebf75782083827d559a4",
+          1
+        ]
+      ]
+    },
+    {
+      "name": "in_memory_1e16",
+      "kind": "example_input",
+      "description": "In-memory float 1e16 (no JSON text involved).",
+      "input": {
+        "a": 1e+16
+      }
+    },
+    {
+      "name": "in_memory_2_53",
+      "kind": "example_input",
+      "description": "In-memory 9007199254740992 (2**53).",
+      "input": {
+        "a": 9007199254740992
       }
     },
     {
@@ -2078,8 +2382,18 @@
         "label": "v1.3",
         "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
         "asset_digests": {
-          "prompts/system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
         },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete",
         "runtime": {
           "language": "python",
           "language_version": "3.12",
@@ -2104,8 +2418,18 @@
         "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
         "asset_digests": {
-          "prompts/system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
         },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete",
         "runtime": {
           "language": "python",
           "language_version": "3.12",
@@ -2113,7 +2437,8 @@
         }
       },
       "expect": {
-        "build_digest": "sha256:9cc0d2275627c58f109fde8f4fedc180ed693b093beebc5bb2ab9c877cdd2b73"
+        "build_digest": "sha256:4d7d00d97ddd92fbc25ff43ffffa6bdd78f57310547b65aff904e49fa9fa0f38",
+        "certifiable": true
       }
     },
     {
@@ -2125,8 +2450,18 @@
           "language_version": "3.12",
           "sdk_version": "0.28.0"
         },
+        "coverage": "complete",
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
         "asset_digests": {
-          "prompts/system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
         },
         "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
         "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -2140,12 +2475,13 @@
         "manifest_version": 1
       },
       "expect": {
-        "build_digest": "sha256:9cc0d2275627c58f109fde8f4fedc180ed693b093beebc5bb2ab9c877cdd2b73"
+        "build_digest": "sha256:4d7d00d97ddd92fbc25ff43ffffa6bdd78f57310547b65aff904e49fa9fa0f38",
+        "certifiable": true
       }
     },
     {
-      "name": "config_applied",
-      "description": "Same build with a configuration applied: a different version.",
+      "name": "config_changed",
+      "description": "Same build, different candidate configuration: a different version.",
       "manifest": {
         "manifest_version": 1,
         "agent_id": "agent_0001",
@@ -2158,17 +2494,179 @@
         "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
         "asset_digests": {
-          "prompts/system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
         },
+        "applied_config_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "coverage": "complete",
         "runtime": {
           "language": "python",
           "language_version": "3.12",
           "sdk_version": "0.28.0"
-        },
-        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        }
       },
       "expect": {
-        "build_digest": "sha256:fd4deec81e8bde31d71c17f755728e26d908a46798ea039ec67a0371f2d20f76"
+        "build_digest": "sha256:8f48247afaa117ef3fe2b8c480117e25939a9df16dffb0fd61715587531484e0",
+        "certifiable": true
+      }
+    },
+    {
+      "name": "helper_changed",
+      "description": "Only a helper module changed: a different version.",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete",
+        "runtime": {
+          "language": "python",
+          "language_version": "3.12",
+          "sdk_version": "0.28.0"
+        }
+      },
+      "expect": {
+        "build_digest": "sha256:5bc97cf5bd803d2271261ce8e1e852d0e1e01ac0ea3a7594c091c23401101d4b",
+        "certifiable": true
+      }
+    },
+    {
+      "name": "prompt_changed",
+      "description": "Only a prompt changed: a different version.",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete",
+        "runtime": {
+          "language": "python",
+          "language_version": "3.12",
+          "sdk_version": "0.28.0"
+        }
+      },
+      "expect": {
+        "build_digest": "sha256:c26110ec8cc6dbdd245f787be087c6fd9acaefd3e6150faba0f317b35b2ea1d3",
+        "certifiable": true
+      }
+    },
+    {
+      "name": "tool_changed",
+      "description": "Only a tool definition changed: a different version.",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete",
+        "runtime": {
+          "language": "python",
+          "language_version": "3.12",
+          "sdk_version": "0.28.0"
+        }
+      },
+      "expect": {
+        "build_digest": "sha256:bf0594e2576c25b61cd2e2d42b09a5b0b755a1081730b936c36b38c5260b6c04",
+        "certifiable": true
+      }
+    },
+    {
+      "name": "partial_coverage",
+      "description": "coverage='partial' still yields a build_digest (history), but is rejected for certifiable use (see rejections).",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "partial",
+        "runtime": {
+          "language": "python",
+          "language_version": "3.12",
+          "sdk_version": "0.28.0"
+        }
+      },
+      "expect": {
+        "build_digest": "sha256:0c3deaf773f4e324f779c6207cc1ebca56e1d9d4009632c16b9d3821979dc0be",
+        "certifiable": false
       }
     },
     {
@@ -2186,8 +2684,18 @@
         "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
         "asset_digests": {
-          "prompts/system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
         },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete",
         "runtime": {
           "language": "python",
           "language_version": "3.12",
@@ -2195,7 +2703,294 @@
         }
       },
       "expect": {
-        "build_digest": "sha256:4f188a5e21ffbbab8955a8f42a206ad0f8eaf80165b3bad376ac4b701ff685fc"
+        "build_digest": "sha256:9abce5804064b5d2e7fe1152588ad4bd64bb7bffbf8a37b8a8f903cd09dba3d7",
+        "certifiable": true
+      }
+    }
+  ],
+  "evaluator_versions": [
+    {
+      "name": "base",
+      "description": "A judge-backed evaluator with two objectives.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:40f0f7c7f6911a1b910cd34bca7a9f227c3099580e9cccfaf15a31264de08576"
+      }
+    },
+    {
+      "name": "base_reordered_keys",
+      "description": "Same manifest, keys in reverse order; must equal base.",
+      "manifest": {
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "evaluator_id": "ev_accuracy_judge",
+        "manifest_version": 1
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:40f0f7c7f6911a1b910cd34bca7a9f227c3099580e9cccfaf15a31264de08576"
+      }
+    },
+    {
+      "name": "orientation_changed",
+      "description": "cost orientation flipped to maximize: a different version.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "maximize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:ef9d5d1b0546706ec4e15d5e21fd1b8ae7c00e6434227d7f91c7246a521e6571"
+      }
+    },
+    {
+      "name": "weight_changed",
+      "description": "accuracy weight 0.7 -> 0.6: a different version.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.6
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:ca1e096bb30848699935ae067a51d97d3ef53d53749b3e904f614b899e0a5092"
+      }
+    },
+    {
+      "name": "judge_model_changed",
+      "description": "Judge model changed: a different version.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-11-20",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:73bb3796503a9c79e8f5cdfa06af87ea2b2b5254afa280df15be065c74f377c9"
+      }
+    },
+    {
+      "name": "judge_config_changed",
+      "description": "Judge configuration changed: a different version.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:e33b01788d0f2ba0cecf4100080b2fabda55ce222777267fd869ee33879b893a"
+      }
+    },
+    {
+      "name": "dependency_changed",
+      "description": "A behaviour-affecting dependency version changed.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.10.0"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:38cb91a345622c01c9e4ebb525c51275a68736d1ab36b9ee85319f906f5d7f9d"
+      }
+    },
+    {
+      "name": "code_changed",
+      "description": "Evaluator code (efp2) changed.",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4",
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-4o-2024-08-06",
+          "config_digest": "sha256:e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2"
+        },
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:2edf7bca822185029d309bd874a3ba7cc9a2a02e3e1b129aa89852bf49026b1e"
+      }
+    },
+    {
+      "name": "model_free",
+      "description": "judge: null for a model-free evaluator (explicit, never omitted).",
+      "manifest": {
+        "manifest_version": 1,
+        "evaluator_id": "ev_accuracy_judge",
+        "code_digest": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "judge": null,
+        "objectives": [
+          {
+            "name": "accuracy",
+            "orientation": "maximize",
+            "weight": 0.7
+          },
+          {
+            "name": "cost",
+            "orientation": "minimize",
+            "weight": 0.3
+          }
+        ],
+        "dependency_versions": {
+          "rapidfuzz": "3.9.6"
+        }
+      },
+      "expect": {
+        "evaluator_version_digest": "sha256:9d0e5f54b2e019e06f182e56d9e62b5570d809b9b00a3b916c0edee49e2e1858"
       }
     }
   ]

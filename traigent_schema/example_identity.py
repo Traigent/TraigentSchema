@@ -24,7 +24,12 @@ no randomness):
 * ``compute_public_input_digest`` -- the opt-in UNKEYED input digest, for
   public-benchmark contamination checks only.
 * ``compute_agent_build_digest`` -- the unkeyed agent build version over an
-  ``AgentBuildManifestV1`` (digests and version strings only, no content).
+  ``AgentBuildManifestV1`` (digests and version strings only, no content);
+  ``certifiable=True`` rejects partial coverage.
+* ``compute_evaluator_version_digest`` -- the unkeyed evaluator version over an
+  ``EvaluatorVersionManifestV1`` (code, judge, objectives, dependencies).
+* ``key_id_of`` -- the kid of any ex1/exv1/msr1 identifier (its second
+  colon-separated field).
 
 Canonicalization is ``jcs_v1`` via :mod:`traigent_schema.fp2` (RFC 8785) plus
 the strict content-identity profile: non-finite numbers, lone surrogates (in
@@ -49,6 +54,7 @@ import re
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
 from traigent_schema import fp2
@@ -62,6 +68,10 @@ __all__ = [
     "DOMAIN_MULTISET_LEAF",
     "DOMAIN_PUBLIC_INPUT",
     "DOMAIN_AGENT_BUILD",
+    "DOMAIN_EVALUATOR_VERSION",
+    "AGENT_ASSET_CATEGORIES",
+    "AGENT_COVERAGE_VALUES",
+    "EVALUATOR_ORIENTATIONS",
     "RESERVED_METADATA_KEYS",
     "MAX_COUNT",
     "ContentIdentityError",
@@ -82,6 +92,8 @@ __all__ = [
     "compute_example_version",
     "compute_public_input_digest",
     "compute_agent_build_digest",
+    "compute_evaluator_version_digest",
+    "key_id_of",
     "project_sdk_example",
     "identify_example",
     "multiset_leaf_data",
@@ -100,6 +112,7 @@ DOMAIN_KEY_ID = "traigent.content_identity.key_id.v1"
 DOMAIN_MULTISET_LEAF = "traigent.content_identity.multiset_leaf.v1"
 DOMAIN_PUBLIC_INPUT = "traigent.content_identity.public_input.v1"
 DOMAIN_AGENT_BUILD = "traigent.content_identity.agent_build.v1"
+DOMAIN_EVALUATOR_VERSION = "traigent.content_identity.evaluator_version.v1"
 
 #: Annotation keys that never participate in example_version. The SDK
 #: projection (:func:`project_sdk_example`) strips them; the primitive
@@ -123,25 +136,34 @@ RESERVED_METADATA_KEYS = frozenset(
         "explanation",
         "created_at",
         "updated_at",
+        "supersedes",
     }
 )
 
-#: Largest multiplicity a leaf may carry: the jcs_v1 safe-integer ceiling.
+#: Largest multiplicity a leaf may carry, and the largest total_count of a
+#: multiset: the jcs_v1 safe-integer ceiling.
 MAX_COUNT = 2**53 - 1
+_MAX_SAFE_DECIMAL = Decimal(2**53 - 1)
 
 _TENANT_MASTER_LENGTH = 32
 #: Backend tenant ids (``enterprise_tenants.id``, e.g. ``tenant_<hex>``) as the
 #: exact stored string; the same charset as common_types ForeignKeyId. ASCII
 #: only, so UTF-8 encoding is unambiguous across runtimes.
-_TENANT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+_TENANT_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,128}")
 _KEY_ID_BYTES = 8
 _HEX64 = "[0-9a-f]{64}"
 _KID = "k[0-9a-f]{16}"
-_KEY_ID_RE = re.compile(rf"^{_KID}$")
-_EXAMPLE_ID_RE = re.compile(rf"^ex1:({_KID}):{_HEX64}$")
-_EXAMPLE_VERSION_RE = re.compile(rf"^exv1:({_KID}):{_HEX64}$")
-_ROOT_RE = re.compile(rf"^msr1:({_KID}):({_HEX64})$")
-_HASH_HEX_RE = re.compile(rf"^{_HEX64}$")
+# Every pattern is applied with re.fullmatch: ``re.match`` with ``$`` would
+# accept a trailing newline ("ex1:...\n"), minting a second spelling of one id.
+_KEY_ID_RE = re.compile(_KID)
+_EXAMPLE_ID_RE = re.compile(rf"ex1:({_KID}):{_HEX64}")
+_EXAMPLE_VERSION_RE = re.compile(rf"exv1:({_KID}):{_HEX64}")
+_ROOT_RE = re.compile(rf"msr1:({_KID}):({_HEX64})")
+_HASH_HEX_RE = re.compile(_HEX64)
+_SHA256_DIGEST_RE = re.compile(rf"sha256:{_HEX64}")
+# The repo's canonical METRIC_NAME (tests/test_metric_name_pattern_consistency.py),
+# capped at 128 characters.
+_OBJECTIVE_NAME_RE = re.compile(r"[a-zA-Z_][a-zA-Z0-9_.-]{0,127}")
 
 
 class ContentIdentityError(ValueError):
@@ -195,12 +217,14 @@ def _parse_int(text: str) -> int:
 
 
 def _parse_float(text: str) -> float:
-    value = float(text)
-    # float('1e400') is inf; the magnitude check rejects it along with every
-    # literal (e.g. 9007199254740993.0) whose value is outside the safe range.
-    if not abs(value) <= fp2._MAX_SAFE_INTEGER:
+    # Judge the literal's EXACT decimal value, before rounding to a double:
+    # 9007199254740991.1 rounds to 9007199254740991.0 (in range) but is not in
+    # range as written, and a JS parser that looks at the rounded Number would
+    # disagree with one that looks at the text. Decimal parses exactly;
+    # 1e400 and 9007199254740993.0 are rejected by the same comparison.
+    if abs(Decimal(text)) > _MAX_SAFE_DECIMAL:
         raise ContentIdentityError("number literal outside +/-(2**53-1)")
-    return value
+    return float(text)
 
 
 def parse_strict_json(text: str) -> Any:
@@ -297,8 +321,8 @@ class TenantIdentityKeys:
 
 def hkdf_info(domain: str, tenant_id: str) -> bytes:
     """HKDF ``info`` = UTF8(domain) || 0x00 || UTF8(tenant_id)."""
-    if not isinstance(tenant_id, str) or not _TENANT_ID_RE.match(tenant_id):
-        raise ContentIdentityError("tenant_id must match ^[A-Za-z0-9_-]{1,128}$")
+    if not isinstance(tenant_id, str) or not _TENANT_ID_RE.fullmatch(tenant_id):
+        raise ContentIdentityError("tenant_id must fully match [A-Za-z0-9_-]{1,128}")
     return domain.encode("utf-8") + b"\x00" + tenant_id.encode("ascii")
 
 
@@ -328,8 +352,23 @@ def derive_tenant_keys(tenant_master: bytes, tenant_id: str) -> TenantIdentityKe
     )
 
 
+def key_id_of(identifier: str) -> str:
+    """Return the kid of an ``ex1:``/``exv1:``/``msr1:`` identifier.
+
+    The kid is, normatively, the second colon-separated field. Consumers MUST
+    check that it equals the record's ``key_id`` for the record, its root and
+    every member.
+    """
+    if isinstance(identifier, str):
+        for pattern in (_EXAMPLE_ID_RE, _EXAMPLE_VERSION_RE, _ROOT_RE):
+            match = pattern.fullmatch(identifier)
+            if match is not None:
+                return match.group(1)
+    raise ContentIdentityError("not a v1 ex1/exv1/msr1 identifier")
+
+
 def _check_keys(keys: TenantIdentityKeys) -> None:
-    if not isinstance(keys, TenantIdentityKeys) or not _KEY_ID_RE.match(keys.key_id):
+    if not isinstance(keys, TenantIdentityKeys) or not _KEY_ID_RE.fullmatch(keys.key_id):
         raise ContentIdentityError("keys must be TenantIdentityKeys from derive_tenant_keys")
 
 
@@ -380,7 +419,7 @@ def example_version_payload(
     ``expected`` absent and ``None`` are the same (omitted). ``metadata``
     absent, ``None`` and ``{}`` are the same (omitted).
     """
-    if not isinstance(example_id, str) or not _EXAMPLE_ID_RE.match(example_id):
+    if not isinstance(example_id, str) or not _EXAMPLE_ID_RE.fullmatch(example_id):
         raise ContentIdentityError("example_id is not a v1 example id")
     payload: dict[str, Any] = {"example_id": example_id}
     if not _is_absent(expected):
@@ -418,7 +457,7 @@ def compute_example_version(
     jcs_v1({example_id, expected?, metadata?}))."""
     _check_keys(keys)
     payload = example_version_payload(example_id, expected=expected, metadata=metadata)
-    match = _EXAMPLE_ID_RE.match(example_id)
+    match = _EXAMPLE_ID_RE.fullmatch(example_id)
     assert match is not None  # checked by example_version_payload
     if match.group(1) != keys.key_id:
         raise ContentIdentityError("example_id was minted under a different key id")
@@ -437,16 +476,32 @@ def compute_public_input_digest(input: Any, *, context: Any = ABSENT) -> str:  #
     return "exu1:" + hashlib.sha256(_framed(DOMAIN_PUBLIC_INPUT, payload)).hexdigest()
 
 
-def compute_agent_build_digest(manifest: Mapping[str, Any]) -> str:
+AGENT_ASSET_CATEGORIES = ("helper_modules", "prompts", "tool_definitions")
+AGENT_COVERAGE_VALUES = ("complete", "partial")
+
+
+def _require_digest(value: Any, what: str) -> None:
+    if not isinstance(value, str) or not _SHA256_DIGEST_RE.fullmatch(value):
+        raise ContentIdentityError(f"{what} must be a sha256:<64 hex> digest")
+
+
+def compute_agent_build_digest(manifest: Mapping[str, Any], *, certifiable: bool = False) -> str:
     """``sha256:<hex>`` = SHA-256(domain || 0x00 || jcs_v1(AgentBuildManifestV1)).
 
     Full shape validation is the schema's job
     (``schemas/agents/agent_version_manifest_v1_schema.json``). This function
-    enforces the two rules without which the digest would not identify a
-    build, mirroring the schema: at least one of ``code_revision`` /
-    ``source_digest``, and ``source_digest`` whenever ``code_revision.dirty``
-    is true -- otherwise two different dirty trees on one commit would share a
-    build_digest.
+    enforces the rules without which the digest would not identify a build:
+
+    * at least one of ``code_revision`` / ``source_digest``, and
+      ``source_digest`` whenever ``code_revision.dirty`` is true;
+    * ``asset_digests`` with all three categories (``helper_modules``,
+      ``prompts``, ``tool_definitions``; an empty map asserts "none");
+    * ``applied_config_digest`` (the candidate configuration);
+    * ``coverage`` in {"complete", "partial"}.
+
+    With ``certifiable=True`` a manifest whose coverage is not ``complete`` is
+    rejected: a partial manifest's digest cannot stand for the agent's
+    behaviour in a certificate.
     """
     if type(manifest) is not dict:
         raise ContentIdentityError("agent build manifest must be a plain dict")
@@ -458,7 +513,74 @@ def compute_agent_build_digest(manifest: Mapping[str, Any]) -> str:
             raise ContentIdentityError(
                 "agent build manifest with a dirty code_revision needs source_digest"
             )
+    assets = manifest.get("asset_digests")
+    if type(assets) is not dict or sorted(assets) != sorted(AGENT_ASSET_CATEGORIES):
+        raise ContentIdentityError(
+            "asset_digests must have exactly the categories "
+            f"{list(AGENT_ASSET_CATEGORIES)}"
+        )
+    for category in AGENT_ASSET_CATEGORIES:
+        if type(assets[category]) is not dict:
+            raise ContentIdentityError(f"asset_digests.{category} must be a map")
+        for digest in assets[category].values():
+            _require_digest(digest, f"asset_digests.{category} value")
+    _require_digest(manifest.get("applied_config_digest"), "applied_config_digest")
+    coverage = manifest.get("coverage")
+    if coverage not in AGENT_COVERAGE_VALUES:
+        raise ContentIdentityError("coverage must be 'complete' or 'partial'")
+    if certifiable and coverage != "complete":
+        raise ContentIdentityError("a partial-coverage agent manifest is not certifiable")
     return "sha256:" + hashlib.sha256(_framed(DOMAIN_AGENT_BUILD, manifest)).hexdigest()
+
+
+EVALUATOR_ORIENTATIONS = ("maximize", "minimize")
+
+
+def compute_evaluator_version_digest(manifest: Mapping[str, Any]) -> str:
+    """``sha256:<hex>`` = SHA-256(domain || 0x00 || jcs_v1(EvaluatorVersionManifestV1)).
+
+    The evaluator version commits to everything that changes a score: the
+    evaluator code (its fp2 efp2 digest), the judge model and its
+    configuration (``judge``: null for a model-free evaluator -- explicit, never
+    omitted), the objective set, and the behaviour-affecting dependency
+    versions. ``objectives`` MUST be sorted ascending by ``name`` (ASCII) with
+    unique names, so the same set has one spelling; it is rejected otherwise
+    rather than silently re-sorted. Schema:
+    ``schemas/evaluation/evaluator_version_manifest_v1_schema.json``.
+    """
+    if type(manifest) is not dict:
+        raise ContentIdentityError("evaluator version manifest must be a plain dict")
+    _require_digest(manifest.get("code_digest"), "code_digest")
+    if "judge" not in manifest:
+        raise ContentIdentityError("judge must be present (null for a model-free evaluator)")
+    judge = manifest["judge"]
+    if judge is not None:
+        if type(judge) is not dict or not isinstance(judge.get("model"), str):
+            raise ContentIdentityError("judge must be null or an object with a model id")
+        _require_digest(judge.get("config_digest"), "judge.config_digest")
+    objectives = manifest.get("objectives")
+    if type(objectives) is not list or not objectives:
+        raise ContentIdentityError("objectives must be a non-empty list")
+    names: list[str] = []
+    for objective in objectives:
+        if type(objective) is not dict:
+            raise ContentIdentityError("each objective must be an object")
+        name = objective.get("name")
+        if not isinstance(name, str) or not _OBJECTIVE_NAME_RE.fullmatch(name):
+            raise ContentIdentityError(
+                "objective name must fully match [a-zA-Z_][a-zA-Z0-9_.-]{0,127}"
+            )
+        if objective.get("orientation") not in EVALUATOR_ORIENTATIONS:
+            raise ContentIdentityError("objective orientation must be maximize or minimize")
+        weight = objective.get("weight")
+        if type(weight) not in (int, float):
+            raise ContentIdentityError("objective weight must be a number")
+        names.append(name)
+    if names != sorted(set(names)):
+        raise ContentIdentityError("objectives must be sorted by name with unique names")
+    if type(manifest.get("dependency_versions")) is not dict:
+        raise ContentIdentityError("dependency_versions must be a map (empty means none)")
+    return "sha256:" + hashlib.sha256(_framed(DOMAIN_EVALUATOR_VERSION, manifest)).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -527,10 +649,10 @@ class MultisetMember:
 
     def __post_init__(self) -> None:
         id_match = (
-            _EXAMPLE_ID_RE.match(self.example_id) if isinstance(self.example_id, str) else None
+            _EXAMPLE_ID_RE.fullmatch(self.example_id) if isinstance(self.example_id, str) else None
         )
         version_match = (
-            _EXAMPLE_VERSION_RE.match(self.example_version)
+            _EXAMPLE_VERSION_RE.fullmatch(self.example_version)
             if isinstance(self.example_version, str)
             else None
         )
@@ -645,7 +767,7 @@ def compute_multiset_root(items: Iterable[Any], *, key_id: str | None = None) ->
     members = _normalize(items)
     key_ids = {member.key_id for member in members}
     if key_id is not None:
-        if not isinstance(key_id, str) or not _KEY_ID_RE.match(key_id):
+        if not isinstance(key_id, str) or not _KEY_ID_RE.fullmatch(key_id):
             raise ContentIdentityError("key_id is not a v1 key id")
         key_ids.add(key_id)
     if not key_ids:
@@ -666,13 +788,17 @@ def compute_multiset_root(items: Iterable[Any], *, key_id: str | None = None) ->
             stacklevel=2,
         )
 
+    total_count = sum(member.count for member in members)
+    if total_count > MAX_COUNT:
+        raise ContentIdentityError("multiset total_count overflows 2**53-1")
+
     root_hash = _mth([_leaf_hash(multiset_leaf_data(member)) for member in members])
     return MultisetRoot(
         root=f"msr1:{resolved_key_id}:{root_hash.hex()}",
         key_id=resolved_key_id,
         members=members,
         distinct_count=len(members),
-        total_count=sum(member.count for member in members),
+        total_count=total_count,
         conflicting_example_ids=conflicts,
     )
 
@@ -706,7 +832,7 @@ def build_inclusion_proof(multiset: MultisetRoot, member: MultisetMember) -> Inc
 
 def verify_inclusion_proof(proof: InclusionProof) -> bool:
     """RFC 9162 section 2.1.3.2 verification. Needs no key. Never raises on a bad proof."""
-    root_match = _ROOT_RE.match(proof.root) if isinstance(proof.root, str) else None
+    root_match = _ROOT_RE.fullmatch(proof.root) if isinstance(proof.root, str) else None
     if root_match is None or root_match.group(1) != proof.member.key_id:
         return False
     if type(proof.leaf_index) is not int or type(proof.tree_size) is not int:
@@ -715,7 +841,7 @@ def verify_inclusion_proof(proof: InclusionProof) -> bool:
         return False
     path: list[bytes] = []
     for node in proof.audit_path:
-        if not isinstance(node, str) or not _HASH_HEX_RE.match(node):
+        if not isinstance(node, str) or not _HASH_HEX_RE.fullmatch(node):
             return False
         path.append(bytes.fromhex(node))
 

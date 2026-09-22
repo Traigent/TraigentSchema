@@ -338,7 +338,9 @@ Identity still comes from content, never from them.
     - the schema's `CertifiableAgentBuildManifestV1` requires `coverage: "complete"`;
     - `compute_agent_build_digest(manifest, certifiable=True)` rejects it;
     - the vectors pin both.
-  - Optional fields: `dependency_lock_digest`, `label` and `runtime`.
+  - **Runtime, required:** `runtime` (language, SDK version and optionally the language
+    version). A build's runtime affects its behaviour, so it is part of the version.
+  - Optional fields: `dependency_lock_digest` and `label`.
   - Changing only a helper module, only a prompt, only a tool definition, or only the
     configuration changes `build_digest` (the `agent_builds` vectors).
   - Relabelling produces a new version by design, so a label can never be moved onto different
@@ -678,6 +680,17 @@ here as a relay decision, 2026-09-23 (owner-delegated).
     `abs()` rounded under the 28-digit context and accepted `9007199254740991.0000000000001`.
     Vectors cover rejection of that value and its negative, and acceptance of a just-under
     value and of the limit with trailing zeros (the `json_text_accepted` section).
+- **J: re-review of `24961a9e`** (Fable APPROVE; a Node reimplementation built only from this
+  doc passed ok=405 bad=0).
+  - **Fable F6:** `runtime` is a **required** part of `AgentBuildManifestV1`. The doc had
+    listed it as optional; the doc is corrected. `compute_agent_build_digest` rejects a manifest
+    without it, and a rejection vector pins this (section 8).
+  - **Nit:** the vector constant `tenant_id_pattern` uses the `(?![\s\S])` end anchor, like
+    decision E.
+  - **Dataset root in the every-certificate tier:** I4 in section 11 is accepted. The dataset
+    root is an issuance rule, not a per-claim rule, because a certificate whose dataset is only
+    declared says nothing checkable. If narrow process certificates that carry no dataset are
+    wanted later, I4 moves to the claim tier by a new decision.
 - **H: `supersedes`** (Fable F4). An optional annotation, never hashed, pinned by a vector
   (section 7).
 

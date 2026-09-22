@@ -24,6 +24,7 @@ import hmac
 import importlib.util
 import json
 import random
+import re
 import warnings
 from importlib import resources
 from pathlib import Path
@@ -351,6 +352,11 @@ def test_vector_constants_match_the_module_and_schema() -> None:
     constants = VECTORS["constants"]
     assert constants["hkdf_salt_utf8"].encode() == ei.HKDF_SALT
     assert sorted(constants["reserved_metadata_keys"]) == sorted(ei.RESERVED_METADATA_KEYS)
+    tenant_pattern = constants["tenant_id_pattern"]
+    assert tenant_pattern.endswith("(?![\\s\\S])")
+    assert re.fullmatch(r"[^\n]*", tenant_pattern)
+    assert re.search(tenant_pattern, "tenant_0a0a0a0a")
+    assert not re.search(tenant_pattern, "tenant_0a0a0a0a\n")
     registry = json.loads(CONTENT_SCHEMA_PATH.read_text(encoding="utf-8"))["definitions"][
         "ContentIdentityDomainRegistryV1"
     ]["properties"]

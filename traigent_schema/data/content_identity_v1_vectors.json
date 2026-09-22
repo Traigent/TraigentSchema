@@ -4,7 +4,7 @@
   "constants": {
     "hkdf_salt_utf8": "traigent.content_identity.v1",
     "hkdf_info": "UTF8(domain) || 0x00 || UTF8(tenant_id)",
-    "tenant_id_pattern": "^[A-Za-z0-9_-]{1,128}$",
+    "tenant_id_pattern": "^[A-Za-z0-9_-]{1,128}(?![\\s\\S])",
     "domains": {
       "agent_build": "traigent.content_identity.agent_build.v1",
       "example_id": "traigent.content_identity.example_id.v1",
@@ -2234,6 +2234,36 @@
           "language_version": "3.12",
           "sdk_version": "0.28.0"
         }
+      }
+    },
+    {
+      "name": "agent_build_missing_runtime",
+      "kind": "agent_build",
+      "description": "No runtime: a build's runtime affects behaviour, so it is required.",
+      "manifest": {
+        "manifest_version": 1,
+        "agent_id": "agent_0001",
+        "label": "v1.3",
+        "code_revision": {
+          "vcs": "git",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "dirty": false
+        },
+        "source_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "dependency_lock_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "asset_digests": {
+          "prompts": {
+            "system.txt": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "helper_modules": {
+            "app/retrieval.py": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          "tool_definitions": {
+            "search": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "applied_config_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "coverage": "complete"
       }
     },
     {

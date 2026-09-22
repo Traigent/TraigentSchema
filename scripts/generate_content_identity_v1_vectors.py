@@ -554,6 +554,9 @@ def build_vectors() -> dict[str, Any]:
         {"name": "agent_build_missing_config", "kind": "agent_build",
          "description": "No applied_config_digest: the configuration is part of the version.",
          "manifest": {k: v for k, v in _BUILD.items() if k != "applied_config_digest"}},
+        {"name": "agent_build_missing_runtime", "kind": "agent_build",
+         "description": "No runtime: a build's runtime affects behaviour, so it is required.",
+         "manifest": {k: v for k, v in _BUILD.items() if k != "runtime"}},
         {"name": "agent_build_missing_coverage", "kind": "agent_build",
          "description": "No coverage declaration.",
          "manifest": {k: v for k, v in _BUILD.items() if k != "coverage"}},
@@ -631,7 +634,7 @@ def build_vectors() -> dict[str, Any]:
         "constants": {
             "hkdf_salt_utf8": ei.HKDF_SALT.decode("ascii"),
             "hkdf_info": "UTF8(domain) || 0x00 || UTF8(tenant_id)",
-            "tenant_id_pattern": "^[A-Za-z0-9_-]{1,128}$",
+            "tenant_id_pattern": "^[A-Za-z0-9_-]{1,128}(?![\\s\\S])",
             "domains": {
                 "agent_build": ei.DOMAIN_AGENT_BUILD,
                 "example_id": ei.DOMAIN_EXAMPLE_ID,

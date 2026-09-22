@@ -500,6 +500,7 @@ def compute_agent_build_digest(manifest: Mapping[str, Any], *, certifiable: bool
     * ``asset_digests`` with all three categories (``helper_modules``,
       ``prompts``, ``tool_definitions``; an empty map asserts "none");
     * ``applied_config_digest`` (the candidate configuration);
+    * ``runtime`` with ``language`` and ``sdk_version``;
     * ``coverage`` in {"complete", "partial"}.
 
     With ``certifiable=True`` a manifest whose coverage is not ``complete`` is
@@ -528,6 +529,11 @@ def compute_agent_build_digest(manifest: Mapping[str, Any], *, certifiable: bool
         for digest in assets[category].values():
             _require_digest(digest, f"asset_digests.{category} value")
     _require_digest(manifest.get("applied_config_digest"), "applied_config_digest")
+    runtime = manifest.get("runtime")
+    if type(runtime) is not dict or not runtime.get("language") or not runtime.get("sdk_version"):
+        raise ContentIdentityError(
+            "runtime (language, sdk_version) is required: it affects behaviour"
+        )
     coverage = manifest.get("coverage")
     if coverage not in AGENT_COVERAGE_VALUES:
         raise ContentIdentityError("coverage must be 'complete' or 'partial'")

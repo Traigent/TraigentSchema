@@ -14,12 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `traigent_schema/example_identity.py`; cross-SDK conformance vectors
   `traigent_schema/data/content_identity_v1_vectors.json` (generator + freshness check:
   `scripts/generate_content_identity_v1_vectors.py --check`). `example_id` = HMAC-SHA-256 over
-  jcs_v1 of the INPUT (+ context) under a per-tenant HKDF-derived key; `example_version` = HMAC
+  jcs_v1 of the INPUT (+ context) under a per-tenant HKDF-derived key (tenant_id bound into every HKDF info;
+  key custody, rotation and the public-digest opt-in follow owner rulings D1-D3 = A,
+  2026-09-23); `example_version` = HMAC
   over example_id + expected output + version-relevant metadata; `dataset_root` /
   `evaluated_root` = RFC 9162 Merkle tree hash over sorted `[example_id, example_version, count]`
   leaves (order-free, duplicates counted, conflicting versions reported); RFC 9162 inclusion
   proofs that verify without any key; opt-in unkeyed `exu1` digest for public-benchmark
-  contamination checks; unkeyed agent `build_digest`. New additive schemas (no consumer yet):
+  contamination checks; unkeyed agent `build_digest` (a dirty `code_revision` requires
+  `source_digest`). Canonicalization is jcs_v1 plus one rule stricter than fp2: any number,
+  float included, with |v| > 2^53-1 is rejected so JS and Python cannot diverge. New additive schemas (no consumer yet):
   `datasets/content_identity_v1_schema.json`, `agents/agent_version_manifest_v1_schema.json`,
   `execution/run_identity_binding_v1_schema.json`. Nothing existing changes:
   `DatasetVersionV1.content_digest`, fp2 and every certification contract are untouched.

@@ -10,7 +10,8 @@ What this module computes, all pure and offline (no network, no filesystem,
 no randomness):
 
 * ``derive_tenant_keys`` -- HKDF-SHA-256 (RFC 5869) from one 32-byte tenant
-  master secret to per-purpose HMAC keys plus a public key id (``kid``).
+  master secret, bound to the tenant id, to per-purpose HMAC keys plus a
+  public key id (``kid``).
 * ``compute_example_id`` -- HMAC-SHA-256 over the canonical INPUT (and context,
   when present). Stable while the input is unchanged.
 * ``compute_example_version`` -- HMAC-SHA-256 over the example id plus the
@@ -25,11 +26,15 @@ no randomness):
 * ``compute_agent_build_digest`` -- the unkeyed agent build version over an
   ``AgentBuildManifestV1`` (digests and version strings only, no content).
 
-Canonicalization is ``jcs_v1`` via :mod:`traigent_schema.fp2` (RFC 8785 with
-the strict Traigent profile: non-finite numbers, lone surrogates, integers
-beyond +/-(2**53-1) and non-plain types are rejected; no Unicode
-normalization). Duplicate object keys can only exist in JSON *text*, so they
-are rejected by :func:`parse_strict_json`.
+Canonicalization is ``jcs_v1`` via :mod:`traigent_schema.fp2` (RFC 8785) plus
+the strict content-identity profile: non-finite numbers, lone surrogates (in
+values AND keys), non-plain types, nesting deeper than 100 containers, and ANY
+number -- integer or float -- whose magnitude exceeds 2**53-1 are rejected; no
+Unicode normalization. The number rule is stricter than fp2 (which accepts a
+large float) on purpose: JavaScript cannot tell 2**53+1 from 2**53 once parsed,
+so accepting any number beyond the safe range lets two runtimes hash different
+values for the same text. Duplicate object keys can only exist in JSON *text*,
+so they are rejected by :func:`parse_strict_json`.
 
 Error messages never echo caller values: inputs are user content and exception
 messages are among the most reliably logged strings in a system.
@@ -69,6 +74,7 @@ __all__ = [
     "parse_strict_json",
     "canonical_bytes",
     "hkdf_sha256",
+    "hkdf_info",
     "derive_tenant_keys",
     "example_id_payload",
     "example_version_payload",
@@ -124,6 +130,10 @@ RESERVED_METADATA_KEYS = frozenset(
 MAX_COUNT = 2**53 - 1
 
 _TENANT_MASTER_LENGTH = 32
+#: Backend tenant ids (``enterprise_tenants.id``, e.g. ``tenant_<hex>``) as the
+#: exact stored string; the same charset as common_types ForeignKeyId. ASCII
+#: only, so UTF-8 encoding is unambiguous across runtimes.
+_TENANT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 _KEY_ID_BYTES = 8
 _HEX64 = "[0-9a-f]{64}"
 _KID = "k[0-9a-f]{16}"
@@ -184,15 +194,25 @@ def _parse_int(text: str) -> int:
     return value
 
 
+def _parse_float(text: str) -> float:
+    value = float(text)
+    # float('1e400') is inf; the magnitude check rejects it along with every
+    # literal (e.g. 9007199254740993.0) whose value is outside the safe range.
+    if not abs(value) <= fp2._MAX_SAFE_INTEGER:
+        raise ContentIdentityError("number literal outside +/-(2**53-1)")
+    return value
+
+
 def parse_strict_json(text: str) -> Any:
     """Parse JSON text under the strict profile.
 
-    Rejects duplicate object keys, ``NaN``/``Infinity`` literals and integer
-    literals outside +/-(2**53-1). Lone-surrogate escapes and float overflow
-    parse here but are rejected by :func:`canonical_bytes`, which every
-    identity function calls. A JavaScript implementation MUST enforce the same
-    rules on the source text, because ``JSON.parse`` silently keeps the last
-    duplicate key and rounds large integers.
+    Rejects duplicate object keys, ``NaN``/``Infinity`` literals and number
+    literals (integer or fractional/exponent form) whose value is outside
+    +/-(2**53-1). Lone-surrogate escapes parse here but are rejected by
+    :func:`canonical_bytes`, which every identity function calls. A JavaScript
+    implementation MUST enforce the same rules on the source text, because
+    ``JSON.parse`` silently keeps the last duplicate key and rounds large
+    numbers.
     """
     if not isinstance(text, str):
         raise ContentIdentityError("JSON text must be a str")
@@ -202,6 +222,7 @@ def parse_strict_json(text: str) -> Any:
             object_pairs_hook=_pairs_without_duplicates,
             parse_constant=_reject_constant,
             parse_int=_parse_int,
+            parse_float=_parse_float,
         )
     except ContentIdentityError:
         raise
@@ -209,12 +230,32 @@ def parse_strict_json(text: str) -> Any:
         raise ContentIdentityError(f"invalid JSON text ({type(error).__name__})") from None
 
 
+def _reject_unsafe_numbers(root: Any) -> None:
+    """Reject any float whose magnitude exceeds 2**53-1.
+
+    Runs only AFTER fp2 accepted ``root``, so the value is acyclic, at most
+    100 containers deep and made of exact plain types -- an explicit stack is
+    therefore bounded. Integers were already range-checked by fp2.
+    """
+    stack = [root]
+    while stack:
+        value = stack.pop()
+        if type(value) is float and abs(value) > fp2._MAX_SAFE_INTEGER:
+            raise ContentIdentityError("number outside +/-(2**53-1)")
+        if type(value) is dict:
+            stack.extend(value.values())
+        elif type(value) is list:
+            stack.extend(value)
+
+
 def canonical_bytes(value: Any) -> bytes:
-    """Return the jcs_v1 (RFC 8785, strict profile) UTF-8 bytes of ``value``."""
+    """Return the jcs_v1 (RFC 8785, strict content-identity profile) UTF-8 bytes of ``value``."""
     try:
-        return fp2.canonicalize(value).encode("utf-8")
+        text = fp2.canonicalize(value)
     except fp2.Fp2UnsupportedValue as error:
         raise ContentIdentityError(f"value cannot be canonicalized: {error}") from None
+    _reject_unsafe_numbers(value)
+    return text.encode("utf-8")
 
 
 def _framed(domain: str, payload: Any) -> bytes:
@@ -254,16 +295,31 @@ class TenantIdentityKeys:
     example_version_key: bytes = field(repr=False)
 
 
-def derive_tenant_keys(tenant_master: bytes) -> TenantIdentityKeys:
-    """Derive the v1 purpose keys and key id from a 32-byte tenant master secret."""
+def hkdf_info(domain: str, tenant_id: str) -> bytes:
+    """HKDF ``info`` = UTF8(domain) || 0x00 || UTF8(tenant_id)."""
+    if not isinstance(tenant_id, str) or not _TENANT_ID_RE.match(tenant_id):
+        raise ContentIdentityError("tenant_id must match ^[A-Za-z0-9_-]{1,128}$")
+    return domain.encode("utf-8") + b"\x00" + tenant_id.encode("ascii")
+
+
+def derive_tenant_keys(tenant_master: bytes, tenant_id: str) -> TenantIdentityKeys:
+    """Derive the v1 purpose keys and key id for one tenant.
+
+    ``tenant_id`` is the Backend's exact tenant id string. Binding it into
+    every HKDF ``info`` means a master secret reused by mistake across two
+    tenants still yields unrelated keys and unlinkable ids.
+    """
     if not isinstance(tenant_master, (bytes, bytearray)):
         raise ContentIdentityError("tenant master secret must be bytes")
     if len(tenant_master) != _TENANT_MASTER_LENGTH:
         raise ContentIdentityError("tenant master secret must be exactly 32 bytes")
     ikm = bytes(tenant_master)
+    hkdf_info(DOMAIN_KEY_ID, tenant_id)  # validate before deriving anything
 
     def expand(domain: str, length: int) -> bytes:
-        return hkdf_sha256(ikm, salt=HKDF_SALT, info=domain.encode("utf-8"), length=length)
+        return hkdf_sha256(
+            ikm, salt=HKDF_SALT, info=hkdf_info(domain, tenant_id), length=length
+        )
 
     return TenantIdentityKeys(
         key_id="k" + expand(DOMAIN_KEY_ID, _KEY_ID_BYTES).hex(),
@@ -384,12 +440,24 @@ def compute_public_input_digest(input: Any, *, context: Any = ABSENT) -> str:  #
 def compute_agent_build_digest(manifest: Mapping[str, Any]) -> str:
     """``sha256:<hex>`` = SHA-256(domain || 0x00 || jcs_v1(AgentBuildManifestV1)).
 
-    Shape validation is the schema's job
-    (``schemas/agents/agent_version_manifest_v1_schema.json``); this function
-    only requires a plain dict and canonicalizes it whole.
+    Full shape validation is the schema's job
+    (``schemas/agents/agent_version_manifest_v1_schema.json``). This function
+    enforces the two rules without which the digest would not identify a
+    build, mirroring the schema: at least one of ``code_revision`` /
+    ``source_digest``, and ``source_digest`` whenever ``code_revision.dirty``
+    is true -- otherwise two different dirty trees on one commit would share a
+    build_digest.
     """
     if type(manifest) is not dict:
         raise ContentIdentityError("agent build manifest must be a plain dict")
+    revision = manifest.get("code_revision")
+    if revision is None and "source_digest" not in manifest:
+        raise ContentIdentityError("agent build manifest needs code_revision or source_digest")
+    if isinstance(revision, dict) and revision.get("dirty") is True:
+        if "source_digest" not in manifest:
+            raise ContentIdentityError(
+                "agent build manifest with a dirty code_revision needs source_digest"
+            )
     return "sha256:" + hashlib.sha256(_framed(DOMAIN_AGENT_BUILD, manifest)).hexdigest()
 
 

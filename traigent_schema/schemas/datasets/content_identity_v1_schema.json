@@ -11,7 +11,7 @@
       "const": "traigent.content_identity.v1"
     },
     "ContentIdentityDomainRegistryV1": {
-      "description": "Closed registry of the v1 domain-separation strings. example_id and example_version are each BOTH the HKDF-SHA-256 'info' that derives that purpose's key from the tenant master (salt = UTF8('traigent.content_identity.v1')) AND the HMAC message prefix UTF8(domain) || 0x00 || jcs_v1(payload). key_id is HKDF 'info' only (8-byte output). multiset_leaf, public_input and agent_build are message prefixes of UNKEYED SHA-256 constructions (agent_build is defined by agents/agent_version_manifest_v1_schema.json).",
+      "description": "Closed registry of the v1 domain-separation strings. example_id and example_version are each BOTH the domain part of the HKDF-SHA-256 'info' that derives that purpose's key from the tenant master (info = UTF8(domain) || 0x00 || UTF8(tenant_id); salt = UTF8('traigent.content_identity.v1')) AND the HMAC message prefix UTF8(domain) || 0x00 || jcs_v1(payload). key_id is the domain part of an HKDF 'info' only (8-byte output). multiset_leaf, public_input and agent_build are message prefixes of UNKEYED SHA-256 constructions (agent_build is defined by agents/agent_version_manifest_v1_schema.json).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -44,7 +44,7 @@
       }
     },
     "KeyIdV1": {
-      "description": "Public key id of the tenant master secret version that minted an identifier: 'k' + hex(HKDF-Expand(PRK, 'traigent.content_identity.key_id.v1', 8)). Different master => different kid, so ids minted under a rotated key are never confused with the old ones. It reveals nothing about the key.",
+      "description": "Public key id of the tenant key version that minted an identifier: 'k' + hex(HKDF-Expand(PRK, UTF8('traigent.content_identity.key_id.v1') || 0x00 || UTF8(tenant_id), 8)). A different master or a different tenant_id gives a different kid, so ids minted under a rotated key, or for another tenant, are never confused. It reveals nothing about the key.",
       "type": "string",
       "pattern": "^k[0-9a-f]{16}$"
     },
@@ -159,7 +159,7 @@
       }
     },
     "MultisetMembersV1": {
-      "description": "The member list, sorted ascending by (example_id, example_version) with no repeated pair (repeats are merged into count). Producers MUST emit this canonical order; consumers MUST recompute the root rather than trust the order.",
+      "description": "The member list, sorted ascending by (example_id, example_version) with no repeated pair (repeats are merged into count). Producers MUST emit this canonical order; consumers MUST recompute the root from the members (and compare it with the stated root) rather than trust either the order or the stated root.",
       "type": "array",
       "items": {
         "$ref": "#/definitions/MultisetMemberV1"
@@ -274,10 +274,10 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 512,
-          "description": "Opaque server reference to a stored member list, when the list is not inlined. At least one of members / members_ref MUST be present."
+          "description": "Opaque server reference to a stored member list, when the list is not inlined. Exactly one of members / members_ref MUST be present (oneOf). Whichever is used, a consumer MUST fetch the list and recompute evaluated_root from it; the root is never trusted on its own."
         }
       },
-      "anyOf": [
+      "oneOf": [
         {
           "required": [
             "members"

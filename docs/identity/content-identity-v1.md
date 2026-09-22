@@ -43,15 +43,26 @@ match.
 
 Every hashed payload is serialized with `jcs_v1`, which is `traigent_schema.fp2.canonicalize`
 (RFC 8785: keys sorted by UTF-16 code unit, ECMAScript number formatting, no whitespace).
-The strict Traigent profile, all of it already enforced by fp2 and pinned by
-`traigent_schema/data/fp2_conformance.json`:
+The strict content-identity profile is fp2's rules plus one stricter number rule. The
+content-identity vectors pin all of it:
 
 - `NaN`, `Infinity`, `-Infinity` → **reject** (never `null`).
-- Lone surrogates → **reject**.
-- Integers with |v| > 2^53 − 1 → **reject**. (A *float* of that magnitude is accepted, as in fp2.)
+- Lone surrogates, in values **and in object keys** → **reject**.
+- **Any number, integer or float, with |v| > 2^53 − 1 → reject.** This is stricter than
+  fp2, which accepts a large *float*.
+  - Why: once JavaScript has parsed `9007199254740993` or `9007199254740993.0`, it holds
+    `9007199254740992`. Accepting any number beyond the safe range would let Python and JS
+    hash different values for the same text.
+  - Both runtimes enforce this one check, on the parsed text and on in-memory values:
+    `abs(v) <= 2^53 − 1`. In JS that is `Math.abs(v) <= Number.MAX_SAFE_INTEGER`.
+  - `9007199254740991.0` is accepted and hashes like the integer `9007199254740991`.
 - Non-plain types (subclasses, dates, bytes, sets, class instances) → **reject**.
-- Nesting deeper than 100 containers → **reject**. The payload wraps the input in one object,
-  so an input may nest at most 99 levels.
+- Nesting deeper than 100 containers → **reject** (fp2's limit, counting the outermost
+  container as 1).
+  - The id payload `{"input": …}` adds one level, so `input` and `context` may nest at most
+    **99** levels. The vectors pin both sides of the boundary: `nesting_at_limit` (99) is
+    accepted and `nesting_over_limit` (100) is rejected.
+  - `expected` is likewise limited to 99 levels. Each `metadata` value is limited to 98.
 - **No Unicode normalization.** `"café"` (U+00E9) and `"café"` are different inputs
   with different ids. Normalizing would make two byte-different prompts collide, and prompts
   are sent to models byte for byte.
@@ -59,9 +70,14 @@ The strict Traigent profile, all of it already enforced by fp2 and pinned by
 **Duplicate object keys** exist only in JSON *text*. Any producer that parses JSON text before
 hashing MUST use a strict parser that rejects duplicate keys, `NaN`/`Infinity` literals, and
 integer literals beyond ±(2^53 − 1). The Python reference is `parse_strict_json`. JavaScript's
-`JSON.parse` silently keeps the last duplicate and rounds big integers, so the JS SDK needs its
+`JSON.parse` silently keeps the last duplicate and rounds big numbers, so the JS SDK needs its
 own strict parser (or `JSON.parse` with source-text access where the runtime provides it). The
-`json_text` rejection vectors pin this.
+`json_text` rejection vectors pin this. They cover:
+
+- duplicate keys;
+- `NaN` and `Infinity` literals, and `1e400`;
+- `2^53`, `2^53 + 1`, `-2^53`, `9007199254740993.0` and `1e16`;
+- a lone surrogate in a value, and one in a key.
 
 Known false equality, inherited from fp2 and impossible to close across languages: `1` and
 `1.0` canonicalize identically, and `-0` becomes `0`.
@@ -72,10 +88,13 @@ Known false equality, inherited from fp2 and impossible to close across language
 
 ```
 tenant_master  : 32 random bytes, one per tenant per key version (custody: section 12)
+tenant_id      : the Backend's exact tenant id string (enterprise_tenants.id, e.g. "tenant_<hex>"),
+                 matching ^[A-Za-z0-9_-]{1,128}$ -- ASCII, case-sensitive, never folded
+info(D)        = UTF8(D) || 0x00 || UTF8(tenant_id)
 PRK            = HMAC-SHA-256(key = UTF8("traigent.content_identity.v1"), msg = tenant_master)   # HKDF-Extract
-K_example_id   = HKDF-Expand(PRK, info = UTF8("traigent.content_identity.example_id.v1"), 32)
-K_example_ver  = HKDF-Expand(PRK, info = UTF8("traigent.content_identity.example_version.v1"), 32)
-kid            = "k" + hex(HKDF-Expand(PRK, info = UTF8("traigent.content_identity.key_id.v1"), 8))
+K_example_id   = HKDF-Expand(PRK, info("traigent.content_identity.example_id.v1"), 32)
+K_example_ver  = HKDF-Expand(PRK, info("traigent.content_identity.example_version.v1"), 32)
+kid            = "k" + hex(HKDF-Expand(PRK, info("traigent.content_identity.key_id.v1"), 8))
 ```
 
 - HKDF is RFC 5869 with SHA-256. The tests check the implementation against RFC 5869 test
@@ -85,9 +104,12 @@ kid            = "k" + hex(HKDF-Expand(PRK, info = UTF8("traigent.content_identi
   the wrong key version finds out immediately. It is derived rather than assigned, so no
   registry is needed to produce it. Human-readable key labels belong in the key registry
   (section 12), not in ids.
-- The master must be exactly 32 bytes and unique per tenant. The spec does not bind the
-  tenant id into the derivation, so reusing one master across two tenants would make their ids
-  linkable. Custody (section 12) must prevent that.
+- The master must be exactly 32 bytes and SHOULD be unique per tenant (ruling D1).
+- The tenant id is bound into every HKDF `info` (review item F2, adopted 2026-09-23). If a
+  master is ever reused by mistake across two tenants, their keys, `kid`s and ids are still
+  unrelated. The `reused_master_other_tenant` vector pins this.
+- `tenant_id` is the Backend's stored string, byte for byte. A producer that lower-cases or
+  reformats it derives different keys.
 
 ---
 
@@ -197,6 +219,12 @@ MTH(D[n]) = SHA-256(0x01 || MTH(D[0:k]) || MTH(D[k:n])),  k = largest power of t
   subtle to get right. Datasets are small enough to sort, and a Merkle tree also provides
   inclusion proofs.
 
+**Consumers recompute.** Every record that states a root, whether a dataset identity or
+an evaluated set, carries its members inline (`members`) **or** by reference (`members_ref`).
+For an evaluated set, the schema's `oneOf` requires exactly one of the two. A consumer MUST
+obtain the member list and **recompute the root from it**, then compare the result with the
+stated root. A stated root, and the member order, are never trusted on their own.
+
 `dataset_root` and every trial's `evaluated_root` use this **same** construction under the
 same key. A trial that evaluated the whole dataset exactly once therefore has
 `evaluated_root == dataset_root`.
@@ -264,6 +292,10 @@ Identity still comes from content, never from them.
 - **Version: `build_digest`.** It is `"sha256:" + hex(SHA-256(UTF8("traigent.content_identity.agent_build.v1") || 0x00 || jcs_v1(AgentBuildManifestV1)))`.
   - The manifest must contain at least one of `code_revision` (full git commit plus a `dirty`
     flag) or `source_digest` (afp2).
+  - When `code_revision.dirty` is true, `source_digest` is **required**. Otherwise two
+    different uncommitted trees on one commit would share a `build_digest`. The schema
+    enforces this with `if`/`then`, `compute_agent_build_digest` enforces it too, and a
+    rejection vector pins it.
   - It may also contain `dependency_lock_digest`, `asset_digests` (prompts and tool specs that
     live outside the function), `applied_config_digest`, `label` and `runtime`.
   - It is unkeyed, because the manifest holds only digests and version strings.
@@ -363,7 +395,8 @@ This makes the model-checking properties proposed in CONSOLIDATED concrete:
 
 What the spec fixes:
 
-- Derivation (section 3). A 32-byte master per tenant per key version. `kid` inside every id.
+- Derivation (section 3). A 32-byte master per tenant per key version, bound to the tenant
+  id. `kid` inside every id.
 - **Rotation changes every id.** A new master produces a new `kid`, and every `example_id`,
   `example_version` and root changes. Old records stay verifiable because they carry their
   `kid`.
@@ -374,8 +407,8 @@ What the spec fixes:
   hides them, and a test checks this.
 - The SDK receives **derived purpose keys**, never the master.
 
-What the spec does not fix, because it cannot be derived from the code: **where tenant masters
-live and who may obtain the derived keys**. See owner decisions D1 and D2 in section 16.
+Custody, rotation and the public-digest opt-in are settled by the owner rulings in section 16
+(D1 = A, D2 = A, D3 = A, 2026-09-23).
 
 ## 13. Statistical use
 
@@ -404,7 +437,7 @@ live and who may obtain the derived keys**. See owner decisions D1 and D2 in sec
 | Equality leak inside a tenant | Anyone who sees ids | Equal inputs have equal ids. This is intended, because it is what makes overlap checks work |
 | Dictionary attack on low-entropy inputs ("yes", a 4-digit PIN) | Only holders of `K_example_id`, meaning the tenant's own SDK users and the Backend | Keyed ids stop outsiders, including other tenants and certificate readers, from confirming guesses. They do **not** hide low-entropy inputs from the tenant's own key holders. Ids are not encryption |
 | Key compromise | Whoever holds the key | Every id under that `kid` becomes open to dictionary attack. Rotate (D2), which changes every id |
-| Cross-tenant linkage | Nobody, given distinct masters | Different keys make the ids unlinkable. `kid` links ids within one tenant only |
+| Cross-tenant linkage | Nobody | Different masters, and a different `tenant_id` in the HKDF `info` even if a master were reused, make the ids unlinkable. `kid` links ids within one tenant only |
 | Unkeyed `exu1` digest | Anyone | Confirms guessed inputs. Opt-in, public benchmarks only (4.5) |
 | Member lists and counts | Readers of the record | Disclose dataset size, duplicate structure and conflict count. No content |
 | Inclusion proof | Its recipient | Discloses one leaf, the tree size and about log2(n) opaque sibling hashes. No other member |
@@ -435,34 +468,35 @@ live and who may obtain the derived keys**. See owner decisions D1 and D2 in sec
 10. **Performance.** Building a proof recomputes subtrees, which is O(n log n). That is fine for
     evaluation datasets. Millions of rows would want a cached tree.
 
-## 16. Owner decisions
+## 16. Owner rulings (2026-09-23)
 
-**D1: Where tenant masters live, and who gets the derived keys.**
+The three decisions this spec left open were ruled by the owner on 2026-09-23. The
+recommended option was taken in each case.
 
-- A (recommended): one random 32-byte master per tenant per key version, held in KMS/Vault
-  (envelope-encrypted) by the Backend. Authenticated SDK sessions receive only the two derived
-  purpose keys plus `kid`, held in memory, never on disk.
-  - Why: per-tenant blast radius and per-tenant rotation. Privacy-mode SDKs can hash locally
-    without content leaving the machine.
-- B: derive each tenant master from one platform root as `HKDF(root, tenant_id)`.
-  - One secret to guard, but a compromise of the root exposes every tenant, and rotation is
-    global.
-- C: customer-held keys (BYOK), in the SDK only.
-  - Strongest privacy, but the Backend cannot compute ids for hosted datasets, and a customer
-    who loses the key loses its history.
+**D1 = A: custody.** Each tenant has one random 32-byte master per key version.
+- The Backend holds it in KMS/Vault (envelope-encrypted). It never leaves the Backend.
+- Authenticated SDK sessions receive only the two derived purpose keys plus `kid`. The SDK
+  keeps them in memory and never on disk.
+- Why: the blast radius of a leak is one tenant, rotation is per tenant, and privacy-mode SDKs
+  can hash locally without content leaving the machine.
+- Not chosen: B (every tenant key derived from one platform root) and C (customer-held keys).
 
-**D2: Rotation policy.**
+**D2 = A: rotation.** Keys are rotated only on suspected compromise, not on a schedule.
+- On rotation, the Backend recomputes ids for stored content under the new `kid` and keeps an
+  `old id → new id` map. SDK-local datasets are re-hashed by the SDK.
+- Certificates are never rewritten. They stay verifiable under the `kid` they carry.
 
-- A (recommended): rotate only on suspected compromise. The Backend keeps an old-to-new id map
-  for stored content.
-  - Why: every rotation breaks comparisons over time, so rotation should be rare.
-- B: scheduled rotation, for example yearly. This pays the remap cost every period.
+**D3 = A: public-benchmark opt-in.** A per-dataset flag, `public_benchmark: true`, settable by
+a tenant admin. It gates the unkeyed `exu1` digest.
+- The flag is off by default. It never becomes tenant-wide.
 
-**D3: Granularity of the public-benchmark opt-in (the unkeyed `exu1` digest).**
-
-- A (recommended): a per-dataset flag `public_benchmark: true`, settable by a tenant admin.
-- B: a single tenant-wide flag.
-  - This risks emitting unkeyed digests for private datasets.
+**F2 (review item), adopted with D1:** `tenant_id` is bound into every HKDF `info` (section 3).
+- This is defence in depth against a master reused by mistake.
+- It changed every derived key, id and vector. That was done before any adoption, still under
+  `traigent.content_identity.v1`, because nothing had shipped.
+- The canonical tenant-id string (the Backend's `enterprise_tenants.id`, charset
+  `^[A-Za-z0-9_-]{1,128}$`) is now a cross-SDK agreement point. The SDKs receive it from the
+  Backend together with the purpose keys and never construct it themselves.
 
 ## 17. What each implementation must do next
 
@@ -471,6 +505,9 @@ The rule for every implementation: pass **every** section of
 is `tests/test_example_identity.py` ("Conformance vectors").
 
 **Python SDK (Traigent)**
+
+0. Apply the section 2 number rule: reject |v| > 2^53 − 1, even for floats. This goes
+   beyond fp2.
 
 1. Implement the canonicalization, keys, example_id and example_version, multiset root and
    inclusion proof, reusing its fp2 canonicalizer. Pass the vectors.
@@ -486,12 +523,15 @@ is `tests/test_example_identity.py` ("Conformance vectors").
 **JS SDK (traigent-js)**
 
 1. The same as Python, plus a **strict JSON text parser** (duplicate keys, `NaN`/`Infinity`,
-   integer literals beyond ±(2^53 − 1)).
+   and **any** number literal beyond ±(2^53 − 1), in integer, fractional or exponent form).
 2. Stop sending `agent = unknown`. Emit the manifest.
 
 **Backend**
 
-1. Implement key custody per D1, with a purpose-key issuance endpoint and a key registry
+1. Implement key custody per ruling D1 (KMS/Vault, one master per tenant per key version),
+   rotation per D2, and the per-dataset `public_benchmark` flag per D3. Add a purpose-key
+   issuance endpoint that returns `{tenant_id, kid, example_id_key, example_version_key}` and a
+   key registry
    `(tenant, kid, status, created_at)`.
 2. Compute ids and `dataset_root` for hosted datasets. Store `dataset_root` on
    `dataset_versions`. Resolve a run's dataset version by root.

@@ -46,7 +46,8 @@ VECTORS = json.loads(
     .read_text(encoding="utf-8")
 )
 MASTER_A = bytes(range(32))
-KEYS_A = ei.derive_tenant_keys(MASTER_A)
+TENANT_A = "tenant_0a0a0a0a"
+KEYS_A = ei.derive_tenant_keys(MASTER_A, TENANT_A)
 
 
 def _field(case: dict[str, Any], name: str) -> Any:
@@ -105,10 +106,13 @@ def test_hkdf_matches_rfc5869_known_answers(
 
 def test_example_id_matches_a_hand_built_preimage() -> None:
     prk = hmac.new(b"traigent.content_identity.v1", MASTER_A, hashlib.sha256).digest()
+    tenant = b"\x00" + TENANT_A.encode()
     key = hmac.new(
-        prk, b"traigent.content_identity.example_id.v1" + b"\x01", hashlib.sha256
+        prk, b"traigent.content_identity.example_id.v1" + tenant + b"\x01", hashlib.sha256
     ).digest()
-    kid = hmac.new(prk, b"traigent.content_identity.key_id.v1" + b"\x01", hashlib.sha256)
+    kid = hmac.new(
+        prk, b"traigent.content_identity.key_id.v1" + tenant + b"\x01", hashlib.sha256
+    )
     preimage = b'traigent.content_identity.example_id.v1\x00{"input":{"a":1,"b":[true,null]}}'
     expected = f"ex1:k{kid.hexdigest()[:16]}:{hmac.new(key, preimage, hashlib.sha256).hexdigest()}"
     assert ei.compute_example_id(KEYS_A, {"b": [True, None], "a": 1}) == expected
@@ -202,7 +206,7 @@ def test_no_warning_without_conflicts() -> None:
 
 
 def test_tenants_and_rotations_are_unlinkable() -> None:
-    other = ei.derive_tenant_keys(bytes(range(1, 33)))
+    other = ei.derive_tenant_keys(bytes(range(1, 33)), TENANT_A)
     assert other.key_id != KEYS_A.key_id
     assert ei.compute_example_id(other, "q").split(":")[2] != ei.compute_example_id(
         KEYS_A, "q"
@@ -210,7 +214,7 @@ def test_tenants_and_rotations_are_unlinkable() -> None:
 
 
 def test_mixing_key_ids_is_rejected() -> None:
-    other = ei.derive_tenant_keys(bytes(range(1, 33)))
+    other = ei.derive_tenant_keys(bytes(range(1, 33)), TENANT_A)
     mine = _pairs(1)[0]
     theirs = ei.identify_example(other, ei.ExampleProjection(input="q"))
     with pytest.raises(ei.ContentIdentityError):
@@ -252,7 +256,20 @@ def test_reserved_metadata_is_rejected_by_the_primitive() -> None:
 @pytest.mark.parametrize("bad", [b"", bytes(31), bytes(33), "0" * 32])
 def test_tenant_master_must_be_32_bytes(bad: Any) -> None:
     with pytest.raises(ei.ContentIdentityError):
-        ei.derive_tenant_keys(bad)
+        ei.derive_tenant_keys(bad, TENANT_A)
+
+
+def test_reused_master_across_tenants_still_gives_unrelated_keys() -> None:
+    other = ei.derive_tenant_keys(MASTER_A, "tenant_0c0c0c0c")
+    assert other.key_id != KEYS_A.key_id
+    assert other.example_id_key != KEYS_A.example_id_key
+    assert other.example_version_key != KEYS_A.example_version_key
+
+
+@pytest.mark.parametrize("bad", ["", "tenant:1", "t" * 129, "tenant_\u00e9", None, b"t"])
+def test_tenant_id_must_be_a_plain_ascii_id(bad: Any) -> None:
+    with pytest.raises(ei.ContentIdentityError):
+        ei.derive_tenant_keys(MASTER_A, bad)
 
 
 @pytest.mark.parametrize("n", list(range(1, 34)))
@@ -310,10 +327,8 @@ def test_full_dataset_evaluated_once_has_the_dataset_root() -> None:
 
 
 def _keys_for(tenant: str) -> ei.TenantIdentityKeys:
-    master = next(
-        k["tenant_master_hex"] for k in VECTORS["key_derivation"] if k["tenant"] == tenant
-    )
-    return ei.derive_tenant_keys(bytes.fromhex(master))
+    row = next(k for k in VECTORS["key_derivation"] if k["tenant"] == tenant)
+    return ei.derive_tenant_keys(bytes.fromhex(row["tenant_master_hex"]), row["tenant_id"])
 
 
 def test_vector_file_is_packaged_current_and_nontrivial() -> None:
@@ -343,7 +358,7 @@ def test_vector_constants_match_the_module_and_schema() -> None:
 
 @pytest.mark.parametrize("case", VECTORS["key_derivation"], ids=lambda c: c["tenant"])
 def test_key_derivation_vectors(case: dict[str, Any]) -> None:
-    keys = ei.derive_tenant_keys(bytes.fromhex(case["tenant_master_hex"]))
+    keys = ei.derive_tenant_keys(bytes.fromhex(case["tenant_master_hex"]), case["tenant_id"])
     assert keys.key_id == case["key_id"]
     assert keys.example_id_key.hex() == case["example_id_key_hex"]
     assert keys.example_version_key.hex() == case["example_version_key_hex"]
@@ -444,7 +459,11 @@ def test_rejection_vectors(case: dict[str, Any]) -> None:
         elif kind == "multiset":
             ei.compute_multiset_root([tuple(item) for item in case["items"]])
         elif kind == "key_derivation":
-            ei.derive_tenant_keys(bytes.fromhex(case["tenant_master_hex"]))
+            ei.derive_tenant_keys(bytes.fromhex(case["tenant_master_hex"]), case["tenant_id"])
+        elif kind == "example_input":
+            ei.compute_example_id(KEYS_A, case["input"])
+        elif kind == "agent_build":
+            ei.compute_agent_build_digest(case["manifest"])
         else:  # pragma: no cover - a new kind must be wired here
             pytest.fail(f"unknown rejection kind {kind}")
 
@@ -561,3 +580,75 @@ def test_agent_manifest_needs_a_revision_or_a_source_digest() -> None:
     manifest = {"manifest_version": 1, "agent_id": "agent_0001",
                 "runtime": {"language": "python", "sdk_version": "0.28.0"}}
     assert list(_validator(AGENT_SCHEMA_PATH, "AgentBuildManifestV1").iter_errors(manifest))
+
+
+@pytest.mark.parametrize(
+    "case",
+    [c for c in VECTORS["rejections"] if c["kind"] == "agent_build"],
+    ids=lambda c: c["name"],
+)
+def test_schema_also_rejects_the_agent_build_rejection_vectors(case: dict[str, Any]) -> None:
+    assert list(
+        _validator(AGENT_SCHEMA_PATH, "AgentBuildManifestV1").iter_errors(case["manifest"])
+    )
+
+
+def test_dirty_build_with_source_digest_is_accepted_by_code_and_schema() -> None:
+    manifest = {**VECTORS["agent_builds"][0]["manifest"]}
+    manifest["code_revision"] = {**manifest["code_revision"], "dirty": True}
+    assert ei.compute_agent_build_digest(manifest).startswith("sha256:")
+    assert not list(_validator(AGENT_SCHEMA_PATH, "AgentBuildManifestV1").iter_errors(manifest))
+
+
+def test_evaluated_set_rejects_both_members_and_a_reference() -> None:
+    root = ei.compute_multiset_root(_pairs(1))
+    member = root.members[0]
+    record = {
+        "scheme": ei.SCHEME, "key_id": root.key_id, "dataset_root": root.root,
+        "evaluated_root": root.root, "distinct_count": 1, "total_count": 1,
+        "members": [{"example_id": member.example_id,
+                     "example_version": member.example_version, "count": 1}],
+        "members_ref": "blob://x",
+    }
+    validator = _validator(CONTENT_SCHEMA_PATH, "EvaluatedSetV1")
+    assert list(validator.iter_errors(record))
+    del record["members_ref"]
+    assert not list(validator.iter_errors(record))
+
+
+@pytest.mark.parametrize(
+    "value", [float(2**53), 1e16, -1e21, 9007199254740993.0, [1.0, {"k": 2e53}]]
+)
+def test_in_memory_numbers_beyond_the_safe_range_are_rejected(value: Any) -> None:
+    # fp2 alone accepts these floats; content identity must not, or a JS
+    # producer (which cannot distinguish them after parsing) would diverge.
+    with pytest.raises(ei.ContentIdentityError):
+        ei.compute_example_id(KEYS_A, value)
+
+
+def test_nesting_limit_boundary() -> None:
+    def nested(depth: int) -> list[Any]:
+        value: list[Any] = []
+        for _ in range(depth - 1):
+            value = [value]
+        return value
+
+    ei.compute_example_id(KEYS_A, nested(99))
+    with pytest.raises(ei.ContentIdentityError):
+        ei.compute_example_id(KEYS_A, nested(100))
+
+
+@pytest.mark.parametrize(
+    "text", ["9007199254740993", "9007199254740993.0", "1e16", "-1e400", '{"a": [2e53]}']
+)
+def test_strict_parser_itself_rejects_out_of_range_number_literals(text: str) -> None:
+    # Pins the parser layer on its own (the JS SDK must reject at parse time,
+    # before JSON.parse rounds the value), independent of canonical_bytes.
+    with pytest.raises(ei.ContentIdentityError):
+        ei.parse_strict_json(text)
+
+
+def test_strict_parser_accepts_the_safe_boundary() -> None:
+    assert ei.parse_strict_json("[9007199254740991, 9007199254740991.0, -1e-7]") == [
+        2**53 - 1, float(2**53 - 1), -1e-7
+    ]

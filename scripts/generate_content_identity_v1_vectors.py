@@ -35,13 +35,27 @@ from traigent_schema import example_identity as ei  # noqa: E402
 VECTORS_PATH = _REPO_ROOT / "traigent_schema" / "data" / "content_identity_v1_vectors.json"
 
 # Fixed, PUBLIC test secrets. Never use these for a real tenant.
-TENANT_MASTERS = {
-    "tenant_a": bytes(range(32)).hex(),
-    "tenant_a_rotated": bytes(range(1, 33)).hex(),
-    "tenant_b": bytes(range(255, 223, -1)).hex(),
+# name -> (tenant_id, tenant master hex). tenant_a_rotated is tenant_a after a
+# key rotation (same tenant_id, new master). tenant_c_reused_master shares
+# tenant_a's master by mistake: binding tenant_id into HKDF info still gives
+# it unrelated keys.
+TENANTS = {
+    "tenant_a": ("tenant_0a0a0a0a", bytes(range(32)).hex()),
+    "tenant_a_rotated": ("tenant_0a0a0a0a", bytes(range(1, 33)).hex()),
+    "tenant_b": ("tenant_0b0b0b0b", bytes(range(255, 223, -1)).hex()),
+    "tenant_c_reused_master": ("tenant_0c0c0c0c", bytes(range(32)).hex()),
 }
 
 _Q = {"question": "What is 2+2?", "lang": "en"}
+
+
+def _nested(depth: int) -> list[Any]:
+    """``depth`` nested lists: _nested(1) == [], _nested(2) == [[]]."""
+    value: list[Any] = []
+    for _ in range(depth - 1):
+        value = [value]
+    return value
+
 
 # name, description, tenant, fields. A field key that is absent here is
 # ABSENT; a key present with None is JSON null (normalized to absent).
@@ -82,20 +96,30 @@ EXAMPLES: list[tuple[str, str, str, dict[str, Any]]] = [
      "tenant_a", {"input": {"\uff21": 2, "\U0001f600": 1}}),
     ("escapes_and_controls", "Quote, backslash, newline, tab and U+0001 inside a string.",
      "tenant_a", {"input": {"s": "a\"b\\c\nd\te\u0001f"}}),
-    ("floats", "ECMAScript number formatting: 1e21, 1e-7, 0.1, 1e16 as float, -0.0 -> 0.",
-     "tenant_a", {"input": {"a": 1e21, "b": 1e-7, "c": 0.1, "d": 1e16, "e": -0.0}}),
+    ("floats", "ECMAScript number formatting inside the safe range: 1e-7, 0.1, 1.5e15, "
+     "123.456, -0.0 -> 0.", "tenant_a",
+     {"input": {"a": 1.5e15, "b": 1e-7, "c": 0.1, "d": 123.456, "e": -0.0}}),
     ("int_one", "Integer 1.", "tenant_a", {"input": {"n": 1}}),
     ("float_one", "Float 1.0 canonicalizes like integer 1 (documented fp2 limit); must equal "
      "int_one.", "tenant_a", {"input": {"n": 1.0}}),
     ("bool_true", "true is not 1; must differ from int_one.", "tenant_a", {"input": {"n": True}}),
     ("max_safe_integer", "2**53-1 is the largest accepted integer.", "tenant_a",
      {"input": {"n": 2**53 - 1}}),
+    ("max_safe_float", "9007199254740991.0 (float, = 2**53-1) is accepted and equals the "
+     "integer; any number of larger magnitude, float or integer, is rejected.", "tenant_a",
+     {"input": {"n": float(2**53 - 1)}}),
+    ("nesting_at_limit", "input nested 99 containers deep: with the payload wrapper that is "
+     "the jcs_v1 limit of 100, so it is ACCEPTED (100 is rejected, see rejections).",
+     "tenant_a", {"input": _nested(99)}),
     ("nested_empty_containers", "Empty object and array nested.", "tenant_a",
      {"input": {"a": {}, "b": [], "c": [{}, []], "d": None}}),
     ("cross_tenant", "Baseline under tenant_b: different kid and different ids.", "tenant_b",
      {"input": dict(_Q), "expected": "4"}),
     ("rotated_key", "Baseline under tenant_a's rotated master: different kid and ids.",
      "tenant_a_rotated", {"input": dict(_Q), "expected": "4"}),
+    ("reused_master_other_tenant", "Baseline under tenant_c, which reuses tenant_a's master "
+     "by mistake: tenant_id in the HKDF info still gives a different kid and ids.",
+     "tenant_c_reused_master", {"input": dict(_Q), "expected": "4"}),
 ]
 
 RELATIONS: list[tuple[str, str, str, str]] = [
@@ -114,9 +138,11 @@ RELATIONS: list[tuple[str, str, str, str]] = [
     ("baseline", "string_input", "example_id", "different"),
     ("unicode_nfc", "unicode_nfd", "example_id", "different"),
     ("int_one", "float_one", "example_id", "equal"),
+    ("max_safe_integer", "max_safe_float", "example_id", "equal"),
     ("int_one", "bool_true", "example_id", "different"),
     ("baseline", "cross_tenant", "example_id", "different"),
     ("baseline", "rotated_key", "example_id", "different"),
+    ("baseline", "reused_master_other_tenant", "example_id", "different"),
 ]
 
 PROJECTIONS: list[tuple[str, str, dict[str, Any]]] = [
@@ -167,12 +193,23 @@ JSON_TEXT_REJECTIONS: list[tuple[str, str, str]] = [
     ("integer_above_safe", "2**53 as an integer literal.", '{"input": {"a": 9007199254740992}}'),
     ("integer_below_safe", "-(2**53) as an integer literal.",
      '{"input": {"a": -9007199254740992}}'),
-    ("lone_surrogate", "A lone high surrogate escape.", '{"input": {"a": "\\ud800"}}'),
+    ("lone_surrogate", "A lone high surrogate escape in a value.",
+     '{"input": {"a": "\\ud800"}}'),
+    ("lone_surrogate_key", "A lone low surrogate escape in an object KEY.",
+     '{"input": {"\\udc00": 1}}'),
+    ("integer_2_53_plus_1", "9007199254740993 (2**53+1) as an integer literal: JS JSON.parse "
+     "would silently round it to 2**53.", '{"input": {"a": 9007199254740993}}'),
+    ("float_literal_2_53_plus_1", "9007199254740993.0: a fractional-form literal outside the "
+     "safe range is rejected like the integer form, so JS and Python cannot diverge.",
+     '{"input": {"a": 9007199254740993.0}}'),
+    ("float_literal_1e16", "1e16: exponent-form literal outside the safe range.",
+     '{"input": {"a": 1e16}}'),
 ]
 
 
 def _keys(tenant: str) -> ei.TenantIdentityKeys:
-    return ei.derive_tenant_keys(bytes.fromhex(TENANT_MASTERS[tenant]))
+    tenant_id, master_hex = TENANTS[tenant]
+    return ei.derive_tenant_keys(bytes.fromhex(master_hex), tenant_id)
 
 
 def _field(fields: dict[str, Any], name: str) -> Any:
@@ -351,14 +388,38 @@ def build_vectors() -> dict[str, Any]:
          "description": "Members minted under two key ids.",
          "items": [base, pair("rotated_key")]},
         {"name": "short_tenant_master", "kind": "key_derivation",
-         "description": "A 31-byte tenant master secret.", "tenant_master_hex": "00" * 31},
+         "description": "A 31-byte tenant master secret.", "tenant_master_hex": "00" * 31,
+         "tenant_id": "tenant_0a0a0a0a"},
+        {"name": "tenant_id_with_colon", "kind": "key_derivation",
+         "description": "tenant_id outside ^[A-Za-z0-9_-]{1,128}$.",
+         "tenant_master_hex": TENANTS["tenant_a"][1], "tenant_id": "tenant:0a"},
+        {"name": "tenant_id_empty", "kind": "key_derivation",
+         "description": "Empty tenant_id.", "tenant_master_hex": TENANTS["tenant_a"][1],
+         "tenant_id": ""},
+        {"name": "tenant_id_non_ascii", "kind": "key_derivation",
+         "description": "Non-ASCII tenant_id (U+00E9).",
+         "tenant_master_hex": TENANTS["tenant_a"][1], "tenant_id": "tenant_\u00e9"},
+        {"name": "nesting_over_limit", "kind": "example_input",
+         "description": "input nested 100 containers deep: 101 with the payload wrapper, over "
+                        "the jcs_v1 limit of 100 (nesting_at_limit, 99, is accepted).",
+         "input": _nested(100)},
+        {"name": "agent_build_dirty_without_source_digest", "kind": "agent_build",
+         "description": "code_revision.dirty=true without source_digest: two different dirty "
+                        "trees on one commit would share a build_digest.",
+         "manifest": {**{k: v for k, v in _BUILD.items() if k != "source_digest"},
+                      "code_revision": {**_BUILD["code_revision"], "dirty": True}}},
+        {"name": "agent_build_without_revision_or_source", "kind": "agent_build",
+         "description": "Neither code_revision nor source_digest: identifies nothing.",
+         "manifest": {k: v for k, v in _BUILD.items()
+                      if k not in ("code_revision", "source_digest")}},
     ])
 
     key_derivation = []
-    for tenant, master_hex in TENANT_MASTERS.items():
+    for tenant, (tenant_id, master_hex) in TENANTS.items():
         keys = _keys(tenant)
         key_derivation.append({
             "tenant": tenant,
+            "tenant_id": tenant_id,
             "tenant_master_hex": master_hex,
             "key_id": keys.key_id,
             "example_id_key_hex": keys.example_id_key.hex(),
@@ -381,6 +442,8 @@ def build_vectors() -> dict[str, Any]:
         ),
         "constants": {
             "hkdf_salt_utf8": ei.HKDF_SALT.decode("ascii"),
+            "hkdf_info": "UTF8(domain) || 0x00 || UTF8(tenant_id)",
+            "tenant_id_pattern": "^[A-Za-z0-9_-]{1,128}$",
             "domains": {
                 "agent_build": ei.DOMAIN_AGENT_BUILD,
                 "example_id": ei.DOMAIN_EXAMPLE_ID,

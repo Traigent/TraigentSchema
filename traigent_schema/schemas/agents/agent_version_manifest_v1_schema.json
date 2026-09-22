@@ -63,7 +63,7 @@
       }
     },
     "AgentBuildManifestV1": {
-      "description": "The build manifest whose jcs_v1 digest is the agent build version. At least one of code_revision / source_digest MUST be present: a manifest with neither identifies nothing. Every field is a digest, a revision or a version string -- no content.",
+      "description": "The build manifest whose jcs_v1 digest is the agent build version. At least one of code_revision / source_digest MUST be present: a manifest with neither identifies nothing. When code_revision.dirty is true, source_digest is REQUIRED (enforced by if/then here and by compute_agent_build_digest): otherwise two different dirty trees on one commit would share a build_digest. Every field is a digest, a revision or a version string -- no content.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -127,7 +127,29 @@
             "source_digest"
           ]
         }
-      ]
+      ],
+      "if": {
+        "required": [
+          "code_revision"
+        ],
+        "properties": {
+          "code_revision": {
+            "required": [
+              "dirty"
+            ],
+            "properties": {
+              "dirty": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "source_digest"
+        ]
+      }
     },
     "ObservedProviderVersionV1": {
       "description": "One provider/model actually observed during a trial, taken from the provider RESPONSE, not from configuration. requested_model is what was asked for; response_model is what the provider says served it (e.g. a dated snapshot behind an alias); system_fingerprint is the provider's backend fingerprint when it returns one. An alias ('gpt-4o', 'claude-latest') is not a version: only response_model / system_fingerprint witness what ran.",

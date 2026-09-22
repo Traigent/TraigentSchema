@@ -1,0 +1,199 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/agent_version_manifest_v1_schema.json",
+  "title": "Agent Version Manifest V1",
+  "description": "What an agent version IS under traigent.content_identity.v1. Identity and version are separate: agent_id is a declared, project-owned, server-minted identity that never changes when the code changes; the agent VERSION is the digest of a build manifest (what was built) and is complemented, per trial, by the provider/model versions actually OBSERVED at run time (what ran). build_digest = 'sha256:' + lowercase hex SHA-256(UTF8('traigent.content_identity.agent_build.v1') || 0x00 || jcs_v1(AgentBuildManifestV1)). It is unkeyed: the manifest carries only digests, revisions and version strings, never prompts or user content. Normative text: docs/identity/content-identity-v1.md. Versions decide comparability, never identity (the rule already stated on optimization_endpoints.json agent_id / artifact_versions).",
+  "version": "1.0.0",
+  "definitions": {
+    "Sha256DigestV1": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "'sha256:' + 64 lowercase hex."
+    },
+    "CodeRevisionV1": {
+      "description": "Version-control revision the agent was built from. dirty=true means the working tree differed from the commit, so the commit alone does not reproduce the build; producers MUST then also supply source_digest.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vcs",
+        "commit",
+        "dirty"
+      ],
+      "properties": {
+        "vcs": {
+          "type": "string",
+          "enum": [
+            "git"
+          ]
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "Full SHA-1 or SHA-256 git object id; abbreviations are not identities."
+        },
+        "dirty": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AgentRuntimeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language",
+        "sdk_version"
+      ],
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": [
+            "python",
+            "javascript"
+          ]
+        },
+        "language_version": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "sdk_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "AgentBuildManifestV1": {
+      "description": "The build manifest whose jcs_v1 digest is the agent build version. At least one of code_revision / source_digest MUST be present: a manifest with neither identifies nothing. Every field is a digest, a revision or a version string -- no content.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_version",
+        "agent_id",
+        "runtime"
+      ],
+      "properties": {
+        "manifest_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "agent_id": {
+          "$ref": "../common_types_schema.json#/definitions/ForeignKeyId",
+          "description": "The project-owned agent identity (Backend agents.id). Part of the manifest so two agents with byte-identical builds still get distinct build digests."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Optional human label (e.g. 'v1.3', a release tag). Part of the digest: relabelling is a new version by design, so a label can never be moved onto different bits."
+        },
+        "code_revision": {
+          "$ref": "#/definitions/CodeRevisionV1"
+        },
+        "source_digest": {
+          "$ref": "#/definitions/Sha256DigestV1",
+          "description": "The SDK's afp2 agent fingerprint (docs/fingerprints/fp2.md) of the callable plus bound state."
+        },
+        "dependency_lock_digest": {
+          "$ref": "#/definitions/Sha256DigestV1",
+          "description": "SHA-256 of the dependency lock file bytes (uv.lock, poetry.lock, package-lock.json, pnpm-lock.yaml) the agent ran under."
+        },
+        "asset_digests": {
+          "type": "object",
+          "maxProperties": 256,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9_.:/-]{1,128}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/Sha256DigestV1"
+          },
+          "description": "Digests of prompt templates, tool specs and other files that change behaviour but live outside the decorated function, keyed by a stable asset name."
+        },
+        "applied_config_digest": {
+          "$ref": "#/definitions/Sha256DigestV1",
+          "description": "fp2 digest of the configuration the agent is BUILT WITH (the promoted winner, or the trial's config for a candidate). Absent for a base build before any configuration is applied."
+        },
+        "runtime": {
+          "$ref": "#/definitions/AgentRuntimeV1"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "code_revision"
+          ]
+        },
+        {
+          "required": [
+            "source_digest"
+          ]
+        }
+      ]
+    },
+    "ObservedProviderVersionV1": {
+      "description": "One provider/model actually observed during a trial, taken from the provider RESPONSE, not from configuration. requested_model is what was asked for; response_model is what the provider says served it (e.g. a dated snapshot behind an alias); system_fingerprint is the provider's backend fingerprint when it returns one. An alias ('gpt-4o', 'claude-latest') is not a version: only response_model / system_fingerprint witness what ran.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "requested_model",
+        "response_model"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"
+        },
+        "requested_model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "response_model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "description": "null when the provider response did not name a model: an honest 'unknown', never a copy of requested_model."
+        },
+        "system_fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "call_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "AgentVersionV1": {
+      "description": "An agent version as recorded against a run or a certificate: the identity, the build digest, and (optionally inlined) the manifest it was computed from.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "build_digest"
+      ],
+      "properties": {
+        "agent_id": {
+          "$ref": "../common_types_schema.json#/definitions/ForeignKeyId"
+        },
+        "build_digest": {
+          "$ref": "#/definitions/Sha256DigestV1"
+        },
+        "manifest": {
+          "$ref": "#/definitions/AgentBuildManifestV1"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/AgentVersionV1"
+    }
+  ]
+}

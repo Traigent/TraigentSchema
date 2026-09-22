@@ -1,0 +1,698 @@
+# SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Traigent-Commercial
+# Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
+"""Reference implementation of Traigent content identity v1 (``traigent.content_identity.v1``).
+
+Normative document: ``docs/identity/content-identity-v1.md``.
+Conformance vectors: ``traigent_schema/data/content_identity_v1_vectors.json``.
+Wire shapes: ``schemas/datasets/content_identity_v1_schema.json``.
+
+What this module computes, all pure and offline (no network, no filesystem,
+no randomness):
+
+* ``derive_tenant_keys`` -- HKDF-SHA-256 (RFC 5869) from one 32-byte tenant
+  master secret to per-purpose HMAC keys plus a public key id (``kid``).
+* ``compute_example_id`` -- HMAC-SHA-256 over the canonical INPUT (and context,
+  when present). Stable while the input is unchanged.
+* ``compute_example_version`` -- HMAC-SHA-256 over the example id plus the
+  expected output and version-relevant metadata. Changes when the label does.
+* ``compute_multiset_root`` -- an RFC 9162 Merkle Tree Hash over sorted
+  ``[example_id, example_version, count]`` leaves: order-free, duplicates
+  counted. Used for both a dataset's root and a trial's evaluated root.
+* ``build_inclusion_proof`` / ``verify_inclusion_proof`` -- RFC 9162 audit
+  paths. Verification needs NO key: leaves are already keyed tokens.
+* ``compute_public_input_digest`` -- the opt-in UNKEYED input digest, for
+  public-benchmark contamination checks only.
+* ``compute_agent_build_digest`` -- the unkeyed agent build version over an
+  ``AgentBuildManifestV1`` (digests and version strings only, no content).
+
+Canonicalization is ``jcs_v1`` via :mod:`traigent_schema.fp2` (RFC 8785 with
+the strict Traigent profile: non-finite numbers, lone surrogates, integers
+beyond +/-(2**53-1) and non-plain types are rejected; no Unicode
+normalization). Duplicate object keys can only exist in JSON *text*, so they
+are rejected by :func:`parse_strict_json`.
+
+Error messages never echo caller values: inputs are user content and exception
+messages are among the most reliably logged strings in a system.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import json
+import re
+import warnings
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
+from traigent_schema import fp2
+
+__all__ = [
+    "SCHEME",
+    "HKDF_SALT",
+    "DOMAIN_EXAMPLE_ID",
+    "DOMAIN_EXAMPLE_VERSION",
+    "DOMAIN_KEY_ID",
+    "DOMAIN_MULTISET_LEAF",
+    "DOMAIN_PUBLIC_INPUT",
+    "DOMAIN_AGENT_BUILD",
+    "RESERVED_METADATA_KEYS",
+    "MAX_COUNT",
+    "ContentIdentityError",
+    "ConflictingExampleVersionsWarning",
+    "TenantIdentityKeys",
+    "ExampleProjection",
+    "MultisetMember",
+    "MultisetRoot",
+    "InclusionProof",
+    "parse_strict_json",
+    "canonical_bytes",
+    "hkdf_sha256",
+    "derive_tenant_keys",
+    "example_id_payload",
+    "example_version_payload",
+    "compute_example_id",
+    "compute_example_version",
+    "compute_public_input_digest",
+    "compute_agent_build_digest",
+    "project_sdk_example",
+    "identify_example",
+    "multiset_leaf_data",
+    "compute_multiset_root",
+    "build_inclusion_proof",
+    "verify_inclusion_proof",
+    "is_sub_multiset",
+    "example_id_overlap",
+]
+
+SCHEME = "traigent.content_identity.v1"
+HKDF_SALT = b"traigent.content_identity.v1"
+DOMAIN_EXAMPLE_ID = "traigent.content_identity.example_id.v1"
+DOMAIN_EXAMPLE_VERSION = "traigent.content_identity.example_version.v1"
+DOMAIN_KEY_ID = "traigent.content_identity.key_id.v1"
+DOMAIN_MULTISET_LEAF = "traigent.content_identity.multiset_leaf.v1"
+DOMAIN_PUBLIC_INPUT = "traigent.content_identity.public_input.v1"
+DOMAIN_AGENT_BUILD = "traigent.content_identity.agent_build.v1"
+
+#: Annotation keys that never participate in example_version. The SDK
+#: projection (:func:`project_sdk_example`) strips them; the primitive
+#: (:func:`compute_example_version`) REJECTS them so a caller that skipped the
+#: projection fails loudly instead of minting a version that changes whenever
+#: someone re-tags a row. ``context`` is here because it belongs to the
+#: example_id payload, not to metadata.
+RESERVED_METADATA_KEYS = frozenset(
+    {
+        "context",
+        "example_id",
+        "external_id",
+        "source_ref",
+        "tags",
+        "split",
+        "splits",
+        "difficulty",
+        "confidence",
+        "status",
+        "score",
+        "explanation",
+        "created_at",
+        "updated_at",
+    }
+)
+
+#: Largest multiplicity a leaf may carry: the jcs_v1 safe-integer ceiling.
+MAX_COUNT = 2**53 - 1
+
+_TENANT_MASTER_LENGTH = 32
+_KEY_ID_BYTES = 8
+_HEX64 = "[0-9a-f]{64}"
+_KID = "k[0-9a-f]{16}"
+_KEY_ID_RE = re.compile(rf"^{_KID}$")
+_EXAMPLE_ID_RE = re.compile(rf"^ex1:({_KID}):{_HEX64}$")
+_EXAMPLE_VERSION_RE = re.compile(rf"^exv1:({_KID}):{_HEX64}$")
+_ROOT_RE = re.compile(rf"^msr1:({_KID}):({_HEX64})$")
+_HASH_HEX_RE = re.compile(rf"^{_HEX64}$")
+
+
+class ContentIdentityError(ValueError):
+    """A value cannot be given a content identity. Messages are content-free."""
+
+
+class ConflictingExampleVersionsWarning(UserWarning):
+    """One example_id appears with more than one example_version in a multiset."""
+
+
+class _Absent:
+    """Sentinel: the field is absent (distinct from any JSON value)."""
+
+    _instance: _Absent | None = None
+
+    def __new__(cls) -> _Absent:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "ABSENT"
+
+
+ABSENT: Any = _Absent()
+
+
+# --------------------------------------------------------------------------
+# Canonicalization
+# --------------------------------------------------------------------------
+
+
+def _reject_constant(name: str) -> Any:
+    raise ContentIdentityError(f"non-finite number literal is not supported ({name})")
+
+
+def _pairs_without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ContentIdentityError("duplicate object key in JSON text")
+        result[key] = value
+    return result
+
+
+def _parse_int(text: str) -> int:
+    value = int(text)
+    if abs(value) > fp2._MAX_SAFE_INTEGER:
+        raise ContentIdentityError("integer literal outside +/-(2**53-1)")
+    return value
+
+
+def parse_strict_json(text: str) -> Any:
+    """Parse JSON text under the strict profile.
+
+    Rejects duplicate object keys, ``NaN``/``Infinity`` literals and integer
+    literals outside +/-(2**53-1). Lone-surrogate escapes and float overflow
+    parse here but are rejected by :func:`canonical_bytes`, which every
+    identity function calls. A JavaScript implementation MUST enforce the same
+    rules on the source text, because ``JSON.parse`` silently keeps the last
+    duplicate key and rounds large integers.
+    """
+    if not isinstance(text, str):
+        raise ContentIdentityError("JSON text must be a str")
+    try:
+        return json.loads(
+            text,
+            object_pairs_hook=_pairs_without_duplicates,
+            parse_constant=_reject_constant,
+            parse_int=_parse_int,
+        )
+    except ContentIdentityError:
+        raise
+    except ValueError as error:
+        raise ContentIdentityError(f"invalid JSON text ({type(error).__name__})") from None
+
+
+def canonical_bytes(value: Any) -> bytes:
+    """Return the jcs_v1 (RFC 8785, strict profile) UTF-8 bytes of ``value``."""
+    try:
+        return fp2.canonicalize(value).encode("utf-8")
+    except fp2.Fp2UnsupportedValue as error:
+        raise ContentIdentityError(f"value cannot be canonicalized: {error}") from None
+
+
+def _framed(domain: str, payload: Any) -> bytes:
+    return domain.encode("utf-8") + b"\x00" + canonical_bytes(payload)
+
+
+# --------------------------------------------------------------------------
+# Keys
+# --------------------------------------------------------------------------
+
+
+def hkdf_sha256(ikm: bytes, *, salt: bytes, info: bytes, length: int) -> bytes:
+    """RFC 5869 HKDF with SHA-256 (Extract then Expand)."""
+    if not 0 < length <= 255 * 32:
+        raise ContentIdentityError("HKDF output length out of range")
+    prk = hmac.new(salt, ikm, hashlib.sha256).digest()
+    okm = b""
+    block = b""
+    counter = 1
+    while len(okm) < length:
+        block = hmac.new(prk, block + info + bytes([counter]), hashlib.sha256).digest()
+        okm += block
+        counter += 1
+    return okm[:length]
+
+
+@dataclass(frozen=True)
+class TenantIdentityKeys:
+    """Per-purpose keys derived from one tenant master secret.
+
+    ``key_id`` is public and appears inside every identifier; the two keys are
+    secret. ``repr`` never shows key material.
+    """
+
+    key_id: str
+    example_id_key: bytes = field(repr=False)
+    example_version_key: bytes = field(repr=False)
+
+
+def derive_tenant_keys(tenant_master: bytes) -> TenantIdentityKeys:
+    """Derive the v1 purpose keys and key id from a 32-byte tenant master secret."""
+    if not isinstance(tenant_master, (bytes, bytearray)):
+        raise ContentIdentityError("tenant master secret must be bytes")
+    if len(tenant_master) != _TENANT_MASTER_LENGTH:
+        raise ContentIdentityError("tenant master secret must be exactly 32 bytes")
+    ikm = bytes(tenant_master)
+
+    def expand(domain: str, length: int) -> bytes:
+        return hkdf_sha256(ikm, salt=HKDF_SALT, info=domain.encode("utf-8"), length=length)
+
+    return TenantIdentityKeys(
+        key_id="k" + expand(DOMAIN_KEY_ID, _KEY_ID_BYTES).hex(),
+        example_id_key=expand(DOMAIN_EXAMPLE_ID, 32),
+        example_version_key=expand(DOMAIN_EXAMPLE_VERSION, 32),
+    )
+
+
+def _check_keys(keys: TenantIdentityKeys) -> None:
+    if not isinstance(keys, TenantIdentityKeys) or not _KEY_ID_RE.match(keys.key_id):
+        raise ContentIdentityError("keys must be TenantIdentityKeys from derive_tenant_keys")
+
+
+# --------------------------------------------------------------------------
+# Examples
+# --------------------------------------------------------------------------
+
+
+def _is_absent(value: Any) -> bool:
+    return value is ABSENT or value is None
+
+
+def example_id_payload(input: Any, *, context: Any = ABSENT) -> dict[str, Any]:  # noqa: A002
+    """The object whose jcs_v1 bytes example_id commits to.
+
+    ``context`` absent and ``context=None`` are the same (omitted); any other
+    value, including ``{}`` or ``""``, is hashed.
+    """
+    if input is ABSENT:
+        raise ContentIdentityError("input is required")
+    payload: dict[str, Any] = {"input": input}
+    if not _is_absent(context):
+        payload["context"] = context
+    return payload
+
+
+def _check_metadata(metadata: Any) -> dict[str, Any] | None:
+    if _is_absent(metadata):
+        return None
+    if type(metadata) is not dict:
+        raise ContentIdentityError("metadata must be a plain dict or None")
+    reserved = [key for key in metadata if key in RESERVED_METADATA_KEYS]
+    if reserved:
+        # Reserved key NAMES are schema vocabulary, not user content.
+        raise ContentIdentityError(
+            "metadata contains reserved annotation keys that never participate in "
+            f"example_version: {sorted(reserved)}; project the example first "
+            "(project_sdk_example)"
+        )
+    return metadata or None
+
+
+def example_version_payload(
+    example_id: str, *, expected: Any = ABSENT, metadata: Any = None
+) -> dict[str, Any]:
+    """The object whose jcs_v1 bytes example_version commits to.
+
+    ``expected`` absent and ``None`` are the same (omitted). ``metadata``
+    absent, ``None`` and ``{}`` are the same (omitted).
+    """
+    if not isinstance(example_id, str) or not _EXAMPLE_ID_RE.match(example_id):
+        raise ContentIdentityError("example_id is not a v1 example id")
+    payload: dict[str, Any] = {"example_id": example_id}
+    if not _is_absent(expected):
+        payload["expected"] = expected
+    checked = _check_metadata(metadata)
+    if checked is not None:
+        payload["metadata"] = checked
+    return payload
+
+
+def _hmac_hex(key: bytes, domain: str, payload: Any) -> str:
+    return hmac.new(key, _framed(domain, payload), hashlib.sha256).hexdigest()
+
+
+def compute_example_id(
+    keys: TenantIdentityKeys,
+    input: Any,  # noqa: A002
+    *,
+    context: Any = ABSENT,
+) -> str:
+    """``ex1:<kid>:<hex>`` = HMAC(K_example_id, domain || 0x00 || jcs_v1({input, context?}))."""
+    _check_keys(keys)
+    payload = example_id_payload(input, context=context)
+    return f"ex1:{keys.key_id}:{_hmac_hex(keys.example_id_key, DOMAIN_EXAMPLE_ID, payload)}"
+
+
+def compute_example_version(
+    keys: TenantIdentityKeys,
+    example_id: str,
+    *,
+    expected: Any = ABSENT,
+    metadata: Any = None,
+) -> str:
+    """``exv1:<kid>:<hex>`` = HMAC(K_example_version, domain || 0x00 ||
+    jcs_v1({example_id, expected?, metadata?}))."""
+    _check_keys(keys)
+    payload = example_version_payload(example_id, expected=expected, metadata=metadata)
+    match = _EXAMPLE_ID_RE.match(example_id)
+    assert match is not None  # checked by example_version_payload
+    if match.group(1) != keys.key_id:
+        raise ContentIdentityError("example_id was minted under a different key id")
+    digest = _hmac_hex(keys.example_version_key, DOMAIN_EXAMPLE_VERSION, payload)
+    return f"exv1:{keys.key_id}:{digest}"
+
+
+def compute_public_input_digest(input: Any, *, context: Any = ABSENT) -> str:  # noqa: A002
+    """``exu1:<hex>`` = SHA-256(domain || 0x00 || jcs_v1({input, context?})).
+
+    UNKEYED: anyone who can guess the input can confirm it. Compute it only
+    when the tenant has opted in, and only for examples that come from a
+    public benchmark, where the input is already public.
+    """
+    payload = example_id_payload(input, context=context)
+    return "exu1:" + hashlib.sha256(_framed(DOMAIN_PUBLIC_INPUT, payload)).hexdigest()
+
+
+def compute_agent_build_digest(manifest: Mapping[str, Any]) -> str:
+    """``sha256:<hex>`` = SHA-256(domain || 0x00 || jcs_v1(AgentBuildManifestV1)).
+
+    Shape validation is the schema's job
+    (``schemas/agents/agent_version_manifest_v1_schema.json``); this function
+    only requires a plain dict and canonicalizes it whole.
+    """
+    if type(manifest) is not dict:
+        raise ContentIdentityError("agent build manifest must be a plain dict")
+    return "sha256:" + hashlib.sha256(_framed(DOMAIN_AGENT_BUILD, manifest)).hexdigest()
+
+
+@dataclass(frozen=True)
+class ExampleProjection:
+    """An example reduced to the four fields content identity reads."""
+
+    input: Any
+    context: Any = ABSENT
+    expected: Any = ABSENT
+    metadata: dict[str, Any] | None = None
+
+
+def project_sdk_example(
+    input_data: Any,
+    expected_output: Any = ABSENT,
+    metadata: Mapping[str, Any] | None = None,
+) -> ExampleProjection:
+    """Project an SDK ``EvaluationExample`` (input_data / expected_output / metadata).
+
+    * input    := input_data
+    * context  := metadata["context"] when present and not None
+    * expected := expected_output (None == absent)
+    * metadata := metadata minus RESERVED_METADATA_KEYS; empty == absent
+
+    Both SDKs MUST implement exactly this projection; the ``projection`` vectors
+    pin it.
+    """
+    if metadata is None:
+        metadata = {}
+    if not isinstance(metadata, Mapping):
+        raise ContentIdentityError("metadata must be a mapping or None")
+    context = metadata.get("context", ABSENT)
+    kept = {key: value for key, value in metadata.items() if key not in RESERVED_METADATA_KEYS}
+    for key in kept:
+        if type(key) is not str:
+            raise ContentIdentityError("metadata keys must be plain strings")
+    return ExampleProjection(
+        input=input_data,
+        context=ABSENT if context is None else context,
+        expected=ABSENT if expected_output is None else expected_output,
+        metadata=kept or None,
+    )
+
+
+def identify_example(keys: TenantIdentityKeys, projection: ExampleProjection) -> tuple[str, str]:
+    """Return ``(example_id, example_version)`` for a projected example."""
+    example_id = compute_example_id(keys, projection.input, context=projection.context)
+    example_version = compute_example_version(
+        keys, example_id, expected=projection.expected, metadata=projection.metadata
+    )
+    return example_id, example_version
+
+
+# --------------------------------------------------------------------------
+# Multisets (dataset_root, evaluated_root)
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, order=True)
+class MultisetMember:
+    """One distinct (example_id, example_version) pair and its multiplicity."""
+
+    example_id: str
+    example_version: str
+    count: int = 1
+
+    def __post_init__(self) -> None:
+        id_match = (
+            _EXAMPLE_ID_RE.match(self.example_id) if isinstance(self.example_id, str) else None
+        )
+        version_match = (
+            _EXAMPLE_VERSION_RE.match(self.example_version)
+            if isinstance(self.example_version, str)
+            else None
+        )
+        if id_match is None or version_match is None:
+            raise ContentIdentityError("member is not a v1 (example_id, example_version) pair")
+        if id_match.group(1) != version_match.group(1):
+            raise ContentIdentityError("member id and version carry different key ids")
+        if type(self.count) is not int or not 1 <= self.count <= MAX_COUNT:
+            raise ContentIdentityError("member count must be an int in [1, 2**53-1]")
+
+    @property
+    def key_id(self) -> str:
+        return self.example_id.split(":", 2)[1]
+
+
+@dataclass(frozen=True)
+class MultisetRoot:
+    """The order-free root of a multiset plus the facts a caller must report."""
+
+    root: str
+    key_id: str
+    members: tuple[MultisetMember, ...]
+    distinct_count: int
+    total_count: int
+    conflicting_example_ids: tuple[str, ...]
+
+
+def multiset_leaf_data(member: MultisetMember) -> bytes:
+    """RFC 9162 leaf *data* (before the 0x00 leaf prefix) for one member."""
+    return _framed(
+        DOMAIN_MULTISET_LEAF, [member.example_id, member.example_version, member.count]
+    )
+
+
+def _leaf_hash(data: bytes) -> bytes:
+    return hashlib.sha256(b"\x00" + data).digest()
+
+
+def _node_hash(left: bytes, right: bytes) -> bytes:
+    return hashlib.sha256(b"\x01" + left + right).digest()
+
+
+def _split(n: int) -> int:
+    """Largest power of two strictly less than ``n`` (n >= 2)."""
+    k = 1
+    while k * 2 < n:
+        k *= 2
+    return k
+
+
+def _mth(leaf_hashes: Sequence[bytes]) -> bytes:
+    n = len(leaf_hashes)
+    if n == 0:
+        return hashlib.sha256(b"").digest()
+    if n == 1:
+        return leaf_hashes[0]
+    k = _split(n)
+    return _node_hash(_mth(leaf_hashes[:k]), _mth(leaf_hashes[k:]))
+
+
+def _path(m: int, leaf_hashes: Sequence[bytes]) -> list[bytes]:
+    n = len(leaf_hashes)
+    if n == 1:
+        return []
+    k = _split(n)
+    if m < k:
+        return _path(m, leaf_hashes[:k]) + [_mth(leaf_hashes[k:])]
+    return _path(m - k, leaf_hashes[k:]) + [_mth(leaf_hashes[:k])]
+
+
+def _coerce_members(items: Iterable[Any]) -> list[MultisetMember]:
+    members: list[MultisetMember] = []
+    for item in items:
+        if isinstance(item, MultisetMember):
+            members.append(item)
+        elif isinstance(item, (tuple, list)) and len(item) in (2, 3):
+            members.append(MultisetMember(*item))
+        else:
+            raise ContentIdentityError(
+                "multiset items must be MultisetMember or (example_id, example_version[, count])"
+            )
+    return members
+
+
+def _normalize(items: Iterable[Any]) -> tuple[MultisetMember, ...]:
+    """Merge equal pairs by summing counts and sort by (example_id, example_version).
+
+    Ids are ASCII by construction, so Python string order equals byte order
+    equals UTF-16 code-unit order: every implementation sorts identically.
+    """
+    totals: dict[tuple[str, str], int] = {}
+    for member in _coerce_members(items):
+        pair = (member.example_id, member.example_version)
+        totals[pair] = totals.get(pair, 0) + member.count
+        if totals[pair] > MAX_COUNT:
+            raise ContentIdentityError("member count overflows 2**53-1")
+    return tuple(
+        MultisetMember(example_id, example_version, count)
+        for (example_id, example_version), count in sorted(totals.items())
+    )
+
+
+def compute_multiset_root(items: Iterable[Any], *, key_id: str | None = None) -> MultisetRoot:
+    """Return the order-free multiset root ``msr1:<kid>:<hex>``.
+
+    ``items`` may repeat a pair (each occurrence counts) or carry explicit
+    counts; both are summed. All members must share one key id; an empty
+    multiset needs ``key_id``. When one example_id carries several versions,
+    a :class:`ConflictingExampleVersionsWarning` is emitted and the ids are
+    listed in ``conflicting_example_ids`` -- the root is still defined.
+    """
+    members = _normalize(items)
+    key_ids = {member.key_id for member in members}
+    if key_id is not None:
+        if not isinstance(key_id, str) or not _KEY_ID_RE.match(key_id):
+            raise ContentIdentityError("key_id is not a v1 key id")
+        key_ids.add(key_id)
+    if not key_ids:
+        raise ContentIdentityError("an empty multiset needs an explicit key_id")
+    if len(key_ids) != 1:
+        raise ContentIdentityError("a multiset cannot mix key ids")
+    (resolved_key_id,) = key_ids
+
+    versions_per_id: dict[str, int] = {}
+    for member in members:
+        versions_per_id[member.example_id] = versions_per_id.get(member.example_id, 0) + 1
+    conflicts = tuple(sorted(eid for eid, n in versions_per_id.items() if n > 1))
+    if conflicts:
+        warnings.warn(
+            f"{len(conflicts)} example_id(s) carry more than one example_version "
+            "(conflicting labels) in one multiset",
+            ConflictingExampleVersionsWarning,
+            stacklevel=2,
+        )
+
+    root_hash = _mth([_leaf_hash(multiset_leaf_data(member)) for member in members])
+    return MultisetRoot(
+        root=f"msr1:{resolved_key_id}:{root_hash.hex()}",
+        key_id=resolved_key_id,
+        members=members,
+        distinct_count=len(members),
+        total_count=sum(member.count for member in members),
+        conflicting_example_ids=conflicts,
+    )
+
+
+@dataclass(frozen=True)
+class InclusionProof:
+    """RFC 9162 inclusion proof that ``member`` is a leaf of ``root``."""
+
+    member: MultisetMember
+    leaf_index: int
+    tree_size: int
+    audit_path: tuple[str, ...]
+    root: str
+
+
+def build_inclusion_proof(multiset: MultisetRoot, member: MultisetMember) -> InclusionProof:
+    """Prove that ``member`` (exact pair AND count) is a leaf of ``multiset``."""
+    try:
+        index = multiset.members.index(member)
+    except ValueError:
+        raise ContentIdentityError("member is not a leaf of this multiset") from None
+    leaf_hashes = [_leaf_hash(multiset_leaf_data(m)) for m in multiset.members]
+    return InclusionProof(
+        member=member,
+        leaf_index=index,
+        tree_size=len(leaf_hashes),
+        audit_path=tuple(node.hex() for node in _path(index, leaf_hashes)),
+        root=multiset.root,
+    )
+
+
+def verify_inclusion_proof(proof: InclusionProof) -> bool:
+    """RFC 9162 section 2.1.3.2 verification. Needs no key. Never raises on a bad proof."""
+    root_match = _ROOT_RE.match(proof.root) if isinstance(proof.root, str) else None
+    if root_match is None or root_match.group(1) != proof.member.key_id:
+        return False
+    if type(proof.leaf_index) is not int or type(proof.tree_size) is not int:
+        return False
+    if not 0 <= proof.leaf_index < proof.tree_size:
+        return False
+    path: list[bytes] = []
+    for node in proof.audit_path:
+        if not isinstance(node, str) or not _HASH_HEX_RE.match(node):
+            return False
+        path.append(bytes.fromhex(node))
+
+    fn = proof.leaf_index
+    sn = proof.tree_size - 1
+    r = _leaf_hash(multiset_leaf_data(proof.member))
+    for p in path:
+        if sn == 0:
+            return False
+        if fn & 1 or fn == sn:
+            r = _node_hash(p, r)
+            if not fn & 1:
+                while not fn & 1 and fn != 0:
+                    fn >>= 1
+                    sn >>= 1
+        else:
+            r = _node_hash(r, p)
+        fn >>= 1
+        sn >>= 1
+    return sn == 0 and hmac.compare_digest(r, bytes.fromhex(root_match.group(2)))
+
+
+# --------------------------------------------------------------------------
+# Set relations used by the statistics (see design doc, "Statistical use")
+# --------------------------------------------------------------------------
+
+
+def is_sub_multiset(inner: MultisetRoot, outer: MultisetRoot) -> bool:
+    """True when every (id, version) of ``inner`` occurs in ``outer`` at least as often."""
+    if inner.key_id != outer.key_id:
+        return False
+    available = {(m.example_id, m.example_version): m.count for m in outer.members}
+    return all(
+        available.get((m.example_id, m.example_version), 0) >= m.count for m in inner.members
+    )
+
+
+def example_id_overlap(first: MultisetRoot, second: MultisetRoot) -> tuple[str, ...]:
+    """Sorted example_ids present in both multisets, regardless of version.
+
+    Overlap is judged on the INPUT (example_id), not on (id, version): a
+    relabelled example still leaks its input from search into evaluation.
+    """
+    if first.key_id != second.key_id:
+        raise ContentIdentityError("cannot compare multisets minted under different key ids")
+    return tuple(
+        sorted({m.example_id for m in first.members} & {m.example_id for m in second.members})
+    )

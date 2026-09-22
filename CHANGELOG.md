@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Content identity v1 (`traigent.content_identity.v1`): tenant-keyed example ids and
+  order-free multiset dataset roots (owner rulings 2026-09-23).** New normative spec
+  `docs/identity/content-identity-v1.md`; reference implementation
+  `traigent_schema/example_identity.py`; cross-SDK conformance vectors
+  `traigent_schema/data/content_identity_v1_vectors.json` (generator + freshness check:
+  `scripts/generate_content_identity_v1_vectors.py --check`). `example_id` = HMAC-SHA-256 over
+  jcs_v1 of the INPUT (+ context) under a per-tenant HKDF-derived key; `example_version` = HMAC
+  over example_id + expected output + version-relevant metadata; `dataset_root` /
+  `evaluated_root` = RFC 9162 Merkle tree hash over sorted `[example_id, example_version, count]`
+  leaves (order-free, duplicates counted, conflicting versions reported); RFC 9162 inclusion
+  proofs that verify without any key; opt-in unkeyed `exu1` digest for public-benchmark
+  contamination checks; unkeyed agent `build_digest`. New additive schemas (no consumer yet):
+  `datasets/content_identity_v1_schema.json`, `agents/agent_version_manifest_v1_schema.json`,
+  `execution/run_identity_binding_v1_schema.json`. Nothing existing changes:
+  `DatasetVersionV1.content_digest`, fp2 and every certification contract are untouched.
 - **`POST /api/v1/model-parameters` and the two `/api/v1/example-sets` reads are now
   declared (unblocks TraigentBackend #3347, #3352, #3353).** All three endpoints were
   absent from this repo, which is why a Backend PR could reshape their request/response

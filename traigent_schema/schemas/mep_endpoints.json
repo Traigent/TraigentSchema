@@ -28,6 +28,11 @@
       "paths_file": "./datasets/datasets_endpoints.json"
     },
     {
+      "name": "Content Identity",
+      "description": "Content identity v1 routes: tenant purpose-key grant, hosted dataset-version identity, root resolution, public-benchmark opt-in.",
+      "paths_file": "./datasets/content_identity_endpoints.json"
+    },
+    {
       "name": "Measures",
       "description": "Current backend measure management routes.",
       "paths_file": "./measures/measures_endpoints.json"

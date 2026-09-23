@@ -141,10 +141,10 @@
     "ReviewerCanSignResponse": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["can_sign", "reason_code", "grant_id"],
+      "required": ["can_sign", "cannot_sign_reason", "grant_id"],
       "properties": {
         "can_sign": {"type": "boolean"},
-        "reason_code": {
+        "cannot_sign_reason": {
           "oneOf": [
             {"$ref": "#/definitions/ReviewerCapabilityReasonCode"},
             {"type": "null"}
@@ -158,14 +158,14 @@
         {
           "properties": {
             "can_sign": {"const": true},
-            "reason_code": {"type": "null"},
+            "cannot_sign_reason": {"type": "null"},
             "grant_id": {"$ref": "#/definitions/OpaqueId"}
           }
         },
         {
           "properties": {
             "can_sign": {"const": false},
-            "reason_code": {"$ref": "#/definitions/ReviewerCapabilityReasonCode"},
+            "cannot_sign_reason": {"$ref": "#/definitions/ReviewerCapabilityReasonCode"},
             "grant_id": {"type": "null"}
           }
         }

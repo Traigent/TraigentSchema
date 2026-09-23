@@ -464,7 +464,7 @@
       "additionalProperties": false,
       "properties": {
         "status": {"$ref": "#/definitions/PillarValidityStatus"},
-        "reason_code": {
+        "status_reason": {
           "oneOf": [{"$ref": "#/definitions/PillarReasonCode"}, {"type": "null"}]
         },
         "validation_id": {
@@ -473,13 +473,13 @@
         "signed_at": {"$ref": "#/definitions/NullableDateTime"},
         "expires_at": {"$ref": "#/definitions/NullableDateTime"}
       },
-      "required": ["status", "reason_code", "validation_id", "signed_at", "expires_at"],
+      "required": ["status", "status_reason", "validation_id", "signed_at", "expires_at"],
       "allOf": [
         {
           "if": {"properties": {"status": {"enum": ["NO_SUBJECT", "SUBJECT_NOT_FINGERPRINTED"]}}},
           "then": {
             "properties": {
-              "reason_code": {"type": "null"},
+              "status_reason": {"type": "null"},
               "validation_id": {"type": "null"},
               "signed_at": {"type": "null"},
               "expires_at": {"type": "null"}
@@ -490,7 +490,7 @@
           "if": {"properties": {"status": {"const": "NOT_VALIDATED"}}},
           "then": {
             "properties": {
-              "reason_code": {"oneOf": [{"const": "REVOKED"}, {"type": "null"}]},
+              "status_reason": {"oneOf": [{"const": "REVOKED"}, {"type": "null"}]},
               "validation_id": {"type": "null"},
               "signed_at": {"type": "null"},
               "expires_at": {"type": "null"}
@@ -501,7 +501,7 @@
           "if": {"properties": {"status": {"enum": ["VALIDATED", "REVIEWER_REJECTED"]}}},
           "then": {
             "properties": {
-              "reason_code": {"type": "null"},
+              "status_reason": {"type": "null"},
               "validation_id": {"$ref": "#/definitions/OpaqueId"},
               "signed_at": {"type": "string", "format": "date-time"},
               "expires_at": {"type": "null"}
@@ -512,7 +512,7 @@
           "if": {"properties": {"status": {"const": "DECAYED"}}},
           "then": {
             "properties": {
-              "reason_code": {"$ref": "#/definitions/DecayReasonCode"},
+              "status_reason": {"$ref": "#/definitions/DecayReasonCode"},
               "validation_id": {"$ref": "#/definitions/OpaqueId"},
               "signed_at": {"type": "string", "format": "date-time"}
             }
@@ -522,7 +522,7 @@
           "if": {
             "properties": {
               "status": {"const": "DECAYED"},
-              "reason_code": {"const": "BACKSTOP_ELAPSED"}
+              "status_reason": {"const": "BACKSTOP_ELAPSED"}
             }
           },
           "then": {"properties": {"expires_at": {"type": "string", "format": "date-time"}}},

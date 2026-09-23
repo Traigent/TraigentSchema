@@ -463,16 +463,16 @@ def test_grant_list_response_is_valid() -> None:
 
 
 def test_can_sign_response_shapes() -> None:
-    signable = {"can_sign": True, "reason_code": None, "grant_id": "rvg_1"}
+    signable = {"can_sign": True, "cannot_sign_reason": None, "grant_id": "rvg_1"}
     assert _errors(CAN_SIGN_RESPONSE, signable) == []
 
-    not_signable = {"can_sign": False, "reason_code": "NO_ACTIVE_GRANT", "grant_id": None}
+    not_signable = {"can_sign": False, "cannot_sign_reason": "NO_ACTIVE_GRANT", "grant_id": None}
     assert _errors(CAN_SIGN_RESPONSE, not_signable) == []
 
-    inconsistent = {"can_sign": True, "reason_code": "NO_ACTIVE_GRANT", "grant_id": "rvg_1"}
+    inconsistent = {"can_sign": True, "cannot_sign_reason": "NO_ACTIVE_GRANT", "grant_id": "rvg_1"}
     assert _errors(CAN_SIGN_RESPONSE, inconsistent)
 
-    inconsistent = {"can_sign": False, "reason_code": None, "grant_id": None}
+    inconsistent = {"can_sign": False, "cannot_sign_reason": None, "grant_id": None}
     assert _errors(CAN_SIGN_RESPONSE, inconsistent)
 
 

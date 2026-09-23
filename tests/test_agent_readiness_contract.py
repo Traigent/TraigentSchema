@@ -73,7 +73,7 @@ def _summary(
 def _no_subject_pillar() -> dict[str, Any]:
     return {
         "status": "NO_SUBJECT",
-        "reason_code": None,
+        "status_reason": None,
         "validation_id": None,
         "signed_at": None,
         "expires_at": None,
@@ -97,7 +97,7 @@ def _no_subject_validity() -> dict[str, Any]:
 def _validated_pillar() -> dict[str, Any]:
     return {
         "status": "VALIDATED",
-        "reason_code": None,
+        "status_reason": None,
         "validation_id": "esv_1",
         "signed_at": "2026-09-19T00:00:00Z",
         "expires_at": None,

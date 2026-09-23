@@ -1056,3 +1056,52 @@ def test_validation_record_outcome_valid_requires_agreement() -> None:
     not_valid_without_agreement["outcome"] = "not_valid"
     not_valid_without_agreement["agreement"] = None
     assert _errors(RECORD, not_valid_without_agreement) == []
+
+
+# ---------------------------------------------------------------------------
+# Reviewer probe fix: evidence_ids must reflect a pillar's own validation_id
+# (a VALIDATED/DECAYED/REVIEWER_REJECTED pillar with an empty evidence_ids /
+# not_assessed basis used to be accepted).
+# ---------------------------------------------------------------------------
+
+
+def test_a_pillar_with_a_matched_validation_id_requires_nonempty_evidence_ids() -> None:
+    probe = _validity(
+        level="V0",
+        evaluator=_validated_pillar("esv_1"),
+        evaluation_dataset=_no_subject_pillar(),
+        decayed_reason=None,
+        evidence_ids=[],
+        observation_basis="not_assessed",
+    )
+    assert _errors(EVALUATION_SYSTEM_VALIDITY, probe)
+
+    fixed = deepcopy(probe)
+    fixed["evidence_ids"] = ["esv_1"]
+    fixed["observation_basis"] = "server_recorded_client_declaration"
+    assert _errors(EVALUATION_SYSTEM_VALIDITY, fixed) == []
+
+    # Same probe on the evaluation_dataset slot.
+    probe2 = _validity(
+        level="V0",
+        evaluator=_no_subject_pillar(),
+        evaluation_dataset=_decayed_pillar("esv_2", "SUBJECT_CHANGED_AFTER_SIGNING"),
+        decayed_reason="SUBJECT_CHANGED_AFTER_SIGNING",
+        evidence_ids=[],
+        observation_basis="not_assessed",
+    )
+    assert _errors(EVALUATION_SYSTEM_VALIDITY, probe2)
+
+
+# ---------------------------------------------------------------------------
+# ValidationRecord pillar<->agreement-kind pairing, other direction
+# ---------------------------------------------------------------------------
+
+
+def test_validation_record_agreement_kind_must_match_pillar_dataset_direction() -> None:
+    record = _validation_record("evaluation_dataset")
+    assert _errors(RECORD, record) == []
+
+    mismatched = deepcopy(record)
+    mismatched["agreement"] = {"kind": "cohens_kappa", "value": "0.5", "compared_items": 10}
+    assert _errors(RECORD, mismatched)

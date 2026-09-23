@@ -619,6 +619,28 @@
           "then": {"properties": {"evidence_ids": {"minItems": 2}}}
         },
         {
+          "description": "evidence_ids must be non-empty whenever EITHER pillar references a matched validation record (a non-null validation_id) -- catches a VALIDATED/DECAYED/REVIEWER_REJECTED pillar reported alongside an empty evidence_ids / not_assessed basis, which is dishonest: a record WAS matched.",
+          "if": {
+            "anyOf": [
+              {
+                "not": {
+                  "properties": {
+                    "pillars": {"properties": {"evaluator": {"properties": {"validation_id": {"type": "null"}}}}}
+                  }
+                }
+              },
+              {
+                "not": {
+                  "properties": {
+                    "pillars": {"properties": {"evaluation_dataset": {"properties": {"validation_id": {"type": "null"}}}}}
+                  }
+                }
+              }
+            ]
+          },
+          "then": {"properties": {"evidence_ids": {"minItems": 1}}}
+        },
+        {
           "description": "observation_basis reflects whether ANY validation record is referenced, not the pillar statuses directly -- a pillar can be NOT_VALIDATED/DECAYED/REVIEWER_REJECTED (a matched record exists) while the OTHER pillar is NO_SUBJECT, and the basis must still be server_recorded_client_declaration in that case.",
           "if": {"properties": {"evidence_ids": {"minItems": 1}}},
           "then": {"properties": {"observation_basis": {"const": "server_recorded_client_declaration"}}},

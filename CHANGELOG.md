@@ -27,7 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PillarValidity` status/reason/evidence, `decayed_reason`, `evidence_ids`) is added to
   `agent_readiness_common_schema.json` and referenced as the new required
   `evaluation_system_validity` member of the readiness portfolio item and detail response
-  (allowlisted `property_added` — additive only). See
+  (allowlisted `property_added` — additive only). Owner ruling: a `ValidationCreateRequest` /
+  `ValidationRecord` with `outcome: valid` must carry non-null `agreement` evidence
+  (`compared_items >= 1`); `outcome: not_valid` may omit it; a revocation keeps it null regardless
+  — a **contract tightening on the request side** (a validation submission that previously omitted
+  `agreement` on a `valid` outcome is now rejected 400; `not_valid` submissions are unaffected). See
   `business/product-personas/e3-validation-record-design.md` (v0.2).
 - **Content identity endpoint contracts (M3).** New catalog
   `datasets/content_identity_endpoints.json`, registered in `mep_endpoints.json`, declaring four

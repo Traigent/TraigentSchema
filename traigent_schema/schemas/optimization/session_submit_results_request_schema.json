@@ -83,6 +83,15 @@
             }
           ],
           "description": "Legacy location for per-measure scores (backend reads metadata.measures when top-level measures is absent). Two backend-supported shapes, dispatched by _extract_submission_measures / _validate_submission_measures in src/routes/traigent_session_routes.py: a flat metric-name-to-number MeasuresDict (routed to validate_measures_dict, strict=true) -- same contract as the top-level measures field -- or a list of per-example ExampleMetrics objects (routed to validate_measures_list), the form that carries the per-example sibling identity fields (input_id, example_digest, output_digest, verified_match, signal_key_id)."
+        },
+        "content_identity": {
+          "description": "Optional content identity envelope for this trial result (content identity M3 PR-5-lite; execution/content_identity_wire_v1_schema.json TrialContentIdentityWireV1). A CLIENT DECLARATION only: TraigentBackend src/services/content_identity/run_binding.py never rejects the results submission over this field, whatever its shape, and it binds only when the session's own content_identity already produced a run binding (a trial identity sent without a session binding is accepted but not bound). A schema-valid envelope is recomputed and stored as facts (see GET .../identity-binding); an object that fails TrialContentIdentityWireV1, a non-object value, or an oversized block is still accepted here and stored as a draft trial binding with rejection_reason set. The permissive second branch exists so this declaration stays additive and never turns an already-accepted results submission into a 400.",
+          "anyOf": [
+            {
+              "$ref": "../execution/content_identity_wire_v1_schema.json#/definitions/TrialContentIdentityWireV1"
+            },
+            {}
+          ]
         }
       },
       "additionalProperties": true

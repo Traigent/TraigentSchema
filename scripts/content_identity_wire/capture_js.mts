@@ -17,7 +17,7 @@
  * through the SDK's production entry point ContentIdentityKeys.fromPurposeKeys.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -27,10 +27,22 @@ const out = resolve(schemaRoot, 'tests', 'data', 'content_identity_wire', 'js_sd
 
 const load = async (rel: string): Promise<any> => import(pathToFileURL(resolve(sdkRoot, rel)).href);
 
-const byCodeUnit = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
+}
+
+// A fixed git binary rather than a PATH lookup: this script runs git against
+// the SDK checkout, so the executable must not come from a writable PATH entry.
+const GIT = ['/usr/bin/git', '/usr/local/bin/git', '/opt/homebrew/bin/git'].find((path) => existsSync(path));
 
 function git(...args: string[]): string {
-  return execFileSync('git', ['-C', sdkRoot, ...args], { encoding: 'utf8' }).trim();
+  if (GIT === undefined) {
+    throw new Error('git not found in /usr/bin, /usr/local/bin or /opt/homebrew/bin');
+  }
+  return execFileSync(GIT, ['-C', sdkRoot, ...args], { encoding: 'utf8' }).trim();
 }
 
 function declaredReasons(): string[] {

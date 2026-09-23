@@ -357,11 +357,68 @@ def test_public_digest_is_accepted_only_as_an_exu1_digest() -> None:
     assert _errors(IDENTITY_OK, _envelope(flagged))
 
 
-@pytest.mark.parametrize(
-    "reason", ["legacy_version_without_snapshot", "not_yet_computed", "stored_identity_mismatch"]
-)
+UNAVAILABLE_REASONS = [
+    "legacy_version_without_snapshot",
+    "not_yet_computed",
+    "stored_identity_mismatch",
+    "content_not_identifiable",  # recorded at version creation (TraigentBackend M3 PR-3)
+    "keys_unavailable",  # recorded at version creation (TraigentBackend M3 PR-3)
+]
+
+
+@pytest.mark.parametrize("reason", UNAVAILABLE_REASONS)
 def test_unavailable_identity_validates(reason: str) -> None:
     assert _errors(IDENTITY_OK, _envelope(_unavailable(reason))) == []
+
+
+def test_unavailable_reason_enum_is_exactly_the_backend_vocabulary() -> None:
+    schema = json.loads(NEW_SCHEMA_FILES[0].read_text(encoding="utf-8"))
+    enum = schema["definitions"]["HostedContentIdentityUnavailableReasonV1"]["enum"]
+    assert sorted(enum) == sorted(UNAVAILABLE_REASONS)
+
+
+# Response fixtures for the two recorded reasons, exactly as the route serializes
+# them: success_response({scheme, status, reason} + dataset_version_id, dataset_id).
+RECORDED_REASON_RESPONSES = {
+    "content_not_identifiable": {
+        "success": True,
+        "message": "Success",
+        "data": {
+            "scheme": "traigent.content_identity.v1",
+            "status": "unavailable",
+            "reason": "content_not_identifiable",
+            "dataset_version_id": "7f1c2a9e-0000-4000-8000-000000000002",
+            "dataset_id": "dsci0123456789abcdef",
+        },
+    },
+    "keys_unavailable": {
+        "success": True,
+        "message": "Success",
+        "data": {
+            "scheme": "traigent.content_identity.v1",
+            "status": "unavailable",
+            "reason": "keys_unavailable",
+            "dataset_version_id": "7f1c2a9e-0000-4000-8000-000000000003",
+            "dataset_id": "dsci0123456789abcdef",
+        },
+    },
+}
+
+
+@pytest.mark.parametrize("name", sorted(RECORDED_REASON_RESPONSES))
+def test_recorded_reason_responses_validate(name: str) -> None:
+    body = RECORDED_REASON_RESPONSES[name]
+    assert _errors(IDENTITY_OK, body) == []
+    # still content-free: no root, map or custody detail rides along
+    for extra in (
+        {"dataset_root": AVAILABLE["dataset_root"]},
+        {"examples": []},
+        {"custody_reason": "wrap_scheme_mismatch"},
+    ):
+        assert _errors(IDENTITY_OK, {**body, "data": {**body["data"], **extra}}), extra
+    # the transient/internal spellings are not part of the vocabulary
+    for spelling in ("content_identity_keys_unavailable", "snapshot_row_malformed"):
+        assert _errors(IDENTITY_OK, {**body, "data": {**body["data"], "reason": spelling}})
 
 
 def _mutations() -> dict[str, dict[str, Any]]:

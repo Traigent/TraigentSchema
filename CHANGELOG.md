@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   standard error envelope, custody reasons never on the wire), `GET
   /api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity` (new
   `HostedDatasetVersionContentIdentityV1`: available root + per-example map, or unavailable with a
-  closed reason), `GET /api/v1/datasets/versions/by-root/{dataset_root}` (DatasetVersionV1 list)
+  closed reason, incl. the creation-recorded `content_not_identifiable` / `keys_unavailable`), `GET /api/v1/datasets/versions/by-root/{dataset_root}` (DatasetVersionV1 list)
   and `PUT /api/v1/datasets/{dataset_id}/public-benchmark` (ruling D3 opt-in). Request/response
   schemas in `datasets/`; `purpose_key_grant_v1_schema.json` and `content_identity_v1_schema.json`
   are now reachable from the catalog graph. Additive; nothing existing changes.

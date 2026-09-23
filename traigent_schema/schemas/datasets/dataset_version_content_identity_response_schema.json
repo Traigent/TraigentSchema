@@ -6,12 +6,14 @@
   "version": "1.0.0",
   "definitions": {
     "HostedContentIdentityUnavailableReasonV1": {
-      "description": "Closed vocabulary of why a hosted dataset version has no servable content identity on this read. Content-free by construction. legacy_version_without_snapshot: the version was minted before content_snapshot existed, so nothing can be computed. not_yet_computed: no identity row exists under the tenant's ACTIVE key id -- custody not configured, a mint that failed (the mint-time reason is logged, not stored), or a key rotated since the mint; scripts/maintenance/backfill_dataset_version_roots.py mints it later where possible. stored_identity_mismatch: a stored identity no longer recomputes (its per-example map, counts, member list or version binding drifted); it is refused, never served.",
+      "description": "Closed vocabulary of why a hosted dataset version has no servable content identity on this read. Content-free by construction. legacy_version_without_snapshot: the version was minted before content_snapshot existed, so nothing can be computed. content_not_identifiable: RECORDED at version creation -- some snapshot row cannot be canonicalized (or the snapshot is malformed), a deterministic failure; the Backend writes it into the version's own INSERT (dataset_versions.content_identity_unavailable_reason) and it does not change later. keys_unavailable: RECORDED at version creation -- key custody was not usable when the version was created (not configured, or a stored master that failed a custody check; the internal custody reason is logged and never sent). not_yet_computed: no identity row exists under the tenant's ACTIVE key id and no reason was recorded -- a transient failure after the version was committed, or a key rotated since the mint; scripts/maintenance/backfill_dataset_version_roots.py mints it later. stored_identity_mismatch: a stored identity no longer recomputes (its per-example map, counts, member list or version binding drifted); it is refused, never served. Precedence (TraigentBackend HostedDatasetIdentityService.missing_reason / _identity_block): a verified identity under the active key is served whatever was recorded; otherwise stored_identity_mismatch, then legacy_version_without_snapshot, then the recorded reason, then not_yet_computed.",
       "type": "string",
       "enum": [
         "legacy_version_without_snapshot",
         "not_yet_computed",
-        "stored_identity_mismatch"
+        "stored_identity_mismatch",
+        "content_not_identifiable",
+        "keys_unavailable"
       ]
     },
     "HostedExampleIdentityV1": {

@@ -1,0 +1,332 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/evaluation_system_validation/evaluation_system_validation_schema.json",
+  "title": "Evaluation System Validation",
+  "description": "Closed, append-only expert sign-off contract for one pillar (an evaluator version, or an eval-set fingerprint) of a project's evaluation system. A correction is a new record; a withdrawal is a 'revocation' record naming the record it revokes. The reviewer, signing time, and subject identity are always server-derived, never client-supplied.",
+  "definitions": {
+    "OpaqueId": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+    },
+    "Digest": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/Digest"
+    },
+    "RecordKind": {
+      "type": "string",
+      "enum": ["validation", "revocation"]
+    },
+    "Pillar": {
+      "type": "string",
+      "enum": ["evaluator", "evaluation_dataset"]
+    },
+    "Method": {
+      "type": "string",
+      "enum": ["expert_review"],
+      "description": "Only value accepted now. calibration_study is a later ADDITIVE request value (request-side widening is non-breaking)."
+    },
+    "Outcome": {
+      "type": "string",
+      "enum": ["valid", "not_valid"]
+    },
+    "Agreement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value", "compared_items"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["percent_agreement", "cohens_kappa", "label_accuracy"]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^-?(0|1)(\\.[0-9]{1,6})?$"
+        },
+        "compared_items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "description": "Declared by the reviewer, not computed by Traigent; observation_basis is server_recorded_client_declaration on the record that carries it. percent_agreement/cohens_kappa apply to the evaluator pillar; label_accuracy to the evaluation_dataset pillar. The server enforces the pillar<->kind pairing and compared_items <= sample_size."
+    },
+    "DatasetIdSource": {
+      "type": "string",
+      "enum": ["registered", "declared"]
+    },
+    "FingerprintState": {
+      "type": "string",
+      "enum": ["verified", "unknown"]
+    },
+    "EvaluatorSubjectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"const": "evaluator_version"},
+        "evaluator_version_id": {"$ref": "#/definitions/OpaqueId"},
+        "evaluator_id": {"$ref": "#/definitions/OpaqueId"},
+        "version": {"type": "integer", "minimum": 1},
+        "config_fingerprint": {"$ref": "#/definitions/Digest"},
+        "fingerprint_basis": {"const": "backend_observed"}
+      },
+      "required": [
+        "kind",
+        "evaluator_version_id",
+        "evaluator_id",
+        "version",
+        "config_fingerprint",
+        "fingerprint_basis"
+      ]
+    },
+    "DatasetSubjectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"const": "evaluation_dataset"},
+        "dataset_id": {"$ref": "#/definitions/OpaqueId"},
+        "dataset_id_source": {"$ref": "#/definitions/DatasetIdSource"},
+        "content_fingerprint": {
+          "oneOf": [{"$ref": "#/definitions/Digest"}, {"type": "null"}]
+        },
+        "fingerprint_state": {"$ref": "#/definitions/FingerprintState"},
+        "fingerprint_basis": {"const": "server_recorded_client_declaration"},
+        "hosted_updated_at": {
+          "oneOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]
+        }
+      },
+      "required": [
+        "kind",
+        "dataset_id",
+        "dataset_id_source",
+        "content_fingerprint",
+        "fingerprint_state",
+        "fingerprint_basis",
+        "hosted_updated_at"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "fingerprint_state": {"const": "verified"},
+            "content_fingerprint": {"$ref": "#/definitions/Digest"}
+          }
+        },
+        {
+          "properties": {
+            "fingerprint_state": {"const": "unknown"},
+            "content_fingerprint": {"type": "null"}
+          }
+        }
+      ]
+    },
+    "SubjectRef": {
+      "oneOf": [
+        {"$ref": "#/definitions/EvaluatorSubjectRef"},
+        {"$ref": "#/definitions/DatasetSubjectRef"}
+      ]
+    },
+    "Reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "principal_kind": {"const": "USER"},
+        "principal_ref": {
+          "$ref": "#/definitions/OpaqueId",
+          "description": "The signing user id, or the literal string 'erased' after account erasure. The record and its evidentiary weight persist; only the identity is tombstoned."
+        }
+      },
+      "required": ["principal_kind", "principal_ref"]
+    },
+    "ValidationCreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_kind",
+        "pillar",
+        "source_run_id",
+        "method",
+        "outcome",
+        "sample_size",
+        "agreement",
+        "notes",
+        "revokes"
+      ],
+      "properties": {
+        "record_kind": {"$ref": "#/definitions/RecordKind"},
+        "pillar": {"$ref": "#/definitions/Pillar"},
+        "source_run_id": {
+          "$ref": "#/definitions/OpaqueId",
+          "description": "A completed experiment run in this project whose recorded subject the reviewer examined. The server derives subject_ref from this run; the client never supplies ids or fingerprints."
+        },
+        "method": {"$ref": "#/definitions/Method"},
+        "outcome": {"$ref": "#/definitions/Outcome"},
+        "sample_size": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "agreement": {
+          "oneOf": [{"$ref": "#/definitions/Agreement"}, {"type": "null"}]
+        },
+        "notes": {
+          "oneOf": [
+            {"type": "string", "minLength": 1, "maxLength": 2000},
+            {"type": "null"}
+          ]
+        },
+        "revokes": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"record_kind": {"const": "revocation"}}},
+          "then": {
+            "properties": {
+              "revokes": {"$ref": "#/definitions/OpaqueId"},
+              "notes": {"type": "string", "minLength": 1, "maxLength": 2000}
+            },
+            "required": ["revokes", "notes"]
+          }
+        },
+        {
+          "if": {"properties": {"record_kind": {"const": "validation"}}},
+          "then": {"properties": {"revokes": {"type": "null"}}}
+        },
+        {
+          "if": {
+            "allOf": [
+              {"properties": {"pillar": {"const": "evaluator"}}},
+              {"not": {"properties": {"agreement": {"type": "null"}}}}
+            ]
+          },
+          "then": {
+            "properties": {
+              "agreement": {"properties": {"kind": {"enum": ["percent_agreement", "cohens_kappa"]}}}
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {"properties": {"pillar": {"const": "evaluation_dataset"}}},
+              {"not": {"properties": {"agreement": {"type": "null"}}}}
+            ]
+          },
+          "then": {
+            "properties": {
+              "agreement": {"properties": {"kind": {"const": "label_accuracy"}}}
+            }
+          }
+        }
+      ]
+    },
+    "ValidationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validation_id",
+        "record_kind",
+        "pillar",
+        "subject_ref",
+        "source_run_id",
+        "method",
+        "outcome",
+        "sample_size",
+        "agreement",
+        "notes",
+        "reviewer",
+        "signed_under_grant_id",
+        "signed_under_self_grant",
+        "signed_at",
+        "revokes",
+        "revoked_by",
+        "observation_basis"
+      ],
+      "properties": {
+        "validation_id": {"$ref": "#/definitions/OpaqueId"},
+        "record_kind": {"$ref": "#/definitions/RecordKind"},
+        "pillar": {"$ref": "#/definitions/Pillar"},
+        "subject_ref": {"$ref": "#/definitions/SubjectRef"},
+        "source_run_id": {"$ref": "#/definitions/OpaqueId"},
+        "method": {"$ref": "#/definitions/Method"},
+        "outcome": {
+          "oneOf": [{"$ref": "#/definitions/Outcome"}, {"type": "null"}]
+        },
+        "sample_size": {
+          "oneOf": [
+            {"type": "integer", "minimum": 1, "maximum": 1000000},
+            {"type": "null"}
+          ]
+        },
+        "agreement": {
+          "oneOf": [{"$ref": "#/definitions/Agreement"}, {"type": "null"}]
+        },
+        "notes": {
+          "oneOf": [
+            {"type": "string", "minLength": 1, "maxLength": 2000},
+            {"type": "null"}
+          ]
+        },
+        "reviewer": {"$ref": "#/definitions/Reviewer"},
+        "signed_under_grant_id": {
+          "$ref": "#/definitions/OpaqueId",
+          "description": "The evaluation_system_reviewer grant in force at signing. A later revocation of that grant does not retroactively void this record."
+        },
+        "signed_under_self_grant": {
+          "type": "boolean",
+          "description": "Server-derived: true iff signed_under_grant_id was a self-granted grant (owner ruling: a project admin may grant the capability to themselves). Lets the UI disclose it on the signature itself, not only on the grant record."
+        },
+        "signed_at": {"type": "string", "format": "date-time"},
+        "revokes": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "revoked_by": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}],
+          "description": "Computed on read from the revocation row (never stored on the original row, which stays immutable)."
+        },
+        "observation_basis": {"const": "server_recorded_client_declaration"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"pillar": {"const": "evaluator"}}},
+          "then": {"properties": {"subject_ref": {"$ref": "#/definitions/EvaluatorSubjectRef"}}}
+        },
+        {
+          "if": {"properties": {"pillar": {"const": "evaluation_dataset"}}},
+          "then": {"properties": {"subject_ref": {"$ref": "#/definitions/DatasetSubjectRef"}}}
+        },
+        {
+          "if": {"properties": {"record_kind": {"const": "validation"}}},
+          "then": {"properties": {"revokes": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"record_kind": {"const": "revocation"}}},
+          "then": {
+            "properties": {
+              "revokes": {"$ref": "#/definitions/OpaqueId"},
+              "revoked_by": {"type": "null"},
+              "notes": {"type": "string", "minLength": 1, "maxLength": 2000}
+            }
+          }
+        }
+      ]
+    },
+    "ValidationListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "items", "pagination"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/definitions/ValidationRecord"}
+        },
+        "pagination": {
+          "allOf": [
+            {"$ref": "../pagination_schema.json"},
+            {"properties": {"per_page": {"maximum": 100}}}
+          ]
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {"$ref": "#/definitions/ValidationCreateRequest"},
+    {"$ref": "#/definitions/ValidationRecord"},
+    {"$ref": "#/definitions/ValidationListResponse"}
+  ]
+}

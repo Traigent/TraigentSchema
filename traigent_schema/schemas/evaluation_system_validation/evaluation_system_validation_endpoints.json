@@ -1,0 +1,190 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Evaluation System Validation Routes",
+    "version": "1.0.0",
+    "description": "Project-scoped expert sign-off records for an evaluator version or eval-set fingerprint (evaluation-system-validations), and the reviewer capability grants that authorize signing (evaluation-system-reviewer-grants). A separate family from Agent Readiness: agent_readiness_endpoints.json's path set is pinned by test_endpoint_inventory_registers_project_scoped_read_and_target_routes."
+  },
+  "paths": {
+    "/api/v1beta/projects/{project_id}/evaluation-system-validations": {
+      "post": {
+        "summary": "Record an expert validation, or revoke one, for one pillar of the project's evaluation system",
+        "operationId": "createEvaluationSystemValidation",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "./evaluation_system_validation_schema.json#/definitions/ValidationCreateRequest"}}}
+        },
+        "responses": {
+          "201": {
+            "description": "Validation or revocation record created",
+            "content": {"application/json": {"schema": {"$ref": "./evaluation_system_validation_schema.json#/definitions/ValidationRecord"}}}
+          },
+          "400": {"description": "Closed-request violation (unknown key, reviewer/signed_at supplied, bad pillar<->agreement pairing, or compared_items > sample_size)", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Signing denied: no active evaluation_system_reviewer grant, or an API-key principal", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "404": {"description": "source_run_id, or the revoked record's id, not found in the authorized project scope", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "409": {
+            "description": "The record named by revokes is already revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["success", "message", "error", "error_code"],
+                  "properties": {
+                    "success": {"const": false},
+                    "message": {"const": "This record was already revoked."},
+                    "error": {"const": "already_revoked"},
+                    "error_code": {"const": "already_revoked"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List evaluation-system validation records for the project",
+        "operationId": "listEvaluationSystemValidations",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "pillar", "in": "query", "required": false, "schema": {"$ref": "./evaluation_system_validation_schema.json#/definitions/Pillar"}},
+          {"name": "evaluator_version_id", "in": "query", "required": false, "schema": {"type": "string", "minLength": 1, "maxLength": 512}},
+          {"name": "dataset_id", "in": "query", "required": false, "schema": {"type": "string", "minLength": 1, "maxLength": 512}},
+          {"name": "include_revoked", "in": "query", "required": false, "schema": {"type": "boolean", "default": false}},
+          {"name": "page", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}},
+          {"name": "per_page", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 25}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Validation records retrieved, newest first",
+            "content": {"application/json": {"schema": {"$ref": "./evaluation_system_validation_schema.json#/definitions/ValidationListResponse"}}}
+          },
+          "400": {"description": "Invalid filter or pagination parameters", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}}
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/evaluation-system-validations/{validation_id}": {
+      "get": {
+        "summary": "Get one evaluation-system validation record",
+        "operationId": "getEvaluationSystemValidation",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "validation_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Validation record retrieved",
+            "content": {"application/json": {"schema": {"$ref": "./evaluation_system_validation_schema.json#/definitions/ValidationRecord"}}}
+          },
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "404": {"description": "Validation record not found in the authorized project scope", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}}
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/evaluation-system-reviewer-grants": {
+      "post": {
+        "summary": "Grant or revoke the evaluation_system_reviewer capability for a project member",
+        "operationId": "createEvaluationSystemReviewerGrant",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "./evaluation_system_reviewer_grant_schema.json#/definitions/ReviewerGrantCreateRequest"}}}
+        },
+        "responses": {
+          "201": {
+            "description": "Grant or revocation record created",
+            "content": {"application/json": {"schema": {"$ref": "./evaluation_system_reviewer_grant_schema.json#/definitions/ReviewerGrantRecord"}}}
+          },
+          "400": {"description": "Closed-request violation", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Granting denied: not a human session with project admin (self-grant by an admin is permitted and recorded with self_granted: true)", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "404": {"description": "The grantee has no active membership giving at least viewer access in this project", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "409": {
+            "description": "already_granted: the grantee already holds an active grant. already_revoked: the grant named by revokes is already revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "This member already has an active reviewer grant."},
+                        "error": {"const": "already_granted"},
+                        "error_code": {"const": "already_granted"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "This grant was already revoked."},
+                        "error": {"const": "already_revoked"},
+                        "error_code": {"const": "already_revoked"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List evaluation-system reviewer grants for the project",
+        "operationId": "listEvaluationSystemReviewerGrants",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "active", "in": "query", "required": false, "schema": {"type": "boolean"}},
+          {"name": "page", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "default": 1}},
+          {"name": "per_page", "in": "query", "required": false, "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 25}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviewer grant records retrieved",
+            "content": {"application/json": {"schema": {"$ref": "./evaluation_system_reviewer_grant_schema.json#/definitions/ReviewerGrantListResponse"}}}
+          },
+          "400": {"description": "Invalid filter or pagination parameters", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}}
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/evaluation-system-reviewer-grants/me": {
+      "get": {
+        "summary": "Whether the caller currently holds an active evaluation_system_reviewer grant in this project",
+        "operationId": "getEvaluationSystemReviewerGrantMe",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Caller's current signing capability",
+            "content": {"application/json": {"schema": {"$ref": "./evaluation_system_reviewer_grant_schema.json#/definitions/ReviewerCanSignResponse"}}}
+          },
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Project access denied", "content": {"application/json": {"schema": {"$ref": "../agent_readiness/agent_readiness_error_schema.json"}}}}
+        }
+      }
+    }
+  }
+}

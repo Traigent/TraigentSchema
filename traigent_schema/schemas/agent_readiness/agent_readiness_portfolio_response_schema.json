@@ -85,6 +85,9 @@
           "attention_state": {
             "description": "Deterministic classification of the existing typed next action; GAP alone is not actionable.",
             "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/AttentionState"
+          },
+          "evaluation_system_validity": {
+            "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvaluationSystemValidity"
           }
         },
         "required": [
@@ -98,7 +101,8 @@
           "process",
           "last_activity_at",
           "next_action_code",
-          "attention_state"
+          "attention_state",
+          "evaluation_system_validity"
         ],
         "allOf": [
           {

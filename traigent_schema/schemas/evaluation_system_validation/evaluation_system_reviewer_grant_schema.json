@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/evaluation_system_validation/evaluation_system_reviewer_grant_schema.json",
+  "title": "Evaluation System Reviewer Grant",
+  "description": "Closed, append-only capability-grant contract for the evaluation_system_reviewer capability. Project role alone (including admin) never confers signing; only an active grant does. A withdrawal is a 'revocation' record naming the grant it revokes. The grantor and time are always server-derived.",
+  "definitions": {
+    "OpaqueId": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+    },
+    "RecordKind": {
+      "type": "string",
+      "enum": ["grant", "revocation"]
+    },
+    "Capability": {
+      "type": "string",
+      "enum": ["evaluation_system_reviewer"]
+    },
+    "GrantPrincipal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "principal_kind": {"const": "USER"},
+        "principal_ref": {
+          "$ref": "#/definitions/OpaqueId",
+          "description": "The user id, or the literal string 'erased' after account erasure."
+        }
+      },
+      "required": ["principal_kind", "principal_ref"]
+    },
+    "ReviewerGrantCreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_kind", "grantee_user_id", "revokes", "reason"],
+      "properties": {
+        "record_kind": {"$ref": "#/definitions/RecordKind"},
+        "grantee_user_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "revokes": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "reason": {"type": "string", "minLength": 1, "maxLength": 500}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"record_kind": {"const": "grant"}}},
+          "then": {
+            "properties": {
+              "grantee_user_id": {"$ref": "#/definitions/OpaqueId"},
+              "revokes": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"record_kind": {"const": "revocation"}}},
+          "then": {
+            "properties": {
+              "grantee_user_id": {"type": "null"},
+              "revokes": {"$ref": "#/definitions/OpaqueId"}
+            }
+          }
+        }
+      ]
+    },
+    "ReviewerGrantRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grant_id",
+        "record_kind",
+        "capability",
+        "grantee",
+        "granted_by",
+        "self_granted",
+        "reason",
+        "recorded_at",
+        "revokes",
+        "revoked_by",
+        "observation_basis"
+      ],
+      "properties": {
+        "grant_id": {"$ref": "#/definitions/OpaqueId"},
+        "record_kind": {"$ref": "#/definitions/RecordKind"},
+        "capability": {"$ref": "#/definitions/Capability"},
+        "grantee": {"$ref": "#/definitions/GrantPrincipal"},
+        "granted_by": {"$ref": "#/definitions/GrantPrincipal"},
+        "self_granted": {
+          "type": "boolean",
+          "description": "Server-derived: true iff granted_by.principal_ref == grantee.principal_ref at the moment this record was written (owner ruling: a project admin may grant the capability to themselves; the wire always discloses when they did). Always false on a revocation record about a grant made by someone else; reflects the ORIGINAL grant's self-grant state when this is a revocation record."
+        },
+        "reason": {"type": "string", "minLength": 1, "maxLength": 500},
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "revokes": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "revoked_by": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}],
+          "description": "Computed on read from the revocation row (never stored on the original row, which stays immutable)."
+        },
+        "observation_basis": {"const": "backend_observed"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"record_kind": {"const": "grant"}}},
+          "then": {"properties": {"revokes": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"record_kind": {"const": "revocation"}}},
+          "then": {
+            "properties": {
+              "revokes": {"$ref": "#/definitions/OpaqueId"},
+              "revoked_by": {"type": "null"}
+            }
+          }
+        }
+      ]
+    },
+    "ReviewerGrantListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "items", "pagination"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/definitions/ReviewerGrantRecord"}
+        },
+        "pagination": {
+          "allOf": [
+            {"$ref": "../pagination_schema.json"},
+            {"properties": {"per_page": {"maximum": 100}}}
+          ]
+        }
+      }
+    },
+    "ReviewerCapabilityReasonCode": {
+      "type": "string",
+      "enum": ["NO_ACTIVE_GRANT", "API_KEY_PRINCIPAL", "NO_PROJECT_ACCESS"]
+    },
+    "ReviewerCanSignResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["can_sign", "reason_code", "grant_id"],
+      "properties": {
+        "can_sign": {"type": "boolean"},
+        "reason_code": {
+          "oneOf": [
+            {"$ref": "#/definitions/ReviewerCapabilityReasonCode"},
+            {"type": "null"}
+          ]
+        },
+        "grant_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "can_sign": {"const": true},
+            "reason_code": {"type": "null"},
+            "grant_id": {"$ref": "#/definitions/OpaqueId"}
+          }
+        },
+        {
+          "properties": {
+            "can_sign": {"const": false},
+            "reason_code": {"$ref": "#/definitions/ReviewerCapabilityReasonCode"},
+            "grant_id": {"type": "null"}
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {"$ref": "#/definitions/ReviewerGrantCreateRequest"},
+    {"$ref": "#/definitions/ReviewerGrantRecord"},
+    {"$ref": "#/definitions/ReviewerGrantListResponse"},
+    {"$ref": "#/definitions/ReviewerCanSignResponse"}
+  ]
+}

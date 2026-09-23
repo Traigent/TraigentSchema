@@ -8,6 +8,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Session identity-binding read + reachable session-create/results content_identity (M3
+  PR-5-lite).** New `GET /api/v1/sessions/{session_id}/identity-binding`, registered in
+  `optimization/optimization_endpoints.json` (the sessions catalog, under the `sdk_tuning`
+  contract root — session-scoped, alongside `next-trial`/`results`/`finalize`, not the
+  dataset-scoped `content_identity_endpoints.json`), `x-asserted-against-backend: false` ahead
+  of TraigentBackend `feat/content-identity-run-binding` landing on develop. New
+  `optimization/session_identity_binding_response_schema.json`: the standard success envelope
+  wrapping the run binding (`RunIdentityBindingRowV1`: `experiment_run_id`, `scheme`, `key_id`,
+  `record_state`, `rejection_reason`, `agent_id`/`agent_key`, `base_build_digest`,
+  `base_head_generation`, `dataset_members_ref`/`dataset_root`/`dataset_version_id`, `facts`,
+  `declared`, `created_at`/`completed_at`, `dataset_members`) and its trial bindings
+  (`TrialIdentityBindingRowV1`), or `identity_binding_not_found` (404) in the standard error
+  envelope. Deliberately named `*Row*` — this is the raw stored `run_identity_bindings` /
+  `trial_identity_bindings` row as the Backend serializes it today, NOT the same shape as the
+  pre-existing, still-unreachable `execution/run_identity_binding_v1_schema.json`
+  `RunIdentityBindingV1` (the future normalized, certificate-oriented record); the two must
+  never be confused. `dataset_members`/`evaluated_members` reuse `MultisetMemberV1` and
+  `MemberListRefV1` by `$ref`; a documented but Backend-untested `MemberListLoadErrorV1` branch
+  covers the rare case where a stored member list fails to reload. `declared` is typed as a
+  bare nullable object, not a `SessionContentIdentityWireV1`/`TrialContentIdentityWireV1` `$ref`,
+  because the Backend stores the client's raw block verbatim even when it FAILS that wire
+  schema (`rejection_reason: wire_schema_invalid`) — refing the wire schema there would reject
+  values the Backend itself accepts and stores. Also adds the optional, additive
+  `content_identity` property (`anyOf` the real wire schema or an unconstrained catch-all, so a
+  value the Backend tolerates but does not validate — non-object, schema-invalid, oversized —
+  never turns an already-accepted request into a 400) to POST `/api/v1/sessions`'s top-level
+  body and to `optimization/session_submit_results_request_schema.json`'s
+  `metadata.content_identity`, making M3 PR-S1's `SessionContentIdentityWireV1` /
+  `TrialContentIdentityWireV1` reachable from the catalog graph for the first time.
+  `breaking_schema_check.py` confirms both request changes are additive-only. Reachability
+  report and parity manifest regenerated.
 - **Evaluation system validation (E3): expert sign-off record + reviewer capability grant.**
   New family `evaluation_system_validation/` (`evaluation_system_validation_schema.json`:
   `ValidationCreateRequest`/`ValidationRecord`/`ValidationListResponse`, closed and append-only;

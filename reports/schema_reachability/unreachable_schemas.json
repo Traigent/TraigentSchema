@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 34,
-      "refOrEndpointGraph": 398
+      "refOrEndpointGraph": 403
     },
-    "reachableCount": 432,
-    "schemaFileCount": 478,
-    "unreachableCount": 46
+    "reachableCount": 437,
+    "schemaFileCount": 479,
+    "unreachableCount": 42
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -27,7 +27,6 @@
     "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
-    "agents/agent_version_manifest_v1_schema.json",
     "auth/rbac_privilege_vocabulary_schema.json",
     "certification/agent_quality_v1_schema.json",
     "certification/certificate_claim_templates_v0_schema.json",
@@ -42,10 +41,7 @@
     "evaluation/evaluation_request_schema.json",
     "evaluation/evaluation_results_schema.json",
     "evaluation/evaluation_schema.json",
-    "evaluation/evaluator_version_manifest_v1_schema.json",
-    "execution/content_identity_wire_v1_schema.json",
     "execution/dataset_storage_schema.json",
-    "execution/run_identity_binding_v1_schema.json",
     "execution/saas_execution_schema.json",
     "execution/service_registration_schema.json",
     "mep.json",

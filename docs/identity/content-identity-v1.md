@@ -14,7 +14,10 @@ which the Backend and SDKs implement in follow-up PRs.
 | Agent version manifest | `traigent_schema/schemas/agents/agent_version_manifest_v1_schema.json` |
 | Evaluator version manifest | `traigent_schema/schemas/evaluation/evaluator_version_manifest_v1_schema.json` |
 | Run identity binding (what a certificate binds) | `traigent_schema/schemas/execution/run_identity_binding_v1_schema.json` |
+| SDK wire envelopes (session create, trial metadata) and reason codes | `traigent_schema/schemas/execution/content_identity_wire_v1_schema.json` (section 18) |
+| Purpose-key grant (Backend → SDK) | `traigent_schema/schemas/datasets/purpose_key_grant_v1_schema.json` (section 18) |
 | Tests (known answers, properties, conformance) | `tests/test_example_identity.py` |
+| Wire tests over real SDK payloads | `tests/test_content_identity_wire.py`, fixtures `tests/data/content_identity_wire/` |
 
 Inputs this design follows: the owner rulings of 2026-09-23, the MLOps platform survey of the
 same date, and the Director session's identity/concurrency map and synthesis (build-order items
@@ -731,7 +734,8 @@ is `tests/test_example_identity.py` ("Conformance vectors").
 
 1. Implement key custody per ruling D1 (KMS/Vault, one master per tenant per key version),
    rotation per D2, and the per-dataset `public_benchmark` flag per D3. Add a purpose-key
-   issuance endpoint that returns `{tenant_id, kid, example_id_key, example_version_key}` and a
+   issuance endpoint that returns `{tenant_id, kid, example_id_key, example_version_key}`
+   (`PurposeKeyGrantV1`, section 18) and a
    key registry
    `(tenant, kid, status, created_at)`.
 2. Compute ids and `dataset_root` for hosted datasets. Store `dataset_root` on
@@ -745,3 +749,92 @@ is `tests/test_example_identity.py` ("Conformance vectors").
 7. Revise the certificate contract to bind section 11 and enforce issuance rules I1–I4 and claim rules C1–C6
    (milestones M3/M4). Add ID1 through ID3 to the model-checking
    contract.
+
+## 18. The SDK wire envelopes
+
+Sections 8–10 define the records; this section defines what the SDKs actually **send** before
+the Backend has turned anything into a record. Schema:
+`execution/content_identity_wire_v1_schema.json`. The fixtures in
+`tests/data/content_identity_wire/` are real payloads captured from both SDKs' own builders.
+
+**No grant, no envelope.** An SDK sends an envelope only when it holds a purpose-key grant.
+Without one it sends no `content_identity` at all: the payloads are byte-identical to an SDK
+without content identity. So `key_status` is always `"available"`.
+
+**The grant.** `PurposeKeyGrantV1` (`datasets/purpose_key_grant_v1_schema.json`) is the
+Backend's response to an authenticated session:
+`{tenant_id, kid, example_id_key, example_version_key, encoding: "hex"}`.
+
+- Each key is 32 bytes, sent as 64 lowercase hex characters.
+- `encoding` is always `"hex"`. A consumer rejects any other value rather than guessing.
+- The two keys are **secrets**. They are never logged, written to disk, echoed in an error,
+  exported or forwarded. SDKs hold them in memory only and redact them from every rendering.
+- The grant never contains the tenant master (ruling D1).
+
+**Two envelopes.** Both carry `scheme` and `provenance: "declared"`. Everything in them is a
+client declaration: the Backend stores it, recomputes it and labels it (section 11). A declared
+fact never satisfies a certificate claim on its own.
+
+| Envelope | Where it travels | Slots |
+|---|---|---|
+| `SessionContentIdentityWireV1` | session-create body, top-level `content_identity` | `key_status`, `key_id`, `agent_id_source`, `agent`, `evaluator_id_source`, `evaluator`, `dataset`, `unavailable` |
+| `TrialContentIdentityWireV1` | trial result `metadata.content_identity` | `trial_id`, `candidate`, `evaluated`, `observed_provider_versions`, `unavailable` |
+
+Each slot holds its own contract, narrowed to what the SDKs send:
+
+- `agent` and `candidate` are an `AgentVersionV1` with the manifest always inlined. They need not
+  be certifiable: `coverage` may be `partial`.
+- `evaluator` is an `EvaluatorVersionBindingV1` with the manifest inlined and
+  `resolution: "declared_at_session_start"`. A client never sends `witnessed_at_scoring`. The
+  SDKs emit it only when **every** manifest field is known, either because scoring is built-in
+  or because the caller declared it. `{}` and a `null` judge are claims, never defaults.
+- `dataset` is a `DatasetIdentityV1` with `record_state: "draft"` and `members` inlined.
+- `evaluated` is an `EvaluatedSetV1` with `members` inlined.
+- `observed_provider_versions` holds `ObservedProviderVersionV1` entries. Every field is present,
+  and an unknown is an explicit `null`; this includes `system_fingerprint`. `call_count` is
+  always stated. An empty list means nothing was observed, which is an honest unknown.
+
+**Null-slot rules** (enforced by the schema):
+
+1. A slot is `null` exactly when `unavailable` names a reason for it. `unavailable` is
+   `{slot: reason}` and is `{}` when nothing is withheld.
+2. When `agent` or `evaluator` is `null`, its `*_id_source` is `null` too: nothing was sourced.
+   When the slot is present, its id source is `"declared"` or `"fallback"`.
+3. `unavailable.conflicting_example_ids` (truncation) only accompanies a non-null `dataset`.
+4. Above 2,000 distinct members the **whole slot** is `null` with `members_exceed_inline_cap`.
+   There is no in-record `members_unavailable` field, and `members_ref` is not sent until the
+   Backend's member-list store exists. Its handle will be a `MemberListRefV1` (`ml1:<id>`).
+   Admitting it on the wire then is a widening, not a breaking change.
+
+Consumers also check what the schema cannot express:
+
+- `dataset.key_id` and every `evaluated.key_id` equal the session's `key_id`;
+- `evaluated.trial_id`, when present, equals the envelope's `trial_id`;
+- every stated digest and root recomputes from the inlined manifest or members.
+
+**Reason codes** (`ContentIdentityUnavailableReasonV1`) form a closed vocabulary, the union of
+both SDKs. Each slot accepts only its own subset.
+
+| Code | Slots | Meaning |
+|---|---|---|
+| `agent_id_unavailable` | agent, candidate | no usable agent id |
+| `agent_manifest_unavailable` | agent, candidate | the build manifest could not be built |
+| `config_not_canonicalizable` | agent, candidate | the configuration cannot be fp2-digested |
+| `evaluator_id_unavailable` | evaluator | the declared evaluator id is malformed (Python SDK only; see below) |
+| `evaluator_manifest_unavailable` | evaluator | some manifest field is unknown |
+| `row_not_canonicalizable` | dataset, evaluated | some dataset row cannot be canonicalized |
+| `members_exceed_inline_cap` | dataset, evaluated | more than 2,000 distinct members |
+| `evaluation_results_unavailable` | dataset (JS only), evaluated | per-example results (JS session: the dataset rows) were not available |
+| `row_outside_dataset` | evaluated | the trial evaluated a row that is not in the identified dataset |
+| `conflicting_example_ids_truncated` | conflicting_example_ids | the list was cut to its first 1,000 ids |
+| `purpose_keys_unavailable`, `purpose_key_provider_failed` | none | reserved: no grant means no envelope, so neither SDK sends them today |
+
+**Known divergence between the SDKs**, recorded rather than hidden (tests pin it):
+
+- A malformed declared evaluator id is `evaluator_id_unavailable` in Python and
+  `evaluator_manifest_unavailable` in JS.
+- A JS run whose dataset rows the SDK does not hold reports the session `dataset` slot as
+  `evaluation_results_unavailable`. Python has no such case.
+
+Both are inside the vocabulary. The content-derived slots (`dataset`, `evaluated`,
+`observed_provider_versions`) are byte-identical across SDKs for the same rows and grant.

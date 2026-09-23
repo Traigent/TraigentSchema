@@ -357,6 +357,12 @@
         }
       }
     },
+    "MemberListRefV1": {
+      "description": "Reference to a member list stored by the Backend's member-list store (milestone M3): 'ml1:' + the store's id for the list. A tenant-scoped handle, not a digest: whoever resolves it MUST fetch the list and recompute the stated root from it. The value a producer puts in a members_ref field once the store exists; not yet emitted by either SDK (above the inline cap they withhold the slot instead, see execution/content_identity_wire_v1_schema.json).",
+      "type": "string",
+      "maxLength": 512,
+      "pattern": "^ml1:[A-Za-z0-9_-]{1,128}(?![\\s\\S])"
+    },
     "RecordStateV1": {
       "description": "draft: still being assembled, may lack linkage; never certifiable. complete: every field the certificate contract needs is present (see each record's if/then); only complete records are certifiable.",
       "type": "string",

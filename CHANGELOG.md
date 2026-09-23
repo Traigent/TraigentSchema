@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Content identity wire envelopes (M3 PR-S1).** `execution/content_identity_wire_v1_schema.json`
+  types what both SDKs already send: `SessionContentIdentityWireV1` (session-create
+  `content_identity`) and `TrialContentIdentityWireV1` (trial `metadata.content_identity`), the
+  closed reason vocabulary `ContentIdentityUnavailableReasonV1` with per-slot subsets, and the
+  null-slot rules (a null slot names its reason; a withheld agent/evaluator claims no id source;
+  above 2,000 members the whole slot is null with `members_exceed_inline_cap`). New
+  `datasets/purpose_key_grant_v1_schema.json` (`PurposeKeyGrantV1`, the Backend -> SDK key grant;
+  key fields marked secret) and `MemberListRefV1` (`ml1:<id>`) in
+  `datasets/content_identity_v1_schema.json`. Spec section 18. Tests validate real payloads
+  captured from both SDKs' builders (`scripts/content_identity_wire/`) and recompute every stated
+  digest and root. Additive; nothing existing changes.
 - **Content identity v1 (`traigent.content_identity.v1`): tenant-keyed example ids and
   order-free multiset dataset roots (owner rulings 2026-09-23).** New normative spec
   `docs/identity/content-identity-v1.md`; reference implementation

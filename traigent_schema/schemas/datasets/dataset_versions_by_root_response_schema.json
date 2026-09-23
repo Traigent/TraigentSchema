@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/dataset_versions_by_root_response_schema.json",
+  "title": "Dataset Versions By Root Response",
+  "description": "GET /api/v1/datasets/versions/by-root/{dataset_root}. Success envelope (response_handler.success_response): {success, message, data: {dataset_root, versions}}. Resolves a server-computed dataset_root (MultisetRootV1) to the caller's dataset versions whose stored identity has that root, newest first (TraigentBackend src/routes/dataset_version_routes.py get_dataset_versions_by_root). Each entry is exactly DatasetVersionV1 without content_snapshot; no content identity, per-example map or public_input_digest is carried here. A root matching no version the caller may read is 404, indistinguishable from an unknown root.",
+  "version": "1.0.0",
+  "definitions": {
+    "DatasetVersionsByRootV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset_root", "versions"],
+      "properties": {
+        "dataset_root": {
+          "$ref": "content_identity_v1_schema.json#/definitions/MultisetRootV1",
+          "description": "The root from the path, echoed."
+        },
+        "versions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "dataset_version_schema.json#/definitions/DatasetVersionV1"
+          },
+          "description": "Every readable version whose stored dataset_root equals the requested root, across the caller's datasets, newest first. Never empty (an empty match is 404)."
+        }
+      }
+    }
+  },
+  "x-backend-obligations": [
+    "The lookup is tenant-scoped by the canonical tenant context and by the root's key id; each match is returned only when its parent dataset passes the same owner-scoped load as every other dataset route.",
+    "Entries never carry content_snapshot (DatasetVersionV1 without the include=snapshot projection)."
+  ],
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/definitions/DatasetVersionsByRootV1"
+    }
+  }
+}

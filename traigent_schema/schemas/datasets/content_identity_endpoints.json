@@ -1,0 +1,179 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Content Identity Routes",
+    "version": "1.0.0",
+    "description": "Content identity v1 routes (docs/identity/content-identity-v1.md; Backend milestone M3): the tenant purpose-key grant the SDKs need to mint example ids, the server-computed identity of a hosted dataset version, root-to-version resolution, and the per-dataset public-benchmark opt-in (ruling D3). Declared ahead of the Backend merge: each operation is x-asserted-against-backend false until the Backend branches (feat/content-identity-key-custody, feat/content-identity-dataset-root) land on develop with parity tests."
+  },
+  "paths": {
+    "/api/v1/content-identity/purpose-keys": {
+      "post": {
+        "summary": "Issue the caller tenant's content-identity purpose keys",
+        "description": "TraigentBackend src/routes/content_identity_routes.py issue_purpose_keys. The tenant is the auth stack's binding (get_current_tenant_id), never a header or the body. Same permission as creating an optimization session (experiment.write); an API key stating a foreign X-Tenant-Id frame is answered 404. Every grant is audited (CONTENT_IDENTITY_PURPOSE_KEYS_ISSUED, kid only); a grant that cannot be audited is not issued (503). Rate limited per route (defaults 2/s, 30/min, 600/h, 5000/day). Excluded from the idempotency replay cache so key material is never persisted.",
+        "operationId": "issueContentIdentityPurposeKeys",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "bare",
+        "x-required-permission": "experiment.write",
+        "x-traigent-body": "No request body is read; any body sent is ignored.",
+        "responses": {
+          "200": {
+            "description": "The grant itself, BARE (not a success envelope): exactly PurposeKeyGrantV1. SECRET key material: never cache, log or persist.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store (the Backend sends 'no-store, max-age=0').",
+                "schema": {"type": "string", "pattern": "(^|,\\s*)no-store(\\s*,|(?![\\s\\S]))"}
+              },
+              "Pragma": {
+                "description": "Always no-cache.",
+                "schema": {"type": "string", "const": "no-cache"}
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "./purpose_key_grant_v1_schema.json"}
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+          },
+          "403": {
+            "description": "Missing experiment.write, or no tenant context. The no-tenant-context branch is a BARE body {\"error\": \"tenant_context_required\"} (no success, no message), sent with Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {"$ref": "../error_envelope_schema.json"},
+                    {
+                      "type": "object",
+                      "title": "Bare tenant-context failure",
+                      "additionalProperties": false,
+                      "required": ["error"],
+                      "properties": {
+                        "error": {"type": "string", "const": "tenant_context_required"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "An API key stated a foreign tenant frame (X-Tenant-Id differs from the key's tenant): the route is hidden, not refused.",
+            "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+          },
+          "429": {
+            "description": "Route rate limit exceeded (error_code RATE_LIMIT_EXCEEDED, details.scope content_identity_purpose_keys).",
+            "headers": {
+              "Retry-After": {"description": "Seconds until a retry may succeed.", "schema": {"type": "string"}},
+              "X-RateLimit-Limit": {"schema": {"type": "string"}},
+              "X-RateLimit-Remaining": {"schema": {"type": "string"}},
+              "X-RateLimit-Reset": {"schema": {"type": "string"}}
+            },
+            "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
+          },
+          "503": {
+            "description": "Keys unavailable: custody not configured, a stored master that fails a custody check (the internal reason -- e.g. wrap_scheme_mismatch, wrapping_key_ref_mismatch, tenant_id_not_derivable -- is logged and never sent), or the grant's audit record could not be written. BARE body {error: content_identity_keys_unavailable, message}, sent with Cache-Control: no-store; SDKs degrade to key_status unavailable. A rate limiter that cannot evaluate answers 503 with the (masked) canonical error envelope instead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "title": "Content identity keys unavailable",
+                      "additionalProperties": false,
+                      "required": ["error", "message"],
+                      "properties": {
+                        "error": {"type": "string", "const": "content_identity_keys_unavailable"},
+                        "message": {"type": "string", "minLength": 1}
+                      }
+                    },
+                    {"$ref": "../error_envelope_schema.json"}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity": {
+      "get": {
+        "summary": "Get a hosted dataset version's server-computed content identity",
+        "description": "TraigentBackend src/routes/dataset_version_routes.py get_dataset_version_content_identity. Read access to the dataset (project viewer) through the owner-scoped parent load. Returns the identity under the tenant's ACTIVE key (root, counts, members_ref and the per-example map), re-verified on every read; or status unavailable with a reason. The version object (DatasetVersionV1) is unchanged.",
+        "operationId": "getDatasetVersionContentIdentity",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "wrapped",
+        "parameters": [
+          {"name": "dataset_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "version_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "responses": {
+          "200": {
+            "description": "The version's content identity (status available) or why there is none (status unavailable). An integrity failure is status unavailable, reason stored_identity_mismatch, never a 5xx with a partial identity.",
+            "content": {"application/json": {"schema": {"$ref": "./dataset_version_content_identity_response_schema.json"}}}
+          },
+          "401": {"description": "Unauthenticated.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "403": {"description": "Dataset read access or project viewer role denied.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "404": {"description": "Dataset not found in the caller's owner scope, or the version is not a version of that dataset.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}}
+        }
+      }
+    },
+    "/api/v1/datasets/versions/by-root/{dataset_root}": {
+      "get": {
+        "summary": "Resolve a dataset_root to the caller's dataset versions",
+        "description": "TraigentBackend src/routes/dataset_version_routes.py get_dataset_versions_by_root. Tenant from the canonical context; each match filtered through the owner-scoped parent dataset load.",
+        "operationId": "getDatasetVersionsByRoot",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "wrapped",
+        "parameters": [
+          {
+            "name": "dataset_root",
+            "in": "path",
+            "required": true,
+            "description": "A MultisetRootV1 (msr1:<kid>:<64 hex>). The Backend's route variable is named root.",
+            "schema": {"$ref": "./content_identity_v1_schema.json#/definitions/MultisetRootV1"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The readable versions with that root, newest first.",
+            "content": {"application/json": {"schema": {"$ref": "./dataset_versions_by_root_response_schema.json"}}}
+          },
+          "400": {"description": "Malformed dataset_root.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "401": {"description": "Unauthenticated.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "403": {"description": "Dataset read access or project viewer role denied, or no tenant context.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "404": {"description": "No version the caller may read has that root (indistinguishable from an unknown root).", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}}
+        }
+      }
+    },
+    "/api/v1/datasets/{dataset_id}/public-benchmark": {
+      "put": {
+        "summary": "Set or clear the dataset's public-benchmark opt-in (ruling D3)",
+        "description": "TraigentBackend src/routes/dataset_version_routes.py set_dataset_public_benchmark. Requires dataset write access and project editor role, THEN tenant owner/admin (or platform admin) membership; API-key principals are refused even when the key's owner is a tenant admin. A refusal is audited (ACCESS_DENIED, reason tenant_admin_required); a change is audited (DATASET_PUBLIC_BENCHMARK_CHANGED) and not applied if the audit write fails. The Backend also emits the flag as public_benchmark on the dataset read (Benchmark.to_dict); dataset_schema.json is closed and does not declare it yet -- adding it is a separately acknowledged contract change (breaking_schema_check classifies it property_added on a closed schema).",
+        "operationId": "setDatasetPublicBenchmark",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "wrapped",
+        "parameters": [
+          {"name": "dataset_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "./dataset_public_benchmark_request_schema.json"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "The flag after the change.",
+            "content": {"application/json": {"schema": {"$ref": "./dataset_public_benchmark_response_schema.json"}}}
+          },
+          "400": {"description": "public_benchmark missing or not a boolean.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "401": {"description": "Unauthenticated.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "403": {"description": "Dataset write access or project editor role denied, or the caller is not a tenant owner/admin (error_code FORBIDDEN), or the principal is an API key.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "404": {"description": "Dataset not found in the caller's owner scope.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+          "500": {"description": "The change or its audit record could not be written; nothing was applied.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}}
+        }
+      }
+    }
+  }
+}

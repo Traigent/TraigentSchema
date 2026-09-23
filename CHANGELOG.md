@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Content identity endpoint contracts (M3).** New catalog
+  `datasets/content_identity_endpoints.json`, registered in `mep_endpoints.json`, declaring four
+  Backend routes ahead of their merge (`x-asserted-against-backend: false`):
+  `POST /api/v1/content-identity/purpose-keys` (bare `PurposeKeyGrantV1`, `Cache-Control:
+  no-store`; bare 503 `content_identity_keys_unavailable`), `GET
+  /api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity` (new
+  `HostedDatasetVersionContentIdentityV1`: available root + per-example map, or unavailable with a
+  closed reason), `GET /api/v1/datasets/versions/by-root/{dataset_root}` (DatasetVersionV1 list)
+  and `PUT /api/v1/datasets/{dataset_id}/public-benchmark` (ruling D3 opt-in). Request/response
+  schemas in `datasets/`; `purpose_key_grant_v1_schema.json` and `content_identity_v1_schema.json`
+  are now reachable from the catalog graph. Additive; nothing existing changes.
 - **Content identity wire envelopes (M3 PR-S1).** `execution/content_identity_wire_v1_schema.json`
   types what both SDKs already send: `SessionContentIdentityWireV1` (session-create
   `content_identity`) and `TrialContentIdentityWireV1` (trial `metadata.content_identity`), the

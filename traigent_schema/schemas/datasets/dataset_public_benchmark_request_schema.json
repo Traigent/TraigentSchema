@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/dataset_public_benchmark_request_schema.json",
+  "title": "Dataset Public Benchmark Request",
+  "description": "PUT /api/v1/datasets/{dataset_id}/public-benchmark request body: set or clear the dataset's public-benchmark opt-in (content identity ruling D3, docs/identity/content-identity-v1.md). While set, hosted version content-identity reads also carry each example's UNKEYED public_input_digest (exu1:) for cross-tenant contamination checks. Only a tenant owner/admin (or platform admin) may change it, and never through an API key; the generic dataset create/update bodies cannot set it.",
+  "version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["public_benchmark"],
+  "properties": {
+    "public_benchmark": {
+      "type": "boolean",
+      "description": "true opts the dataset in to unkeyed public digests; false opts it out (digests disappear from subsequent reads)."
+    }
+  }
+}

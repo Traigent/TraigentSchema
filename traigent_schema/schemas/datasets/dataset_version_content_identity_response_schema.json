@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/dataset_version_content_identity_response_schema.json",
+  "title": "Dataset Version Content Identity Response",
+  "description": "GET /api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity. Success envelope (response_handler.success_response): {success, message, data} where data is HostedDatasetVersionContentIdentityV1 -- the Backend's SERVER-COMPUTED content identity of one hosted dataset version (docs/identity/content-identity-v1.md sections 4.4, 4.5 and 5; TraigentBackend src/services/content_identity/hosted_dataset_identity.py HostedDatasetIdentityView.to_wire / unavailable_wire, route src/routes/dataset_version_routes.py get_dataset_version_content_identity). It is served by its own sub-resource so DatasetVersionV1 (dataset_version_schema.json, a closed contract) is unchanged. It is NOT a DatasetIdentityV1 record: it carries no record_state, adds the per-example map (examples) and the member-list provenance (members_source), and inlines no members; a relying party rebuilds the multiset from examples (count = occurrences of each (example_id, example_version) pair) and MUST recompute dataset_root from it. Every string pattern in this file ends with the portable end anchor (?![\\s\\S]) instead of $ (see content_identity_v1_schema.json).",
+  "version": "1.0.0",
+  "definitions": {
+    "HostedContentIdentityUnavailableReasonV1": {
+      "description": "Closed vocabulary of why a hosted dataset version has no servable content identity on this read. Content-free by construction. legacy_version_without_snapshot: the version was minted before content_snapshot existed, so nothing can be computed. not_yet_computed: no identity row exists under the tenant's ACTIVE key id -- custody not configured, a mint that failed (the mint-time reason is logged, not stored), or a key rotated since the mint; scripts/maintenance/backfill_dataset_version_roots.py mints it later where possible. stored_identity_mismatch: a stored identity no longer recomputes (its per-example map, counts, member list or version binding drifted); it is refused, never served.",
+      "type": "string",
+      "enum": [
+        "legacy_version_without_snapshot",
+        "not_yet_computed",
+        "stored_identity_mismatch"
+      ]
+    },
+    "HostedExampleIdentityV1": {
+      "description": "One hosted example row of the version's content_snapshot and the identifiers the Backend minted for it under the tenant key. Rows that share content share example_id/example_version and are counted, not collapsed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["example_uuid", "example_id", "example_version"],
+      "properties": {
+        "example_uuid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "x-identifier": true,
+          "description": "The hosted example row id (content_snapshot[].example_id / DatasetVersionV1.example_ids member). A Backend row id, NOT a content identifier."
+        },
+        "example_id": {
+          "$ref": "content_identity_v1_schema.json#/definitions/ExampleIdV1"
+        },
+        "example_version": {
+          "$ref": "content_identity_v1_schema.json#/definitions/ExampleVersionV1"
+        },
+        "public_input_digest": {
+          "$ref": "content_identity_v1_schema.json#/definitions/PublicInputDigestV1",
+          "description": "OPT-IN, UNKEYED exu1 digest of the example's input. Present ONLY while the parent dataset's public_benchmark flag is set (ruling D3; PUT /api/v1/datasets/{dataset_id}/public-benchmark); never stored, computed per read from the snapshot. Absent in every other case, including on every other dataset read surface."
+        }
+      }
+    },
+    "HostedDatasetVersionContentIdentityAvailableV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scheme",
+        "status",
+        "key_id",
+        "dataset_root",
+        "distinct_count",
+        "total_count",
+        "conflicting_example_ids",
+        "members_ref",
+        "members_source",
+        "examples",
+        "dataset_version_id",
+        "dataset_id"
+      ],
+      "properties": {
+        "scheme": {
+          "$ref": "content_identity_v1_schema.json#/definitions/ContentIdentitySchemeV1"
+        },
+        "status": {
+          "type": "string",
+          "const": "available"
+        },
+        "key_id": {
+          "$ref": "content_identity_v1_schema.json#/definitions/KeyIdV1",
+          "description": "The tenant's ACTIVE key id at read time. The identity is served only for the active key."
+        },
+        "dataset_root": {
+          "$ref": "content_identity_v1_schema.json#/definitions/MultisetRootV1"
+        },
+        "distinct_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Number of distinct (example_id, example_version) leaves: the Merkle tree size."
+        },
+        "total_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Number of snapshot rows, duplicates included (equals the length of examples)."
+        },
+        "conflicting_example_ids": {
+          "$ref": "content_identity_v1_schema.json#/definitions/ConflictingExampleIdsV1"
+        },
+        "members_ref": {
+          "$ref": "content_identity_v1_schema.json#/definitions/MemberListRefV1",
+          "description": "Tenant-scoped handle of the stored member list whose root is dataset_root. No public route resolves it yet; the examples map is sufficient to recompute the root."
+        },
+        "members_source": {
+          "type": "string",
+          "const": "server_computed",
+          "description": "Provenance of the member list: computed by the Backend from the version's own content_snapshot, never accepted from a client."
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HostedExampleIdentityV1"
+          },
+          "description": "One entry per snapshot row, sorted ascending by example_uuid."
+        },
+        "dataset_version_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-reference": "dataset_version_schema.json#/definitions/DatasetVersionV1/properties/id",
+          "description": "The DatasetVersionV1.id this identity belongs to (the version_id path parameter)."
+        },
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-reference": "dataset_schema.json#/properties/id",
+          "description": "The parent dataset (the dataset_id path parameter)."
+        }
+      }
+    },
+    "HostedDatasetVersionContentIdentityUnavailableV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "status", "reason", "dataset_version_id", "dataset_id"],
+      "properties": {
+        "scheme": {
+          "$ref": "content_identity_v1_schema.json#/definitions/ContentIdentitySchemeV1"
+        },
+        "status": {
+          "type": "string",
+          "const": "unavailable"
+        },
+        "reason": {
+          "$ref": "#/definitions/HostedContentIdentityUnavailableReasonV1"
+        },
+        "dataset_version_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-reference": "dataset_version_schema.json#/definitions/DatasetVersionV1/properties/id"
+        },
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-reference": "dataset_schema.json#/properties/id"
+        }
+      }
+    },
+    "HostedDatasetVersionContentIdentityV1": {
+      "description": "Either the verified identity (status available) or why there is none (status unavailable). Never a guessed or partial identity.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/HostedDatasetVersionContentIdentityAvailableV1"
+        },
+        {
+          "$ref": "#/definitions/HostedDatasetVersionContentIdentityUnavailableV1"
+        }
+      ]
+    }
+  },
+  "x-backend-obligations": [
+    "Every example_id, example_version and the dataset_root carry key_id as their second colon-separated field.",
+    "The multiset built from examples (count = occurrences of each (example_id, example_version) pair) recomputes to dataset_root, distinct_count, total_count and conflicting_example_ids; a stored identity that does not is answered status unavailable, reason stored_identity_mismatch.",
+    "public_input_digest is emitted only while the parent dataset's public_benchmark flag is set, and on no other read surface.",
+    "The version is loaded through the owner-scoped parent dataset; a version the caller cannot read is 404, never an identity."
+  ],
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/definitions/HostedDatasetVersionContentIdentityV1"
+    }
+  }
+}

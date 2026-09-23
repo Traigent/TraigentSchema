@@ -70,6 +70,54 @@ def _summary(
     }
 
 
+def _no_subject_pillar() -> dict[str, Any]:
+    return {
+        "status": "NO_SUBJECT",
+        "reason_code": None,
+        "validation_id": None,
+        "signed_at": None,
+        "expires_at": None,
+    }
+
+
+def _no_subject_validity() -> dict[str, Any]:
+    return {
+        "level": "V0",
+        "pillars": {
+            "evaluator": _no_subject_pillar(),
+            "evaluation_dataset": _no_subject_pillar(),
+        },
+        "decayed_reason": None,
+        "evidence_ids": [],
+        "observation_basis": "not_assessed",
+        "evaluated_at": "2026-09-20T00:00:00Z",
+    }
+
+
+def _validated_pillar() -> dict[str, Any]:
+    return {
+        "status": "VALIDATED",
+        "reason_code": None,
+        "validation_id": "esv_1",
+        "signed_at": "2026-09-19T00:00:00Z",
+        "expires_at": None,
+    }
+
+
+def _v1_validity() -> dict[str, Any]:
+    return {
+        "level": "V1",
+        "pillars": {
+            "evaluator": _validated_pillar(),
+            "evaluation_dataset": {**_validated_pillar(), "validation_id": "esv_2"},
+        },
+        "decayed_reason": None,
+        "evidence_ids": ["esv_1", "esv_2"],
+        "observation_basis": "server_recorded_client_declaration",
+        "evaluated_at": "2026-09-20T00:00:00Z",
+    }
+
+
 def _portfolio_payload() -> dict[str, Any]:
     return {
         "schema_version": "1.0.0",
@@ -102,6 +150,7 @@ def _portfolio_payload() -> dict[str, Any]:
                 "last_activity_at": None,
                 "next_action_code": "ESTABLISH_BASELINE_EVALUATION",
                 "attention_state": "ACTIONABLE",
+                "evaluation_system_validity": _no_subject_validity(),
             }
         ],
         "portfolio_counts": {
@@ -217,6 +266,7 @@ def _detail_payload() -> dict[str, Any]:
             ],
             "certificate_match": "NOT_ASSESSED",
         },
+        "evaluation_system_validity": _v1_validity(),
         "team_requirement": {"state": "NONE_DECLARED"},
         "current_context": {
             "evaluation_dataset_association": {

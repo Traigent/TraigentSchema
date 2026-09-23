@@ -2,6 +2,40 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/evaluation_system_validity",
+          "role": "response",
+          "subject": "evaluation_system_validity",
+          "old": false,
+          "new": true,
+          "fingerprint": "2b4588332430b5bf6d000e682bf17b5006ff5a1733335d36c4bf62f12cc81cdb"
+        }
+      ],
+      "reason": "E3 evaluation-system-validation (business/product-personas/e3-validation-record-design.md v0.2): the detail response gains the derived, content-free evaluation_system_validity block (V0/V1 level, per-pillar status and decay reason, evidence ids) so the UI can show the agent's evaluation-system validity without a second fan-out call. Additive only: existing fields, checks, and the team_requirement projection are unchanged. Old strict response validators must upgrade to accept the new closed member.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/evaluation-system-validation)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/properties/evaluation_system_validity",
+          "role": "response",
+          "subject": "evaluation_system_validity",
+          "old": false,
+          "new": true,
+          "fingerprint": "7397f59376f883beefe23d59534da7d78baf222a022f0d4d0004ff9eb8282bfb"
+        }
+      ],
+      "reason": "E3 evaluation-system-validation (business/product-personas/e3-validation-record-design.md v0.2): the same derived, content-free evaluation_system_validity block is added per-item to the project portfolio so the fleet view can render V0/V1 status for every agent row in one list call. Additive only, no scores, notes, or free text; old strict response validators must upgrade to accept the new closed member.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/evaluation-system-validation)"
+    },
+    {
       "file": "datasets/evaluator_config_create_request_schema.json",
       "rule": "required",
       "reason": "Backend's BenchmarkCreator hard-subscripts model_id and instructions off evaluator_config unconditionally (src/dal/benchmark_creator.py); the schema previously declared no required[] at all, so a schema-valid config omitting either field 500'd instead of failing a clean 422 (requiredness-axis mirror of #200, TraigentSchema issue #267). Tightening the request-only create contract to match what the backend actually reads is the intended fix, not an accidental restriction.",

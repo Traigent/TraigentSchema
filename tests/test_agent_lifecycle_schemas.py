@@ -124,6 +124,17 @@ PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS = {
     # which a lead's baseline is measured — the onboarding funnel step, not the
     # artifact-state lifecycle "baseline" state this guard protects.
     ("onboarding/onboarding_funnel_event_schema.json", "baseline"),
+    # E3 evaluation-system-validation: PillarValidity.reason_code is the honest
+    # decay/non-validation reason on the derived EvaluationSystemValidity block
+    # (REVOKED / SUBJECT_CHANGED_AFTER_SIGNING / SUBJECT_UPDATED_AFTER_SIGNING /
+    # BACKSTOP_ELAPSED) — same closed "why, not an internal state" shape as the
+    # two optimization `reason_code` entries above, unrelated to the artifact-
+    # lifecycle vocabulary this guard protects.
+    ("agent_readiness/agent_readiness_common_schema.json", "reason_code"),
+    # Same E3 shape on ReviewerCanSignResponse.reason_code (NO_ACTIVE_GRANT /
+    # API_KEY_PRINCIPAL / NO_PROJECT_ACCESS): an honest "why the caller cannot
+    # sign" code, not artifact-lifecycle state.
+    ("evaluation_system_validation/evaluation_system_reviewer_grant_schema.json", "reason_code"),
 }
 
 

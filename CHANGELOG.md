@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Evaluation system validation (E3): expert sign-off record + reviewer capability grant.**
+  New family `evaluation_system_validation/` (`evaluation_system_validation_schema.json`:
+  `ValidationCreateRequest`/`ValidationRecord`/`ValidationListResponse`, closed and append-only;
+  `evaluation_system_reviewer_grant_schema.json`: `ReviewerGrantCreateRequest`/`ReviewerGrantRecord`/
+  `ReviewerGrantListResponse`/`ReviewerCanSignResponse`), registered in `mep_endpoints.json`.
+  `evaluation_system_validation_endpoints.json` declares
+  `POST/GET /api/v1beta/projects/{project_id}/evaluation-system-validations`,
+  `GET .../evaluation-system-validations/{validation_id}`, and
+  `POST/GET .../evaluation-system-reviewer-grants` + `GET .../evaluation-system-reviewer-grants/me`
+  (`x-asserted-against-backend: false`). A separate family from Agent Readiness so
+  `agent_readiness_endpoints.json`'s pinned path set never moves. A revocation is a new record
+  naming the one it revokes (`record_kind: revocation`); the reviewer, signing time, and subject
+  identity are always server-derived. Owner ruling: a project admin may grant the reviewer
+  capability to themselves — `ReviewerGrantRecord.self_granted` and
+  `ValidationRecord.signed_under_grant_id`/`signed_under_self_grant` disclose it on the wire.
+  The derived, content-free `EvaluationSystemValidity` block (`level: V0|V1`, per-pillar
+  `PillarValidity` status/reason/evidence, `decayed_reason`, `evidence_ids`) is added to
+  `agent_readiness_common_schema.json` and referenced as the new required
+  `evaluation_system_validity` member of the readiness portfolio item and detail response
+  (allowlisted `property_added` — additive only). Owner ruling: a `ValidationCreateRequest` /
+  `ValidationRecord` with `outcome: valid` must carry non-null `agreement` evidence
+  (`compared_items >= 1`); `outcome: not_valid` may omit it; a revocation keeps it null regardless
+  — a **contract tightening on the request side** (a validation submission that previously omitted
+  `agreement` on a `valid` outcome is now rejected 400; `not_valid` submissions are unaffected). See
+  `business/product-personas/e3-validation-record-design.md` (v0.2).
 - **Content identity endpoint contracts (M3).** New catalog
   `datasets/content_identity_endpoints.json`, registered in `mep_endpoints.json`, declaring four
   Backend routes ahead of their merge (`x-asserted-against-backend: false`):

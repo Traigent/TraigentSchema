@@ -51,6 +51,9 @@
       "required": ["agent", "evaluator", "evaluation_dataset"]
     },
     "process_assurance": {"$ref": "#/definitions/ProcessAssurance"},
+    "evaluation_system_validity": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvaluationSystemValidity"
+    },
     "team_requirement": {
       "oneOf": [
         {"$ref": "./agent_readiness_target_schema.json#/definitions/NoTarget"},
@@ -96,6 +99,7 @@
     "agent_updated_after_anchor",
     "pillars",
     "process_assurance",
+    "evaluation_system_validity",
     "team_requirement",
     "current_context",
     "journey",

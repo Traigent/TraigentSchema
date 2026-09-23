@@ -83,6 +83,10 @@
           "properties": {
             "record_state": {
               "const": "draft"
+            },
+            "members": {
+              "maxItems": 2000,
+              "description": "The inline cap: at most 2,000 distinct (example_id, example_version) members. Above it the SDK sends the whole slot as null with members_exceed_inline_cap."
             }
           }
         }
@@ -98,7 +102,13 @@
           "type": "object",
           "required": [
             "members"
-          ]
+          ],
+          "properties": {
+            "members": {
+              "maxItems": 2000,
+              "description": "The inline cap: at most 2,000 distinct (example_id, example_version) members. Above it the SDK sends the whole slot as null with members_exceed_inline_cap."
+            }
+          }
         }
       ]
     },

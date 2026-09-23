@@ -260,6 +260,36 @@ def _mutated(base: dict[str, Any], mutate: Any) -> dict[str, Any]:
     return payload
 
 
+def _members(n: int, key_id: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "example_id": f"ex1:{key_id}:{i:064x}",
+            "example_version": f"exv1:{key_id}:{i:064x}",
+            "count": 1,
+        }
+        for i in range(n)
+    ]
+
+
+@pytest.mark.parametrize(("n", "accepted"), [(2000, True), (2001, False)])
+def test_inline_member_cap_is_enforced_by_the_schema(n: int, accepted: bool) -> None:
+    """Spec §18 null-slot rule 4: above 2,000 distinct members the slot is null."""
+    session = _session()
+    key_id = session["key_id"]
+    session["dataset"]["members"] = _members(n, key_id)
+    trial = _trial()
+    trial["evaluated"]["members"] = _members(n, trial["evaluated"]["members"][0]["example_id"].split(":")[1])
+    for validator, payload in ((SESSION, session), (TRIAL, trial)):
+        pending = list(validator.iter_errors(payload))
+        cap_errors = []
+        while pending:
+            error = pending.pop()
+            if error.validator == "maxItems":
+                cap_errors.append(list(error.absolute_path))
+            pending.extend(error.context or [])
+        assert (not cap_errors) is accepted, cap_errors
+
+
 SESSION_REJECTIONS = {
     "extra_top_level_property": lambda p: p.update(record_state="draft"),
     "extra_unavailable_slot": lambda p: p["unavailable"].update(

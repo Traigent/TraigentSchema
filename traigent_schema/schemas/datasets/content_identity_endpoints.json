@@ -39,25 +39,8 @@
             "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
           },
           "403": {
-            "description": "Missing experiment.write, or no tenant context. The no-tenant-context branch is a BARE body {\"error\": \"tenant_context_required\"} (no success, no message), sent with Cache-Control: no-store.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {"$ref": "../error_envelope_schema.json"},
-                    {
-                      "type": "object",
-                      "title": "Bare tenant-context failure",
-                      "additionalProperties": false,
-                      "required": ["error"],
-                      "properties": {
-                        "error": {"type": "string", "const": "tenant_context_required"}
-                      }
-                    }
-                  ]
-                }
-              }
-            }
+            "description": "Missing experiment.write (the auth stack's envelope), or no tenant context: the standard error envelope with error = error_code = tenant_context_required, sent with Cache-Control: no-store (TraigentBackend cc019c7a0).",
+            "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
           },
           "404": {
             "description": "An API key stated a foreign tenant frame (X-Tenant-Id differs from the key's tenant): the route is hidden, not refused.",
@@ -74,22 +57,33 @@
             "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
           },
           "503": {
-            "description": "Keys unavailable: custody not configured, a stored master that fails a custody check (the internal reason -- e.g. wrap_scheme_mismatch, wrapping_key_ref_mismatch, tenant_id_not_derivable -- is logged and never sent), or the grant's audit record could not be written. BARE body {error: content_identity_keys_unavailable, message}, sent with Cache-Control: no-store; SDKs degrade to key_status unavailable. A rate limiter that cannot evaluate answers 503 with the (masked) canonical error envelope instead.",
+            "description": "Keys unavailable: custody not configured, a stored master that fails a custody check, or the grant's audit record could not be written. The standard error envelope with error = error_code = content_identity_keys_unavailable, sent with Cache-Control: no-store (TraigentBackend cc019c7a0); SDKs degrade to key_status unavailable. The internal custody reason (e.g. wrap_scheme_mismatch, wrapping_key_ref_mismatch, tenant_id_not_derivable) is logged and never sent: no other code and no details object is allowed. A rate limiter that cannot evaluate answers the masked 5xx envelope (error Internal server error, error_code RATE_LIMIT_UNAVAILABLE).",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
+                  "allOf": [
+                    {"$ref": "../error_envelope_schema.json"},
+                    {"not": {"required": ["details"]}},
                     {
-                      "type": "object",
-                      "title": "Content identity keys unavailable",
-                      "additionalProperties": false,
-                      "required": ["error", "message"],
-                      "properties": {
-                        "error": {"type": "string", "const": "content_identity_keys_unavailable"},
-                        "message": {"type": "string", "minLength": 1}
-                      }
-                    },
-                    {"$ref": "../error_envelope_schema.json"}
+                      "oneOf": [
+                        {
+                          "title": "Content identity keys unavailable",
+                          "properties": {
+                            "error": {"const": "content_identity_keys_unavailable"},
+                            "error_code": {"const": "content_identity_keys_unavailable"}
+                          },
+                          "required": ["error", "error_code"]
+                        },
+                        {
+                          "title": "Rate limiter unavailable (masked 5xx)",
+                          "properties": {
+                            "error": {"const": "Internal server error"},
+                            "error_code": {"const": "RATE_LIMIT_UNAVAILABLE"}
+                          },
+                          "required": ["error", "error_code"]
+                        }
+                      ]
+                    }
                   ]
                 }
               }

@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `datasets/content_identity_endpoints.json`, registered in `mep_endpoints.json`, declaring four
   Backend routes ahead of their merge (`x-asserted-against-backend: false`):
   `POST /api/v1/content-identity/purpose-keys` (bare `PurposeKeyGrantV1`, `Cache-Control:
-  no-store`; bare 503 `content_identity_keys_unavailable`), `GET
+  no-store`; 503 `content_identity_keys_unavailable` and 403 `tenant_context_required` in the
+  standard error envelope, custody reasons never on the wire), `GET
   /api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity` (new
   `HostedDatasetVersionContentIdentityV1`: available root + per-example map, or unavailable with a
   closed reason), `GET /api/v1/datasets/versions/by-root/{dataset_root}` (DatasetVersionV1 list)

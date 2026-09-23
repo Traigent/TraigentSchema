@@ -288,12 +288,17 @@ def test_purpose_keys_200_is_the_bare_grant_with_no_store() -> None:
     assert _errors(validator, {**GRANT, "tenant_master": "00" * 32})  # never the master
 
 
+def _standard_error(code: str, message: str) -> dict[str, Any]:
+    """The route's _error(): {success, error, error_code, message} (TraigentBackend cc019c7a0)."""
+    return {"success": False, "error": code, "error_code": code, "message": message}
+
+
 def test_purpose_keys_error_bodies() -> None:
     unavailable = _response_validator(PURPOSE_KEYS, "post", "503")
-    body = {
-        "error": "content_identity_keys_unavailable",
-        "message": "Content identity keys are not available for this tenant.",
-    }
+    body = _standard_error(
+        "content_identity_keys_unavailable",
+        "Content identity keys are not available for this tenant.",
+    )
     assert _errors(unavailable, body) == []
     masked = {
         "success": False,
@@ -302,14 +307,22 @@ def test_purpose_keys_error_bodies() -> None:
         "error_code": "RATE_LIMIT_UNAVAILABLE",
     }
     assert _errors(unavailable, masked) == []
+    # the pre-cc019c7a0 bare body is no longer the contract
+    assert _errors(unavailable, {"error": body["error"], "message": body["message"]})
     # the custody reason is log-only: it must never appear on the wire
-    assert _errors(unavailable, {**body, "reason": "wrap_scheme_mismatch"})
-    assert _errors(unavailable, {**body, "error": "wrap_scheme_mismatch"})
+    for reason in ("wrap_scheme_mismatch", "wrapping_key_ref_mismatch"):
+        assert _errors(unavailable, {**body, "error_code": reason})
+        assert _errors(unavailable, _standard_error(reason, "x"))
+        assert _errors(unavailable, {**body, "details": {"reason": reason}})
+        assert _errors(unavailable, {**body, "reason": reason})
 
     forbidden = _response_validator(PURPOSE_KEYS, "post", "403")
-    assert _errors(forbidden, {"error": "tenant_context_required"}) == []
+    tenant = _standard_error(
+        "tenant_context_required", "A tenant context is required to issue content identity keys."
+    )
+    assert _errors(forbidden, tenant) == []
     assert _errors(forbidden, {**ERROR_ENVELOPE, "error": "Forbidden"}) == []
-    assert _errors(forbidden, {"error": "something_else"})
+    assert _errors(forbidden, {"error": "tenant_context_required"})  # bare body refused
 
     hidden = _response_validator(PURPOSE_KEYS, "post", "404")
     assert (

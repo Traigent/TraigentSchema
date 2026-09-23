@@ -21,11 +21,21 @@
     "Method": {
       "type": "string",
       "enum": ["expert_review"],
-      "description": "Only value accepted now. calibration_study is a later ADDITIVE request value (request-side widening is non-breaking)."
+      "description": "Only value accepted now. This definition is $ref'd by BOTH ValidationCreateRequest (request) and ValidationRecord (response) -- widening it later (e.g. adding calibration_study) is a RESPONSE enum widening under scripts/breaking_schema_check.py's mirror-image rule (a response getting looser is BREAKING for a strict consumer), not a free request-side addition. It needs its own scripts/breaking_schema_allowlist.json entry when it happens."
     },
     "Outcome": {
       "type": "string",
       "enum": ["valid", "not_valid"]
+    },
+    "AgreementValueUnitInterval": {
+      "type": "string",
+      "pattern": "^(0(\\.[0-9]{1,6})?|1(\\.0{1,6})?)$",
+      "description": "Decimal string in [0, 1] inclusive."
+    },
+    "AgreementValueSignedUnitInterval": {
+      "type": "string",
+      "pattern": "^-?(0(\\.[0-9]{1,6})?|1(\\.0{1,6})?)$",
+      "description": "Decimal string in [-1, 1] inclusive."
     },
     "Agreement": {
       "type": "object",
@@ -38,14 +48,22 @@
         },
         "value": {
           "type": "string",
-          "pattern": "^-?(0|1)(\\.[0-9]{1,6})?$"
+          "description": "Shape narrowed to [0,1] or [-1,1] by kind below; AgreementValueSignedUnitInterval's pattern is a strict superset of AgreementValueUnitInterval's (an unsigned value satisfies both), so the per-kind allOf uses a single $ref rather than a oneOf here."
         },
         "compared_items": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "maximum": 1000000
         }
       },
-      "description": "Declared by the reviewer, not computed by Traigent; observation_basis is server_recorded_client_declaration on the record that carries it. percent_agreement/cohens_kappa apply to the evaluator pillar; label_accuracy to the evaluation_dataset pillar. The server enforces the pillar<->kind pairing and compared_items <= sample_size."
+      "description": "Declared by the reviewer, not computed by Traigent; observation_basis is server_recorded_client_declaration on the record that carries it. percent_agreement/cohens_kappa apply to the evaluator pillar; label_accuracy to the evaluation_dataset pillar. The server enforces the pillar<->kind pairing and compared_items <= sample_size.",
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "cohens_kappa"}}},
+          "then": {"properties": {"value": {"$ref": "#/definitions/AgreementValueSignedUnitInterval"}}},
+          "else": {"properties": {"value": {"$ref": "#/definitions/AgreementValueUnitInterval"}}}
+        }
+      ]
     },
     "DatasetIdSource": {
       "type": "string",
@@ -113,6 +131,13 @@
             "content_fingerprint": {"type": "null"}
           }
         }
+      ],
+      "allOf": [
+        {
+          "description": "hosted_updated_at only has meaning for a registered/hosted dataset (Benchmark.updated_at, per §2.6); a client-declared dataset has no such tracked timestamp.",
+          "if": {"properties": {"dataset_id_source": {"const": "declared"}}},
+          "then": {"properties": {"hosted_updated_at": {"type": "null"}}}
+        }
       ]
     },
     "SubjectRef": {
@@ -155,8 +180,15 @@
           "description": "A completed experiment run in this project whose recorded subject the reviewer examined. The server derives subject_ref from this run; the client never supplies ids or fingerprints."
         },
         "method": {"$ref": "#/definitions/Method"},
-        "outcome": {"$ref": "#/definitions/Outcome"},
-        "sample_size": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "outcome": {
+          "oneOf": [{"$ref": "#/definitions/Outcome"}, {"type": "null"}]
+        },
+        "sample_size": {
+          "oneOf": [
+            {"type": "integer", "minimum": 1, "maximum": 1000000},
+            {"type": "null"}
+          ]
+        },
         "agreement": {
           "oneOf": [{"$ref": "#/definitions/Agreement"}, {"type": "null"}]
         },
@@ -176,14 +208,34 @@
           "then": {
             "properties": {
               "revokes": {"$ref": "#/definitions/OpaqueId"},
-              "notes": {"type": "string", "minLength": 1, "maxLength": 2000}
+              "notes": {"type": "string", "minLength": 1, "maxLength": 2000},
+              "outcome": {"type": "null"},
+              "sample_size": {"type": "null"},
+              "agreement": {"type": "null"}
             },
             "required": ["revokes", "notes"]
           }
         },
         {
           "if": {"properties": {"record_kind": {"const": "validation"}}},
-          "then": {"properties": {"revokes": {"type": "null"}}}
+          "then": {
+            "properties": {
+              "revokes": {"type": "null"},
+              "outcome": {"$ref": "#/definitions/Outcome"},
+              "sample_size": {"type": "integer", "minimum": 1, "maximum": 1000000}
+            },
+            "required": ["outcome", "sample_size"]
+          }
+        },
+        {
+          "description": "Owner ruling: a validation record with outcome=valid must carry agreement evidence (compared_items >= 1, enforced by Agreement itself). outcome=not_valid may omit it. A revocation keeps agreement null regardless (enforced above).",
+          "if": {
+            "allOf": [
+              {"properties": {"record_kind": {"const": "validation"}}},
+              {"properties": {"outcome": {"const": "valid"}}}
+            ]
+          },
+          "then": {"properties": {"agreement": {"$ref": "#/definitions/Agreement"}}}
         },
         {
           "if": {
@@ -290,7 +342,23 @@
         },
         {
           "if": {"properties": {"record_kind": {"const": "validation"}}},
-          "then": {"properties": {"revokes": {"type": "null"}}}
+          "then": {
+            "properties": {
+              "revokes": {"type": "null"},
+              "outcome": {"$ref": "#/definitions/Outcome"},
+              "sample_size": {"type": "integer", "minimum": 1, "maximum": 1000000}
+            }
+          }
+        },
+        {
+          "description": "Owner ruling: a validation record with outcome=valid must carry agreement evidence (compared_items >= 1, enforced by Agreement itself). outcome=not_valid may omit it.",
+          "if": {
+            "allOf": [
+              {"properties": {"record_kind": {"const": "validation"}}},
+              {"properties": {"outcome": {"const": "valid"}}}
+            ]
+          },
+          "then": {"properties": {"agreement": {"$ref": "#/definitions/Agreement"}}}
         },
         {
           "if": {"properties": {"record_kind": {"const": "revocation"}}},
@@ -298,7 +366,36 @@
             "properties": {
               "revokes": {"$ref": "#/definitions/OpaqueId"},
               "revoked_by": {"type": "null"},
-              "notes": {"type": "string", "minLength": 1, "maxLength": 2000}
+              "notes": {"type": "string", "minLength": 1, "maxLength": 2000},
+              "outcome": {"type": "null"},
+              "sample_size": {"type": "null"},
+              "agreement": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {"properties": {"pillar": {"const": "evaluator"}}},
+              {"not": {"properties": {"agreement": {"type": "null"}}}}
+            ]
+          },
+          "then": {
+            "properties": {
+              "agreement": {"properties": {"kind": {"enum": ["percent_agreement", "cohens_kappa"]}}}
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {"properties": {"pillar": {"const": "evaluation_dataset"}}},
+              {"not": {"properties": {"agreement": {"type": "null"}}}}
+            ]
+          },
+          "then": {
+            "properties": {
+              "agreement": {"properties": {"kind": {"const": "label_accuracy"}}}
             }
           }
         }

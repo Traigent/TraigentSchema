@@ -498,13 +498,27 @@
           }
         },
         {
-          "if": {"properties": {"status": {"enum": ["VALIDATED", "REVIEWER_REJECTED"]}}},
+          "if": {"properties": {"status": {"const": "REVIEWER_REJECTED"}}},
           "then": {
             "properties": {
               "status_reason": {"type": "null"},
               "validation_id": {"$ref": "#/definitions/OpaqueId"},
               "signed_at": {"type": "string", "format": "date-time"},
               "expires_at": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "VALIDATED"}}},
+          "then": {
+            "properties": {
+              "status_reason": {"type": "null"},
+              "validation_id": {"$ref": "#/definitions/OpaqueId"},
+              "signed_at": {"type": "string", "format": "date-time"},
+              "expires_at": {
+                "oneOf": [{"type": "string", "format": "date-time"}, {"type": "null"}],
+                "description": "Non-null exactly for a VALIDATED evaluation_dataset pillar that has not yet hit the 30-day backstop (signed_at + 30d, per §2.6's eval-set backstop); always null for the evaluator pillar, which has no time backstop -- enforced at the EvaluationSystemValidity level, since a single pillar's own shape cannot tell which slot it fills."
+              }
             }
           }
         },
@@ -600,18 +614,31 @@
           "then": {"properties": {"level": {"const": "V0"}}}
         },
         {
+          "description": "V1 iff evidence_ids has exactly 2 entries: one matched validation per pillar, per §2.6.",
+          "if": {"properties": {"level": {"const": "V1"}}},
+          "then": {"properties": {"evidence_ids": {"minItems": 2}}}
+        },
+        {
+          "description": "observation_basis reflects whether ANY validation record is referenced, not the pillar statuses directly -- a pillar can be NOT_VALIDATED/DECAYED/REVIEWER_REJECTED (a matched record exists) while the OTHER pillar is NO_SUBJECT, and the basis must still be server_recorded_client_declaration in that case.",
+          "if": {"properties": {"evidence_ids": {"minItems": 1}}},
+          "then": {"properties": {"observation_basis": {"const": "server_recorded_client_declaration"}}},
+          "else": {"properties": {"observation_basis": {"const": "not_assessed"}}}
+        },
+        {
+          "description": "decayed_reason non-null iff at least one pillar is DECAYED.",
           "if": {
-            "properties": {
-              "pillars": {
-                "properties": {
-                  "evaluator": {"properties": {"status": {"const": "NO_SUBJECT"}}},
-                  "evaluation_dataset": {"properties": {"status": {"const": "NO_SUBJECT"}}}
-                }
-              }
-            }
+            "anyOf": [
+              {"properties": {"pillars": {"properties": {"evaluator": {"properties": {"status": {"const": "DECAYED"}}}}}}},
+              {"properties": {"pillars": {"properties": {"evaluation_dataset": {"properties": {"status": {"const": "DECAYED"}}}}}}}
+            ]
           },
-          "then": {"properties": {"observation_basis": {"const": "not_assessed"}}},
-          "else": {"properties": {"observation_basis": {"const": "server_recorded_client_declaration"}}}
+          "then": {"properties": {"decayed_reason": {"$ref": "#/definitions/DecayReasonCode"}}},
+          "else": {"properties": {"decayed_reason": {"type": "null"}}}
+        },
+        {
+          "description": "The evaluator pillar has no time backstop (§2.6); its expires_at is null even when VALIDATED. A single PillarValidity instance cannot tell which slot it fills, so this is enforced here, one level up.",
+          "if": {"properties": {"pillars": {"properties": {"evaluator": {"properties": {"status": {"const": "VALIDATED"}}}}}}},
+          "then": {"properties": {"pillars": {"properties": {"evaluator": {"properties": {"expires_at": {"type": "null"}}}}}}}
         }
       ]
     }

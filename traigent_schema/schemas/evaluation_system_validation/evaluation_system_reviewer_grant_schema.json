@@ -82,11 +82,17 @@
         "grant_id": {"$ref": "#/definitions/OpaqueId"},
         "record_kind": {"$ref": "#/definitions/RecordKind"},
         "capability": {"$ref": "#/definitions/Capability"},
-        "grantee": {"$ref": "#/definitions/GrantPrincipal"},
-        "granted_by": {"$ref": "#/definitions/GrantPrincipal"},
+        "grantee": {
+          "$ref": "#/definitions/GrantPrincipal",
+          "description": "The reviewer this capability grant is about. On BOTH a grant row and its revocation row, this identifies the same person -- the one who can (grant) or can no longer (revocation) sign."
+        },
+        "granted_by": {
+          "$ref": "#/definitions/GrantPrincipal",
+          "description": "The actor who WROTE this row: on a grant record, the grantor; on a revocation record, the revoker (who may differ from the original grantor -- any project admin can revoke, not only the one who granted). Never recomputed; each row states its own writer."
+        },
         "self_granted": {
           "type": "boolean",
-          "description": "Server-derived: true iff granted_by.principal_ref == grantee.principal_ref at the moment this record was written (owner ruling: a project admin may grant the capability to themselves; the wire always discloses when they did). Always false on a revocation record about a grant made by someone else; reflects the ORIGINAL grant's self-grant state when this is a revocation record."
+          "description": "Stored once at write time, never recomputed on read. On a grant record: true iff granted_by.principal_ref == grantee.principal_ref at the moment this record was written (owner ruling: a project admin may grant the capability to themselves; the wire always discloses when they did). On a revocation record: an immutable COPY of the ORIGINAL grant's self_granted value (not the revoker's relationship to the grantee) -- so the audit trail keeps saying 'this capability was self-granted' even after someone else revokes it."
         },
         "reason": {"type": "string", "minLength": 1, "maxLength": 500},
         "recorded_at": {"type": "string", "format": "date-time"},
@@ -136,7 +142,8 @@
     },
     "ReviewerCapabilityReasonCode": {
       "type": "string",
-      "enum": ["NO_ACTIVE_GRANT", "API_KEY_PRINCIPAL", "NO_PROJECT_ACCESS"]
+      "enum": ["NO_ACTIVE_GRANT", "API_KEY_PRINCIPAL"],
+      "description": "Reasons available in a 200 body: the caller reached the handler with at least project read access, so the only remaining question is grant/principal shape. Lack of project access is NOT a value here -- the route itself returns 403 (the finite agent_readiness_error_schema.json envelope) before this response is ever built, so a NO_PROJECT_ACCESS body-level code would be dead code on the wire (captain decision: smaller change than removing the /me 403)."
     },
     "ReviewerCanSignResponse": {
       "type": "object",

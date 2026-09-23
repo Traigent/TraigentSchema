@@ -8,7 +8,9 @@
  *
  * Usage, from a traigent-js checkout that has src/identity/run-identity.ts:
  *
- *   cd <traigent-js checkout> && npx tsx <TraigentSchema>/scripts/content_identity_wire/capture_js.mts .
+ *   cd <traigent-js checkout> && npx tsx <TraigentSchema>/scripts/content_identity_wire/capture_js.mts
+ *
+ * The SDK checkout is the current working directory; the script takes no arguments.
  *
  * Keys are the PUBLIC TEST purpose keys of vector tenant_a
  * (traigent_schema/data/content_identity_v1_vectors.json key_derivation), installed
@@ -20,10 +22,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const schemaRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const sdkRoot = resolve(process.argv[2] ?? '.');
+const sdkRoot = process.cwd();
 const out = resolve(schemaRoot, 'tests', 'data', 'content_identity_wire', 'js_sdk.json');
 
 const load = async (rel: string): Promise<any> => import(pathToFileURL(resolve(sdkRoot, rel)).href);
+
+const byCodeUnit = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 function git(...args: string[]): string {
   return execFileSync('git', ['-C', sdkRoot, ...args], { encoding: 'utf8' }).trim();
@@ -35,7 +39,7 @@ function declaredReasons(): string[] {
   if (union === null) {
     throw new Error('ContentIdentityUnavailableReason union not found');
   }
-  return [...union[1]!.matchAll(/'([a-z_]+)'/g)].map((match) => match[1]!).sort();
+  return [...union[1]!.matchAll(/'([a-z_]+)'/g)].map((match) => match[1]!).sort(byCodeUnit);
 }
 
 const main = async (): Promise<void> => {
@@ -176,7 +180,7 @@ const main = async (): Promise<void> => {
         .split('\n')
         .filter((line) => line.length > 0)
         .map((line) => line.slice(3))
-        .sort(),
+        .sort(byCodeUnit),
     },
     // The SDK's own declared reason vocabulary: the ContentIdentityUnavailableReason
     // union in src/identity/run-identity.ts (a type, so read from the source text).

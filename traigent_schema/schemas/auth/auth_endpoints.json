@@ -188,6 +188,44 @@
         }
       }
     },
+    "/api/v1/auth/me/tenants": {
+      "get": {
+        "summary": "List the tenants the authenticated caller can switch between (portal tenant switcher)",
+        "description": "Returns only the caller's own active memberships, default first, plus a switchable flag. The tenant is never read from the request here. Non-switchable principals (API keys, service tokens, tenant-claimed tokens, deployment-pinned installs) receive at most their current tenant's membership.",
+        "responses": {
+          "200": {
+            "description": "The caller's switchable tenant memberships.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./auth_me_tenants_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Membership listing failed; no data is returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/status": {
       "get": {
         "summary": "Authentication-service health and feature flags",

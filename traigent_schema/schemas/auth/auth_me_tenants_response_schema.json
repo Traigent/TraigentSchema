@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/auth_me_tenants_response_schema.json",
+  "title": "Auth Me Tenants Response DTO",
+  "description": "200 body for GET /api/v1/auth/me/tenants — the tenants the authenticated caller can switch between (portal tenant switcher, TraigentFrontend#2250). data.items holds ONLY the caller's own active memberships in non-deleted tenants, default first; it is never a tenant directory, platform admins included. data.switchable is true only for an interactive JWT/cookie session with no tenant claim on a deployment with no pinned tenant — exactly when the Backend honours an X-Tenant-Id header naming one of those tenants. When switchable is false, items holds at most the membership for the request's resolved tenant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "message", "data"],
+  "properties": {
+    "success": { "const": true },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "switchable"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "The caller's own active memberships, ordered is_default DESC then membership created_at ASC.",
+          "items": { "$ref": "#/definitions/TenantMembershipItem" }
+        },
+        "switchable": {
+          "type": "boolean",
+          "description": "Whether the caller may select another listed tenant via the X-Tenant-Id header. False for API keys, service tokens, tenant-claimed (e.g. SSO) tokens and deployment-pinned installs."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "TenantMembershipItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "tenant_name", "tenant_slug", "role", "is_default"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "tenant_name": { "type": ["string", "null"] },
+        "tenant_slug": { "type": ["string", "null"] },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The caller's membership role in this tenant, as stored on the membership."
+        },
+        "is_default": { "type": "boolean" }
+      }
+    }
+  }
+}

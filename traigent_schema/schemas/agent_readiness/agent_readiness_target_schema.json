@@ -254,6 +254,10 @@
           "oneOf": [{"$ref": "#/definitions/ProportionString"}, {"type": "null"}]
         },
         "confidence_level": {"const": "0.95"},
+        "ci_method": {
+          "description": "How the interval was computed. clt_mean_standard_error: mean +/- z * SE of the mean over the per-example scores (Miller 2024, 'Adding Error Bars to Evals'), z for confidence_level. The Backend computes the interval from the stored per-example evaluations; it is never client-supplied, so both SDKs get the same verdict for the same run. Closed: another method is a later, acknowledged widening.",
+          "const": "clt_mean_standard_error"
+        },
         "unit": {"const": "PROPORTION"},
         "observation_basis": {
           "oneOf": [{"const": "client_reported"}, {"type": "null"}]
@@ -263,7 +267,7 @@
         },
         "evaluated_at": {"type": "string", "format": "date-time"}
       },
-      "required": ["result", "reason_codes", "source_run_id", "source_configuration_run_id", "observed_value", "ci_lower", "ci_upper", "confidence_level", "unit", "observation_basis", "observed_count", "evaluated_at"],
+      "required": ["result", "reason_codes", "source_run_id", "source_configuration_run_id", "observed_value", "ci_lower", "ci_upper", "confidence_level", "ci_method", "unit", "observation_basis", "observed_count", "evaluated_at"],
       "oneOf": [
         {
           "properties": {
@@ -359,6 +363,7 @@
   "oneOf": [
     {"$ref": "#/definitions/TargetDeclarationRequest"},
     {"$ref": "#/definitions/TargetRevision"},
+    {"$ref": "#/definitions/AccuracyTargetRevision"},
     {"$ref": "#/definitions/NoTarget"},
     {"$ref": "#/definitions/DeclaredTarget"}
   ]

@@ -77,7 +77,7 @@
       "required": ["state", "revision"]
     },
     "AgentPosture": {
-      "description": "The Agent's current manager-set posture as read on the readiness portfolio item and detail response.",
+      "description": "The Agent's current manager-set posture as read on the readiness portfolio item and detail response. Fail closed: any consumer MUST treat an Agent with NONE_DECLARED (or an absent agent_posture) as criticality high, the strictest evaluation-system bar, until a manager declares otherwise. deployment_stage has no default: an undeclared Agent matches no deployment_stage filter.",
       "oneOf": [
         {"$ref": "#/definitions/NoPosture"},
         {"$ref": "#/definitions/DeclaredPosture"}

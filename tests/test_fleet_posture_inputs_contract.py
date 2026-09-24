@@ -253,6 +253,11 @@ def test_e1_sample_count_requires_a_mean_accuracy() -> None:
     portfolio["items"][0]["anchor_accuracy_sample_count"] = None
     assert _valid(portfolio, PORTFOLIO) == []
 
+    # Reverse direction (review nit 4): an accuracy.mean value needs its count.
+    portfolio = _anchored_portfolio()
+    portfolio["items"][0]["anchor_accuracy_sample_count"] = None
+    assert _valid(portfolio, PORTFOLIO)
+
     for count in (0, -1, 1.5, "400"):
         portfolio = _anchored_portfolio()
         portfolio["items"][0]["anchor_accuracy_sample_count"] = count
@@ -319,23 +324,39 @@ def test_e4_criticality_is_the_owner_ruled_vocabulary() -> None:
     assert criticality["enum"] == ["low", "medium", "high"]
 
 
-def test_e4_posture_is_required_on_portfolio_item_and_detail() -> None:
-    assert "agent_posture" in (
+def test_e4_posture_is_optional_for_rollout_but_validated_when_present() -> None:
+    # Optional until TraigentBackend emits it, so unrelated Backend schema-pin
+    # bumps keep validating today's bodies (review nit 1).
+    assert "agent_posture" not in (
         _load(PORTFOLIO_SCHEMA_PATH)["properties"]["items"]["items"]["required"]
     )
-    assert "agent_posture" in _load(DETAIL_SCHEMA_PATH)["required"]
+    assert "agent_posture" not in _load(DETAIL_SCHEMA_PATH)["required"]
+    for schema_path in (PORTFOLIO_SCHEMA_PATH, DETAIL_SCHEMA_PATH):
+        assert "becomes required once TraigentBackend emits it" in json.dumps(
+            _load(schema_path)
+        )
 
     portfolio = _portfolio()
     portfolio["items"][0]["agent_posture"] = _declared_posture()
     assert _valid(portfolio, PORTFOLIO) == []
     del portfolio["items"][0]["agent_posture"]
+    assert _valid(portfolio, PORTFOLIO) == []
+    portfolio["items"][0]["agent_posture"] = {"state": "DECLARED"}
     assert _valid(portfolio, PORTFOLIO)
 
     detail = _detail()
     detail["agent_posture"] = _declared_posture()
     assert _valid(detail, DETAIL) == []
     del detail["agent_posture"]
+    assert _valid(detail, DETAIL) == []
+    detail["agent_posture"] = {"state": "UNKNOWN"}
     assert _valid(detail, DETAIL)
+
+
+def test_e4_undeclared_posture_fails_closed_to_high_criticality() -> None:
+    description = _load(POSTURE_SCHEMA_PATH)["definitions"]["AgentPosture"]["description"]
+    assert "MUST treat an Agent with NONE_DECLARED" in description
+    assert "criticality high" in description
 
 
 def test_e4_read_rejects_client_shaped_or_api_key_posture() -> None:
@@ -517,7 +538,73 @@ def test_e5_detail_keeps_latency_and_accuracy_chains_separate() -> None:
 
     detail = _detail()
     del detail["team_accuracy_requirement"]
+    assert _valid(detail, DETAIL) == []  # optional for rollout (review nit 1)
+    assert "team_accuracy_requirement" not in _load(DETAIL_SCHEMA_PATH)["required"]
+
+
+def _declared_latency_target() -> dict[str, Any]:
+    accuracy = _case("declared_accuracy_target_met")["instance"]
+    revision = {
+        **accuracy["revision"],
+        "revision_id": "lat-rev-1",
+        "requirement": {
+            "metric_id": "SDK_MEAN_RESPONSE_TIME",
+            "source_key": "response_time_ms.mean",
+            "unit": "MILLISECONDS",
+            "direction": "minimize",
+            "comparison": "at_most",
+            "threshold_ms": "1500",
+            "accepted_observation_basis": "client_reported",
+        },
+    }
+    evaluation = {
+        "result": "MET",
+        "reason_codes": [],
+        "source_run_id": "run-anchor",
+        "source_configuration_run_id": "config-1",
+        "observed_value_ms": "900",
+        "unit": "MILLISECONDS",
+        "observation_basis": "client_reported",
+        "observed_count": 400,
+        "evaluated_at": "2026-09-24T10:00:01Z",
+    }
+    return {"state": "DECLARED", "revision": revision, "evaluation": evaluation}
+
+
+def test_e5_accuracy_slot_rejects_a_latency_target() -> None:
+    latency = _declared_latency_target()
+    detail = _detail()
+    detail["team_requirement"] = latency
+    assert _valid(detail, DETAIL) == []  # control: the latency target is well-formed
+
+    detail = _detail()
+    detail["team_accuracy_requirement"] = latency
     assert _valid(detail, DETAIL)
+
+
+def test_e5_evaluation_confidence_level_is_exactly_095_and_method_is_closed() -> None:
+    ref = (
+        "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json"
+        "#/definitions/AccuracyEvaluation"
+    )
+    met = _case("declared_accuracy_target_met")["instance"]["evaluation"]
+    assert _errors(ref, met) == []
+    for value in ("0.9", "0.950", "95", 0.95, None):
+        assert _errors(ref, {**met, "confidence_level": value}), value
+    for value in ("bootstrap", "wilson", None):
+        assert _errors(ref, {**met, "ci_method": value}), value
+    description = _load(TARGET_SCHEMA_PATH)["definitions"]["AccuracyEvaluation"][
+        "properties"
+    ]["ci_method"]["description"]
+    assert "never client-supplied" in description
+
+
+def test_target_schema_root_lists_every_revision_shape() -> None:
+    root = [branch["$ref"] for branch in _load(TARGET_SCHEMA_PATH)["oneOf"]]
+    assert "#/definitions/AccuracyTargetRevision" in root
+    assert "#/definitions/TargetRevision" in root
+    accuracy_revision = _case("declared_accuracy_target_met")["instance"]["revision"]
+    assert _valid(accuracy_revision, "agent_readiness_target_schema") == []
 
 
 def test_e5_target_route_accepts_accuracy_and_still_answers_declared_target() -> None:

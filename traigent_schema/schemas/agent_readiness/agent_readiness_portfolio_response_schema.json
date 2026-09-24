@@ -90,7 +90,7 @@
             "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvaluationSystemValidity"
           },
           "agent_posture": {
-            "description": "E4: the Agent's current manager-set posture (deployment stage and criticality), or NONE_DECLARED.",
+            "description": "E4: the Agent's current manager-set posture (deployment stage and criticality), or NONE_DECLARED. Optional for rollout: becomes required once TraigentBackend emits it (follow-up), so unrelated Backend schema-pin bumps keep validating today's bodies. Closed and validated whenever present.",
             "$ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/AgentPosture"
           },
           "anchor_evaluation_dataset_ref": {
@@ -123,8 +123,10 @@
           },
           "anchor_reported_example_evaluations": {
             "description": "E1: the anchor run's client-reported evaluated-example total (detail anchor_summary.reported_example_evaluations). Null when there is no anchor run or no total was reported.",
-            "type": ["integer", "null"],
-            "minimum": 0
+            "oneOf": [
+              {"type": "integer", "minimum": 0},
+              {"type": "null"}
+            ]
           }
         },
         "required": [
@@ -139,8 +141,7 @@
           "last_activity_at",
           "next_action_code",
           "attention_state",
-          "evaluation_system_validity",
-          "agent_posture"
+          "evaluation_system_validity"
         ],
         "dependencies": {
           "anchor_evaluation_dataset_ref": ["anchor_evaluator_version_ref", "anchor_accuracy", "anchor_accuracy_sample_count", "anchor_reported_example_evaluations"],
@@ -163,19 +164,40 @@
             }
           },
           {
-            "if": {
-              "properties": {"anchor_accuracy_sample_count": {"type": "integer"}},
-              "required": ["anchor_accuracy_sample_count"]
-            },
-            "then": {
-              "properties": {
-                "anchor_accuracy": {
-                  "not": {"type": "null"},
-                  "properties": {"source_key": {"const": "accuracy.mean"}},
-                  "required": ["source_key"]
+            "description": "E1: anchor_accuracy_sample_count is non-null exactly when anchor_accuracy is an accuracy.mean value (both directions).",
+            "allOf": [
+              {
+                "if": {
+                  "properties": {"anchor_accuracy_sample_count": {"type": "integer"}},
+                  "required": ["anchor_accuracy_sample_count"]
+                },
+                "then": {
+                  "properties": {
+                    "anchor_accuracy": {
+                      "not": {"type": "null"},
+                      "properties": {"source_key": {"const": "accuracy.mean"}},
+                      "required": ["source_key"]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "anchor_accuracy": {
+                      "not": {"type": "null"},
+                      "properties": {"source_key": {"const": "accuracy.mean"}},
+                      "required": ["source_key"]
+                    }
+                  },
+                  "required": ["anchor_accuracy"]
+                },
+                "then": {
+                  "properties": {"anchor_accuracy_sample_count": {"type": "integer"}},
+                  "required": ["anchor_accuracy_sample_count"]
                 }
               }
-            }
+            ]
           },
           {
             "oneOf": [

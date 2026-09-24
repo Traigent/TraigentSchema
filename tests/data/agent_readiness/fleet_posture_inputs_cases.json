@@ -810,7 +810,319 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_ci_method_missing",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "ci_method is required",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
           "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_ci_method_bootstrap",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "ci_method is closed to clt_mean_standard_error",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "bootstrap"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_evaluation_confidence_numeric",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "confidence_level is the string \"0.95\", not a number",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": 0.95,
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_evaluation_confidence_090",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "AccuracyEvaluation.confidence_level is exactly 0.95",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.9",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -887,7 +1199,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -966,7 +1279,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": null,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1043,7 +1357,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1120,7 +1435,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": null,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1199,7 +1515,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1276,7 +1593,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": null,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1353,7 +1671,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1430,7 +1749,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1507,7 +1827,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1584,7 +1905,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1659,7 +1981,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     },
@@ -1736,7 +2059,8 @@
           "unit": "PROPORTION",
           "observation_basis": "client_reported",
           "observed_count": 400,
-          "evaluated_at": "2026-09-24T10:00:01Z"
+          "evaluated_at": "2026-09-24T10:00:01Z",
+          "ci_method": "clt_mean_standard_error"
         }
       }
     }

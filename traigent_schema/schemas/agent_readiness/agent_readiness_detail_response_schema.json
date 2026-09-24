@@ -55,7 +55,7 @@
       "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvaluationSystemValidity"
     },
     "agent_posture": {
-      "description": "E4: the Agent's current manager-set posture (deployment stage and criticality), or NONE_DECLARED.",
+      "description": "E4: the Agent's current manager-set posture (deployment stage and criticality), or NONE_DECLARED. Optional for rollout: becomes required once TraigentBackend emits it (follow-up), so unrelated Backend schema-pin bumps keep validating today's bodies. Closed and validated whenever present.",
       "$ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/AgentPosture"
     },
     "team_requirement": {
@@ -66,7 +66,7 @@
       ]
     },
     "team_accuracy_requirement": {
-      "description": "E5: the team accuracy target chain, independent of the latency chain in team_requirement.",
+      "description": "E5: the team accuracy target chain, independent of the latency chain in team_requirement. Optional for rollout: becomes required once TraigentBackend emits it (follow-up). Closed and validated whenever present.",
       "oneOf": [
         {"$ref": "./agent_readiness_target_schema.json#/definitions/NoTarget"},
         {"$ref": "./agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget"}
@@ -112,9 +112,7 @@
     "pillars",
     "process_assurance",
     "evaluation_system_validity",
-    "agent_posture",
     "team_requirement",
-    "team_accuracy_requirement",
     "current_context",
     "journey",
     "anchor_summary",

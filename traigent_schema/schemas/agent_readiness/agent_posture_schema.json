@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json",
+  "title": "Agent Readiness Manager-Set Agent Posture",
+  "description": "E4 (fleet posture): a closed, append-only, manager-set posture for one Agent in a project -- its deployment stage and its criticality. Follows the team-requirement target-revision convention: every write creates an immutable revision guarded by expected_current_revision_id, and who set it and when are always server-derived from the authenticated human session. Criticality drives the V1-vs-V2 evaluation-system bar and the fleet interest weight (owner ruling 2026-09-24, fleet-spec-merged.md section 9.2).",
+  "definitions": {
+    "OpaqueId": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+    },
+    "DeploymentStage": {
+      "description": "Reuses the agent-deployment Environment vocabulary (agents/agent_deployment_schema.json definitions/Environment) instead of forking it, and never the free-form AgentSummary.status run status.",
+      "$ref": "https://schemas.traigent.ai/agents/agent_deployment_schema.json#/definitions/Environment"
+    },
+    "Criticality": {
+      "description": "Manager-set business criticality of the Agent. Owner ruling 2026-09-24: {low, medium, high}, set per agent in the fleet view.",
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "PostureDeclarationRequest": {
+      "description": "Declare or replace the Agent's posture. Both members are required: a revision is a full posture snapshot, never a partial merge. declared_by and declared_at are not accepted from the client.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "expected_current_revision_id": {
+          "description": "The revision the form was loaded from, or null when no posture has been declared yet. A mismatch is a 409 revision_conflict.",
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "deployment_stage": {"$ref": "#/definitions/DeploymentStage"},
+        "criticality": {"$ref": "#/definitions/Criticality"}
+      },
+      "required": ["expected_current_revision_id", "deployment_stage", "criticality"]
+    },
+    "PostureDeclarer": {
+      "description": "The authenticated human who set the posture. Reuses the target-revision Declarer shape, narrowed to USER: API-key principals may not set posture.",
+      "allOf": [
+        {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/Declarer"},
+        {"properties": {"principal_kind": {"const": "USER"}}}
+      ]
+    },
+    "PostureRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "revision_id": {"$ref": "#/definitions/OpaqueId"},
+        "previous_revision_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "agent_id": {"$ref": "#/definitions/OpaqueId"},
+        "deployment_stage": {"$ref": "#/definitions/DeploymentStage"},
+        "criticality": {"$ref": "#/definitions/Criticality"},
+        "declared_by": {"$ref": "#/definitions/PostureDeclarer"},
+        "declared_at": {"type": "string", "format": "date-time"}
+      },
+      "required": [
+        "revision_id",
+        "previous_revision_id",
+        "agent_id",
+        "deployment_stage",
+        "criticality",
+        "declared_by",
+        "declared_at"
+      ]
+    },
+    "NoPosture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {"state": {"const": "NONE_DECLARED"}},
+      "required": ["state"]
+    },
+    "DeclaredPosture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {"const": "DECLARED"},
+        "revision": {"$ref": "#/definitions/PostureRevision"}
+      },
+      "required": ["state", "revision"]
+    },
+    "AgentPosture": {
+      "description": "The Agent's current manager-set posture as read on the readiness portfolio item and detail response.",
+      "oneOf": [
+        {"$ref": "#/definitions/NoPosture"},
+        {"$ref": "#/definitions/DeclaredPosture"}
+      ]
+    }
+  },
+  "oneOf": [
+    {"$ref": "#/definitions/PostureDeclarationRequest"},
+    {"$ref": "#/definitions/PostureRevision"},
+    {"$ref": "#/definitions/NoPosture"},
+    {"$ref": "#/definitions/DeclaredPosture"}
+  ]
+}

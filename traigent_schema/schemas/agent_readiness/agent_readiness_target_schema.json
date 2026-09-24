@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json",
-  "title": "Agent Readiness Team Latency Requirement",
-  "description": "Closed, server-attributable team mean-response-time target and its current on-read evaluation.",
+  "title": "Agent Readiness Team Requirement",
+  "description": "Closed, server-attributable team targets and their current on-read evaluation: a mean-response-time (latency) target and, since E5, a mean-accuracy target whose confidence interval must clear a threshold. Each metric keeps its own immutable revision chain per Agent: expected_current_revision_id and previous_revision_id always refer to the chain of the metric being declared, so declaring an accuracy target never replaces the latency target.",
   "definitions": {
     "OpaqueId": {
       "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
@@ -12,6 +12,13 @@
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    },
+    "ProportionString": {
+      "description": "A decimal string on the closed unit interval [0, 1]. Accuracy thresholds and interval bounds are proportions, never percentages.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^(0(\\.[0-9]+)?|1(\\.0+)?)$"
     },
     "Digest": {
       "type": "string",
@@ -100,24 +107,74 @@
         "accepted_observation_basis"
       ]
     },
+    "AccuracyRequirement": {
+      "description": "E5: a team accuracy target. metric_id reuses the agent-readiness accuracy naming (ReportedMetric kind ACCURACY, check ACCURACY_MEASURE_RECORDED) with the SDK_MEAN_* shape of the latency metric; the schema has no quality-axis enum to reuse (analytics run_pareto names its quality axis with a free string). source_key is the literal accuracy.mean aggregate, never a fallback ladder: only the mean carries the count an interval needs, and a scalar accuracy is never substituted. The target is MET only when the named bound of the confidence interval of the mean clears the threshold.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metric_id": {"const": "SDK_MEAN_ACCURACY"},
+        "source_key": {"const": "accuracy.mean"},
+        "unit": {"const": "PROPORTION"},
+        "direction": {"const": "maximize"},
+        "comparison": {"const": "at_least"},
+        "threshold": {"$ref": "#/definitions/ProportionString"},
+        "confidence_level": {"const": "0.95"},
+        "clearing_ci_bound": {
+          "description": "Which bound of the confidence interval must be at_least the threshold. lower: the whole interval clears it (conservative). upper: the threshold is merely not excluded (lenient).",
+          "type": "string",
+          "enum": ["lower", "upper"]
+        },
+        "accepted_observation_basis": {"const": "client_reported"}
+      },
+      "required": [
+        "metric_id",
+        "source_key",
+        "unit",
+        "direction",
+        "comparison",
+        "threshold",
+        "confidence_level",
+        "clearing_ci_bound",
+        "accepted_observation_basis"
+      ]
+    },
+    "AccuracyRequirementDeclaration": {
+      "description": "E5: the client-supplied part of an accuracy target. source_key, unit, direction, comparison and confidence_level are fixed by the server.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metric_id": {"const": "SDK_MEAN_ACCURACY"},
+        "threshold": {"$ref": "#/definitions/ProportionString"},
+        "clearing_ci_bound": {"type": "string", "enum": ["lower", "upper"]},
+        "accepted_observation_basis": {"const": "client_reported"}
+      },
+      "required": ["metric_id", "threshold", "clearing_ci_bound", "accepted_observation_basis"]
+    },
     "TargetDeclarationRequest": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "expected_current_revision_id": {
+          "description": "The current revision of the declared metric's own chain (latency or accuracy), or null when that metric has no target yet.",
           "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
         },
         "source_run_id": {"$ref": "#/definitions/OpaqueId"},
         "use_case": {"type": "string", "enum": ["question-answering", "summarization", "translation", "code-generation", "chat", "classification", "generation", "extraction", "other"]},
         "requirement": {
           "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "metric_id": {"const": "SDK_MEAN_RESPONSE_TIME"},
-            "threshold_ms": {"$ref": "#/definitions/DecimalString"},
-            "accepted_observation_basis": {"const": "client_reported"}
-          },
-          "required": ["metric_id", "threshold_ms", "accepted_observation_basis"]
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "metric_id": {"const": "SDK_MEAN_RESPONSE_TIME"},
+                "threshold_ms": {"$ref": "#/definitions/DecimalString"},
+                "accepted_observation_basis": {"const": "client_reported"}
+              },
+              "required": ["metric_id", "threshold_ms", "accepted_observation_basis"]
+            },
+            {"$ref": "#/definitions/AccuracyRequirementDeclaration"}
+          ]
         }
       },
       "required": ["expected_current_revision_id", "source_run_id", "use_case", "requirement"]
@@ -165,6 +222,69 @@
       },
       "required": ["result", "reason_codes", "source_run_id", "source_configuration_run_id", "observed_value_ms", "unit", "observation_basis", "observed_count", "evaluated_at"]
     },
+    "AccuracyEvaluation": {
+      "description": "E5: on-read evaluation of an accuracy target. MET/NOT_MET carry the observed mean, its interval at confidence_level, and the count it was computed over, with no reason codes; CANNOT_DETERMINE carries at least one reason code (for example, an observed mean outside [0, 1] is METRIC_UNIT_NOT_RECORDED_OR_INCOMPATIBLE, and a mean with no recorded interval is CONFIDENCE_INTERVAL_NOT_RECORDED).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "result": {"type": "string", "enum": ["MET", "NOT_MET", "CANNOT_DETERMINE"]},
+        "reason_codes": {
+          "type": "array",
+          "items": {"type": "string", "enum": [
+            "REQUIRED_ARTIFACT_VERSION_NOT_RECORDED",
+            "SUBJECT_VERSION_MISMATCH",
+            "METRIC_NOT_RECORDED",
+            "METRIC_UNIT_NOT_RECORDED_OR_INCOMPATIBLE",
+            "EVIDENCE_BASIS_NOT_RECORDED_OR_NOT_ACCEPTED",
+            "CONFIDENCE_INTERVAL_NOT_RECORDED"
+          ]},
+          "uniqueItems": true
+        },
+        "source_run_id": {"$ref": "#/definitions/OpaqueId"},
+        "source_configuration_run_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "observed_value": {
+          "oneOf": [{"$ref": "#/definitions/ProportionString"}, {"type": "null"}]
+        },
+        "ci_lower": {
+          "oneOf": [{"$ref": "#/definitions/ProportionString"}, {"type": "null"}]
+        },
+        "ci_upper": {
+          "oneOf": [{"$ref": "#/definitions/ProportionString"}, {"type": "null"}]
+        },
+        "confidence_level": {"const": "0.95"},
+        "unit": {"const": "PROPORTION"},
+        "observation_basis": {
+          "oneOf": [{"const": "client_reported"}, {"type": "null"}]
+        },
+        "observed_count": {
+          "oneOf": [{"type": "integer", "minimum": 1}, {"type": "null"}]
+        },
+        "evaluated_at": {"type": "string", "format": "date-time"}
+      },
+      "required": ["result", "reason_codes", "source_run_id", "source_configuration_run_id", "observed_value", "ci_lower", "ci_upper", "confidence_level", "unit", "observation_basis", "observed_count", "evaluated_at"],
+      "oneOf": [
+        {
+          "properties": {
+            "result": {"enum": ["MET", "NOT_MET"]},
+            "reason_codes": {"maxItems": 0},
+            "source_configuration_run_id": {"$ref": "#/definitions/OpaqueId"},
+            "observed_value": {"$ref": "#/definitions/ProportionString"},
+            "ci_lower": {"$ref": "#/definitions/ProportionString"},
+            "ci_upper": {"$ref": "#/definitions/ProportionString"},
+            "observation_basis": {"const": "client_reported"},
+            "observed_count": {"type": "integer", "minimum": 1}
+          }
+        },
+        {
+          "properties": {
+            "result": {"const": "CANNOT_DETERMINE"},
+            "reason_codes": {"minItems": 1}
+          }
+        }
+      ]
+    },
     "TargetRevision": {
       "type": "object",
       "additionalProperties": false,
@@ -182,13 +302,32 @@
       },
       "required": ["revision_id", "previous_revision_id", "agent_id", "use_case", "subject_binding", "requirement", "declared_by", "declared_at"]
     },
+    "AccuracyTargetRevision": {
+      "description": "E5: an immutable revision of the Agent's accuracy-target chain. Same attribution and binding as the latency TargetRevision; only the requirement differs.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "revision_id": {"$ref": "#/definitions/OpaqueId"},
+        "previous_revision_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "agent_id": {"$ref": "#/definitions/OpaqueId"},
+        "use_case": {"type": "string", "enum": ["question-answering", "summarization", "translation", "code-generation", "chat", "classification", "generation", "extraction", "other"]},
+        "subject_binding": {"$ref": "#/definitions/SubjectBinding"},
+        "requirement": {"$ref": "#/definitions/AccuracyRequirement"},
+        "declared_by": {"$ref": "#/definitions/Declarer"},
+        "declared_at": {"type": "string", "format": "date-time"}
+      },
+      "required": ["revision_id", "previous_revision_id", "agent_id", "use_case", "subject_binding", "requirement", "declared_by", "declared_at"]
+    },
     "NoTarget": {
       "type": "object",
       "additionalProperties": false,
       "properties": {"state": {"const": "NONE_DECLARED"}},
       "required": ["state"]
     },
-    "DeclaredTarget": {
+    "DeclaredLatencyTarget": {
+      "description": "The latency-target read shape (unchanged from before E5, when it was named DeclaredTarget).",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -197,6 +336,24 @@
         "evaluation": {"$ref": "#/definitions/Evaluation"}
       },
       "required": ["state", "revision", "evaluation"]
+    },
+    "DeclaredAccuracyTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {"const": "DECLARED"},
+        "revision": {"$ref": "#/definitions/AccuracyTargetRevision"},
+        "evaluation": {"$ref": "#/definitions/AccuracyEvaluation"}
+      },
+      "required": ["state", "revision", "evaluation"]
+    },
+    "DeclaredTarget": {
+      "description": "The POST target-revisions 201 body: the declared metric's chain head, a latency or (E5) an accuracy target.",
+      "type": "object",
+      "oneOf": [
+        {"$ref": "#/definitions/DeclaredLatencyTarget"},
+        {"$ref": "#/definitions/DeclaredAccuracyTarget"}
+      ]
     }
   },
   "oneOf": [

@@ -55,7 +55,8 @@
     },
     "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions": {
       "post": {
-        "summary": "Declare or replace the project Agent team latency requirement",
+        "summary": "Declare or replace the project Agent team latency or accuracy requirement",
+        "description": "Each metric (SDK_MEAN_RESPONSE_TIME, SDK_MEAN_ACCURACY) keeps its own immutable revision chain per Agent; expected_current_revision_id is checked against the declared metric's chain only.",
         "operationId": "createAgentReadinessTargetRevision",
         "x-asserted-against-backend": false,
         "parameters": [

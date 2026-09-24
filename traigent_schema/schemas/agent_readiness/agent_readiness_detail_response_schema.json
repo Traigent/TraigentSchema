@@ -54,10 +54,22 @@
     "evaluation_system_validity": {
       "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvaluationSystemValidity"
     },
+    "agent_posture": {
+      "description": "E4: the Agent's current manager-set posture (deployment stage and criticality), or NONE_DECLARED.",
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/AgentPosture"
+    },
     "team_requirement": {
+      "description": "The team latency target chain.",
       "oneOf": [
         {"$ref": "./agent_readiness_target_schema.json#/definitions/NoTarget"},
-        {"$ref": "./agent_readiness_target_schema.json#/definitions/DeclaredTarget"}
+        {"$ref": "./agent_readiness_target_schema.json#/definitions/DeclaredLatencyTarget"}
+      ]
+    },
+    "team_accuracy_requirement": {
+      "description": "E5: the team accuracy target chain, independent of the latency chain in team_requirement.",
+      "oneOf": [
+        {"$ref": "./agent_readiness_target_schema.json#/definitions/NoTarget"},
+        {"$ref": "./agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget"}
       ]
     },
     "current_context": {"$ref": "#/definitions/CurrentContext"},
@@ -100,7 +112,9 @@
     "pillars",
     "process_assurance",
     "evaluation_system_validity",
+    "agent_posture",
     "team_requirement",
+    "team_accuracy_requirement",
     "current_context",
     "journey",
     "anchor_summary",

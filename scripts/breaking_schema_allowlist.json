@@ -6,6 +6,369 @@
       "rule": "property_added",
       "findings": [
         {
+          "pointer": "#/properties/agent_posture",
+          "role": "response",
+          "subject": "agent_posture",
+          "old": false,
+          "new": true,
+          "fingerprint": "f0aae1bc8e640971a8682bb3ab82603b782bd45f7fdc79298b24968be99cc2dc"
+        },
+        {
+          "pointer": "#/properties/team_accuracy_requirement",
+          "role": "response",
+          "subject": "team_accuracy_requirement",
+          "old": false,
+          "new": true,
+          "fingerprint": "73683b3b52946f51e5a91e841cd0733a6d55a3b108f12c52be573613d498d1be"
+        }
+      ],
+      "reason": "E4 (owner ruling 2026-09-24, fleet-spec-merged.md 9.2): the required agent_posture member (manager-set deployment_stage reusing agents/agent_deployment_schema.json Environment, criticality low/medium/high, NONE_DECLARED until set) drives the production filter and the V1-vs-V2 bar per criticality. E5: the detail gains the required team_accuracy_requirement chain (NoTarget or DeclaredAccuracyTarget), independent of the unchanged latency team_requirement, so 'score CI clears threshold' is readable per agent. Additive members on the closed detail response; existing members are unchanged. Old strict response validators must upgrade to accept them.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions/post/responses/201/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "ad1b22789013f337b13656aa9ea668854ac86ed67ad908784257412bcc1e1f7f"
+        }
+      ],
+      "reason": "E5: POST target-revisions' 201 body (DeclaredTarget) becomes a typed oneOf of DeclaredLatencyTarget (the previous closed shape, byte-for-byte) and the new closed DeclaredAccuracyTarget. Closedness moves into the branches; a latency declaration still returns exactly the previous body, and only an accuracy declaration, which old clients cannot send, returns the new shape.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/items/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 4,
+          "fingerprint": "982b732be5dd4667f95b8acc303431c51292b2d2c6737b51fe0bedba4030634c"
+        }
+      ],
+      "reason": "The E1 portfolio-item allOf growth (2 -> 4 branches), seen through the list route's inlined 200 body: both new branches only restrict the new optional anchor_* members, a response-side tightening old consumers never see.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "oneOf_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions/post/requestBody/content/application/json/schema/properties/requirement/oneOf",
+          "role": "request",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "8129cb479f3f1f8f7a0d91305e83853dcf6d62972c0e6fe3e484733cc934b6c7"
+        }
+      ],
+      "reason": "E5: POST target-revisions' requirement becomes a oneOf of the unchanged latency requirement and the new SDK_MEAN_ACCURACY declaration (disjoint on metric_id const). Every request valid before is still valid; the request is widened, and the checker flags a newly appearing oneOf conservatively because it cannot tell a widening union from a narrowing one.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/items/items/properties/agent_posture",
+          "role": "response",
+          "subject": "agent_posture",
+          "old": false,
+          "new": true,
+          "fingerprint": "276a0918f22cc0b6ab7952bfbabd6477fc336b72521e87882353352c43c174e1"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/items/items/properties/anchor_accuracy",
+          "role": "response",
+          "subject": "anchor_accuracy",
+          "old": false,
+          "new": true,
+          "fingerprint": "2d5e85e5c9442efd6376a867a2da69a4427155492c77f5ba3aed380d557ca558"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/items/items/properties/anchor_accuracy_sample_count",
+          "role": "response",
+          "subject": "anchor_accuracy_sample_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "0cf0698b2c09ed84989f104093d6de74e93cceac3894d9023326a131704a698c"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/items/items/properties/anchor_evaluation_dataset_ref",
+          "role": "response",
+          "subject": "anchor_evaluation_dataset_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "c04e646a7ab1792fa9b7a9341fa649b2bc8ac3a760fb71e704fece972122b908"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/items/items/properties/anchor_evaluator_version_ref",
+          "role": "response",
+          "subject": "anchor_evaluator_version_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "fe83f14bb915aa6fdcd0b56270fd4ab4d73859bebc41bf76007eff98d42d8d59"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get/responses/200/content/application/json/schema/properties/items/items/properties/anchor_reported_example_evaluations",
+          "role": "response",
+          "subject": "anchor_reported_example_evaluations",
+          "old": false,
+          "new": true,
+          "fingerprint": "99b1f33d09703ef49a82a79c81cdad4880ed438cbd0dcd832975eb49cb42bd49"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/get/responses/200/content/application/json/schema/properties/agent_posture",
+          "role": "response",
+          "subject": "agent_posture",
+          "old": false,
+          "new": true,
+          "fingerprint": "8afbb8595f3978cebeee4b416e9e0ce4f03ab7fca8fd6a86e89b387b1b922aaf"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/get/responses/200/content/application/json/schema/properties/team_accuracy_requirement",
+          "role": "response",
+          "subject": "team_accuracy_requirement",
+          "old": false,
+          "new": true,
+          "fingerprint": "605e2e81f79afc888ee1b25b91ad815173f472e981278f8ce4c23386221b1b05"
+        }
+      ],
+      "reason": "The same E1/E4/E5 response additions as the portfolio and detail schema entries, seen again through the list/detail routes' inlined 200 bodies because agent_readiness_endpoints.json changed in this PR (the target-revisions summary/description). E1 (fleet-posture-census.md): the portfolio item gains the five optional, nullable anchor_* members (dataset ref, evaluator-version ref, client-reported accuracy, its sample count, reported example-evaluation total) so the fleet view can group agents by shared evaluation dataset/evaluator without a per-agent detail fetch. E4 (owner ruling 2026-09-24, fleet-spec-merged.md 9.2): the required agent_posture member (manager-set deployment_stage reusing agents/agent_deployment_schema.json Environment, criticality low/medium/high, NONE_DECLARED until set) drives the production filter and the V1-vs-V2 bar per criticality. E5: the detail gains the required team_accuracy_requirement chain (NoTarget or DeclaredAccuracyTarget), independent of the unchanged latency team_requirement, so 'score CI clears threshold' is readable per agent.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions/post/responses/201/content/application/json/schema",
+          "role": "response",
+          "subject": "evaluation",
+          "old": true,
+          "new": false,
+          "fingerprint": "e5123899568d04ab2f3830f0bcd12e8f4d093804e5cbeced31e7a5519f0623a0"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions/post/responses/201/content/application/json/schema",
+          "role": "response",
+          "subject": "revision",
+          "old": true,
+          "new": false,
+          "fingerprint": "f500410cbda3e08c3c63717196f9dfd4ddcc1622696be4f4936c100721f0f8d3"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions/post/responses/201/content/application/json/schema",
+          "role": "response",
+          "subject": "state",
+          "old": true,
+          "new": false,
+          "fingerprint": "d3a2693ce5699d3947761b4f231432769db2386aabf8b665011d181ae9259158"
+        }
+      ],
+      "reason": "E5: the same DeclaredTarget union as the additionalProperties entry: state/revision/evaluation stay required inside both closed branches; they left the wrapper's own required list only because the wrapper is now a oneOf. A latency declaration returns the previous body unchanged.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 4,
+          "fingerprint": "9ed8ba8b0ee624d3a58ae3cb5f8c919c5060f93661c380da71673821fff0b24c"
+        }
+      ],
+      "reason": "E1: two new allOf branches only restrict the new optional anchor_* members (all null when anchor_run_id is null; anchor_accuracy_sample_count non-null only for an accuracy.mean anchor_accuracy). They are response-side tightenings of members old consumers never received; the checker flags any allOf branch-count change conservatively because it cannot align branches positionally.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/properties/agent_posture",
+          "role": "response",
+          "subject": "agent_posture",
+          "old": false,
+          "new": true,
+          "fingerprint": "8418c103c8d282dde7739d8c6905756fb5c5740c8ec8ad9ddffda258d718babe"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/anchor_accuracy",
+          "role": "response",
+          "subject": "anchor_accuracy",
+          "old": false,
+          "new": true,
+          "fingerprint": "ad14cfb48489fa8a7fb36c37c129713277f4903f86dee0477aec062cf28786b8"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/anchor_accuracy_sample_count",
+          "role": "response",
+          "subject": "anchor_accuracy_sample_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "f968df44b7802891e15519d0a02b6c526363e44e1bc641f7c625a089d1ce1fde"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/anchor_evaluation_dataset_ref",
+          "role": "response",
+          "subject": "anchor_evaluation_dataset_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "34263b54ff942a10bc9d5320a100830177a0746585471eba6c87e38f5fc087ab"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/anchor_evaluator_version_ref",
+          "role": "response",
+          "subject": "anchor_evaluator_version_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "3b2bb69815955a10f46e3922eb96c5601f03f2242f6936e62413d8564b3f806a"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/anchor_reported_example_evaluations",
+          "role": "response",
+          "subject": "anchor_reported_example_evaluations",
+          "old": false,
+          "new": true,
+          "fingerprint": "783de2f2f3c73c1fa6c899658c726c664749de9a7c375c6e039e9a8467ccb605"
+        }
+      ],
+      "reason": "E1 (fleet-posture-census.md): the portfolio item gains the five optional, nullable anchor_* members (dataset ref, evaluator-version ref, client-reported accuracy, its sample count, reported example-evaluation total) so the fleet view can group agents by shared evaluation dataset/evaluator without a per-agent detail fetch. E4 (owner ruling 2026-09-24, fleet-spec-merged.md 9.2): the required agent_posture member (manager-set deployment_stage reusing agents/agent_deployment_schema.json Environment, criticality low/medium/high, NONE_DECLARED until set) drives the production filter and the V1-vs-V2 bar per criticality. Additive members on the closed portfolio item; old strict response validators must upgrade to accept them.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_target_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/oneOf/0/properties/requirement",
+          "role": "conservative",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "bf7fb7274a9c7c239a17d56f11cf99ab07ee9d03ea654838819fb49daba92163"
+        },
+        {
+          "pointer": "#/oneOf/3",
+          "role": "conservative",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "55de8dc36c7cb86fbcf75c7ea9b615d61ade64a7364a786336cc9e9c3d12378d"
+        }
+      ],
+      "reason": "E5: in the target schema (bare-named, so checked conservatively as both request and response) TargetDeclarationRequest.requirement and DeclaredTarget become typed oneOf unions of the unchanged latency shape and the new closed accuracy shape; closedness moves into the branches. Latency requests and latency 201 bodies are unchanged.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_target_schema.json",
+      "rule": "oneOf_added",
+      "findings": [
+        {
+          "pointer": "#/oneOf/0/properties/requirement/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "20e193bcf2af9a0770792417c89373d86dc5d562d5e4d4c6e1c0dba6cae40d52"
+        },
+        {
+          "pointer": "#/oneOf/3/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "3abf9e609c74f0ee3ab00ced0dec14a738756a4320b0cdfad837f3b74d4049d6"
+        }
+      ],
+      "reason": "E5: requirement and DeclaredTarget gain oneOf unions whose first branch is the previous shape and whose second is the new SDK_MEAN_ACCURACY shape (disjoint on metric_id / revision.requirement). It widens both directions to admit the accuracy target; the checker flags a new oneOf conservatively because it cannot classify its direction.",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_target_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/oneOf/0/properties/requirement",
+          "role": "conservative",
+          "subject": "accepted_observation_basis",
+          "old": true,
+          "new": false,
+          "fingerprint": "9a99aa2a18a9e86a5b6963eaed95bc6491896f5e08661665a54bd9005a4107d0"
+        },
+        {
+          "pointer": "#/oneOf/0/properties/requirement",
+          "role": "conservative",
+          "subject": "metric_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "dd6cd380b705c1fbf26a9d685047dafc71b27aedb2775955e62fe39e10ecf388"
+        },
+        {
+          "pointer": "#/oneOf/0/properties/requirement",
+          "role": "conservative",
+          "subject": "threshold_ms",
+          "old": true,
+          "new": false,
+          "fingerprint": "3da75edb0946eca005be841348a01b2a2e141b9d6c3a3bf66f5d43f98ee01c7f"
+        },
+        {
+          "pointer": "#/oneOf/3",
+          "role": "conservative",
+          "subject": "evaluation",
+          "old": true,
+          "new": false,
+          "fingerprint": "75e5b927b82178e1df56a2a261f64a42313541ef1cbb9551bb7db3bfbb4c3746"
+        },
+        {
+          "pointer": "#/oneOf/3",
+          "role": "conservative",
+          "subject": "revision",
+          "old": true,
+          "new": false,
+          "fingerprint": "5725f37e2ff407af417384cb09b095a64313e700e9f0a1b78317d1d7d76243fa"
+        },
+        {
+          "pointer": "#/oneOf/3",
+          "role": "conservative",
+          "subject": "state",
+          "old": true,
+          "new": false,
+          "fingerprint": "d4ec97efef3a954274e9ad70ac64ea6f2aa0386b53a725d66e555f49b58334d4"
+        }
+      ],
+      "reason": "E5: the same two unions as the additionalProperties entry; each member dropped from a wrapper's required list is still required inside every closed branch (metric_id/threshold_ms/accepted_observation_basis for latency; state/revision/evaluation for both declared targets).",
+      "version": "Unreleased",
+      "pr": "pending (branch feature/fleet-inputs-e1-e4-e5)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
           "pointer": "#/properties/evaluation_system_validity",
           "role": "response",
           "subject": "evaluation_system_validity",

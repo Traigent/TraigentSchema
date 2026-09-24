@@ -8,6 +8,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Fleet-posture inputs E1, E4, E5 (agent readiness).** Contract-first, all operations
+  `x-asserted-against-backend: false`; from `business/product-personas/fleet-posture-census.md`
+  ("Smallest extensions") and the 2026-09-24 owner rulings.
+  - **E1 — anchor refs on the portfolio item.** `agent_readiness_portfolio_response_schema.json`
+    items gain five optional, nullable members, emitted together or not at all:
+    `anchor_evaluation_dataset_ref` / `anchor_evaluator_version_ref` (the detail response's
+    `EvaluationDatasetRef` / `EvaluatorVersionRef` by `$ref`), `anchor_accuracy` (the common
+    `AccuracyMetric`, always `client_reported`), `anchor_accuracy_sample_count` (positive; non-null
+    only for an `accuracy.mean` anchor accuracy) and `anchor_reported_example_evaluations`. All are
+    null when `anchor_run_id` is null. Optional so the Backend can ship `list_portfolio` support
+    without a lockstep deploy; the fleet view then needs no per-agent detail fetch.
+  - **E4 — manager-set agent posture.** New `agent_readiness/agent_posture_schema.json`
+    (`PostureDeclarationRequest`, `PostureRevision`, `DeclaredPosture`, `NoPosture`,
+    `AgentPosture`): `deployment_stage` reuses `agents/agent_deployment_schema.json`
+    `definitions/Environment` by `$ref` (not forked), `criticality` is `low`/`medium`/`high`.
+    New `POST /api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions`
+    (`agent_readiness/agent_posture_endpoints.json`, registered in `mep_endpoints.json`) follows the
+    target-revisions convention: immutable revisions, `expected_current_revision_id`, a
+    const-bodied 409 `revision_conflict`, human session with project owner/admin role only.
+    `declared_by` (USER only) and `declared_at` are server-derived. The required `agent_posture`
+    member (`NONE_DECLARED` until set) is added to the portfolio item and the detail response.
+  - **E5 — accuracy team target.** `agent_readiness_target_schema.json` gains
+    `AccuracyRequirement` (`metric_id: SDK_MEAN_ACCURACY`, literal `source_key: accuracy.mean`,
+    `unit: PROPORTION`, `comparison: at_least`, a `[0, 1]` decimal-string `threshold`,
+    `confidence_level: "0.95"`, `clearing_ci_bound: lower|upper`), its declaration,
+    `AccuracyEvaluation` (MET/NOT_MET carry the observed mean, both interval bounds and the count;
+    CANNOT_DETERMINE needs a reason, incl. the new `CONFIDENCE_INTERVAL_NOT_RECORDED`),
+    `AccuracyTargetRevision` and `DeclaredAccuracyTarget`. `TargetDeclarationRequest.requirement`
+    and the POST 201 `DeclaredTarget` become unions of the unchanged latency shape (now also named
+    `DeclaredLatencyTarget`) and the accuracy shape. Each metric keeps its own revision chain; the
+    detail response gains the required `team_accuracy_requirement` next to the unchanged
+    latency `team_requirement`.
+  - Response-side additions on closed objects and the two new unions are acknowledged in
+    `scripts/breaking_schema_allowlist.json` (11 entries, each with its reason). Reachability report
+    and parity manifest regenerated; `agents/agent_deployment_schema.json` is now reached through
+    the endpoint graph.
 - **Session identity-binding read + reachable session-create/results content_identity (M3
   PR-5-lite).** New `GET /api/v1/sessions/{session_id}/identity-binding`, registered in
   `optimization/optimization_endpoints.json` (the sessions catalog, under the `sdk_tuning`

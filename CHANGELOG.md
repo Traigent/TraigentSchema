@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`GET /api/v1/auth/me/tenants` (tenant switcher, TraigentFrontend#2250).** New
+  `auth/auth_me_tenants_response_schema.json` (`{success, message, data: {items, switchable}}`,
+  items = `TenantMembershipItem` {tenant_id, tenant_name, tenant_slug, role, is_default}, strict
+  `additionalProperties: false`) and the route in `auth/auth_endpoints.json` (200 / 401 / 500).
+  Items are only the caller's own active memberships; `switchable` is true only for an unpinned
+  interactive session. Backend: Traigent/TraigentBackend#3501.
 - **Fleet-posture inputs E1, E4, E5 (agent readiness).** Contract-first, all operations
   `x-asserted-against-backend: false`; from `business/product-personas/fleet-posture-census.md`
   ("Smallest extensions") and the 2026-09-24 owner rulings.

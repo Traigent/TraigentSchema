@@ -1,0 +1,1667 @@
+{
+  "$comment": "Fleet-posture inputs E1/E4/E5 (business/product-personas/fleet-posture-census.md rows E1, E4, E5). Each case validates `instance` against `schema_ref`; `valid` is the expected outcome and `why` names the invariant. Consumed by tests/test_fleet_posture_inputs_contract.py.",
+  "cases": [
+    {
+      "name": "posture_request_first_declaration",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": true,
+      "why": "first declaration: no expected revision",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_stage_development",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": true,
+      "why": "every agent_deployment Environment value is accepted",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "development",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_stage_staging",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": true,
+      "why": "every agent_deployment Environment value is accepted",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "staging",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_stage_production",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": true,
+      "why": "every agent_deployment Environment value is accepted",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_stage_testing",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": true,
+      "why": "every agent_deployment Environment value is accepted",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "testing",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_criticality_low",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": true,
+      "why": "owner-ruled criticality vocabulary",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "low"
+      }
+    },
+    {
+      "name": "posture_request_criticality_medium",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": true,
+      "why": "owner-ruled criticality vocabulary",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "medium"
+      }
+    },
+    {
+      "name": "posture_request_criticality_high",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": true,
+      "why": "owner-ruled criticality vocabulary",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_unknown_stage",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "deployment_stage is the reused closed Environment enum",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "prod",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_run_status_as_stage",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "the free-form AgentSummary/deployment status vocabulary is not a stage",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "deployed",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_critical",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "criticality is closed to low/medium/high",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "critical"
+      }
+    },
+    {
+      "name": "posture_request_uppercase_criticality",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "criticality is case-exact",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "HIGH"
+      }
+    },
+    {
+      "name": "posture_request_null_criticality",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "a revision is a full snapshot; criticality is required non-null",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": null
+      }
+    },
+    {
+      "name": "posture_request_missing_stage",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "deployment_stage is required",
+      "instance": {
+        "expected_current_revision_id": null,
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_missing_criticality",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "criticality is required: a revision is a full posture snapshot",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production"
+      }
+    },
+    {
+      "name": "posture_request_missing_expected_revision",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "optimistic-concurrency token is required (null on first write)",
+      "instance": {
+        "deployment_stage": "production",
+        "criticality": "high"
+      }
+    },
+    {
+      "name": "posture_request_client_declared_by",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "who set it is server-derived",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "high",
+        "declared_by": {
+          "principal_kind": "USER",
+          "principal_ref": "user-7"
+        }
+      }
+    },
+    {
+      "name": "posture_request_client_declared_at",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/PostureDeclarationRequest",
+      "valid": false,
+      "why": "when it was set is server-derived",
+      "instance": {
+        "expected_current_revision_id": null,
+        "deployment_stage": "production",
+        "criticality": "high",
+        "declared_at": "2026-09-24T10:00:00Z"
+      }
+    },
+    {
+      "name": "declared_posture",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/DeclaredPosture",
+      "valid": true,
+      "why": "a declared posture with a human declarer",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "posture-rev-2",
+          "previous_revision_id": "posture-rev-1",
+          "agent_id": "agent-1",
+          "deployment_stage": "production",
+          "criticality": "high",
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        }
+      }
+    },
+    {
+      "name": "declared_posture_api_key_declarer",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/DeclaredPosture",
+      "valid": false,
+      "why": "API-key principals may not set posture",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "posture-rev-2",
+          "previous_revision_id": "posture-rev-1",
+          "agent_id": "agent-1",
+          "deployment_stage": "production",
+          "criticality": "high",
+          "declared_by": {
+            "principal_kind": "API_KEY",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        }
+      }
+    },
+    {
+      "name": "declared_posture_missing_declared_at",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/DeclaredPosture",
+      "valid": false,
+      "why": "declared_at is required on the record",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "posture-rev-2",
+          "previous_revision_id": "posture-rev-1",
+          "agent_id": "agent-1",
+          "deployment_stage": "production",
+          "criticality": "high",
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          }
+        }
+      }
+    },
+    {
+      "name": "declared_posture_missing_declared_by",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/DeclaredPosture",
+      "valid": false,
+      "why": "declared_by is required on the record",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "posture-rev-2",
+          "previous_revision_id": "posture-rev-1",
+          "agent_id": "agent-1",
+          "deployment_stage": "production",
+          "criticality": "high",
+          "declared_at": "2026-09-24T10:00:00Z"
+        }
+      }
+    },
+    {
+      "name": "declared_posture_extra_note",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/DeclaredPosture",
+      "valid": false,
+      "why": "the revision is closed",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "posture-rev-2",
+          "previous_revision_id": "posture-rev-1",
+          "agent_id": "agent-1",
+          "deployment_stage": "production",
+          "criticality": "high",
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z",
+          "note": "free text"
+        }
+      }
+    },
+    {
+      "name": "agent_posture_none_declared",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/AgentPosture",
+      "valid": true,
+      "why": "no posture set yet",
+      "instance": {
+        "state": "NONE_DECLARED"
+      }
+    },
+    {
+      "name": "agent_posture_declared",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/AgentPosture",
+      "valid": true,
+      "why": "posture set",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "posture-rev-2",
+          "previous_revision_id": "posture-rev-1",
+          "agent_id": "agent-1",
+          "deployment_stage": "production",
+          "criticality": "high",
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        }
+      }
+    },
+    {
+      "name": "agent_posture_none_with_revision",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/AgentPosture",
+      "valid": false,
+      "why": "NONE_DECLARED carries no revision",
+      "instance": {
+        "state": "NONE_DECLARED",
+        "revision": {
+          "revision_id": "posture-rev-2",
+          "previous_revision_id": "posture-rev-1",
+          "agent_id": "agent-1",
+          "deployment_stage": "production",
+          "criticality": "high",
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        }
+      }
+    },
+    {
+      "name": "agent_posture_declared_without_revision",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/AgentPosture",
+      "valid": false,
+      "why": "DECLARED requires the revision",
+      "instance": {
+        "state": "DECLARED"
+      }
+    },
+    {
+      "name": "target_request_accuracy",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": true,
+      "why": "E5 accuracy declaration",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.85",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_upper_bound",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": true,
+      "why": "upper bound is allowed",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.85",
+          "clearing_ci_bound": "upper",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_latency_unchanged",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": true,
+      "why": "the pre-E5 latency declaration is still accepted",
+      "instance": {
+        "expected_current_revision_id": "target-rev-1",
+        "source_run_id": "run-anchor",
+        "use_case": "chat",
+        "requirement": {
+          "metric_id": "SDK_MEAN_RESPONSE_TIME",
+          "threshold_ms": "1500",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_0",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": true,
+      "why": "threshold on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_1",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": true,
+      "why": "threshold on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "1",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_1.000",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": true,
+      "why": "threshold on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "1.000",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_0.5",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": true,
+      "why": "threshold on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.5",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_invalid_1.01",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "threshold is a proportion string on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "1.01",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_invalid_85",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "threshold is a proportion string on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "85",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_invalid_-0.1",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "threshold is a proportion string on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "-0.1",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_invalid_0.",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "threshold is a proportion string on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_invalid_empty",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "threshold is a proportion string on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_threshold_invalid_.5",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "threshold is a proportion string on [0, 1]",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": ".5",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_numeric_threshold",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "threshold is a decimal string, never a float",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": 0.85,
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_generic_metric",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "metric_id is closed",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "accuracy",
+          "threshold": "0.85",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_score_ladder",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "no quality-axis ladder name is accepted",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "accuracy_score",
+          "threshold": "0.85",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_middle_bound",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "clearing_ci_bound is lower or upper",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.85",
+          "clearing_ci_bound": "point",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_missing_bound",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "clearing_ci_bound is required",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.85",
+          "accepted_observation_basis": "client_reported"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_client_confidence",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "confidence_level is server-fixed",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.85",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported",
+          "confidence_level": "0.9"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_client_source_key",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "source_key is server-fixed",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.85",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported",
+          "source_key": "accuracy"
+        }
+      }
+    },
+    {
+      "name": "target_request_accuracy_with_threshold_ms",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "accuracy and latency requirement shapes do not mix",
+      "instance": {
+        "expected_current_revision_id": null,
+        "source_run_id": "run-anchor",
+        "use_case": "classification",
+        "requirement": {
+          "metric_id": "SDK_MEAN_ACCURACY",
+          "threshold": "0.85",
+          "clearing_ci_bound": "lower",
+          "accepted_observation_basis": "client_reported",
+          "threshold_ms": "1500"
+        }
+      }
+    },
+    {
+      "name": "target_request_latency_with_bound",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
+      "valid": false,
+      "why": "latency requirement is unchanged and closed",
+      "instance": {
+        "expected_current_revision_id": "target-rev-1",
+        "source_run_id": "run-anchor",
+        "use_case": "chat",
+        "requirement": {
+          "metric_id": "SDK_MEAN_RESPONSE_TIME",
+          "threshold_ms": "1500",
+          "accepted_observation_basis": "client_reported",
+          "clearing_ci_bound": "lower"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_met",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": true,
+      "why": "MET with interval and count",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_cannot_determine",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": true,
+      "why": "CANNOT_DETERMINE with reason",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "CANNOT_DETERMINE",
+          "reason_codes": [
+            "CONFIDENCE_INTERVAL_NOT_RECORDED"
+          ],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": null,
+          "ci_upper": null,
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": null,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_met_without_ci",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "MET/NOT_MET require both interval bounds",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": null,
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_met_without_count",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "MET/NOT_MET require the count",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": null,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_met_with_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "MET/NOT_MET carry no reason codes",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [
+            "METRIC_NOT_RECORDED"
+          ],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_cd_without_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "CANNOT_DETERMINE needs a reason",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "CANNOT_DETERMINE",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": null,
+          "ci_upper": null,
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": null,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_percent_value",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "observed values are proportions",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_wrong_confidence",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "confidence_level is fixed at 0.95",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.9",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_scalar_source_key",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "only accuracy.mean carries the count an interval needs",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_at_most",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "accuracy is compared at_least",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_most",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_accuracy_target_latency_requirement",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredAccuracyTarget",
+      "valid": false,
+      "why": "accuracy chain never holds a latency requirement",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_RESPONSE_TIME",
+            "source_key": "response_time_ms.mean",
+            "unit": "MILLISECONDS",
+            "direction": "minimize",
+            "comparison": "at_most",
+            "threshold_ms": "1500",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    },
+    {
+      "name": "declared_target_accuracy_branch",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/DeclaredTarget",
+      "valid": true,
+      "why": "POST 201 body may be an accuracy target",
+      "instance": {
+        "state": "DECLARED",
+        "revision": {
+          "revision_id": "acc-rev-1",
+          "previous_revision_id": null,
+          "agent_id": "agent-1",
+          "use_case": "classification",
+          "subject_binding": {
+            "source_run_id": "run-anchor",
+            "declared_agent_id": "agent-1",
+            "declared_dataset_id": "dataset-v1",
+            "evaluator_version_id": "eval-v1",
+            "agent_id_source": "registered",
+            "dataset_id_source": "registered",
+            "evaluator_version_source": "registered",
+            "config_space_source": "unknown",
+            "artifact_versions": {
+              "agent": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "dataset": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "evaluator": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              },
+              "config_space": {
+                "schema": "artifact-schema-1",
+                "digest": null,
+                "state": "unknown"
+              }
+            }
+          },
+          "requirement": {
+            "metric_id": "SDK_MEAN_ACCURACY",
+            "source_key": "accuracy.mean",
+            "unit": "PROPORTION",
+            "direction": "maximize",
+            "comparison": "at_least",
+            "threshold": "0.85",
+            "confidence_level": "0.95",
+            "clearing_ci_bound": "lower",
+            "accepted_observation_basis": "client_reported"
+          },
+          "declared_by": {
+            "principal_kind": "USER",
+            "principal_ref": "user-7"
+          },
+          "declared_at": "2026-09-24T10:00:00Z"
+        },
+        "evaluation": {
+          "result": "MET",
+          "reason_codes": [],
+          "source_run_id": "run-anchor",
+          "source_configuration_run_id": "config-1",
+          "observed_value": "0.91",
+          "ci_lower": "0.87",
+          "ci_upper": "0.94",
+          "confidence_level": "0.95",
+          "unit": "PROPORTION",
+          "observation_basis": "client_reported",
+          "observed_count": 400,
+          "evaluated_at": "2026-09-24T10:00:01Z"
+        }
+      }
+    }
+  ]
+}

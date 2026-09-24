@@ -29,10 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     const-bodied 409 `revision_conflict`, human session with project owner/admin role only.
     `declared_by` (USER only) and `declared_at` are server-derived. The required `agent_posture`
     member (`NONE_DECLARED` until set) is added to the portfolio item and the detail response.
+    The portfolio list operation gains optional single-value `deployment_stage` and `criticality`
+    query filters (same convention as `stage`/`attention`; Agents without a declared posture are
+    excluded when a filter is set).
   - **E5 — accuracy team target.** `agent_readiness_target_schema.json` gains
     `AccuracyRequirement` (`metric_id: SDK_MEAN_ACCURACY`, literal `source_key: accuracy.mean`,
     `unit: PROPORTION`, `comparison: at_least`, a `[0, 1]` decimal-string `threshold`,
-    `confidence_level: "0.95"`, `clearing_ci_bound: lower|upper`), its declaration,
+    `confidence_level: "0.95"`, `clearing_ci_bound: lower` — the lower bound of the 95% interval
+    must reach the threshold; a closed enum so another bound is a later, acknowledged widening; an
+    observed mean outside `[0, 1]` is never rescaled but CANNOT_DETERMINE), its declaration,
     `AccuracyEvaluation` (MET/NOT_MET carry the observed mean, both interval bounds and the count;
     CANNOT_DETERMINE needs a reason, incl. the new `CONFIDENCE_INTERVAL_NOT_RECORDED`),
     `AccuracyTargetRevision` and `DeclaredAccuracyTarget`. `TargetDeclarationRequest.requirement`

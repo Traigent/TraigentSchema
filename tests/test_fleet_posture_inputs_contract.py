@@ -408,6 +408,57 @@ def test_e4_posture_route_request_body_resolves_and_rejects_server_fields() -> N
     assert _errors(ref, _case("posture_request_client_declared_by")["instance"])
 
 
+_LIST_PATH = "/api/v1beta/projects/{project_id}/agent-readiness"
+
+
+def _list_parameter(name: str) -> dict[str, Any]:
+    parameters = _load(READINESS_ENDPOINTS_PATH)["paths"][_LIST_PATH]["get"]["parameters"]
+    matches = [parameter for parameter in parameters if parameter["name"] == name]
+    assert len(matches) == 1, name
+    return matches[0]
+
+
+def _parameter_ref(parameter: dict[str, Any]) -> str:
+    file_part, fragment = parameter["schema"]["$ref"].split("#", 1)
+    target = (READINESS_ENDPOINTS_PATH.parent / file_part).resolve()
+    return f"{_load(target)['$id']}#{fragment}"
+
+
+@pytest.mark.parametrize(
+    ("name", "definition", "accepted", "rejected"),
+    [
+        (
+            "deployment_stage",
+            "DeploymentStage",
+            ["development", "staging", "production", "testing"],
+            ["prod", "deployed", "PRODUCTION", ""],
+        ),
+        ("criticality", "Criticality", ["low", "medium", "high"], ["critical", "HIGH", ""]),
+    ],
+)
+def test_e4_portfolio_list_filters_by_posture(
+    name: str, definition: str, accepted: list[str], rejected: list[str]
+) -> None:
+    parameter = _list_parameter(name)
+    stage = _list_parameter("stage")
+    assert parameter["in"] == stage["in"] == "query"
+    assert parameter["required"] is False
+    # Same single-value convention as the existing stage/attention filters.
+    assert set(parameter["schema"]) == {"$ref"}
+    assert parameter["schema"]["$ref"] == (
+        f"./agent_posture_schema.json#/definitions/{definition}"
+    )
+    ref = _parameter_ref(parameter)
+    for value in accepted:
+        assert _errors(ref, value) == [], value
+    for value in rejected:
+        assert _errors(ref, value), value
+    list_bad_request = _load(READINESS_ENDPOINTS_PATH)["paths"][_LIST_PATH]["get"][
+        "responses"
+    ]["400"]["description"]
+    assert name in list_bad_request
+
+
 # ---------------------------------------------------------------------------
 # E5: accuracy target on the team target-revision contract
 # ---------------------------------------------------------------------------
@@ -431,9 +482,11 @@ def test_e5_accuracy_metric_reuses_the_readiness_accuracy_vocabulary() -> None:
         "const": "at_least"
     }
     assert target["AccuracyRequirement"]["properties"]["clearing_ci_bound"]["enum"] == [
-        "lower",
-        "upper",
+        "lower"
     ]
+    assert target["AccuracyRequirementDeclaration"]["properties"]["clearing_ci_bound"][
+        "enum"
+    ] == ["lower"]
 
 
 def test_e5_latency_target_shape_is_unchanged() -> None:

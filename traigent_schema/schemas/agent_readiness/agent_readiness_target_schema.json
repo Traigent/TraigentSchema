@@ -108,7 +108,7 @@
       ]
     },
     "AccuracyRequirement": {
-      "description": "E5: a team accuracy target. metric_id reuses the agent-readiness accuracy naming (ReportedMetric kind ACCURACY, check ACCURACY_MEASURE_RECORDED) with the SDK_MEAN_* shape of the latency metric; the schema has no quality-axis enum to reuse (analytics run_pareto names its quality axis with a free string). source_key is the literal accuracy.mean aggregate, never a fallback ladder: only the mean carries the count an interval needs, and a scalar accuracy is never substituted. The target is MET only when the named bound of the confidence interval of the mean clears the threshold.",
+      "description": "E5: a team accuracy target. metric_id reuses the agent-readiness accuracy naming (ReportedMetric kind ACCURACY, check ACCURACY_MEASURE_RECORDED) with the SDK_MEAN_* shape of the latency metric; the schema has no quality-axis enum to reuse (analytics run_pareto names its quality axis with a free string). source_key is the literal accuracy.mean aggregate, never a fallback ladder: only the mean carries the count an interval needs, and a scalar accuracy is never substituted. The target is MET only when the named bound of the confidence interval of the mean clears the threshold. Scale is the unit interval only: an observed mean outside [0, 1] is never rescaled; the evaluation is CANNOT_DETERMINE with METRIC_UNIT_NOT_RECORDED_OR_INCOMPATIBLE.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -120,9 +120,9 @@
         "threshold": {"$ref": "#/definitions/ProportionString"},
         "confidence_level": {"const": "0.95"},
         "clearing_ci_bound": {
-          "description": "Which bound of the confidence interval must be at_least the threshold. lower: the whole interval clears it (conservative). upper: the threshold is merely not excluded (lenient).",
+          "description": "Which bound of the confidence interval must be at_least the threshold. Only lower: the target is MET when the lower bound of the confidence_level interval of the mean reaches the threshold (the debt model's Stay rule, 'score CI clears the threshold'). Kept as a closed enum so another bound can be added later as an explicit, acknowledged widening.",
           "type": "string",
-          "enum": ["lower", "upper"]
+          "enum": ["lower"]
         },
         "accepted_observation_basis": {"const": "client_reported"}
       },
@@ -145,7 +145,7 @@
       "properties": {
         "metric_id": {"const": "SDK_MEAN_ACCURACY"},
         "threshold": {"$ref": "#/definitions/ProportionString"},
-        "clearing_ci_bound": {"type": "string", "enum": ["lower", "upper"]},
+        "clearing_ci_bound": {"type": "string", "enum": ["lower"]},
         "accepted_observation_basis": {"const": "client_reported"}
       },
       "required": ["metric_id", "threshold", "clearing_ci_bound", "accepted_observation_basis"]

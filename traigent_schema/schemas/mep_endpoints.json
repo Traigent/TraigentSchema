@@ -151,6 +151,11 @@
       "name": "Evaluation System Validation",
       "description": "Project-scoped expert sign-off records for an evaluator version or eval-set fingerprint, and the reviewer capability grants that authorize signing.",
       "paths_file": "./evaluation_system_validation/evaluation_system_validation_endpoints.json"
+    },
+    {
+      "name": "Agent Posture",
+      "description": "Manager-set Agent posture (deployment stage and criticality) as immutable, project-scoped revisions under agent-readiness.",
+      "paths_file": "./agent_readiness/agent_posture_endpoints.json"
     }
   ]
 }

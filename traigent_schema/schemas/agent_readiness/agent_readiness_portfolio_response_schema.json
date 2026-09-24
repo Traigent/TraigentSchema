@@ -88,6 +88,45 @@
           },
           "evaluation_system_validity": {
             "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/EvaluationSystemValidity"
+          },
+          "agent_posture": {
+            "description": "E4: the Agent's current manager-set posture (deployment stage and criticality), or NONE_DECLARED. Optional for rollout: becomes required once TraigentBackend emits it (follow-up), so unrelated Backend schema-pin bumps keep validating today's bodies. Closed and validated whenever present.",
+            "$ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/AgentPosture"
+          },
+          "anchor_evaluation_dataset_ref": {
+            "description": "E1 (fleet posture): the anchor run's evaluation-dataset reference, the same value the detail response reports as anchor_summary.evaluation_dataset_ref, so the fleet view can group agents by shared evaluation dataset without a per-agent detail fetch. Null when there is no anchor run or the anchor run recorded no dataset identity. Optional: the five anchor_* E1 members are emitted together or not at all.",
+            "oneOf": [
+              {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_detail_response_schema.json#/definitions/EvaluationDatasetRef"},
+              {"type": "null"}
+            ]
+          },
+          "anchor_evaluator_version_ref": {
+            "description": "E1: the anchor run's evaluator-version reference (detail anchor_summary.evaluator_version_ref). Null when there is no anchor run or no evaluator-version snapshot was recorded.",
+            "oneOf": [
+              {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_detail_response_schema.json#/definitions/EvaluatorVersionRef"},
+              {"type": "null"}
+            ]
+          },
+          "anchor_accuracy": {
+            "description": "E1: the anchor run's client-reported accuracy measure, the ACCURACY entry of detail anchor_summary.reported_metrics. Always client_reported with UNIT_NOT_RECORDED; it is a recorded fact, never a verified score. Null when there is no anchor run or no eligible accuracy measure was recorded.",
+            "oneOf": [
+              {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/AccuracyMetric"},
+              {"type": "null"}
+            ]
+          },
+          "anchor_accuracy_sample_count": {
+            "description": "E1: the positive count the anchor accuracy mean was computed over (the accuracy.count the Backend already reads for the ACCURACY_MEASURE_RECORDED check). Non-null only when anchor_accuracy is non-null with source_key accuracy.mean; a scalar accuracy carries no count.",
+            "oneOf": [
+              {"type": "integer", "minimum": 1},
+              {"type": "null"}
+            ]
+          },
+          "anchor_reported_example_evaluations": {
+            "description": "E1: the anchor run's client-reported evaluated-example total (detail anchor_summary.reported_example_evaluations). Null when there is no anchor run or no total was reported.",
+            "oneOf": [
+              {"type": "integer", "minimum": 0},
+              {"type": "null"}
+            ]
           }
         },
         "required": [
@@ -104,7 +143,62 @@
           "attention_state",
           "evaluation_system_validity"
         ],
+        "dependencies": {
+          "anchor_evaluation_dataset_ref": ["anchor_evaluator_version_ref", "anchor_accuracy", "anchor_accuracy_sample_count", "anchor_reported_example_evaluations"],
+          "anchor_evaluator_version_ref": ["anchor_evaluation_dataset_ref", "anchor_accuracy", "anchor_accuracy_sample_count", "anchor_reported_example_evaluations"],
+          "anchor_accuracy": ["anchor_evaluation_dataset_ref", "anchor_evaluator_version_ref", "anchor_accuracy_sample_count", "anchor_reported_example_evaluations"],
+          "anchor_accuracy_sample_count": ["anchor_evaluation_dataset_ref", "anchor_evaluator_version_ref", "anchor_accuracy", "anchor_reported_example_evaluations"],
+          "anchor_reported_example_evaluations": ["anchor_evaluation_dataset_ref", "anchor_evaluator_version_ref", "anchor_accuracy", "anchor_accuracy_sample_count"]
+        },
         "allOf": [
+          {
+            "if": {"properties": {"anchor_run_id": {"type": "null"}}},
+            "then": {
+              "properties": {
+                "anchor_evaluation_dataset_ref": {"type": "null"},
+                "anchor_evaluator_version_ref": {"type": "null"},
+                "anchor_accuracy": {"type": "null"},
+                "anchor_accuracy_sample_count": {"type": "null"},
+                "anchor_reported_example_evaluations": {"type": "null"}
+              }
+            }
+          },
+          {
+            "description": "E1: anchor_accuracy_sample_count is non-null exactly when anchor_accuracy is an accuracy.mean value (both directions).",
+            "allOf": [
+              {
+                "if": {
+                  "properties": {"anchor_accuracy_sample_count": {"type": "integer"}},
+                  "required": ["anchor_accuracy_sample_count"]
+                },
+                "then": {
+                  "properties": {
+                    "anchor_accuracy": {
+                      "not": {"type": "null"},
+                      "properties": {"source_key": {"const": "accuracy.mean"}},
+                      "required": ["source_key"]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "anchor_accuracy": {
+                      "not": {"type": "null"},
+                      "properties": {"source_key": {"const": "accuracy.mean"}},
+                      "required": ["source_key"]
+                    }
+                  },
+                  "required": ["anchor_accuracy"]
+                },
+                "then": {
+                  "properties": {"anchor_accuracy_sample_count": {"type": "integer"}},
+                  "required": ["anchor_accuracy_sample_count"]
+                }
+              }
+            ]
+          },
           {
             "oneOf": [
               {

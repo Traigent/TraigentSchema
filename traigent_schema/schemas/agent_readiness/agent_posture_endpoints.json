@@ -1,0 +1,51 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Agent Posture Routes",
+    "version": "1.0.0",
+    "description": "E4 (fleet posture): the manager-set Agent posture write (deployment stage + criticality). The path follows the closest existing agent-readiness write, target-revisions: a project-scoped, per-Agent sub-resource of agent-readiness that creates an immutable revision guarded by expected_current_revision_id and answers a stale form with a const-bodied 409 revision_conflict. The current posture is read through the existing readiness portfolio and detail responses (agent_posture), so no GET is declared here. A separate endpoint module from agent_readiness_endpoints.json, whose path set is pinned by test_endpoint_inventory_registers_project_scoped_read_and_target_routes."
+  },
+  "paths": {
+    "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions": {
+      "post": {
+        "summary": "Declare or replace the manager-set posture (deployment stage and criticality) of a project Agent",
+        "operationId": "createAgentPostureRevision",
+        "x-asserted-against-backend": false,
+        "description": "Human session only, with project owner or admin role. declared_by and declared_at are derived by the server from the authenticated session and are rejected if supplied.",
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "agent_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "./agent_posture_schema.json#/definitions/PostureDeclarationRequest"}}}
+        },
+        "responses": {
+          "201": {"description": "Immutable posture revision created", "content": {"application/json": {"schema": {"$ref": "./agent_posture_schema.json#/definitions/DeclaredPosture"}}}},
+          "400": {"description": "Invalid posture declaration (unknown key, declared_by/declared_at supplied, deployment_stage or criticality outside its closed vocabulary)", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Posture write denied: not a human session with project owner or admin role (API-key principals are always denied)", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "404": {"description": "Agent not found in the authorized project scope", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "409": {
+            "description": "The posture changed since the form was loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["success", "message", "error", "error_code"],
+                  "properties": {
+                    "success": {"const": false},
+                    "message": {"const": "This posture changed. Reload the current revision before saving."},
+                    "error": {"const": "revision_conflict"},
+                    "error_code": {"const": "revision_conflict"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

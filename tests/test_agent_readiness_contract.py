@@ -151,6 +151,7 @@ def _portfolio_payload() -> dict[str, Any]:
                 "next_action_code": "ESTABLISH_BASELINE_EVALUATION",
                 "attention_state": "ACTIONABLE",
                 "evaluation_system_validity": _no_subject_validity(),
+                "agent_posture": {"state": "NONE_DECLARED"},
             }
         ],
         "portfolio_counts": {
@@ -267,7 +268,9 @@ def _detail_payload() -> dict[str, Any]:
             "certificate_match": "NOT_ASSESSED",
         },
         "evaluation_system_validity": _v1_validity(),
+        "agent_posture": {"state": "NONE_DECLARED"},
         "team_requirement": {"state": "NONE_DECLARED"},
+        "team_accuracy_requirement": {"state": "NONE_DECLARED"},
         "current_context": {
             "evaluation_dataset_association": {
                 "experiment_id": "experiment-1",

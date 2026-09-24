@@ -243,9 +243,11 @@ def test_endpoint_inventory_declares_the_six_routes() -> None:
         "/api/v1beta/projects/{project_id}/evaluation-system-reviewer-grants"
     ]
     assert set(grants) == {"post", "get"}
+    # TraigentBackend implements all six (#3497 grants, #3503 validations),
+    # so every operation is now asserted against the backend.
     for path in inventory["paths"].values():
         for operation in path.values():
-            assert operation["x-asserted-against-backend"] is False
+            assert operation["x-asserted-against-backend"] is True
 
 
 def test_agent_readiness_endpoint_path_set_is_unchanged() -> None:

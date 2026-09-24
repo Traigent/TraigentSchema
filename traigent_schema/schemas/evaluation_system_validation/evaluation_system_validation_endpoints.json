@@ -10,7 +10,7 @@
       "post": {
         "summary": "Record an expert validation, or revoke one, for one pillar of the project's evaluation system",
         "operationId": "createEvaluationSystemValidation",
-        "x-asserted-against-backend": false,
+        "x-asserted-against-backend": true,
         "parameters": [
           {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
         ],
@@ -50,7 +50,7 @@
       "get": {
         "summary": "List evaluation-system validation records for the project",
         "operationId": "listEvaluationSystemValidations",
-        "x-asserted-against-backend": false,
+        "x-asserted-against-backend": true,
         "parameters": [
           {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
           {"name": "pillar", "in": "query", "required": false, "schema": {"$ref": "./evaluation_system_validation_schema.json#/definitions/Pillar"}},
@@ -75,7 +75,7 @@
       "get": {
         "summary": "Get one evaluation-system validation record",
         "operationId": "getEvaluationSystemValidation",
-        "x-asserted-against-backend": false,
+        "x-asserted-against-backend": true,
         "parameters": [
           {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
           {"name": "validation_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
@@ -95,7 +95,7 @@
       "post": {
         "summary": "Grant or revoke the evaluation_system_reviewer capability for a project member",
         "operationId": "createEvaluationSystemReviewerGrant",
-        "x-asserted-against-backend": false,
+        "x-asserted-against-backend": true,
         "parameters": [
           {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
         ],
@@ -150,7 +150,7 @@
       "get": {
         "summary": "List evaluation-system reviewer grants for the project",
         "operationId": "listEvaluationSystemReviewerGrants",
-        "x-asserted-against-backend": false,
+        "x-asserted-against-backend": true,
         "parameters": [
           {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
           {"name": "active", "in": "query", "required": false, "schema": {"type": "boolean"}},
@@ -172,7 +172,7 @@
       "get": {
         "summary": "Whether the caller currently holds an active evaluation_system_reviewer grant in this project",
         "operationId": "getEvaluationSystemReviewerGrantMe",
-        "x-asserted-against-backend": false,
+        "x-asserted-against-backend": true,
         "parameters": [
           {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
         ],

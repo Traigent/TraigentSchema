@@ -27,8 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (`agent_readiness/agent_posture_endpoints.json`, registered in `mep_endpoints.json`) follows the
     target-revisions convention: immutable revisions, `expected_current_revision_id`, a
     const-bodied 409 `revision_conflict`, human session with project owner/admin role only.
-    `declared_by` (USER only) and `declared_at` are server-derived. The required `agent_posture`
-    member (`NONE_DECLARED` until set) is added to the portfolio item and the detail response.
+    `declared_by` (USER only) and `declared_at` are server-derived. The `agent_posture` member
+    (`NONE_DECLARED` until set) is added to the portfolio item and the detail response, optional
+    until TraigentBackend emits it (then required) so unrelated Backend schema-pin bumps keep
+    passing. Fail closed: consumers treat an undeclared Agent as criticality `high`.
     The portfolio list operation gains optional single-value `deployment_stage` and `criticality`
     query filters (same convention as `stage`/`attention`; Agents without a declared posture are
     excluded when a filter is set).
@@ -39,14 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     must reach the threshold; a closed enum so another bound is a later, acknowledged widening; an
     observed mean outside `[0, 1]` is never rescaled but CANNOT_DETERMINE), its declaration,
     `AccuracyEvaluation` (MET/NOT_MET carry the observed mean, both interval bounds and the count;
-    CANNOT_DETERMINE needs a reason, incl. the new `CONFIDENCE_INTERVAL_NOT_RECORDED`),
-    `AccuracyTargetRevision` and `DeclaredAccuracyTarget`. `TargetDeclarationRequest.requirement`
+    CANNOT_DETERMINE needs a reason, incl. the new `CONFIDENCE_INTERVAL_NOT_RECORDED`; closed
+    `ci_method: clt_mean_standard_error` — mean ± z·SE over per-example scores (Miller 2024),
+    computed by the Backend from per-example evaluations, never client-supplied),
+    `AccuracyTargetRevision` (also listed in the schema's root `oneOf`) and `DeclaredAccuracyTarget`. `TargetDeclarationRequest.requirement`
     and the POST 201 `DeclaredTarget` become unions of the unchanged latency shape (now also named
     `DeclaredLatencyTarget`) and the accuracy shape. Each metric keeps its own revision chain; the
-    detail response gains the required `team_accuracy_requirement` next to the unchanged
+    detail response gains an optional (required once the Backend emits it) `team_accuracy_requirement` next to the unchanged
     latency `team_requirement`.
   - Response-side additions on closed objects and the two new unions are acknowledged in
-    `scripts/breaking_schema_allowlist.json` (11 entries, each with its reason). Reachability report
+    `scripts/breaking_schema_allowlist.json` (9 entries, each with its reason). Reachability report
     and parity manifest regenerated; `agents/agent_deployment_schema.json` is now reached through
     the endpoint graph.
 - **Session identity-binding read + reachable session-create/results content_identity (M3

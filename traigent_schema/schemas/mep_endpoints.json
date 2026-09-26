@@ -156,6 +156,11 @@
       "name": "Agent Posture",
       "description": "Manager-set Agent posture (deployment stage and criticality) as immutable, project-scoped revisions under agent-readiness.",
       "paths_file": "./agent_readiness/agent_posture_endpoints.json"
+    },
+    {
+      "name": "Agent Readiness Fleet Posture",
+      "description": "The server-computed fleet debt/verdict view (per-agent debt items, verdict, validate-first ranking, fleet summary) for a project.",
+      "paths_file": "./agent_readiness/fleet_posture_endpoints.json"
     }
   ]
 }

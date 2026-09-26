@@ -8,6 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture` (fleet
+  verdict server-side).** The Backend computes
+  each Agent's debt items and fleet verdict; the frontend only displays. Behaviour-preserving
+  port of TraigentFrontend `src/utils/fleetPosture.ts` (`deriveAgentDebtItems`,
+  `computeVerdict`, `wilsonInterval`, `rankValidateFirst`, `summarizeFleet`) against
+  `origin/develop` at `12ff129b`. New `agent_readiness/fleet_posture_response_schema.json`:
+  `policy` (the fixed constants actually used -- `min_sample_size: 30`,
+  `saturation_ceiling: 0.95`, `stale_days: 30`, `min_reproductions: 2`, `journey_window: 25`,
+  `interval_method: wilson`, `interval_z: 1.96`), `agents[]` (`verdict`, ordered `debt_items`
+  with a fixed id-to-pillar mapping, `effective_validity_level`/`served_validity_level`
+  (`V0`/`V1`/`V2` -- intentionally wider than the common schema's `EvaluationSystemValidity.level`,
+  which is `V0`/`V1` only pending its own future widening), `validity_decayed`,
+  `criticality_used` (reuses `agent_posture_schema.json` `Criticality`; the Backend always
+  passes `medium` today, per the FE parity source, until a later owner decision serves the
+  declared criticality), `accuracy`/`sample_size`/`interval` (a Wilson band, minimum `0` and
+  no upper bound -- the TS passes accuracy through unclamped and clamps only for display, so
+  the schema does not cap it either), `reproductions_in_window` (nullable: null when the
+  anchor is missing a dataset or evaluator ref, distinct from a known zero), `dataset_ref_id`,
+  `evaluator_ref_id`, `has_anchor_run` (served, so the frontend stops inferring it from the
+  `AG-1` debt item), `score_credible` (the old frontend `isScoreCredible`, computed
+  server-side from the same detail validity block that produced `debt_items`, so the two can
+  never disagree), `pillar_review_status` (`{evaluator, evaluation_dataset}`, the served
+  pillar `status` values from that same detail validity block, null when there is no served
+  validity)), `summary` (per-verdict counts), `validate_first` (snake_case mirror of FE
+  `ValidateFirstEntry`: `kind`, `ref_id`, `affected_agent_ids`) and top-level
+  `failed_agent_ids` (agents whose detail read raised; omitted from `agents`/`summary`,
+  always present, possibly empty, for the frontend's partial-failure banner). New
+  `agent_readiness/fleet_posture_endpoints.json` (registered in `mep_endpoints.json`; a
+  separate module because `agent_readiness_endpoints.json`'s path set is pinned by test), auth
+  identical to the portfolio route (`require_resource_read_access(ResourceType.AGENT,
+  collection=True)` + `project_role_required("viewer")`), no request body, no query
+  parameters, errors reuse `agent_readiness_error_schema.json`. `x-asserted-against-backend:
+  false`. Reachability report and parity manifest regenerated.
 - **`GET /api/v1/auth/me/tenants` (tenant switcher, TraigentFrontend#2250).** New
   `auth/auth_me_tenants_response_schema.json` (`{success, message, data: {items, switchable}}`,
   items = `TenantMembershipItem` {tenant_id, tenant_name, tenant_slug, role, is_default}, strict

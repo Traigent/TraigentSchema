@@ -1,0 +1,30 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Agent Readiness Fleet Posture Routes",
+    "version": "1.0.0",
+    "description": "The server-computed fleet debt/verdict view for a project. A separate endpoint module because agent_readiness_endpoints.json's path set is pinned by test_endpoint_inventory_registers_project_scoped_read_and_target_routes (same convention as agent_posture_endpoints.json)."
+  },
+  "paths": {
+    "/api/v1beta/projects/{project_id}/agent-readiness/fleet-posture": {
+      "get": {
+        "summary": "List every project Agent's computed debt items, verdict and validate-first ranking",
+        "operationId": "getProjectAgentReadinessFleetPosture",
+        "x-asserted-against-backend": false,
+        "description": "Auth identical to the portfolio route: require_resource_read_access(ResourceType.AGENT, collection=True) + project_role_required('viewer'). Tenant/project are taken from the canonical auth context only, never from headers or query parameters. No request body; no query parameters in v1.",
+        "parameters": [
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Fleet posture computed successfully",
+            "content": {"application/json": {"schema": {"$ref": "./fleet_posture_response_schema.json"}}}
+          },
+          "400": {"description": "Invalid request", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
+        }
+      }
+    }
+  }
+}

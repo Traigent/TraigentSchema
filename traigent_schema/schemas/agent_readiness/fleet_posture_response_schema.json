@@ -1,0 +1,298 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json",
+  "title": "Agent Readiness Fleet Posture Response",
+  "description": "The server-computed fleet debt view for a project. Every agent's debt items and verdict are computed here, server-side, from the same evidence the readiness portfolio/detail responses already serve; the frontend only displays. Behaviour-preserving port of TraigentFrontend src/utils/fleetPosture.ts (deriveAgentDebtItems / computeVerdict / wilsonInterval / rankValidateFirst / summarizeFleet). Content-free beyond the debt/verdict vocabulary itself: no free text, no scores framed as certified/verified.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "project_id": {"$ref": "#/definitions/OpaqueId"},
+    "computed_at": {"type": "string", "format": "date-time"},
+    "policy": {"$ref": "#/definitions/Policy"},
+    "agents": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/AgentPostureEntry"}
+    },
+    "summary": {"$ref": "#/definitions/FleetSummary"},
+    "validate_first": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/ValidateFirstEntry"}
+    },
+    "failed_agent_ids": {
+      "description": "Agents whose detail read raised while computing this response. Omitted from `agents` and from `summary`; the frontend shows its partial-failure banner for these. Always present, possibly empty.",
+      "type": "array",
+      "items": {"$ref": "#/definitions/OpaqueId"}
+    }
+  },
+  "required": ["project_id", "computed_at", "policy", "agents", "summary", "validate_first", "failed_agent_ids"],
+  "definitions": {
+    "OpaqueId": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+    },
+    "Verdict": {
+      "description": "computeVerdict's four-way outcome (fleetPosture.ts). With today's inputs (criticality_used is always 'medium' and scoreClearsThreshold is always null, see the Policy/AgentPostureEntry descriptions) only NOT_YET_SCORED and CANT_TELL are ever observed; STAY and INTERVENE_QUALITY are kept in the vocabulary because the pure function encodes the whole rule and a later owner decision can make them reachable without a contract change.",
+      "type": "string",
+      "enum": ["NOT_YET_SCORED", "CANT_TELL", "STAY", "INTERVENE_QUALITY"]
+    },
+    "Pillar": {
+      "type": "string",
+      "enum": ["agent", "evaluator", "evaluation_dataset"]
+    },
+    "DebtItemId": {
+      "type": "string",
+      "enum": ["AG-1", "AG-2", "AG-3", "ES-1", "ES-2", "ES-3", "ES-4", "ES-5"]
+    },
+    "DebtItem": {
+      "description": "One open debt item. pillar is fixed per id (DEBT_ITEM_DEFINITIONS in fleetPosture.ts): AG-* is always agent; ES-1/ES-2 are always evaluator; ES-3/ES-4/ES-5 are always evaluation_dataset. Display labels stay in the frontend -- this object carries no label.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/definitions/DebtItemId"},
+        "pillar": {"$ref": "#/definitions/Pillar"}
+      },
+      "required": ["id", "pillar"],
+      "allOf": [
+        {
+          "if": {"properties": {"id": {"enum": ["AG-1", "AG-2", "AG-3"]}}},
+          "then": {"properties": {"pillar": {"const": "agent"}}}
+        },
+        {
+          "if": {"properties": {"id": {"enum": ["ES-1", "ES-2"]}}},
+          "then": {"properties": {"pillar": {"const": "evaluator"}}}
+        },
+        {
+          "if": {"properties": {"id": {"enum": ["ES-3", "ES-4", "ES-5"]}}},
+          "then": {"properties": {"pillar": {"const": "evaluation_dataset"}}}
+        }
+      ]
+    },
+    "ValidityLevel": {
+      "description": "Mirrors fleetPosture.ts's ValidityLevel ('V0' | 'V1' | 'V2', VALIDITY_RANK / REQUIRED_VALIDITY_FOR_STAY), which is intentionally wider than the agent-readiness common schema's EvaluationSystemValidity.level (V0 | V1 only -- V2 is a documented future widening there). V2 is unreachable from today's served evaluation_system_validity (its level is never higher than V1), so effective_validity_level and served_validity_level are V0/V1 in every response TraigentBackend can produce today; V2 is kept in this response's vocabulary now because it is already load-bearing for high-criticality Stay (REQUIRED_VALIDITY_FOR_STAY.high = V2) and adding it later would be a breaking widen of a closed enum.",
+      "type": "string",
+      "enum": ["V0", "V1", "V2"]
+    },
+    "Criticality": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/Criticality"
+    },
+    "Interval": {
+      "description": "A Wilson score interval (z = policy.interval_z) over accuracy/sample_size, per wilsonInterval in fleetPosture.ts. Not a CLT interval (agent_readiness_target_schema.json AccuracyEvaluation.ci_method) -- this is a hypothesis/estimate band for display, never a measured target evaluation.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lower": {"type": "number", "minimum": 0},
+        "upper": {"type": "number", "minimum": 0}
+      },
+      "required": ["lower", "upper"]
+    },
+    "Policy": {
+      "description": "The constants actually used to compute this response, so the frontend can render labels without hand-duplicating them. Every member is a fixed constant (fleetPosture.ts AG2_MIN_SAMPLE_SIZE / ES5_SATURATION_CEILING / ES4_STALE_DAYS / AG3_MIN_REPRODUCTIONS / AG3_JOURNEY_PAGE_SIZE / WILSON_Z_95); a value change is an acknowledged contract change, not a silent behaviour change.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_sample_size": {"const": 30},
+        "saturation_ceiling": {"const": 0.95},
+        "stale_days": {"const": 30},
+        "min_reproductions": {"const": 2},
+        "journey_window": {"const": 25},
+        "interval_method": {"const": "wilson"},
+        "interval_z": {"const": 1.96}
+      },
+      "required": [
+        "min_sample_size",
+        "saturation_ceiling",
+        "stale_days",
+        "min_reproductions",
+        "journey_window",
+        "interval_method",
+        "interval_z"
+      ]
+    },
+    "PillarReviewStatus": {
+      "description": "The served pillar `status` values from the same detail validity block that produced this agent's debt items and served_validity_level, for the ES-1/ES-3 labels. Both members are null exactly when served_validity_level is null (no served validity block).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evaluator": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "evaluation_dataset": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+      },
+      "required": ["evaluator", "evaluation_dataset"]
+    },
+    "AgentPostureEntry": {
+      "description": "One agent's computed debt/verdict row (buildAgentPostureRow). accuracy, sample_size, interval, dataset_ref_id and evaluator_ref_id are all null exactly when verdict is NOT_YET_SCORED (no anchor run) -- the same 'no anchor run' fact drives every one of them in buildAgentPostureRow.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {"$ref": "#/definitions/OpaqueId"},
+        "agent_name": {"description": "Required, non-null, same as the readiness common schema's AgentSummary.name and fleetPosture.ts AgentRefs.agentName: string (never optional/nullable).", "type": "string", "minLength": 1, "maxLength": 255},
+        "verdict": {"$ref": "#/definitions/Verdict"},
+        "debt_items": {
+          "description": "Ordered as deriveAgentDebtItems: evaluation-system items (ES-*) always precede agent items (AG-*).",
+          "type": "array",
+          "items": {"$ref": "#/definitions/DebtItem"},
+          "uniqueItems": true
+        },
+        "effective_validity_level": {
+          "description": "resolveEffectiveValidity(served_validity_level, validity_decayed) -- the level actually used by computeVerdict for this agent; collapsed to V0 when validity_decayed is true.",
+          "$ref": "#/definitions/ValidityLevel"
+        },
+        "served_validity_level": {
+          "description": "The nominal (as-served) evaluation_system_validity.level for this agent's anchor, before decay. Null when no served E3 block exists.",
+          "oneOf": [{"$ref": "#/definitions/ValidityLevel"}, {"type": "null"}]
+        },
+        "validity_decayed": {
+          "description": "computeValidityDecayed: true when the evaluator reference changed since calibration or the eval set is stale (incl. the 30-day backstop). When true, effective_validity_level is V0 regardless of served_validity_level.",
+          "type": "boolean"
+        },
+        "criticality_used": {
+          "description": "The criticality actually used to select the Stay validity bar (REQUIRED_VALIDITY_FOR_STAY). The Backend does not yet read a per-agent declared criticality for this computation and always uses 'medium' (fleetPosture.ts:903, buildAgentPostureRow's criticality default) -- exposed here, rather than hardcoded to 'medium' in this schema, so a later decision to switch to the agent's declared criticality (TraigentBackend#3505) needs no contract change.",
+          "$ref": "#/definitions/Criticality"
+        },
+        "accuracy": {
+          "description": "Passed through unclamped, matching the TS (fleetPosture.ts clamps only for display). No upper bound in this schema -- parity over tidiness.",
+          "oneOf": [{"type": "number", "minimum": 0}, {"type": "null"}]
+        },
+        "sample_size": {
+          "oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]
+        },
+        "interval": {
+          "description": "Wilson interval over accuracy/sample_size (policy.interval_method/interval_z), null when not computable (no accuracy, or sample_size is null or 0).",
+          "oneOf": [{"$ref": "#/definitions/Interval"}, {"type": "null"}]
+        },
+        "reproductions_in_window": {
+          "description": "countReproductionsOnAnchorRefs, scoped to policy.journey_window: successfully-completed runs sharing the anchor's dataset and evaluator refs. Null when the anchor is missing a dataset or evaluator ref -- reproduction cannot be determined at all, distinct from a known zero (fleetPosture.ts countReproductionsOnAnchorRefs). debt_items still carries AG-3 in either case (null and below-threshold both leave AG-3 open).",
+          "oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]
+        },
+        "dataset_ref_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "evaluator_ref_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "has_anchor_run": {
+          "description": "True when this agent has a scored anchor run (served, so the frontend stops inferring it from the presence of the AG-1 debt item). False exactly when verdict is NOT_YET_SCORED.",
+          "type": "boolean"
+        },
+        "score_credible": {
+          "description": "The old frontend isScoreCredible(servedValidity), computed server-side from the same detail validity block that produced debt_items, so the label and the debt items can never disagree.",
+          "type": "boolean"
+        },
+        "pillar_review_status": {"$ref": "#/definitions/PillarReviewStatus"}
+      },
+      "required": [
+        "agent_id",
+        "agent_name",
+        "verdict",
+        "debt_items",
+        "effective_validity_level",
+        "served_validity_level",
+        "validity_decayed",
+        "criticality_used",
+        "accuracy",
+        "sample_size",
+        "interval",
+        "reproductions_in_window",
+        "dataset_ref_id",
+        "evaluator_ref_id",
+        "has_anchor_run",
+        "score_credible",
+        "pillar_review_status"
+      ],
+      "allOf": [
+        {
+          "if": {"properties": {"verdict": {"const": "NOT_YET_SCORED"}}},
+          "then": {
+            "properties": {
+              "accuracy": {"type": "null"},
+              "sample_size": {"type": "null"},
+              "interval": {"type": "null"},
+              "dataset_ref_id": {"type": "null"},
+              "evaluator_ref_id": {"type": "null"},
+              "reproductions_in_window": {"type": "null"},
+              "has_anchor_run": {"const": false}
+            }
+          }
+        },
+        {
+          "if": {"not": {"properties": {"verdict": {"const": "NOT_YET_SCORED"}}, "required": ["verdict"]}},
+          "then": {"properties": {"has_anchor_run": {"const": true}}}
+        },
+        {
+          "description": "pillar_review_status members are null exactly when served_validity_level is null (no served validity block to read a status from).",
+          "if": {"properties": {"served_validity_level": {"type": "null"}}, "required": ["served_validity_level"]},
+          "then": {
+            "properties": {
+              "pillar_review_status": {
+                "properties": {
+                  "evaluator": {"type": "null"},
+                  "evaluation_dataset": {"type": "null"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "reproductions_in_window is null exactly when the anchor is missing a dataset or evaluator ref (countReproductionsOnAnchorRefs' own precondition).",
+          "if": {"properties": {"dataset_ref_id": {"type": "null"}}, "required": ["dataset_ref_id"]},
+          "then": {"properties": {"reproductions_in_window": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"evaluator_ref_id": {"type": "null"}}, "required": ["evaluator_ref_id"]},
+          "then": {"properties": {"reproductions_in_window": {"type": "null"}}}
+        },
+        {
+          "description": "interval is non-null only when accuracy is recorded and sample_size is a positive count (wilsonInterval's own preconditions).",
+          "if": {
+            "properties": {"interval": {"not": {"type": "null"}}},
+            "required": ["interval"]
+          },
+          "then": {
+            "properties": {
+              "accuracy": {"not": {"type": "null"}},
+              "sample_size": {"type": "integer", "minimum": 1}
+            }
+          }
+        }
+      ]
+    },
+    "FleetSummary": {
+      "description": "summarizeFleet's per-verdict totals over the agents in this response.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "counts_by_verdict": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "NOT_YET_SCORED": {"type": "integer", "minimum": 0},
+            "CANT_TELL": {"type": "integer", "minimum": 0},
+            "STAY": {"type": "integer", "minimum": 0},
+            "INTERVENE_QUALITY": {"type": "integer", "minimum": 0}
+          },
+          "required": ["NOT_YET_SCORED", "CANT_TELL", "STAY", "INTERVENE_QUALITY"]
+        }
+      },
+      "required": ["total", "counts_by_verdict"]
+    },
+    "ValidateFirstKind": {
+      "type": "string",
+      "enum": ["evaluation_dataset", "evaluator"]
+    },
+    "ValidateFirstEntry": {
+      "description": "rankValidateFirst's ValidateFirstEntry (fleetPosture.ts:~707), snake_case: kind/refId/affectedAgentIds -> kind/ref_id/affected_agent_ids. Reach-only ranking (unweighted by exposure/criticality); order is by affected_agent_ids length desc, then kind, then ref_id -- not representable in JSON Schema, verified by the contract test instead of this schema.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"$ref": "#/definitions/ValidateFirstKind"},
+        "ref_id": {"$ref": "#/definitions/OpaqueId"},
+        "affected_agent_ids": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/OpaqueId"},
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": ["kind", "ref_id", "affected_agent_ids"]
+    }
+  }
+}

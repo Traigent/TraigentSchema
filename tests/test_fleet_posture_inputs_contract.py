@@ -22,8 +22,8 @@ from typing import Any
 
 import pytest
 from jsonschema import Draft7Validator
-from referencing import Registry, Resource
 
+from tests._schema_refs import build_registry, load_json, ref_errors
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
@@ -40,7 +40,6 @@ DEPLOYMENT_SCHEMA_PATH = SCHEMAS / "agents" / "agent_deployment_schema.json"
 CASES_PATH = (
     Path(__file__).parent / "data" / "agent_readiness" / "fleet_posture_inputs_cases.json"
 )
-SCHEMA_ID_BASE = "https://schemas.traigent.ai/"
 
 E1_MEMBERS = (
     "anchor_evaluation_dataset_ref",
@@ -51,37 +50,12 @@ E1_MEMBERS = (
 )
 
 
-def _load(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _registry() -> Registry:
-    """Same resolution rule as SchemaValidator: a schema without $id is
-    addressed by its package-relative path under SCHEMA_ID_BASE."""
-    resources = []
-    for path in SCHEMAS.rglob("*.json"):
-        if "_endpoints" in path.name:
-            continue
-        document = _load(path)
-        if not isinstance(document, dict):
-            continue
-        schema_id = document.get("$id") or (
-            SCHEMA_ID_BASE + path.relative_to(SCHEMAS).as_posix()
-        )
-        document = {**document, "$id": schema_id}
-        resources.append((schema_id, Resource.from_contents(document)))
-    return Registry().with_resources(resources)
-
-
-_REGISTRY = _registry()
-
-
-def _ref_validator(ref: str) -> Draft7Validator:
-    return Draft7Validator({"$ref": ref}, registry=_REGISTRY)
+_load = load_json
+_REGISTRY = build_registry(SCHEMAS)
 
 
 def _errors(ref: str, instance: Any) -> list[str]:
-    return [error.message for error in _ref_validator(ref).iter_errors(instance)]
+    return ref_errors(_REGISTRY, ref, instance)
 
 
 def _readiness_fixtures() -> Any:

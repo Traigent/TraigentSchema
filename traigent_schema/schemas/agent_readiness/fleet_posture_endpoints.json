@@ -11,16 +11,19 @@
         "summary": "List every project Agent's computed debt items, verdict and validate-first ranking",
         "operationId": "getProjectAgentReadinessFleetPosture",
         "x-asserted-against-backend": false,
-        "description": "Auth identical to the portfolio route: require_resource_read_access(ResourceType.AGENT, collection=True) + project_role_required('viewer'). Tenant/project are taken from the canonical auth context only, never from headers or query parameters. No request body; no query parameters in v1.",
+        "description": "Auth identical to the portfolio route: require_resource_read_access(ResourceType.AGENT, collection=True) + project_role_required('viewer'). Tenant/project are taken from the canonical auth context only, never from headers or query parameters. No request body. Paging mirrors the portfolio list route's page/per_page parameters (agent_readiness_endpoints.json); per_page shares the portfolio route's maximum of 100. The optional agent_id query parameter restricts the response to one Agent's row and, when present, makes page/per_page paging moot (see agent_id).",
         "parameters": [
-          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}}
+          {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
+          {"name": "page", "in": "query", "required": false, "description": "The page to return, 1-indexed. IGNORED when agent_id is present: the response then always reports page 1, since there is at most one row to page over. Unpaged calls return the first page (24 agents), the same as the endpoint's previous behaviour.", "schema": {"type": "integer", "minimum": 1, "default": 1}},
+          {"name": "per_page", "in": "query", "required": false, "description": "The number of Agent rows per page (maximum 100, shared with the portfolio list route's per_page). When agent_id is present this stops controlling how many rows are returned (at most one), but the requested value (or the default of 24 if omitted) is still reported back unchanged in the response's pagination.per_page. Unpaged calls return the first page (24 agents), the same as the endpoint's previous behaviour.", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 24}},
+          {"name": "agent_id", "in": "query", "required": false, "description": "Restrict the response to this one Agent's row (page 1 of at most 1 total; page/per_page paging is IGNORED, see page/per_page). This is a collection filter, not a per-agent lookup: an unknown or inaccessible id returns 200, never 404, so the parameter carries no existence oracle. Unknown and inaccessible are INDISTINGUISHABLE: the response is exactly the empty-fleet shape -- `agents: []`, `failed_agent_ids: []`, `validate_first: []`, `summary.total: 0` with every counts_by_verdict member 0, and `pagination: {page: 1, per_page: <the requested or default per_page>, total: 0, total_pages: 0, has_next: false, has_prev: false}` -- and the requested id is never echoed anywhere in the response.", "schema": {"type": "string", "minLength": 1}}
         ],
         "responses": {
           "200": {
             "description": "Fleet posture computed successfully",
             "content": {"application/json": {"schema": {"$ref": "./fleet_posture_response_schema.json"}}}
           },
-          "400": {"description": "Invalid request", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "400": {"description": "Invalid pagination parameters", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
           "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
           "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
         }

@@ -31,16 +31,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   server-side from the same detail validity block that produced `debt_items`, so the two can
   never disagree), `pillar_review_status` (`{evaluator, evaluation_dataset}`, the served
   pillar `status` values from that same detail validity block, null when there is no served
-  validity)), `summary` (per-verdict counts), `validate_first` (snake_case mirror of FE
-  `ValidateFirstEntry`: `kind`, `ref_id`, `affected_agent_ids`) and top-level
-  `failed_agent_ids` (agents whose detail read raised; omitted from `agents`/`summary`,
-  always present, possibly empty, for the frontend's partial-failure banner). New
-  `agent_readiness/fleet_posture_endpoints.json` (registered in `mep_endpoints.json`; a
-  separate module because `agent_readiness_endpoints.json`'s path set is pinned by test), auth
-  identical to the portfolio route (`require_resource_read_access(ResourceType.AGENT,
-  collection=True)` + `project_role_required("viewer")`), no request body, no query
-  parameters, errors reuse `agent_readiness_error_schema.json`. `x-asserted-against-backend:
-  false`. Reachability report and parity manifest regenerated.
+  validity), `criticality_source` (closed enum `fixed_default` / `declared` /
+  `undeclared_fail_closed` -- where `criticality_used` came from; today always
+  `fixed_default`), `verdict_reason` (closed enum, the single rule that decided the row's
+  verdict; `NOT_YET_SCORED` rows always carry `NO_ANCHOR_RUN` and every `CANT_TELL` row
+  carries `TARGET_NOT_DECLARED` today, both enforced structurally -- the remaining members
+  are kept in the vocabulary the same way `Verdict`'s `STAY`/`INTERVENE_QUALITY` are, for a
+  later owner decision to make them reachable without a contract change)), `summary`
+  (per-verdict counts, now scoped to the returned page only -- see paging below),
+  `validate_first` (snake_case mirror of FE `ValidateFirstEntry`: `kind`, `ref_id`,
+  `affected_agent_ids`), top-level `failed_agent_ids` (agents whose detail read raised;
+  omitted from `agents`/`summary`, always present, possibly empty, for the frontend's
+  partial-failure banner) and top-level `pagination` (required; mirrors the portfolio list
+  response's `pagination` block byte-for-byte, including its shared `per_page` maximum of
+  100). New `agent_readiness/fleet_posture_endpoints.json` (registered in
+  `mep_endpoints.json`; a separate module because `agent_readiness_endpoints.json`'s path
+  set is pinned by test), auth identical to the portfolio route
+  (`require_resource_read_access(ResourceType.AGENT, collection=True)` +
+  `project_role_required("viewer")`), no request body. Query parameters: optional `page`
+  (default `1`) / `per_page` (default `24`, same bounds and shared maximum of `100` as the
+  portfolio list route's paging params) and an optional `agent_id` filter (restricts the
+  response to that one Agent's row; an unknown or inaccessible id returns `200` with an
+  empty `agents` array rather than `404` -- this is a collection filter, not a per-agent
+  lookup, so it carries no existence oracle). `400` now documents invalid pagination.
+  Errors reuse `agent_readiness_error_schema.json`. `x-asserted-against-backend: false`.
+  Reachability report and parity manifest regenerated.
+- **Fleet-posture review fixes (same feature, follow-up commit).** The `(verdict,
+  verdict_reason)` pairing on `AgentPostureEntry` is now closed and enforced
+  bidirectionally end to end, not just for `NOT_YET_SCORED`: `STAY <-> MEETS_TARGET`,
+  `INTERVENE_QUALITY <-> BELOW_TARGET`, and `CANT_TELL <-> ` any one of the seven
+  CANT_TELL-family reasons (`VALIDITY_BELOW_BAR`, `TARGET_NOT_DECLARED`,
+  `TARGET_CANNOT_DETERMINE`, `INTERVAL_STRADDLES_TARGET`, `CRITICALITY_UNDECLARED`,
+  `VALIDITY_BELOW_STAY_BAR`, `OPEN_EVALUATION_SYSTEM_DEBT`) -- together with
+  `NOT_YET_SCORED <-> NO_ANCHOR_RUN` this exhausts every `VerdictReason` member, so no
+  (verdict, reason) combination is left unchecked. `criticality_source` now constrains
+  `criticality_used` one-directionally: `fixed_default` requires exactly `medium`,
+  `undeclared_fail_closed` requires exactly `high`; `declared` still carries no
+  constraint. Negative fixture cases added for every verdict and both constrained
+  `criticality_source` values. The `agent_id` filter's privacy behaviour is now stated
+  normatively in both the parameter description and the response schema's own
+  description: an unknown id and an inaccessible one are INDISTINGUISHABLE -- the
+  response is exactly the empty-fleet shape (`agents: []`, `failed_agent_ids: []`,
+  `validate_first: []`, `summary.total: 0` with every `counts_by_verdict` member `0`,
+  `pagination.total`/`pagination.total_pages` both `0`) and the requested id is never
+  echoed anywhere in the response, so the endpoint can never be used as an existence
+  oracle. A dedicated fixture (`fleet_posture_response_valid_agent_id_no_match`) pins
+  this exact shape. Paging with `agent_id`: `page`/`per_page` from the request are
+  IGNORED for paging purposes when `agent_id` is present (`pagination.page` is always
+  `1`; `pagination.per_page` still echoes back the requested-or-default value;
+  `total`/`total_pages` are `1`/`1` on a match or `0`/`0` on no match). `page` and
+  `per_page` parameter descriptions each gained: "Unpaged calls return the first page
+  (24 agents), the same as the endpoint's previous behaviour."
 - **`GET /api/v1/auth/me/tenants` (tenant switcher, TraigentFrontend#2250).** New
   `auth/auth_me_tenants_response_schema.json` (`{success, message, data: {items, switchable}}`,
   items = `TenantMembershipItem` {tenant_id, tenant_name, tenant_slug, role, is_default}, strict

@@ -399,6 +399,11 @@ def test_fleet_posture_route_is_registered_correctly() -> None:
         "page",
         "per_page",
         "agent_id",
+        "verdict",
+        "stage",
+        "deployment_stage",
+        "search",
+        "include_project_summary",
     ]
     assert operation["responses"]["200"]["content"]["application/json"]["schema"][
         "$ref"
@@ -413,6 +418,350 @@ def test_fleet_posture_route_is_registered_correctly() -> None:
     # return 200 with an empty `agents` array, per its own parameter description.
     assert "requestBody" not in operation
     assert "404" not in operation["responses"]
+    assert "503" in operation["responses"]
+
+
+# ---------------------------------------------------------------------------
+# New filters: verdict / stage / deployment_stage / search / include_project_summary
+# ---------------------------------------------------------------------------
+
+
+def _fleet_param(name: str) -> dict[str, Any]:
+    params = {
+        p["name"]: p for p in _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["parameters"]
+    }
+    return params[name]
+
+
+def _fleet_param_ref(parameter: dict[str, Any]) -> str:
+    file_part, fragment = parameter["schema"]["items"]["$ref"].split("#", 1)
+    target = (ENDPOINTS_PATH.parent / file_part).resolve()
+    return f"{_load(target)['$id']}#{fragment}"
+
+
+@pytest.mark.parametrize(
+    ("name", "accepted", "rejected"),
+    [
+        (
+            "verdict",
+            ["NOT_YET_SCORED", "CANT_TELL", "STAY", "INTERVENE_QUALITY"],
+            ["not_yet_scored", "MAYBE", ""],
+        ),
+        (
+            "stage",
+            ["NO_RUNS", "RUNS_RECORDED", "EVALUATION_COMPLETED"],
+            ["no_runs", "IN_PROGRESS", ""],
+        ),
+        (
+            "deployment_stage",
+            ["development", "staging", "production", "testing"],
+            ["prod", "deployed", "PRODUCTION", ""],
+        ),
+    ],
+)
+def test_fleet_posture_repeatable_filters_are_form_explode_arrays_with_exact_enums(
+    name: str, accepted: list[str], rejected: list[str]
+) -> None:
+    """verdict/stage/deployment_stage are repeatable (style=form, explode=true) arrays
+    whose item enum is taken EXACTLY from the existing source-of-truth schema
+    definitions (never re-forked/hand-copied here)."""
+    parameter = _fleet_param(name)
+    assert parameter["in"] == "query"
+    assert parameter["required"] is False
+    assert parameter["style"] == "form"
+    assert parameter["explode"] is True
+    assert parameter["schema"]["type"] == "array"
+    ref = _fleet_param_ref(parameter)
+    for value in accepted:
+        assert _errors(ref, value) == [], value
+    for value in rejected:
+        assert _errors(ref, value), value
+
+
+def test_fleet_posture_verdict_filter_items_ref_the_response_schemas_own_verdict_enum() -> None:
+    parameter = _fleet_param("verdict")
+    assert parameter["schema"]["items"]["$ref"] == "./fleet_posture_response_schema.json#/definitions/Verdict"
+    verdict_enum = _load(RESPONSE_SCHEMA_PATH)["definitions"]["Verdict"]["enum"]
+    assert set(verdict_enum) == {"NOT_YET_SCORED", "CANT_TELL", "STAY", "INTERVENE_QUALITY"}
+
+
+def test_fleet_posture_stage_filter_items_ref_the_common_process_stage_enum() -> None:
+    parameter = _fleet_param("stage")
+    assert parameter["schema"]["items"]["$ref"] == "./agent_readiness_common_schema.json#/definitions/ProcessStage"
+    stage_enum = _load(READINESS / "agent_readiness_common_schema.json")["definitions"]["ProcessStage"]["enum"]
+    assert set(stage_enum) == {"NO_RUNS", "RUNS_RECORDED", "EVALUATION_COMPLETED"}
+
+
+def test_fleet_posture_deployment_stage_filter_items_ref_the_agent_posture_deployment_stage() -> None:
+    parameter = _fleet_param("deployment_stage")
+    assert parameter["schema"]["items"]["$ref"] == "./agent_posture_schema.json#/definitions/DeploymentStage"
+    # DeploymentStage itself $refs agents/agent_deployment_schema.json#/definitions/Environment
+    # (agent_posture_schema.json) -- never forked -- so resolve one hop further for the enum.
+    deployment_stage = _load(READINESS / "agent_posture_schema.json")["definitions"]["DeploymentStage"]
+    assert "enum" not in deployment_stage, "DeploymentStage must reference, not fork, the enum"
+    environment_enum = _load(SCHEMAS / "agents" / "agent_deployment_schema.json")["definitions"][
+        "Environment"
+    ]["enum"]
+    assert set(environment_enum) == {"development", "staging", "production", "testing"}
+
+
+def test_fleet_posture_search_param_is_a_bounded_singleton_string() -> None:
+    """The machine schema enforces exactly one rule (maxLength: 200 on the RAW
+    value, no minLength) so it never contradicts the trim/blank-is-absent prose:
+    a raw empty string is schema-valid (and semantically absent, not a filter),
+    a raw 200-char value is schema-valid, and only a raw value over 200 chars is
+    a 400 -- independent of how much of it is whitespace."""
+    parameter = _fleet_param("search")
+    assert parameter["in"] == "query"
+    assert parameter["required"] is False
+    assert "style" not in parameter and "explode" not in parameter
+    assert parameter["schema"] == {"type": "string", "maxLength": 200}
+    for phrase in (
+        "trim", "casefold", "literal", "wildcard", "AND", "pagination", "400",
+        "blank", "absent",
+    ):
+        assert phrase.lower() in parameter["description"].lower(), phrase
+    validator = Draft7Validator(parameter["schema"])
+    assert validator.is_valid("")
+    assert validator.is_valid("   ")
+    assert validator.is_valid("x" * 200)
+    assert not validator.is_valid("x" * 201)
+
+
+def test_fleet_posture_include_project_summary_param_is_boolean_default_false() -> None:
+    parameter = _fleet_param("include_project_summary")
+    assert parameter["in"] == "query"
+    assert parameter["required"] is False
+    assert parameter["schema"] == {"type": "boolean", "default": False}
+    for phrase in ("independent of every filter", "agent_id", "identical whether"):
+        assert phrase in parameter["description"], phrase
+
+
+def test_fleet_posture_new_filters_apply_before_pagination_and_state_and_or_semantics() -> None:
+    description = _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["description"]
+    for phrase in (
+        "BEFORE pagination",
+        "OR within",
+        "AND",
+        "REJECTED",
+        "never echoed",
+        "agent_id no-existence-oracle",
+        "de-duplicated",
+        "ENHANCED PATH",
+    ):
+        assert phrase in description, phrase
+
+
+def test_fleet_posture_operation_documents_ordering_with_backend_file_and_tiebreaker() -> None:
+    """Pinned against the Backend's actual ordering (read from origin/develop, not a
+    parked checkout): AgentReadinessService.list_portfolio orders by stage_rank asc,
+    last_activity asc nullsfirst, agent_id asc (agent_readiness_service.py:1143-1145 and
+    the page-window pass at :1222-1224); fleet_posture_service.get_fleet_posture calls
+    list_portfolio directly, so fleet-posture rows share this exact ordering + tiebreaker."""
+    description = _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["description"]
+    for phrase in (
+        "list_portfolio",
+        "agent_readiness_service.py",
+        "stage ascending",
+        "last-activity ascending",
+        "nulls first",
+        "agent_id ascending",
+        "tiebreaker",
+    ):
+        assert phrase in description, phrase
+
+
+def test_fleet_posture_enhanced_path_definition_excludes_blank_search_and_false_flag() -> None:
+    """The enhanced path (and its 500-agent bound) must NOT fire for a blank/absent
+    search or an explicit include_project_summary=false -- only for verdict/stage/
+    deployment_stage presence, a non-blank search, or include_project_summary=true."""
+    description = _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["description"]
+    assert "ENHANCED PATH" in description
+    assert "non-blank" in description
+    assert "blank/whitespace-only search" in description
+    assert "include_project_summary=false" in description
+    assert "page-only path" in description
+
+
+def test_fleet_posture_service_unavailable_documents_both_triggers_and_uses_a_local_envelope() -> None:
+    """The 503 body is FLEET-POSTURE-LOCAL (FleetPostureUnavailable), NOT the shared
+    agent_readiness_error_schema.json: that file is shared across agent_readiness/
+    agent_posture/evaluation_system_validation routes, so widening its closed oneOf/
+    enums for one route's 503 would widen every OTHER route's 400/401/403 too (and
+    error_code: 'service_unavailable' would break its UPPER_SNAKE error_code
+    convention). This route's 400/401/403 keep $ref-ing that shared schema unchanged
+    (see test_fleet_posture_route_is_registered_correctly) -- verified structurally,
+    not via a live git-diff against a ref this suite cannot rely on always having
+    fetched."""
+    response = _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["responses"]["503"]
+    description = response["description"]
+    assert "500" in description
+    assert "truncat" in description.lower()
+    for phrase in (
+        "verdict", "stage", "deployment_stage", "search", "include_project_summary",
+        "non-archived", "computation failure", "never partial", "page-only path",
+        "FleetPostureUnavailable",
+    ):
+        assert phrase in description, phrase
+    assert "not the shared" in description.lower()
+    assert response["content"]["application/json"]["schema"]["$ref"] == (
+        "./fleet_posture_response_schema.json#/definitions/FleetPostureUnavailable"
+    )
+    # The body must actually validate against the NEW local envelope as a real variant.
+    body = {
+        "success": False,
+        "message": "Service unavailable",
+        "error": "service_unavailable",
+        "error_code": "FLEET_POSTURE_UNAVAILABLE",
+    }
+    assert _errors(
+        "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/FleetPostureUnavailable",
+        body,
+    ) == []
+    # And error_code follows the shared envelope's UPPER_SNAKE convention for a
+    # route-specific code (PROJECT_ACCESS_DENIED, TENANT_NOT_FOUND, ...).
+    assert body["error_code"].isupper()
+
+
+# ---------------------------------------------------------------------------
+# project_summary (opt-in, project-wide, filter-independent verdict totals)
+# ---------------------------------------------------------------------------
+
+
+def test_project_summary_and_summary_both_ref_fleet_summary_directly() -> None:
+    """Minimised restructuring (sol review round 2): FleetSummary is back to its
+    ORIGINAL concrete closed shape (only its description became scope-neutral); no
+    VerdictTotals/ProjectSummary split, no allOf indirection, so this repo's own
+    breaking-change differ sees the exact same type/required/additionalProperties
+    it always did. Both summary and project_summary $ref FleetSummary directly,
+    each with its own scope-stating sibling description."""
+    schema = _load(RESPONSE_SCHEMA_PATH)
+    assert "project_summary" not in schema["required"]
+    assert schema["properties"]["summary"]["$ref"] == "#/definitions/FleetSummary"
+    assert schema["properties"]["project_summary"]["$ref"] == "#/definitions/FleetSummary"
+    assert "description" in schema["properties"]["summary"]
+    assert "description" in schema["properties"]["project_summary"]
+    assert "ProjectSummary" not in schema["definitions"]
+    assert "VerdictTotals" not in schema["definitions"]
+    fleet_summary_def = schema["definitions"]["FleetSummary"]
+    assert fleet_summary_def["type"] == "object"
+    assert fleet_summary_def["additionalProperties"] is False
+    assert set(fleet_summary_def["required"]) == {"total", "counts_by_verdict"}
+    assert "allOf" not in fleet_summary_def
+    counts = fleet_summary_def["properties"]["counts_by_verdict"]
+    assert counts["additionalProperties"] is False
+    assert set(counts["required"]) == {
+        "NOT_YET_SCORED", "CANT_TELL", "STAY", "INTERVENE_QUALITY",
+    }
+
+
+def test_fleet_summary_description_is_scope_neutral_and_documents_both_scopes() -> None:
+    """FleetSummary's own description no longer claims there is NO project-wide
+    equivalent (that became false once project_summary shipped); it now states the
+    sum invariant and defers scope entirely to the referencing property."""
+    description = _load(RESPONSE_SCHEMA_PATH)["definitions"]["FleetSummary"]["description"]
+    assert "there is no" not in description.lower()
+    assert "sum" in description.lower()
+    for phrase in ("summary", "project_summary"):
+        assert phrase in description, phrase
+    assert "referencing property" in description.lower()
+
+
+def test_project_summary_property_description_states_the_independent_scope_invariant() -> None:
+    description = _load(RESPONSE_SCHEMA_PATH)["properties"]["project_summary"]["description"]
+    for phrase in (
+        "independent of every filter",
+        "agent_id",
+        "summary",
+        "500",
+        "computation failure",
+    ):
+        assert phrase in description, phrase
+    assert "identical whether" in description.lower()
+    assert "never partial" in description.lower()
+
+
+def test_summary_property_description_states_the_page_scope() -> None:
+    description = _load(RESPONSE_SCHEMA_PATH)["properties"]["summary"]["description"]
+    assert "page" in description.lower()
+    assert "project_summary" in description
+    assert "pagination.total" in description
+
+
+def test_project_summary_fixture_case_counts_sum_to_total() -> None:
+    case = next(
+        c
+        for c in _CASES
+        if c["name"] == "fleet_posture_response_valid_with_project_summary"
+    )
+    project_summary = case["instance"]["project_summary"]
+    assert sum(project_summary["counts_by_verdict"].values()) == project_summary["total"]
+    assert _errors(
+        "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+        case["instance"],
+    ) == []
+
+
+@pytest.mark.parametrize(
+    "case_name",
+    [
+        "fleet_posture_response_invalid_project_summary_missing_verdict_key",
+        "fleet_posture_response_invalid_project_summary_extra_verdict_key",
+        "fleet_posture_response_invalid_project_summary_negative_count",
+    ],
+)
+def test_project_summary_malformed_fixture_cases_fail_validation(case_name: str) -> None:
+    case = next(c for c in _CASES if c["name"] == case_name)
+    assert case["valid"] is False
+    assert _errors(case["schema_ref"], case["instance"])
+
+
+# ---------------------------------------------------------------------------
+# sum(counts_by_verdict) == total invariant (documented, not JSON-Schema-expressible)
+# ---------------------------------------------------------------------------
+
+# JSON Schema cannot state "total equals the sum of these four fields", so the schema
+# accepts a mismatched total (a probe confirmed zero validation errors for
+# total=999 with every count 0). This fixture is intentionally SCHEMA-VALID
+# (case["valid"] is True) but is a KNOWN VIOLATION of the documented invariant; the
+# dedicated test below -- not JSON Schema -- is what must catch it.
+_SUM_INVARIANT_KNOWN_VIOLATIONS = frozenset(
+    {"fleet_posture_response_schema_valid_but_summary_total_mismatches_sum"}
+)
+
+
+def _summary_like_objects(instance: Any) -> list[dict[str, Any]]:
+    """Extract every {total, counts_by_verdict}-shaped object reachable from a
+    fixture instance: the instance itself (a direct FleetSummary-ref case), or its
+    summary/project_summary members (a root response case)."""
+    if not isinstance(instance, dict):
+        return []
+    if "counts_by_verdict" in instance and "total" in instance:
+        return [instance]
+    found = []
+    if isinstance(instance.get("summary"), dict):
+        found.append(instance["summary"])
+    if isinstance(instance.get("project_summary"), dict):
+        found.append(instance["project_summary"])
+    return found
+
+
+def test_summary_and_project_summary_counts_sum_to_total_for_every_valid_fixture() -> None:
+    checked = 0
+    for case in _CASES:
+        if not case["valid"]:
+            continue
+        for summary in _summary_like_objects(case["instance"]):
+            checked += 1
+            matches = sum(summary["counts_by_verdict"].values()) == summary["total"]
+            if case["name"] in _SUM_INVARIANT_KNOWN_VIOLATIONS:
+                assert not matches, (case["name"], "expected a known sum-mismatch")
+            else:
+                assert matches, (case["name"], summary)
+    # Sanity: the loop actually exercised real fixtures, and the known-violation
+    # fixture exists and was reached (a typo'd name would silently check nothing).
+    assert checked >= 10
+    assert _SUM_INVARIANT_KNOWN_VIOLATIONS <= {c["name"] for c in _CASES if c["valid"]}
 
 
 def test_fleet_posture_paging_params_mirror_the_portfolio_route() -> None:
@@ -508,6 +857,43 @@ def test_no_match_agent_id_response_fixture_matches_the_documented_shape() -> No
     assert instance["pagination"]["total"] == 0
     assert instance["pagination"]["total_pages"] == 0
     assert "agent_id" not in instance
+    assert _errors(
+        "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+        instance,
+    ) == []
+
+
+def test_no_match_agent_id_with_project_summary_keeps_legacy_shape_but_populates_project_summary() -> None:
+    """sol review item 5: an unknown/inaccessible agent_id combined with
+    include_project_summary=true must keep the EXACT documented no-match legacy shape
+    (agents/failed_agent_ids/validate_first empty, summary all-zero, pagination
+    0/0) while project_summary is independently populated -- proving its scope truly
+    does not depend on whether agent_id matched."""
+    case = next(
+        c
+        for c in _CASES
+        if c["name"] == "fleet_posture_response_valid_agent_id_no_match_with_project_summary"
+    )
+    instance = case["instance"]
+    assert instance["agents"] == []
+    assert instance["failed_agent_ids"] == []
+    assert instance["validate_first"] == []
+    assert instance["summary"] == {
+        "total": 0,
+        "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0,
+        },
+    }
+    assert instance["pagination"]["page"] == 1
+    assert instance["pagination"]["total"] == 0
+    assert instance["pagination"]["total_pages"] == 0
+    assert "agent_id" not in instance
+    project_summary = instance["project_summary"]
+    assert project_summary["total"] > 0
+    assert sum(project_summary["counts_by_verdict"].values()) == project_summary["total"]
     assert _errors(
         "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
         instance,

@@ -14,7 +14,7 @@
       "items": {"$ref": "#/definitions/AgentPostureEntry"}
     },
     "summary": {
-      "description": "summarizeFleet's per-verdict totals over the agents RETURNED IN THIS RESPONSE PAGE only (see FleetSummary) -- not the complete project portfolio. The portfolio response's total_agents (portfolio_counts) has no counterpart here: fleet posture computes debt/verdict per agent on demand, so a project-wide total would cost a full unpaged sweep this response does not do.",
+      "description": "summarizeFleet's per-verdict totals (FleetSummary) over the agents RETURNED IN THIS RESPONSE PAGE only -- not the complete project portfolio. The full-portfolio total (across every page) is `pagination.total`. The project-wide, filter-independent equivalent is the opt-in `project_summary` (include_project_summary=true): `summary` always stays page-scoped, even in a response that also carries `project_summary`.",
       "$ref": "#/definitions/FleetSummary"
     },
     "validate_first": {
@@ -22,9 +22,13 @@
       "items": {"$ref": "#/definitions/ValidateFirstEntry"}
     },
     "failed_agent_ids": {
-      "description": "Agents whose detail read raised while computing this response. Omitted from `agents` and from `summary`; the frontend shows its partial-failure banner for these. Always present, possibly empty.",
+      "description": "Agents whose detail read raised while computing this response. Omitted from `agents` and from `summary`; the frontend shows its partial-failure banner for these. Always present, possibly empty. This partial-failure tolerance applies ONLY to the pre-existing page-only path (no verdict/stage/deployment_stage/search/include_project_summary on the request): on an ENHANCED request (see fleet_posture_endpoints.json's enhanced-path definition) a per-agent computation failure anywhere in the caller-visible, non-archived universe fails the whole request closed with `503` instead of being recorded here -- `failed_agent_ids` is not how enhanced-request failures are reported.",
       "type": "array",
       "items": {"$ref": "#/definitions/OpaqueId"}
+    },
+    "project_summary": {
+      "description": "summarizeFleet's per-verdict totals (FleetSummary), scoped to every caller-visible, non-archived agent in the project -- independent of every filter on the request, including agent_id, verdict, stage, deployment_stage and search. Identical whether the request's agent_id is omitted, matches a known agent, or matches none (the agent_id no-existence-oracle invariant extends here: this field's value never reveals whether agent_id existed). Present only when the request's include_project_summary=true (fleet_posture_endpoints.json); `summary` (required, always present, page-scoped) is unaffected and never replaced or narrowed by this field. NEVER PARTIAL: on the enhanced request that produces it (see fleet_posture_endpoints.json's enhanced-path definition), a computation failure for ANY caller-visible, non-archived agent in the project -- not only exceeding the 500-agent bound -- fails the whole request closed with the route's `503` response instead of ever returning a truncated or estimated project_summary.",
+      "$ref": "#/definitions/FleetSummary"
     },
     "pagination": {
       "description": "Mirrors the portfolio list response's pagination block (agent_readiness_portfolio_response_schema.json) byte-for-byte: same pagination_schema.json base, same per_page maximum of 100. When the request's optional agent_id filter is present, the request's page/per_page are IGNORED for paging purposes (there is at most one row to page over): `page` is always 1, `per_page` is the requested value (or the endpoint default of 24 if omitted) reported back unchanged, and `total`/`total_pages` are 1/1 if agent_id matched an Agent visible to the caller or 0/0 if it did not -- an unknown id and an inaccessible one are indistinguishable (see the endpoint's agent_id parameter description for the full no-match response shape).",
@@ -372,7 +376,7 @@
       ]
     },
     "FleetSummary": {
-      "description": "summarizeFleet's per-verdict totals over the agents RETURNED ON THIS PAGE only (the `agents` array), now that the endpoint paginates -- not a project-wide total. The full-portfolio total (across every page) is `pagination.total`, mirroring the portfolio list response's pagination block; there is no per-page-independent equivalent of the portfolio response's `portfolio_counts` here.",
+      "description": "Per-verdict totals: `total` + `counts_by_verdict` over exactly the four Verdict members, each >= 0. INVARIANT (documented, not JSON-Schema-expressible): `total` always equals the sum of the four `counts_by_verdict` members -- enforced by the contract test suite (test_fleet_posture_response_contract.py) over every valid fixture, not by this schema, since JSON Schema cannot state a cross-field arithmetic constraint. SCOPE DEPENDS ON THE REFERENCING PROPERTY, not on this definition: `summary` = the agents RETURNED ON THIS RESPONSE PAGE only (the full-portfolio total across every page is `pagination.total`, mirroring the portfolio list response's pagination block); `project_summary` = every caller-visible, non-archived agent in the project, independent of every filter on the request including `agent_id` -- opt-in via `include_project_summary=true` (fleet_posture_endpoints.json), identical whether `agent_id` is omitted, matches a known agent, or matches none, and NEVER PARTIAL (a computation failure for any agent in that universe, or exceeding the 500-agent bound, fails the whole request closed with the route's `503` instead of a truncated/estimated project_summary). `summary` is required and always page-scoped, even in a response that also carries `project_summary`; `project_summary` never replaces or narrows it.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -410,6 +414,18 @@
         }
       },
       "required": ["kind", "ref_id", "affected_agent_ids"]
+    },
+    "FleetPostureUnavailable": {
+      "description": "Body of the route's 503 (fleet_posture_endpoints.json): the enhanced path (verdict/stage/deployment_stage present, a non-blank search, or include_project_summary=true) either exceeds the 500 caller-visible, non-archived agent bound or hit a per-agent computation failure within that universe. Fleet-posture-local (not the shared agent_readiness_error_schema.json used by this route's 400/401/403 -- that file is shared across agent_readiness/agent_posture/evaluation_system_validation routes and is not widened for one route's 503). Mirrors the shape of the shared envelope's own closed variants exactly (success/message/error/error_code, all consts, additionalProperties false). No further detail is representable (which agent, which of the two triggers, or why).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Service unavailable"},
+        "error": {"const": "service_unavailable"},
+        "error_code": {"const": "FLEET_POSTURE_UNAVAILABLE"}
+      }
     }
   }
 }

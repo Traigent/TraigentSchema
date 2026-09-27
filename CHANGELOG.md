@@ -8,6 +8,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`GET /agent-readiness/fleet-posture` server-side filters + opt-in project-wide
+  verdict totals (additive).** Five new optional query parameters on
+  `agent_readiness/fleet_posture_endpoints.json`: `verdict`, `stage`, `deployment_stage`
+  (each repeatable -- `style: form`, `explode: true`; OR within the parameter, AND across
+  parameters and with the existing `agent_id`; a comma-separated value is REJECTED, not
+  parsed as a list), `search` (case-folded literal substring on `agent_name`, trimmed,
+  1-200 chars after trim, `%`/`_`/`\` matched literally, never as SQL/LIKE
+  wildcards/escapes), and `include_project_summary` (boolean, default `false`). Every
+  filter's enum is a `$ref` to the existing source-of-truth definition, never re-forked:
+  `verdict` to `fleet_posture_response_schema.json#/definitions/Verdict`, `stage` to
+  `agent_readiness_common_schema.json#/definitions/ProcessStage`, `deployment_stage` to
+  `agent_posture_schema.json#/definitions/DeploymentStage` (itself
+  `agents/agent_deployment_schema.json#/definitions/Environment`). All five apply BEFORE
+  pagination: `pagination.total`/`pagination.total_pages` become the filtered count, never
+  the project's unfiltered total. An unknown/invalid value for any of them yields the
+  existing `400` envelope with the offending value never echoed; the `agent_id`
+  no-existence-oracle privacy invariant is unchanged. New optional response property
+  `agent_readiness/fleet_posture_response_schema.json` `project_summary` (present only
+  when `include_project_summary=true`; reuses the existing closed `FleetSummary` shape --
+  `total` + `counts_by_verdict` over exactly the four `Verdict` members, all
+  `minimum: 0`): its scope is every caller-visible, non-archived agent in the project,
+  independent of every filter on the request including `agent_id` -- identical whether
+  `agent_id` is omitted, matches a known agent, or matches none. The required, page-scoped
+  `summary` is unaffected. New `503` response documents the enhanced-path bound: computing
+  filtered rows and/or `project_summary` requires evaluating every caller-visible agent, so
+  a project over 500 caller-visible agents fails closed instead of ever returning a
+  truncated/partial `pagination.total` or `project_summary`; the pre-existing unfiltered,
+  no-`include_project_summary` page-only path is unaffected. Two
+  `scripts/breaking_schema_allowlist.json` entries (`property_added` on
+  `fleet_posture_endpoints.json`'s `200` response and on
+  `fleet_posture_response_schema.json`'s root, both for `project_summary`) acknowledge the
+  resulting BREAKING findings on this already-closed response -- the same
+  closed-response-gains-an-optional-member shape as the prior `criticality_source` /
+  `verdict_reason` / `pagination` acknowledgements on this file; old strict response
+  validators must upgrade to accept one more optional top-level property. Tests: 20 new
+  tests in `test_fleet_posture_response_contract.py` (filter param declarations incl.
+  `style`/`explode` and enum provenance, the `503` documentation, `project_summary`'s
+  optionality/shape/independent-scope description, and fixture cases covering a valid
+  response with `project_summary`, a missing verdict key, an extra verdict key, and a
+  negative count) plus 4 new fixture cases in `fleet_posture_verdict_cases.json`; all
+  pre-existing paging/`agent_id`/verdict-reason tests unchanged and passing. Full repo
+  suite: 5207 passed, 2 skipped (was 5187 passed, 2 skipped before this change). Parity
+  manifest re-stamped.
+- **Fleet-posture filters/project_summary review fixes (same feature, follow-up commit).**
+  `project_summary` and `summary` now `$ref` two distinct named definitions --
+  `ProjectSummary` and `FleetSummary` -- both `allOf`-wrapping a new scope-neutral
+  `VerdictTotals` definition, instead of a bare `$ref` carrying a sibling `description`
+  that OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently
+  drop; `FleetSummary`'s own description no longer claims "there is no" project-wide
+  equivalent (now false) and points to `project_summary` instead. `search`'s machine
+  schema now states exactly one rule matching the prose: `maxLength: 200` on the RAW
+  value, no `minLength` (a raw empty/blank string is schema-valid and semantically
+  ABSENT, never a 400; only a raw value over 200 chars is invalid). The `sum(counts_by_
+  verdict) == total` invariant (documented on `VerdictTotals`, not JSON-Schema-expressible)
+  now has a dedicated Python-level test over every valid fixture, plus one deliberately
+  schema-valid-but-invariant-violating fixture the test must catch. The `503` documents a
+  second trigger beyond the 500-agent bound -- ANY per-agent computation failure in the
+  enhanced-path universe fails the whole request closed, never partial, unlike the
+  page-only path's `failed_agent_ids` tolerance -- and now carries a real body: one new
+  additive `ServiceUnavailable` variant on the shared, closed
+  `agent_readiness_error_schema.json` envelope (`message`/`error`/`error_code` all
+  `"service_unavailable"`/`"Service unavailable"`), reused by the `503` response the same
+  way `400`/`401`/`403` already reuse that file. The operation description now pins:
+  Backend row ordering + tiebreaker (mirrors `AgentReadinessService.list_portfolio`'s
+  `stage_rank asc, last_activity asc nullsfirst, agent_id asc`, TraigentBackend
+  `src/services/analytics/agent_readiness_service.py:1143-1145`/`:1222-1224`, called from
+  `fleet_posture_service.get_fleet_posture`); repeated identical filter values are accepted
+  and de-duplicated; and a precise ENHANCED PATH definition (verdict/stage/deployment_stage
+  present, OR a non-blank search, OR `include_project_summary=true` -- a blank search and an
+  explicit `include_project_summary=false` do NOT trigger it or its 500-agent bound). New
+  fixture: an `agent_id` no-match response with `project_summary` still independently
+  populated. Allowlist reason wording corrected: existing callers that never send
+  `include_project_summary` never receive the member; only adopters of the flag need
+  validators that accept it. 11 new `scripts/breaking_schema_allowlist.json` entries cover
+  the resulting findings (the `summary`/`project_summary` restructuring reads as
+  type/required/additionalProperties loosened to this repo's own differ, which cannot see
+  through `$ref -> allOf -> $ref` -- the identical false-positive shape already
+  acknowledged here for the 2026-07-18 `ConfidenceLabel` split; the new `ServiceUnavailable`
+  variant is a standard additive enum/oneOf widening, same shape as the `wilson_score_binary`
+  precedent). Full repo suite: 5215 passed, 2 skipped. `bash scripts/local_gate.sh`
+  (ruff, mypy, pytest, parity, breaking-schema gate) passed.
+- **Fleet-posture review round 2: narrowed blast radius (supersedes two mechanics from
+  the bullet above, same feature, follow-up commit).** Two changes from the prior
+  follow-up widened scope more than the additive change needed, per a second review
+  pass: (a) `agent_readiness_error_schema.json` -- shared across
+  `agent_readiness`/`agent_posture`/`evaluation_system_validation` routes -- is back to
+  byte-identical with `origin/develop` (verified by a dedicated `git diff --quiet` test);
+  the `503` body is now a fleet-posture-LOCAL closed envelope,
+  `fleet_posture_response_schema.json#/definitions/FleetPostureUnavailable`
+  (`error_code: "FLEET_POSTURE_UNAVAILABLE"`, UPPER_SNAKE, matching the shared envelope's
+  own route-specific-code convention), so no other route's 400/401/403 is widened for
+  this one route's 503. (b) `FleetSummary` is back to its ORIGINAL concrete closed
+  `{total, counts_by_verdict}` structure (byte-identical `properties`/`required`/
+  `additionalProperties`) -- only its description became scope-neutral, stating the
+  `sum(counts_by_verdict) == total` invariant once and deferring which scope applies to
+  the referencing property (`summary` vs `project_summary`, each restating its own scope
+  in its own sibling description). The `VerdictTotals`/`ProjectSummary` split and its
+  `allOf` indirection are removed entirely, eliminating the 9 allowlist entries that
+  existed only to acknowledge this repo's own differ losing track of `$ref -> allOf ->
+  $ref`. Net allowlist count for this whole feature: 2 entries (`property_added` for
+  `project_summary` on both the endpoint's `200` response and the response schema root)
+  -- down from 13. The invariant test, the sum-mismatch fixture, the no-match+
+  project_summary fixture, the ordering/tiebreaker documentation, the enhanced-path
+  definition and the dedup wording from the bullet above are all unchanged and still
+  apply. Full repo suite: 5215 passed, 2 skipped (net unchanged: five renamed/refocused
+  tests). `bash scripts/local_gate.sh` re-verified green.
 - **`GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture` (fleet
   verdict server-side).** The Backend computes
   each Agent's debt items and fleet verdict; the frontend only displays. Behaviour-preserving

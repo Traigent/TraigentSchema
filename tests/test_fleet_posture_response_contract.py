@@ -194,6 +194,7 @@ def test_verdict_reason_enum_is_closed() -> None:
         "VALIDITY_BELOW_STAY_BAR",
         "OPEN_EVALUATION_SYSTEM_DEBT",
         "MEETS_TARGET",
+        "DECLARED_POLICY_OFF",
     }
 
 
@@ -254,6 +255,7 @@ _CANT_TELL_FAMILY_REASONS = (
     "CRITICALITY_UNDECLARED",
     "VALIDITY_BELOW_STAY_BAR",
     "OPEN_EVALUATION_SYSTEM_DEBT",
+    "DECLARED_POLICY_OFF",
 )
 
 
@@ -282,7 +284,7 @@ def _scored_base() -> dict[str, Any]:
 def test_verdict_reason_mapping_is_closed_for_every_verdict() -> None:
     """The full (verdict, verdict_reason) pairing is enforced bidirectionally:
     STAY<->MEETS_TARGET, INTERVENE_QUALITY<->BELOW_TARGET, and
-    CANT_TELL<->any of the seven CANT_TELL-family reasons. Together with the
+    CANT_TELL<->any of the eight CANT_TELL-family reasons. Together with the
     NOT_YET_SCORED<->NO_ANCHOR_RUN pair (tested above) this exhausts every
     VerdictReason member, so every combination is closed."""
     ref = "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry"
@@ -298,12 +300,18 @@ def test_verdict_reason_mapping_is_closed_for_every_verdict() -> None:
     assert _errors(ref, {**intervene, "verdict": "STAY"})  # reason BELOW_TARGET now orphaned
 
     for reason in _CANT_TELL_FAMILY_REASONS:
-        cant_tell = {**_scored_base(), "verdict": "CANT_TELL", "verdict_reason": reason}
+        base = _scored_base()
+        if reason == "DECLARED_POLICY_OFF":
+            # DECLARED_POLICY_OFF only pairs with criticality_source: fixed_default
+            # (see test_declared_policy_off_reason_constrains_criticality_source);
+            # _scored_base()'s default "declared" would fail for this reason alone.
+            base = {**base, "criticality_source": "fixed_default"}
+        cant_tell = {**base, "verdict": "CANT_TELL", "verdict_reason": reason}
         assert _errors(ref, cant_tell) == [], reason
         # Every CANT_TELL-family reason must reject a non-CANT_TELL verdict.
         assert _errors(ref, {**cant_tell, "verdict": "STAY"}), reason
 
-    # A CANT_TELL verdict rejects any reason outside its seven-member family.
+    # A CANT_TELL verdict rejects any reason outside its eight-member family.
     assert _errors(ref, {**_scored_base(), "verdict": "CANT_TELL", "verdict_reason": "NO_ANCHOR_RUN"})
     assert _errors(ref, {**_scored_base(), "verdict": "CANT_TELL", "verdict_reason": "MEETS_TARGET"})
     assert _errors(ref, {**_scored_base(), "verdict": "CANT_TELL", "verdict_reason": "BELOW_TARGET"})
@@ -333,6 +341,47 @@ def test_criticality_source_constrains_criticality_used() -> None:
         assert (
             _errors(ref, {**base, "criticality_source": "declared", "criticality_used": used}) == []
         ), used
+
+
+def test_declared_policy_off_reason_constrains_criticality_source() -> None:
+    """DECLARED_POLICY_OFF only pairs with criticality_source: fixed_default
+    (one-directional) -- it means the declared-accuracy policy is not enabled, the
+    same today's-legacy-behaviour flag-off world as criticality_source's own
+    fixed_default. declared/undeclared_fail_closed are rejected even though the
+    verdict itself (CANT_TELL) is otherwise valid."""
+    ref = "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry"
+    base = {
+        **_scored_base(),
+        "verdict": "CANT_TELL",
+        "verdict_reason": "DECLARED_POLICY_OFF",
+    }
+
+    assert (
+        _errors(ref, {**base, "criticality_source": "fixed_default", "criticality_used": "medium"})
+        == []
+    )
+    assert _errors(
+        ref, {**base, "criticality_source": "declared", "criticality_used": "medium"}
+    )
+    assert _errors(
+        ref,
+        {**base, "criticality_source": "undeclared_fail_closed", "criticality_used": "high"},
+    )
+
+    # TARGET_NOT_DECLARED (a different CANT_TELL-family reason) carries no such
+    # constraint -- it is free to pair with any criticality_source.
+    assert (
+        _errors(
+            ref,
+            {
+                **base,
+                "verdict_reason": "TARGET_NOT_DECLARED",
+                "criticality_source": "declared",
+                "criticality_used": "medium",
+            },
+        )
+        == []
+    )
 
 
 # ---------------------------------------------------------------------------

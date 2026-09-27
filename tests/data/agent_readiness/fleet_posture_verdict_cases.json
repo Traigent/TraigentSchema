@@ -40,7 +40,7 @@
       "name": "agent_entry_cant_tell_anchored_low_sample",
       "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
       "valid": true,
-      "why": "anchored, both pillars unreviewed, low sample size and not reproduced; interval computable from a small n",
+      "why": "anchored, both pillars unreviewed, low sample size and not reproduced; interval computable from a small n; legacy flag-off world (criticality_source: fixed_default) so verdict_reason is DECLARED_POLICY_OFF, not a genuine TARGET_NOT_DECLARED determination",
       "instance": {
         "agent_id": "agent-2",
         "agent_name": "Reconciliation Agent",
@@ -83,7 +83,7 @@
           "evaluation_dataset": "unreviewed"
         },
         "criticality_source": "fixed_default",
-        "verdict_reason": "TARGET_NOT_DECLARED"
+        "verdict_reason": "DECLARED_POLICY_OFF"
       }
     },
     {
@@ -310,7 +310,7 @@
       "name": "agent_entry_valid_accuracy_unclamped_above_one",
       "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
       "valid": true,
-      "why": "accuracy has no schema maximum (revision 2 drops it): the TS passes accuracy through unclamped and clamps only for display; parity over tidiness",
+      "why": "accuracy has no schema maximum (revision 2 drops it): the TS passes accuracy through unclamped and clamps only for display; parity over tidiness; legacy flag-off world so verdict_reason is DECLARED_POLICY_OFF",
       "instance": {
         "agent_id": "agent-2",
         "agent_name": "Reconciliation Agent",
@@ -336,7 +336,7 @@
           "evaluation_dataset": "unreviewed"
         },
         "criticality_source": "fixed_default",
-        "verdict_reason": "TARGET_NOT_DECLARED"
+        "verdict_reason": "DECLARED_POLICY_OFF"
       }
     },
     {
@@ -872,7 +872,7 @@
               "evaluation_dataset": "unreviewed"
             },
             "criticality_source": "fixed_default",
-            "verdict_reason": "TARGET_NOT_DECLARED"
+            "verdict_reason": "DECLARED_POLICY_OFF"
           }
         ],
         "summary": {
@@ -1873,6 +1873,215 @@
         },
         "criticality_source": "declared",
         "verdict_reason": "BELOW_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_valid_declared_policy_off",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "legacy flag-off world: the declared-accuracy policy is not enabled, so this CANT_TELL row's verdict_reason is DECLARED_POLICY_OFF (not a genuine TARGET_NOT_DECLARED determination) and pairs with criticality_source fixed_default",
+      "instance": {
+        "agent_id": "agent-6",
+        "agent_name": "Refund Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.71,
+        "sample_size": 40,
+        "interval": {
+          "lower": 0.56,
+          "upper": 0.83
+        },
+        "reproductions_in_window": 2,
+        "dataset_ref_id": "dataset-v5",
+        "evaluator_ref_id": "eval-v5",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "DECLARED_POLICY_OFF"
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_declared_policy_off",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "root-response scope accept case for DECLARED_POLICY_OFF: a single CANT_TELL agent in the legacy flag-off world",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [
+          {
+            "agent_id": "agent-6",
+            "agent_name": "Refund Agent",
+            "verdict": "CANT_TELL",
+            "debt_items": [
+              {
+                "id": "ES-1",
+                "pillar": "evaluator"
+              },
+              {
+                "id": "AG-2",
+                "pillar": "agent"
+              }
+            ],
+            "effective_validity_level": "V0",
+            "served_validity_level": "V0",
+            "validity_decayed": false,
+            "criticality_used": "medium",
+            "accuracy": 0.71,
+            "sample_size": 40,
+            "interval": {
+              "lower": 0.56,
+              "upper": 0.83
+            },
+            "reproductions_in_window": 2,
+            "dataset_ref_id": "dataset-v5",
+            "evaluator_ref_id": "eval-v5",
+            "has_anchor_run": true,
+            "score_credible": false,
+            "pillar_review_status": {
+              "evaluator": "unreviewed",
+              "evaluation_dataset": "reviewed"
+            },
+            "criticality_source": "fixed_default",
+            "verdict_reason": "DECLARED_POLICY_OFF"
+          }
+        ],
+        "summary": {
+          "total": 1,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 1,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [
+          {
+            "kind": "evaluation_dataset",
+            "ref_id": "dataset-v5",
+            "affected_agent_ids": [
+              "agent-6"
+            ]
+          }
+        ],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 1,
+          "total_pages": 1,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "agent_entry_invalid_declared_policy_off_reason_with_non_cant_tell_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "DECLARED_POLICY_OFF is a CANT_TELL-family reason; it must reject a non-CANT_TELL verdict such as STAY (STAY also requires verdict_reason MEETS_TARGET)",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "DECLARED_POLICY_OFF"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_declared_policy_off_reason_with_declared_criticality_source",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "DECLARED_POLICY_OFF only pairs with criticality_source fixed_default -- declared (the newer, criticality-flag-on path) is rejected even though the verdict is CANT_TELL",
+      "instance": {
+        "agent_id": "agent-3",
+        "agent_name": "Onboarding Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": 5,
+        "interval": {
+          "lower": 0.1,
+          "upper": 0.9
+        },
+        "reproductions_in_window": null,
+        "dataset_ref_id": "dataset-v2",
+        "evaluator_ref_id": null,
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "DECLARED_POLICY_OFF"
       }
     },
     {

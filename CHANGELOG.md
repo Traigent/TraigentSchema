@@ -35,9 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `undeclared_fail_closed` -- where `criticality_used` came from; today always
   `fixed_default`), `verdict_reason` (closed enum, the single rule that decided the row's
   verdict; `NOT_YET_SCORED` rows always carry `NO_ANCHOR_RUN` and every `CANT_TELL` row
-  carries `TARGET_NOT_DECLARED` today, both enforced structurally -- the remaining members
-  are kept in the vocabulary the same way `Verdict`'s `STAY`/`INTERVENE_QUALITY` are, for a
-  later owner decision to make them reachable without a contract change)), `summary`
+  carries `DECLARED_POLICY_OFF` today (see the follow-up bullet below), both enforced
+  structurally -- the remaining members are kept in the vocabulary the same way `Verdict`'s
+  `STAY`/`INTERVENE_QUALITY` are, for a later owner decision to make them reachable without
+  a contract change)), `summary`
   (per-verdict counts, now scoped to the returned page only -- see paging below),
   `validate_first` (snake_case mirror of FE `ValidateFirstEntry`: `kind`, `ref_id`,
   `affected_agent_ids`), top-level `failed_agent_ids` (agents whose detail read raised;
@@ -82,6 +83,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `total`/`total_pages` are `1`/`1` on a match or `0`/`0` on no match). `page` and
   `per_page` parameter descriptions each gained: "Unpaged calls return the first page
   (24 agents), the same as the endpoint's previous behaviour."
+- **`DECLARED_POLICY_OFF` verdict reason (same feature, review follow-up).** New
+  `CANT_TELL`-family `VerdictReason` member: it means this row's verdict did not evaluate
+  the declared accuracy target because the declared-accuracy policy is not enabled -- it
+  says nothing about whether a target actually exists. Before this, every legacy/flag-off
+  `CANT_TELL` row was forced to `TARGET_NOT_DECLARED`, which the frontend read literally
+  ("no accuracy target has been set") even when a target was in fact declared, since the
+  Backend simply never read it while the policy was off. `TARGET_NOT_DECLARED` stays a
+  valid `CANT_TELL`-family member for the policy-on case, once the Backend actually reads
+  the declared target and finds none. `DECLARED_POLICY_OFF` is constrained
+  one-directionally to pair only with `criticality_source: fixed_default` (enforced by
+  `AgentPostureEntry`'s `allOf`) -- both represent the same today's-legacy-behaviour
+  flag-off world. Fixture cases updated: the two existing legacy `fixed_default` +
+  `TARGET_NOT_DECLARED` accept cases now use `DECLARED_POLICY_OFF`; new accept cases cover
+  `DECLARED_POLICY_OFF` at `AgentPostureEntry` and root-response scope, and new reject
+  cases cover `DECLARED_POLICY_OFF` with a non-`CANT_TELL` verdict and with
+  `criticality_source: declared`. `scripts/breaking_schema_allowlist.json` and
+  `parity/python-js-sdk.json` regenerated for the new enum member.
+- **`AccuracyEvaluation.ci_method` admits `wilson_score_binary` (agent readiness, review
+  follow-up).** The Backend's accuracy-target evaluation uses a 95% Wilson score interval on
+  k/n when every per-example score is exactly 0 or 1 (binary) — the CLT mean ± z·SE interval
+  collapses to zero width for identical observations. Fractional per-example scores keep
+  `clt_mean_standard_error` (zero-variance fractional samples still fail closed to
+  `CANNOT_DETERMINE`). `ci_method` was previously a `const` pinned to
+  `clt_mean_standard_error`, which would have forced the Backend to publish a false method
+  label for binary samples; it is now a closed two-member enum. Fixture cases added:
+  a valid `DeclaredAccuracyTarget` evaluation using `wilson_score_binary`, and a rejected
+  unknown `ci_method` string.
 - **`GET /api/v1/auth/me/tenants` (tenant switcher, TraigentFrontend#2250).** New
   `auth/auth_me_tenants_response_schema.json` (`{success, message, data: {items, switchable}}`,
   items = `TenantMembershipItem` {tenant_id, tenant_name, tenant_slug, role, is_default}, strict
@@ -122,8 +150,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     observed mean outside `[0, 1]` is never rescaled but CANNOT_DETERMINE), its declaration,
     `AccuracyEvaluation` (MET/NOT_MET carry the observed mean, both interval bounds and the count;
     CANNOT_DETERMINE needs a reason, incl. the new `CONFIDENCE_INTERVAL_NOT_RECORDED`; closed
-    `ci_method: clt_mean_standard_error` — mean ± z·SE over per-example scores (Miller 2024),
-    computed by the Backend from per-example evaluations, never client-supplied),
+    `ci_method` enum (`clt_mean_standard_error` / `wilson_score_binary`) — Wilson score interval
+    on k/n when every per-example score is binary, CLT mean ± z·SE over per-example scores
+    (Miller 2024) otherwise, computed by the Backend from per-example evaluations, never
+    client-supplied),
     `AccuracyTargetRevision` (also listed in the schema's root `oneOf`) and `DeclaredAccuracyTarget`. `TargetDeclarationRequest.requirement`
     and the POST 201 `DeclaredTarget` become unions of the unchanged latency shape (now also named
     `DeclaredLatencyTarget`) and the accuracy shape. Each metric keeps its own revision chain; the

@@ -567,10 +567,14 @@ def test_e5_evaluation_confidence_level_is_exactly_095_and_method_is_closed() ->
         assert _errors(ref, {**met, "confidence_level": value}), value
     for value in ("bootstrap", "wilson", None):
         assert _errors(ref, {**met, "ci_method": value}), value
+    # wilson_score_binary is the second (and only other) closed ci_method member: the
+    # Backend uses it instead of CLT when every per-example score is exactly 0 or 1.
+    assert _errors(ref, {**met, "ci_method": "wilson_score_binary"}) == []
     description = _load(TARGET_SCHEMA_PATH)["definitions"]["AccuracyEvaluation"][
         "properties"
     ]["ci_method"]["description"]
     assert "never client-supplied" in description
+    assert "wilson_score_binary" in description
 
 
 def test_target_schema_root_lists_every_revision_shape() -> None:
